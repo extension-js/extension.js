@@ -53,10 +53,17 @@ export class BoringPlugin {
       const line = messages.boring(manifestName, duration, stats)
 
       try {
-        const modifiedFiles = Array.from(
+        // Rspack/webpack do not always populate `compilation.modifiedFiles` for
+        // asset-only rebuilds (e.g. HTML popup edits). Merge with the compiler's
+        // watch set so the post-banner suppression below still clears on HTML changes.
+        const fromCompilation = Array.from(
           (((stats as any)?.compilation as any)
             ?.modifiedFiles as Set<string>) || []
-        ).map((file) => String(file).replace(/\\/g, '/'))
+        )
+        const fromCompiler = Array.from(compiler.modifiedFiles ?? [])
+        const modifiedFiles = [
+          ...new Set([...fromCompilation, ...fromCompiler])
+        ].map((file) => String(file).replace(/\\/g, '/'))
         if (!this.sawUserInvalidation && modifiedFiles.length > 0) {
           const context = String(compiler?.options?.context || '').replace(
             /\\/g,

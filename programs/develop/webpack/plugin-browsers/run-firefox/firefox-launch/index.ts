@@ -25,6 +25,11 @@ import {
 } from '../../browsers-lib/shared-utils'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as devServerMessages from '../../../dev-server/messages'
+import {
+  buildBrowserLaunchRequest,
+  publishUserExtensionRoot,
+  toExtensionLoadList
+} from '../../browsers-lib/runtime-options'
 import {setupFirefoxProcessHandlers} from './process-handlers'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
@@ -101,15 +106,13 @@ export class FirefoxLaunchPlugin {
           return
         }
 
-        await this.launch(stats.compilation, {
-          browser: this.host.browser,
-          browserFlags: this.host.browserFlags,
-          profile: this.host.profile,
-          preferences: this.host.preferences,
-          startingUrl: this.host.startingUrl,
-          mode: stats.compilation.options.mode as DevOptions['mode'],
-          port: this.host.port
-        } as DevOptions & BrowserConfig)
+        await this.launch(
+          stats.compilation,
+          buildBrowserLaunchRequest(
+            this.host,
+            stats.compilation.options.mode as DevOptions['mode']
+          ) as DevOptions & BrowserConfig
+        )
 
         this.ctx.logger?.info?.(
           messages.stdoutData(
@@ -155,6 +158,39 @@ export class FirefoxLaunchPlugin {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled())
     }
 
+    const normalizePath = (value?: string | null): string | null => {
+      const normalized = value ? normalizeBinaryPathForWsl(value) : null
+      return normalized && fs.existsSync(normalized) ? normalized : null
+    }
+    const resolveManagedBinary = (): string | null =>
+      normalizePath(resolveFromBinaries(compilation, 'firefox') || null)
+    const resolveWslFallback = (): string | null => resolveWslWindowsBinary()
+    const getInstallGuidanceText = (): string => {
+      try {
+        return getFirefoxInstallGuidance()
+      } catch {
+        return 'npx extension install firefox'
+      }
+    }
+    const exitForLaunchFailure = (message?: string): never => {
+      if (message) {
+        console.error(message)
+      }
+      process.exit(1)
+    }
+    const getGeckoBinaryErrorMessage = (): string =>
+      this.host.geckoBinary
+        ? messages.invalidGeckoBinaryPath(this.host.geckoBinary)
+        : messages.requireGeckoBinaryForGeckoBased()
+    const failGeckoBinaryRequirement = (): never =>
+      exitForLaunchFailure(getGeckoBinaryErrorMessage())
+    const throwOrExitNotInstalled = (): never => {
+      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+        throw new Error('Firefox not installed or binary path not found')
+      }
+      process.exit(1)
+    }
+
     // In test/dry-run contexts, avoid real spawn
     if (
       this.host.dryRun ||
@@ -168,19 +204,13 @@ export class FirefoxLaunchPlugin {
     }
 
     // Early detection from output binaries (mirrors Chromium path)
-    let browserBinaryLocation: string | null =
-      resolveFromBinaries(compilation, 'firefox') || null
-    if (browserBinaryLocation) {
-      const normalized = normalizeBinaryPathForWsl(browserBinaryLocation)
-      browserBinaryLocation =
-        normalized && fs.existsSync(normalized) ? normalized : null
-    }
+    let browserBinaryLocation: string | null = resolveManagedBinary()
     let skipDetection = Boolean(browserBinaryLocation)
     const engineBased =
       this.host.browser === 'gecko-based' ||
       this.host.browser === 'firefox-based'
     if (!browserBinaryLocation && !engineBased && isWslEnv()) {
-      const wslFallback = resolveWslWindowsBinary()
+      const wslFallback = resolveWslFallback()
       if (wslFallback) {
         browserBinaryLocation = wslFallback
         skipDetection = true
@@ -190,17 +220,15 @@ export class FirefoxLaunchPlugin {
     // Detect Firefox binary via firefox-location2
     try {
       if (this.host.geckoBinary && typeof this.host.geckoBinary === 'string') {
-        const normalized = normalizeBinaryPathForWsl(this.host.geckoBinary)
-        if (normalized && fs.existsSync(normalized)) {
+        const normalized = normalizePath(this.host.geckoBinary)
+        if (normalized) {
           browserBinaryLocation = normalized
         } else {
-          console.error(messages.invalidGeckoBinaryPath(this.host.geckoBinary))
-          process.exit(1)
+          failGeckoBinaryRequirement()
         }
       } else if (!skipDetection) {
         if (engineBased) {
-          console.error(messages.requireGeckoBinaryForGeckoBased())
-          process.exit(1)
+          failGeckoBinaryRequirement()
         } else {
           const cacheRoot = computeBinariesBaseDir(compilation)
           const env = {
@@ -208,19 +236,14 @@ export class FirefoxLaunchPlugin {
             ...managedBrowserCacheEnv(String(cacheRoot), 'firefox')
           }
           const located = locateFirefox(true, {env})
-          const normalized = located ? normalizeBinaryPathForWsl(located) : null
-          if (normalized && fs.existsSync(normalized)) {
+          const normalized = normalizePath(located)
+          if (normalized) {
             browserBinaryLocation = normalized
           }
         }
       }
     } catch (_error) {
-      console.error(
-        this.host.geckoBinary
-          ? messages.invalidGeckoBinaryPath(this.host.geckoBinary)
-          : messages.requireGeckoBinaryForGeckoBased()
-      )
-      process.exit(1)
+      failGeckoBinaryRequirement()
     }
 
     if (
@@ -228,39 +251,19 @@ export class FirefoxLaunchPlugin {
       !browserBinaryLocation.trim() ||
       !fs.existsSync(browserBinaryLocation)
     ) {
-      // Second-chance resolution from output binaries
-      const fallback = resolveFromBinaries(compilation, 'firefox')
-      const normalizedFallback = fallback
-        ? normalizeBinaryPathForWsl(fallback)
-        : null
-      if (normalizedFallback && fs.existsSync(normalizedFallback)) {
+      const normalizedFallback = resolveManagedBinary()
+      if (normalizedFallback) {
         browserBinaryLocation = normalizedFallback
       } else {
         if (engineBased || this.host.geckoBinary) {
-          console.error(
-            this.host.geckoBinary
-              ? messages.invalidGeckoBinaryPath(this.host.geckoBinary)
-              : messages.requireGeckoBinaryForGeckoBased()
-          )
-          process.exit(1)
+          failGeckoBinaryRequirement()
         } else {
-          const wslFallback = resolveWslWindowsBinary()
+          const wslFallback = resolveWslFallback()
           if (wslFallback) {
             browserBinaryLocation = wslFallback
           } else {
-            const guidance = (() => {
-              try {
-                return getFirefoxInstallGuidance()
-              } catch {
-                return 'npx extension install firefox'
-              }
-            })()
-            this.printInstallHint(compilation, guidance)
-            if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-              throw new Error('Firefox not installed or binary path not found')
-            } else {
-              process.exit(1)
-            }
+            this.printInstallHint(compilation, getInstallGuidanceText())
+            throwOrExitNotInstalled()
           }
         }
       }
@@ -269,7 +272,7 @@ export class FirefoxLaunchPlugin {
     // At this point TS: ensure non-null string
     const binaryPath = browserBinaryLocation as string
     const wslFallbackBinary =
-      isWslEnv() && !engineBased ? resolveWslWindowsBinary() : null
+      isWslEnv() && !engineBased ? resolveWslFallback() : null
 
     try {
       this.host.browserVersionLine =
@@ -286,20 +289,13 @@ export class FirefoxLaunchPlugin {
     }
 
     // Prepare extension(s)
-    const extensionsToLoad = Array.isArray(this.host.extension)
-      ? [...this.host.extension]
-      : [this.host.extension]
-    // Publish extension root once (prefer the USER extension path — last string entry)
-    try {
-      const last = [...extensionsToLoad]
-        .reverse()
-        .find((e) => typeof e === 'string') as string | undefined
-      if (last && typeof this.ctx.setExtensionRoot === 'function') {
-        this.ctx.setExtensionRoot(String(last))
-      }
-    } catch {
-      // ignore
-    }
+    const extensionsToLoad = toExtensionLoadList(this.host.extension)
+    publishUserExtensionRoot(
+      extensionsToLoad,
+      typeof this.ctx.setExtensionRoot === 'function'
+        ? this.ctx.setExtensionRoot
+        : undefined
+    )
 
     // Compute RDP port with availability check
     const desiredDebugPort = deriveDebugPortWithInstance(
@@ -355,30 +351,11 @@ export class FirefoxLaunchPlugin {
         debugPort,
         firefoxArgs
       )
-      const isWin = process.platform === 'win32'
-      // On Windows, use 'pipe' when EXTENSION_AUTHOR_MODE is enabled to allow stdout/stderr piping
-      // Otherwise use array form instead of 'ignore' string to ensure proper process handling
-      // This prevents the process from being terminated prematurely on Windows
-      const stdio: any = isWin
-        ? process.env.EXTENSION_AUTHOR_MODE === 'true'
-          ? ['pipe', 'pipe', 'pipe']
-          : ['ignore', 'ignore', 'ignore']
-        : ['pipe', 'pipe', 'pipe']
-      this.child = await spawnFirefoxProcess({
-        binary,
-        args,
-        stdio,
-        fallbackBinary: wslFallbackBinary,
-        logger: this.ctx.logger
-      })
-      this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
+      this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+      this.wireChildLifecycle()
 
       // Connect to RDP
-      const ctrl = await setupRdpAfterLaunch(
-        {...this.host, extensionsToLoad},
-        compilation,
-        debugPort
-      )
+      const ctrl = await setupRdpAfterLaunch(this.host, compilation, debugPort)
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl, debugPort)
       this.scheduleWatchTimeout()
@@ -408,32 +385,48 @@ export class FirefoxLaunchPlugin {
         ...firefoxArgs
       ]
 
-      const isWin = process.platform === 'win32'
-      // On Windows, use 'pipe' when EXTENSION_AUTHOR_MODE is enabled to allow stdout/stderr piping
-      // Otherwise use array form instead of 'ignore' string to ensure proper process handling
-      // This prevents the process from being terminated prematurely on Windows
-      const stdio: any = isWin
-        ? process.env.EXTENSION_AUTHOR_MODE === 'true'
-          ? ['pipe', 'pipe', 'pipe']
-          : ['ignore', 'ignore', 'ignore']
-        : ['pipe', 'pipe', 'pipe']
-      this.child = await spawnFirefoxProcess({
-        binary: binaryPath,
+      this.child = await this.spawnFirefoxChild(
+        binaryPath,
         args,
-        stdio,
-        fallbackBinary: wslFallbackBinary,
-        logger: this.ctx.logger
-      })
-      this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
+        wslFallbackBinary
+      )
+      this.wireChildLifecycle()
       this.scheduleWatchTimeout()
     }
   }
 
-  private wireChildLifecycle(
-    compilation: Compilation,
-    debugPort: number,
-    desiredDebugPort: number
+  private resolveSpawnStdio() {
+    if (process.platform !== 'win32') {
+      return ['pipe', 'pipe', 'pipe'] as const
+    }
+
+    return process.env.EXTENSION_AUTHOR_MODE === 'true'
+      ? (['pipe', 'pipe', 'pipe'] as const)
+      : (['ignore', 'ignore', 'ignore'] as const)
+  }
+
+  private async spawnFirefoxChild(
+    binary: string,
+    args: string[],
+    fallbackBinary?: string | null
   ) {
+    return await spawnFirefoxProcess({
+      binary,
+      args,
+      stdio: this.resolveSpawnStdio(),
+      fallbackBinary,
+      logger: this.ctx.logger
+    })
+  }
+
+  private pipeChildOutput(child: ChildProcess) {
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
+
+    child.stdout?.pipe(process.stdout)
+    child.stderr?.pipe(process.stderr)
+  }
+
+  private wireChildLifecycle() {
     const child = this.child
     if (!child) return
 
@@ -461,10 +454,7 @@ export class FirefoxLaunchPlugin {
       this.cleanupInstance().catch(() => {})
     })
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true' && child) {
-      child.stdout?.pipe(process.stdout)
-      child.stderr?.pipe(process.stderr)
-    }
+    this.pipeChildOutput(child)
 
     setupFirefoxProcessHandlers(
       this.host.browser as any,

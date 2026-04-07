@@ -33,6 +33,16 @@ function normalizeManifestFile(filePath: unknown): string | undefined {
   return normalized
 }
 
+function readStableFileSignature(filePath: string): string | undefined {
+  try {
+    const stats = fs.statSync(filePath)
+    if (!stats.isFile()) return undefined
+    return `${stats.size}:${stats.mtimeMs}`
+  } catch {
+    return undefined
+  }
+}
+
 function getManifestRequiredFiles(content: string): string[] {
   try {
     const manifest = JSON.parse(content) as {
@@ -131,4 +141,82 @@ export async function waitForStableManifest(
   }
 
   return false
+}
+
+export async function waitForStableFiles(
+  outPath: string,
+  relativeFiles: string[],
+  options?: {
+    timeoutMs?: number
+    pollIntervalMs?: number
+    stableReadsRequired?: number
+  }
+) {
+  const files = Array.from(
+    new Set(relativeFiles.map(normalizeManifestFile).filter(Boolean))
+  ) as string[]
+
+  if (files.length === 0) return true
+
+  const timeoutMs = options?.timeoutMs ?? 8000
+  const pollIntervalMs = options?.pollIntervalMs ?? 150
+  const stableReadsRequired = options?.stableReadsRequired ?? 2
+  const start = Date.now()
+  let lastSignature = ''
+  let stableReads = 0
+
+  while (Date.now() - start < timeoutMs) {
+    const currentSignatureParts: string[] = []
+    let allFilesReady = true
+
+    for (const relativeFile of files) {
+      const absoluteFilePath = path.join(outPath, relativeFile)
+      const fileSignature = readStableFileSignature(absoluteFilePath)
+      if (!fileSignature) {
+        allFilesReady = false
+        break
+      }
+      currentSignatureParts.push(`${relativeFile}:${fileSignature}`)
+    }
+
+    if (allFilesReady) {
+      const currentSignature = currentSignatureParts.sort().join('|')
+      if (currentSignature === lastSignature) {
+        stableReads += 1
+      } else {
+        lastSignature = currentSignature
+        stableReads = 1
+      }
+
+      if (stableReads >= stableReadsRequired) {
+        return true
+      }
+    } else {
+      lastSignature = ''
+      stableReads = 0
+    }
+
+    await sleep(pollIntervalMs)
+  }
+
+  return false
+}
+
+export async function waitForStableExtensionOutput(
+  outPath: string,
+  options?: {
+    timeoutMs?: number
+    pollIntervalMs?: number
+    stableReadsRequired?: number
+  }
+) {
+  const manifestPath = path.join(outPath, 'manifest.json')
+  const manifestReady = await waitForStableManifest(outPath, options)
+  if (!manifestReady) return false
+
+  const manifestContent = readValidManifest(manifestPath)
+  if (!manifestContent) return false
+
+  const requiredFiles = getManifestRequiredFiles(manifestContent)
+  return waitForStableFiles(outPath, requiredFiles, options)
 }

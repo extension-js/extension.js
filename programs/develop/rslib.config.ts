@@ -24,17 +24,9 @@ export default defineConfig({
         './webpack/plugin-web-extension/feature-html/steps/minimum-script-file.ts'
       ),
       // Scripts Plugin Loaders
-      'add-hmr-accept-code': path.resolve(
-        __dirname,
-        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/add-hmr-accept-code.ts'
-      ),
-      'content-script-wrapper': path.resolve(
+      'feature-scripts-content-script-wrapper': path.resolve(
         __dirname,
         './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
-      ),
-      'warn-no-default-export': path.resolve(
-        __dirname,
-        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/warn-no-default-export.ts'
       ),
       // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
       'main-world-bridge': path.resolve(
