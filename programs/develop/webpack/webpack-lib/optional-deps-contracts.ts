@@ -1,7 +1,7 @@
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
-} from '../optional-deps-lib/contract-types'
+} from 'isolated-deps'
 
 function installRootRules(
   packageIds: string[]
@@ -22,13 +22,16 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   typescript: defineContract({
     id: 'typescript',
     integration: 'TypeScript',
-    installPackages: ['typescript'],
+    installPackages: ['typescript@5.9.3'],
     verificationRules: installRootRules(['typescript'])
   }),
   'react-refresh': defineContract({
     id: 'react-refresh',
     integration: 'React',
-    installPackages: ['react-refresh', '@rspack/plugin-react-refresh'],
+    installPackages: [
+      'react-refresh@0.18.0',
+      '@rspack/plugin-react-refresh@1.6.0'
+    ],
     verificationRules: [
       ...installRootRules(['react-refresh', '@rspack/plugin-react-refresh']),
       {
@@ -42,10 +45,10 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
     id: 'preact-refresh',
     integration: 'Preact',
     installPackages: [
-      '@prefresh/core',
-      '@prefresh/utils',
-      '@rspack/plugin-preact-refresh',
-      'preact'
+      '@prefresh/core@1.5.9',
+      '@prefresh/utils@1.2.1',
+      '@rspack/plugin-preact-refresh@1.1.4',
+      'preact@10.27.2'
     ],
     verificationRules: [
       ...installRootRules([
@@ -74,7 +77,11 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   vue: defineContract({
     id: 'vue',
     integration: 'Vue',
-    installPackages: ['vue-loader', '@vue/compiler-sfc', 'vue'],
+    installPackages: [
+      'vue-loader@17.4.2',
+      '@vue/compiler-sfc@3.5.26',
+      'vue@3.5.26'
+    ],
     verificationRules: [
       ...installRootRules(['vue-loader', '@vue/compiler-sfc', 'vue']),
       {
@@ -87,29 +94,29 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   svelte: defineContract({
     id: 'svelte',
     integration: 'Svelte',
-    installPackages: ['typescript', 'svelte-loader'],
+    installPackages: ['typescript@5.9.3', 'svelte-loader@3.2.4'],
     verificationRules: installRootRules(['typescript', 'svelte-loader'])
   }),
   less: defineContract({
     id: 'less',
     integration: 'LESS',
-    installPackages: ['less', 'less-loader'],
+    installPackages: ['less@4.5.1', 'less-loader@12.3.0'],
     verificationRules: installRootRules(['less', 'less-loader'])
   }),
   postcss: defineContract({
     id: 'postcss',
     integration: 'PostCSS',
-    installPackages: ['postcss', 'postcss-loader'],
+    installPackages: ['postcss@8.5.6', 'postcss-loader@8.2.0'],
     verificationRules: installRootRules(['postcss', 'postcss-loader'])
   }),
   sass: defineContract({
     id: 'sass',
     integration: 'SASS',
     installPackages: [
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-preset-env',
-      'sass-loader'
+      'postcss-loader@8.2.0',
+      'postcss-scss@4.0.9',
+      'postcss-preset-env@11.1.1',
+      'sass-loader@16.0.6'
     ],
     verificationRules: installRootRules([
       'postcss-loader',
@@ -131,6 +138,13 @@ export function getOptionalDependencyContract(contractId: string) {
   }
 
   return contract
+}
+
+export function getContractsSignature(): string {
+  const allSpecs = Object.values(OPTIONAL_DEPENDENCY_CONTRACTS)
+    .flatMap((c) => c.installPackages)
+    .sort()
+  return allSpecs.join('::')
 }
 
 export {
