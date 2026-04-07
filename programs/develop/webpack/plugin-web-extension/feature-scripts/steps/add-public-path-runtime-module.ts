@@ -13,8 +13,8 @@
 import {type Compiler} from '@rspack/core'
 
 const basic = [
-  `var isBrowser = !!(() => { try { return browser.runtime.getURL("/") } catch(e) {} })()`,
-  `var isChrome = !!(() => { try { return chrome.runtime.getURL("/") } catch(e) {} })()`
+  `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {} })()`,
+  `var isChrome = !!(() => { try { return globalThis.chrome.runtime.getURL("/") } catch(e) {} })()`
 ]
 
 const weakRuntimeCheck = [
@@ -27,7 +27,7 @@ const weakRuntimeCheck = [
   // is present we provide a minimal `{ runtime: { getURL } }` shim that returns
   // the input path unchanged, and the publicPath assignment below already guards
   // on `(isBrowser || isChrome)` before using `runtime.runtime.getURL(...)`.
-  `var runtime = isBrowser ? browser : isChrome ? chrome : { runtime: { getURL: x => x } }`
+  `var runtime = isBrowser ? globalThis.browser : isChrome ? globalThis.chrome : { runtime: { getURL: x => x } }`
 ]
 
 export class AddPublicPathRuntimeModule {
@@ -60,12 +60,24 @@ function PublicPathRuntimeModule(compiler: Compiler) {
 
       return Template.asString([
         ...weakRuntimeCheck,
+        `var __extjsBase = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";`,
+        `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
+        Template.indent([
+          `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
+        ]),
+        `}`,
         `var path = ${JSON.stringify(
           this.compilation?.getPath((publicPath as string) || '', {
             hash: this.compilation.hash || 'XXXX'
           })
         )}`,
-        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' || !(isBrowser || isChrome) ? path : runtime.runtime.getURL(path);`
+        `var __extjsRuntimePath = "";`,
+        `if (!(typeof importScripts === 'function') && (isBrowser || isChrome)) {`,
+        Template.indent([
+          `try { __extjsRuntimePath = runtime.runtime.getURL(path); } catch (_) { __extjsRuntimePath = ""; }`
+        ]),
+        `}`,
+        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' || !(isBrowser || isChrome) ? path : (__extjsRuntimePath || (__extjsBase ? __extjsBase.replace(/\\/+$/, "/") + String(path).replace(/^\\/+/, "") : ""));`
       ])
     }
   }
