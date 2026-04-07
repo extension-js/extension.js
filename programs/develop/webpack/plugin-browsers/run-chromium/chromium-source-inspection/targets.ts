@@ -9,6 +9,25 @@
 import * as messages from '../../browsers-lib/messages'
 import {CDPClient} from './cdp-client'
 
+function normalizeInspectableUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(String(rawUrl || ''))
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.pathname === '/'
+    ) {
+      parsed.pathname = ''
+    }
+
+    parsed.hash = ''
+    return parsed.toString()
+  } catch {
+    return String(rawUrl || '')
+      .trim()
+      .replace(/\/$/, '')
+  }
+}
+
 export async function ensureTargetAndSession(
   cdpClient: CDPClient,
   url: string,
@@ -17,13 +36,16 @@ export async function ensureTargetAndSession(
   }
 ): Promise<{targetId: string; sessionId: string}> {
   const forceNavigate = Boolean(options?.forceNavigate)
+  const normalizedUrl = normalizeInspectableUrl(url)
   const targets = (await cdpClient.getTargets()) as Array<{
     url?: string
     type?: string
     targetId?: string
   }>
   const existingTarget = (targets || []).find(
-    (t) => String(t?.url || '') === url && String(t?.type || '') === 'page'
+    (t) =>
+      normalizeInspectableUrl(String(t?.url || '')) === normalizedUrl &&
+      String(t?.type || '') === 'page'
   )
 
   let targetId: string = ''

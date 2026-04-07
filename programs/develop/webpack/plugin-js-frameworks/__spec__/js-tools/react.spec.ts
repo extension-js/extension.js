@@ -1,5 +1,15 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
+let ReactRefreshPluginCtor: any = class ReactRefreshPluginMock {
+  options: any
+  apply: any
+
+  constructor(options: any) {
+    this.options = options
+    this.apply = vi.fn()
+  }
+}
+
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true),
@@ -10,9 +20,7 @@ vi.mock('../../../webpack-lib/optional-deps-resolver', () => ({
   resolveOptionalContractPackageWithoutInstall: vi.fn(
     () => '/mock/react-refresh'
   ),
-  loadOptionalContractModuleWithoutInstall: vi.fn(
-    () => class ReactRefreshPluginMock {}
-  )
+  loadOptionalContractModuleWithoutInstall: vi.fn(() => ReactRefreshPluginCtor)
 }))
 
 // Ensure require.resolve('react-refresh') succeeds to avoid install+exit
@@ -30,6 +38,15 @@ describe('react tools', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    ReactRefreshPluginCtor = class ReactRefreshPluginMock {
+      options: any
+      apply: any
+
+      constructor(options: any) {
+        this.options = options
+        this.apply = vi.fn()
+      }
+    }
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
@@ -41,7 +58,8 @@ describe('react tools', () => {
       (_p: string, dep: string) => dep === 'react'
     )
 
-    const ReactRefreshPluginMock = function (this: any) {
+    ReactRefreshPluginCtor = function (this: any, options: any) {
+      this.options = options
       this.apply = vi.fn()
     } as any
     // Mock module.createRequire to control both resolve() and require() paths.
@@ -49,7 +67,7 @@ describe('react tools', () => {
       createRequire: () => {
         const req = ((id: string) => {
           if (id === '@rspack/plugin-react-refresh') {
-            return {default: ReactRefreshPluginMock}
+            return {default: ReactRefreshPluginCtor}
           }
           throw new Error(`Cannot find module ${id}`)
         }) as any
@@ -66,8 +84,10 @@ describe('react tools', () => {
     expect(isUsingReact('/p')).toBe(true)
     expect(logSpy).toHaveBeenCalledTimes(1)
 
-    const result = await maybeUseReact('/p')
+    const refreshExclude = vi.fn(() => false)
+    const result = await maybeUseReact('/p', {refreshExclude})
     expect(result?.plugins?.length).toBeGreaterThan(0)
+    expect((result?.plugins?.[0] as any)?.options?.exclude).toBe(refreshExclude)
     expect(result?.alias?.['react$']).toContain('/project/node_modules/react')
     expect(result?.alias?.['react-dom$']).toContain(
       '/project/node_modules/react-dom'
@@ -111,5 +131,20 @@ describe('react tools', () => {
     await expect(maybeUseReact('/p')).rejects.toThrow(
       new Error('optional deps missing')
     )
+  })
+
+  it('skips react refresh plugin when disabled explicitly', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'react'
+    )
+
+    const {maybeUseReact} = await import('../../js-tools/react')
+    const result = await maybeUseReact('/p', {disableRefresh: true})
+
+    expect(result?.plugins).toEqual([])
+    expect(result?.alias?.['react$']).toContain('/project/node_modules/react')
   })
 })

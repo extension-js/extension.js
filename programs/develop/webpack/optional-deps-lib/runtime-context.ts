@@ -39,6 +39,13 @@ function findDevelopRootFrom(startDir: string): string | undefined {
 }
 
 export function resolveDevelopInstallRoot(): string | undefined {
+  const envRoot = process.env.EXTENSION_DEVELOP_ROOT
+
+  if (envRoot) {
+    const resolvedEnvRoot = resolveDevelopRootFromDir(path.resolve(envRoot))
+    if (resolvedEnvRoot) return resolvedEnvRoot
+  }
+
   const directRoot = findExtensionDevelopRoot()
   if (directRoot) return directRoot
 
@@ -57,6 +64,35 @@ export function resolveDevelopInstallRoot(): string | undefined {
   } catch {
     return undefined
   }
+}
+
+export function resolveDevelopDistFile(stem: string): string {
+  const installRoot = resolveDevelopInstallRoot()
+  const distRoot = installRoot
+    ? path.join(installRoot, 'dist')
+    : path.resolve(__dirname, '..')
+  const base = path.join(distRoot, stem)
+  const candidates = [`${base}.js`, `${base}.cjs`, `${base}.mjs`, base]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      if (process.env.EXTENSION_DEBUG_DEVELOP_ROOT === '1') {
+        console.log(
+          `[extjs:develop-root] ${stem} -> ${candidate} (installRoot=${installRoot || '<none>'})`
+        )
+      }
+
+      return candidate
+    }
+  }
+
+  if (process.env.EXTENSION_DEBUG_DEVELOP_ROOT === '1') {
+    console.log(
+      `[extjs:develop-root] ${stem} -> ${base} (fallback, installRoot=${installRoot || '<none>'})`
+    )
+  }
+
+  return base
 }
 
 function getExtensionJsCacheBaseDir(): string {

@@ -25,6 +25,7 @@ import {
   isSubPath,
   resolveTranspilePackageDirs
 } from '../webpack-lib/transpile-packages'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
@@ -113,9 +114,62 @@ export class JsFrameworksPlugin {
     return merged
   }
 
+  private patchReactRefreshRules(rules: any[]) {
+    for (const rule of rules) {
+      if (!rule || typeof rule !== 'object') continue
+
+      const uses = Array.isArray(rule.use)
+        ? rule.use
+        : rule.use
+          ? [rule.use]
+          : rule.loader
+            ? [{loader: rule.loader}]
+            : []
+      const hasReactRefreshLoader = uses.some((useEntry: any) =>
+        String(useEntry?.loader || '').includes('react-refresh-loader')
+      )
+
+      if (hasReactRefreshLoader) {
+        rule.issuerLayer = {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
+      }
+
+      if (Array.isArray(rule.oneOf)) {
+        this.patchReactRefreshRules(rule.oneOf)
+      }
+      if (Array.isArray(rule.rules)) {
+        this.patchReactRefreshRules(rule.rules)
+      }
+    }
+  }
+
   private async configureOptions(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     const projectPath = compiler.options.context as string
+    const manifestDir = path.dirname(this.manifestPath)
+    const swcIncludeDirs = Array.from(
+      new Set([
+        projectPath,
+        manifestDir,
+        ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
+      ])
+    )
+    const contentScriptLikePaths = new Set<string>()
+    const scriptsDir = path.resolve(projectPath, 'scripts')
+    const isfeatureScriptsContentLike = (resourcePath: string) => {
+      const normalized = path.normalize(resourcePath)
+
+      if (contentScriptLikePaths.has(normalized)) {
+        return true
+      }
+
+      const relToScripts = path.relative(scriptsDir, normalized)
+
+      return (
+        !!relToScripts &&
+        !relToScripts.startsWith('..') &&
+        !path.isAbsolute(relToScripts)
+      )
+    }
 
     // Enable SWC sourcemaps whenever the build is expected to emit sourcemaps.
     // - In development we default to on (better DX), unless the user explicitly disables `devtool`.
@@ -124,16 +178,35 @@ export class JsFrameworksPlugin {
     const wantsSourceMaps =
       devtool !== false && (mode === 'development' || devtool != null)
 
-    const maybeInstallReact = await maybeUseReact(projectPath)
+    try {
+      const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+      const contentScripts = Array.isArray(manifest?.content_scripts)
+        ? manifest.content_scripts
+        : []
+
+      for (const contentScript of contentScripts) {
+        const jsList = Array.isArray(contentScript?.js) ? contentScript.js : []
+
+        for (const jsFile of jsList) {
+          contentScriptLikePaths.add(path.resolve(manifestDir, jsFile))
+        }
+      }
+    } catch {
+      // Fail silently
+    }
+
+    const maybeInstallReact = await maybeUseReact(projectPath, {
+      disableRefresh: true,
+      refreshExclude: (resourcePath: string) =>
+        isfeatureScriptsContentLike(resourcePath)
+    })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath, mode)
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
-    const manifestDir = path.dirname(this.manifestPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
-    const transpilePackageDirs = resolveTranspilePackageDirs(
-      projectPath,
-      this.transpilePackages
+    const transpilePackageDirs = swcIncludeDirs.filter(
+      (dir) => dir !== projectPath && dir !== manifestDir
     )
     const preferTypeScript = !!tsConfigPath || isUsingTypeScript(projectPath)
 
@@ -202,70 +275,142 @@ export class JsFrameworksPlugin {
       }
     }
 
-    compiler.options.module.rules = [
-      {
-        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: Array.from(
-          new Set([tsRoot, manifestDir, ...transpilePackageDirs])
-        ),
-        exclude: [
-          (resourcePath: string) => {
-            const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
-            if (!isInNodeModules) {
-              return false
-            }
-
-            return !transpilePackageDirs.some((dir) =>
-              isSubPath(resourcePath, dir)
-            )
+    const swcRuleBase = {
+      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: Array.from(new Set([tsRoot, ...swcIncludeDirs])),
+      exclude: [
+        (resourcePath: string) => {
+          const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
+          if (!isInNodeModules) {
+            return false
           }
-        ],
+
+          return !transpilePackageDirs.some((dir) =>
+            isSubPath(resourcePath, dir)
+          )
+        }
+      ]
+    }
+
+    const swcLoaderBase = {
+      loader: 'builtin:swc-loader',
+      options: {
+        sync: true,
+        module: {
+          type: 'es6'
+        },
+        // Keep SWC in transform-only mode. Production minification is handled
+        // by Rspack optimization, and disabling SWC minify preserves magic
+        // comments like /* webpackIgnore: true */ for native dynamic imports
+        minify: false,
+        isModule: true,
+        sourceMap: wantsSourceMaps,
+        env: {targets},
+        jsc: {
+          parser: {
+            syntax: preferTypeScript ? 'typescript' : 'ecmascript',
+            tsx: preferTypeScript
+              ? true
+              : isUsingTypeScript(projectPath) &&
+                (isUsingReact(projectPath) || isUsingPreact(projectPath)),
+            jsx:
+              !preferTypeScript &&
+              (isUsingReact(projectPath) || isUsingPreact(projectPath)),
+            dynamicImport: true
+          },
+          transform: {
+            react: {
+              development: mode === 'development',
+              runtime: 'automatic',
+              importSource: 'react',
+              ...(isUsingPreact(projectPath)
+                ? {
+                    pragma: 'h',
+                    pragmaFrag: 'Fragment',
+                    throwIfNamespace: true,
+                    useBuiltins: false
+                  }
+                : {})
+            }
+          }
+        }
+      }
+    }
+
+    const swcRules: any[] = [
+      {
+        ...swcRuleBase,
+        layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        include: (resourcePath: string) =>
+          Array.from(new Set([tsRoot, ...swcIncludeDirs])).some((dir) =>
+            isSubPath(resourcePath, dir)
+          ) && isfeatureScriptsContentLike(resourcePath),
         use: {
-          loader: 'builtin:swc-loader',
+          ...swcLoaderBase,
           options: {
-            sync: true,
-            module: {
-              type: 'es6'
-            },
-            // Keep SWC in transform-only mode. Production minification is handled
-            // by Rspack optimization, and disabling SWC minify preserves magic
-            // comments like /* webpackIgnore: true */ for native dynamic imports
-            minify: false,
-            isModule: true,
-            sourceMap: wantsSourceMaps,
-            env: {targets},
+            ...swcLoaderBase.options,
             jsc: {
-              parser: {
-                syntax: preferTypeScript ? 'typescript' : 'ecmascript',
-                tsx: preferTypeScript
-                  ? true
-                  : isUsingTypeScript(projectPath) &&
-                    (isUsingReact(projectPath) || isUsingPreact(projectPath)),
-                jsx:
-                  !preferTypeScript &&
-                  (isUsingReact(projectPath) || isUsingPreact(projectPath)),
-                dynamicImport: true
-              },
+              ...swcLoaderBase.options.jsc,
               transform: {
+                ...swcLoaderBase.options.jsc.transform,
                 react: {
-                  development: mode === 'development',
-                  refresh: mode === 'development',
-                  runtime: 'automatic',
-                  importSource: 'react',
-                  ...(isUsingPreact(projectPath)
-                    ? {
-                        pragma: 'h',
-                        pragmaFrag: 'Fragment',
-                        throwIfNamespace: true,
-                        useBuiltins: false
-                      }
-                    : {})
+                  ...swcLoaderBase.options.jsc.transform.react,
+                  refresh: false
                 }
               }
             }
           }
         }
       },
+      {
+        ...swcRuleBase,
+        issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        use: {
+          ...swcLoaderBase,
+          options: {
+            ...swcLoaderBase.options,
+            jsc: {
+              ...swcLoaderBase.options.jsc,
+              transform: {
+                ...swcLoaderBase.options.jsc.transform,
+                react: {
+                  ...swcLoaderBase.options.jsc.transform.react,
+                  refresh: false
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        ...swcRuleBase,
+        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        exclude: [
+          ...swcRuleBase.exclude,
+          (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
+        ],
+        use: {
+          ...swcLoaderBase,
+          options: {
+            ...swcLoaderBase.options,
+            jsc: {
+              ...swcLoaderBase.options.jsc,
+              transform: {
+                ...swcLoaderBase.options.jsc.transform,
+                react: {
+                  ...swcLoaderBase.options.jsc.transform.react,
+                  refresh: mode === 'development'
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+
+    compiler.options.module.rules = [
+      ...swcRules,
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...vueLoadersToAdd,
@@ -277,6 +422,8 @@ export class JsFrameworksPlugin {
     maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
+
+    this.patchReactRefreshRules(compiler.options.module.rules as any[])
 
     if (isUsingTypeScript(projectPath) || !!tsConfigPath) {
       compiler.options.resolve.tsConfig = {

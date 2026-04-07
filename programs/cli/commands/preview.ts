@@ -7,9 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
+import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
 import {collectProjectProfile} from '../cli-lib/project-profile'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
@@ -66,8 +66,6 @@ type PreviewOptions = {
   author?: boolean
   authorMode?: boolean
 }
-
-const require = createRequire(import.meta.url)
 
 export function registerPreviewCommand(program: Command, telemetry: any) {
   program
@@ -335,10 +333,8 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         previewOptions.watchSource
       )
 
-      // Load the matching develop runtime from the regular dependency graph.
-      const {
-        extensionPreview
-      }: {extensionPreview: any} = require('extension-develop')
+      const {extensionPreview}: {extensionPreview: any} =
+        loadExtensionDevelopModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()
