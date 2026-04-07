@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES_DIR="$ROOT_DIR/templates"
-CI_SCRIPTS_DIR="$ROOT_DIR/ci-scripts"
+SCRIPTS_DIR="$ROOT_DIR/scripts"
 REPO_URL="https://github.com/extension-js/examples"
 
 has_required_templates() {
@@ -16,7 +16,7 @@ has_required_templates() {
 
   [[ -f "$TEMPLATES_DIR/extension-fixtures.ts" ]] || return 1
   [[ -f "$TEMPLATES_DIR/dirname.ts" ]] || return 1
-  [[ -f "$CI_SCRIPTS_DIR/build-with-manifest.mjs" ]] || return 1
+  [[ -f "$SCRIPTS_DIR/build-with-manifest.mjs" ]] || return 1
 }
 
 if has_required_templates; then
@@ -32,8 +32,8 @@ trap cleanup EXIT
 
 npx -y -c "node -e \"const goGitIt = require('go-git-it'); const run = goGitIt.default || goGitIt; run('$REPO_URL', '$TMP_DIR', 'Hydrating templates from extension-js/examples').catch((err) => { console.error(err); process.exit(1); });\""
 
-mkdir -p "$TEMPLATES_DIR" "$CI_SCRIPTS_DIR"
+mkdir -p "$TEMPLATES_DIR" "$SCRIPTS_DIR"
 cp -R "$TMP_DIR/examples/examples/." "$TEMPLATES_DIR/"
-cp "$TMP_DIR/examples/ci-scripts/build-with-manifest.mjs" "$CI_SCRIPTS_DIR/build-with-manifest.mjs"
+cp "$TMP_DIR/examples/ci-scripts/build-with-manifest.mjs" "$SCRIPTS_DIR/build-with-manifest.mjs" 2>/dev/null || true
 
 echo "Templates hydrated from extension-js/examples."
