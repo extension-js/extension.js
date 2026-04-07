@@ -363,12 +363,13 @@ export class ChromiumHardReloadPlugin {
       // re-emitted solely because the hashed content script filename changed.
       // Suppress that inferred 'manifest' reason so the fast content-reinject
       // path runs instead of a full extension hard reload.
-      const inferredAssetReason =
+      const inferredAssetReason = this.inferHardReloadReasonFromChangedAssets(
         this.pendingContentReloadEntryNames.length > 0
-          ? this.inferHardReloadReasonFromChangedAssetsExcludingManifest(
-              changedAssets
+          ? changedAssets.filter(
+              (a) => String(a || '').replace(/\\/g, '/') !== 'manifest.json'
             )
-          : this.inferHardReloadReasonFromChangedAssets(changedAssets)
+          : changedAssets
+      )
       const reason =
         pendingReason || inferredHardReloadReason || inferredAssetReason
       const inferredEntryNames = Array.from(
@@ -1017,16 +1018,6 @@ export class ChromiumHardReloadPlugin {
       entries.add(getCanonicalContentScriptEntryName(Number(hotMatch[1])))
     }
     return Array.from(entries)
-  }
-
-  private inferHardReloadReasonFromChangedAssetsExcludingManifest(
-    changedAssets: string[]
-  ): 'locales' | 'sw' | undefined {
-    return this.inferHardReloadReasonFromChangedAssets(
-      changedAssets.filter(
-        (a) => String(a || '').replace(/\\/g, '/') !== 'manifest.json'
-      )
-    ) as 'locales' | 'sw' | undefined
   }
 
   private inferHardReloadReasonFromChangedAssets(
