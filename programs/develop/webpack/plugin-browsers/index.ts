@@ -8,6 +8,7 @@
 
 import {type Compiler} from '@rspack/core'
 import {normalizePluginOptions} from './browsers-lib/normalize-options'
+import {pickSharedBrowserRuntimeOptions} from './browsers-lib/runtime-options'
 import * as messages from './browsers-lib/messages'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
@@ -46,8 +47,8 @@ import type {DevOptions} from '../webpack-types'
 export class BrowsersPlugin {
   public static readonly name: string = 'plugin-browsers'
 
-  public readonly extension: string | string[]
-  public readonly browser: DevOptions['browser']
+  public readonly extension!: string | string[]
+  public readonly browser!: DevOptions['browser']
   public readonly noOpen?: boolean
   public readonly browserFlags?: string[]
   public readonly excludeBrowserFlags?: string[]
@@ -84,58 +85,9 @@ export class BrowsersPlugin {
   constructor(options: PluginInterface) {
     const normalized = normalizePluginOptions(options)
 
-    // Path(s) to the extension(s) to load.
-    // In our case, it's always 'dist/<browser>'
-    this.extension = normalized.extension
-
-    // Browser binary-related kung fu
-    this.browser = normalized.browser
-    this.startingUrl = normalized.startingUrl
-    this.preferences = normalized.preferences
-    this.profile = normalized.profile
-    this.browserFlags = normalized.browserFlags
-    this.excludeBrowserFlags = normalized.excludeBrowserFlags
-    this.noOpen = normalized.noOpen
-
-    // Supplementary browser binary paths. Will
-    // override the browser setting if provided.
+    Object.assign(this, pickSharedBrowserRuntimeOptions(normalized))
     this.chromiumBinary = normalized.chromiumBinary
     this.geckoBinary = normalized.geckoBinary
-
-    // Instance/port coordination for remote debugging and multi-instance runs
-    this.instanceId = normalized.instanceId
-    this.port = normalized.port
-
-    // Source inspection (development mode):
-    // For Chromium/Firefox: open a page and extract full HTML
-    // (incl. content-script Shadow DOM)
-    // Optional watch mode to re-print HTML on file changes
-    this.source = normalized.source
-    this.watchSource = normalized.watchSource
-    this.sourceFormat = normalized.sourceFormat as LogFormat | undefined
-    this.sourceSummary = normalized.sourceSummary
-    this.sourceMeta = normalized.sourceMeta
-    this.sourceProbe = normalized.sourceProbe
-    this.sourceTree = normalized.sourceTree
-    this.sourceConsole = normalized.sourceConsole
-    this.sourceDom = normalized.sourceDom
-    this.sourceMaxBytes = normalized.sourceMaxBytes
-    this.sourceRedact = normalized.sourceRedact
-    this.sourceIncludeShadow = normalized.sourceIncludeShadow
-    this.sourceDiff = normalized.sourceDiff
-
-    // Unified logging for Chromium via CDP
-    // (levels, contexts, formatting, timestamps, color)
-    this.logLevel = normalized.logLevel
-    this.logContexts = normalized.logContexts
-    this.logFormat = normalized.logFormat
-    this.logTimestamps = normalized.logTimestamps
-    this.logColor = normalized.logColor
-    this.logUrl = normalized.logUrl
-    this.logTab = normalized.logTab
-
-    // Dry run mode (no browser launch) for CI and diagnostics
-    this.dryRun = normalized.dryRun
 
     // Validate required binaries for engine-based selections
     if (this.browser === 'chromium-based' && !this.chromiumBinary) {

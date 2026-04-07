@@ -11,6 +11,7 @@
 import {program} from 'commander'
 import checkUpdates from './check-updates'
 import * as messages from './cli-lib/messages'
+import {resolveExtensionDevelopVersion} from './cli-lib/extension-develop-runtime'
 import {telemetry} from './cli-lib/telemetry-cli'
 import {getCliPackageJson} from './cli-package-json'
 
@@ -24,12 +25,7 @@ import {registerInstallCommand} from './commands/install'
 const cliPackageJson = getCliPackageJson()
 
 function developVersion() {
-  try {
-    const pkg = require('extension-develop/package.json')
-    return pkg?.version || cliPackageJson.version
-  } catch {
-    return cliPackageJson.version
-  }
+  return resolveExtensionDevelopVersion(__dirname, cliPackageJson.version)
 }
 
 process.env.EXTENSION_DEVELOP_VERSION = developVersion()

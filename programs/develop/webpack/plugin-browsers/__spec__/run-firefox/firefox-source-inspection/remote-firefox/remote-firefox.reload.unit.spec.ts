@@ -91,4 +91,52 @@ describe('RemoteFirefox hardReloadIfNeeded', () => {
       openDevTools: false
     })
   })
+
+  it('reloads only tabs matching affected content script rules', async () => {
+    const rf = new RemoteFirefox({
+      extension: 'dist/firefox',
+      browser: 'firefox'
+    } as any)
+
+    const client = {
+      getTargets: vi.fn(async () => [
+        {
+          actor: 'tab-1',
+          consoleActor: 'console-1',
+          url: 'https://docs.example.com/page'
+        },
+        {
+          actor: 'tab-2',
+          consoleActor: 'console-2',
+          url: 'https://other.test/page'
+        }
+      ]),
+      navigate: vi.fn(async () => {}),
+      waitForLoadEvent: vi.fn(async () => {}),
+      navigateViaScript: vi.fn(async () => {})
+    }
+
+    ;(rf as any).client = client
+
+    const reloaded = await rf.reloadMatchingTabsForContentScripts([
+      {
+        index: 0,
+        world: 'extension',
+        matches: ['https://*.example.com/*'],
+        excludeMatches: [],
+        includeGlobs: [],
+        excludeGlobs: []
+      }
+    ])
+
+    expect(reloaded).toBe(1)
+    expect(client.navigate).toHaveBeenCalledWith(
+      'tab-1',
+      'https://docs.example.com/page'
+    )
+    expect(client.navigate).not.toHaveBeenCalledWith(
+      'tab-2',
+      'https://other.test/page'
+    )
+  })
 })

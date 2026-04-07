@@ -126,4 +126,18 @@ describe('dev-server config root resolution', () => {
       devServerConfigCapture.current.devMiddleware.writeToDisk('manifest.json')
     ).toBe(false)
   })
+
+  it('disables global dev-server hot runtime for content scripts', async () => {
+    await devServer(
+      {
+        manifestPath: '/proj/src/manifest.json',
+        packageJsonPath: '/proj/package.json'
+      },
+      {browser: 'firefox'} as any
+    )
+
+    expect(devServerConfigCapture.current.hot).toBe(false)
+    expect(devServerConfigCapture.current.liveReload).toBe(false)
+    expect(devServerConfigCapture.current.client).toBe(false)
+  })
 })

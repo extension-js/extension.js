@@ -11,6 +11,147 @@ import * as sourceMessages from '../../../browsers-lib/messages'
 interface RdpClientLike {
   request: (payload: unknown) => Promise<unknown>
   getTargetFromDescriptor?: (descriptorId: string) => Promise<unknown>
+  on?: (event: string, listener: (message: unknown) => void) => unknown
+  off?: (event: string, listener: (message: unknown) => void) => unknown
+  removeListener?: (
+    event: string,
+    listener: (message: unknown) => void
+  ) => unknown
+}
+
+const EVALUATION_TIMEOUT_MS = 8000
+const EVALUATION_TYPES = [
+  'evaluateJSAsync',
+  'evalWithOptions',
+  'evaluateJS',
+  'eval'
+] as const
+
+type EvaluationType = (typeof EVALUATION_TYPES)[number]
+
+type AsyncEvaluationOutcome =
+  | {ok: true; value: unknown}
+  | {ok: false; error: unknown}
+
+function buildEvaluationPayload(
+  tabId: string,
+  expression: string,
+  type: EvaluationType
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    to: tabId,
+    type,
+    text: expression
+  }
+  if (type === 'evalWithOptions') {
+    payload.options = {
+      url: '',
+      selectedNodeActor: undefined,
+      frameActor: undefined
+    }
+  }
+  return payload
+}
+
+function getMessageUnsubscriber(
+  client: RdpClientLike,
+  listener: (message: unknown) => void
+): (() => void) | undefined {
+  if (typeof client.on !== 'function') return undefined
+  client.on('message', listener)
+  return () => {
+    if (typeof client.off === 'function') {
+      client.off('message', listener)
+      return
+    }
+    if (typeof client.removeListener === 'function') {
+      client.removeListener('message', listener)
+    }
+  }
+}
+
+async function requestEvaluation(
+  client: RdpClientLike,
+  tabId: string,
+  expression: string,
+  type: EvaluationType
+): Promise<unknown> {
+  if (type !== 'evaluateJSAsync') {
+    return await client.request(buildEvaluationPayload(tabId, expression, type))
+  }
+
+  let expectedResultId = ''
+  let cleanup = () => {}
+  let pendingMessage: Record<string, unknown> | undefined
+  const asyncResult = new Promise<AsyncEvaluationOutcome>((resolve) => {
+    const unsubscribe = getMessageUnsubscriber(client, onMessage)
+    if (!unsubscribe) {
+      resolve({
+        ok: false,
+        error: new Error('RDP client does not support async evaluation events')
+      })
+      return
+    }
+
+    const timeout = setTimeout(() => {
+      unsubscribe()
+      resolve({
+        ok: false,
+        error: new Error(
+          'Timed out waiting for Firefox async evaluation result'
+        )
+      })
+    }, EVALUATION_TIMEOUT_MS)
+
+    cleanup = () => {
+      clearTimeout(timeout)
+      unsubscribe()
+    }
+
+    function onMessage(message: unknown) {
+      const payload = (message as Record<string, unknown>) || {}
+      if (payload.type !== 'evaluationResult') return
+      if (!expectedResultId) {
+        pendingMessage = payload
+        return
+      }
+      if (String(payload.resultID || '') !== expectedResultId) return
+      cleanup()
+      if (payload.error) resolve({ok: false, error: payload})
+      else resolve({ok: true, value: message})
+    }
+  })
+
+  try {
+    const response = (await client.request(
+      buildEvaluationPayload(tabId, expression, type)
+    )) as {resultID?: unknown; type?: unknown}
+    if (response?.type === 'evaluationResult') {
+      cleanup()
+      return response
+    }
+
+    expectedResultId = String(response?.resultID || '')
+    if (!expectedResultId) {
+      cleanup()
+      return response
+    }
+    if (
+      pendingMessage &&
+      String(pendingMessage.resultID || '') === expectedResultId
+    ) {
+      cleanup()
+      return pendingMessage
+    }
+    const outcome = await asyncResult
+    if (!outcome.ok) {
+      throw outcome.error
+    }
+    return outcome.value
+  } catch (error) {
+    cleanup()
+    throw error
+  }
 }
 
 export async function evaluate(
@@ -18,26 +159,16 @@ export async function evaluate(
   tabId: string,
   expression: string
 ) {
-  const tryTypes = ['evaluateJS', 'evaluateJSAsync', 'eval', 'evalWithOptions']
   let lastError: unknown = null
 
-  for (const type of tryTypes) {
+  for (const type of EVALUATION_TYPES) {
     try {
-      const payload: Record<string, unknown> = {
-        to: tabId,
-        type,
-        text: expression
-      }
-      if (type === 'evalWithOptions') {
-        payload.options = {
-          url: '',
-          selectedNodeActor: undefined,
-          frameActor: undefined
-        }
-      }
-      const response = (await client.request(payload)) as
-        | {result?: unknown; value?: unknown}
-        | unknown
+      const response = (await requestEvaluation(
+        client,
+        tabId,
+        expression,
+        type
+      )) as {result?: unknown; value?: unknown} | unknown
       const r: any = response ?? {}
 
       if (r.result !== undefined) return r.result
@@ -56,26 +187,11 @@ export async function evaluateRaw(
   tabId: string,
   expression: string
 ) {
-  const tryTypes = ['evaluateJS', 'evaluateJSAsync', 'eval', 'evalWithOptions']
   let lastError: unknown = null
 
-  for (const type of tryTypes) {
+  for (const type of EVALUATION_TYPES) {
     try {
-      const payload: Record<string, unknown> = {
-        to: tabId,
-        type,
-        text: expression
-      }
-
-      if (type === 'evalWithOptions') {
-        payload.options = {
-          url: '',
-          selectedNodeActor: undefined,
-          frameActor: undefined
-        }
-      }
-
-      return await client.request(payload)
+      return await requestEvaluation(client, tabId, expression, type)
     } catch (err) {
       lastError = err
     }
@@ -173,23 +289,22 @@ export async function serializeDocument(
   actorToUse: string
 ) {
   try {
-    const response = await client.request({
-      to: actorToUse,
-      type: 'evaluateJS',
-      text: '(()=>{try{return String(new XMLSerializer().serializeToString(document));}catch(e){return String(document.documentElement.outerHTML)}})()'
-    })
-
+    const response = await evaluateRaw(
+      client,
+      actorToUse,
+      '(()=>{try{return String(new XMLSerializer().serializeToString(document));}catch(e){return String(document.documentElement.outerHTML)}})()'
+    )
     return await coerceResponseToString(client, actorToUse, response)
   } catch {
     // Ignore
   }
 
   try {
-    const response = await client.request({
-      to: actorToUse,
-      type: 'evaluateJS',
-      text: '(()=>String(document.documentElement.outerHTML))()'
-    })
+    const response = await evaluateRaw(
+      client,
+      actorToUse,
+      '(()=>String(document.documentElement.outerHTML))()'
+    )
     return await coerceResponseToString(client, actorToUse, response, {
       fallbackToFullDocument: false
     })
@@ -204,7 +319,65 @@ export async function extractShadowContent(
   client: RdpClientLike,
   actorToUse: string
 ) {
-  const expr = `(() => { try { const host = document.getElementById('extension-root'); if (!host || !host.shadowRoot) return ''; const s = new XMLSerializer(); return Array.from(host.shadowRoot.childNodes).map(n => { try { return s.serializeToString(n) } catch (e) { return '' } }).join(''); } catch { return ''; } })()`
+  const expr = `(() => { try {
+    const selector = '#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])';
+    const preferHost = function(root) {
+      const nodes = Array.from(root.querySelectorAll(selector));
+      return nodes.find(function(node) {
+        try {
+          const rootKind = String(node.getAttribute('data-extension-root') || '');
+          return (
+            String(node.id || '') === 'extension-root' ||
+            rootKind === 'true' ||
+            (rootKind.length > 0 && rootKind !== 'extension-js-devtools')
+          );
+        } catch (e) {
+          return false;
+        }
+      }) || nodes[0] || null;
+    };
+    const host = preferHost(document);
+    if (!host || !host.shadowRoot) return '';
+    const shadowRoot = host.shadowRoot;
+    const s = new XMLSerializer();
+    const stylesheetCss = Array.from(shadowRoot.styleSheets || [])
+      .map(function(sheet) {
+        try {
+          return Array.from(sheet.cssRules || []).map(function(rule) {
+            return String(rule.cssText || '');
+          }).join('\\n');
+        } catch (e) {
+          return '';
+        }
+      })
+      .filter(Boolean)
+      .join('\\n');
+    const adoptedCss = Array.from(shadowRoot.adoptedStyleSheets || [])
+      .map(function(sheet) {
+        try {
+          return Array.from(sheet.cssRules || []).map(function(rule) {
+            return String(rule.cssText || '');
+          }).join('\\n');
+        } catch (e) {
+          return '';
+        }
+      })
+      .filter(Boolean)
+      .join('\\n');
+    const stylesheetMarkup = stylesheetCss ? '<style>' + stylesheetCss + '</style>' : '';
+    const adoptedMarkup = adoptedCss ? '<style>' + adoptedCss + '</style>' : '';
+    const childMarkup = Array.from(shadowRoot.childNodes).map(function(node) {
+      try {
+        if (node && node.nodeType === 1 && String(node.nodeName || '').toLowerCase() === 'style') {
+          return '<style>' + String(node.textContent || '') + '</style>';
+        }
+        return s.serializeToString(node);
+      } catch (e) {
+        return '';
+      }
+    }).join('');
+    return stylesheetMarkup + adoptedMarkup + childMarkup;
+  } catch { return ''; } })()`
   const looksIncomplete = (html: string) =>
     !html || html.length < 100 || !/content_script/.test(html)
   let attempts = 0
@@ -212,11 +385,7 @@ export async function extractShadowContent(
 
   while (attempts < 6) {
     try {
-      const response = await client.request({
-        to: actorToUse,
-        type: 'evaluateJS',
-        text: expr
-      })
+      const response = await evaluateRaw(client, actorToUse, expr)
       html = await coerceResponseToString(client, actorToUse, response, {
         fallbackToFullDocument: false
       })
@@ -308,7 +477,74 @@ export async function getPageHTML(
     const mergedResp = await evaluateRaw(
       client,
       actorToUse,
-      `(() => { try { var cloned = document.documentElement.cloneNode(true); var host = cloned.querySelector('#extension-root'); if (!host) { var body = cloned.querySelector('body') || cloned; var newRoot = document.createElement('div'); newRoot.id='extension-root'; body.appendChild(newRoot); host = newRoot; } var s = new XMLSerializer(); var shadow = ''; try { var live = document.getElementById('extension-root'); if (live && live.shadowRoot) { shadow = Array.from(live.shadowRoot.childNodes).map(function(n){ try { return s.serializeToString(n) } catch(e){ return '' } }).join(''); } } catch(e) {} try { host.innerHTML = shadow; } catch(e) {} return String('<!DOCTYPE html>' + (cloned.outerHTML || document.documentElement.outerHTML)); } catch(e) { try { return String(document.documentElement.outerHTML); } catch(_) { return '' } } })()`
+      `(() => { try {
+        var selector = '#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])';
+        var serializeShadowRoot = function(shadowRoot, serializer) {
+          if (!shadowRoot) return '';
+          var stylesheetCss = Array.from(shadowRoot.styleSheets || [])
+            .map(function(sheet) {
+              try {
+                return Array.from(sheet.cssRules || []).map(function(rule) {
+                  return String(rule.cssText || '');
+                }).join('\\n');
+              } catch (e) {
+                return '';
+              }
+            })
+            .filter(Boolean)
+            .join('\\n');
+          var adoptedCss = Array.from(shadowRoot.adoptedStyleSheets || [])
+            .map(function(sheet) {
+              try {
+                return Array.from(sheet.cssRules || []).map(function(rule) {
+                  return String(rule.cssText || '');
+                }).join('\\n');
+              } catch (e) {
+                return '';
+              }
+            })
+            .filter(Boolean)
+            .join('\\n');
+          var stylesheetMarkup = stylesheetCss ? '<style>' + stylesheetCss + '</style>' : '';
+          var adoptedMarkup = adoptedCss ? '<style>' + adoptedCss + '</style>' : '';
+          var childMarkup = Array.from(shadowRoot.childNodes || []).map(function(n) {
+            try {
+              if (n && n.nodeType === 1 && String(n.nodeName || '').toLowerCase() === 'style') {
+                return '<style>' + String(n.textContent || '') + '</style>';
+              }
+              return serializer.serializeToString(n);
+            } catch(e) {
+              return '';
+            }
+          }).join('');
+          return stylesheetMarkup + adoptedMarkup + childMarkup;
+        };
+        var cloned = document.documentElement.cloneNode(true);
+        var clonedHosts = Array.from(cloned.querySelectorAll(selector));
+        var liveHosts = Array.from(document.querySelectorAll(selector));
+        if (!clonedHosts.length) {
+          var body = cloned.querySelector('body') || cloned;
+          var newRoot = document.createElement('div');
+          newRoot.id = 'extension-root';
+          body.appendChild(newRoot);
+          clonedHosts = [newRoot];
+        }
+        var s = new XMLSerializer();
+        for (var i = 0; i < clonedHosts.length; i++) {
+          var host = clonedHosts[i];
+          var live = liveHosts[i];
+          var shadow = '';
+          try {
+            if (live && live.shadowRoot) {
+              shadow = serializeShadowRoot(live.shadowRoot, s);
+            }
+          } catch(e) {}
+          try { host.innerHTML = shadow; } catch(e) {}
+        }
+        return String('<!DOCTYPE html>' + (cloned.outerHTML || document.documentElement.outerHTML));
+      } catch(e) {
+        try { return String(document.documentElement.outerHTML); } catch(_) { return '' }
+      } })()`
     )
     const mergedHtml = await coerceResponseToString(
       client,

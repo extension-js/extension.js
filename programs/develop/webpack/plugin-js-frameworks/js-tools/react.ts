@@ -22,6 +22,11 @@ type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
 
+type MaybeUseReactOptions = {
+  refreshExclude?: unknown
+  disableRefresh?: boolean
+}
+
 export function isUsingReact(projectPath: string) {
   if (hasDependency(projectPath, 'react')) {
     if (!userMessageDelivered) {
@@ -40,7 +45,8 @@ export function isUsingReact(projectPath: string) {
 }
 
 export async function maybeUseReact(
-  projectPath: string
+  projectPath: string,
+  options: MaybeUseReactOptions = {}
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined
 
@@ -86,6 +92,14 @@ export async function maybeUseReact(
   if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath
   if (jsxDevRuntimePath) alias['react/jsx-dev-runtime'] = jsxDevRuntimePath
 
+  if (options.disableRefresh === true) {
+    return {
+      plugins: [],
+      loaders: undefined,
+      alias
+    }
+  }
+
   resolveOptionalContractPackageWithoutInstall({
     contractId: 'react-refresh',
     projectPath,
@@ -103,7 +117,10 @@ export async function maybeUseReact(
 
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
-      overlay: false
+      overlay: false,
+      ...(typeof options.refreshExclude === 'undefined'
+        ? {}
+        : {exclude: options.refreshExclude})
     }) as any // TODO: cezaraugusto fix this
   ]
 

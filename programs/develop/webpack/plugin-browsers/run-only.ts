@@ -6,30 +6,26 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Compilation} from '@rspack/core'
 import type {DevOptions} from '../webpack-types'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {printProdBannerOnce} from './browsers-lib/banner'
+import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
+import type {PluginInterface} from './browsers-types'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
+import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
 import {createFirefoxContext} from './run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from './run-firefox/firefox-launch'
+import type {FirefoxPluginRuntime} from './run-firefox/firefox-types'
 
-/**
- * Lightweight run-only entrypoint for `preview`.
- *
- * IMPORTANT:
- * - Does not compile.
- * - Does not depend on a real bundler compiler/compilation object.
- * - Uses a minimal "compilation-like" shape to reuse existing runner code paths.
- */
-export async function runOnlyPreviewBrowser(opts: {
+type PreviewRunOptions = {
   browser: DevOptions['browser']
   outPath: string
   contextDir: string
   // Additional unpacked extension dirs to load before the user extension.
   // (Companion extensions: devtools/theme + user-provided companions)
   extensionsToLoad: string[]
-  // Forwarded options (subset)
   noOpen?: boolean
   profile?: string | false
   persistProfile?: boolean
@@ -43,38 +39,38 @@ export async function runOnlyPreviewBrowser(opts: {
   port?: number | string
   dryRun?: boolean
   readyPath?: string
-}): Promise<void> {
-  // In preview we intentionally do not support source inspection unless we decide to ship `ws`.
-  // Guard here for clarity and to keep preview dependency footprint minimal.
-  const sourceEnabled = false
-  let exitScheduled = false
+}
 
-  const scheduleExitOnSignal = () => {
-    if (exitScheduled) return
-    exitScheduled = true
-    // Mirror `dev` behavior: exit promptly after cleanup kicks in.
-    setTimeout(() => process.exit(0), 10)
-  }
-
-  process.once('SIGINT', scheduleExitOnSignal)
-  process.once('SIGTERM', scheduleExitOnSignal)
-  process.once('SIGHUP', scheduleExitOnSignal)
-
-  const compilationLike: any = {
+function createPreviewCompilationLike(opts: PreviewRunOptions): Compilation {
+  return {
     options: {
       mode: 'production',
       context: opts.contextDir,
       output: {path: opts.outPath}
     },
     errors: []
-  }
+  } as any
+}
 
-  // Provide shared cache dir guidance to the runner (pretty install hints).
-  // This matches the behavior expected by the chromium launcher guidance printer.
-  computeBinariesBaseDir(compilationLike)
-
-  // Create a minimal options object matching the browser launch contract.
-  const common: any = {
+function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
+  PluginInterface,
+  | 'extension'
+  | 'browser'
+  | 'noOpen'
+  | 'profile'
+  | 'preferences'
+  | 'browserFlags'
+  | 'excludeBrowserFlags'
+  | 'startingUrl'
+  | 'chromiumBinary'
+  | 'geckoBinary'
+  | 'instanceId'
+  | 'port'
+  | 'dryRun'
+> & {
+  persistProfile?: boolean
+} {
+  return {
     extension: opts.extensionsToLoad,
     browser: opts.browser,
     noOpen: opts.noOpen,
@@ -88,11 +84,83 @@ export async function runOnlyPreviewBrowser(opts: {
     geckoBinary: opts.geckoBinary,
     instanceId: opts.instanceId,
     port: opts.port,
-    // Hard-disable inspection in run-only preview for now
-    source: sourceEnabled ? (opts as any).source : undefined,
-    watchSource: sourceEnabled ? (opts as any).watchSource : undefined,
     dryRun: opts.dryRun
   }
+}
+
+function buildPreviewChromiumOptions(
+  opts: PreviewRunOptions
+): ChromiumLaunchOptions {
+  const pluginOptions = buildPreviewPluginOptions(opts)
+
+  return {
+    extension: pluginOptions.extension,
+    browser: pluginOptions.browser,
+    noOpen: pluginOptions.noOpen,
+    profile: pluginOptions.profile,
+    preferences: pluginOptions.preferences,
+    browserFlags: pluginOptions.browserFlags,
+    excludeBrowserFlags: pluginOptions.excludeBrowserFlags,
+    startingUrl: pluginOptions.startingUrl,
+    chromiumBinary: pluginOptions.chromiumBinary,
+    instanceId: pluginOptions.instanceId,
+    port: pluginOptions.port,
+    dryRun: pluginOptions.dryRun
+  }
+}
+
+function buildPreviewFirefoxOptions(
+  opts: PreviewRunOptions
+): FirefoxPluginRuntime {
+  const pluginOptions = buildPreviewPluginOptions(opts)
+
+  return {
+    extension: pluginOptions.extension,
+    browser: pluginOptions.browser,
+    profile: pluginOptions.profile,
+    preferences: pluginOptions.preferences,
+    browserFlags: pluginOptions.browserFlags,
+    startingUrl: pluginOptions.startingUrl,
+    geckoBinary: pluginOptions.geckoBinary,
+    instanceId: pluginOptions.instanceId,
+    port: pluginOptions.port,
+    dryRun: pluginOptions.dryRun
+  }
+}
+
+function buildPreviewBannerOptions(opts: PreviewRunOptions) {
+  return {
+    browser: opts.browser,
+    outPath: opts.outPath,
+    includeExtensionId: true,
+    includeRunId: false,
+    readyPath: opts.readyPath
+  }
+}
+
+export async function runOnlyPreviewBrowser(
+  opts: PreviewRunOptions
+): Promise<void> {
+  let exitScheduled = false
+
+  const scheduleExitOnSignal = () => {
+    if (exitScheduled) return
+    exitScheduled = true
+    // Mirror `dev` behavior: exit promptly after cleanup kicks in.
+    setTimeout(() => process.exit(0), 10)
+  }
+
+  process.once('SIGINT', scheduleExitOnSignal)
+  process.once('SIGTERM', scheduleExitOnSignal)
+  process.once('SIGHUP', scheduleExitOnSignal)
+
+  const compilationLike = createPreviewCompilationLike(opts)
+  const previewPluginOptions = buildPreviewPluginOptions(opts)
+  const bannerOptions = buildPreviewBannerOptions(opts)
+
+  // Provide shared cache dir guidance to the runner (pretty install hints).
+  // This matches the behavior expected by the chromium launcher guidance printer.
+  computeBinariesBaseDir(compilationLike)
 
   if (
     opts.browser === 'chrome' ||
@@ -102,15 +170,12 @@ export async function runOnlyPreviewBrowser(opts: {
   ) {
     // Run Chromium launch without CDP post-launch wiring (keeps `ws` optional).
     const ctx = createChromiumContext()
-    const launcher = new ChromiumLaunchPlugin(common, ctx)
+    const launcher = new ChromiumLaunchPlugin(
+      buildPreviewChromiumOptions(opts),
+      ctx
+    )
     await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
-    await printProdBannerOnce({
-      browser: opts.browser,
-      outPath: opts.outPath,
-      includeExtensionId: true,
-      includeRunId: false,
-      readyPath: opts.readyPath
-    })
+    await printProdBannerOnce(bannerOptions)
     return
   }
 
@@ -120,26 +185,19 @@ export async function runOnlyPreviewBrowser(opts: {
     opts.browser === 'firefox-based'
   ) {
     const ctx = createFirefoxContext()
-    const launcher = new FirefoxLaunchPlugin(common, ctx)
-    await launcher.runOnce(compilationLike, {
-      browser: opts.browser as any,
-      mode: 'production',
-      profile: opts.profile,
-      persistProfile: opts.persistProfile,
-      preferences: opts.preferences,
-      browserFlags: opts.browserFlags,
-      excludeBrowserFlags: opts.excludeBrowserFlags,
-      startingUrl: opts.startingUrl,
-      geckoBinary: opts.geckoBinary,
-      port: opts.port
-    } as any)
-    await printProdBannerOnce({
-      browser: opts.browser,
-      outPath: opts.outPath,
-      includeExtensionId: true,
-      includeRunId: false,
-      readyPath: opts.readyPath
-    })
+    const launcher = new FirefoxLaunchPlugin(
+      buildPreviewFirefoxOptions(opts),
+      ctx
+    )
+    await launcher.runOnce(
+      compilationLike,
+      buildBrowserLaunchRequest(previewPluginOptions, 'production', {
+        persistProfile: previewPluginOptions.persistProfile,
+        geckoBinary: previewPluginOptions.geckoBinary
+      }) as any
+    )
+
+    await printProdBannerOnce(bannerOptions)
     return
   }
 
