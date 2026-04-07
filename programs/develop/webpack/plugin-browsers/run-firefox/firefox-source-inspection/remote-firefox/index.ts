@@ -6,8 +6,44 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {appendFileSync, existsSync, mkdirSync} from 'fs'
+import path from 'path'
 import type {Compilation} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
+
+function emitFirefoxAgentDebugLog(payload: Record<string, unknown>) {
+  const line = JSON.stringify({
+    sessionId: 'a87efc',
+    timestamp: Date.now(),
+    ...payload
+  })
+  fetch('http://127.0.0.1:7795/ingest/9eb8f923-a325-4455-a46c-a6e706558307', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'a87efc'
+    },
+    body: line
+  }).catch(() => {})
+  try {
+    let dir = path.resolve(process.cwd())
+    for (let depth = 0; depth < 24; depth++) {
+      if (existsSync(path.join(dir, 'programs', 'develop', 'package.json'))) {
+        const filePath = path.join(dir, '.cursor', 'debug-a87efc.log')
+        mkdirSync(path.dirname(filePath), {recursive: true})
+        appendFileSync(filePath, `${line}\n`)
+        return
+      }
+      const parent = path.dirname(dir)
+      if (parent === dir) {
+        break
+      }
+      dir = parent
+    }
+  } catch {
+    // ignore
+  }
+}
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import * as messages from '../../../browsers-lib/messages'
 import {
@@ -25,17 +61,22 @@ import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {ensureTabForUrl, navigateTo, getPageHTML} from './source-inspect'
 import {type PluginInterface} from '../../../browsers-types'
 import {
+  type ContentScriptTargetRule,
+  urlMatchesAnyContentScriptRule
+} from '../../../browsers-lib/content-script-targets'
+import {
   getInstancePorts,
   getLastRDPPort
 } from '../../../browsers-lib/instance-registry'
+import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
+import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
 
 const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000
 
 export class RemoteFirefox {
   private readonly options: PluginInterface & {
-    extensionsToLoad?: string[]
     browserVersionLine?: string
   }
   private needsReinstall = false
@@ -46,9 +87,28 @@ export class RemoteFirefox {
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
 
+  private selectPrimaryAddonPath(
+    compilation: Compilation,
+    candidateAddonPaths: string[]
+  ): string | undefined {
+    const normalizedOutputPath = String(
+      compilation?.options?.output?.path || ''
+    ).replace(/\\/g, '/')
+
+    if (normalizedOutputPath) {
+      const matchingAddonPath = candidateAddonPaths.find(
+        (candidateAddonPath) =>
+          String(candidateAddonPath || '').replace(/\\/g, '/') ===
+          normalizedOutputPath
+      )
+      if (matchingAddonPath) return matchingAddonPath
+    }
+
+    return candidateAddonPaths[candidateAddonPaths.length - 1]
+  }
+
   constructor(
     configOptions: PluginInterface & {
-      extensionsToLoad?: string[]
       browserVersionLine?: string
     }
   ) {
@@ -111,14 +171,7 @@ export class RemoteFirefox {
     const {devtools} = this.options
 
     // Ensure user extension is first, manager after (if present)
-    const rawExtensions =
-      (Array.isArray(this.options.extensionsToLoad) &&
-      this.options.extensionsToLoad.length
-        ? this.options.extensionsToLoad
-        : undefined) ||
-      (Array.isArray(this.options.extension)
-        ? this.options.extension
-        : [this.options.extension])
+    const rawExtensions = toExtensionLoadList(this.options.extension)
     const unique: string[] = Array.from(
       new Set(
         (rawExtensions as string[]).filter(
@@ -149,6 +202,55 @@ export class RemoteFirefox {
       compilation,
       extensionsToLoad
     )
+    const primaryAddonPath = this.selectPrimaryAddonPath(
+      compilation,
+      candidateAddonPaths
+    )
+
+    // #region agent log
+    try {
+      const outPath = String(compilation?.options?.output?.path || '').replace(
+        /\\/g,
+        '/'
+      )
+      emitFirefoxAgentDebugLog({
+        runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
+        hypothesisId: 'H-COMP-3',
+        location: 'remote-firefox/index.ts:installAddons:paths',
+        message: 'Firefox candidate add-on paths and primary selection',
+        data: {
+          normalizedOutputPath: outPath,
+          primaryAddonPath: primaryAddonPath
+            ? String(primaryAddonPath).replace(/\\/g, '/')
+            : null,
+          candidateAddonPaths: candidateAddonPaths.map((p) =>
+            String(p).replace(/\\/g, '/')
+          ),
+          devtools: Boolean(devtools)
+        }
+      })
+    } catch {
+      // ignore
+    }
+    // #endregion
+
+    for (const addonPath of candidateAddonPaths) {
+      try {
+        const ready = await waitForStableExtensionOutput(addonPath, {
+          timeoutMs: 10000,
+          pollIntervalMs: 150,
+          stableReadsRequired: 2
+        })
+
+        if (!ready && process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.warn(
+            `[plugin-browsers] Firefox add-on output did not fully settle before install: ${addonPath}`
+          )
+        }
+      } catch {
+        // best-effort readiness guard
+      }
+    }
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       try {
         console.log(
@@ -159,6 +261,9 @@ export class RemoteFirefox {
         // ignore
       }
     }
+
+    /** ID of the user extension (webpack output), not companion devtools/theme add-ons. */
+    let primaryUserAddonId: string | undefined
 
     for (const [index, addonPath] of candidateAddonPaths.entries()) {
       const isManager = /extensions\/[a-z-]+-manager/.test(String(addonPath))
@@ -172,12 +277,42 @@ export class RemoteFirefox {
           isDevtoolsEnabled
         )
 
-        if (!this.derivedExtensionId) {
-          const maybeId = installResponse?.addon?.id
-          if (typeof maybeId === 'string' && maybeId.length > 0) {
-            this.derivedExtensionId = maybeId
-          }
+        const maybeIdRaw = installResponse?.addon?.id
+        const maybeId =
+          typeof maybeIdRaw === 'string' && maybeIdRaw.length > 0
+            ? maybeIdRaw
+            : null
+        if (
+          primaryAddonPath &&
+          String(addonPath) === String(primaryAddonPath) &&
+          maybeId
+        ) {
+          primaryUserAddonId = maybeId
         }
+
+        // #region agent log
+        emitFirefoxAgentDebugLog({
+          runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
+          hypothesisId: 'H-COMP-1',
+          location: 'remote-firefox/index.ts:installAddons:each',
+          message: 'Firefox temporary add-on installed',
+          data: {
+            index,
+            addonPath: String(addonPath).replace(/\\/g, '/'),
+            isManager,
+            isDevtoolsEnabled,
+            addonId: maybeId,
+            setDerivedExtensionIdFromThisInstall: Boolean(
+              primaryAddonPath &&
+                String(addonPath) === String(primaryAddonPath) &&
+                maybeId
+            ),
+            matchesPrimary:
+              Boolean(primaryAddonPath) &&
+              String(addonPath) === String(primaryAddonPath)
+          }
+        })
+        // #endregion
 
         if (isManager) {
           await waitForManagerWelcome(client)
@@ -190,16 +325,20 @@ export class RemoteFirefox {
       }
     }
 
+    if (primaryUserAddonId) {
+      this.derivedExtensionId = primaryUserAddonId
+    }
+
     // If flagged by reload pipeline, force reinstall of the first (user) add-on
     try {
-      if (this.needsReinstall && candidateAddonPaths[0]) {
+      if (this.needsReinstall && primaryAddonPath) {
         const toActor = addonsActor
 
         if (toActor) {
           await client.request({
             to: toActor,
             type: 'installTemporaryAddon',
-            addonPath: candidateAddonPaths[0],
+            addonPath: primaryAddonPath,
             openDevTools: false
           })
         }
@@ -214,8 +353,24 @@ export class RemoteFirefox {
       }
     } catch {}
 
+    // #region agent log
+    emitFirefoxAgentDebugLog({
+      runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
+      hypothesisId: 'H-COMP-2',
+      location: 'remote-firefox/index.ts:installAddons:derived-id',
+      message:
+        'Firefox derivedExtensionId after installs + deriveMozExtensionId',
+      data: {
+        derivedExtensionId: this.derivedExtensionId || null,
+        lastInstalledAddonPath: primaryAddonPath
+          ? String(primaryAddonPath).replace(/\\/g, '/')
+          : null
+      }
+    })
+    // #endregion
+
     // Print banner with best-effort extensionId when available
-    this.lastInstalledAddonPath = candidateAddonPaths[0]
+    this.lastInstalledAddonPath = primaryAddonPath
 
     const bannerPrinted = await printRunningInDevelopmentSummary(
       candidateAddonPaths,
@@ -252,13 +407,15 @@ export class RemoteFirefox {
       const types = Array.isArray(desc?.types) ? desc.types : []
       this.cachedSupportsReload =
         types.includes('reloadAddon') || types.includes('reloadTemporaryAddon')
-      try {
-        console.log(
-          messages.firefoxRdpReloadCapabilitySummary(
-            this.cachedSupportsReload ? 'native' : 'reinstall'
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        try {
+          console.log(
+            messages.firefoxRdpReloadCapabilitySummary(
+              this.cachedSupportsReload ? 'native' : 'reinstall'
+            )
           )
-        )
-      } catch {}
+        } catch {}
+      }
     } catch {
       this.cachedSupportsReload = false
     }
@@ -312,7 +469,7 @@ export class RemoteFirefox {
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
       const isContentScriptChanged = normalized.some((n) =>
-        /(^|\/)content_scripts\/content-\d+\.(js|css)$/i.test(n)
+        /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.(js|css)$/i.test(n)
       )
 
       // Consider service worker changes as critical as well
@@ -349,6 +506,71 @@ export class RemoteFirefox {
       await this.reloadAddonOrReinstall(client)
     } catch {
       // Ignore
+    }
+  }
+
+  public async reloadMatchingTabsForContentScripts(
+    rules: ContentScriptTargetRule[]
+  ): Promise<number> {
+    if (rules.length === 0) return 0
+
+    try {
+      const rdpPort = this.resolveRdpPort()
+      const client = this.client || (await this.connectClient(rdpPort))
+      await this.reloadAddonOrReinstall(client)
+
+      // Brief settle after reinstall so Firefox updates internal tab state.
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      const tabs = await client.getTargets()
+      let reloadedTabs = 0
+
+      for (const tab of tabs || []) {
+        const descriptorActor = String((tab as any)?.actor || '')
+        const descriptorConsoleActor = String(
+          (tab as any)?.consoleActor || (tab as any)?.webConsoleActor || ''
+        )
+        const url = String((tab as any)?.url || '')
+
+        if (!descriptorActor || !url) continue
+        if (!urlMatchesAnyContentScriptRule(url, rules)) continue
+
+        // Resolve the tab descriptor into a frame-level target actor, the
+        // same way source-inspection navigation does it. Descriptor-level
+        // actors don't support navigateTo on modern Firefox.
+        let targetActor = descriptorActor
+        let consoleActor = descriptorConsoleActor
+        try {
+          const detail = await client.getTargetFromDescriptor(descriptorActor)
+          if (detail.targetActor) targetActor = detail.targetActor
+          if (detail.consoleActor) consoleActor = detail.consoleActor
+        } catch {
+          // Fall through with descriptor-level actors.
+        }
+
+        try {
+          try {
+            await client.attach(targetActor)
+          } catch {
+            // Already attached or not required — continue.
+          }
+          await client.navigate(targetActor, url)
+          await client.waitForLoadEvent(targetActor)
+          reloadedTabs += 1
+        } catch {
+          if (!consoleActor) continue
+          try {
+            await client.navigateViaScript(consoleActor, url)
+            reloadedTabs += 1
+          } catch {
+            // Ignore individual tab failures and continue with the remaining matches.
+          }
+        }
+      }
+
+      return reloadedTabs
+    } catch {
+      return 0
     }
   }
 
