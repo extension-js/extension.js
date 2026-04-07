@@ -64,7 +64,7 @@ The following tests are required guardrails:
   - install-success-but-missing-package fails with diagnostics
   - module loading works with adapter after deterministic resolve
 
-- `ci-scripts/run-optional-deps-smoke.mjs` matrix workflow coverage for
+- `scripts/run-optional-deps-smoke.mjs` matrix workflow coverage for
   `pnpm`, `npm`, `yarn`, and `bun` on CI-targeted OS combinations.
 
 If behavior changes, update this contract and tests in the same change.
