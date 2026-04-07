@@ -366,7 +366,10 @@ export function normalizeModuleResourcePath(
     return undefined
   }
 
-  let normalized = resourcePath.replace(/\\/g, '/').trim()
+  let normalized = resourcePath
+    .replace(/\\/g, '/')
+    .replace(/(?<!:)\/{2,}/g, '/')
+    .trim()
   if (!normalized) return undefined
 
   const loaderIndex = normalized.lastIndexOf('!')
