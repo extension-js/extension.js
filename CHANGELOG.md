@@ -2,10 +2,23 @@
 
 ## Unreleased
 
-- Internal (CI): upgrade `pnpm/action-setup` to v5 so Actions use Node 24 and GitHub stops warning about Node 20 composite actions (not an extension or CLI behavior change).
-- Fix Windows optional dependency installs and smoke coverage (0e1303f1)
-- Fix content script CSS fallback restoration (002aa829)
-- Offload browser discovery to location libs (7035b423)
+- Ignore programs/create/.npmrc so local npm tokens are never committed (c1cebcfd)
+- Normalize Windows drive slashes after backslash replace (92c63ca4)
+- Fix CI workflow script name and Windows path double-slash normalization (78c5dd50)
+- Fix pre-existing test failures in dev-server and update-manifest specs (ea849f74)
+- Replace in-tree optional-deps installer with isolated-deps package (50262075)
+- Simplify reload internals before release (ca86cb59)
+- Consolidate ci-scripts into scripts and remove dead scripts (817e5a78)
+- Update changelog and companion extension adjustments (66fc7c30)
+- Refactor browser plugins, CDP/RDP inspection, and dev server internals (fbbd6d83)
+- Wrap extension messaging sendMessage in try-catch in chunk loader (bb325fe5)
+- Fix Firefox content reload parity with Chromium (289cbf5d)
+- Fix Chromium content reload: suppress manifest reason, reload extension after reinject, await controller (745bf6f2)
+- Resolve hashed content script filenames in CDP controller for reinject (e4095523)
+- Hash content script filenames in dev mode to bust browser cache on hard reload (666ef6e7)
+- Add strip and remove dev server runtime from content script bundles (da8e5b78)
+- Rewrite content script wrapper with reinject lifecycle and cleanup registry (b617e907)
+- Add canonical content script naming contracts and entry helpers (e9addae1)
 
 ## 3.8.2
 
