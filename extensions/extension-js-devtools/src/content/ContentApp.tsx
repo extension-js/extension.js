@@ -503,14 +503,14 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     <>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
         <DialogPrimitive.Portal container={portalContainer}>
-          <DialogContent className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_1fr] w-[calc(100vw-32px)] max-w-[760px] h-[min(640px,calc(100vh-32px))] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 border border-neutral-700 bg-neutral-900 p-6 text-neutral-100 shadow-[0_20px_48px_rgba(0,0,0,0.5)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%] sm:rounded-lg">
+          <DialogContent className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 border border-neutral-700 bg-neutral-900 p-6 text-neutral-100 opacity-100 shadow-[0_20px_48px_rgba(0,0,0,0.5)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%] sm:rounded-lg">
             <div>
-              <h3 className="text-lg font-semibold leading-none tracking-tight text-red-400">
+              <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight text-red-400">
                 Extension.js diagnostics
-              </h3>
-              <p className="text-sm text-neutral-300">
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Description className="text-sm text-neutral-300">
                 Setup health + split errors from page and content script contexts.
-              </p>
+              </DialogPrimitive.Description>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2 rounded border border-neutral-800 bg-neutral-950 p-3">
@@ -666,7 +666,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647]">
         <Button
           onClick={() => setOpen(true)}
-          className="pointer-events-auto relative rounded-none bg-transparent border border-neutral-700 text-neutral-300 shadow hover:bg-transparent"
+          className="pointer-events-auto relative rounded-none border border-neutral-700 bg-neutral-900 text-neutral-300 opacity-100 shadow hover:bg-neutral-900"
           size="icon"
           variant="secondary"
           aria-label={
