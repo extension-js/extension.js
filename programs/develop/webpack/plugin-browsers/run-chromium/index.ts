@@ -12,6 +12,7 @@ import {ChromiumLaunchPlugin} from './chromium-launch'
 import {ChromiumUnifiedLoggerPlugin} from './chromium-unified-logger'
 import {ChromiumHardReloadPlugin} from './chromium-hard-reload'
 import {ChromiumSourceInspectionPlugin} from './chromium-source-inspection'
+import {pickSharedBrowserRuntimeOptions} from '../browsers-lib/runtime-options'
 import {
   LogContext,
   LogFormat,
@@ -21,8 +22,8 @@ import {
 import type {DevOptions} from '../../webpack-types'
 
 export class RunChromiumPlugin {
-  readonly extension: string | string[]
-  readonly browser: DevOptions['browser']
+  readonly extension!: string | string[]
+  readonly browser!: DevOptions['browser']
   readonly noOpen?: boolean
   readonly browserFlags?: string[]
   readonly excludeBrowserFlags?: string[]
@@ -61,58 +62,8 @@ export class RunChromiumPlugin {
   chromiumCtx?: ReturnType<typeof createChromiumContext>
 
   constructor(options: PluginInterface) {
-    // Path(s) to the extension(s) to load.
-    // In our case, it's always 'dist/<browser>'
-    this.extension = options.extension
-
-    // Browser binary-related kung fu
-    this.browser = options.browser
-    this.startingUrl = options.startingUrl
-    this.preferences = options.preferences
-    this.profile = options.profile
-    this.browserFlags = options.browserFlags
-    this.excludeBrowserFlags = options.excludeBrowserFlags
-    this.noOpen = options.noOpen
-
-    // Supplementary browser binary path. Will
-    // override the browser setting if provided.
+    Object.assign(this, pickSharedBrowserRuntimeOptions(options))
     this.chromiumBinary = options.chromiumBinary
-
-    // Instance/port coordination for remote
-    // debugging and multi-instance runs
-    this.instanceId = options.instanceId
-    this.port = options.port
-
-    // Source inspection (development mode):
-    // For Chromium/Firefox: open a page and extract
-    // full HTML (incl. content-script Shadow DOM)
-    // Optional watch mode to re-print HTML on file changes
-    this.source = options.source
-    this.watchSource = options.watchSource
-    this.sourceFormat = options.sourceFormat
-    this.sourceSummary = options.sourceSummary
-    this.sourceMeta = options.sourceMeta
-    this.sourceProbe = options.sourceProbe
-    this.sourceTree = options.sourceTree
-    this.sourceConsole = options.sourceConsole
-    this.sourceDom = options.sourceDom
-    this.sourceMaxBytes = options.sourceMaxBytes
-    this.sourceRedact = options.sourceRedact
-    this.sourceIncludeShadow = options.sourceIncludeShadow
-    this.sourceDiff = options.sourceDiff
-
-    // Unified logging for Chromium via CDP
-    // (levels, contexts, formatting, timestamps, color)
-    this.logLevel = options.logLevel
-    this.logContexts = options.logContexts
-    this.logFormat = options.logFormat
-    this.logTimestamps = options.logTimestamps
-    this.logColor = options.logColor
-    this.logUrl = options.logUrl
-    this.logTab = options.logTab
-
-    // Dry run mode (no browser launch) for CI and diagnostics
-    this.dryRun = options.dryRun
   }
 
   apply(compiler: Compiler) {

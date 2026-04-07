@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {EmitHtmlFile} from './steps/emit-html-file'
@@ -21,6 +22,8 @@ import type {
   PluginInterface,
   DevOptions
 } from '../../webpack-types'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
+import {resolveDevelopDistFile} from '../../optional-deps-lib/runtime-context'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
@@ -97,13 +100,41 @@ export class HtmlPlugin {
 
     // 5 - Ensure scripts within the HTML file are HMR enabled (development only).
     if ((compiler.options.mode || 'development') !== 'production') {
+      const contentScriptEntryPaths = new Set<string>()
+      try {
+        const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+        const manifestDir = path.dirname(this.manifestPath)
+        const contentScripts = Array.isArray(manifest?.content_scripts)
+          ? manifest.content_scripts
+          : []
+
+        for (const contentScript of contentScripts) {
+          const jsList = Array.isArray(contentScript?.js)
+            ? contentScript.js
+            : []
+
+          for (const jsFile of jsList) {
+            contentScriptEntryPaths.add(
+              path.normalize(path.resolve(manifestDir, jsFile))
+            )
+          }
+        }
+      } catch {
+        // Keep the HTML HMR rule active if manifest parsing fails.
+      }
+
       compiler.options.module.rules.push({
         test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: [/([\\/])node_modules\1/],
+        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        exclude: [
+          /([\\/])node_modules\1/,
+          (resourcePath: string) =>
+            contentScriptEntryPaths.has(path.normalize(resourcePath))
+        ],
         use: [
           {
-            loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
+            loader: resolveDevelopDistFile('ensure-hmr-for-scripts'),
             options: {
               manifestPath: this.manifestPath,
               includeList

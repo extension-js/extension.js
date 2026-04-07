@@ -120,7 +120,7 @@ export default class WebExtensionContentScriptEntryPlugin {
                   code = [
                     ';(() => {',
                     Template.indent([
-                      'const getURL = typeof browser === "object" ? browser.runtime.getURL : chrome.runtime.getURL;',
+                      'const getURL = typeof globalThis === "object" && globalThis && typeof globalThis.browser === "object" ? globalThis.browser.runtime.getURL : globalThis.chrome.runtime.getURL;',
                       `${JSON.stringify(files)}.forEach(file => import(getURL(file)));`
                     ]),
                     '})();',

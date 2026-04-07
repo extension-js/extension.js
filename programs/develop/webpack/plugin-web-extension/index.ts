@@ -12,7 +12,7 @@ import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 // Plugins
 import {ManifestPlugin} from './feature-manifest'
 import {HtmlPlugin} from './feature-html'
-import {ScriptsPlugin} from './feature-scripts'
+import {ScriptsPlugin as ScriptsPlugin} from './feature-scripts'
 import {LocalesPlugin} from './feature-locales'
 import {JsonPlugin} from './feature-json'
 import {IconsPlugin} from './feature-icons'
