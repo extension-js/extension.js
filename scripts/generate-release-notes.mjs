@@ -63,7 +63,9 @@ const IGNORED_PATTERNS = [
   /^Fix release pipeline error$/i,
   /^Fix next\/canary publish workflows$/i,
   /^Add privacy-safe workflow telemetry profiles$/i,
-  /^Exclude chore\(release\)\/release\(\) from changelog, add retroactive clean script$/i
+  /^Exclude chore\(release\)\/release\(\) from changelog, add retroactive clean script$/i,
+  // CI / Actions only — no user-facing extension or CLI behavior
+  /^Use pnpm\/action-setup v\d+ for Node \d+ runtime on Actions$/i
 ]
 
 const GROUPS = [
