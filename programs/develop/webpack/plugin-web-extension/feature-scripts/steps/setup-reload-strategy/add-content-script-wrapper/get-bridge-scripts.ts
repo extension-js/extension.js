@@ -9,6 +9,7 @@
 import path from 'path'
 import fs from 'fs'
 import type {FilepathList} from '../../../../../webpack-types'
+import {getCanonicalContentScriptEntryName} from '../../../contracts'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
@@ -90,7 +91,8 @@ export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
       if (cs?.world !== 'MAIN') continue
 
       const bridgeIndex = originalCount + bridgeOrdinal++
-      bridgeScripts[`content_scripts/content-${bridgeIndex}`] = bridgeSource
+      bridgeScripts[getCanonicalContentScriptEntryName(bridgeIndex)] =
+        bridgeSource
     }
   } catch {
     // ignore: bridge is best-effort and only needed for MAIN world users

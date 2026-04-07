@@ -11,6 +11,8 @@ import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
+import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
+import {getCanonicalContentScriptJsAssetName} from '../../contracts'
 import type {
   Manifest,
   PluginInterface,
@@ -61,16 +63,11 @@ export class SetupReloadStrategy {
   }
 
   public apply(compiler: Compiler) {
-    // Guards are handled at the root plugin level
-
     const manifest: Manifest = JSON.parse(
       fs.readFileSync(this.manifestPath, 'utf-8')
     )
     const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 
-    // Build metadata for content scripts so the chunk loader runtime can be
-    // world-aware (MAIN vs isolated) and can route MAIN-world chunk loading
-    // through an isolated bridge.
     const contentScriptsMeta: Record<string, any> = {}
     try {
       const csList: any[] = Array.isArray(patchedManifest.content_scripts)
@@ -80,18 +77,18 @@ export class SetupReloadStrategy {
       let bridgeOrdinal = 0
       for (let i = 0; i < csList.length; i++) {
         const cs = csList[i]
-        const bundleId = `content_scripts/content-${i}.js`
+        const bundleId = getCanonicalContentScriptJsAssetName(i)
         const isMain = cs?.world === 'MAIN'
         if (isMain) {
           const bridgeIndex = originalCount + bridgeOrdinal++
+          const bridgeBundleId =
+            getCanonicalContentScriptJsAssetName(bridgeIndex)
           contentScriptsMeta[bundleId] = {
             index: i,
             bundleId,
             world: 'main',
-            bridgeBundleId: `content_scripts/content-${bridgeIndex}.js`
+            bridgeBundleId
           }
-          // also describe the bridge bundle
-          const bridgeBundleId = `content_scripts/content-${bridgeIndex}.js`
           contentScriptsMeta[bridgeBundleId] = {
             index: bridgeIndex,
             bundleId: bridgeBundleId,
@@ -108,21 +105,22 @@ export class SetupReloadStrategy {
         }
       }
     } catch {
-      // ignore – safe defaults in runtime
+      // ignore - runtime has safe defaults
     }
 
-    // 1 - Manifest dev defaults (CSP, permissions, WAR) are applied by
-    // ManifestPlugin (ApplyDevDefaults step) in feature-manifest.
+    new ApplyManifestDevDefaults({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
 
-    // 2 - Setup the background entry needed for webpack-target-webextension
     new SetupBackgroundEntry({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
 
-    // 3 - Now that we know the background exists, add the web extension target.
     new WebExtension({
       background: this.getEntryName(patchedManifest),
+      hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta
     }).apply(compiler as any)
