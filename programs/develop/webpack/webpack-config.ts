@@ -177,6 +177,11 @@ export default function webpackConfig(
         watchSource: devOptions.watchSource,
         sourceFormat: devOptions.sourceFormat,
         sourceSummary: devOptions.sourceSummary,
+        sourceMeta: devOptions.sourceMeta,
+        sourceProbe: devOptions.sourceProbe,
+        sourceTree: devOptions.sourceTree,
+        sourceConsole: devOptions.sourceConsole,
+        sourceDom: devOptions.sourceDom,
         sourceMaxBytes: devOptions.sourceMaxBytes,
         sourceRedact: devOptions.sourceRedact,
         sourceIncludeShadow: devOptions.sourceIncludeShadow,
@@ -212,6 +217,21 @@ export default function webpackConfig(
       path: primaryExtensionOutputDir,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
+      // Development: hash canonical content-script bundles so Cmd+Shift+R loads a new
+      // chrome-extension:// URL after edits; stable names are aggressively cached.
+      filename:
+        (devOptions.mode || 'development') === 'development'
+          ? (pathData: {chunk?: {name?: string}}) => {
+              const chunkName = pathData.chunk?.name
+              if (
+                typeof chunkName === 'string' &&
+                /^content_scripts\/content-\d+$/.test(chunkName)
+              ) {
+                return `${chunkName}.[fullhash:8].js`
+              }
+              return '[name].js'
+            }
+          : '[name].js',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
       hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
