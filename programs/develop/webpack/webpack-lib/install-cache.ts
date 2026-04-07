@@ -10,7 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {createHash} from 'crypto'
 import packageJson from '../../package.json'
-import {resolveDevelopInstallRoot} from '../optional-deps-lib'
+import {resolveDevelopInstallRoot} from './develop-context'
 
 function getInstallCacheDir(packageRoot: string): string {
   return path.join(packageRoot, '.cache', 'extensionjs', 'install')

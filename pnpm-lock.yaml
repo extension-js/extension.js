@@ -363,6 +363,9 @@ importers:
       ignore:
         specifier: ^7.0.5
         version: 7.0.5
+      isolated-deps:
+        specifier: 0.1.0
+        version: 0.1.0
       loader-utils:
         specifier: ^3.3.1
         version: 3.3.1
@@ -3958,6 +3961,10 @@ packages:
   isobject@3.0.1:
     resolution: {integrity: sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==}
     engines: {node: '>=0.10.0'}
+
+  isolated-deps@0.1.0:
+    resolution: {integrity: sha512-Xz+5yLoSn0dStc5esm2xEg4mK8awFt9a/5auBn1JpEtECeyXpR3m5cUdrTGZd7l/LqsQAcgETfGXD2y0p9Gwhg==}
+    engines: {node: '>=18'}
 
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
@@ -9112,6 +9119,10 @@ snapshots:
   isexe@2.0.0: {}
 
   isobject@3.0.1: {}
+
+  isolated-deps@0.1.0:
+    dependencies:
+      pintor: 0.3.0
 
   istanbul-lib-coverage@3.2.2: {}
 
