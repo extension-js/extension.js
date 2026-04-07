@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Custom theme",
+  "name": "Extension.js Theme",
   "version": "1.0",
   "description": "A clean, minimal browser theme generated in the editor.",
   "author": "Anonymous",
