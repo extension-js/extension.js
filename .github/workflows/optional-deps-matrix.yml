@@ -7,7 +7,6 @@ on:
       - 'extensions/browser-extension/**'
       - 'extensions/monorepo/**'
       - 'scripts/**'
-      - 'ci-scripts/run-optional-deps-smoke.mjs'
       - '.github/workflows/optional-deps-matrix.yml'
       - '.github/workflows/publish-release.yml'
       - 'package.json'
@@ -20,7 +19,6 @@ on:
       - 'extensions/browser-extension/**'
       - 'extensions/monorepo/**'
       - 'scripts/**'
-      - 'ci-scripts/run-optional-deps-smoke.mjs'
       - '.github/workflows/optional-deps-matrix.yml'
       - '.github/workflows/publish-release.yml'
       - 'package.json'
@@ -117,10 +115,10 @@ jobs:
           bun-version: latest
 
       - name: Test optional deps smoke helpers
-        run: node --test ci-scripts/__spec__/run-optional-deps-smoke.spec.mjs
+        run: node --test scripts/__spec__/run-optional-deps-smoke.spec.mjs
 
       - name: Run optional deps smoke
-        run: node ci-scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}
+        run: node scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}
 
       - name: Compile local Extension.js packages for workspace first-dev check
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
