@@ -25,12 +25,20 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
 }
 
 export function ready(mode: 'development' | 'production', browser: string) {
+  const key = String(browser || '').toLowerCase()
   const extensionOutput =
-    browser === 'firefox' || browser === 'gecko-based' || browser === 'edge'
+    key === 'firefox' ||
+    key === 'gecko-based' ||
+    key === 'firefox-based' ||
+    key === 'edge'
       ? 'Add-on'
       : 'Extension'
-  const b = String(browser || '')
-  const cap = b.charAt(0).toUpperCase() + b.slice(1)
+  const cap =
+    key === 'firefox' || key === 'gecko-based' || key === 'firefox-based'
+      ? 'Firefox'
+      : String(browser || '')
+          .charAt(0)
+          .toUpperCase() + String(browser || '').slice(1)
   const pretty = colors.green('ready for ' + mode)
   return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }
