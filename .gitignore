@@ -86,6 +86,8 @@ dev-debug.log
 # Dependency directories
 node_modules/
 # Environment variables
+# Local npm auth for extension-create (tokens must never be committed)
+programs/create/.npmrc
 # Editor directories and files
 .idea
 .vscode
