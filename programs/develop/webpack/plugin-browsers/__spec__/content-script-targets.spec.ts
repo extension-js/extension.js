@@ -289,8 +289,9 @@ describe('content-script targets helper', () => {
         ...(dependencyPaths.get('content_scripts/content-0') || new Set())
       ]
 
-      expect(trackedPaths).toEqual(
-        expect.arrayContaining([entryOnePath, entryTwoPath, helperPath])
+      const canonical = (p: string) => normalizeModuleResourcePath(p) ?? p
+      expect(new Set(trackedPaths)).toEqual(
+        new Set([entryOnePath, entryTwoPath, helperPath].map(canonical))
       )
       expect(
         getChangedContentScriptEntryNames([helperPath], dependencyPaths)
