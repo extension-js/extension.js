@@ -7,12 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import {createRequire} from 'module'
 import {runWaitMode} from './dev-wait'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {collectProjectProfile} from '../cli-lib/project-profile'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
+import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
 import {
   vendors,
   validateVendorsOrExit,
@@ -69,8 +69,6 @@ type DevOptions = {
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
 }
-
-const require = createRequire(import.meta.url)
 
 export function registerDevCommand(program: Command, telemetry: any) {
   program
@@ -387,8 +385,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
         devOptions.watchSource
       )
 
-      // Load the matching develop runtime from the regular dependency graph.
-      const {extensionDev}: {extensionDev: any} = require('extension-develop')
+      const {extensionDev}: {extensionDev: any} = loadExtensionDevelopModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()

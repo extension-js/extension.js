@@ -7,32 +7,33 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import type {FirefoxContext} from '../firefox-context'
+import type {DevOptions} from '../../../webpack-types'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {MessagingClient} from './remote-firefox/messaging-client'
-import {attachConsoleListeners} from './remote-firefox/logging'
-import {selectActors} from './remote-firefox/setup-firefox-inspection-actors'
-import {ensureNavigatedAndLoaded} from './remote-firefox/setup-firefox-inspection-navigation'
-import {
-  resolveConsoleActorMethod,
-  waitForContentScriptInjectionMethod,
-  getPageHTML
-} from './remote-firefox/source-inspect'
-import type {DevOptions} from '../../../webpack-types'
 import {
   applySourceRedaction,
   buildHtmlSummary,
+  type DomSnapshot,
   diffDomSnapshots,
   emitActionEvent,
   formatHtmlSentinelBegin,
   formatHtmlSentinelEnd,
   hashStringFNV1a,
   normalizeSourceOutputConfig,
-  truncateByBytes,
-  type DomSnapshot,
-  type SourceStage
+  type SourceStage,
+  truncateByBytes
 } from '../../browsers-lib/source-output'
+import type {FirefoxContext} from '../firefox-context'
+import {coerceResponseToString} from './remote-firefox/evaluate'
+import {attachConsoleListeners} from './remote-firefox/logging'
+import {MessagingClient} from './remote-firefox/messaging-client'
+import {selectActors} from './remote-firefox/setup-firefox-inspection-actors'
+import {ensureNavigatedAndLoaded} from './remote-firefox/setup-firefox-inspection-navigation'
+import {
+  getPageHTML,
+  resolveConsoleActorMethod,
+  waitForContentScriptInjectionMethod
+} from './remote-firefox/source-inspect'
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500
@@ -388,6 +389,14 @@ export class FirefoxSourceInspectionPlugin {
         })()`
       )
       this.emitEventPayload('page_meta', stage, meta, metaSnapshot || {})
+      const rootMeta = await this.getExtensionRootMeta()
+      if (rootMeta) {
+        this.emitEventPayload('extension_root_meta', stage, meta, rootMeta)
+      }
+      const styleSnapshot = await this.getShadowStyleSnapshot()
+      if (styleSnapshot) {
+        this.emitEventPayload('shadow_style_output', stage, meta, styleSnapshot)
+      }
     }
 
     if (Array.isArray(this.devOptions?.sourceProbe)) {
@@ -429,7 +438,7 @@ export class FirefoxSourceInspectionPlugin {
       const tree = await this.evaluateJson(
         this.currentConsoleActor,
         `(() => {
-          const rootEl = document.querySelector('#extension-root,[data-extension-root="true"]');
+          const rootEl = document.querySelector('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])');
           if (!rootEl) return null;
           const root = (${this.devOptions.sourceIncludeShadow !== 'off' ? 'rootEl.shadowRoot || rootEl' : 'rootEl'});
           const maxDepth = 4;
@@ -527,13 +536,313 @@ export class FirefoxSourceInspectionPlugin {
     return undefined
   }
 
+  private async evaluateString(actor: string, expression: string) {
+    if (!this.client) return undefined
+    try {
+      const response = await this.client.evaluateRaw(actor, expression)
+      const value = await coerceResponseToString(this.client, actor, response, {
+        fallbackToFullDocument: false
+      })
+      return typeof value === 'string' ? value : String(value || '')
+    } catch {
+      return undefined
+    }
+  }
+
+  private async getShadowStyleSnapshot(): Promise<
+    Record<string, unknown> | undefined
+  > {
+    if (!this.client || !this.currentConsoleActor) return undefined
+
+    try {
+      const count = await this.client.evaluate(
+        this.currentConsoleActor,
+        `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const childStyleCount = Array.from(sr.childNodes || []).filter((node) => {
+                try {
+                  return (
+                    node &&
+                    node.nodeType === 1 &&
+                    String(node.nodeName || '').toLowerCase() === 'style'
+                  )
+                } catch {
+                  return false
+                }
+              }).length
+              if (childStyleCount > 0) return childStyleCount
+              return Array.from(sr.querySelectorAll('style')).length;
+            }
+            return 0;
+          } catch {
+            return 0;
+          }
+        })()`
+      )
+
+      const totalCount = Number(count || 0)
+      const childNodeCss = await this.evaluateString(
+        this.currentConsoleActor,
+        `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const css = Array.from(sr.childNodes || [])
+                .map((node) => {
+                  try {
+                    if (!node || node.nodeType !== 1) return '';
+                    if (String(node.nodeName || '').toLowerCase() !== 'style') return '';
+                    return String(node.textContent || '');
+                  } catch {
+                    return '';
+                  }
+                })
+                .filter(Boolean)
+                .join('\\n');
+              return css;
+            }
+            return '';
+          } catch {
+            return '';
+          }
+        })()`
+      )
+      const adoptedCss = await this.evaluateString(
+        this.currentConsoleActor,
+        `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const sheets = Array.from(sr.adoptedStyleSheets || []);
+              const css = sheets
+                .map((sheet) => {
+                  try {
+                    return Array.from(sheet.cssRules || [])
+                      .map((rule) => String(rule.cssText || ''))
+                      .join('\\n');
+                  } catch {
+                    return '';
+                  }
+                })
+                .filter(Boolean)
+                .join('\\n');
+              return css;
+            }
+            return '';
+          } catch {
+            return '';
+          }
+        })()`
+      )
+      const stylesheetCss = await this.evaluateString(
+        this.currentConsoleActor,
+        `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const sheets = Array.from(sr.styleSheets || []);
+              const css = sheets
+                .map((sheet) => {
+                  try {
+                    return Array.from(sheet.cssRules || [])
+                      .map((rule) => String(rule.cssText || ''))
+                      .join('\\n');
+                  } catch {
+                    return '';
+                  }
+                })
+                .filter(Boolean)
+                .join('\\n');
+              return css;
+            }
+            return '';
+          } catch {
+            return '';
+          }
+        })()`
+      )
+
+      if (
+        (!Number.isFinite(totalCount) || totalCount <= 0) &&
+        !(typeof childNodeCss === 'string' && childNodeCss.trim().length > 0) &&
+        !(typeof adoptedCss === 'string' && adoptedCss.trim().length > 0) &&
+        !(typeof stylesheetCss === 'string' && stylesheetCss.trim().length > 0)
+      ) {
+        return undefined
+      }
+
+      if (typeof childNodeCss === 'string' && childNodeCss.trim().length > 0) {
+        return {
+          rootMode: 'shadow',
+          count: totalCount > 0 ? totalCount : 1,
+          styles: [
+            {
+              html: `<style>${childNodeCss}</style>`,
+              textLength: childNodeCss.length,
+              textSnippet: childNodeCss.trim().slice(0, 200)
+            }
+          ]
+        }
+      }
+
+      if (typeof adoptedCss === 'string' && adoptedCss.trim().length > 0) {
+        return {
+          rootMode: 'shadow',
+          count: totalCount > 0 ? totalCount : 1,
+          styles: [
+            {
+              html: `<style>${adoptedCss}</style>`,
+              textLength: adoptedCss.length,
+              textSnippet: adoptedCss.trim().slice(0, 200)
+            }
+          ]
+        }
+      }
+
+      if (
+        typeof stylesheetCss === 'string' &&
+        stylesheetCss.trim().length > 0
+      ) {
+        return {
+          rootMode: 'shadow',
+          count: totalCount > 0 ? totalCount : 1,
+          styles: [
+            {
+              html: `<style>${stylesheetCss}</style>`,
+              textLength: stylesheetCss.length,
+              textSnippet: stylesheetCss.trim().slice(0, 200)
+            }
+          ]
+        }
+      }
+
+      const shadowHtml = await this.evaluateString(
+        this.currentConsoleActor,
+        `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              return String(sr.innerHTML || '');
+            }
+            return '';
+          } catch {
+            return '';
+          }
+        })()`
+      )
+
+      if (typeof shadowHtml === 'string' && shadowHtml.includes('<style')) {
+        const matches = Array.from(
+          shadowHtml.matchAll(/<style[\s\S]*?<\/style>/g)
+        ).slice(0, 3)
+        if (matches.length > 0) {
+          return {
+            rootMode: 'shadow',
+            count: totalCount,
+            styles: matches.map((match) => {
+              const html = String(match[0] || '')
+              const text = html.replace(/<style[^>]*>|<\/style>/g, '')
+              return {
+                html,
+                textLength: text.length,
+                textSnippet: text.trim().slice(0, 200)
+              }
+            })
+          }
+        }
+      }
+
+      const styles: Array<{
+        html: string
+        textLength: number
+        textSnippet: string
+      }> = []
+      const sampleCount = Math.min(totalCount, 3)
+
+      for (let index = 0; index < sampleCount; index++) {
+        const selectStyleExpression = `(() => {
+          try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const styleEl = Array.from(sr.querySelectorAll('style'))[${index}];
+              if (!styleEl) return null;
+              return styleEl;
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        })()`
+
+        const html = await this.evaluateString(
+          this.currentConsoleActor,
+          `(() => {
+            const styleEl = ${selectStyleExpression};
+            return styleEl ? String(styleEl.outerHTML || '') : '';
+          })()`
+        )
+        const textLength = await this.client.evaluate(
+          this.currentConsoleActor,
+          `(() => {
+            const styleEl = ${selectStyleExpression};
+            return styleEl ? String(styleEl.textContent || '').length : 0;
+          })()`
+        )
+        const textSnippet = await this.evaluateString(
+          this.currentConsoleActor,
+          `(() => {
+            const styleEl = ${selectStyleExpression};
+            return styleEl ? String(styleEl.textContent || '').trim().slice(0, 200) : '';
+          })()`
+        )
+
+        if (typeof html === 'string' && html.length > 0) {
+          styles.push({
+            html,
+            textLength: Number(textLength || 0),
+            textSnippet:
+              typeof textSnippet === 'string'
+                ? textSnippet
+                : String(textSnippet || '')
+          })
+        }
+      }
+
+      if (styles.length === 0) {
+        return undefined
+      }
+
+      return {
+        rootMode: 'shadow',
+        count: totalCount,
+        styles
+      }
+    } catch {
+      return undefined
+    }
+  }
+
   private async getDomSnapshot(): Promise<DomSnapshot | undefined> {
     if (!this.client || !this.currentConsoleActor) return undefined
     const includeShadow = this.devOptions?.sourceIncludeShadow !== 'off'
     const payload = await this.evaluateJson(
       this.currentConsoleActor,
       `(() => {
-        const rootEl = document.querySelector('#extension-root,[data-extension-root="true"]');
+        const rootEl = document.querySelector('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])');
         if (!rootEl) return null;
         const root = (${includeShadow ? 'rootEl.shadowRoot || rootEl' : 'rootEl'});
         const maxDepth = 6;
@@ -596,6 +905,287 @@ export class FirefoxSourceInspectionPlugin {
       })()`
     )
     if (payload && typeof payload === 'object') return payload as DomSnapshot
+    return undefined
+  }
+
+  private async getExtensionRootMeta(): Promise<
+    | {
+        rootCount: number
+        markerCount: number
+        registryCount: number
+        latestGeneration: number
+        debug?: {
+          stage?: string
+          rootCount?: number
+          ownedRootCount?: number
+          markerCount?: number
+          lastRemoval?: string
+          lastRemovalSource?: string
+          lastRemovalKey?: string
+          lastRemovedNodeTag?: string
+          lastRemovedNodeId?: string
+          lastRemovedNodeClass?: string
+          lastRemovedNodeDirect?: string
+          lastRemovalReadyState?: string
+          lastRemovalUrl?: string
+          lastRemovalParentTag?: string
+          executionCount?: number
+          lastExecutionStage?: string
+          lastExecutionKey?: string
+          existingRootCountBeforeCleanup?: number
+        }
+        page?: {
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }
+        roots: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        markers: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        registries: Array<{
+          key: string
+          generation?: number
+          hasCleanup: boolean
+        }>
+      }
+    | undefined
+  > {
+    if (!this.client || !this.currentConsoleActor) return undefined
+    const payload = await this.evaluateJson(
+      this.currentConsoleActor,
+      `(() => {
+        const readGeneration = (node) => {
+          try {
+            const raw = node && node.getAttribute
+              ? node.getAttribute('data-extjs-reinject-generation')
+              : '';
+            if (typeof raw !== 'string' || raw.trim() === '') return undefined;
+            const parsed = Number(raw);
+            return Number.isFinite(parsed) ? parsed : undefined;
+          } catch (error) {
+            return undefined;
+          }
+        };
+        const readRegistryGeneration = (entry) => {
+          try {
+            if (!entry) return undefined;
+            if (typeof entry === 'function' && typeof entry.__extjsGeneration === 'number') {
+              return entry.__extjsGeneration;
+            }
+            if (typeof entry === 'object') {
+              if (typeof entry.__extjsGeneration === 'number') return entry.__extjsGeneration;
+              if (typeof entry.generation === 'number') return entry.generation;
+              if (typeof entry.cleanup === 'function' && typeof entry.cleanup.__extjsGeneration === 'number') {
+                return entry.cleanup.__extjsGeneration;
+              }
+            }
+          } catch (error) {
+            return undefined;
+          }
+          return undefined;
+        };
+        const normalize = (node) => ({
+          tag: node && node.tagName ? String(node.tagName).toLowerCase() : 'unknown',
+          id: node && node.id ? String(node.id) : undefined,
+          key: node && node.getAttribute ? node.getAttribute('data-extjs-reinject-key') || undefined : undefined,
+          generation: readGeneration(node),
+          status: node && node.getAttribute ? node.getAttribute('data-extjs-reinject-status') || undefined : undefined,
+          build: node && node.getAttribute ? node.getAttribute('data-extjs-reinject-build') || undefined : undefined
+        });
+        const roots = Array.from(
+          document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])')
+        )
+          .slice(0, 10)
+          .map(normalize);
+        const page = (() => {
+          try {
+            const node = document.documentElement;
+            if (!node || typeof node.getAttribute !== 'function') return undefined;
+            const raw = node.getAttribute('data-extjs-last-reinject-generation');
+            const generation =
+              typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw))
+                ? Number(raw)
+                : undefined;
+            return {
+              key: node.getAttribute('data-extjs-last-reinject-key') || undefined,
+              generation,
+              status: node.getAttribute('data-extjs-last-reinject-status') || undefined,
+              build: node.getAttribute('data-extjs-last-reinject-build') || undefined
+            };
+          } catch (error) {
+            return undefined;
+          }
+        })();
+        const debug = (() => {
+          try {
+            const node = document.documentElement;
+            if (!node || typeof node.getAttribute !== 'function') return undefined;
+            const parseMaybeNumber = (raw) =>
+              typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw))
+                ? Number(raw)
+                : undefined;
+            return {
+              stage: node.getAttribute('data-extjs-debug-stage') || undefined,
+              rootCount: parseMaybeNumber(node.getAttribute('data-extjs-debug-root-count')),
+              ownedRootCount: parseMaybeNumber(
+                node.getAttribute('data-extjs-debug-owned-root-count')
+              ),
+              markerCount: parseMaybeNumber(
+                node.getAttribute('data-extjs-debug-marker-count')
+              ),
+              lastRemoval:
+                node.getAttribute('data-extjs-debug-last-removal') || undefined,
+              lastRemovalSource:
+                node.getAttribute('data-extjs-debug-last-removal-source') ||
+                undefined,
+              lastRemovalKey:
+                node.getAttribute('data-extjs-debug-last-removal-key') ||
+                undefined,
+              lastRemovedNodeTag:
+                node.getAttribute('data-extjs-debug-last-removed-node-tag') ||
+                undefined,
+              lastRemovedNodeId:
+                node.getAttribute('data-extjs-debug-last-removed-node-id') ||
+                undefined,
+              lastRemovedNodeClass:
+                node.getAttribute('data-extjs-debug-last-removed-node-class') ||
+                undefined,
+              lastRemovedNodeDirect:
+                node.getAttribute('data-extjs-debug-last-removed-node-direct') ||
+                undefined,
+              lastRemovalReadyState:
+                node.getAttribute('data-extjs-debug-last-removal-ready-state') ||
+                undefined,
+              lastRemovalUrl:
+                node.getAttribute('data-extjs-debug-last-removal-url') ||
+                undefined,
+              lastRemovalParentTag:
+                node.getAttribute('data-extjs-debug-last-removal-parent-tag') ||
+                undefined,
+              executionCount: parseMaybeNumber(
+                node.getAttribute('data-extjs-debug-execution-count')
+              ),
+              lastExecutionStage:
+                node.getAttribute('data-extjs-debug-last-execution-stage') ||
+                undefined,
+              lastExecutionKey:
+                node.getAttribute('data-extjs-debug-last-execution-key') ||
+                undefined,
+              existingRootCountBeforeCleanup: parseMaybeNumber(
+                node.getAttribute(
+                  'data-extjs-debug-existing-root-count-before-cleanup'
+                )
+              )
+            };
+          } catch (error) {
+            return undefined;
+          }
+        })();
+        const markers = Array.from(
+          document.querySelectorAll('[data-extjs-reinject-marker="true"]')
+        )
+          .slice(0, 10)
+          .map(normalize);
+        const registry = (typeof globalThis === 'object' && globalThis && globalThis.__EXTENSIONJS_DEV_REINJECT__)
+          ? globalThis.__EXTENSIONJS_DEV_REINJECT__
+          : {};
+        const registries = Object.entries(registry || {})
+          .slice(0, 20)
+          .map(([key, entry]) => ({
+            key,
+            generation: readRegistryGeneration(entry),
+            hasCleanup:
+              typeof entry === 'function' ||
+              !!(entry && typeof entry === 'object' && typeof entry.cleanup === 'function')
+          }));
+        const generations = roots
+          .concat(markers)
+          .map((entry) => entry.generation)
+          .concat(typeof page?.generation === 'number' ? [page.generation] : [])
+          .concat(registries.map((entry) => entry.generation))
+          .filter((value) => typeof value === 'number');
+        return {
+          rootCount: roots.length,
+          markerCount: markers.length,
+          registryCount: registries.length,
+          latestGeneration: generations.length ? Math.max(...generations) : 0,
+          debug,
+          page,
+          roots,
+          markers,
+          registries
+        };
+      })()`
+    )
+    if (payload && typeof payload === 'object') {
+      return payload as {
+        rootCount: number
+        markerCount: number
+        registryCount: number
+        latestGeneration: number
+        debug?: {
+          stage?: string
+          rootCount?: number
+          ownedRootCount?: number
+          markerCount?: number
+          lastRemoval?: string
+          lastRemovalSource?: string
+          lastRemovalKey?: string
+          lastRemovedNodeTag?: string
+          lastRemovedNodeId?: string
+          lastRemovedNodeClass?: string
+          lastRemovedNodeDirect?: string
+          lastRemovalReadyState?: string
+          lastRemovalUrl?: string
+          lastRemovalParentTag?: string
+          executionCount?: number
+          lastExecutionStage?: string
+          lastExecutionKey?: string
+          existingRootCountBeforeCleanup?: number
+        }
+        page?: {
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }
+        roots: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        markers: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        registries: Array<{
+          key: string
+          generation?: number
+          hasCleanup: boolean
+        }>
+      }
+    }
     return undefined
   }
 
@@ -804,6 +1394,12 @@ export class FirefoxSourceInspectionPlugin {
           // Ignore
         }
 
+        try {
+          await this.waitForContentScriptStyles(actorToUse)
+        } catch {
+          // Ignore style wait failures; HTML extraction still proceeds.
+        }
+
         const html =
           (await getPageHTML(this.client, descriptor, actorToUse)) || ''
         this.emitSourceOutput(html, 'post_injection', meta)
@@ -819,7 +1415,156 @@ export class FirefoxSourceInspectionPlugin {
 
   private async waitForContentScriptInjection(consoleActor: string) {
     if (!this.client) return
-    await waitForContentScriptInjectionMethod(this.client, consoleActor)
+    return await waitForContentScriptInjectionMethod(this.client, consoleActor)
+  }
+
+  private async hasVisibleShadowHostContentFirefox(): Promise<boolean> {
+    if (!this.client || !this.currentConsoleActor) return false
+    try {
+      const v = await this.client.evaluate(
+        this.currentConsoleActor,
+        `(() => { try {
+          const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+          for (const h of hosts) {
+            const sr = h && h.shadowRoot;
+            if (sr && String(sr.innerHTML || '').trim().length > 0) return true;
+          }
+          return false;
+        } catch { return false } })()`
+      )
+      return Boolean(v)
+    } catch {
+      return false
+    }
+  }
+
+  /** Align with Chromium: settle root meta / shadow styles before emitting injection telemetry. */
+  private async shouldEmitFirefoxContentScriptInjected(
+    injectionWaitOk: boolean
+  ): Promise<boolean> {
+    if (!injectionWaitOk || !this.client || !this.currentConsoleActor) {
+      return false
+    }
+    const deadline = Date.now() + 2800
+    while (Date.now() < deadline) {
+      const rootMeta = await this.getExtensionRootMeta()
+      const shadow = await this.getShadowStyleSnapshot()
+      if (rootMeta && rootMeta.rootCount >= 1) return true
+      if (
+        shadow &&
+        typeof shadow.count === 'number' &&
+        Number(shadow.count) > 0
+      ) {
+        return true
+      }
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    return this.hasVisibleShadowHostContentFirefox()
+  }
+
+  private async reopenTabAndResolveActors(urlToInspect: string) {
+    if (!this.client) return null
+
+    try {
+      if (
+        process.env.EXTENSION_AUTHOR_MODE === 'true' ||
+        process.env.EXTENSION_DEBUG_FIREFOX_INSPECTION === '1'
+      ) {
+        console.log(
+          `[RDP] source inspection reopening fresh tab for ${String(urlToInspect)}`
+        )
+      }
+      await this.client.addTab(urlToInspect)
+      await wait(300)
+      const {tabActor, consoleActor} = await this.selectActors(urlToInspect)
+      this.currentTabActor = tabActor
+      const resolvedConsoleActor = await this.resolveConsoleActor(
+        tabActor,
+        urlToInspect
+      )
+      this.currentConsoleActor = resolvedConsoleActor || consoleActor
+      if (
+        process.env.EXTENSION_AUTHOR_MODE === 'true' ||
+        process.env.EXTENSION_DEBUG_FIREFOX_INSPECTION === '1'
+      ) {
+        console.log(
+          `[RDP] reopened tabActor=${String(tabActor)} consoleActor=${String(
+            this.currentConsoleActor || ''
+          )}`
+        )
+      }
+      return {
+        tabActor,
+        consoleActor: this.currentConsoleActor
+      }
+    } catch {
+      return null
+    }
+  }
+
+  private async waitForContentScriptStyles(consoleActor: string) {
+    if (!this.client) return
+
+    const deadline = Date.now() + 10000
+    while (Date.now() < deadline) {
+      try {
+        const hasStyles = await this.client.evaluate(
+          consoleActor,
+          `(() => { try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            if (!hosts.length) return false;
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const styles = Array.from(sr.querySelectorAll('style'));
+              if (styles.some((styleEl) => String(styleEl.outerHTML || '').includes('<style') && String(styleEl.textContent || '').trim().length > 0)) {
+                return true;
+              }
+              const childStyles = Array.from(sr.childNodes || []);
+              if (childStyles.some((node) => {
+                try {
+                  return (
+                    node &&
+                    node.nodeType === 1 &&
+                    String(node.nodeName || '').toLowerCase() === 'style' &&
+                    String(node.textContent || '').trim().length > 0
+                  );
+                } catch {
+                  return false;
+                }
+              })) {
+                return true;
+              }
+              const adoptedSheets = Array.from(sr.adoptedStyleSheets || []);
+              if (adoptedSheets.some((sheet) => {
+                try {
+                  return Array.from(sheet.cssRules || []).length > 0;
+                } catch {
+                  return false;
+                }
+              })) {
+                return true;
+              }
+              const styleSheets = Array.from(sr.styleSheets || []);
+              if (styleSheets.some((sheet) => {
+                try {
+                  return Array.from(sheet.cssRules || []).length > 0;
+                } catch {
+                  return false;
+                }
+              })) {
+                return true;
+              }
+            }
+            return false;
+          } catch { return false } })()`
+        )
+        if (hasStyles) return
+      } catch {
+        // Ignore transient evaluation failures while the page settles.
+      }
+      await wait(200)
+    }
   }
 
   private async handleFileChange() {
@@ -846,6 +1591,11 @@ export class FirefoxSourceInspectionPlugin {
         }
 
         await this.waitForContentScriptInjection(this.currentConsoleActor!)
+        try {
+          await this.waitForContentScriptStyles(this.currentConsoleActor!)
+        } catch {
+          // Ignore style wait failures; HTML extraction still proceeds.
+        }
         let lastError: unknown = null
 
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -891,6 +1641,12 @@ export class FirefoxSourceInspectionPlugin {
     }, CHANGE_DEBOUNCE_MS)
   }
 
+  private registerContentReloadSnapshotHook() {
+    ;(globalThis as any).__EXTJS_ON_FIREFOX_CONTENT_RELOADED__ = async () => {
+      await this.handleFileChange()
+    }
+  }
+
   apply(compiler: Compiler) {
     if (this.host.dryRun) return
     if (compiler.options.mode !== 'development') return
@@ -911,6 +1667,31 @@ export class FirefoxSourceInspectionPlugin {
 
           const urlToInspect = this.resolveUrlToInspect()
           this.lastUrlToInspect = urlToInspect
+          const forceSourceReinspect = Boolean(
+            (this.host as any).__extjsForceSourceReinspect
+          )
+
+          if (forceSourceReinspect) {
+            ;(this.host as any).__extjsForceSourceReinspect = false
+            this.currentConsoleActor = null
+            this.currentTabActor = null
+          }
+
+          if (
+            this.devOptions?.watchSource &&
+            !forceSourceReinspect &&
+            this.isWatching &&
+            this.currentConsoleActor &&
+            this.currentTabActor
+          ) {
+            if ((globalThis as any).__EXTJS_PENDING_FIREFOX_CONTENT_RELOAD__) {
+              done()
+              return
+            }
+            await this.handleFileChange()
+            done()
+            return
+          }
 
           if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
             console.log(messages.sourceInspectorWillInspect(urlToInspect))
@@ -931,17 +1712,104 @@ export class FirefoxSourceInspectionPlugin {
           this.currentConsoleActor = resolvedConsoleActor || consoleActor
 
           if (this.currentConsoleActor) {
-            await this.waitForContentScriptInjection(this.currentConsoleActor)
-            emitActionEvent('content_script_injected', {url: urlToInspect})
+            let injected = await this.waitForContentScriptInjection(
+              this.currentConsoleActor
+            )
+            if (
+              process.env.EXTENSION_AUTHOR_MODE === 'true' ||
+              process.env.EXTENSION_DEBUG_FIREFOX_INSPECTION === '1'
+            ) {
+              console.log(
+                `[RDP] initial content-script wait result=${String(
+                  Boolean(injected)
+                )} actor=${String(this.currentConsoleActor)}`
+              )
+            }
+            if (!injected) {
+              const reopened =
+                await this.reopenTabAndResolveActors(urlToInspect)
+              if (reopened?.consoleActor) {
+                emitActionEvent('navigation_start', {url: urlToInspect})
+                await this.ensureNavigatedAndLoaded(
+                  urlToInspect,
+                  reopened.tabActor
+                )
+                emitActionEvent('navigation_end', {url: urlToInspect})
+                injected = await this.waitForContentScriptInjection(
+                  reopened.consoleActor
+                )
+                if (
+                  process.env.EXTENSION_AUTHOR_MODE === 'true' ||
+                  process.env.EXTENSION_DEBUG_FIREFOX_INSPECTION === '1'
+                ) {
+                  console.log(
+                    `[RDP] fresh-tab content-script wait result=${String(
+                      Boolean(injected)
+                    )} actor=${String(reopened.consoleActor)}`
+                  )
+                }
+              }
+            }
+            try {
+              const actorHref = this.currentConsoleActor
+                ? await this.client?.evaluate(
+                    this.currentConsoleActor,
+                    'String(location.href || "")'
+                  )
+                : undefined
+              // #region agent log
+              fetch(
+                'http://127.0.0.1:7795/ingest/9eb8f923-a325-4455-a46c-a6e706558307',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': 'a87efc'
+                  },
+                  body: JSON.stringify({
+                    sessionId: 'a87efc',
+                    runId:
+                      process.env.EXTENSION_INSTANCE_ID ||
+                      'firefox-source-inspection',
+                    hypothesisId: 'H4',
+                    location:
+                      'firefox-source-inspection/index.ts:before-content-script-event',
+                    message: 'Firefox content-script event boundary',
+                    data: {
+                      urlToInspect,
+                      currentTabActor: this.currentTabActor,
+                      currentConsoleActor: this.currentConsoleActor,
+                      injected,
+                      actorHref
+                    },
+                    timestamp: Date.now()
+                  })
+                }
+              ).catch(() => {})
+              // #endregion
+            } catch {
+              // Ignore debug probe failures.
+            }
+            if (injected) {
+              const emitOk =
+                await this.shouldEmitFirefoxContentScriptInjected(injected)
+              if (emitOk) {
+                emitActionEvent('content_script_injected', {url: urlToInspect})
+              }
+            }
+            try {
+              await this.waitForContentScriptStyles(this.currentConsoleActor)
+            } catch {
+              // Ignore style wait failures; HTML extraction still proceeds.
+            }
 
             // Pass descriptor and console hints for robust HTML extraction
             await this.printHTML(this.currentConsoleActor)
           }
 
           if (this.devOptions?.watchSource) {
-            // On each rebuild, re-print current HTML immediately (debounced by handleFileChange)
+            this.registerContentReloadSnapshotHook()
             this.isWatching = true
-            await this.handleFileChange()
           }
         } catch (error) {
           if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
