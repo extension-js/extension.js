@@ -9,6 +9,9 @@
 import * as messages from '../../browsers-lib/messages'
 import {CDPClient} from './cdp-client'
 
+const CONTENT_HTML_HINT_RE =
+  /(id=\"extension-root\"|data-extension-root=|content_script|content_title|js-probe|data-extjs-last-reinject-status=\"mounted\"|data-extjs-reinject-marker=)/i
+
 export async function extractPageHtml(
   cdpClient: CDPClient,
   sessionId: string,
@@ -52,12 +55,9 @@ export async function extractPageHtml(
     }
   }
 
-  if (
-    !html ||
-    !/(id=\"extension-root\"|content_script|content_title|js-probe)/.test(html)
-  ) {
-    for (let i = 0; i < 3; i++) {
-      await new Promise((r) => setTimeout(r, 500))
+  if (!html || !CONTENT_HTML_HINT_RE.test(html)) {
+    for (let i = 0; i < 1; i++) {
+      await new Promise((r) => setTimeout(r, 250))
 
       try {
         const againHtml = await cdpClient.getPageHTML(sessionId, includeShadow)
@@ -67,12 +67,7 @@ export async function extractPageHtml(
           console.log(messages.devHtmlSampleLate(sample3))
         }
 
-        if (
-          againHtml &&
-          /(id=\"extension-root\"|content_script|content_title|js-probe)/.test(
-            againHtml
-          )
-        ) {
+        if (againHtml && CONTENT_HTML_HINT_RE.test(againHtml)) {
           html = againHtml
           break
         }
@@ -84,7 +79,7 @@ export async function extractPageHtml(
 
   // Last-resort: directly evaluate document.documentElement.outerHTML with retries
   if (!html || html.trim().length === 0) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 2; i++) {
       try {
         const evaluatedHtml = (await cdpClient.evaluate(
           sessionId,
@@ -105,7 +100,7 @@ export async function extractPageHtml(
       } catch {
         // ignore
       }
-      await new Promise((r) => setTimeout(r, 400))
+      await new Promise((r) => setTimeout(r, 200))
     }
   }
 

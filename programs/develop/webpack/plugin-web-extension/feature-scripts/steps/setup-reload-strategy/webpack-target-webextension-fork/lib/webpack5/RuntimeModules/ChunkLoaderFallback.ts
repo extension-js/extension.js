@@ -23,7 +23,11 @@ export default function ChunkLoaderFallbackRuntimeModule(
         : 'var'
       const _let = compilation.outputOptions.environment.const ? 'let' : 'var'
 
+      // Guard: HMR update chunks may run before BrowserRuntime initializes
+      // `webExtRt`, or runtime detection can yield `{ runtime: null }` in some
+      // contexts. Skipping registration avoids crashing the service worker.
       return (
+        `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && ${RuntimeGlobal}.runtime.onMessage) {` +
         `${RuntimeGlobal}.runtime.onMessage.addListener(` +
         f('message, sender, sendResponse', [
           optionalChain
@@ -55,7 +59,8 @@ export default function ChunkLoaderFallbackRuntimeModule(
           '}',
           'return true;'
         ]) +
-        ');'
+        ');' +
+        '}'
       )
     }
   }
