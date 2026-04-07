@@ -138,8 +138,6 @@ export interface PluginInterface extends PluginOptions {
    * Example: 'dist/extension' or ['dist/extension', 'dist/extension2']
    */
   extension: string | string[]
-  /** Optional precomputed list of extensions to load (Firefox helper). */
-  extensionsToLoad?: string[]
 
   /**
    * Port to use for the extension or debugging.

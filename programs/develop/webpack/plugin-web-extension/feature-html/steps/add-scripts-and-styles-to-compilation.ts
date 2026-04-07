@@ -11,6 +11,8 @@ import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import * as htmlUtils from '../html-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {getDevServerHmrImports} from '../../../webpack-lib/dev-server-client-import'
+import {resolveDevelopDistFile} from '../../../optional-deps-lib/runtime-context'
 
 export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
@@ -29,6 +31,10 @@ export class AddScriptsAndStylesToCompilation {
     const projectRoot = (compiler.options.context as string) || manifestDir
     const publicDir = path.join(projectRoot, 'public')
     const hasPublicDir = fs.existsSync(publicDir)
+    const devServerHmrImports =
+      compiler.options.mode === 'development'
+        ? getDevServerHmrImports(compiler)
+        : []
 
     for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field
@@ -55,8 +61,12 @@ export class AddScriptsAndStylesToCompilation {
         const fileAssets = [...jsAssets, ...cssAssets]
 
         if (compiler.options.mode === 'development') {
+          if (devServerHmrImports.length > 0) {
+            fileAssets.unshift(...devServerHmrImports)
+          }
+
           // you can't HMR without a .js file, so we add a minimum script file.
-          const hmrScript = path.resolve(__dirname, 'minimum-script-file')
+          const hmrScript = resolveDevelopDistFile('minimum-script-file')
           fileAssets.push(hmrScript)
         }
 

@@ -93,6 +93,13 @@ describe('diffDomSnapshots', () => {
     expect(diff.added).toBe(1)
     expect(diff.removed).toBe(0)
   })
+
+  it('tolerates malformed snapshots without nodes arrays', () => {
+    const diff = diffDomSnapshots({} as any, {} as any)
+    expect(diff.added).toBe(0)
+    expect(diff.removed).toBe(0)
+    expect(diff.changed).toBe(0)
+  })
 })
 
 describe('emitActionEvent', () => {

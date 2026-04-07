@@ -3,7 +3,10 @@ import * as os from 'os'
 import * as path from 'path'
 import {afterEach, describe, expect, it} from 'vitest'
 
-import {waitForStableManifest} from '../../run-chromium/manifest-readiness'
+import {
+  waitForStableFiles,
+  waitForStableManifest
+} from '../../run-chromium/manifest-readiness'
 
 describe('waitForStableManifest', () => {
   const tempDirs: string[] = []
@@ -106,6 +109,79 @@ describe('waitForStableManifest', () => {
       timeoutMs: 120,
       pollIntervalMs: 20
     })
+
+    expect(ready).toBe(false)
+  })
+})
+
+describe('waitForStableFiles', () => {
+  const tempDirs: string[] = []
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0, tempDirs.length)) {
+      try {
+        fs.rmSync(dir, {recursive: true, force: true})
+      } catch {
+        // ignore cleanup failures
+      }
+    }
+  })
+
+  it('waits until files exist and stabilize across reads', async () => {
+    const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'files-ready-'))
+    tempDirs.push(outPath)
+
+    setTimeout(() => {
+      fs.mkdirSync(path.join(outPath, 'content_scripts'), {recursive: true})
+      fs.writeFileSync(
+        path.join(outPath, 'content_scripts', 'content-0.js'),
+        'v1',
+        'utf-8'
+      )
+    }, 10)
+
+    setTimeout(() => {
+      fs.writeFileSync(
+        path.join(outPath, 'content_scripts', 'content-0.js'),
+        'v2',
+        'utf-8'
+      )
+      fs.writeFileSync(
+        path.join(outPath, 'content_scripts', 'styles.hash.css'),
+        'css',
+        'utf-8'
+      )
+    }, 30)
+
+    const ready = await waitForStableFiles(
+      outPath,
+      ['content_scripts/content-0.js', 'content_scripts/styles.hash.css'],
+      {
+        timeoutMs: 500,
+        pollIntervalMs: 20
+      }
+    )
+
+    expect(ready).toBe(true)
+  })
+
+  it('returns false when any file never appears', async () => {
+    const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'files-ready-'))
+    tempDirs.push(outPath)
+    fs.mkdirSync(path.join(outPath, 'content_scripts'), {recursive: true})
+    fs.writeFileSync(
+      path.join(outPath, 'content_scripts', 'content-0.js'),
+      'v1'
+    )
+
+    const ready = await waitForStableFiles(
+      outPath,
+      ['content_scripts/content-0.js', 'content_scripts/missing.css'],
+      {
+        timeoutMs: 120,
+        pollIntervalMs: 20
+      }
+    )
 
     expect(ready).toBe(false)
   })

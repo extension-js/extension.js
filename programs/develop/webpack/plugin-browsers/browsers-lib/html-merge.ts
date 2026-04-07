@@ -39,14 +39,7 @@ export function mergeShadowIntoDocument(
       )
     }
 
-    if (/<\/body>/i.test(mainHTML)) {
-      return mainHTML.replace(
-        /<\/body>/i,
-        `<div id="extension-root">${shadowContent}</div></body>`
-      )
-    }
-
-    return `${mainHTML}\n<div id="extension-root">${shadowContent}</div>`
+    return mainHTML
   } catch {
     return mainHTML
   }

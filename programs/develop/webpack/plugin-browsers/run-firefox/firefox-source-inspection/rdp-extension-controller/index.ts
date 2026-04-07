@@ -9,10 +9,10 @@
 import type {Compilation} from '@rspack/core'
 import {RemoteFirefox} from '../remote-firefox'
 import type {DevOptions} from '../../../../webpack-types'
+import type {ContentScriptTargetRule} from '../../../browsers-lib/content-script-targets'
 
 type PluginLike = {
   extension: string | string[]
-  extensionsToLoad?: string[]
   browser: DevOptions['browser']
   browserFlags?: string[]
   profile?: string | false
@@ -33,7 +33,6 @@ export class FirefoxRDPController {
   constructor(plugin: PluginLike, debugPort: number) {
     this.remote = new RemoteFirefox({
       extension: plugin.extension,
-      extensionsToLoad: plugin.extensionsToLoad,
       browser: plugin.browser,
       browserFlags: plugin.browserFlags,
       profile: plugin.profile,
@@ -76,6 +75,12 @@ export class FirefoxRDPController {
     } else {
       await this.remote.installAddons(compilation)
     }
+  }
+
+  async reloadMatchingTabsForContentScripts(
+    rules: ContentScriptTargetRule[]
+  ): Promise<number> {
+    return this.remote.reloadMatchingTabsForContentScripts(rules)
   }
 
   async enableUnifiedLogging(opts: {
