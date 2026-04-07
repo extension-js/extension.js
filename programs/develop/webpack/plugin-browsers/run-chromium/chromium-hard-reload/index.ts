@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
 import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
 import type {ChromiumContext} from '../chromium-context'
@@ -13,6 +14,19 @@ import * as messages from '../../browsers-lib/messages'
 import {emitActionEvent} from '../../browsers-lib/source-output'
 import {waitForStableManifest} from '../manifest-readiness'
 import type {DevOptions} from '../../../webpack-types'
+import {
+  collectContentScriptDependencyPaths,
+  getChangedContentScriptEntryNames,
+  isContentScriptEntryName,
+  isCanonicalContentScriptAsset,
+  normalizeModuleResourcePath,
+  readContentScriptRules,
+  selectContentScriptRules
+} from '../../browsers-lib/content-script-targets'
+import {
+  getCanonicalContentScriptEntryName,
+  parseCanonicalContentScriptAsset
+} from '../../../plugin-web-extension/feature-scripts/contracts'
 
 /**
  * ChromiumHardReloadPlugin
@@ -28,6 +42,11 @@ export class ChromiumHardReloadPlugin {
   private hasCompletedSuccessfulBuild = false
   private firstSuccessfulBuildAtMs: number | null = null
   private static readonly INITIAL_RELOAD_COOLDOWN_MS = 5000
+  private contentReloadGeneration = 0
+  private contentReloadQuietPeriodMs = 1200
+  private contentReloadFollowupMs = 1200
+  private lastWatchIncludedContentChanges = false
+  private awaitingSettledContentBuild = false
   /**
    * Tracks the *author/source* file paths that are part of the service worker entrypoint
    * (including transitive dependencies) from the last successful compilation.
@@ -36,6 +55,20 @@ export class ChromiumHardReloadPlugin {
    * `manifest.json` reports *output* (dist) paths. Comparing those directly will fail.
    */
   private serviceWorkerSourceDependencyPaths: Set<string> = new Set()
+  private serviceWorkerSourceSignatures: Map<string, string> = new Map()
+  private manifestSourceSignatures: Map<string, string> = new Map()
+  private localeSourceSignatures: Map<string, string> = new Map()
+  private contentScriptSourceDependencyPathsByEntry: Map<string, Set<string>> =
+    new Map()
+  private contentScriptSourceSignaturesByEntry: Map<
+    string,
+    Map<string, string>
+  > = new Map()
+  private contentScriptOutputSignaturesByEntry: Map<
+    string,
+    Map<string, string>
+  > = new Map()
+  private pendingContentReloadEntryNames: string[] = []
 
   private getWatchedManifestSourcePaths(compiler: Compiler): string[] {
     const compilerContextRoot = String(
@@ -81,6 +114,7 @@ export class ChromiumHardReloadPlugin {
         'run-browsers:watch',
         (compilerWithModifiedFiles, done) => {
           try {
+            this.contentReloadGeneration += 1
             const modifiedFiles: ReadonlySet<string> =
               compilerWithModifiedFiles?.modifiedFiles || new Set<string>()
             const normalizedModifiedFilePaths = Array.from(modifiedFiles).map(
@@ -193,11 +227,43 @@ export class ChromiumHardReloadPlugin {
             }
 
             if (hitManifest) {
+              this.pendingContentReloadEntryNames = []
               this.ctx.setPendingReloadReason('manifest')
             } else if (localeChanged) {
+              this.pendingContentReloadEntryNames = []
               this.ctx.setPendingReloadReason('locales')
             } else if (serviceWorkerChanged) {
+              this.pendingContentReloadEntryNames = []
               this.ctx.setPendingReloadReason('sw')
+            } else {
+              const changedContentEntries = getChangedContentScriptEntryNames(
+                sourceModifiedFilePaths,
+                this.contentScriptSourceDependencyPathsByEntry
+              )
+              this.lastWatchIncludedContentChanges =
+                changedContentEntries.length > 0
+              if (changedContentEntries.length > 0) {
+                this.pendingContentReloadEntryNames = changedContentEntries
+                this.awaitingSettledContentBuild = true
+                ;(globalThis as any).__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__ =
+                  true
+              }
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  `[reload] changed content entries: ${this.pendingContentReloadEntryNames.join(', ') || '<none>'}`
+                )
+              }
+              if (this.shouldEmitReloadActionEvent()) {
+                emitActionEvent('reload_debug', {
+                  phase: 'watch',
+                  browser: this.options?.browser,
+                  sourceModifiedFilePaths,
+                  changedContentEntries,
+                  pendingContentReloadEntryNames: [
+                    ...this.pendingContentReloadEntryNames
+                  ]
+                })
+              }
             }
           } catch (error) {
             this.logger?.warn?.(
@@ -221,11 +287,57 @@ export class ChromiumHardReloadPlugin {
         return
       }
 
+      const inferredEntryNamesFromSourceSignatures =
+        this.inferContentReloadEntryNamesFromSourceSignatures()
+      const inferredHardReloadReason =
+        this.inferHardReloadReasonFromSourceSignatures(compiler)
+      const nextManifestSourceSignatures =
+        this.collectManifestSourceSignatures(compiler)
+      const nextLocaleSourceSignatures =
+        this.collectLocaleSourceSignatures(compiler)
+      const nextServiceWorkerSourceDependencyPaths =
+        this.collectEntrypointModuleResourcePaths(
+          stats.compilation,
+          'background/service_worker'
+        )
+      const nextServiceWorkerSourceSignatures =
+        this.collectSourceSignaturesFromPaths(
+          nextServiceWorkerSourceDependencyPaths
+        )
+      const nextContentScriptSourceDependencyPaths =
+        this.collectContentScriptSourceDependencyPaths(stats.compilation)
+      const nextContentScriptSourceSignatures =
+        this.collectContentScriptSourceSignatures(
+          nextContentScriptSourceDependencyPaths
+        )
+      const contentScriptOutputRoot =
+        this.ctx.getExtensionRoot() ||
+        String(stats?.compilation?.options?.output?.path || '')
+      const nextContentScriptOutputSignatures =
+        this.collectContentScriptOutputSignatures(
+          stats.compilation,
+          contentScriptOutputRoot || undefined
+        )
+      const inferredEntryNamesFromOutputSignatures =
+        this.inferContentReloadEntryNamesFromOutputSignatures(
+          nextContentScriptOutputSignatures
+        )
+
       // Refresh tracking data from the successful compilation:
       // - output SW path (from emitted manifest asset)
       // - source SW dependency paths (from module graph)
       this.refreshSWFromManifest(stats.compilation)
-      this.refreshServiceWorkerSourceDependencyPaths(stats.compilation)
+      this.serviceWorkerSourceDependencyPaths =
+        nextServiceWorkerSourceDependencyPaths
+      this.serviceWorkerSourceSignatures = nextServiceWorkerSourceSignatures
+      this.manifestSourceSignatures = nextManifestSourceSignatures
+      this.localeSourceSignatures = nextLocaleSourceSignatures
+      this.contentScriptSourceDependencyPathsByEntry =
+        nextContentScriptSourceDependencyPaths
+      this.contentScriptSourceSignaturesByEntry =
+        nextContentScriptSourceSignatures
+      this.contentScriptOutputSignaturesByEntry =
+        nextContentScriptOutputSignatures
 
       // First successful build is the extension cold-start phase.
       // Avoid any hard reload attempts here (manifest/sw/locales) because
@@ -233,17 +345,244 @@ export class ChromiumHardReloadPlugin {
       if (!this.hasCompletedSuccessfulBuild) {
         this.hasCompletedSuccessfulBuild = true
         this.firstSuccessfulBuildAtMs = Date.now()
+        this.pendingContentReloadEntryNames = []
         this.ctx.clearPendingReloadReason()
         return
       }
 
+      const assetsArr: Array<{name: string; emitted?: boolean}> = Array.isArray(
+        stats?.compilation?.getAssets?.()
+      )
+        ? (stats.compilation.getAssets() as any)
+        : []
+      const changedAssets = assetsArr
+        .filter((asset) => (asset as any)?.emitted)
+        .map((asset) => String((asset as any)?.name || ''))
       const pendingReason = this.ctx.getPendingReloadReason()
-      const reason = pendingReason
+      // When watchRun detected content-only changes, the manifest asset is
+      // re-emitted solely because the hashed content script filename changed.
+      // Suppress that inferred 'manifest' reason so the fast content-reinject
+      // path runs instead of a full extension hard reload.
+      const inferredAssetReason =
+        this.pendingContentReloadEntryNames.length > 0
+          ? this.inferHardReloadReasonFromChangedAssetsExcludingManifest(
+              changedAssets
+            )
+          : this.inferHardReloadReasonFromChangedAssets(changedAssets)
+      const reason =
+        pendingReason || inferredHardReloadReason || inferredAssetReason
+      const inferredEntryNames = Array.from(
+        new Set([
+          ...this.inferContentReloadEntryNamesFromChangedAssets(changedAssets),
+          ...inferredEntryNamesFromSourceSignatures,
+          ...inferredEntryNamesFromOutputSignatures
+        ])
+      )
+      const targetEntryNames =
+        this.pendingContentReloadEntryNames.length > 0
+          ? [...this.pendingContentReloadEntryNames]
+          : inferredEntryNames
+      if (this.shouldEmitReloadActionEvent()) {
+        emitActionEvent('reload_debug', {
+          phase: 'done',
+          browser: this.options?.browser,
+          reason: reason || null,
+          changedAssets,
+          inferredEntryNamesFromSourceSignatures,
+          inferredEntryNamesFromOutputSignatures,
+          pendingContentReloadEntryNames: [
+            ...this.pendingContentReloadEntryNames
+          ],
+          inferredEntryNames,
+          targetEntryNames
+        })
+      }
 
       if (!reason) {
+        if (targetEntryNames.length > 0) {
+          const ctrl =
+            this.ctx.getController() ??
+            (await new Promise<
+              | import('../chromium-source-inspection/cdp-extension-controller').CDPExtensionController
+              | undefined
+            >((resolve) => {
+              const timeout = setTimeout(() => resolve(undefined), 8000)
+              this.ctx.onControllerReady((c) => {
+                clearTimeout(timeout)
+                resolve(c)
+              })
+            }))
+          if (!ctrl) return
+
+          const selectedEntryNames = [...targetEntryNames]
+          const selectedGeneration = this.contentReloadGeneration
+          const selectedRules = selectContentScriptRules(
+            readContentScriptRules(
+              stats.compilation,
+              this.ctx.getExtensionRoot()
+            ),
+            selectedEntryNames
+          )
+          const sourceOverridesByBundleId =
+            this.collectContentScriptSourceOverrides(
+              stats.compilation,
+              selectedRules
+            )
+
+          if (selectedRules.length === 0) {
+            this.pendingContentReloadEntryNames = []
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log('[reload] selected content rules: <none>')
+            }
+            return
+          }
+
+          if (
+            this.lastWatchIncludedContentChanges &&
+            this.contentReloadQuietPeriodMs > 0
+          ) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, this.contentReloadQuietPeriodMs)
+            )
+            if (selectedGeneration !== this.contentReloadGeneration) {
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  '[reload] skipping content reinjection during active watch churn'
+                )
+              }
+              return
+            }
+          }
+
+          let reinjectionSourceOverridesByBundleId:
+            | Record<string, string>
+            | undefined
+          const extensionRoot = this.ctx.getExtensionRoot()
+          if (extensionRoot) {
+            const selectedEntryFiles = this.collectEntrypointFiles(
+              stats.compilation,
+              selectedEntryNames,
+              extensionRoot
+            )
+            const expectedAssetSignatures = this.collectAssetTextSignatures(
+              stats.compilation,
+              selectedEntryFiles
+            )
+            const filesReady = await this.waitForStableContentOutputs(
+              extensionRoot,
+              selectedEntryFiles,
+              expectedAssetSignatures
+            )
+            const hasSourceOverrides =
+              Object.keys(sourceOverridesByBundleId).length >=
+              selectedRules.length
+            reinjectionSourceOverridesByBundleId = filesReady
+              ? undefined
+              : hasSourceOverrides
+                ? sourceOverridesByBundleId
+                : undefined
+            if (!filesReady) {
+              if (!hasSourceOverrides) {
+                this.logger?.warn?.(
+                  '[reload] content script assets did not stabilize before targeted reload'
+                )
+                return
+              }
+            }
+          }
+
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(
+              `[reload] selected content rules for ${selectedEntryNames.join(', ')}`
+            )
+          }
+          const reinjectedTabs = await ctrl.reloadMatchingTabsForContentScripts(
+            selectedRules,
+            {
+              sourceOverridesByBundleId: reinjectionSourceOverridesByBundleId
+            }
+          )
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(
+              `[reload] reinjected tabs for ${selectedEntryNames.join(', ')}: ${reinjectedTabs}`
+            )
+          }
+
+          // Reload the extension immediately after the first reinject so Chrome
+          // re-reads manifest.json with the new hashed content script path.
+          // Fire-and-forget: Chrome processes the reload asynchronously while
+          // the follow-up cycle continues below.
+          ctrl.hardReload().catch(() => {})
+
+          if (
+            this.lastWatchIncludedContentChanges &&
+            this.contentReloadFollowupMs > 0
+          ) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, this.contentReloadFollowupMs)
+            )
+            if (selectedGeneration === this.contentReloadGeneration) {
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  `[reload] follow-up reinjection for ${selectedEntryNames.join(', ')}`
+                )
+              }
+              const followupReinjectedTabs =
+                await ctrl.reloadMatchingTabsForContentScripts(selectedRules, {
+                  sourceOverridesByBundleId:
+                    reinjectionSourceOverridesByBundleId
+                })
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  `[reload] follow-up reinjected tabs for ${selectedEntryNames.join(', ')}: ${followupReinjectedTabs}`
+                )
+              }
+              if (this.contentReloadQuietPeriodMs > 0) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, this.contentReloadQuietPeriodMs)
+                )
+              }
+            }
+          }
+          if (
+            this.awaitingSettledContentBuild &&
+            this.lastWatchIncludedContentChanges
+          ) {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                '[reload] preserving pending content reinjection until settled follow-up build'
+              )
+            }
+          } else {
+            this.pendingContentReloadEntryNames = []
+            this.awaitingSettledContentBuild = false
+          }
+
+          if (
+            this.awaitingSettledContentBuild &&
+            !this.lastWatchIncludedContentChanges
+          ) {
+            this.pendingContentReloadEntryNames = []
+            this.awaitingSettledContentBuild = false
+          }
+
+          this.broadcastSourceWatchMessage(compiler, {
+            type: 'contentReloaded',
+            browser: this.options?.browser,
+            entries: selectedEntryNames
+          })
+          ;(globalThis as any).__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__ = false
+          try {
+            await (globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__?.()
+          } catch {
+            // Best-effort dev-only source snapshot trigger.
+          }
+        }
         return
       }
 
+      this.pendingContentReloadEntryNames = []
+      ;(globalThis as any).__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__ = false
       this.ctx.clearPendingReloadReason()
 
       const now = Date.now()
@@ -320,6 +659,109 @@ export class ChromiumHardReloadPlugin {
           messages.chromiumHardReloadFailed(this.options?.browser)
         )
       }
+
+      if (typeof ctrl.reloadMatchingTabsForContentScripts === 'function') {
+        const allContentRules = readContentScriptRules(
+          stats.compilation,
+          extensionRoot
+        )
+        if (allContentRules.length > 0) {
+          let reinjectedTabs = 0
+
+          if (
+            typeof ctrl.reinjectMatchingTabsViaExtensionRuntime === 'function'
+          ) {
+            for (
+              let attempt = 0;
+              attempt < 3 && reinjectedTabs === 0;
+              attempt++
+            ) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, attempt === 0 ? 1500 : 1000)
+              )
+              const runtimeReinjectedTabs =
+                await ctrl.reinjectMatchingTabsViaExtensionRuntime(
+                  allContentRules
+                )
+              reinjectedTabs = Math.max(reinjectedTabs, runtimeReinjectedTabs)
+
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  `[reload] extension-runtime reinjected tabs after hard reload: ${runtimeReinjectedTabs}`
+                )
+              }
+            }
+          }
+          if (
+            reinjectedTabs === 0 &&
+            typeof (
+              ctrl as {
+                getLastRuntimeReinjectionReport?: () => Record<
+                  string,
+                  unknown
+                > | null
+              }
+            ).getLastRuntimeReinjectionReport === 'function'
+          ) {
+            const runtimeReport = (
+              ctrl as {
+                getLastRuntimeReinjectionReport: () => Record<
+                  string,
+                  unknown
+                > | null
+              }
+            ).getLastRuntimeReinjectionReport()
+            if (runtimeReport) {
+              this.logger?.debug?.(
+                `[reload] extension-runtime reinjection report: ${JSON.stringify(runtimeReport)}`
+              )
+            }
+          }
+          if (
+            reinjectedTabs === 0 &&
+            typeof ctrl.reloadMatchingTabsForContentScripts === 'function'
+          ) {
+            reinjectedTabs = await ctrl.reloadMatchingTabsForContentScripts(
+              allContentRules,
+              {
+                allowCoarseCleanup: false
+              }
+            )
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                `[reload] direct reinjected tabs after hard reload: ${reinjectedTabs}`
+              )
+            }
+          }
+          if (
+            reinjectedTabs > 0 &&
+            typeof ctrl.reloadMatchingTabsForContentScripts === 'function'
+          ) {
+            const pageReloadedTabs =
+              await ctrl.reloadMatchingTabsForContentScripts(allContentRules, {
+                preferPageReload: true
+              })
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                `[reload] page reloaded tabs after direct reinjection: ${pageReloadedTabs}`
+              )
+            }
+          }
+          if (
+            reinjectedTabs === 0 &&
+            typeof ctrl.reloadMatchingTabsForContentScripts === 'function'
+          ) {
+            for (let attempt = 0; attempt < 3; attempt++) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, attempt === 0 ? 1500 : 2000)
+              )
+              await ctrl.reloadMatchingTabsForContentScripts(allContentRules, {
+                preferPageReload: true
+              })
+            }
+          }
+        }
+      }
     })
   }
 
@@ -349,17 +791,315 @@ export class ChromiumHardReloadPlugin {
     }
   }
 
-  private refreshServiceWorkerSourceDependencyPaths(compilation: Compilation) {
-    try {
-      const serviceWorkerEntrypointName = 'background/service_worker'
-      const discovered = this.collectEntrypointModuleResourcePaths(
-        compilation,
-        serviceWorkerEntrypointName
-      )
-      this.serviceWorkerSourceDependencyPaths = discovered
-    } catch {
-      // ignore best-effort
+  private collectServiceWorkerSourceSignatures(): Map<string, string> {
+    return this.collectSourceSignaturesFromPaths(
+      this.serviceWorkerSourceDependencyPaths
+    )
+  }
+
+  private collectManifestSourceSignatures(
+    compiler: Compiler
+  ): Map<string, string> {
+    return this.collectSourceSignaturesFromPaths(
+      this.getWatchedManifestSourcePaths(compiler)
+    )
+  }
+
+  private collectLocaleSourceSignatures(
+    compiler: Compiler
+  ): Map<string, string> {
+    const compilerContextRoot = String(
+      compiler?.options?.context || ''
+    ).replace(/\\/g, '/')
+
+    if (!compilerContextRoot) return new Map()
+
+    const localesRoot = path.join(compilerContextRoot, 'src', '_locales')
+    const discoveredLocaleFiles: string[] = []
+
+    const walk = (dirPath: string) => {
+      let entries: fs.Dirent[]
+      try {
+        entries = fs.readdirSync(dirPath, {withFileTypes: true})
+      } catch {
+        return
+      }
+
+      for (const entry of entries) {
+        const absoluteEntryPath = path.join(dirPath, entry.name)
+        if (entry.isDirectory()) {
+          walk(absoluteEntryPath)
+          continue
+        }
+
+        if (entry.isFile() && absoluteEntryPath.endsWith('.json')) {
+          discoveredLocaleFiles.push(absoluteEntryPath.replace(/\\/g, '/'))
+        }
+      }
     }
+
+    walk(localesRoot)
+
+    return this.collectSourceSignaturesFromPaths(discoveredLocaleFiles)
+  }
+
+  private collectSourceSignaturesFromPaths(
+    dependencyPaths: Iterable<string>
+  ): Map<string, string> {
+    const signatures = new Map<string, string>()
+
+    for (const dependencyPath of dependencyPaths) {
+      const normalizedDependencyPath = String(dependencyPath).replace(
+        /\\/g,
+        '/'
+      )
+      const signature = this.readSourceFileSignature(normalizedDependencyPath)
+      if (!signature) continue
+      signatures.set(normalizedDependencyPath, signature)
+    }
+
+    return signatures
+  }
+
+  private collectContentScriptSourceDependencyPaths(
+    compilation: Compilation
+  ): Map<string, Set<string>> {
+    return collectContentScriptDependencyPaths(compilation)
+  }
+
+  private collectContentScriptSourceSignatures(
+    dependencyPathsByEntry: Map<string, Set<string>>
+  ) {
+    const nextSignatures = new Map<string, Map<string, string>>()
+
+    for (const [
+      entryName,
+      dependencyPaths
+    ] of dependencyPathsByEntry.entries()) {
+      const signatures = new Map<string, string>()
+      for (const dependencyPath of dependencyPaths) {
+        const signature = this.readSourceFileSignature(dependencyPath)
+        if (!signature) continue
+        signatures.set(dependencyPath, signature)
+      }
+      nextSignatures.set(entryName, signatures)
+    }
+
+    return nextSignatures
+  }
+
+  private inferContentReloadEntryNamesFromSourceSignatures(): string[] {
+    const changedEntries = new Set<string>()
+
+    for (const [
+      entryName,
+      dependencySignatures
+    ] of this.contentScriptSourceSignaturesByEntry.entries()) {
+      for (const [dependencyPath, previousSignature] of dependencySignatures) {
+        const nextSignature = this.readSourceFileSignature(dependencyPath)
+        if (!nextSignature || nextSignature !== previousSignature) {
+          changedEntries.add(entryName)
+          break
+        }
+      }
+    }
+
+    return Array.from(changedEntries).sort()
+  }
+
+  private inferContentReloadEntryNamesFromOutputSignatures(
+    nextOutputSignaturesByEntry: Map<string, Map<string, string>>
+  ): string[] {
+    const changedEntries = new Set<string>()
+
+    for (const [
+      entryName,
+      nextOutputSignatures
+    ] of nextOutputSignaturesByEntry.entries()) {
+      const previousOutputSignatures =
+        this.contentScriptOutputSignaturesByEntry.get(entryName)
+      if (!previousOutputSignatures || previousOutputSignatures.size === 0) {
+        continue
+      }
+      if (previousOutputSignatures.size !== nextOutputSignatures.size) {
+        changedEntries.add(entryName)
+        continue
+      }
+      for (const [outputFile, previousSignature] of previousOutputSignatures) {
+        const nextSignature = nextOutputSignatures.get(outputFile)
+        if (!nextSignature || nextSignature !== previousSignature) {
+          changedEntries.add(entryName)
+          break
+        }
+      }
+    }
+
+    return Array.from(changedEntries).sort()
+  }
+
+  private inferHardReloadReasonFromSourceSignatures(
+    compiler: Compiler
+  ): 'manifest' | 'locales' | 'sw' | undefined {
+    const nextManifestSourceSignatures =
+      this.collectManifestSourceSignatures(compiler)
+    if (
+      this.haveSourceSignaturesChanged(
+        this.manifestSourceSignatures,
+        nextManifestSourceSignatures
+      )
+    ) {
+      return 'manifest'
+    }
+
+    const nextLocaleSourceSignatures =
+      this.collectLocaleSourceSignatures(compiler)
+    if (
+      this.haveSourceSignaturesChanged(
+        this.localeSourceSignatures,
+        nextLocaleSourceSignatures
+      )
+    ) {
+      return 'locales'
+    }
+
+    const nextServiceWorkerSourceSignatures =
+      this.collectServiceWorkerSourceSignatures()
+    if (
+      this.haveSourceSignaturesChanged(
+        this.serviceWorkerSourceSignatures,
+        nextServiceWorkerSourceSignatures
+      )
+    ) {
+      return 'sw'
+    }
+
+    return undefined
+  }
+
+  private haveSourceSignaturesChanged(
+    previousSignatures: Map<string, string>,
+    nextSignatures: Map<string, string>
+  ): boolean {
+    if (previousSignatures.size === 0) return false
+    if (previousSignatures.size !== nextSignatures.size) return true
+
+    for (const [dependencyPath, previousSignature] of previousSignatures) {
+      const nextSignature = nextSignatures.get(dependencyPath)
+      if (!nextSignature || nextSignature !== previousSignature) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private inferContentReloadEntryNamesFromChangedAssets(
+    changedAssets: string[]
+  ): string[] {
+    const entries = new Set<string>()
+    for (const assetName of changedAssets) {
+      const normalizedAssetName = String(assetName || '').replace(/\\/g, '/')
+      const canonicalAsset =
+        parseCanonicalContentScriptAsset(normalizedAssetName)
+      if (canonicalAsset) {
+        entries.add(getCanonicalContentScriptEntryName(canonicalAsset.index))
+        continue
+      }
+
+      const hotMatch =
+        /^hot\/content_scripts\/content-(\d+)\.[^.]+\.json$/.exec(
+          normalizedAssetName
+        )
+      if (!hotMatch) {
+        if (!isCanonicalContentScriptAsset(normalizedAssetName)) continue
+      }
+      if (!hotMatch) continue
+      entries.add(getCanonicalContentScriptEntryName(Number(hotMatch[1])))
+    }
+    return Array.from(entries)
+  }
+
+  private inferHardReloadReasonFromChangedAssetsExcludingManifest(
+    changedAssets: string[]
+  ): 'locales' | 'sw' | undefined {
+    return this.inferHardReloadReasonFromChangedAssets(
+      changedAssets.filter(
+        (a) => String(a || '').replace(/\\/g, '/') !== 'manifest.json'
+      )
+    ) as 'locales' | 'sw' | undefined
+  }
+
+  private inferHardReloadReasonFromChangedAssets(
+    changedAssets: string[]
+  ): 'manifest' | 'locales' | 'sw' | undefined {
+    for (const assetName of changedAssets) {
+      const normalizedAssetName = String(assetName || '').replace(/\\/g, '/')
+      if (!normalizedAssetName) continue
+
+      if (normalizedAssetName === 'manifest.json') {
+        return 'manifest'
+      }
+
+      if (/(^|\/)_locales\/.+\.json$/i.test(normalizedAssetName)) {
+        return 'locales'
+      }
+
+      if (
+        /(^|\/)background\/(service_worker|script)\.(m?js|cjs)$/i.test(
+          normalizedAssetName
+        )
+      ) {
+        return 'sw'
+      }
+    }
+
+    return undefined
+  }
+
+  private readSourceFileSignature(
+    absoluteFilePath: string
+  ): string | undefined {
+    try {
+      const stats = fs.statSync(absoluteFilePath)
+      if (!stats.isFile()) return undefined
+      return `${stats.size}:${stats.mtimeMs}`
+    } catch {
+      return undefined
+    }
+  }
+
+  private collectContentScriptOutputSignatures(
+    compilation: Compilation,
+    extensionRoot?: string
+  ): Map<string, Map<string, string>> {
+    const outputSignaturesByEntry = new Map<string, Map<string, string>>()
+    const entrypoints: Map<string, any> | undefined = (compilation as any)
+      ?.entrypoints
+
+    if (!entrypoints || !extensionRoot) {
+      return outputSignaturesByEntry
+    }
+
+    for (const [entryName] of entrypoints.entries()) {
+      if (!isContentScriptEntryName(entryName)) continue
+      const entryFiles = this.collectEntrypointFiles(
+        compilation,
+        [entryName],
+        extensionRoot
+      )
+      const outputSignatures = new Map<string, string>()
+      for (const entryFile of entryFiles) {
+        const absoluteEntryFilePath = path.join(extensionRoot, entryFile)
+        const signature = this.readSourceFileSignature(absoluteEntryFilePath)
+        if (!signature) continue
+        outputSignatures.set(entryFile, signature)
+      }
+      if (outputSignatures.size > 0) {
+        outputSignaturesByEntry.set(entryName, outputSignatures)
+      }
+    }
+
+    return outputSignaturesByEntry
   }
 
   private collectEntrypointModuleResourcePaths(
@@ -394,13 +1134,14 @@ export class ChromiumHardReloadPlugin {
       if (!modulesIterable) continue
 
       for (const module of modulesIterable as any) {
-        const resourcePath: unknown =
+        const resourcePath = normalizeModuleResourcePath(
           (module as any)?.resource ||
-          (module as any)?.rootModule?.resource ||
-          (module as any)?.originalSource?.()?.resource
+            (module as any)?.rootModule?.resource ||
+            (module as any)?.originalSource?.()?.resource
+        )
 
-        if (typeof resourcePath === 'string' && resourcePath.length > 0) {
-          collectedResourcePaths.add(resourcePath.replace(/\\/g, '/'))
+        if (resourcePath) {
+          collectedResourcePaths.add(resourcePath)
         }
       }
     }
@@ -408,7 +1149,315 @@ export class ChromiumHardReloadPlugin {
     return collectedResourcePaths
   }
 
+  private collectEntrypointFiles(
+    compilation: Compilation,
+    entrypointNames: string[],
+    extensionRoot?: string
+  ): string[] {
+    const entrypoints: Map<string, any> | undefined = (compilation as any)
+      ?.entrypoints
+    if (!entrypoints) {
+      return this.deriveCanonicalContentEntryFiles(
+        entrypointNames,
+        extensionRoot
+      )
+    }
+
+    const collectedFiles = new Set<string>()
+
+    for (const entrypointName of entrypointNames) {
+      const entrypoint = entrypoints.get?.(entrypointName)
+      const entryFiles: string[] =
+        typeof entrypoint?.getFiles === 'function' ? entrypoint.getFiles() : []
+
+      for (const file of entryFiles) {
+        const normalizedFile = String(file || '').replace(/\\/g, '/')
+        if (!normalizedFile || normalizedFile.endsWith('.map')) continue
+        if (normalizedFile.startsWith('hot/')) continue
+        collectedFiles.add(normalizedFile)
+      }
+    }
+
+    if (collectedFiles.size === 0) {
+      return this.deriveCanonicalContentEntryFiles(
+        entrypointNames,
+        extensionRoot
+      )
+    }
+
+    return Array.from(collectedFiles)
+  }
+
+  private deriveCanonicalContentEntryFiles(
+    entrypointNames: string[],
+    extensionRoot?: string
+  ): string[] {
+    const collectedFiles = new Set<string>()
+
+    for (const entrypointName of entrypointNames) {
+      const normalizedEntrypointName = String(entrypointName || '').replace(
+        /\\/g,
+        '/'
+      )
+      if (!normalizedEntrypointName) continue
+
+      try {
+        const jsRelativePath = `${normalizedEntrypointName}.js`
+        if (
+          !extensionRoot ||
+          fs.existsSync(path.join(extensionRoot, jsRelativePath))
+        ) {
+          collectedFiles.add(jsRelativePath)
+        }
+
+        if (!extensionRoot) continue
+
+        const cssRelativePath = `${normalizedEntrypointName}.css`
+        if (fs.existsSync(path.join(extensionRoot, cssRelativePath))) {
+          collectedFiles.add(cssRelativePath)
+        }
+      } catch {
+        // Ignore fs lookup failures and fall back to JS stabilization.
+      }
+    }
+
+    return Array.from(collectedFiles)
+  }
+
+  private async waitForStableContentOutputs(
+    extensionRoot: string,
+    entryFiles: string[],
+    expectedAssetSignatures: Map<string, string> = new Map(),
+    timeoutMs: number = 8000,
+    pollIntervalMs: number = 150,
+    stableReadsRequired: number = 2
+  ): Promise<boolean> {
+    const normalizedEntryFiles = entryFiles
+      .map((file) => String(file || '').replace(/\\/g, '/'))
+      .filter(Boolean)
+
+    if (normalizedEntryFiles.length === 0) {
+      return true
+    }
+
+    const start = Date.now()
+    let lastSignature = ''
+    let stableReads = 0
+    while (Date.now() - start < timeoutMs) {
+      const referencedFiles = new Set<string>(normalizedEntryFiles)
+      const signatureParts: string[] = []
+      let allFilesReady = true
+
+      for (const entryFile of normalizedEntryFiles) {
+        const absoluteEntryFilePath = path.join(extensionRoot, entryFile)
+        const source = this.readFileTextSafe(absoluteEntryFilePath)
+        const expectedAssetSignature = expectedAssetSignatures.get(entryFile)
+        const signature = expectedAssetSignature
+          ? this.readTextSignature(source)
+          : this.readStableFileSignature(absoluteEntryFilePath)
+        if (!signature) {
+          allFilesReady = false
+          break
+        }
+        if (expectedAssetSignature && signature !== expectedAssetSignature) {
+          allFilesReady = false
+          break
+        }
+        signatureParts.push(`${entryFile}:${signature}`)
+
+        if (entryFile.endsWith('.js')) {
+          if (!source) {
+            allFilesReady = false
+            break
+          }
+          for (const referencedFile of this.extractReferencedOutputFiles(
+            source
+          )) {
+            referencedFiles.add(referencedFile)
+          }
+        }
+      }
+
+      if (!allFilesReady) {
+        lastSignature = ''
+        stableReads = 0
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        continue
+      }
+
+      for (const referencedFile of referencedFiles) {
+        if (normalizedEntryFiles.includes(referencedFile)) continue
+        const absoluteReferencedFilePath = path.join(
+          extensionRoot,
+          referencedFile
+        )
+        const signature = this.readStableFileSignature(
+          absoluteReferencedFilePath
+        )
+        if (!signature) {
+          allFilesReady = false
+          break
+        }
+        signatureParts.push(`${referencedFile}:${signature}`)
+      }
+
+      if (!allFilesReady) {
+        lastSignature = ''
+        stableReads = 0
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        continue
+      }
+
+      const currentSignature = signatureParts.sort().join('|')
+      if (currentSignature === lastSignature) {
+        stableReads += 1
+      } else {
+        lastSignature = currentSignature
+        stableReads = 1
+      }
+
+      if (stableReads >= stableReadsRequired) {
+        return true
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+    }
+
+    return false
+  }
+
+  private readStableFileSignature(
+    absoluteFilePath: string
+  ): string | undefined {
+    try {
+      const stats = fs.statSync(absoluteFilePath)
+      if (!stats.isFile()) return undefined
+      return `${stats.size}:${stats.mtimeMs}`
+    } catch {
+      return undefined
+    }
+  }
+
+  private readFileTextSafe(absoluteFilePath: string): string | undefined {
+    try {
+      return fs.readFileSync(absoluteFilePath, 'utf-8')
+    } catch {
+      return undefined
+    }
+  }
+
+  private collectAssetTextSignatures(
+    compilation: Compilation,
+    assetNames: string[]
+  ): Map<string, string> {
+    const signatures = new Map<string, string>()
+
+    for (const assetName of assetNames) {
+      const normalizedAssetName = String(assetName || '').replace(/\\/g, '/')
+      if (!normalizedAssetName) continue
+
+      try {
+        const asset =
+          compilation.getAsset?.(normalizedAssetName) ||
+          (compilation as any)?.assets?.[normalizedAssetName]
+        const source =
+          asset && typeof asset.source?.source === 'function'
+            ? asset.source.source()
+            : asset && typeof asset.source === 'function'
+              ? asset.source()
+              : undefined
+        const signature = this.readTextSignature(
+          typeof source === 'string' || Buffer.isBuffer(source)
+            ? source.toString()
+            : undefined
+        )
+        if (signature) {
+          signatures.set(normalizedAssetName, signature)
+        }
+      } catch {
+        // Ignore missing in-memory assets and fall back to disk stabilization.
+      }
+    }
+
+    return signatures
+  }
+
+  private collectContentScriptSourceOverrides(
+    compilation: Compilation,
+    rules: Array<{index: number}>
+  ): Record<string, string> {
+    const overrides: Record<string, string> = {}
+
+    for (const rule of rules) {
+      const bundleId = getCanonicalContentScriptEntryName(rule.index)
+      const assetName = `${bundleId}.js`
+
+      try {
+        const asset =
+          compilation.getAsset?.(assetName) ||
+          (compilation as any)?.assets?.[assetName]
+        const source =
+          asset && typeof asset.source?.source === 'function'
+            ? asset.source.source()
+            : asset && typeof asset.source === 'function'
+              ? asset.source()
+              : undefined
+        const text =
+          typeof source === 'string' || Buffer.isBuffer(source)
+            ? source.toString()
+            : ''
+        if (text) {
+          overrides[bundleId] = text
+        }
+      } catch {
+        // Best-effort fallback for targeted reinjection.
+      }
+    }
+
+    return overrides
+  }
+
+  private readTextSignature(source: string | undefined): string | undefined {
+    if (typeof source !== 'string') return undefined
+
+    let hash = 0
+    for (let index = 0; index < source.length; index++) {
+      hash = (hash * 31 + source.charCodeAt(index)) >>> 0
+    }
+
+    return `${source.length}:${hash.toString(16)}`
+  }
+
+  private extractReferencedOutputFiles(source: string): string[] {
+    const matches = source.match(
+      /(?:content_scripts|assets)\/[^"'`\s)]+\.(?:css|js|json|png|jpg|jpeg|svg|gif|webp|ico|avif)/g
+    )
+    return Array.from(new Set(matches || []))
+  }
+
   private shouldEmitReloadActionEvent(): boolean {
     return Boolean(this.options?.source || this.options?.watchSource)
+  }
+
+  private broadcastSourceWatchMessage(
+    compiler: Compiler,
+    payload: Record<string, unknown>
+  ) {
+    const webSocketServer = (compiler?.options as any)?.webSocketServer
+    const clients = webSocketServer?.clients
+    if (!clients || typeof clients.forEach !== 'function') {
+      return
+    }
+
+    const message = JSON.stringify(payload)
+    clients.forEach((client: any) => {
+      try {
+        if (typeof client?.send === 'function') {
+          client.send(message)
+        }
+      } catch {
+        // Best-effort developer-only broadcast.
+      }
+    })
   }
 }
