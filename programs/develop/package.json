@@ -21,8 +21,7 @@
   "types": "./dist/module.d.ts",
   "files": [
     "dist",
-    "webpack/webpack-lib/build-dependencies.json",
-    "webpack/webpack-lib/optional-dependencies.json"
+    "webpack/webpack-lib/build-dependencies.json"
   ],
   "name": "extension-develop",
   "version": "3.10.3",
@@ -90,6 +89,7 @@
     "firefox-location2": "3.0.0",
     "go-git-it": "^5.1.1",
     "ignore": "^7.0.5",
+    "isolated-deps": "0.1.0",
     "loader-utils": "^3.3.1",
     "magic-string": "^0.30.21",
     "parse5": "^8.0.0",

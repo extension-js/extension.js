@@ -13,7 +13,7 @@ import * as featureScriptMessages from '../../messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {type DevOptions} from '../../../../webpack-types'
-import {resolveDevelopDistFile} from '../../../../optional-deps-lib/runtime-context'
+import {resolveDevelopDistFile} from '../../../../webpack-lib/develop-context'
 
 export class SetupBackgroundEntry {
   private manifestPath: string

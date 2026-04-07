@@ -23,7 +23,7 @@ import type {
   DevOptions
 } from '../../webpack-types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
-import {resolveDevelopDistFile} from '../../optional-deps-lib/runtime-context'
+import {resolveDevelopDistFile} from '../../webpack-lib/develop-context'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file

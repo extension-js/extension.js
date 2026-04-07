@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-vi.mock('../../../optional-deps-lib', () => ({
+vi.mock('isolated-deps', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true),
   resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -15,7 +15,7 @@ describe('less tools', () => {
   })
 
   it('isUsingLess returns true when dependency is present and logs once', async () => {
-    const integrations = (await import('../../../optional-deps-lib')) as any
+    const integrations = (await import('isolated-deps')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'less'
     )

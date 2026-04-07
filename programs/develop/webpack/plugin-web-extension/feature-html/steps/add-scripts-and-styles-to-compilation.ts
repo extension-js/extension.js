@@ -12,7 +12,7 @@ import {type Compiler} from '@rspack/core'
 import * as htmlUtils from '../html-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getDevServerHmrImports} from '../../../webpack-lib/dev-server-client-import'
-import {resolveDevelopDistFile} from '../../../optional-deps-lib/runtime-context'
+import {resolveDevelopDistFile} from '../../../webpack-lib/develop-context'
 
 export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string

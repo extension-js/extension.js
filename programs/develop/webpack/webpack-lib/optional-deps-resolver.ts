@@ -3,14 +3,12 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import {
   installOptionalDependencies,
-  resolveDevelopInstallRoot,
-  resolveOptionalInstallRoot
-} from '../optional-deps-lib'
-import {resolvePackageFromInstallRoot} from '../optional-deps-lib/install-root-packages'
-import type {
-  OptionalDependencyContract,
-  OptionalDependencyVerificationRule
-} from '../optional-deps-lib/contract-types'
+  resolveOptionalInstallRoot,
+  resolvePackageFromInstallRoot,
+  type OptionalDependencyContract,
+  type OptionalDependencyVerificationRule
+} from 'isolated-deps'
+import {resolveDevelopInstallRoot} from './develop-context'
 import {getOptionalDependencyContract} from './optional-deps-contracts'
 
 type ResolutionResult = {
@@ -590,10 +588,17 @@ async function runInstallAndVerify(input: {
     if (missingAfterRetry.length === 0) return
 
     // Some Windows/npm lanes report success for a batched optional install
-    // while still leaving one package absent. Top up only the missing ids
+    // while still leaving one package absent. Top up only the missing specs
+    // whose bare package ID matches a verification failure.
+    const missingIdSet = new Set(missingAfterRetry)
+    const missingSpecs = input.contract.installPackages.filter((spec) => {
+      const atIdx = spec.lastIndexOf('@')
+      const id = atIdx > 0 ? spec.slice(0, atIdx) : spec
+      return missingIdSet.has(id)
+    })
     const didInstallMissingOnly = await installOptionalDependencies(
       input.integration,
-      missingAfterRetry
+      missingSpecs.length > 0 ? missingSpecs : missingAfterRetry
     )
     if (didInstallMissingOnly) {
       const missingAfterTargetedTopUp =
