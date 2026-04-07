@@ -127,7 +127,7 @@ describe('dev-server config root resolution', () => {
     ).toBe(false)
   })
 
-  it('disables global dev-server hot runtime for content scripts', async () => {
+  it('enables hot but disables liveReload and client for content scripts', async () => {
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',
@@ -136,7 +136,7 @@ describe('dev-server config root resolution', () => {
       {browser: 'firefox'} as any
     )
 
-    expect(devServerConfigCapture.current.hot).toBe(false)
+    expect(devServerConfigCapture.current.hot).toBe(true)
     expect(devServerConfigCapture.current.liveReload).toBe(false)
     expect(devServerConfigCapture.current.client).toBe(false)
   })
