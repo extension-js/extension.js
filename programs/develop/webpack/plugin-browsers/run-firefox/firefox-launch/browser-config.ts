@@ -49,7 +49,7 @@ export async function browserConfig(
   // Note: we intentionally do not quote here; the caller already wraps the
   // entire binary args string in quotes. URLs should not contain spaces.
   if (configOptions.startingUrl && !configOptions.noOpen) {
-    binaryArgs.push(String(configOptions.startingUrl))
+    binaryArgs.push('--url', String(configOptions.startingUrl))
   }
 
   const outPath =
