@@ -9,10 +9,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../../../browsers-lib/messages'
+import {
+  type ContentScriptTargetRule,
+  resolveEmittedContentScriptFile,
+  urlMatchesAnyContentScriptRule
+} from '../../../browsers-lib/content-script-targets'
+import {getCanonicalContentScriptEntryName} from '../../../../plugin-web-extension/feature-scripts/contracts'
 import {CDPClient} from '../cdp-client'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {connectToChromeCdp} from './connect'
-import {loadUnpackedIfNeeded, readManifestInfo} from './ensure'
+import {readManifestInfo} from './ensure'
 import {registerAutoEnableLogging} from './logging'
 
 interface ExtensionInfoResult {
@@ -31,6 +37,7 @@ export class CDPExtensionController {
   private readonly extensionPaths?: string[]
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
+  private lastRuntimeReinjectionReport: Record<string, unknown> | null = null
 
   constructor(args: {
     outPath: string
@@ -110,15 +117,12 @@ export class CDPExtensionController {
     }
 
     try {
-      // 2) If still unknown, attempt Extensions.loadUnpacked (best effort)
-      if (!this.extensionId && this.shouldAttemptLoadUnpacked()) {
-        const id = await loadUnpackedIfNeeded(this.cdp, this.outPath)
-        if (id) this.extensionId = id
-      }
-
-      // 3) If still unknown, derive again from targets with a short wait
+      // 2) If still unknown, derive again from targets with a longer wait.
+      // Chromium is already launched with --load-extension, so calling
+      // Extensions.loadUnpacked here can relocate or disable the unpacked
+      // extension in fresh profiles before developer mode settles.
       if (!this.extensionId) {
-        this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
+        this.extensionId = await this.deriveExtensionIdFromTargets(20, 200)
       }
 
       if (!this.extensionId) {
@@ -174,22 +178,6 @@ export class CDPExtensionController {
       this.profilePath,
       this.extensionPaths
     )
-  }
-
-  private shouldAttemptLoadUnpacked(): boolean {
-    const normalizedOutPath = this.normalizePath(this.outPath)
-    const normalizedExtensionPaths = (this.extensionPaths || [])
-      .map((candidate) => String(candidate || '').trim())
-      .filter(Boolean)
-      .map((candidate) => this.normalizePath(candidate))
-
-    if (normalizedExtensionPaths.length === 0) {
-      return true
-    }
-
-    // If this outPath is already loaded via --load-extension, avoid a second
-    // CDP loadUnpacked call that can relocate/disable the user extension.
-    return !normalizedExtensionPaths.includes(normalizedOutPath)
   }
 
   private normalizePath(input: string): string {
@@ -287,6 +275,307 @@ export class CDPExtensionController {
     return 'unknown'
   }
 
+  getLastRuntimeReinjectionReport(): Record<string, unknown> | null {
+    return this.lastRuntimeReinjectionReport
+  }
+
+  async reloadMatchingTabsForContentScripts(
+    rules: ContentScriptTargetRule[],
+    options: {
+      preferPageReload?: boolean
+      allowCoarseCleanup?: boolean
+      sourceOverridesByBundleId?: Record<string, string>
+    } = {}
+  ): Promise<number> {
+    if (!this.cdp || rules.length === 0) return 0
+
+    let reinjectedTabs = 0
+    const targets = await this.cdp.getTargets()
+
+    for (const target of targets || []) {
+      const targetType = String((target as any)?.type || '')
+      const targetId = String((target as any)?.targetId || '')
+      const targetUrl = String((target as any)?.url || '')
+
+      if (targetType !== 'page' || !targetId || !targetUrl) continue
+      const matchingRules = rules.filter((rule) =>
+        urlMatchesAnyContentScriptRule(targetUrl, [rule])
+      )
+
+      if (matchingRules.length === 0) continue
+
+      try {
+        const sessionId = await this.cdp.attachToTarget(targetId)
+        let reinjected = false
+
+        if (options.preferPageReload) {
+          reinjected = await this.reloadPageTarget(sessionId)
+        } else {
+          for (const [index, rule] of matchingRules.entries()) {
+            const didReinject = await this.reinjectContentScriptRule(
+              sessionId,
+              rule,
+              options.allowCoarseCleanup ?? index === 0,
+              options.sourceOverridesByBundleId
+            )
+            reinjected = reinjected || didReinject
+          }
+
+          if (!reinjected) {
+            reinjected = await this.reloadPageTarget(sessionId)
+          }
+        }
+
+        if (reinjected) {
+          reinjectedTabs += 1
+        }
+      } catch (error) {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.warn(
+            `[CDP] Failed to reinject content scripts into ${targetUrl}: ${String(
+              (error as Error)?.message || error
+            )}`
+          )
+        }
+      }
+    }
+
+    return reinjectedTabs
+  }
+
+  async reinjectMatchingTabsViaExtensionRuntime(
+    rules: ContentScriptTargetRule[]
+  ): Promise<number> {
+    if (!this.cdp || rules.length === 0) {
+      this.lastRuntimeReinjectionReport = {
+        phase: 'skipped',
+        reason: 'missing_cdp_or_rules',
+        hasCdp: !!this.cdp,
+        ruleCount: rules.length
+      }
+      return 0
+    }
+
+    const targets = await this.cdp.getTargets()
+    const matchingUrlsByRule = new Map<number, Set<string>>()
+
+    for (const target of targets || []) {
+      const targetType = String((target as any)?.type || '')
+      const targetUrl = String((target as any)?.url || '')
+      if (targetType !== 'page' || !targetUrl) continue
+
+      for (const rule of rules) {
+        if (!urlMatchesAnyContentScriptRule(targetUrl, [rule])) continue
+        const urls = matchingUrlsByRule.get(rule.index) || new Set<string>()
+        urls.add(targetUrl)
+        matchingUrlsByRule.set(rule.index, urls)
+      }
+    }
+
+    const payload = rules
+      .map((rule) => {
+        const jsPath = resolveEmittedContentScriptFile(
+          this.outPath,
+          rule.index,
+          'js'
+        )
+        const cssPath = resolveEmittedContentScriptFile(
+          this.outPath,
+          rule.index,
+          'css'
+        )
+        if (!jsPath || !fs.existsSync(jsPath)) return null
+        const jsFile = path.relative(this.outPath, jsPath).replace(/\\/g, '/')
+        const cssFile =
+          cssPath && fs.existsSync(cssPath)
+            ? path.relative(this.outPath, cssPath).replace(/\\/g, '/')
+            : null
+        const jsSource = fs.readFileSync(jsPath, 'utf-8')
+        const buildTokenMatch = jsSource.match(
+          /__EXTENSIONJS_REINJECT_BUILD_TOKEN\s*=\s*"([^"]+)"/
+        )
+        const proofMatch =
+          jsSource.match(
+            /extjs-chromium-live-content-css-modules:script-primary-\d+/
+          ) || jsSource.match(/Live Update Proof [A-Za-z0-9_-]+/)
+
+        return {
+          index: rule.index,
+          world: rule.world,
+          matches: [...rule.matches],
+          urls: Array.from(matchingUrlsByRule.get(rule.index) || []).sort(),
+          jsFile,
+          cssFile,
+          buildToken: buildTokenMatch?.[1] || null,
+          proofMarker: proofMatch?.[0] || null
+        }
+      })
+      .filter(
+        (
+          entry
+        ): entry is {
+          index: number
+          world: 'extension' | 'main'
+          matches: string[]
+          urls: string[]
+          jsFile: string
+          cssFile: string | null
+          buildToken: string | null
+          proofMarker: string | null
+        } => !!entry && entry.urls.length > 0
+      )
+
+    if (payload.length === 0) {
+      this.lastRuntimeReinjectionReport = {
+        phase: 'skipped',
+        reason: 'no_payload',
+        ruleCount: rules.length
+      }
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log('[CDP] extension-runtime reinjection skipped: no payload')
+      }
+      return 0
+    }
+
+    const runtimeTarget = await this.attachToExtensionRuntimeTarget()
+    if (!runtimeTarget) {
+      const targetSummary = (targets || [])
+        .map((target) => ({
+          type: String((target as any)?.type || ''),
+          url: String((target as any)?.url || '')
+        }))
+        .filter((entry) => entry.type || entry.url)
+      this.lastRuntimeReinjectionReport = {
+        phase: 'unavailable',
+        reason: 'no_runtime_target',
+        extensionId: this.extensionId,
+        targets: targetSummary
+      }
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(
+          `[CDP] extension-runtime reinjection unavailable: ${JSON.stringify({
+            extensionId: this.extensionId,
+            targets: targetSummary
+          })}`
+        )
+      }
+      return 0
+    }
+
+    const result = await this.cdp.evaluate(
+      runtimeTarget.sessionId,
+      `(() => (async () => {
+        const payload = ${JSON.stringify(payload)};
+        const chromeRuntime =
+          typeof globalThis === 'object' && globalThis && globalThis.chrome
+            ? globalThis.chrome
+            : null;
+        const runtimeChrome =
+          chromeRuntime &&
+          chromeRuntime.scripting &&
+          chromeRuntime.tabs
+            ? chromeRuntime
+            : null;
+        if (!runtimeChrome) {
+          return {
+            reinjectedTabs: 0,
+            hasRuntime: false,
+            hasChrome: !!chromeRuntime,
+            hasScripting: !!(chromeRuntime && chromeRuntime.scripting),
+            hasTabs: !!(chromeRuntime && chromeRuntime.tabs),
+            entries: payload.length,
+            matches: []
+          };
+        }
+        let reinjectedTabs = 0;
+        const matches = [];
+        for (const entry of payload) {
+          const queriedTabs = await runtimeChrome.tabs.query(
+            entry.matches.length > 0 ? { url: entry.matches } : {}
+          );
+          const matchingTabs = queriedTabs.filter((tab) => {
+            if (!tab || typeof tab.id !== 'number') return false;
+            if (typeof tab.url !== 'string' || !tab.url) return true;
+            return entry.urls.length === 0 || entry.urls.includes(tab.url);
+          });
+          matches.push({
+            index: entry.index,
+            queriedTabs: queriedTabs.length,
+            matchingTabs: matchingTabs.length
+          });
+          for (const tab of matchingTabs) {
+            const target = { tabId: tab.id, allFrames: false };
+            if (entry.cssFile) {
+              try {
+                await runtimeChrome.scripting.insertCSS({
+                  target,
+                  files: [entry.cssFile]
+                });
+              } catch (error) {}
+            }
+            await runtimeChrome.scripting.executeScript({
+              target,
+              files: [entry.jsFile],
+              world: entry.world === 'main' ? 'MAIN' : 'ISOLATED'
+            });
+            reinjectedTabs += 1;
+          }
+        }
+        return {
+          reinjectedTabs,
+          hasRuntime: true,
+          entries: payload.length,
+          matches
+        };
+      })())()`,
+      {awaitPromise: true}
+    )
+
+    this.lastRuntimeReinjectionReport = {
+      phase: 'evaluated',
+      targetType: runtimeTarget.targetType,
+      targetUrl: runtimeTarget.targetUrl,
+      result:
+        result && typeof result === 'object'
+          ? JSON.parse(JSON.stringify(result))
+          : result
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        `[CDP] extension-runtime reinjection result: ${JSON.stringify({
+          targetType: runtimeTarget.targetType,
+          targetUrl: runtimeTarget.targetUrl,
+          result
+        })}`
+      )
+    }
+
+    if (typeof result === 'number') return result
+    if (result && typeof result === 'object') {
+      const reinjectedTabs = Number((result as any).reinjectedTabs)
+      return Number.isFinite(reinjectedTabs) ? reinjectedTabs : 0
+    }
+    return 0
+  }
+
+  private async reloadPageTarget(sessionId: string): Promise<boolean> {
+    if (!this.cdp) return false
+
+    try {
+      await this.cdp.sendCommand(
+        'Page.reload',
+        {
+          ignoreCache: true
+        },
+        sessionId
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async hardReload(): Promise<boolean> {
     if (!this.extensionId) return false
 
@@ -312,6 +601,66 @@ export class CDPExtensionController {
     } catch {
       return false
     }
+  }
+
+  private async attachToExtensionRuntimeTarget(): Promise<
+    | {
+        sessionId: string
+        targetType: string
+        targetUrl: string
+      }
+    | undefined
+  > {
+    if (!this.cdp) return undefined
+    if (!this.extensionId) {
+      this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
+    }
+    if (!this.extensionId) return undefined
+
+    const extensionOrigin = `chrome-extension://${this.extensionId}/`
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const targets = await this.cdp.getTargets()
+      const runtimeTargets = (targets || []).filter((target) => {
+        const targetType = String((target as any)?.type || '')
+        const targetId = String((target as any)?.targetId || '')
+        return (
+          (targetType === 'service_worker' ||
+            targetType === 'background_page' ||
+            targetType === 'worker') &&
+          !!targetId
+        )
+      })
+      const runtimeTarget =
+        runtimeTargets.find((target) =>
+          String((target as any)?.url || '').startsWith(extensionOrigin)
+        ) ||
+        runtimeTargets.find((target) =>
+          String((target as any)?.url || '').startsWith('chrome-extension://')
+        )
+
+      if (runtimeTarget) {
+        try {
+          const sessionId = await this.cdp.attachToTarget(
+            String((runtimeTarget as any).targetId)
+          )
+          await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
+          return {
+            sessionId,
+            targetType: String((runtimeTarget as any)?.type || ''),
+            targetUrl: String((runtimeTarget as any)?.url || '')
+          }
+        } catch {
+          // Retry on the next pass.
+        }
+      }
+
+      this.extensionId =
+        (await this.deriveExtensionIdFromTargets(4, 100)) || this.extensionId
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+
+    return undefined
   }
 
   private async connectFreshClient(): Promise<void> {
@@ -382,7 +731,6 @@ export class CDPExtensionController {
 
   clearProtocolEventHandler() {
     if (!this.cdp) return
-    this.cdp.onProtocolEvent(() => {})
   }
 
   // Stream logs when requested: attach to page + extension targets and forward
@@ -520,5 +868,343 @@ export class CDPExtensionController {
     } catch (error) {
       return null
     }
+  }
+
+  private async reinjectContentScriptRule(
+    sessionId: string,
+    rule: ContentScriptTargetRule,
+    allowCoarseCleanup: boolean,
+    sourceOverridesByBundleId?: Record<string, string>
+  ): Promise<boolean> {
+    if (!this.cdp) return false
+
+    const bundleId = getCanonicalContentScriptEntryName(rule.index)
+    const bundlePath = resolveEmittedContentScriptFile(
+      this.outPath,
+      rule.index,
+      'js'
+    )
+
+    if (!bundlePath || !fs.existsSync(bundlePath)) return false
+
+    const sourceOverride =
+      sourceOverridesByBundleId && typeof sourceOverridesByBundleId === 'object'
+        ? sourceOverridesByBundleId[bundleId]
+        : undefined
+    const source = this.patchReinjectSourceForInvalidatedRuntime(
+      typeof sourceOverride === 'string'
+        ? sourceOverride
+        : fs.readFileSync(bundlePath, 'utf-8')
+    )
+    const buildTokenMatch = source.match(
+      /__EXTENSIONJS_REINJECT_BUILD_TOKEN\s*=\s*"([^"]+)"/
+    )
+    const proofMatch =
+      source.match(
+        /extjs-chromium-live-content-css-modules:script-primary-\d+/
+      ) || source.match(/Live Update Proof [A-Za-z0-9_-]+/)
+
+    if (!source.trim()) return false
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        `[CDP] reinject bundle ${bundleId} from ${bundlePath}` +
+          `${proofMatch ? ` (${proofMatch[0]})` : ''}` +
+          ` build=${buildTokenMatch?.[1] || '<none>'}` +
+          ` sourceOverride=${typeof sourceOverride === 'string'}`
+      )
+    }
+    const contextId = await this.resolveExecutionContextId(sessionId, rule)
+    if (!contextId) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.warn(
+          `[CDP] No execution context found for ${bundleId} (${rule.world})`
+        )
+      }
+      return false
+    }
+
+    const result = await this.cdp.evaluateInContext(
+      sessionId,
+      this.buildReinjectExpression(bundleId, source, allowCoarseCleanup),
+      contextId
+    )
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        `[CDP] reinject result ${bundleId}: ${JSON.stringify(result)}`
+      )
+    }
+    if (result && typeof result === 'object' && 'ok' in result) {
+      return (result as {ok?: boolean}).ok !== false
+    }
+
+    return true
+  }
+
+  private buildReinjectExpression(
+    bundleId: string,
+    source: string,
+    allowCoarseCleanup: boolean
+  ): string {
+    const annotatedSource = `${source}\n//# sourceURL=extension.js-reinject://${bundleId}.js`
+    const extensionBase = this.extensionId
+      ? `chrome-extension://${this.extensionId}/`
+      : ''
+    return `(() => {
+  const bundleId = ${JSON.stringify(bundleId)};
+  const source = ${JSON.stringify(annotatedSource)};
+  const extensionBase = ${JSON.stringify(extensionBase)};
+  const rootSelector = '[data-extension-root], #extension-root';
+  const keyedSelector = '[data-extjs-reinject-key="${bundleId}"]';
+  const registry = (typeof globalThis === 'object' && globalThis)
+    ? (globalThis.__EXTENSIONJS_DEV_REINJECT__ || (globalThis.__EXTENSIONJS_DEV_REINJECT__ = {}))
+    : {};
+  const existing = registry[bundleId];
+  const readGeneration = (entry) => {
+    try {
+      if (!entry) return 0;
+      if (typeof entry === 'function' && typeof entry.__extjsGeneration === 'number') {
+        return entry.__extjsGeneration;
+      }
+      if (typeof entry === 'object') {
+        if (typeof entry.__extjsGeneration === 'number') return entry.__extjsGeneration;
+        if (typeof entry.generation === 'number') return entry.generation;
+        if (typeof entry.cleanup === 'function' && typeof entry.cleanup.__extjsGeneration === 'number') {
+          return entry.cleanup.__extjsGeneration;
+        }
+      }
+    } catch (error) {}
+    return 0;
+  };
+  const previousGeneration = readGeneration(existing);
+  try {
+    if (typeof existing === 'function') existing();
+    if (existing && typeof existing.cleanup === 'function') existing.cleanup();
+  } catch (error) {}
+  if (${allowCoarseCleanup ? 'true' : 'false'}) {
+    try {
+      const staleRoots = Array.from(document.querySelectorAll(rootSelector));
+      for (const root of staleRoots) {
+        if (root && typeof root.remove === 'function') root.remove();
+      }
+    } catch (error) {}
+  }
+  const trackedNodes = new Set();
+  const trackNode = (node) => {
+    try {
+      if (!node || typeof Element !== 'function' || !(node instanceof Element)) return;
+      const matchesRoot = typeof node.matches === 'function' && node.matches(rootSelector);
+      if (!matchesRoot) return;
+      trackedNodes.add(node);
+      if (typeof node.setAttribute === 'function') {
+        node.setAttribute('data-extjs-reinject-key', bundleId);
+      }
+    } catch (error) {}
+  };
+  const trackTree = (node) => {
+    trackNode(node);
+    try {
+      if (!node || typeof node.querySelectorAll !== 'function') return;
+      const nested = node.querySelectorAll(rootSelector);
+      for (const nestedNode of nested) trackNode(nestedNode);
+    } catch (error) {}
+  };
+  const observer = typeof MutationObserver === 'function'
+    ? new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          const addedNodes = Array.from(mutation.addedNodes || []);
+          for (const addedNode of addedNodes) {
+            trackTree(addedNode);
+          }
+        }
+      })
+    : null;
+  try {
+    if (observer && document && document.documentElement) {
+      observer.observe(document.documentElement, {childList: true, subtree: true});
+    }
+  } catch (error) {}
+  const cleanupTrackedNodes = () => {
+    try {
+      if (observer) observer.disconnect();
+    } catch (error) {}
+    try {
+      const keyedNodes = Array.from(document.querySelectorAll(keyedSelector));
+      for (const keyedNode of keyedNodes) {
+        if (keyedNode && typeof keyedNode.remove === 'function') keyedNode.remove();
+      }
+    } catch (error) {}
+    try {
+      for (const trackedNode of trackedNodes) {
+        if (trackedNode && trackedNode.isConnected && typeof trackedNode.remove === 'function') {
+          trackedNode.remove();
+        }
+      }
+    } catch (error) {}
+  };
+  registry[bundleId] = {
+    cleanup: cleanupTrackedNodes,
+    generation: previousGeneration,
+    __extjsGeneration: previousGeneration
+  };
+  try {
+    if (typeof globalThis === 'object' && globalThis && extensionBase) {
+      globalThis.__EXTJS_EXTENSION_BASE__ = extensionBase;
+    }
+    if (typeof document === 'object' && document && document.documentElement && extensionBase) {
+      document.documentElement.setAttribute('data-extjs-extension-base', extensionBase);
+    }
+    (0, eval)(source);
+  } catch (error) {
+    return {
+      ok: false,
+      error: String((error && error.stack) || (error && error.message) || error || 'unknown'),
+      trackedRoots: trackedNodes.size,
+      existingRootCount: (() => {
+        try { return document.querySelectorAll(rootSelector).length; } catch (innerError) { return -1; }
+      })()
+    };
+  }
+  setTimeout(() => {
+    try {
+      const keyedNodes = Array.from(document.querySelectorAll(keyedSelector));
+      for (const keyedNode of keyedNodes) trackedNodes.add(keyedNode);
+    } catch (error) {}
+  }, 0);
+  setTimeout(() => {
+    try {
+      if (observer) observer.disconnect();
+    } catch (error) {}
+  }, 2000);
+  return {
+    ok: true,
+    trackedRoots: trackedNodes.size,
+    existingRootCount: (() => {
+      try { return document.querySelectorAll(rootSelector).length; } catch (innerError) { return -1; }
+    })(),
+    liveRoots: (() => {
+      try {
+        return Array.from(document.querySelectorAll(rootSelector)).map((node) => ({
+          key: node && typeof node.getAttribute === 'function' ? node.getAttribute('data-extjs-reinject-key') || null : null,
+          root: node && typeof node.getAttribute === 'function' ? node.getAttribute('data-extension-root') || null : null,
+          build: node && typeof node.getAttribute === 'function' ? node.getAttribute('data-extjs-reinject-build') || null : null,
+          text: String(node && node.textContent || '').slice(0, 120)
+        }));
+      } catch (error) {
+        return [];
+      }
+    })(),
+    hasChromeRuntime: (() => {
+      try { return !!(globalThis && globalThis.chrome && globalThis.chrome.runtime); } catch (error) { return false; }
+    })()
+  };
+})()`
+  }
+
+  private patchReinjectSourceForInvalidatedRuntime(source: string): string {
+    return source.replace(
+      '__webpack_require__.p = __webpack_require__.webExtRt.runtime.getURL("/");',
+      [
+        'try {',
+        '  __webpack_require__.p = __webpack_require__.webExtRt.runtime.getURL("/");',
+        '} catch (_extjsRuntimeError) {',
+        '  if (__extjsBase) {',
+        '    __webpack_require__.p = __extjsBase.replace(/\\/+$/, "/") + String("/").replace(/^\\/+/, "");',
+        '  } else {',
+        '    __webpack_require__.p = "";',
+        '  }',
+        '}'
+      ].join('\n')
+    )
+  }
+
+  private async resolveExecutionContextId(
+    sessionId: string,
+    rule: ContentScriptTargetRule
+  ): Promise<number | undefined> {
+    if (!this.cdp) return undefined
+
+    const frameId = await this.getTopFrameId(sessionId)
+    const contexts = await this.collectExecutionContexts(sessionId)
+
+    if (rule.world === 'main') {
+      const defaultContext = contexts.find((context) => {
+        const auxData = context?.auxData || {}
+        return (
+          auxData.type === 'default' &&
+          auxData.isDefault === true &&
+          (!frameId || !auxData.frameId || String(auxData.frameId) === frameId)
+        )
+      })
+      return typeof defaultContext?.id === 'number'
+        ? defaultContext.id
+        : undefined
+    }
+
+    const extensionId =
+      this.extensionId || (await this.deriveExtensionIdFromTargets())
+    if (!extensionId) return undefined
+
+    const extensionOrigin = `chrome-extension://${extensionId}`
+    const isolatedContext = contexts.find((context) => {
+      const auxData = context?.auxData || {}
+      return (
+        auxData.type === 'isolated' &&
+        String(context?.origin || '') === extensionOrigin &&
+        (!frameId || !auxData.frameId || String(auxData.frameId) === frameId)
+      )
+    })
+
+    return typeof isolatedContext?.id === 'number'
+      ? isolatedContext.id
+      : undefined
+  }
+
+  private async getTopFrameId(sessionId: string): Promise<string | undefined> {
+    if (!this.cdp) return undefined
+
+    try {
+      const frameTree = (await this.cdp.sendCommand(
+        'Page.getFrameTree',
+        {},
+        sessionId
+      )) as {
+        frameTree?: {frame?: {id?: string}}
+      }
+      const frameId = frameTree?.frameTree?.frame?.id
+      return typeof frameId === 'string' && frameId ? frameId : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  private async collectExecutionContexts(sessionId: string): Promise<any[]> {
+    if (!this.cdp) return []
+
+    const contextsById = new Map<number, any>()
+    const unsubscribe = this.cdp.onProtocolEvent((message) => {
+      if (
+        String((message as {sessionId?: string}).sessionId || '') !== sessionId
+      ) {
+        return
+      }
+      if (String(message.method || '') !== 'Runtime.executionContextCreated') {
+        return
+      }
+      const context = (message as {params?: {context?: any}}).params?.context
+      const contextId = context?.id
+      if (typeof contextId === 'number') {
+        contextsById.set(contextId, context)
+      }
+    })
+
+    try {
+      await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    } finally {
+      unsubscribe()
+    }
+
+    return Array.from(contextsById.values())
   }
 }
