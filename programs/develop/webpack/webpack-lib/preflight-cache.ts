@@ -9,8 +9,8 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createHash} from 'crypto'
-import {resolveDevelopInstallRoot} from '../optional-deps-lib'
-import {getOptionalDependenciesSignature} from './optional-dependencies'
+import {resolveDevelopInstallRoot} from './develop-context'
+import {getContractsSignature} from './optional-deps-contracts'
 import packageJson from '../../package.json'
 
 function getPreflightCacheDir(packageRoot: string): string {
@@ -26,7 +26,7 @@ function getCacheVersionPath(cacheDir: string): string {
 }
 
 function getProjectDepsHash(projectPath: string): string {
-  const optionalDepsSignature = getOptionalDependenciesSignature()
+  const optionalDepsSignature = getContractsSignature()
   try {
     const packageJsonPath = path.join(projectPath, 'package.json')
     if (!fs.existsSync(packageJsonPath)) {

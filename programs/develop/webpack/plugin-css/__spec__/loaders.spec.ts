@@ -8,13 +8,22 @@ vi.mock('../css-lib/is-content-script', () => ({
   isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
 }))
 
-vi.mock('../../optional-deps-lib', async () => {
-  const actual = await vi.importActual<any>('../../optional-deps-lib')
+const resolveDevelopInstallRootMock = vi.fn(() => '/extension-root')
+
+vi.mock('isolated-deps', async () => {
+  const actual = await vi.importActual<any>('isolated-deps')
   return {
-    ...actual,
-    resolveDevelopInstallRoot: vi.fn(() => '/extension-root')
+    ...actual
   }
 })
+
+vi.mock('../../webpack-lib/develop-context', () => ({
+  resolveDevelopInstallRoot: (...args: unknown[]) =>
+    resolveDevelopInstallRootMock(...args),
+  resolveDevelopDistFile: vi.fn(
+    (stem: string) => `/extension-root/dist/${stem}.js`
+  )
+}))
 
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {cssInHtmlLoader} from '../css-in-html-loader'
@@ -66,8 +75,7 @@ describe('cssInContentScriptLoader', () => {
     )
     await cssInHtmlLoader('/project', 'development', '/project/manifest.json')
 
-    const integrations = (await import('../../optional-deps-lib')) as any
-    expect(integrations.resolveDevelopInstallRoot).toHaveBeenCalled()
+    expect(resolveDevelopInstallRootMock).toHaveBeenCalled()
   })
 })
 
@@ -84,11 +92,8 @@ describe('cssInHtmlLoader', () => {
     expect(rules.some((r: any) => r.type === 'css')).toBe(true)
     expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)
 
-    // Ensure issuer returns false for content-like issuer
     for (const rule of rules) {
       expect(typeof rule.issuer).toBe('function')
-      // Our mocked isContentScriptEntry returns true when path contains 'content'
-      // cssInHtmlLoader uses the negation (!isContentScriptEntry), so issuer('content.js') should be false
       expect(rule.issuer('content.js')).toBe(false)
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

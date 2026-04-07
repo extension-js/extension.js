@@ -7,12 +7,12 @@ import {createHash} from 'crypto'
 let mockRoot = ''
 let optionalDepsSignature = 'optional-deps-v1'
 
-vi.mock('../check-build-dependencies', () => ({
-  findExtensionDevelopRoot: () => mockRoot
+vi.mock('../develop-context', () => ({
+  resolveDevelopInstallRoot: () => mockRoot
 }))
 
-vi.mock('../optional-dependencies', () => ({
-  getOptionalDependenciesSignature: () => optionalDepsSignature
+vi.mock('../optional-deps-contracts', () => ({
+  getContractsSignature: () => optionalDepsSignature
 }))
 
 function getMarkerPath(projectPath: string, packageRoot: string) {
