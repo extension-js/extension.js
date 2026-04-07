@@ -32,12 +32,12 @@ export default function BrowserRuntimeModule(
           `${_let} isChrome, runtime;`,
           'try {',
           Template.indent([
-            `if (typeof browser !== "undefined" && ${
+            `if (typeof globalThis === "object" && globalThis && typeof globalThis.browser !== "undefined" && ${
               optionalChaining
-                ? 'typeof browser.runtime?.getURL === "function"'
-                : 'typeof browser.runtime === "object" && typeof browser.runtime.getURL === "function"'
+                ? 'typeof globalThis.browser.runtime?.getURL === "function"'
+                : 'typeof globalThis.browser.runtime === "object" && typeof globalThis.browser.runtime.getURL === "function"'
             }) {`,
-            Template.indent(['runtime = browser;']),
+            Template.indent(['runtime = globalThis.browser;']),
             '}'
           ]),
           '} catch (_) {}',
@@ -45,12 +45,15 @@ export default function BrowserRuntimeModule(
           Template.indent([
             'try {',
             Template.indent([
-              `if (typeof chrome !== "undefined" && ${
+              `if (typeof globalThis === "object" && globalThis && typeof globalThis.chrome !== "undefined" && ${
                 optionalChaining
-                  ? 'typeof chrome.runtime?.getURL === "function"'
-                  : 'typeof chrome.runtime === "object" && typeof chrome.runtime.getURL === "function"'
+                  ? 'typeof globalThis.chrome.runtime?.getURL === "function"'
+                  : 'typeof globalThis.chrome.runtime === "object" && typeof globalThis.chrome.runtime.getURL === "function"'
               }) {`,
-              Template.indent(['isChrome = true;', 'runtime = chrome;']),
+              Template.indent([
+                'isChrome = true;',
+                'runtime = globalThis.chrome;'
+              ]),
               '}'
             ]),
             '} catch (_) {}'

@@ -42,6 +42,7 @@ describe('cssInContentScriptLoader', () => {
 
     for (const rule of rules as any[]) {
       expect(['asset', 'css/module']).toContain(rule.type)
+      expect(rule.resourceQuery).toEqual({not: [/url/]})
       if (rule.type === 'asset') {
         expect(rule.generator?.filename).toContain('content_scripts')
       }
