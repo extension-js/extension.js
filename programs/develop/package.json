@@ -87,7 +87,7 @@
     "edge-location": "2.2.0",
     "extension-from-store": "^0.1.1",
     "firefox-location2": "3.0.0",
-    "go-git-it": "^5.1.1",
+    "go-git-it": "^5.1.5",
     "ignore": "^7.0.5",
     "isolated-deps": "0.1.0",
     "loader-utils": "^3.3.1",
