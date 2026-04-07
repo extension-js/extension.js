@@ -69,8 +69,8 @@ export default function LoadScriptRuntimeModule(
       const HasExtensionRuntime =
         `${_const} hasExtensionRuntime = (function(){ try {` +
         'return (' +
-        '(typeof browser === "object" && browser && browser.runtime && typeof browser.runtime.sendMessage === "function") || ' +
-        '(typeof chrome === "object" && chrome && chrome.runtime && typeof chrome.runtime.sendMessage === "function")' +
+        '(typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.sendMessage === "function") || ' +
+        '(typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.sendMessage === "function")' +
         ');' +
         '} catch (e) { return false; } })();'
 
@@ -135,6 +135,7 @@ export default function LoadScriptRuntimeModule(
           Template.asString([
             `${_const} msg = { type: "WTW_INJECT", file: url };`,
             `${_const} onError = ${f('e', 'done(Object.assign(e, { type: "missing" }))')};`,
+            'try {',
             `if (${RuntimeGlobalIsBrowser}) {`,
             Template.indent([
               `${RuntimeGlobal}.runtime.sendMessage(msg).then(done, onError);`
@@ -147,7 +148,8 @@ export default function LoadScriptRuntimeModule(
                 'else done();'
               ])});`
             ]),
-            '}'
+            '}',
+            '} catch (e) { onError(e); }'
           ])
         ) +
         ';'
