@@ -86,6 +86,16 @@ export class FirefoxLaunchPlugin {
   }
 
   apply(compiler: Compiler) {
+    this.ctx.logger =
+      typeof compiler?.getInfrastructureLogger === 'function'
+        ? compiler.getInfrastructureLogger('FirefoxLaunchPlugin')
+        : ({
+            info: (...a: unknown[]) => console.log(...a),
+            warn: (...a: unknown[]) => console.warn(...a),
+            error: (...a: unknown[]) => console.error(...a),
+            debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+          } as ReturnType<Compiler['getInfrastructureLogger']>)
+
     compiler.hooks.done.tapAsync('run-firefox:launch', async (stats, done) => {
       try {
         const hasErrors =
@@ -114,13 +124,15 @@ export class FirefoxLaunchPlugin {
           ) as DevOptions & BrowserConfig
         )
 
-        this.ctx.logger?.info?.(
+        // Use console.log so the message is always visible; infrastructureLogging
+        // level is 'error' by default, which would suppress logger.info()
+        console.log(
           messages.stdoutData(
             this.host.browser,
             stats.compilation.options.mode as DevOptions['mode']
           )
         )
-        this.ctx.logger?.info?.(
+        console.log(
           devServerMessages.ready(
             stats.compilation.options.mode as 'development' | 'production',
             this.host.browser
