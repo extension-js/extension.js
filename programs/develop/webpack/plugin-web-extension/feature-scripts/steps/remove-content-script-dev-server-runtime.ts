@@ -75,7 +75,11 @@ export class RemoveContentScriptDevServerRuntime {
       (stats) => {
         const outputPath = stats.compilation.outputOptions.path || ''
         if (!outputPath) return
-        scheduleOutputSanitization(outputPath)
+        try {
+          sanitizeOutputDirectory(outputPath)
+        } catch {
+          // Best-effort post-emit sanitization.
+        }
       }
     )
   }
@@ -158,24 +162,6 @@ function sanitizeOutputDirectory(outputPath: string) {
   }
 
   return changed
-}
-
-function scheduleOutputSanitization(outputPath: string, attempt = 0) {
-  const maxAttempts = 10
-  const delayMs = 50
-
-  setTimeout(() => {
-    try {
-      sanitizeOutputDirectory(outputPath)
-      if (attempt < maxAttempts) {
-        scheduleOutputSanitization(outputPath, attempt + 1)
-      }
-    } catch {
-      if (attempt < maxAttempts) {
-        scheduleOutputSanitization(outputPath, attempt + 1)
-      }
-    }
-  }, delayMs)
 }
 
 function stripExtraStartupRequires(source: string) {
