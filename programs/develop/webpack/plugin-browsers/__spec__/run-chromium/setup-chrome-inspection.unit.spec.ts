@@ -21,6 +21,23 @@ vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
     }
     async waitForLoadEvent(_sessionId?: string | null) {}
     async waitForContentScriptInjection(_sessionId?: string | null) {}
+    async pollForVisibleShadowHostContent(_sessionId?: string | null) {}
+    async getExtensionRootMeta(_sessionId?: string | null) {
+      return {
+        rootCount: 1,
+        markerCount: 0,
+        latestGeneration: 1,
+        roots: [],
+        markers: [],
+        registries: []
+      }
+    }
+    async getShadowStyleSnapshot(_sessionId?: string | null) {
+      return {count: 1, styles: []}
+    }
+    async hasVisibleShadowHostContent(_sessionId?: string | null) {
+      return true
+    }
     async evaluate(_sessionId: string | null, _expr: string) {
       return true
     }
@@ -49,6 +66,7 @@ import {ChromiumSourceInspectionPlugin as SetupChromeInspectionStep} from '../..
 describe('SetupChromeInspectionStep (unit)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    delete (globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__
   })
 
   it('initializes and inspects source returning HTML', async () => {
@@ -75,5 +93,32 @@ describe('SetupChromeInspectionStep (unit)', () => {
     const ws: any = {clients: new Set([{on: vi.fn()}]), on: vi.fn()}
     await step.startWatching(ws)
     expect(ws.on).toHaveBeenCalled()
+  })
+
+  it('skips the global reload callback while websocket watch mode is active', async () => {
+    const step = new SetupChromeInspectionStep({
+      browser: 'chrome',
+      port: 9222,
+      watchSource: true
+    })
+
+    await step.initialize(9222)
+
+    ;(step as any).currentSessionId = 's'
+    ;(step as any).hasInspectedSourceOnce = true
+    ;(step as any).isWatching = true
+
+    const emitImmediateUpdatedSnapshotFromCurrentSession = vi.spyOn(
+      step as any,
+      'emitImmediateUpdatedSnapshotFromCurrentSession'
+    )
+
+    ;(step as any).registerContentReloadSnapshotHook()
+
+    await (globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__?.()
+
+    expect(
+      emitImmediateUpdatedSnapshotFromCurrentSession
+    ).not.toHaveBeenCalled()
   })
 })

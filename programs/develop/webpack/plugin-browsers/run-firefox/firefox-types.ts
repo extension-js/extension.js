@@ -45,7 +45,6 @@ export type FirefoxPluginLike = Pick<
 > & {
   browser: PluginInterface['browser']
   source?: string | boolean
-  extensionsToLoad?: string[]
 }
 
 /**

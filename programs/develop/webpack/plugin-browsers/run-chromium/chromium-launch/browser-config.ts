@@ -19,6 +19,7 @@ import {
   markManagedEphemeralProfile,
   prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
+import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
 import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
 import * as messages from '../../browsers-lib/messages'
 import {
@@ -138,9 +139,7 @@ export function browserConfig(
   compilation: Compilation,
   configOptions: PluginInterface
 ) {
-  const extensionsToLoad = Array.isArray(configOptions.extension)
-    ? configOptions.extension
-    : [configOptions.extension]
+  const extensionsToLoad = toExtensionLoadList(configOptions.extension)
 
   // Use ephemeral profile under dist unless explicit profile provided
   const sourceEnabled = !!(configOptions.source || configOptions.watchSource)

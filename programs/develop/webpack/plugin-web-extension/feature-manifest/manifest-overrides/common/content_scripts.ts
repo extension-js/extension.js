@@ -8,6 +8,11 @@
 
 import {getFilename} from '../../manifest-lib/paths'
 import {type Manifest} from '../../../../webpack-types'
+import {
+  getCanonicalContentScriptCssAssetName,
+  getCanonicalContentScriptJsAssetName,
+  parseCanonicalContentScriptAsset
+} from '../../../feature-scripts/contracts'
 
 interface ContentObj {
   js?: string[] | undefined
@@ -18,7 +23,8 @@ interface ContentObj {
 
 function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
   const normalized = String(filePath || '').replace(/\\/g, '/')
-  return new RegExp(`^content_scripts/content-\\d+\\.${ext}$`).test(normalized)
+  const bundledAsset = parseCanonicalContentScriptAsset(normalized)
+  return bundledAsset?.extension === ext
 }
 
 function isAlreadyBundledContentScripts(contentScripts: any[]) {
@@ -83,7 +89,7 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
         // Default world (isolated) – omit "world" for cross-browser compatibility.
         js: [
           getFilename(
-            `content_scripts/content-${bridgeIndex}.js`,
+            getCanonicalContentScriptJsAssetName(bridgeIndex),
             'main-world-bridge.js'
           )
         ],
@@ -96,14 +102,14 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
       js: [
         ...new Set(
           contentJs.map((js: string) =>
-            getFilename(`content_scripts/content-${index}.js`, js)
+            getFilename(getCanonicalContentScriptJsAssetName(index), js)
           )
         )
       ],
       css: [
         ...new Set(
           contentCss.map((css: string) =>
-            getFilename(`content_scripts/content-${index}.css`, css)
+            getFilename(getCanonicalContentScriptCssAssetName(index), css)
           )
         )
       ]

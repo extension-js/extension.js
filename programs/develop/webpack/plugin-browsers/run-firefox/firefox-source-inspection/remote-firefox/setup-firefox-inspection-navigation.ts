@@ -11,6 +11,26 @@ import {MessagingClient} from './messaging-client'
 
 const PAGE_READY_TIMEOUT_MS = 8000
 
+function normalizeInspectableUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(String(rawUrl || ''))
+
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.pathname === '/'
+    ) {
+      parsed.pathname = ''
+    }
+
+    parsed.hash = ''
+    return parsed.toString()
+  } catch {
+    return String(rawUrl || '')
+      .trim()
+      .replace(/\/$/, '')
+  }
+}
+
 export async function ensureNavigatedAndLoaded(
   client: MessagingClient,
   urlToInspect: string,
@@ -45,6 +65,53 @@ export async function ensureNavigatedAndLoaded(
       const err = error as Error
       console.warn(
         '[RDP] attach(frameActor) failed:',
+        String(err.message || err)
+      )
+    }
+  }
+
+  try {
+    const currentUrl = await client.evaluate(
+      consoleActor,
+      'String(location.href || "")'
+    )
+    const sameDocumentTarget =
+      typeof currentUrl === 'string' &&
+      normalizeInspectableUrl(currentUrl) ===
+        normalizeInspectableUrl(urlToInspect)
+
+    if (sameDocumentTarget) {
+      if (
+        process.env.EXTENSION_AUTHOR_MODE === 'true' ||
+        process.env.EXTENSION_DEBUG_FIREFOX_INSPECTION === '1'
+      ) {
+        console.log(`[RDP] forcing native same-url reload for ${urlToInspect}`)
+      }
+
+      const detail = await client.getTargetFromDescriptor(tabActor)
+      const targetActor = detail.targetActor || frameActor || tabActor
+
+      try {
+        await client.attach(targetActor)
+      } catch (error) {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          const err = error as Error
+          console.warn(
+            '[RDP] attach(targetActor for same-url reload) failed:',
+            String(err.message || err)
+          )
+        }
+      }
+
+      await client.navigate(targetActor, urlToInspect)
+      await client.waitForLoadEvent(targetActor)
+      return
+    }
+  } catch (error) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      const err = error as Error
+      console.warn(
+        '[RDP] current URL check before navigate failed:',
         String(err.message || err)
       )
     }

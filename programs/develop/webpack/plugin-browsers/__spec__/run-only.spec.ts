@@ -50,6 +50,17 @@ describe('runOnlyPreviewBrowser', () => {
     })
 
     expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+    expect(chromiumRunOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          mode: 'production',
+          context: '/tmp',
+          output: {path: '/tmp/ext'}
+        }),
+        errors: []
+      }),
+      {enableCdpPostLaunch: false}
+    )
     expect(printProdBannerOnce).toHaveBeenCalledWith({
       browser: 'chromium',
       outPath: '/tmp/ext',
@@ -68,6 +79,23 @@ describe('runOnlyPreviewBrowser', () => {
     })
 
     expect(firefoxRunOnce).toHaveBeenCalledTimes(1)
+    expect(firefoxRunOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          mode: 'production',
+          context: '/tmp',
+          output: {path: '/tmp/ext-firefox'}
+        }),
+        errors: []
+      }),
+      expect.objectContaining({
+        browser: 'firefox',
+        mode: 'production',
+        profile: undefined,
+        persistProfile: undefined,
+        geckoBinary: undefined
+      })
+    )
     expect(printProdBannerOnce).toHaveBeenCalledWith({
       browser: 'firefox',
       outPath: '/tmp/ext-firefox',

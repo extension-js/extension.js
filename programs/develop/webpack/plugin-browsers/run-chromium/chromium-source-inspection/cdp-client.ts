@@ -8,18 +8,23 @@
 
 import WebSocket from 'ws'
 import * as messages from '../../browsers-lib/messages'
+import {discoverWebSocketDebuggerUrl} from './discovery'
 import {
   getExtensionInfo,
   loadUnpackedExtension,
   unloadExtension
 } from './extensions'
-import {discoverWebSocketDebuggerUrl} from './discovery'
-import {establishBrowserConnection} from './ws'
 import {
-  waitForLoadEvent,
+  type ExtensionRootMetaPayload,
+  evaluateExtensionRootMeta,
+  evaluateShadowStyleSnapshot,
+  getPageHTML,
+  hasVisibleShadowHostContent,
+  pollForVisibleShadowHostContent,
   waitForContentScriptInjection,
-  getPageHTML
+  waitForLoadEvent
 } from './page'
+import {establishBrowserConnection} from './ws'
 
 // Chrome DevTools Protocol Client for source inspection
 // Handles communication with Chrome's remote debugging interface
@@ -28,7 +33,7 @@ export class CDPClient {
   private host: string
   private ws: WebSocket | null = null
   private targetWebSocketUrl: string | null = null
-  private eventCallback?: (message: Record<string, unknown>) => void
+  private eventCallbacks = new Set<(message: Record<string, unknown>) => void>()
   private messageId = 0
   private pendingRequests = new Map<
     number,
@@ -104,8 +109,15 @@ export class CDPClient {
     }
   }
 
+  isConnected(): boolean {
+    return !!this.ws && this.ws.readyState === WebSocket.OPEN
+  }
+
   onProtocolEvent(handler: (message: Record<string, unknown>) => void) {
-    this.eventCallback = handler
+    this.eventCallbacks.add(handler)
+    return () => {
+      this.eventCallbacks.delete(handler)
+    }
   }
 
   private handleMessage(data: string) {
@@ -144,7 +156,9 @@ export class CDPClient {
         }
       }
 
-      if (this.eventCallback) this.eventCallback(message)
+      for (const eventCallback of this.eventCallbacks) {
+        eventCallback(message)
+      }
     } catch (error) {
       if (this.isDev()) {
         const err = error as Error
@@ -273,13 +287,68 @@ export class CDPClient {
     return waitForContentScriptInjection(this, sessionId)
   }
 
+  /** Extension root / reinject markers — uses page + isolated content-script context (matches injection wait). */
+  async getExtensionRootMeta(
+    sessionId: string
+  ): Promise<ExtensionRootMetaPayload | undefined> {
+    return evaluateExtensionRootMeta(this, sessionId)
+  }
+
+  /** Shadow <style> nodes under non-devtools content roots — same dual-context evaluation as root meta. */
+  async getShadowStyleSnapshot(
+    sessionId: string
+  ): Promise<Record<string, unknown> | undefined> {
+    return evaluateShadowStyleSnapshot(this, sessionId)
+  }
+
+  /** Best-effort poll when injection wait fails (async shadow fill, context quirks). */
+  async pollForVisibleShadowHostContent(
+    sessionId: string,
+    deadlineMs?: number
+  ): Promise<void> {
+    return pollForVisibleShadowHostContent(this, sessionId, deadlineMs)
+  }
+
+  async hasVisibleShadowHostContent(sessionId: string): Promise<boolean> {
+    return hasVisibleShadowHostContent(this, sessionId)
+  }
+
   // Evaluate JavaScript in the page context
-  async evaluate(sessionId: string, expression: string): Promise<unknown> {
+  async evaluate(
+    sessionId: string,
+    expression: string,
+    options?: {
+      awaitPromise?: boolean
+    }
+  ): Promise<unknown> {
     const response = (await this.sendCommand(
       'Runtime.evaluate',
       {
         expression,
-        returnByValue: true
+        returnByValue: true,
+        awaitPromise: options?.awaitPromise === true
+      },
+      sessionId
+    )) as {result?: {value?: unknown}}
+
+    return response.result?.value as unknown
+  }
+
+  async evaluateInContext(
+    sessionId: string,
+    expression: string,
+    contextId: number,
+    options?: {
+      awaitPromise?: boolean
+    }
+  ): Promise<unknown> {
+    const response = (await this.sendCommand(
+      'Runtime.evaluate',
+      {
+        expression,
+        contextId,
+        returnByValue: true,
+        awaitPromise: options?.awaitPromise === true
       },
       sessionId
     )) as {result?: {value?: unknown}}
@@ -302,32 +371,29 @@ export class CDPClient {
 
   // Extension Management Methods
   async forceReloadExtension(extensionId: string) {
-    try {
-      // Preferred path: Chrome's Extensions domain when available
-      await this.sendCommand('Extensions.reload', {
-        extensionId,
-        forceReload: true
-      })
-      return true
-    } catch (error) {
-      // Fallback: evaluate chrome.runtime.reload() on a suitable target
-      const attempts = 8
-      for (let i = 0; i < attempts; i++) {
-        try {
-          const ok = await this.reloadExtensionViaTargetEval(extensionId)
-          if (ok) return true
-        } catch {}
-        const backoffMs = Math.min(1200, 150 * (i + 1))
-        await new Promise((r) => setTimeout(r, backoffMs))
+    // Safety first: avoid Extensions.reload(forceReload), which can disable
+    // or relocate unpacked extensions in fresh Chromium profiles during
+    // automation. Keep reloads extension-owned via runtime.reload().
+    const attempts = 8
+    let lastError: unknown = null
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const ok = await this.reloadExtensionViaTargetEval(extensionId)
+        if (ok) return true
+      } catch (error) {
+        lastError = error
       }
-      console.warn(
-        messages.cdpClientExtensionReloadFailed(
-          extensionId,
-          (error as Error).message || String(error)
-        )
-      )
-      return false
+      const backoffMs = Math.min(1200, 150 * (i + 1))
+      await new Promise((r) => setTimeout(r, backoffMs))
     }
+    console.warn(
+      messages.cdpClientExtensionReloadFailed(
+        extensionId,
+        (lastError as Error)?.message ||
+          String(lastError || 'runtime.reload failed')
+      )
+    )
+    return false
   }
 
   async getExtensionInfo(extensionId: string) {

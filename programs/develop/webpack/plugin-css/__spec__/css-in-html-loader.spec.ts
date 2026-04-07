@@ -39,6 +39,7 @@ describe('cssInHtmlLoader', () => {
     ).toBe(true)
 
     for (const rule of rules as any[]) {
+      expect(rule.resourceQuery).toEqual({not: [/url/]})
       expect(typeof rule.issuer).toBe('function')
       expect(rule.issuer('content.js')).toBe(false)
       expect((rule.use as any[])?.length).toBeGreaterThan(0)

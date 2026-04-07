@@ -349,19 +349,22 @@ export function diffDomSnapshots(
   removedKeys: string[]
   changedKeys: string[]
 } {
+  const prevNodes = Array.isArray(prev?.nodes) ? prev.nodes : []
+  const nextNodes = Array.isArray(next?.nodes) ? next.nodes : []
+
   if (!prev) {
     return {
-      added: next.nodes.length,
+      added: nextNodes.length,
       removed: 0,
       changed: 0,
-      addedKeys: next.nodes.slice(0, 50).map((n) => n.key),
+      addedKeys: nextNodes.slice(0, 50).map((n) => n.key),
       removedKeys: [],
       changedKeys: []
     }
   }
 
-  const prevMap = new Map(prev.nodes.map((n) => [n.key, n]))
-  const nextMap = new Map(next.nodes.map((n) => [n.key, n]))
+  const prevMap = new Map(prevNodes.map((n) => [n.key, n]))
+  const nextMap = new Map(nextNodes.map((n) => [n.key, n]))
 
   let added = 0
   let removed = 0

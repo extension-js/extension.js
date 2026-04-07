@@ -8,6 +8,7 @@
 
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
+import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
 import {commandDescriptions} from '../cli-lib/messages'
 import {collectProjectProfile} from '../cli-lib/project-profile'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
@@ -130,10 +131,8 @@ export function registerBuildCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      // Load the matching develop runtime from the regular dependency graph.
-      const {extensionBuild}: {extensionBuild: any} = await import(
-        'extension-develop'
-      )
+      const {extensionBuild}: {extensionBuild: any} =
+        loadExtensionDevelopModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()

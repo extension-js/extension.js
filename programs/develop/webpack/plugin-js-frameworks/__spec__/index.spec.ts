@@ -246,7 +246,11 @@ describe('JsFrameworksPlugin', () => {
 
     await plugin.apply(compiler)
 
-    const swcRule = compiler.options.module.rules[0]
+    const swcRule = compiler.options.module.rules.find(
+      (rule: any) =>
+        Array.isArray(rule?.include) &&
+        rule?.issuerLayer?.not === 'extensionjs-content-script'
+    )
     expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
 
     const excludeFn = swcRule.exclude?.[0]
@@ -269,7 +273,11 @@ describe('JsFrameworksPlugin', () => {
 
     await plugin.apply(compiler)
 
-    const swcRule = compiler.options.module.rules[0]
+    const swcRule = compiler.options.module.rules.find(
+      (rule: any) =>
+        Array.isArray(rule?.include) &&
+        rule?.issuerLayer?.not === 'extensionjs-content-script'
+    )
     expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
   })
 })

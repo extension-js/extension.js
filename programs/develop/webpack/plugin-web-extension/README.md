@@ -24,6 +24,8 @@ Builds your extension into a shippable bundle. Pages get one script and optional
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Locales**<br/>Discovers `_locales/**/messages.json` and ships them where browsers expect for localized UI.                                                        |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Special folders**<br/>Copies `public/` as is; recognizes `pages/` and `scripts/`; surfaces structure changes early in development.                                |
 
+Feature-local architecture notes live next to each feature. For the scripts pipeline, see `feature-scripts/README.md`.
+
 ### Usage
 
 ```ts

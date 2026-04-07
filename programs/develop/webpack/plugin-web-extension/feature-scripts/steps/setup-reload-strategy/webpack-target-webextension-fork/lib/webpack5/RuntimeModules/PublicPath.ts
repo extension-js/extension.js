@@ -34,10 +34,14 @@ export default function PublicPathRuntimeModule(
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
+        `var __extjsRuntimePath = "";`,
         `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
         Template.indent([
-          `${RuntimeGlobals.publicPath} = ${RuntimeGlobal}.runtime.getURL(${path});`
+          `try { __extjsRuntimePath = ${RuntimeGlobal}.runtime.getURL(${path}); } catch (_) { __extjsRuntimePath = ""; }`
         ]),
+        `}`,
+        `if (__extjsRuntimePath) {`,
+        Template.indent([`${RuntimeGlobals.publicPath} = __extjsRuntimePath;`]),
         `} else if (__extjsBase) {`,
         Template.indent([
           `${RuntimeGlobals.publicPath} = __extjsBase.replace(/\\/+$/, "/") + String(${path}).replace(/^\\/+/, "");`

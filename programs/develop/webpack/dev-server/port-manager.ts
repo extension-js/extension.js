@@ -27,6 +27,19 @@ interface LocalInstanceInfo {
   extensionId?: string
 }
 
+function resolveInstanceIdOverride(): string | undefined {
+  const raw =
+    process.env.EXTENSION_INSTANCE_ID ||
+    process.env.EXTENSION_DEV_INSTANCE_ID ||
+    process.env.EXTJS_INSTANCE_ID ||
+    ''
+  const value = String(raw).trim()
+
+  if (!value) return undefined
+
+  return value.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64) || undefined
+}
+
 export class PortManager {
   private readonly basePort: number
   private currentInstance: LocalInstanceInfo | null = null
@@ -53,7 +66,8 @@ export class PortManager {
       const base = isValidRequested ? requestedPort : this.basePort
       const port = await findAvailablePortNear(base)
       const webSocketPort = await findAvailablePortNear(port + 1)
-      const instanceId = crypto.randomBytes(8).toString('hex')
+      const instanceId =
+        resolveInstanceIdOverride() || crypto.randomBytes(8).toString('hex')
 
       this.currentInstance = {instanceId, port, webSocketPort}
 

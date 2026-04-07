@@ -461,32 +461,32 @@ export function generateManifestPatches(
     }
   }
 
-  // Also expose emitted CSS under content_scripts/ to the union of content_scripts matches.
-  // This covers CSS imported by content scripts that end up emitted as files (e.g. styles.<hash>.css).
-  if (canonicalManifest.manifest_version === 3) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const cssUnderContentScripts = assetKeys
-      .filter((k) => k.startsWith('content_scripts/'))
-      .filter((k) => k.endsWith('.css'))
-      .sort()
+  // Also expose emitted CSS under content_scripts/ to content scripts directly.
+  // This covers CSS imported by content scripts that end up emitted as files.
+  const assetKeys: string[] = Object.keys(compilation.assets || {})
+  const cssUnderContentScripts = assetKeys
+    .filter((k) => k.startsWith('content_scripts/'))
+    .filter((k) => k.endsWith('.css'))
+    .sort()
 
-    if (Array.isArray(canonicalManifest.content_scripts)) {
-      for (const contentScript of canonicalManifest.content_scripts) {
-        const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
-        const canonicalCss = jsFiles
-          .map(toCanonicalContentScriptCss)
-          .filter((resource): resource is string =>
-            Boolean(resource && cssUnderContentScripts.includes(resource))
-          )
+  if (Array.isArray(canonicalManifest.content_scripts)) {
+    for (const contentScript of canonicalManifest.content_scripts) {
+      const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
+      const canonicalCss = jsFiles
+        .map(toCanonicalContentScriptCss)
+        .filter((resource): resource is string =>
+          Boolean(resource && cssUnderContentScripts.includes(resource))
+        )
 
-        if (canonicalCss.length > 0) {
-          contentScript.css = Array.from(
-            new Set([...(contentScript.css || []), ...canonicalCss])
-          ).sort()
-        }
+      if (canonicalCss.length > 0) {
+        contentScript.css = Array.from(
+          new Set([...(contentScript.css || []), ...canonicalCss])
+        ).sort()
       }
     }
+  }
 
+  if (canonicalManifest.manifest_version === 3) {
     if (cssUnderContentScripts.length > 0) {
       const allMatches: string[] = Array.from(
         new Set(
@@ -520,6 +520,12 @@ export function generateManifestPatches(
             matches: [...normalizedMatches].sort()
           })
         }
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    for (const resource of cssUnderContentScripts) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
       }
     }
   }
