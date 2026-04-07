@@ -26,13 +26,13 @@ const supportedScenarios = new Set(['default', 'react-content-dev'])
 function assertValidCliArgs(pm, scenario) {
   if (!pm || !supportedManagers.has(pm)) {
     throw new Error(
-      'Usage: node ci-scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun>'
+      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun>'
     )
   }
 
   if (!supportedScenarios.has(scenario)) {
     throw new Error(
-      'Usage: node ci-scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun> [--scenario <default|react-content-dev>]'
+      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun> [--scenario <default|react-content-dev>]'
     )
   }
 }
