@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Internal (CI): upgrade `pnpm/action-setup` to v5 so Actions use Node 24 and GitHub stops warning about Node 20 composite actions (not an extension or CLI behavior change).
 - Fix Windows optional dependency installs and smoke coverage (0e1303f1)
 - Fix content script CSS fallback restoration (002aa829)
 - Offload browser discovery to location libs (7035b423)
