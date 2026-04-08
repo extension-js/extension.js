@@ -58,8 +58,8 @@ export default defineConfig({
     {
       format: 'cjs',
       syntax: 'es2021',
-      // These integrations are installed on-demand (or provided by the user project),
-      // so they must remain runtime externals and never be bundled.
+      // Toolchain packages ship with extension-develop but stay external to the
+      // compiled bundle; they are loaded at runtime via Node resolution.
       output: {
         externals: [
           // React / Preact

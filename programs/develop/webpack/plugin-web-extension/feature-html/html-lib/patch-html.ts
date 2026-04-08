@@ -14,7 +14,9 @@ import * as messages from './messages'
 import {parseHtml} from './parse-html'
 import {getExtname, getFilePath, cleanAssetUrl, getBaseHref} from './utils'
 import {handleStaticAsset} from './assets'
-import {injectCssLink, injectJsScript} from './inject'
+import {injectJsScript} from './inject'
+import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
+import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {type FilepathList} from '../../../webpack-types'
 
 export function patchHtml(
@@ -27,9 +29,11 @@ export function patchHtml(
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 
-  // Ensure that not only we cover files imported by the HTML file
-  // but also by the JS files imported by the HTML file.
-  let hasCssEntry = !!compilation.getAsset(feature + '.css')
+  // Delegate CSS asset resolution to plugin-css.
+  const cssAsset = resolveCssAsset(compilation, feature)
+  let hasCssEntry = cssAsset.found
+  let cssHrefOverride = cssAsset.href
+
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
   let firstLinkAttrs: Array<{name: string; value: string}> | undefined
@@ -136,11 +140,8 @@ export function patchHtml(
 
       if (htmlChildNode.nodeName === 'head') {
         // Create the link tag for the CSS bundle.
-        // During development this is populated by a mock CSS file
-        // since we use style-loader to enable HMR for CSS files
-        // and it inlines the styles into the page.
         if (hasCssEntry) {
-          injectCssLink(htmlChildNode, feature, firstLinkAttrs)
+          injectCssLink(htmlChildNode, feature, firstLinkAttrs, cssHrefOverride)
         }
       }
 

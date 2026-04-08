@@ -40,10 +40,9 @@ describe('dev-server-client-import', () => {
       fs.existsSync(clientPath),
       `HMR client file missing: ${clientPath}`
     ).toBe(true)
-    expect(
-      fs.existsSync(hotEntry),
-      `HMR hot file missing: ${hotEntry}`
-    ).toBe(true)
+    expect(fs.existsSync(hotEntry), `HMR hot file missing: ${hotEntry}`).toBe(
+      true
+    )
   })
 
   it('returns empty array when no devServer config and no env vars', () => {
