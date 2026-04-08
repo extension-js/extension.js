@@ -357,8 +357,8 @@ async function installOptionalDependencies(
 
     const baseMessage = messages.installingProjectIntegrations([integration])
     const installMessage = baseMessage.replace(
-      '►►► ',
-      `►►► [${index + 1}/${plan.integrations.length}] `
+      '⏵⏵⏵ ',
+      `⏵⏵⏵ [${index + 1}/${plan.integrations.length}] `
     )
     console.log(installMessage)
 
