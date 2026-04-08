@@ -208,7 +208,7 @@ export class Telemetry {
           fs.writeFileSync(consentPath, 'ok', 'utf8')
           this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
           console.log(
-            `${colors.gray('►►►')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
+            `${colors.gray('⏵⏵⏵')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
           )
         }
       } catch {

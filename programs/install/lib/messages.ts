@@ -1,7 +1,7 @@
 import colors from 'pintor'
 import {InstallBrowserTarget} from './browser-target'
 
-const statusPrefix = colors.brightBlue('►►►')
+const statusPrefix = colors.brightBlue('⏵⏵⏵')
 
 function titleCase(value: string): string {
   return value.length ? value[0].toUpperCase() + value.slice(1) : value

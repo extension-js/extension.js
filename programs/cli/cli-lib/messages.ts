@@ -8,20 +8,20 @@
 
 import colors from 'pintor'
 
-// Prefix candidates (try swapping if desired): '►', '›', '→', '—'
+// Prefix candidates (try swapping if desired): '⏵', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
     // Author mode: magenta, clearly branded, keeps three-element prefix shape
-    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return colors.brightMagenta(base)
   }
 
   if (type === 'error') return colors.red('ERROR')
-  if (type === 'warn') return colors.brightYellow('►►►')
-  if (type === 'info') return colors.gray('►►►')
-  return colors.green('►►►')
+  if (type === 'warn') return colors.brightYellow('⏵⏵⏵')
+  if (type === 'info') return colors.gray('⏵⏵⏵')
+  return colors.green('⏵⏵⏵')
 }
 
 // Standard code style across all messages

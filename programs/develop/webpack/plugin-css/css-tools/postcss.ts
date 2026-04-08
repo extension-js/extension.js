@@ -225,7 +225,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -238,7 +238,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -252,7 +252,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -516,7 +516,7 @@ export async function maybeUsePostCss(
     try {
       // Keep logs concise but informative for real-world debugging
       console.log(
-        `${colors.brightMagenta('►►► Author says')} [extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s`,
+        `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s`,
         projectPath,
         userPostCssConfig || 'none',
         pkgHasPostCss,
@@ -526,7 +526,7 @@ export async function maybeUsePostCss(
         ? postcssOptions.plugins.length
         : 0
       console.log(
-        `${colors.brightMagenta('►►► Author says')} [extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s`,
+        `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s`,
         resolvedPluginsCount,
         String(postcssOptions.config),
         String(postcssOptions.cwd)
