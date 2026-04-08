@@ -40,6 +40,7 @@ function createBuildToken(source) {
 }
 
 function collectStyleAssetSpecifiers(source) {
+  const SAFE_SPECIFIER = /^[\w./@~\-?&=#+%]+$/
   const styleSpecifiers = new Set()
   const patterns = [
     /import\s+(?:[^'"`]*from\s*)?["']([^"'`]+\.(?:css|scss|sass|less|styl)(?:\?[^"'`]+)?)["']/g,
@@ -52,6 +53,7 @@ function collectStyleAssetSpecifiers(source) {
       const specifier = String(match[1] || '').trim()
       if (
         specifier &&
+        SAFE_SPECIFIER.test(specifier) &&
         !/(?:^|[?&])url(?:[=&]|$)/.test(specifier) &&
         !/(?:^|[?&])raw(?:[=&]|$)/.test(specifier)
       ) {
