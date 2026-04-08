@@ -220,7 +220,7 @@ export default function webpackConfig(
       // Development: hash canonical content-script bundles so Cmd+Shift+R loads a new
       // chrome-extension:// URL after edits; stable names are aggressively cached.
       filename:
-        (devOptions.mode || 'development') === 'development'
+        (devOptions.mode || 'development') === 'development' as any
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
               if (
@@ -263,14 +263,9 @@ export default function webpackConfig(
         ? [
             'node_modules',
             path.join(packageJsonDir, 'node_modules'),
-            // Add root node_modules for monorepo support
             path.join(process.cwd(), 'node_modules')
           ]
-        : [
-            // Web-only mode: keep resolution simple; rely on local sources
-            'node_modules',
-            path.join(process.cwd(), 'node_modules')
-          ],
+        : ['node_modules', path.join(process.cwd(), 'node_modules')],
       extensions: [
         '.js',
         '.cjs',
