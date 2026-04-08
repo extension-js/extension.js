@@ -10,6 +10,38 @@ function normalizeHotValue(value: unknown): string {
   return 'true'
 }
 
+// Resolve HMR client paths from extension-develop's own dependency tree so they
+// don't need to exist in the user's node_modules (pnpm strict hoisting).
+let _resolvedClientPath: string | undefined
+let _resolvedHotPath: string | undefined
+
+function resolveHmrClientPath(): string {
+  if (!_resolvedClientPath) {
+    try {
+      _resolvedClientPath = require.resolve(
+        '@rspack/dev-server/client/index.js',
+        {paths: [__dirname]}
+      )
+    } catch {
+      _resolvedClientPath = '@rspack/dev-server/client/index.js'
+    }
+  }
+  return _resolvedClientPath
+}
+
+function resolveHmrHotPath(): string {
+  if (!_resolvedHotPath) {
+    try {
+      _resolvedHotPath = require.resolve('webpack/hot/dev-server', {
+        paths: [__dirname]
+      })
+    } catch {
+      _resolvedHotPath = 'webpack/hot/dev-server'
+    }
+  }
+  return _resolvedHotPath
+}
+
 export function getDevServerHmrImports(compiler: Compiler): string[] {
   const devServer = (compiler.options as any)?.devServer
   const envHost = process.env.EXTENSION_DEV_SERVER_HOST
@@ -59,7 +91,7 @@ export function getDevServerHmrImports(compiler: Compiler): string[] {
   })
 
   return [
-    `@rspack/dev-server/client/index.js?${query.toString()}`,
-    'webpack/hot/dev-server'
+    `${resolveHmrClientPath()}?${query.toString()}`,
+    resolveHmrHotPath()
   ]
 }
