@@ -28,7 +28,7 @@ export function isUsingVue(projectPath: string) {
   if (using && !userMessageDelivered) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
-        `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('Vue')}`
+        `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('Vue')}`
       )
     }
     userMessageDelivered = true

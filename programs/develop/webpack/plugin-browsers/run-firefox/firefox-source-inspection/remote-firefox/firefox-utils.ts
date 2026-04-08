@@ -125,19 +125,19 @@ export function printLogEventPretty(
   const arrow =
     level === 'error'
       ? color
-        ? colorFns.red('►►►')
-        : '►►►'
+        ? colorFns.red('⏵⏵⏵')
+        : '⏵⏵⏵'
       : level === 'warn'
         ? color
-          ? colorFns.yellow('►►►')
-          : '►►►'
+          ? colorFns.yellow('⏵⏵⏵')
+          : '⏵⏵⏵'
         : level === 'log'
           ? color
-            ? colorFns.gray('►►►')
-            : '►►►'
+            ? colorFns.gray('⏵⏵⏵')
+            : '⏵⏵⏵'
           : color
-            ? colorFns.blue('►►►')
-            : '►►►'
+            ? colorFns.blue('⏵⏵⏵')
+            : '⏵⏵⏵'
   const where = url ? ` ${url}` : ''
 
   console.log(`${arrow} ${ts}${context}${where} - ${text}`)

@@ -32,7 +32,7 @@ export function isUsingReact(projectPath: string) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('React')}`
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('React')}`
         )
       }
 

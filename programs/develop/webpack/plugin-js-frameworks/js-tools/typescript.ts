@@ -85,7 +85,7 @@ export function isUsingTypeScript(projectPath: string): boolean {
       if (tsConfigFilePath) {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(
-            `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('TypeScript')}`
+            `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('TypeScript')}`
           )
         }
       } else {

@@ -41,20 +41,20 @@ type PackageJson = {
 // Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
 
-// Prefix candidates (try swapping if desired): '►', '›', '→', '—'
+// Prefix candidates (try swapping if desired): '⏵', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
     // Author mode: magenta, clearly branded, keeps three-element prefix shape
-    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return colors.brightMagenta(base)
   }
 
   if (type === 'error') return colors.red('ERROR')
-  if (type === 'warn') return colors.brightYellow('►►►')
-  if (type === 'info') return colors.gray('►►►')
-  return colors.green('►►►')
+  if (type === 'warn') return colors.brightYellow('⏵⏵⏵')
+  if (type === 'info') return colors.gray('⏵⏵⏵')
+  return colors.green('⏵⏵⏵')
 }
 
 function errorDetail(error: unknown) {
@@ -1249,27 +1249,27 @@ export function invalidGeckoBinaryPath(p: string) {
 }
 
 export function firefoxDetectedFlatpak() {
-  return `${colors.gray('►►►')} Firefox detected via Flatpak`
+  return `${colors.gray('⏵⏵⏵')} Firefox detected via Flatpak`
 }
 
 export function firefoxDetectedSnap() {
-  return `${colors.gray('►►►')} Firefox detected via Snap`
+  return `${colors.gray('⏵⏵⏵')} Firefox detected via Snap`
 }
 
 export function firefoxDetectedTraditional(path: string) {
-  return `${colors.gray('►►►')} Firefox detected at ${colors.underline(path)}`
+  return `${colors.gray('⏵⏵⏵')} Firefox detected at ${colors.underline(path)}`
 }
 
 export function firefoxDetectedCustom(path: string) {
-  return `${colors.gray('►►►')} Using custom Firefox binary at ${colors.underline(path)}`
+  return `${colors.gray('⏵⏵⏵')} Using custom Firefox binary at ${colors.underline(path)}`
 }
 
 export function firefoxUsingFlatpakWithSandbox() {
-  return `${colors.gray('►►►')} Using Flatpak launcher with sandbox arguments`
+  return `${colors.gray('⏵⏵⏵')} Using Flatpak launcher with sandbox arguments`
 }
 
 export function firefoxVersion(version: string) {
-  return `${colors.gray('►►►')} Firefox version ${colors.gray(version)}`
+  return `${colors.gray('⏵⏵⏵')} Firefox version ${colors.gray(version)}`
 }
 
 export function rdpInvalidRequestPayload() {
