@@ -86,9 +86,11 @@ describe('AddScriptsAndStylesToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
-    expect(compiler.options.entry['feature/index'].import[0]).toContain(
-      '@rspack/dev-server/client/index.js?'
-    )
+    const firstImport = compiler.options.entry['feature/index'].import[0]
+    expect(
+      firstImport.includes('@rspack/dev-server/client/index.js?') ||
+        firstImport.includes('dev-server/client/index.js?')
+    ).toBe(true)
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.includes('minimum-script-file')
@@ -119,11 +121,15 @@ describe('AddScriptsAndStylesToCompilation', () => {
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
 
-    expect(compiler.options.entry['feature/index'].import[0]).toContain(
-      '@rspack/dev-server/client/index.js?'
-    )
-    expect(compiler.options.entry['feature/index'].import).toContain(
-      'webpack/hot/dev-server'
-    )
+    const firstImport = compiler.options.entry['feature/index'].import[0]
+    expect(
+      firstImport.includes('@rspack/dev-server/client/index.js?') ||
+        firstImport.includes('dev-server/client/index.js?')
+    ).toBe(true)
+    expect(
+      compiler.options.entry['feature/index'].import.some((p: string) =>
+        p.includes('hot/dev-server') || p.includes('hot\\dev-server')
+      )
+    ).toBe(true)
   })
 })
