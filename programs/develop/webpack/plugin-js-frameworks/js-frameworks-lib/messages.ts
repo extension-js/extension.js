@@ -10,21 +10,21 @@ import colors from 'pintor'
 
 export function installingRootDependencies(integration: string) {
   return (
-    `${colors.gray('►►►')} ${integration} dependencies are being installed. ` +
+    `${colors.gray('⏵⏵⏵')} ${integration} dependencies are being installed. ` +
     `This only happens for core contributors...`
   )
 }
 
 export function integrationInstalledSuccessfully(integration: string) {
-  return `${colors.green('►►►')} ${integration} dependencies installed successfully.`
+  return `${colors.green('⏵⏵⏵')} ${integration} dependencies installed successfully.`
 }
 
 export function isUsingIntegration(name: string) {
-  return `${colors.gray('►►►')} Using ${colors.brightBlue(name)}...`
+  return `${colors.gray('⏵⏵⏵')} Using ${colors.brightBlue(name)}...`
 }
 
 export function youAreAllSet(name: string) {
-  return `${colors.green('►►►')} ${name} installation completed.`
+  return `${colors.green('⏵⏵⏵')} ${name} installation completed.`
 }
 
 export function optionalDepsReady(integrations: string[]) {
@@ -32,11 +32,11 @@ export function optionalDepsReady(integrations: string[]) {
     integrations.length > 0
       ? integrations.map((name) => colors.yellow(name)).join(', ')
       : colors.gray('optional')
-  return `${colors.green('►►►')} All set — ${list} tooling is ready.`
+  return `${colors.green('⏵⏵⏵')} All set — ${list} tooling is ready.`
 }
 
 export function creatingTSConfig() {
-  return `${colors.gray('►►►')} Creating default tsconfig.json...`
+  return `${colors.gray('⏵⏵⏵')} Creating default tsconfig.json...`
 }
 
 export function failedToInstallIntegration(
@@ -51,7 +51,7 @@ export function failedToInstallIntegration(
 }
 
 export function isUsingCustomLoader(loaderPath: string) {
-  return `${colors.gray('►►►')} Using custom loader: ${colors.yellow(loaderPath)}.`
+  return `${colors.gray('⏵⏵⏵')} Using custom loader: ${colors.yellow(loaderPath)}.`
 }
 
 export function jsFrameworksIntegrationsEnabled(integrations: string[]) {
@@ -59,7 +59,7 @@ export function jsFrameworksIntegrationsEnabled(integrations: string[]) {
     integrations.length > 0
       ? integrations.map((n) => colors.yellow(n)).join(', ')
       : colors.gray('none')
-  return `${colors.gray('►►►')} JS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
+  return `${colors.gray('⏵⏵⏵')} JS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
 }
 
 export function jsFrameworksConfigsDetected(
@@ -73,7 +73,7 @@ export function jsFrameworksConfigsDetected(
       ? targets.map((t) => colors.gray(t)).join(', ')
       : colors.gray('default')
   return (
-    `${colors.gray('►►►')} JS: Configs\n` +
+    `${colors.gray('⏵⏵⏵')} JS: Configs\n` +
     `${colors.gray('TSCONFIG')} ${fmt(tsConfigPath)}\n` +
     `${colors.gray('TSROOT')} ${fmt(tsRoot)}\n` +
     `${colors.gray('SWC_TARGETS')} ${tgt}`
@@ -85,5 +85,5 @@ export function jsFrameworksHmrSummary(enabled: boolean, frameworks: string[]) {
     frameworks.length > 0
       ? frameworks.map((n) => colors.yellow(n)).join(', ')
       : colors.gray('none')
-  return `${colors.gray('►►►')} JS: HMR ${enabled ? colors.green('enabled') : colors.gray('disabled')} for ${list}`
+  return `${colors.gray('⏵⏵⏵')} JS: HMR ${enabled ? colors.green('enabled') : colors.gray('disabled')} for ${list}`
 }
