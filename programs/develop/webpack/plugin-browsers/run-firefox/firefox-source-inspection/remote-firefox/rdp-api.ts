@@ -206,10 +206,11 @@ export async function navigateViaScript(
   consoleActor: string,
   url: string
 ) {
+  const encoded = Buffer.from(new URL(url).href).toString('base64')
   await requestEvaluation(
     transport,
     consoleActor,
-    `(() => { window.location.assign(${JSON.stringify(url)}); return true; })()`
+    `(() => { window.location.assign(atob("${encoded}")); return true; })()`
   )
 }
 

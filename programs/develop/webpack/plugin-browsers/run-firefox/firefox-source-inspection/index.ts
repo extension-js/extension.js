@@ -743,9 +743,9 @@ export class FirefoxSourceInspectionPlugin {
         })()`
       )
 
-      if (typeof shadowHtml === 'string' && shadowHtml.includes('<style')) {
+      if (typeof shadowHtml === 'string' && /<style/i.test(shadowHtml)) {
         const matches = Array.from(
-          shadowHtml.matchAll(/<style[\s\S]*?<\/style>/g)
+          shadowHtml.matchAll(/<style[\s\S]*?<\/style>/gi)
         ).slice(0, 3)
         if (matches.length > 0) {
           return {
@@ -753,7 +753,12 @@ export class FirefoxSourceInspectionPlugin {
             count: totalCount,
             styles: matches.map((match) => {
               const html = String(match[0] || '')
-              const text = html.replace(/<style[^>]*>|<\/style>/g, '')
+              let text = html
+              let prev
+              do {
+                prev = text
+                text = text.replace(/<style[^>]*>|<\/style>/gi, '')
+              } while (text !== prev)
               return {
                 html,
                 textLength: text.length,
