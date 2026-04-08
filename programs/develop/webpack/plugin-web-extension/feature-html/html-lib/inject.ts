@@ -9,36 +9,7 @@
 import * as parse5utilities from 'parse5-utilities'
 import {getFilePath} from './utils'
 
-export function injectCssLink(
-  headNode: any,
-  feature: string,
-  firstLinkAttrs?: Array<{name: string; value: string}>
-) {
-  const linkTag = parse5utilities.createNode('link')
-  linkTag.attrs = [
-    {name: 'rel', value: 'stylesheet'},
-    {name: 'href', value: getFilePath(feature, '.css', true)}
-  ]
-  const propagateLinkAttrs = new Set([
-    'media',
-    'crossorigin',
-    'integrity',
-    'referrerpolicy',
-    'type',
-    'disabled'
-  ])
-  if (firstLinkAttrs) {
-    for (const attr of firstLinkAttrs) {
-      if (
-        propagateLinkAttrs.has(attr.name) &&
-        !linkTag.attrs.find((a: any) => a.name === attr.name)
-      ) {
-        linkTag.attrs.push({name: attr.name, value: attr.value})
-      }
-    }
-  }
-  parse5utilities.append(headNode, linkTag)
-}
+// CSS link injection has been moved to plugin-css/css-lib/inject-css-link.ts
 
 export function injectJsScript(
   bodyNode: any,

@@ -1,6 +1,10 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 
+const {toolsHasDependencyMock} = vi.hoisted(() => ({
+  toolsHasDependencyMock: vi.fn(() => false)
+}))
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
@@ -10,11 +14,8 @@ vi.mock('fs', async () => {
   }
 })
 
-vi.mock('isolated-deps', () => ({
-  hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
-  resolveDevelopInstallRoot: vi.fn(() => undefined),
-  resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+vi.mock('../../webpack-lib/has-dependency', () => ({
+  hasDependency: (...args: [string, string]) => toolsHasDependencyMock(...args)
 }))
 
 vi.mock('../../webpack-lib/messages', () => ({
@@ -115,11 +116,8 @@ describe('css tools additional coverage', () => {
   })
 
   it('isUsingTailwind logs only once across multiple calls', async () => {
-    // Work with the mocked module (declared above) so the implementation used by code under test is affected.
-    const mockedIntegrations = (await import('isolated-deps')) as unknown as {
-      hasDependency: any
-    }
-    mockedIntegrations.hasDependency.mockImplementation(
+    vi.resetModules()
+    toolsHasDependencyMock.mockImplementation(
       (_: any, dep: string) => dep === 'tailwindcss'
     )
 
