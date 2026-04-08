@@ -11,7 +11,7 @@ import * as fs from 'fs'
 import colors from 'pintor'
 import {detectPackageManagerFromEnv} from './package-manager'
 
-const statusPrefix = colors.brightBlue('►►►')
+const statusPrefix = colors.brightBlue('⏵⏵⏵')
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)

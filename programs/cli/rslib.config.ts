@@ -49,17 +49,17 @@ function copyIfDifferentContent(sourceContent: string, target: string): void {
     if (sourceContent !== targetContent) {
       fs.writeFileSync(target, sourceContent)
       console.log(
-        `${colors.gray('►►► system')} [Extension.js setup] File README.md copied to ${target}`
+        `${colors.gray('⏵⏵⏵ system')} [Extension.js setup] File README.md copied to ${target}`
       )
     } else {
       console.log(
-        `${colors.gray('►►► system')} [Extension.js setup] File README.md haven't changed. Skipping copy...`
+        `${colors.gray('⏵⏵⏵ system')} [Extension.js setup] File README.md haven't changed. Skipping copy...`
       )
     }
   } else {
     fs.writeFileSync(target, sourceContent)
     console.log(
-      `${colors.gray('►►► system')} [Extension.js setup] File README.md copied to ${target}`
+      `${colors.gray('⏵⏵⏵ system')} [Extension.js setup] File README.md copied to ${target}`
     )
   }
 }

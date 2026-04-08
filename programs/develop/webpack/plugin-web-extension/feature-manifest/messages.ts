@@ -15,13 +15,13 @@ function getLoggingPrefix(
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
-    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return `${colors.brightMagenta(base)} ${feature}`
   }
 
   if (type === 'error') return `${colors.red('ERROR')} ${feature}`
-  if (type === 'warn') return `${colors.brightYellow('►►►')} ${feature}`
-  const arrow = type === 'info' ? colors.gray('►►►') : colors.green('►►►')
+  if (type === 'warn') return `${colors.brightYellow('⏵⏵⏵')} ${feature}`
+  const arrow = type === 'info' ? colors.gray('⏵⏵⏵') : colors.green('⏵⏵⏵')
 
   return `${arrow} ${feature}`
 }
