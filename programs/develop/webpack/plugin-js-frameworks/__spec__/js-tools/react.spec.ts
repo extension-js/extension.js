@@ -12,7 +12,6 @@ let ReactRefreshPluginCtor: any = class ReactRefreshPluginMock {
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 

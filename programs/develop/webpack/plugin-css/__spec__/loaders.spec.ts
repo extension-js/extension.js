@@ -10,13 +10,6 @@ vi.mock('../css-lib/is-content-script', () => ({
 
 const resolveDevelopInstallRootMock = vi.fn(() => '/extension-root')
 
-vi.mock('isolated-deps', async () => {
-  const actual = await vi.importActual<any>('isolated-deps')
-  return {
-    ...actual
-  }
-})
-
 vi.mock('../../webpack-lib/develop-context', () => ({
   resolveDevelopInstallRoot: (...args: unknown[]) =>
     resolveDevelopInstallRootMock(...args),

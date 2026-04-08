@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   optional-deps-lib-specs:
-    name: optional-deps-lib specs (${{ matrix.os }})
+    name: toolchain preflight specs (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,8 +61,8 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run optional deps library specs
-        run: pnpm run ci:test:isolated-deps
+      - name: Run toolchain preflight specs
+        run: pnpm run ci:test:toolchain-preflight
 
   optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})

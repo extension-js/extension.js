@@ -10,7 +10,7 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {hasDependency} from 'isolated-deps'
+import {hasDependency} from '../../webpack-lib/has-dependency'
 import {resolveDevelopInstallRoot} from '../../webpack-lib/develop-context'
 import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
