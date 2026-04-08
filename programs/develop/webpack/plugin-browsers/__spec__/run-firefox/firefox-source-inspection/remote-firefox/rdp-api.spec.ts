@@ -88,8 +88,10 @@ describe('remote-firefox rdp api', () => {
       to: 'console-actor',
       type: 'evaluateJSAsync'
     })
-    expect(String(transport.requests[0].text)).toContain(
-      'window.location.assign("https://example.com")'
+    const text = String(transport.requests[0].text)
+    expect(text).toContain('window.location.assign(atob(')
+    expect(text).toContain(
+      Buffer.from('https://example.com/').toString('base64')
     )
   })
 
