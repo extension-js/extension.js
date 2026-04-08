@@ -3,7 +3,6 @@ import {pathPattern} from '../../../webpack-lib/__spec__/platform-utils'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 

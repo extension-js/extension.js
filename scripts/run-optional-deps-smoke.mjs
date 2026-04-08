@@ -688,9 +688,9 @@ function runReactContentDevSmoke(workdir) {
   const failurePatterns = [
     /compiled with errors/i,
     /Module parse failed/i,
-    /Optional dependency install reported success but packages are missing/i,
-    /Unhandled rejection/i,
-    /could not be resolved after optional dependency installation/i
+    /Toolchain packages are missing or incompatible/i,
+    /Missing or invalid packages/i,
+    /Unhandled rejection/i
   ]
   const timeoutMs = 180000
 

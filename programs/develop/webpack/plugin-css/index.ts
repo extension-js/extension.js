@@ -14,7 +14,7 @@ import {
   type RuleSetRule
 } from '@rspack/core'
 import * as messages from './css-lib/messages'
-import {hasDependency} from 'isolated-deps'
+import {hasDependency} from '../webpack-lib/has-dependency'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
@@ -24,6 +24,11 @@ import {isContentScriptEntry} from './css-lib/is-content-script'
 import type {DevOptions, PluginInterface} from '../webpack-types'
 import {getStylelintConfigFile} from './css-tools/stylelint'
 import {getTailwindConfigFile} from './css-tools/tailwind'
+
+// Re-export CSS utilities so other plugins can import from @plugin-css
+export {resolveCssAsset} from './css-lib/resolve-css-asset'
+export type {CssAssetResult} from './css-lib/resolve-css-asset'
+export {injectCssLink} from './css-lib/inject-css-link'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -96,6 +101,14 @@ export class CssPlugin {
         }
       )
     }
+
+    // CSS output naming.  Rspack's native CSS (`experiments.css`) already
+    // bakes a content-hash into [name] for CSS chunks split from content-
+    // script imports (e.g. "content_scripts/styles.fe21de80.css"), so a
+    // plain [name].css is sufficient for both dev and production — no
+    // extra [fullhash] template is needed.
+    compiler.options.output.cssFilename = '[name].css'
+    compiler.options.output.cssChunkFilename = '[name].css'
 
     // Update compiler configuration
     compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(

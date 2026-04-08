@@ -44,7 +44,7 @@
     "ci:test:plugin-extension": "pnpm run test:dev",
     "ci:test:plugin-js-frameworks": "pnpm run test:dev",
     "ci:test:plugin-compilation": "pnpm run test:dev",
-    "ci:test:isolated-deps": "pnpm --dir programs/develop exec vitest run webpack/webpack-lib/__spec__/optional-deps-resolver.spec.ts webpack/webpack-lib/__spec__/preflight-optional-deps.spec.ts webpack/webpack-lib/__spec__/preflight-cache.spec.ts",
+    "ci:test:toolchain-preflight": "pnpm --dir programs/develop exec vitest run webpack/webpack-lib/__spec__/optional-deps-resolver.spec.ts webpack/webpack-lib/__spec__/preflight-optional-deps.spec.ts webpack/webpack-lib/__spec__/preflight-cache.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {
