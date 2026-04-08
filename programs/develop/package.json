@@ -109,7 +109,7 @@
     "@prefresh/webpack": "4.0.6",
     "@rslib/core": "^0.19.4",
     "@rspack/plugin-preact-refresh": "1.1.4",
-    "@rspack/plugin-react-refresh": "1.6.0",
+    "@rspack/plugin-react-refresh": "2.0.0",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/chrome": "^0.1.33",
