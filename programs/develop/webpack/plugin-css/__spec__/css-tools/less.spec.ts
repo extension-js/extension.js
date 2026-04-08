@@ -1,10 +1,11 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-vi.mock('isolated-deps', () => ({
-  hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
-  resolveDevelopInstallRoot: vi.fn(() => undefined),
-  resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+const {lessHasDependencyMock} = vi.hoisted(() => ({
+  lessHasDependencyMock: vi.fn(() => false)
+}))
+
+vi.mock('../../../webpack-lib/has-dependency', () => ({
+  hasDependency: (...args: [string, string]) => lessHasDependencyMock(...args)
 }))
 
 describe('less tools', () => {
@@ -15,8 +16,7 @@ describe('less tools', () => {
   })
 
   it('isUsingLess returns true when dependency is present and logs once', async () => {
-    const integrations = (await import('isolated-deps')) as any
-    integrations.hasDependency.mockImplementation(
+    lessHasDependencyMock.mockImplementation(
       (_p: string, dep: string) => dep === 'less'
     )
 
@@ -29,8 +29,7 @@ describe('less tools', () => {
 
   it('maybeUseLess returns an array (rules or empty) depending on env', async () => {
     const less = await import('../../css-tools/less')
-    // In some environments less-loader may be present; just assert array shape.
-    const result = await less.maybeUseLess('/p', '/p/manifest.json')
+    const result = await less.maybeUseLess('/p')
     expect(Array.isArray(result)).toBe(true)
   })
 })

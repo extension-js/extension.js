@@ -42,7 +42,8 @@ function createCompiler(
     options: {
       mode,
       plugins: [] as any[],
-      module: {rules: [] as any[]}
+      module: {rules: [] as any[]},
+      output: {} as Record<string, unknown>
     },
     hooks: {beforeRun}
   } as any

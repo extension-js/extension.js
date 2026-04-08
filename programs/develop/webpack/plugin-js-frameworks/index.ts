@@ -196,7 +196,7 @@ export class JsFrameworksPlugin {
     }
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
-      disableRefresh: true,
+      disableRefresh: mode !== 'development',
       refreshExclude: (resourcePath: string) =>
         isfeatureScriptsContentLike(resourcePath)
     })
