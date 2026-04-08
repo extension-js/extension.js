@@ -26,7 +26,7 @@ jobs:
           - ci:test:plugin-js-frameworks
           - ci:test:plugin-compatibility
           - ci:test:plugin-static-assets
-          - ci:test:isolated-deps
+          - ci:test:toolchain-preflight
           - ci:test:core
 
     steps:

@@ -1,15 +1,12 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {createRequire} from 'module'
-import {
-  installOptionalDependencies,
-  resolveOptionalInstallRoot,
-  resolvePackageFromInstallRoot,
-  type OptionalDependencyContract,
-  type OptionalDependencyVerificationRule
-} from 'isolated-deps'
 import {resolveDevelopInstallRoot} from './develop-context'
 import {getOptionalDependencyContract} from './optional-deps-contracts'
+import type {
+  OptionalDependencyContract,
+  OptionalDependencyVerificationRule
+} from './optional-dependency-types'
 
 type ResolutionResult = {
   resolvedPath: string
@@ -28,8 +25,6 @@ type EnsureResolveInput = {
 type EnsureLoadInput<T = any> = EnsureResolveInput & {
   moduleAdapter?: (loaded: any) => T
 }
-
-const installSingleFlight = new Map<string, Promise<void>>()
 
 function toInstallRootContract(
   integration: string,
@@ -64,24 +59,11 @@ function getVerificationContract(
 }
 
 function getResolutionBases(projectPath: string): string[] {
-  const optionalInstallRoot = resolveOptionalInstallRoot()
   const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [
-    projectPath,
-    optionalInstallRoot && fs.existsSync(optionalInstallRoot)
-      ? optionalInstallRoot
-      : undefined,
-    extensionRoot || undefined,
-    process.cwd()
-  ].filter(Boolean) as string[]
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
 
-  // In pnpm dlx/npx, optional deps live in extension-develop's sibling node_modules
-  // (e.g. .../.pnpm/extension-develop@x/node_modules/sass-loader). For
-  // require.resolve(id, {paths}), Node looks for path/node_modules/id, so we add
-  // the parent of that node_modules (the .pnpm store dir).
-  if (optionalInstallRoot && optionalInstallRoot.includes('.pnpm')) {
-    bases.push(path.join(optionalInstallRoot, '..', '..'))
-  }
   if (extensionRoot && extensionRoot.includes('.pnpm')) {
     bases.push(path.join(extensionRoot, '..', '..'))
   }
@@ -129,28 +111,9 @@ function resolveDependency(
 
 function resolveFromKnownLocations(
   dependencyId: string,
-  projectPath: string,
-  installRoot?: string
+  projectPath: string
 ): string | undefined {
-  const resolved = resolveDependency(dependencyId, projectPath)
-  if (resolved) return resolved.resolvedPath
-
-  if (!installRoot) return undefined
-
-  // Try installRoot/node_modules first (npm/yarn, or pnpm add --dir)
-  const fromRoot = resolveFromInstallRootPackageDir(dependencyId, installRoot)
-  if (fromRoot) return fromRoot
-
-  // In pnpm dlx, deps are in extension-develop's sibling node_modules
-  // (.../.pnpm/extension-develop@x/node_modules/sass-loader). The parent of
-  // that node_modules is the .pnpm store dir.
-  if (installRoot.includes('.pnpm')) {
-    return resolveFromInstallRootPackageDir(
-      dependencyId,
-      path.join(installRoot, '..', '..')
-    )
-  }
-  return undefined
+  return resolveDependency(dependencyId, projectPath)?.resolvedPath
 }
 
 function getPackageDirFromInstallRoot(
@@ -293,8 +256,6 @@ function resolveFirstExistingEntry(
 function resolveFromPackageDir(packageDir: string): string | undefined {
   if (!fs.existsSync(packageDir)) return undefined
 
-  // Direct absolute directory resolution handles pnpm-linked trees where
-  // bare-specifier lookup can still fail despite package presence.
   try {
     return require.resolve(packageDir)
   } catch {
@@ -312,23 +273,11 @@ function resolveFromInstallRootPackageDir(
   dependencyId: string,
   installRoot: string
 ): string | undefined {
-  return resolvePackageFromInstallRoot(dependencyId, installRoot)
-}
-
-function verifyPackageInInstallRoot(
-  packageId: string,
-  installRoot: string
-): boolean {
-  // Do not use generic module resolution here; it can climb parent directories
-  // and report a false positive even when the package is absent in installRoot.
-  if (resolveFromInstallRootPackageDir(packageId, installRoot)) return true
-
-  if (installRoot.includes('.pnpm')) {
-    const pnpmStoreBase = path.join(installRoot, '..', '..')
-    if (resolveFromInstallRootPackageDir(packageId, pnpmStoreBase)) return true
-  }
-
-  return false
+  const directDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
+  const fromDirect = resolveFromPackageDir(directDir)
+  if (fromDirect) return fromDirect
+  const nested = findNestedPackageDir(dependencyId, installRoot)
+  return nested ? resolveFromPackageDir(nested) : undefined
 }
 
 function dedupeFailures(packageIds: string[]) {
@@ -406,15 +355,14 @@ function evaluateModuleContextRule(
 
 export function getContractVerificationFailuresFromKnownLocations(
   contract: OptionalDependencyContract,
-  projectPath: string,
-  installRoot = resolveOptionalInstallRoot()
+  projectPath: string
 ) {
   const resolvedByPackage = new Map<string, string | undefined>()
   const resolvePackage = (packageId: string) => {
     if (!resolvedByPackage.has(packageId)) {
       resolvedByPackage.set(
         packageId,
-        resolveFromKnownLocations(packageId, projectPath, installRoot)
+        resolveFromKnownLocations(packageId, projectPath)
       )
     }
     return resolvedByPackage.get(packageId)
@@ -443,16 +391,14 @@ export function getContractVerificationFailuresFromKnownLocations(
 
 export function getContractVerificationFailuresAtInstallRoot(
   contract: OptionalDependencyContract,
-  installRoot = resolveOptionalInstallRoot()
+  installRoot: string
 ) {
   const resolvedByPackage = new Map<string, string | undefined>()
   const resolvePackage = (packageId: string) => {
     if (!resolvedByPackage.has(packageId)) {
       resolvedByPackage.set(
         packageId,
-        installRoot
-          ? resolveFromInstallRootPackageDir(packageId, installRoot)
-          : undefined
+        resolveFromInstallRootPackageDir(packageId, installRoot)
       )
     }
     return resolvedByPackage.get(packageId)
@@ -463,12 +409,12 @@ export function getContractVerificationFailuresAtInstallRoot(
   for (const rule of contract.verificationRules) {
     if (rule.type === 'install-root') {
       const resolvedPath = resolvePackage(rule.packageId)
-      if (!resolvedPath || !installRoot) failures.push(rule.packageId)
+      if (!resolvedPath) failures.push(rule.packageId)
       continue
     }
 
     const fromPackagePath = resolvePackage(rule.fromPackage)
-    if (!fromPackagePath || !installRoot) {
+    if (!fromPackagePath) {
       failures.push(rule.fromPackage)
       continue
     }
@@ -493,212 +439,31 @@ function buildDiagnostics(input: {
   integration: string
   dependencyId: string
   projectPath: string
-  installRoot?: string
   installDependencies: string[]
   verifyPackageIds: string[]
 }) {
   const bases = getResolutionBases(input.projectPath)
-  const verifyState = input.verifyPackageIds.map((id) => ({
-    dependency: id,
-    existsAtInstallRoot: input.installRoot
-      ? verifyPackageInInstallRoot(id, input.installRoot)
-      : false
-  }))
 
   return {
     contractId: input.contract?.id || null,
     integration: input.integration,
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
-    installRoot: input.installRoot || null,
     installDependencies: input.installDependencies,
     verifyPackageIds: input.verifyPackageIds,
-    resolutionBases: bases,
-    verifyState
-  }
-}
-
-async function runInstallAndVerify(input: {
-  contract: OptionalDependencyContract
-  integration: string
-  installDependencies: string[]
-  verifyPackageIds: string[]
-  projectPath: string
-  dependencyId: string
-  installRoot?: string
-}): Promise<void> {
-  const didInstall = await installOptionalDependencies(
-    input.integration,
-    input.installDependencies
-  )
-
-  if (!didInstall) {
-    const diagnostics = buildDiagnostics({
-      integration: input.integration,
-      dependencyId: input.dependencyId,
-      projectPath: input.projectPath,
-      contract: input.contract,
-      installRoot: input.installRoot,
-      installDependencies: input.installDependencies,
-      verifyPackageIds: input.verifyPackageIds
-    })
-
-    throw new Error(
-      `[${input.integration}] Optional dependencies failed to install.\n` +
-        JSON.stringify(diagnostics, null, 2)
-    )
-  }
-
-  if (!input.installRoot) {
-    const diagnostics = buildDiagnostics({
-      integration: input.integration,
-      dependencyId: input.dependencyId,
-      projectPath: input.projectPath,
-      contract: input.contract,
-      installRoot: input.installRoot,
-      installDependencies: input.installDependencies,
-      verifyPackageIds: input.verifyPackageIds
-    })
-
-    throw new Error(
-      `[${input.integration}] Optional dependency install root is unavailable.\n` +
-        JSON.stringify(diagnostics, null, 2)
-    )
-  }
-
-  const missingAfterInstall = getContractVerificationFailuresAtInstallRoot(
-    input.contract,
-    input.installRoot
-  )
-
-  if (missingAfterInstall.length > 0) {
-    // Some package managers can report success while leaving the isolated cache
-    // in a partial state. Retry once against the recorded optionalDependencies
-    // manifest so React/Preact refresh peers land deterministically.
-    await installOptionalDependencies(
-      input.integration,
-      input.installDependencies
-    )
-
-    const missingAfterRetry = getContractVerificationFailuresAtInstallRoot(
-      input.contract,
-      input.installRoot
-    )
-
-    if (missingAfterRetry.length === 0) return
-
-    // Some Windows/npm lanes report success for a batched optional install
-    // while still leaving one package absent. Top up only the missing specs
-    // whose bare package ID matches a verification failure.
-    const missingIdSet = new Set(missingAfterRetry)
-    const missingSpecs = input.contract.installPackages.filter((spec) => {
-      const atIdx = spec.lastIndexOf('@')
-      const id = atIdx > 0 ? spec.slice(0, atIdx) : spec
-      return missingIdSet.has(id)
-    })
-    const didInstallMissingOnly = await installOptionalDependencies(
-      input.integration,
-      missingSpecs.length > 0 ? missingSpecs : missingAfterRetry
-    )
-    if (didInstallMissingOnly) {
-      const missingAfterTargetedTopUp =
-        getContractVerificationFailuresAtInstallRoot(
-          input.contract,
-          input.installRoot
-        )
-      if (missingAfterTargetedTopUp.length === 0) {
-        return
-      }
-    }
-
-    // Last-resort recovery for corrupted optional-deps cache roots where lock
-    // metadata can get stuck in a partial state across retries.
-    const didRecoverWithCleanInstall = await installOptionalDependencies(
-      input.integration,
-      input.contract.installPackages,
-      {forceRecreateInstallRoot: true}
-    )
-    if (didRecoverWithCleanInstall) {
-      const missingAfterCleanInstall =
-        getContractVerificationFailuresAtInstallRoot(
-          input.contract,
-          input.installRoot
-        )
-      if (missingAfterCleanInstall.length === 0) {
-        return
-      }
-    }
-
-    const diagnostics = buildDiagnostics({
-      integration: input.integration,
-      dependencyId: input.dependencyId,
-      projectPath: input.projectPath,
-      contract: input.contract,
-      installRoot: input.installRoot,
-      installDependencies: input.installDependencies,
-      verifyPackageIds: input.verifyPackageIds
-    })
-
-    throw new Error(
-      `[${input.integration}] Optional dependency install reported success but packages are missing: ${missingAfterRetry.join(', ')}.\n` +
-        JSON.stringify(diagnostics, null, 2)
-    )
-  }
-}
-
-async function ensureInstalledAndVerified(input: {
-  contract: OptionalDependencyContract
-  integration: string
-  installDependencies: string[]
-  verifyPackageIds: string[]
-  projectPath: string
-  dependencyId: string
-}): Promise<void> {
-  const installRoot = resolveOptionalInstallRoot()
-  const key = [
-    installRoot || 'missing-install-root',
-    ...input.installDependencies.slice().sort()
-  ].join('::')
-
-  const existing = installSingleFlight.get(key)
-
-  if (existing) {
-    await existing
-    return
-  }
-
-  const installPromise = runInstallAndVerify({
-    contract: input.contract,
-    integration: input.integration,
-    installDependencies: input.installDependencies,
-    verifyPackageIds: input.verifyPackageIds,
-    projectPath: input.projectPath,
-    dependencyId: input.dependencyId,
-    installRoot
-  })
-
-  installSingleFlight.set(key, installPromise)
-  try {
-    await installPromise
-  } finally {
-    installSingleFlight.delete(key)
+    resolutionBases: bases
   }
 }
 
 /**
- * Resolve an optional dependency (e.g. sass-loader, less-loader) from known
- * locations. Use after preflight has run. Throws if not found.
+ * Resolve a toolchain package from the extension project or extension-develop.
+ * Use after preflight has verified contracts.
  */
 export function resolveOptionalDependencySync(
   dependencyId: string,
   projectPath: string
 ): string {
-  const installRoot = resolveOptionalInstallRoot()
-  const resolved = resolveFromKnownLocations(
-    dependencyId,
-    projectPath,
-    installRoot
-  )
+  const resolved = resolveFromKnownLocations(dependencyId, projectPath)
   if (resolved) return resolved
   const bases = getResolutionBases(projectPath)
   throw new Error(
@@ -710,63 +475,17 @@ export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
   const contract = getVerificationContract(input)
-  const installDependencies = contract.installPackages
-  const verifyPackageIds = contract.installPackages
-  const installRoot = resolveOptionalInstallRoot()
-  const resolvedBeforeInstall = resolveFromKnownLocations(
+  const missing = getContractVerificationFailuresFromKnownLocations(
+    contract,
+    input.projectPath
+  )
+  const resolved = resolveFromKnownLocations(
     input.dependencyId,
-    input.projectPath,
-    installRoot
-  )
-  const missingBeforeInstall =
-    getContractVerificationFailuresFromKnownLocations(
-      contract,
-      input.projectPath,
-      installRoot
-    )
-
-  if (resolvedBeforeInstall && missingBeforeInstall.length === 0) {
-    return resolvedBeforeInstall
-  }
-
-  await ensureInstalledAndVerified({
-    contract,
-    integration: input.integration,
-    installDependencies,
-    verifyPackageIds,
-    projectPath: input.projectPath,
-    dependencyId: input.dependencyId
-  })
-
-  const resolvedFromInstallRoot = installRoot
-    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
-    : undefined
-  const missingFromInstallRoot = getContractVerificationFailuresAtInstallRoot(
-    contract,
-    installRoot
+    input.projectPath
   )
 
-  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
-    return resolvedFromInstallRoot
-  }
-
-  const resolvedAfterInstall = resolveFromKnownLocations(
-    input.dependencyId,
-    input.projectPath,
-    installRoot
-  )
-  const missingAfterInstall = getContractVerificationFailuresFromKnownLocations(
-    contract,
-    input.projectPath,
-    installRoot
-  )
-
-  if (resolvedAfterInstall && missingAfterInstall.length === 0) {
-    return resolvedAfterInstall
-  }
-
-  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
-    return resolvedFromInstallRoot
+  if (resolved && missing.length === 0) {
+    return resolved
   }
 
   const diagnostics = buildDiagnostics({
@@ -774,29 +493,17 @@ export async function ensureOptionalPackageResolved(
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
     contract,
-    installRoot,
-    installDependencies,
-    verifyPackageIds
+    installDependencies: contract.installPackages,
+    verifyPackageIds: contract.installPackages
   })
-  const peerDiagnostics = {
-    resolvedBeforeInstall: resolvedBeforeInstall || null,
-    missingBeforeInstall,
-    resolvedAfterInstall: resolvedAfterInstall || null,
-    missingAfterInstall,
-    resolvedFromInstallRoot: resolvedFromInstallRoot || null,
-    missingFromInstallRoot
-  }
 
   throw new Error(
-    `[${input.integration}] ${input.dependencyId} could not be resolved after optional dependency installation.\n` +
-      JSON.stringify(
-        {
-          ...diagnostics,
-          peerDiagnostics
-        },
-        null,
-        2
-      )
+    `[${input.integration}] ${input.dependencyId} could not be resolved.` +
+      (missing.length > 0
+        ? ` Missing or invalid packages: ${missing.join(', ')}.`
+        : '') +
+      '\n' +
+      JSON.stringify({...diagnostics, missing}, null, 2)
   )
 }
 
@@ -804,31 +511,14 @@ export function resolveOptionalPackageWithoutInstall(
   input: EnsureResolveInput
 ) {
   const contract = getVerificationContract(input)
-  const installDependencies = contract.installPackages
-  const verifyPackageIds = contract.installPackages
-  const installRoot = resolveOptionalInstallRoot()
-  const resolvedFromInstallRoot = installRoot
-    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
-    : undefined
-  const missingFromInstallRoot = getContractVerificationFailuresAtInstallRoot(
-    contract,
-    installRoot
-  )
-
-  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
-    return resolvedFromInstallRoot
-  }
-
   const resolved = resolveFromKnownLocations(
     input.dependencyId,
-    input.projectPath,
-    installRoot
+    input.projectPath
   )
 
   const missingPeerDeps = getContractVerificationFailuresFromKnownLocations(
     contract,
-    input.projectPath,
-    installRoot
+    input.projectPath
   )
 
   if (resolved && missingPeerDeps.length === 0) {
@@ -840,19 +530,18 @@ export function resolveOptionalPackageWithoutInstall(
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
     contract,
-    installRoot,
-    installDependencies,
-    verifyPackageIds
+    installDependencies: contract.installPackages,
+    verifyPackageIds: contract.installPackages
   })
 
   throw new Error(
-    `[${input.integration}] ${input.dependencyId} could not be resolved from known optional dependency roots.\n` +
+    `[${input.integration}] ${input.dependencyId} could not be resolved from the project or extension-develop.\n` +
       JSON.stringify(
         {
           ...diagnostics,
           missingPeerDeps,
           expectation:
-            'Optional dependency preflight should install and verify these packages before framework setup.'
+            'Run optional dependency preflight or reinstall extension-develop.'
         },
         null,
         2
@@ -874,8 +563,6 @@ export async function ensureOptionalModuleLoaded<T = any>(
     const candidateModuleIds = [input.dependencyId, resolvedPath]
     for (const candidateModuleId of candidateModuleIds) {
       try {
-        // pnpm-linked layouts can fail bare-id loading even after successful
-        // resolution; absolute-path loading preserves deterministic behavior.
         loaded = req(candidateModuleId)
         didLoad = true
         break
@@ -901,7 +588,6 @@ export async function ensureOptionalModuleLoaded<T = any>(
         integration: input.integration,
         dependencyId: input.dependencyId,
         projectPath: input.projectPath,
-        installRoot: resolveOptionalInstallRoot(),
         installDependencies: input.installDependencies || [input.dependencyId],
         verifyPackageIds: input.verifyPackageIds ||
           input.installDependencies || [input.dependencyId]
@@ -960,7 +646,7 @@ export function loadOptionalModuleWithoutInstall<T = any>(
 
   if (!didLoad) {
     throw new Error(
-      `[${input.integration}] ${input.dependencyId} could not be loaded after resolving from optional dependency roots.\n` +
+      `[${input.integration}] ${input.dependencyId} could not be loaded after resolving.\n` +
         JSON.stringify(
           {
             resolvedPath,

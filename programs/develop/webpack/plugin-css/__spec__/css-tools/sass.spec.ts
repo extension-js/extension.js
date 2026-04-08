@@ -1,10 +1,11 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-vi.mock('isolated-deps', () => ({
-  hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
-  resolveDevelopInstallRoot: vi.fn(() => undefined),
-  resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+const {sassHasDependencyMock} = vi.hoisted(() => ({
+  sassHasDependencyMock: vi.fn(() => false)
+}))
+
+vi.mock('../../../webpack-lib/has-dependency', () => ({
+  hasDependency: (...args: [string, string]) => sassHasDependencyMock(...args)
 }))
 
 describe('sass tools', () => {
@@ -15,8 +16,7 @@ describe('sass tools', () => {
   })
 
   it('isUsingSass returns true when dependency is present and logs once', async () => {
-    const integrations = (await import('isolated-deps')) as any
-    integrations.hasDependency.mockImplementation(
+    sassHasDependencyMock.mockImplementation(
       (_p: string, dep: string) => dep === 'sass'
     )
 
@@ -29,7 +29,6 @@ describe('sass tools', () => {
 
   it('maybeUseSass returns an array (rules or empty) depending on env', async () => {
     const sass = await import('../../css-tools/sass')
-    // In some environments sass-loader may be present; just assert array shape.
     const result = await sass.maybeUseSass('/p')
     expect(Array.isArray(result)).toBe(true)
   })
