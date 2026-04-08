@@ -1,7 +1,7 @@
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
-} from 'isolated-deps'
+} from './optional-dependency-types'
 
 function installRootRules(
   packageIds: string[]
