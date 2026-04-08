@@ -108,6 +108,6 @@
     "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
     "typescript": "6.0.2",
-    "vitest": "^4.0.17"
+    "vitest": "^4.1.3"
   }
 }
