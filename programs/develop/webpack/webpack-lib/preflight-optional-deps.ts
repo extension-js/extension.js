@@ -71,7 +71,7 @@ export async function preflightOptionalDependencies(
   if (hasPreflightMarker(projectPath)) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
-        `${colors.brightMagenta('►►► Author says')} Optional deps preflight skipped (cache hit).`
+        `${colors.brightMagenta('⏵⏵⏵ Author says')} Optional deps preflight skipped (cache hit).`
       )
     }
     return
