@@ -124,8 +124,8 @@ describe('AddScriptsAndStylesToCompilation', () => {
       'dev-server/client/index.js?'
     )
     expect(
-      compiler.options.entry['feature/index'].import.some(
-        (p: string) => p.replace(/\\/g, '/').includes('hot/dev-server')
+      compiler.options.entry['feature/index'].import.some((p: string) =>
+        p.replace(/\\/g, '/').includes('hot/dev-server')
       )
     ).toBe(true)
   })
