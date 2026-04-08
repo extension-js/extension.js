@@ -1,11 +1,12 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import postcss from 'postcss'
 
-vi.mock('isolated-deps', () => ({
-  hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true),
-  resolveDevelopInstallRoot: vi.fn(() => undefined),
-  resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+const {hasDependencyMock} = vi.hoisted(() => ({
+  hasDependencyMock: vi.fn(() => false)
+}))
+
+vi.mock('../../../webpack-lib/has-dependency', () => ({
+  hasDependency: (...args: [string, string]) => hasDependencyMock(...args)
 }))
 
 describe('postcss detection', () => {
@@ -16,8 +17,7 @@ describe('postcss detection', () => {
   })
 
   it('isUsingPostCss returns true when postcss is a dependency', async () => {
-    const integrations = (await import('isolated-deps')) as any
-    integrations.hasDependency.mockImplementation(
+    hasDependencyMock.mockImplementation(
       (_p: string, dep: string) => dep === 'postcss'
     )
 
@@ -144,12 +144,9 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
       hasDependency: (p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+        dep === 'tailwindcss' || dep === '@tailwindcss/postcss'
     }))
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
@@ -305,12 +302,9 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
       hasDependency: (_p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+        dep === 'tailwindcss' || dep === 'autoprefixer'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -356,12 +350,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
-      hasDependency: (_p: string, dep: string) =>
-        dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
+      hasDependency: (_p: string, dep: string) => dep === '@tailwindcss/postcss'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -407,11 +397,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
-      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
+      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -457,12 +444,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
-      hasDependency: (_p: string, dep: string) =>
-        dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
+      hasDependency: (_p: string, dep: string) => dep === '@tailwindcss/postcss'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -512,12 +495,9 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
       // Simulate config mentions Tailwind but no explicit @tailwindcss/postcss dependency.
-      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -565,11 +545,8 @@ describe('postcss detection', () => {
       // Simulate no declared deps in package.json
       isUsingTailwind: () => false
     }))
-    vi.doMock('isolated-deps', () => ({
-      hasDependency: () => false,
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
+      hasDependency: () => false
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -620,12 +597,9 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
       hasDependency: (_p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+        dep === 'tailwindcss' || dep === 'autoprefixer'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -677,11 +651,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
-      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
+      hasDependency: (_p: string, dep: string) => dep === 'tailwindcss'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -742,12 +713,9 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('isolated-deps', () => ({
+    vi.doMock('../../../webpack-lib/has-dependency', () => ({
       hasDependency: (_p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined),
-      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
+        dep === 'tailwindcss' || dep === 'autoprefixer'
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')

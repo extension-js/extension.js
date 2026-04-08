@@ -6,61 +6,26 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import {getDirs} from './paths'
 import colors from 'pintor'
-import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
-import type {ProjectStructure} from './project'
-import type {DevOptions} from '../webpack-types'
-import {getOptionalDependencyContract} from './optional-deps-contracts'
-import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
-import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
-import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
-import {isUsingSvelte} from '../plugin-js-frameworks/js-tools/svelte'
-import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
-import {installOptionalDependenciesBatch} from '../plugin-js-frameworks/frameworks-lib/integrations'
-import {isUsingSass} from '../plugin-css/css-tools/sass'
 import {isUsingLess} from '../plugin-css/css-tools/less'
 import {isUsingPostCss} from '../plugin-css/css-tools/postcss'
-import * as messages from '../plugin-js-frameworks/js-frameworks-lib/messages'
-import {
-  getContractVerificationFailuresAtInstallRoot,
-  getContractVerificationFailuresFromKnownLocations
-} from './optional-deps-resolver'
-
-function getInstallRootVerificationFailures(contractIds: string[]) {
-  return Array.from(
-    new Set(
-      contractIds.flatMap((contractId) =>
-        getContractVerificationFailuresAtInstallRoot(
-          getOptionalDependencyContract(contractId)
-        )
-      )
-    )
-  )
-}
-
-async function verifyContractsResolvedAtInstallRoot(contractIds: string[]) {
-  let failures = getInstallRootVerificationFailures(contractIds)
-  if (failures.length === 0) return
-
-  for (const waitMs of [250, 500, 1000]) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs))
-    failures = getInstallRootVerificationFailures(contractIds)
-    if (failures.length === 0) return
-  }
-
-  throw new Error(
-    `[Optional] Optional dependency install reported success but contract verification failed at install root: ${failures.join(', ')}`
-  )
-}
+import {isUsingSass} from '../plugin-css/css-tools/sass'
+import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
+import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
+import {isUsingSvelte} from '../plugin-js-frameworks/js-tools/svelte'
+import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
+import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
+import type {DevOptions} from '../webpack-types'
+import {getOptionalDependencyContract} from './optional-deps-contracts'
+import {getContractVerificationFailuresFromKnownLocations} from './optional-deps-resolver'
+import {getDirs} from './paths'
+import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
+import type {ProjectStructure} from './project'
 
 export async function preflightOptionalDependencies(
   projectStructure: ProjectStructure,
-  mode: DevOptions['mode'],
-  opts?: {
+  _mode: DevOptions['mode'],
+  _opts?: {
     exitOnInstall?: boolean
     showRunAgainMessage?: boolean
   }
@@ -77,22 +42,8 @@ export async function preflightOptionalDependencies(
     return
   }
 
-  const missingOptionalDeps = new Set<string>()
-  const missingByIntegration: Record<string, string[]> = {}
   const usedIntegrations: string[] = []
   const activeContractIds: string[] = []
-  const contractsNeedingInstall: string[] = []
-
-  const addMissing = (integration: string, dependency: string) => {
-    if (missingOptionalDeps.has(dependency)) {
-      return
-    }
-    missingOptionalDeps.add(dependency)
-    if (!missingByIntegration[integration]) {
-      missingByIntegration[integration] = []
-    }
-    missingByIntegration[integration].push(dependency)
-  }
 
   const addActiveContract = (contractId: string) => {
     activeContractIds.push(contractId)
@@ -151,40 +102,11 @@ export async function preflightOptionalDependencies(
 
     if (failures.length === 0) continue
 
-    contractsNeedingInstall.push(contractId)
-    for (const dependency of contract.installPackages) {
-      addMissing(contract.integration, dependency)
-    }
-  }
-
-  if (missingOptionalDeps.size > 0) {
-    const uniqueIntegrations = Array.from(new Set(usedIntegrations))
-    const installPlans = uniqueIntegrations
-      .map((integration) => ({
-        integration,
-        dependencySpecs: missingByIntegration[integration] || []
-      }))
-      .filter((plan) => plan.dependencySpecs.length > 0)
-    const didInstall = await installOptionalDependenciesBatch(installPlans)
-
-    if (!didInstall) {
-      throw new Error('[Optional] Optional dependencies failed to install.')
-    }
-
-    await verifyContractsResolvedAtInstallRoot(
-      Array.from(new Set(contractsNeedingInstall))
+    throw new Error(
+      `[Optional] Toolchain packages are missing or incompatible for ${contract.integration}. ` +
+        `Expected: ${failures.join(', ')}. ` +
+        `Reinstall extension-develop or add the missing packages to your extension project.`
     )
-
-    if (
-      opts?.showRunAgainMessage !== false &&
-      process.env.EXTENSION_AUTHOR_MODE === 'true'
-    ) {
-      console.log(messages.optionalDepsReady(uniqueIntegrations))
-    }
-    if (opts?.exitOnInstall !== false) {
-      writePreflightMarker(projectPath)
-      process.exit(0)
-    }
   }
 
   writePreflightMarker(projectPath)

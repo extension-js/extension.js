@@ -7,7 +7,6 @@ let mockRoot = ''
 let projectRoot = ''
 let originalCwd = ''
 let originalCacheDir: string | undefined
-const installOptionalDependenciesBatch = vi.fn(async () => true)
 
 vi.mock('../check-build-dependencies', () => ({
   findExtensionDevelopRoot: () => mockRoot
@@ -15,12 +14,6 @@ vi.mock('../check-build-dependencies', () => ({
 vi.mock('../preflight-cache', () => ({
   hasPreflightMarker: () => false,
   writePreflightMarker: vi.fn()
-}))
-vi.mock('../plugin-js-frameworks/frameworks-lib/integrations', () => ({
-  installOptionalDependenciesBatch: (...args: any[]) =>
-    installOptionalDependenciesBatch(
-      ...(args as Parameters<typeof installOptionalDependenciesBatch>)
-    )
 }))
 vi.mock('../plugin-js-frameworks/js-tools/react', () => ({
   isUsingReact: () => true
@@ -57,7 +50,6 @@ describe('preflight-optional-deps', () => {
     vi.resetModules()
     originalCwd = process.cwd()
     originalCacheDir = process.env.EXTENSION_JS_CACHE_DIR
-    installOptionalDependenciesBatch.mockClear()
     mockRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preflight-'))
     projectRoot = path.join(mockRoot, 'project')
     fs.mkdirSync(projectRoot, {recursive: true})
@@ -67,6 +59,13 @@ describe('preflight-optional-deps', () => {
       JSON.stringify({name: 'sample-extension', version: '0.0.0'})
     )
 
+    writeFile(
+      path.join(mockRoot, 'package.json'),
+      JSON.stringify({
+        name: 'extension-develop',
+        version: '0.0.0'
+      })
+    )
     writeFile(
       path.join(mockRoot, 'node_modules', 'react-refresh', 'index.js'),
       'module.exports = {};'
@@ -96,20 +95,20 @@ describe('preflight-optional-deps', () => {
     }
   })
 
-  it('does not install optional deps when they resolve from extension-develop root', async () => {
+  it('passes preflight when react-refresh toolchain resolves from extension-develop root', async () => {
     const {preflightOptionalDependencies} = await import(
       '../preflight-optional-deps'
     )
 
-    await preflightOptionalDependencies(
-      {
-        manifestPath: path.join(projectRoot, 'manifest.json'),
-        packageJsonPath: path.join(projectRoot, 'package.json')
-      },
-      'development',
-      {exitOnInstall: false, showRunAgainMessage: false}
-    )
-
-    expect(installOptionalDependenciesBatch).not.toHaveBeenCalled()
+    await expect(
+      preflightOptionalDependencies(
+        {
+          manifestPath: path.join(projectRoot, 'manifest.json'),
+          packageJsonPath: path.join(projectRoot, 'package.json')
+        },
+        'development',
+        {exitOnInstall: false, showRunAgainMessage: false}
+      )
+    ).resolves.toBeUndefined()
   })
 })

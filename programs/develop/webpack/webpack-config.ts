@@ -232,6 +232,8 @@ export default function webpackConfig(
               return '[name].js'
             }
           : '[name].js',
+      // CSS output naming (cssFilename, cssChunkFilename) is owned by
+      // CssPlugin — see plugin-css/index.ts.
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
       hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
