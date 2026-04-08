@@ -114,7 +114,7 @@ export async function setupUnifiedLogging(
         return 'page'
       })()
 
-      const prefix = '►►►'
+      const prefix = '⏵⏵⏵'
 
       function fmtLevel(lvl: string) {
         const up = String(lvl || 'log').toUpperCase()

@@ -13,7 +13,7 @@ export function cssIntegrationsEnabled(integrations: string[]) {
     integrations.length > 0
       ? integrations.map((n) => colors.yellow(n)).join(', ')
       : colors.gray('none')
-  return `${colors.gray('►►►')} CSS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
+  return `${colors.gray('⏵⏵⏵')} CSS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
 }
 
 export function cssConfigsDetected(
@@ -24,7 +24,7 @@ export function cssConfigsDetected(
 ) {
   const fmt = (v?: string) => (v ? colors.underline(v) : colors.gray('none'))
   return (
-    `${colors.gray('►►►')} CSS: Configs\n` +
+    `${colors.gray('⏵⏵⏵')} CSS: Configs\n` +
     `${colors.gray('POSTCSS')} ${fmt(postcssConfig)}\n` +
     `${colors.gray('STYLELINT')} ${fmt(stylelintConfig)}\n` +
     `${colors.gray('TAILWIND')} ${fmt(tailwindConfig)}\n` +
@@ -33,11 +33,11 @@ export function cssConfigsDetected(
 }
 
 export function isUsingIntegration(name: string) {
-  return `${colors.gray('►►►')} Using ${colors.brightBlue(name)}...`
+  return `${colors.gray('⏵⏵⏵')} Using ${colors.brightBlue(name)}...`
 }
 
 export function youAreAllSet(name: string) {
-  return `${colors.green('►►►')} ${name} installation completed.`
+  return `${colors.green('⏵⏵⏵')} ${name} installation completed.`
 }
 
 export function optionalToolingSetup(
@@ -48,8 +48,8 @@ export function optionalToolingSetup(
   const list =
     integrations && integrations.length > 0 ? integrations : [fallback]
   const prefix = isAuthor
-    ? colors.brightMagenta('►►► Author says')
-    : colors.gray('►►►')
+    ? colors.brightMagenta('⏵⏵⏵ Author says')
+    : colors.gray('⏵⏵⏵')
   const suffix =
     process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
       ? ' (this is a one time operation)'
@@ -61,11 +61,11 @@ export function optionalToolingSetup(
 }
 
 export function optionalToolingRootInstall(integration: string) {
-  return `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
+  return `${colors.brightMagenta('⏵⏵⏵ Author says')} [${integration}] Installing root dependencies for dev...`
 }
 
 export function optionalToolingReady(integration: string) {
-  return `${colors.brightMagenta('►►► Author says')} ${integration} tooling ready.`
+  return `${colors.brightMagenta('⏵⏵⏵ Author says')} ${integration} tooling ready.`
 }
 
 export function optionalInstallFailed(
@@ -104,7 +104,7 @@ export function optionalInstallManagerMissing(integration: string) {
 }
 
 export function missingSassDependency() {
-  const prefix = colors.red('►►►')
+  const prefix = colors.red('⏵⏵⏵')
   return [
     `${prefix} SASS support requires the ${colors.brightBlue(
       '"sass"'
