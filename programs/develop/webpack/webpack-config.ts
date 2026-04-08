@@ -220,7 +220,7 @@ export default function webpackConfig(
       // Development: hash canonical content-script bundles so Cmd+Shift+R loads a new
       // chrome-extension:// URL after edits; stable names are aggressively cached.
       filename:
-        (devOptions.mode || 'development') === 'development' as any
+        (devOptions.mode || 'development') === ('development' as any)
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
               if (
