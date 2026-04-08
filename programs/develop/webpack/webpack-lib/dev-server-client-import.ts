@@ -90,8 +90,5 @@ export function getDevServerHmrImports(compiler: Compiler): string[] {
     'live-reload': liveReload
   })
 
-  return [
-    `${resolveHmrClientPath()}?${query.toString()}`,
-    resolveHmrHotPath()
-  ]
+  return [`${resolveHmrClientPath()}?${query.toString()}`, resolveHmrHotPath()]
 }
