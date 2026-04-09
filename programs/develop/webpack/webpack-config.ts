@@ -28,6 +28,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
+import {BuildEventBridgePlugin} from './plugin-build-events'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
 
@@ -198,6 +199,11 @@ export default function webpackConfig(
         logTab: devOptions.logTab
       })
     )
+  }
+
+  // Emit build lifecycle events for CLI orchestration (runs alongside BrowsersPlugin)
+  if ((devOptions as any).emitter) {
+    plugins.push(new BuildEventBridgePlugin((devOptions as any).emitter))
   }
 
   return {

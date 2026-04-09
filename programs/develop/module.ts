@@ -21,6 +21,13 @@ import {
   type StartOptions,
   type Manifest
 } from './webpack/webpack-types'
+import {
+  BuildEmitter,
+  type CompiledEvent,
+  type BuildErrorEvent,
+  type ReloadType,
+  type ReloadInstruction
+} from './webpack/build-events'
 
 export async function preflightOptionalDependenciesForProject(
   pathOrRemoteUrl: string,
@@ -44,5 +51,10 @@ export {
   PreviewOptions,
   FileConfig,
   Manifest,
-  ensureDependencies
+  ensureDependencies,
+  BuildEmitter,
+  CompiledEvent,
+  BuildErrorEvent,
+  ReloadType,
+  ReloadInstruction
 }
