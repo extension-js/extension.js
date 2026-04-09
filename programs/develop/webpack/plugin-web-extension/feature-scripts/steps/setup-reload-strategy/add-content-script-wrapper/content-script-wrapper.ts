@@ -25,6 +25,18 @@ const schema = {
   }
 }
 
+function escapeCodeString(str: string): string {
+  return str.replace(/[<>\u2028\u2029]/g, (ch) => {
+    const map: Record<string, string> = {
+      '<': '\\u003C',
+      '>': '\\u003E',
+      '\u2028': '\\u2028',
+      '\u2029': '\\u2029'
+    }
+    return map[ch] || ch
+  })
+}
+
 function getSourceSignature(source) {
   const head = String(source || '').slice(0, 64)
   const tail = String(source || '').slice(-64)
@@ -230,9 +242,9 @@ export default function contentScriptWrapper(source) {
   const cssAssetUrlsInline = `var __EXTENSIONJS_BUNDLE_CSS_URLS=[${cssAssetSpecifiers
     .map(
       (specifier) =>
-        `(function(){ try { return String(new URL(${JSON.stringify(
+        `(function(){ try { return String(new URL(${escapeCodeString(JSON.stringify(
           specifier
-        )}, import.meta.url)); } catch (error) { return ""; } })()`
+        ))}, import.meta.url)); } catch (error) { return ""; } })()`
     )
     .join(',')}];\n`
 

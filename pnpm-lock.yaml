@@ -45,7 +45,7 @@ importers:
         specifier: ^11.0.0
         version: 11.0.0
       extension:
-        specifier: workspace:^3.8.8
+        specifier: workspace:*
         version: link:programs/cli
       husky:
         specifier: 9.1.7
@@ -315,7 +315,7 @@ importers:
     dependencies:
       '@prefresh/core':
         specifier: 1.5.9
-        version: 1.5.9(preact@10.27.2)
+        version: 1.5.9(preact@10.27.3)
       '@prefresh/utils':
         specifier: 1.2.1
         version: 1.2.1
@@ -327,7 +327,7 @@ importers:
         version: 1.2.1(@rspack/core@1.7.5(@swc/helpers@0.5.18))(tslib@2.8.1)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@rspack/plugin-preact-refresh':
         specifier: 1.1.4
-        version: 1.1.4(@prefresh/core@1.5.9(preact@10.27.2))(@prefresh/utils@1.2.1)
+        version: 1.1.4(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)
       '@rspack/plugin-react-refresh':
         specifier: 1.6.0
         version: 1.6.0(react-refresh@0.18.0)
@@ -413,8 +413,8 @@ importers:
         specifier: 4.0.9
         version: 4.0.9(postcss@8.5.6)
       preact:
-        specifier: 10.27.2
-        version: 10.27.2
+        specifier: 10.27.3
+        version: 10.27.3
       react-refresh:
         specifier: 0.18.0
         version: 0.18.0
@@ -457,7 +457,7 @@ importers:
     devDependencies:
       '@prefresh/webpack':
         specifier: 4.0.6
-        version: 4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
+        version: 4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@rslib/core':
         specifier: ^0.19.4
         version: 0.19.4(typescript@5.9.3)
@@ -4770,8 +4770,8 @@ packages:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  preact@10.27.2:
-    resolution: {integrity: sha512-5SYSgFKSyhCbk6SrXyMpqjb5+MQBgfvEKE/OC+PujcY34sOpqtr+0AZQtPYx5IA6VxynQ7rUPCtKzyovpj9Bpg==}
+  preact@10.27.3:
+    resolution: {integrity: sha512-ZieIP3zQHiQsNF3BA+SNVS8dcuRIg/nsxlkFbCMBLS2L1Ww4Bkxd9n6Md2A1crfTZsEbQPADV0neYmh/EElgeQ==}
 
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
@@ -6809,18 +6809,18 @@ snapshots:
 
   '@prefresh/babel-plugin@0.5.2': {}
 
-  '@prefresh/core@1.5.9(preact@10.27.2)':
+  '@prefresh/core@1.5.9(preact@10.27.3)':
     dependencies:
-      preact: 10.27.2
+      preact: 10.27.3
 
   '@prefresh/utils@1.2.1': {}
 
-  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))':
+  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))':
     dependencies:
       '@prefresh/babel-plugin': 0.5.2
-      '@prefresh/core': 1.5.9(preact@10.27.2)
+      '@prefresh/core': 1.5.9(preact@10.27.3)
       '@prefresh/utils': 1.2.1
-      preact: 10.27.2
+      preact: 10.27.3
       webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)
 
   '@radix-ui/number@1.1.1': {}
@@ -7606,9 +7606,9 @@ snapshots:
 
   '@rspack/lite-tapable@1.1.0': {}
 
-  '@rspack/plugin-preact-refresh@1.1.4(@prefresh/core@1.5.9(preact@10.27.2))(@prefresh/utils@1.2.1)':
+  '@rspack/plugin-preact-refresh@1.1.4(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)':
     dependencies:
-      '@prefresh/core': 1.5.9(preact@10.27.2)
+      '@prefresh/core': 1.5.9(preact@10.27.3)
       '@prefresh/utils': 1.2.1
 
   '@rspack/plugin-react-refresh@1.6.0(react-refresh@0.18.0)':
@@ -9951,7 +9951,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  preact@10.27.2: {}
+  preact@10.27.3: {}
 
   prettier@2.8.8: {}
 
