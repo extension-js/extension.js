@@ -657,7 +657,9 @@ export class ChromiumLaunchPlugin {
   }
 
   private async launchWithDirectSpawn(binary: string, chromeFlags: string[]) {
-    this.logger.info(messages.chromeInitializingEnhancedReload())
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      this.logger.info(messages.chromeInitializingEnhancedReload())
+    }
     const launchArgs = this.options?.startingUrl
       ? [...chromeFlags, this.options.startingUrl]
       : [...chromeFlags]

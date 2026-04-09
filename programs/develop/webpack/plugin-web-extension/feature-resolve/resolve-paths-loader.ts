@@ -398,12 +398,10 @@ function replaceJsCssArrays(
   return input
 }
 
-function cleanupPublicRootLiterals(input: string): string {
-  const sourceForGuard: string | undefined =
-    typeof (globalThis as any).__source_for_cleanup === 'string'
-      ? String((globalThis as any).__source_for_cleanup)
-      : undefined
-
+function cleanupPublicRootLiterals(
+  input: string,
+  sourceForGuard: string | undefined
+): string {
   if (!sourceForGuard) return input
 
   function shouldRewrite(full: string, offset: number): boolean {
@@ -560,12 +558,7 @@ function textFallbackTransform(
   // Safe cleanup for '/public' and 'public' literals (skip generic leading '/')
   if (!isJsxLikePath(opts.authorFilePath)) {
     // Provide original source to cleanup for contextual gating (avoid non-API rewrites, skip getURL expressions)
-    ;(globalThis as any).__source_for_cleanup = String(source)
-    try {
-      output = cleanupPublicRootLiterals(output)
-    } finally {
-      delete (globalThis as any).__source_for_cleanup
-    }
+    output = cleanupPublicRootLiterals(output, String(source))
   }
 
   // Normalize extensions under special folders
