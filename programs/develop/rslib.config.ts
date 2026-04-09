@@ -14,6 +14,8 @@ export default defineConfig({
   source: {
     entry: {
       module: path.resolve(__dirname, './module.ts'),
+      // Lightweight preview-only entry (no rspack / heavy build deps)
+      preview: path.resolve(__dirname, './preview-entry.ts'),
       // HTML Plugin Loaders
       'ensure-hmr-for-scripts': path.resolve(
         __dirname,
