@@ -50,7 +50,7 @@ const hardReloadFatalPatterns = [
   /\[reload\] reloading extension \(reason:/i
 ]
 const cdpBootstrapWarningPatterns = [
-  /\[plugin-browsers\] CDP post-launch setup failed/i,
+  /\[browser\] CDP post-launch setup failed/i,
   /Chrome CDP Client connection error:/i,
   /Failed to connect to CDP:/i
 ]

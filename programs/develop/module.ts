@@ -24,8 +24,11 @@ import {
   type CompiledEvent,
   type BuildErrorEvent,
   type ReloadType,
-  type ReloadInstruction
-} from './webpack/build-events'
+  type ReloadInstruction,
+  type BrowserLauncherFn,
+  type BrowserLaunchOptions,
+  type BrowserController
+} from './webpack/plugin-browsers'
 
 export async function preflightOptionalDependenciesForProject(
   pathOrRemoteUrl: string,
@@ -43,6 +46,10 @@ export {
   BuildOptions,
   extensionDev,
   DevOptions,
+  // extensionPreview is available via the lightweight 'extension-develop/preview'
+  // entry point. It is re-exported here for backward compatibility but new
+  // consumers should import from 'extension-develop/preview' to avoid pulling
+  // in the full bundler toolchain.
   extensionPreview,
   PreviewOptions,
   FileConfig,
@@ -52,5 +59,8 @@ export {
   CompiledEvent,
   BuildErrorEvent,
   ReloadType,
-  ReloadInstruction
+  ReloadInstruction,
+  BrowserLauncherFn,
+  BrowserLaunchOptions,
+  BrowserController
 }

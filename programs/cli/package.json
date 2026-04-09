@@ -1,0 +1,112 @@
+{
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/cli"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.cjs",
+      "require": "./dist/cli.cjs"
+    },
+    "./types": {
+      "types": "./types/index.d.ts"
+    },
+    "./types/polyfill": {
+      "types": "./types/polyfill.d.ts"
+    }
+  },
+  "main": "./dist/cli.cjs",
+  "types": "./dist/cli.d.ts",
+  "files": [
+    "dist",
+    "bin",
+    "types"
+  ],
+  "bin": {
+    "extension": "./bin/extension.cjs"
+  },
+  "name": "extension",
+  "version": "3.12.0",
+  "description": "Create cross-browser extensions with no build configuration.",
+  "homepage": "https://extension.js.org/",
+  "bugs": {
+    "url": "https://github.com/extension-js/extension.js/issues"
+  },
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "pretest": "pnpm run compile",
+    "prepublishOnly": "pnpm run compile",
+    "compile": "rslib build",
+    "watch": "rslib build --watch",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "zero-config",
+    "build",
+    "develop",
+    "browser",
+    "extension",
+    "chrome extension",
+    "edge extension",
+    "firefox extension",
+    "safari extension",
+    "web",
+    "react",
+    "typescript",
+    "webextension",
+    "browser-extension",
+    "chrome-extension",
+    "firefox-addon",
+    "edge-extension",
+    "safari-web-extension",
+    "manifest-v3",
+    "mv3",
+    "cross-browser",
+    "content-script",
+    "background-script",
+    "devtools",
+    "create-extension",
+    "scaffold",
+    "starter-template",
+    "boilerplate",
+    "cli"
+  ],
+  "dependencies": {
+    "@types/chrome": "^0.1.33",
+    "@types/node": "^25.2.0",
+    "@types/webextension-polyfill": "0.12.4",
+    "cross-spawn": "^7.0.6",
+    "extension-create": "workspace:*",
+    "extension-develop": "workspace:*",
+    "extension-install": "workspace:*",
+    "commander": "^14.0.3",
+    "pintor": "0.3.0",
+    "semver": "^7.7.3",
+    "update-check": "^1.5.4"
+  },
+  "devDependencies": {
+    "@rslib/core": "^0.19.4",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/semver": "^7.7.1",
+    "@types/ws": "^8.18.1",
+    "webextension-polyfill": "^0.12.0",
+    "tsconfig": "*",
+    "typescript": "6.0.2",
+    "vitest": "^4.1.3"
+  }
+}
