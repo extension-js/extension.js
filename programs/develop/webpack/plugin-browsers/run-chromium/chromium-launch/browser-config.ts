@@ -263,6 +263,14 @@ export function browserConfig(
     configOptions.instanceId
   )
 
+  // Linux containers and GitHub-hosted runners often lack a usable setuid sandbox.
+  // Without this, Chromium can exit before --remote-debugging-port binds, which breaks
+  // CDP-based dev tooling (content live reload verification, source inspection).
+  const linuxCiSandboxFlags: string[] =
+    process.platform === 'linux' && process.env.CI === 'true'
+      ? ['--no-sandbox', '--disable-setuid-sandbox']
+      : []
+
   // Enhanced flags for AI usage - ensure clean termination
   const aiOptimizedFlags = [
     // AI-optimized flags for better process management
@@ -288,6 +296,7 @@ export function browserConfig(
   const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
     ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
+    ...linuxCiSandboxFlags,
     ...aiOptimizedFlags,
     ...(sourceEnabled || devWantsCDP
       ? [
