@@ -242,9 +242,9 @@ export default function contentScriptWrapper(source) {
   const cssAssetUrlsInline = `var __EXTENSIONJS_BUNDLE_CSS_URLS=[${cssAssetSpecifiers
     .map(
       (specifier) =>
-        `(function(){ try { return String(new URL(${escapeCodeString(JSON.stringify(
-          specifier
-        ))}, import.meta.url)); } catch (error) { return ""; } })()`
+        `(function(){ try { return String(new URL(${escapeCodeString(
+          JSON.stringify(specifier)
+        )}, import.meta.url)); } catch (error) { return ""; } })()`
     )
     .join(',')}];\n`
 
