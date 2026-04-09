@@ -22,14 +22,14 @@ import {setupBuiltInTests} from './steps/setup-built-in-tests'
 import {installInternalDependencies} from './steps/install-internal-deps'
 
 export interface CreateOptions {
-  template: string
+  template?: string
   install?: boolean
   cliVersion?: string
 }
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {cliVersion, template = 'init', install = false}: CreateOptions
+  {cliVersion, template = 'javascript', install = false}: CreateOptions
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())

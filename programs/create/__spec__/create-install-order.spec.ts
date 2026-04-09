@@ -58,7 +58,6 @@ describe('create install order', () => {
   it('installs project deps before internal deps when install=true', async () => {
     const {extensionCreate} = await import('../module')
     await extensionCreate('demo-project', {
-      template: 'init',
       install: true
     })
 
@@ -73,7 +72,6 @@ describe('create install order', () => {
   it('skips internal deps when install=false', async () => {
     const {extensionCreate} = await import('../module')
     await extensionCreate('demo-project', {
-      template: 'init',
       install: false
     })
 

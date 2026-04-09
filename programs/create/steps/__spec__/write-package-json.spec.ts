@@ -26,7 +26,6 @@ describe('overridePackageJson template-aware scripts', () => {
       )
 
       await overridePackageJson(projectPath, 'seed', {
-        template: 'init',
         cliVersion: '3.8.7-canary.205.b380650'
       })
 
@@ -50,7 +49,6 @@ describe('overridePackageJson template-aware scripts', () => {
       )
 
       await overridePackageJson(projectPath, 'seed', {
-        template: 'init',
         cliVersion: '3.8.7'
       })
 
@@ -90,7 +88,6 @@ describe('overridePackageJson template-aware scripts', () => {
 
       try {
         await overridePackageJson(projectPath, 'dev-local-cli', {
-          template: 'init',
           cliVersion: '0.0.1'
         })
       } finally {
