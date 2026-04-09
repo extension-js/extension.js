@@ -39,7 +39,7 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       {template, install}: CreateOptions
     ) {
       const startedAt = Date.now()
-      const templateValue = String(template || 'default')
+      const templateValue = String(template ?? 'javascript')
       const isRemoteTemplate = /^https?:/i.test(templateValue)
       const workflowProfile = collectWorkflowProfile({
         command: 'create',
