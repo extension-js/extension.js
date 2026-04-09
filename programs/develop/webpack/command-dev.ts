@@ -12,6 +12,7 @@ import {getProjectStructure} from './webpack-lib/project'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, normalizeBrowser} from './webpack-lib/paths'
 import {ensureProjectReady} from './webpack-lib/dependency-manager'
+import {BuildEmitter} from './build-events'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -20,7 +21,8 @@ import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions
-) {
+): Promise<BuildEmitter> {
+  const emitter = new BuildEmitter()
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
@@ -72,7 +74,7 @@ export async function extensionDev(
     }
 
     if (process.env.EXTENSION_DEV_DRY_RUN === 'true') {
-      return
+      return emitter
     }
 
     // Heavy deps are imported lazily so preview can stay minimal.
@@ -82,11 +84,16 @@ export async function extensionDev(
       ...devOptions,
       mode: 'development',
       browser,
-      geckoBinary
+      geckoBinary,
+      emitter
     })
+
+    return emitter
   } catch (error) {
     // Always surface a minimal error so users aren't left with a silent exit
     console.error(error)
     process.exit(1)
   }
+
+  return emitter
 }
