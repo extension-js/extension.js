@@ -10,7 +10,7 @@ This repo uses a GitHub Actions release workflow to publish the public packages.
 
 ## Scope (public packages)
 
-- `programs/extension` → package: `extension`
+- `programs/cli` → package: `extension`
 - `programs/create` → package: `extension-create`
 - `programs/develop` → package: `extension-develop`
 - `programs/install` → package: `extension-install`
@@ -35,7 +35,7 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   `IGNORED_PATTERNS` in that script when adding commits that should never appear in
   published release bodies).
 - Versions are set for:
-  - `programs/extension/package.json`
+  - `programs/cli/package.json`
   - `programs/develop/package.json`
   - `programs/create/package.json`
 - `programs/install/package.json`

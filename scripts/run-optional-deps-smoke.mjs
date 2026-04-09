@@ -210,8 +210,47 @@ function runLong(command, args, cwd, env = baseEnv, opts = {}) {
   })
 }
 
+// Single source of truth for the local workspace packages the smoke fixture
+// file-links against. Keep this in sync when renaming/adding `programs/*`
+// packages — `assertLocalWorkspacePackagesExist()` and the helper spec validate
+// that every path here exists on disk, so stale entries fail fast in the
+// "Test optional deps smoke helpers" CI step (before the slow smoke lanes).
+function getLocalWorkspacePackagePaths() {
+  return {
+    extension: path.join(ROOT_DIR, 'programs', 'cli'),
+    browser: path.join(ROOT_DIR, 'programs', 'browser'),
+    create: path.join(ROOT_DIR, 'programs', 'create'),
+    develop: path.join(ROOT_DIR, 'programs', 'develop'),
+    install: path.join(ROOT_DIR, 'programs', 'install')
+  }
+}
+
+async function assertLocalWorkspacePackagesExist(
+  paths = getLocalWorkspacePackagePaths()
+) {
+  const missing = []
+  for (const [name, dir] of Object.entries(paths)) {
+    try {
+      const stats = await fs.stat(dir)
+      if (!stats.isDirectory()) {
+        missing.push(`${name} (${dir}): not a directory`)
+      }
+    } catch {
+      missing.push(`${name} (${dir}): not found`)
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Optional deps smoke cannot locate required workspace packages:\n  - ${missing.join(
+        '\n  - '
+      )}\nUpdate getLocalWorkspacePackagePaths() in scripts/run-optional-deps-smoke.mjs after renaming or removing programs/* packages.`
+    )
+  }
+}
+
 function localCliPath() {
-  return path.join(ROOT_DIR, 'programs', 'cli', 'dist', 'cli.cjs')
+  return path.join(getLocalWorkspacePackagePaths().extension, 'dist', 'cli.cjs')
 }
 
 function shouldUseDirectLocalCli(pm) {
@@ -558,10 +597,13 @@ async function rewriteConsumerPackageJson(workdir, pm) {
   const packageJsonPath = path.join(workdir, 'package.json')
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 
-  const cliPath = path.join(ROOT_DIR, 'programs', 'cli')
-  const createPath = path.join(ROOT_DIR, 'programs', 'create')
-  const developPath = path.join(ROOT_DIR, 'programs', 'develop')
-  const installPath = path.join(ROOT_DIR, 'programs', 'install')
+  const {
+    extension: extensionPath,
+    browser: browserPath,
+    create: createPath,
+    develop: developPath,
+    install: installPath
+  } = getLocalWorkspacePackagePaths()
 
   packageJson.devDependencies ||= {}
   const useRegistryExtension = shouldUseRegistryExtensionForSmoke(pm)
@@ -579,13 +621,16 @@ async function rewriteConsumerPackageJson(workdir, pm) {
       delete packageJson.pnpm.overrides['extension-install']
     }
   } else {
-    packageJson.devDependencies.extension = fileSpecifier(cliPath, workdir)
+    packageJson.devDependencies.extension = fileSpecifier(
+      extensionPath,
+      workdir
+    )
   }
 
   if (!useRegistryExtension) {
     packageJson.pnpm ||= {}
     packageJson.pnpm.overrides ||= {}
-    packageJson.pnpm.overrides.extension = fileSpecifier(cliPath, workdir)
+    packageJson.pnpm.overrides.extension = fileSpecifier(extensionPath, workdir)
     packageJson.pnpm.overrides['extension-create'] = fileSpecifier(
       createPath,
       workdir
@@ -596,6 +641,10 @@ async function rewriteConsumerPackageJson(workdir, pm) {
     )
     packageJson.pnpm.overrides['extension-install'] = fileSpecifier(
       installPath,
+      workdir
+    )
+    packageJson.pnpm.overrides['extension-browser'] = fileSpecifier(
+      browserPath,
       workdir
     )
   }
@@ -801,6 +850,7 @@ async function installWorkspaceDependencies() {
 
 async function main() {
   assertValidCliArgs(cliPackageManager, cliScenario)
+  await assertLocalWorkspacePackagesExist()
 
   const tempParentDir = await resolveSmokeTempRootParent()
   const tempRoot = await fs.mkdtemp(
@@ -884,7 +934,9 @@ if (isDirectExecution) {
 }
 
 export {
+  assertLocalWorkspacePackagesExist,
   fileSpecifier,
+  getLocalWorkspacePackagePaths,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
   shouldUseRegistryExtensionForSmoke,
