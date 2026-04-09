@@ -12,7 +12,7 @@ function git(args) {
   return execFileSync('git', args, {encoding: 'utf8'}).trim()
 }
 
-function getLastStableTag(currentVersion) {
+function getLastStableTag(currentVersion, toRef = 'HEAD') {
   const tags = git(['tag', '--list', 'v*', '--sort=-v:refname'])
     .split('\n')
     .map((tag) => tag.trim())
@@ -20,7 +20,30 @@ function getLastStableTag(currentVersion) {
     .filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))
     .filter((tag) => tag !== `v${currentVersion}`)
 
-  return tags[0] || ''
+  if (tags.length === 0) return ''
+
+  const bestTag = tags[0]
+
+  // Check if the tag is an actual ancestor of the target ref.
+  // When history has been rebased after tagging, the tag points to an
+  // orphaned commit and the range "tag..ref" explodes to the full diff
+  // between two divergent lineages. In that case, find the matching
+  // release commit in the current lineage by its commit message instead.
+  try {
+    git(['merge-base', '--is-ancestor', bestTag, toRef])
+    return bestTag
+  } catch {
+    const version = bestTag.replace(/^v/, '')
+    const sha = git([
+      'log',
+      toRef,
+      '--format=%H',
+      '--grep',
+      `release(stable): v${version}`,
+      '-1'
+    ])
+    return sha || bestTag
+  }
 }
 
 function getCommits(range) {
@@ -161,7 +184,7 @@ function generateNotes(commits) {
 const currentVersion = getArg('--current-version') || ''
 const fromTag = getArg('--from')
 const toRef = getArg('--to') || 'HEAD'
-const lastTag = fromTag || getLastStableTag(currentVersion)
+const lastTag = fromTag || getLastStableTag(currentVersion, toRef)
 const range = lastTag ? `${lastTag}..${toRef}` : toRef
 const commits = getCommits(range)
 
