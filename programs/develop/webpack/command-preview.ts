@@ -27,12 +27,42 @@ import {type CompanionExtensionsConfig} from './feature-special-folders/folder-e
 import {getSpecialFoldersDataForProjectRoot} from './feature-special-folders/get-data'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 import {withDarkMode} from './webpack-lib/dark-mode'
-import {runOnlyPreviewBrowser} from './plugin-browsers/run-only'
 import * as devServerMessages from './dev-server/messages'
+
+/**
+ * Resolved browser launch options returned by extensionPreview.
+ * The caller is responsible for actually launching the browser.
+ */
+export interface ResolvedPreviewOptions {
+  browser: string
+  outPath: string
+  contextDir: string
+  readyPath: string
+  extensionsToLoad: string[]
+  noOpen?: boolean
+  profile?: string | false
+  persistProfile?: boolean
+  preferences?: Record<string, unknown>
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  startingUrl?: string
+  chromiumBinary?: string
+  geckoBinary?: string
+  instanceId?: string
+  port?: number | string
+  dryRun?: boolean
+}
+
+/**
+ * Browser launcher callback. When provided, extensionPreview calls it
+ * instead of requiring plugin-browsers internally.
+ */
+export type BrowserLauncherFn = (opts: ResolvedPreviewOptions) => Promise<void>
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
-  previewOptions: PreviewOptions
+  previewOptions: PreviewOptions,
+  browserLauncher?: BrowserLauncherFn
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
@@ -199,7 +229,7 @@ export async function extensionPreview(
     projectStructure.manifestPath
   )
 
-  await runOnlyPreviewBrowser({
+  const resolvedOpts: ResolvedPreviewOptions = {
     browser,
     outPath: outputPath,
     contextDir: packageJsonDir,
@@ -217,7 +247,16 @@ export async function extensionPreview(
     instanceId: merged.instanceId,
     port: merged.port,
     dryRun: merged.dryRun
-  })
+  }
+
+  if (!browserLauncher) {
+    throw new Error(
+      'extensionPreview requires a browserLauncher callback. ' +
+        'The browser launch code has moved to programs/browser/.'
+    )
+  }
+
+  await browserLauncher(resolvedOpts)
 
   metadata.writeReady()
 }

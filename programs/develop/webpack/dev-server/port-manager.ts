@@ -8,8 +8,34 @@
 
 import * as crypto from 'crypto'
 import * as net from 'net'
-import {findAvailablePortNear} from '../plugin-browsers/browsers-lib/shared-utils'
 import type {DevOptions} from '../webpack-types'
+
+async function findAvailablePortNear(
+  startPort: number,
+  maxAttempts: number = 20,
+  host: string = '127.0.0.1'
+): Promise<number> {
+  function tryPort(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const server = net.createServer()
+      server.once('error', () => resolve(false))
+      server.once('listening', () => {
+        server.close(() => resolve(true))
+      })
+      server.listen(port, host)
+    })
+  }
+
+  let candidate = startPort
+  for (let i = 0; i < maxAttempts; i++) {
+    const ok = await tryPort(candidate)
+    if (ok) return candidate
+    candidate += 1
+  }
+  throw new Error(
+    `Could not find an available port near ${startPort} after ${maxAttempts} attempts`
+  )
+}
 
 export interface PortAllocation {
   port: number
