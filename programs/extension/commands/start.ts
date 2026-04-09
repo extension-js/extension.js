@@ -10,7 +10,10 @@ import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {runWaitMode} from './dev-wait'
 import {commandDescriptions} from '../cli-lib/messages'
-import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
+import {
+  loadExtensionDevelopModule,
+  loadExtensionDevelopPreviewModule
+} from '../cli-lib/extension-develop-runtime'
 import {collectProjectProfile} from '../cli-lib/project-profile'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
@@ -391,8 +394,10 @@ export function registerStartCommand(program: Command, telemetry: any) {
         startOptions.watchSource
       )
 
-      const {extensionStart}: {extensionStart: any} =
+      const {extensionBuild}: {extensionBuild: any} =
         loadExtensionDevelopModule()
+      const {extensionPreview}: {extensionPreview: any} =
+        loadExtensionDevelopPreviewModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()
@@ -405,7 +410,17 @@ export function registerStartCommand(program: Command, telemetry: any) {
 
         const logContexts = parseLogContexts(logContextOption)
 
-        await extensionStart(pathOrRemoteUrl, {
+        // Phase 1: Build the extension in production mode
+        await extensionBuild(pathOrRemoteUrl, {
+          browser: vendor as StartOptions['browser'],
+          polyfill: startOptions.polyfill?.toString() !== 'false',
+          install: startOptions.install,
+          extensions: parseExtensionsList(startOptions.extensions),
+          silent: true
+        })
+
+        // Phase 2: Launch the browser with the built output (lightweight preview module)
+        await extensionPreview(pathOrRemoteUrl, {
           mode: 'production',
           profile: startOptions.profile,
           browser: vendor as StartOptions['browser'],
@@ -413,25 +428,9 @@ export function registerStartCommand(program: Command, telemetry: any) {
           geckoBinary: startOptions.geckoBinary,
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
-          install: startOptions.install,
           noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
           extensions: parseExtensionsList(startOptions.extensions),
-          source:
-            typeof startOptions.source === 'string'
-              ? startOptions.source
-              : startOptions.source,
-          watchSource: startOptions.watchSource,
-          sourceFormat: startOptions.sourceFormat,
-          sourceSummary: startOptions.sourceSummary,
-          sourceMeta: startOptions.sourceMeta,
-          sourceProbe: startOptions.sourceProbe,
-          sourceTree: startOptions.sourceTree,
-          sourceConsole: startOptions.sourceConsole,
-          sourceDom: startOptions.sourceDom,
-          sourceMaxBytes: startOptions.sourceMaxBytes,
-          sourceRedact: startOptions.sourceRedact,
-          sourceIncludeShadow: startOptions.sourceIncludeShadow,
-          sourceDiff: startOptions.sourceDiff,
+          metadataCommand: 'start',
           logLevel: logsOption || startOptions.logLevel || 'off',
           logContexts,
           logFormat: startOptions.logFormat || 'pretty',
