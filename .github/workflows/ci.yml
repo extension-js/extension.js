@@ -39,7 +39,7 @@ jobs:
           - ci:test:develop
           - ci:test:cli
           - ci:test:plugin-extension
-          - ci:test:plugin-browsers
+          - ci:test:browser
           - ci:test:plugin-compilation
           - ci:test:plugin-css
           - ci:test:plugin-js-frameworks
