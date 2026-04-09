@@ -4,7 +4,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/extension-js/extension.js.git",
-    "directory": "programs/cli"
+    "directory": "programs/extension"
   },
   "engines": {
     "node": ">=18"
