@@ -57,25 +57,12 @@ describe('install-internal-deps', () => {
     vi.restoreAllMocks()
   })
 
-  it('installs missing build and optional deps into develop root', async () => {
+  it('installs missing optional deps into develop root', async () => {
     const developRoot = makeTempDir('extjs-develop-')
     const projectRoot = makeTempDir('extjs-project-')
 
     writeJson(path.join(developRoot, 'package.json'), {
       name: 'extension-develop'
-    })
-    writeJson(
-      path.join(
-        developRoot,
-        'webpack',
-        'webpack-lib',
-        'build-dependencies.json'
-      ),
-      {foo: '1.0.0', bar: '2.0.0'}
-    )
-
-    fs.mkdirSync(path.join(developRoot, 'node_modules', 'foo'), {
-      recursive: true
     })
 
     writeJson(path.join(projectRoot, 'package.json'), {
@@ -99,15 +86,7 @@ describe('install-internal-deps', () => {
 
     process.chdir(cwd)
 
-    expect(spawnCalls.length).toBeGreaterThanOrEqual(2)
-
-    const buildCall = spawnCalls.find((call) =>
-      call.args.join(' ').includes('bar@2.0.0')
-    )
-    expect(buildCall).toBeTruthy()
-    expect(buildCall.cwd).toBe(developRoot)
-    expect(buildCall.args.join(' ')).toContain('install')
-    expect(buildCall.args.join(' ')).toContain('bar@2.0.0')
+    expect(spawnCalls.length).toBeGreaterThanOrEqual(1)
 
     const optionalCall = spawnCalls.find((call) => {
       const args = call.args.join(' ')
@@ -146,15 +125,6 @@ describe('install-internal-deps', () => {
     writeJson(path.join(localDevelopRoot, 'package.json'), {
       name: 'extension-develop'
     })
-    writeJson(
-      path.join(
-        localDevelopRoot,
-        'webpack',
-        'webpack-lib',
-        'build-dependencies.json'
-      ),
-      {}
-    )
     writeJson(path.join(projectRoot, 'package.json'), {
       name: 'demo',
       dependencies: {react: '^18.0.0'}
