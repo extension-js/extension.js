@@ -18,7 +18,6 @@ declare module 'extension-develop' {
   export type BuildOptions = Record<string, unknown>
   export type DevOptions = Record<string, unknown>
   export type PreviewOptions = Record<string, unknown>
-  export type StartOptions = Record<string, unknown>
   export type FileConfig = Record<string, unknown>
   export type Manifest = Record<string, unknown>
 
@@ -33,10 +32,6 @@ declare module 'extension-develop' {
   export function extensionPreview(
     pathOrRemoteUrl: string | undefined,
     options: PreviewOptions
-  ): Promise<any>
-  export function extensionStart(
-    pathOrRemoteUrl: string | undefined,
-    options: StartOptions
   ): Promise<any>
   export function ensureDependencies(
     pathOrRemoteUrl: string | undefined
