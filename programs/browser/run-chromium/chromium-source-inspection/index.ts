@@ -902,7 +902,20 @@ export class ChromiumSourceInspectionPlugin {
         console.log(messages.sourceInspectorWaitingForPageLoad())
       }
 
-      await this.cdpClient.waitForLoadEvent(this.currentSessionId)
+      // Register the load-event listener BEFORE triggering a reload so the
+      // Page.loadEventFired event is never missed.  ensureTargetAndSession
+      // already navigated, but the page may have finished loading before
+      // Page.enable was called on the final session — a reload guarantees
+      // a fresh loadEventFired is emitted after the listener is in place.
+      const loadPromise = this.cdpClient.waitForLoadEvent(
+        this.currentSessionId
+      )
+      await this.cdpClient.sendCommand(
+        'Page.reload',
+        {},
+        this.currentSessionId
+      )
+      await loadPromise
       emitActionEvent('navigation_end', {url})
 
       // Fast initial extract for reliability under short auto-exit windows
