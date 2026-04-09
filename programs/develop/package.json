@@ -105,7 +105,7 @@
     "postcss-loader": "8.2.0",
     "postcss-preset-env": "11.1.1",
     "postcss-scss": "4.0.9",
-    "preact": "10.27.2",
+    "preact": "10.27.3",
     "react-refresh": "0.18.0",
     "sass-loader": "16.0.6",
     "schema-utils": "^4.3.3",
