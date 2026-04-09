@@ -8,7 +8,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {StatsAsset} from '@rspack/core'
+import type {StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {Manifest, DevOptions} from '../webpack-types'
 import packageJson from '../../package.json'

@@ -9,7 +9,7 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
-import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
+import {loadExtensionDevelopPreviewModule} from '../cli-lib/extension-develop-runtime'
 import {collectProjectProfile} from '../cli-lib/project-profile'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
@@ -334,7 +334,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       )
 
       const {extensionPreview}: {extensionPreview: any} =
-        loadExtensionDevelopModule()
+        loadExtensionDevelopPreviewModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()
