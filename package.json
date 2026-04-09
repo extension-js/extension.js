@@ -21,7 +21,7 @@
   },
   "scripts": {
     "compile": "node scripts/run-compile.mjs",
-    "extension": "dotenv -- node programs/extension/dist/cli.cjs",
+    "extension": "dotenv -- node programs/cli/dist/cli.cjs",
     "watch": "node scripts/run-watch.mjs",
     "format": "node scripts/format-wrapper.cjs",
     "lint": "biome lint . --files-max-size=262144",
@@ -37,7 +37,7 @@
     "ci:test:core": "pnpm run test:dev",
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",
-    "ci:test:plugin-browsers": "pnpm run test:dev",
+    "ci:test:browser": "pnpm run test:dev",
     "ci:test:plugin-css": "pnpm run test:dev",
     "ci:test:plugin-compatibility": "pnpm run test:dev",
     "ci:test:plugin-static-assets": "pnpm run test:dev",
