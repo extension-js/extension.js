@@ -10,7 +10,7 @@ const resolveTranspilePackageDirsMock = vi.hoisted(() =>
 const computeExtensionsToLoadMock = vi.hoisted(() =>
   vi.fn<(..._args: any[]) => string[]>(() => [])
 )
-const BrowsersPluginMock = vi.hoisted(() => vi.fn())
+// BrowsersPlugin has been removed — browser code is in programs/browser/
 
 vi.mock('../webpack-lib/transpile-packages', async () => {
   const actual = await vi.importActual<
@@ -32,16 +32,8 @@ vi.mock('../webpack-lib/extensions-to-load', async () => {
   }
 })
 
-vi.mock('../plugin-browsers', async () => {
-  const actual =
-    await vi.importActual<typeof import('../plugin-browsers')>(
-      '../plugin-browsers'
-    )
-  return {
-    ...actual,
-    BrowsersPlugin: BrowsersPluginMock
-  }
-})
+// BrowsersPlugin has been removed — browser code lives in programs/browser/
+// The BrowsersPluginMock is no longer needed.
 
 function createProjectStructure() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-webpack-config-'))
@@ -112,14 +104,13 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(ignored.test('/repo/dist/chrome/background.js')).toBe(true)
   })
 
-  it('passes built-in devtools + theme + user output extensions to BrowsersPlugin', () => {
+  it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([
       '/builtins/devtools',
       '/builtins/theme',
       '/project/dist/chrome'
     ])
-    BrowsersPluginMock.mockClear()
 
     const projectStructure = createProjectStructure()
     webpackConfig(
@@ -142,41 +133,6 @@ describe('webpack-config transpile packages watch behavior', () => {
       '/project/dist/chrome',
       expect.any(Array),
       projectStructure.manifestPath
-    )
-    expect(BrowsersPluginMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        extension: [
-          '/builtins/devtools',
-          '/builtins/theme',
-          '/project/dist/chrome'
-        ]
-      })
-    )
-  })
-
-  it('forwards excludeBrowserFlags to BrowsersPlugin', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
-    BrowsersPluginMock.mockClear()
-
-    const projectStructure = createProjectStructure()
-    webpackConfig(
-      projectStructure as any,
-      {
-        browser: 'chromium',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: '/project/dist/chromium'
-        },
-        excludeBrowserFlags: ['--hide-scrollbars', '--mute-audio'],
-        noBrowser: false
-      } as any
-    )
-
-    expect(BrowsersPluginMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        excludeBrowserFlags: ['--hide-scrollbars', '--mute-audio']
-      })
     )
   })
 })

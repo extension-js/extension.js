@@ -1,9 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {
+  assertLocalWorkspacePackagesExist,
   fileSpecifier,
+  getLocalWorkspacePackagePaths,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
   shouldUseRegistryExtensionForSmoke,
@@ -107,6 +110,66 @@ test('fileSpecifier uses absolute file URL for cross-drive Windows paths', () =>
     specifier,
     'file:///D:/a/extension.js/extension.js/programs/create'
   )
+})
+
+test('getLocalWorkspacePackagePaths exposes every workspace package the fixture file-links', () => {
+  const paths = getLocalWorkspacePackagePaths()
+
+  assert.deepEqual(
+    Object.keys(paths).sort(),
+    ['create', 'develop', 'extension', 'install'],
+    'If you renamed a programs/* package, update getLocalWorkspacePackagePaths() in scripts/run-optional-deps-smoke.mjs and keep this list in sync.'
+  )
+
+  for (const [name, dir] of Object.entries(paths)) {
+    assert.equal(
+      path.isAbsolute(dir),
+      true,
+      `${name} path should be absolute, got: ${dir}`
+    )
+  }
+})
+
+test('getLocalWorkspacePackagePaths entries resolve to real directories on disk', async () => {
+  // Regression guard for commit 57457569 (programs/cli -> programs/cli):
+  // stale hardcoded paths broke 5 CI smoke lanes with a cryptic pnpm error.
+  // This test runs in the "Test optional deps smoke helpers" step, which
+  // executes before the slow smoke lanes, so future renames fail fast and loud.
+  const paths = getLocalWorkspacePackagePaths()
+
+  for (const [name, dir] of Object.entries(paths)) {
+    const stats = await fs.stat(dir)
+    assert.equal(
+      stats.isDirectory(),
+      true,
+      `${name} path should point at a directory: ${dir}`
+    )
+
+    const packageJsonPath = path.join(dir, 'package.json')
+    await assert.doesNotReject(
+      fs.access(packageJsonPath),
+      `${name} package at ${dir} is missing package.json — is it still a workspace package?`
+    )
+  }
+})
+
+test('assertLocalWorkspacePackagesExist passes for the real workspace', async () => {
+  await assert.doesNotReject(assertLocalWorkspacePackagesExist())
+})
+
+test('assertLocalWorkspacePackagesExist fails loudly when a path is missing', async () => {
+  const paths = getLocalWorkspacePackagePaths()
+  const broken = {
+    ...paths,
+    extension: path.join(paths.extension, '__does-not-exist__')
+  }
+
+  await assert.rejects(assertLocalWorkspacePackagesExist(broken), (error) => {
+    assert.match(error.message, /extension/)
+    assert.match(error.message, /not found/)
+    assert.match(error.message, /getLocalWorkspacePackagePaths/)
+    return true
+  })
 })
 
 test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', async () => {
