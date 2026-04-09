@@ -154,4 +154,4 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 
 ## License
 
-MIT (c) Cezar Augusto and the Extension.js Authors.
+MIT (c) Cezar Augusto and the Extension.js authors.

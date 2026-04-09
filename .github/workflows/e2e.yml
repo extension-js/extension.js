@@ -20,11 +20,17 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Get Playwright version
+        id: pw-version
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+
       - name: Cache Playwright
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-
 
       - name: Compile Extension.js
         run: pnpm compile
