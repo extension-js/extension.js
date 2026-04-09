@@ -90,7 +90,7 @@ export function setupCleanupHandlers(
 
   // Do not remove other listeners; let browser plugins receive signals too.
   // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
-  process.on('ERROR', cancelAndCleanup)
+  process.on('error', cancelAndCleanup)
   process.on('SIGINT', cancelAndCleanup)
   process.on('SIGTERM', cancelAndCleanup)
   process.on('SIGHUP', cancelAndCleanup)
