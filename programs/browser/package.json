@@ -11,7 +11,7 @@
     "node": ">=18"
   },
   "name": "extension-browser",
-  "version": "3.12.0",
+  "version": "3.13.0",
   "description": "Browser launcher, CDP/RDP protocol clients, and reload API for Extension.js.",
   "exports": {
     ".": "./index.ts",
