@@ -1,5 +1,5 @@
 packages:
-  - './programs/cli'
+  - './programs/extension'
   - './programs/create'
   - './programs/install'
   - './programs/develop'
@@ -17,7 +17,7 @@ packages:
   - '!./templates'
   - '!./templates/**'
   # Ignore dist folders used for testing
-  - "!programs/cli/dist"
+  - "!programs/extension/dist"
   - "!programs/develop/dist"
 onlyBuiltDependencies:
   - "@ast-grep/napi"
