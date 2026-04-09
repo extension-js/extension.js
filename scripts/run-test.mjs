@@ -14,7 +14,9 @@ const runCommand = (command, args, options = {}) =>
 const getTurboFilters = (target) => {
   switch (target) {
     case 'cli':
-      return ['--filter', './programs/extension', '--filter', './programs/install']
+      return ['--filter', './programs/cli', '--filter', './programs/install']
+    case 'browser':
+      return ['--filter', './programs/browser']
     case 'install':
       return ['--filter', './programs/install']
     case 'develop':
@@ -24,7 +26,9 @@ const getTurboFilters = (target) => {
     default:
       return [
         '--filter',
-        './programs/extension',
+        './programs/cli',
+        '--filter',
+        './programs/browser',
         '--filter',
         './programs/install',
         '--filter',
@@ -35,7 +39,7 @@ const getTurboFilters = (target) => {
 
 const runFallbackTests = async (target) => {
   if (target === 'cli') {
-    const cliCode = await runCommand('pnpm', ['-C', 'programs/extension', 'test'])
+    const cliCode = await runCommand('pnpm', ['-C', 'programs/cli', 'test'])
     if (cliCode !== 0) return cliCode
     return runCommand('pnpm', ['-C', 'programs/install', 'test'])
   }
@@ -46,7 +50,7 @@ const runFallbackTests = async (target) => {
     return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
   }
 
-  const cliCode = await runCommand('pnpm', ['-C', 'programs/extension', 'test'])
+  const cliCode = await runCommand('pnpm', ['-C', 'programs/cli', 'test'])
   if (cliCode !== 0) {
     return cliCode
   }

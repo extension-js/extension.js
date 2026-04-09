@@ -62,9 +62,6 @@ vi.mock('../plugin-playwright', () => ({
 }))
 
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
-vi.mock('../plugin-browsers/run-only', () => ({
-  runOnlyPreviewBrowser: (...args: any[]) => runOnlyPreviewBrowser(...args)
-}))
 
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -125,7 +122,11 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {browser: 'chrome'} as any)
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
@@ -139,7 +140,11 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {browser: 'chrome'} as any)
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
@@ -150,7 +155,11 @@ describe('webpack/command-preview (run-only)', () => {
     ;(fs.existsSync as any).mockImplementation(() => false)
 
     await expect(
-      extensionPreview('/proj', {browser: 'chrome'} as any)
+      extensionPreview(
+        '/proj',
+        {browser: 'chrome'} as any,
+        runOnlyPreviewBrowser
+      )
     ).rejects.toThrow(/Preview is run-only and does not compile/)
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
@@ -168,10 +177,14 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {
-      browser: 'chrome',
-      noBrowser: true
-    } as any)
+    await extensionPreview(
+      '/proj',
+      {
+        browser: 'chrome',
+        noBrowser: true
+      } as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
     expect(metadataWriter.writeStarting).toHaveBeenCalledTimes(1)
@@ -192,10 +205,14 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {
-      browser: 'firefox',
-      noBrowser: true
-    } as any)
+    await extensionPreview(
+      '/proj',
+      {
+        browser: 'firefox',
+        noBrowser: true
+      } as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
     const output = consoleSpy.mock.calls
@@ -214,12 +231,16 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {
-      browser: 'chrome',
-      extensions: [
-        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
-      ]
-    } as any)
+    await extensionPreview(
+      '/proj',
+      {
+        browser: 'chrome',
+        extensions: [
+          'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+        ]
+      } as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(
       resolveConfigMod.resolveCompanionExtensionsConfig
@@ -249,7 +270,11 @@ describe('webpack/command-preview (run-only)', () => {
       path.join('/proj', 'dist', 'chrome')
     ])
 
-    await extensionPreview('/proj', {browser: 'chrome'} as any)
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(extensionsToLoadMod.computeExtensionsToLoad).toHaveBeenCalledWith(
       expect.any(String),
@@ -283,7 +308,11 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview('/proj', {browser: 'chrome'} as any)
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
 
     expect(
       validateDepsMod.assertNoManagedDependencyConflicts

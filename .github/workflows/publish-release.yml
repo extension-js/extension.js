@@ -83,7 +83,7 @@ jobs:
           fi
 
           if [ "$CHANNEL" = "canary" ] && [ -z "$VERSION" ]; then
-            BASE=$(node -p "require('./programs/extension/package.json').version.split('-')[0]")
+            BASE=$(node -p "require('./programs/cli/package.json').version.split('-')[0]")
             SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
             VERSION="${BASE}-canary.${GITHUB_RUN_NUMBER}.${SHA}"
           fi
@@ -143,9 +143,9 @@ jobs:
           VERSION: ${{ steps.validate.outputs.version }}
           SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
         run: |
-          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/extension/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/browser/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
-            git add programs/extension/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
+            git add programs/cli/package.json programs/browser/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
             if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
             git tag "v${{ steps.validate.outputs.version }}"
             git push
@@ -298,7 +298,7 @@ jobs:
         run: |
           node -e "
             const fs=require('fs');
-            const p='programs/extension/package.json';
+            const p='programs/cli/package.json';
             const j=JSON.parse(fs.readFileSync(p,'utf8'));
             if(j.dependencies && j.dependencies['extension-develop'] && /^workspace:/.test(j.dependencies['extension-develop'])){
               j.dependencies['extension-develop'] = process.env.VERSION;
@@ -309,6 +309,8 @@ jobs:
             if(j.dependencies && j.dependencies['extension-install'] && /^workspace:/.test(j.dependencies['extension-install'])){
               j.dependencies['extension-install'] = process.env.VERSION;
             }
+            // extension-browser is private (bundled at build time) — remove from published deps
+            if(j.dependencies) delete j.dependencies['extension-browser'];
             fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
           "
 
@@ -481,7 +483,7 @@ jobs:
 
       - name: Check if version exists (extension)
         id: check_cli
-        working-directory: programs/extension
+        working-directory: programs/cli
         run: |
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
@@ -493,7 +495,7 @@ jobs:
 
       - name: Publish extension [token+provenance]
         if: steps.check_cli.outputs.exists == 'false'
-        working-directory: programs/extension
+        working-directory: programs/cli
         run: |
           if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
             echo "NPM_TOKEN secret is missing." >&2
@@ -518,7 +520,7 @@ jobs:
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension)
         if: steps.check_cli.outputs.exists == 'false'
-        working-directory: programs/extension
+        working-directory: programs/cli
         run: |
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
