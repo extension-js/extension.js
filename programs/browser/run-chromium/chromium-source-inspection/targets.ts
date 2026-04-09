@@ -117,5 +117,10 @@ export async function ensureTargetAndSession(
     // ignore
   }
 
+  // The page may have finished loading before Page.enable was called on
+  // this session, so Page.loadEventFired would never fire.  A reload
+  // guarantees the event is emitted after the listener is in place.
+  await cdpClient.sendCommand('Page.reload', {}, sessionId)
+
   return {targetId: String(targetId), sessionId: String(sessionId)}
 }
