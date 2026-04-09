@@ -25,10 +25,8 @@ Create a new extension with a single function call:
 ```javascript
 import {extensionCreate} from 'extension-create'
 
-// Create a basic extension
-await extensionCreate('my-extension', {
-  template: 'init'
-})
+// Create a basic extension (default template: javascript)
+await extensionCreate('my-extension', {})
 
 // Create a React extension and install its dependencies
 await extensionCreate('my-react-extension', {
@@ -47,7 +45,7 @@ Creates a new extension project with the specified configuration.
 
 - `projectName` (string, required) - The name of your extension project
 - `options` (object) - Configuration options
-  - `template` (string, optional) - Template name or URL. Defaults to `'init'`
+  - `template` (string, optional) - Template name or URL. Defaults to `'javascript'` (`init` is an alias)
   - `install` (boolean, optional) - Whether to install dependencies. Defaults to `true`
   - `cliVersion` (string, optional) - CLI version for package.json
 

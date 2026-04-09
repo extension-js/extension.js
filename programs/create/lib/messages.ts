@@ -145,7 +145,7 @@ export function installingFromTemplate(
   projectName: string,
   templateName: string
 ) {
-  if (templateName === 'init') {
+  if (templateName === 'init' || templateName === 'javascript') {
     return `${statusPrefix} Installing ${colors.blue(projectName)}...`
   }
 
