@@ -2,11 +2,24 @@ name: Build deps sync check
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'programs/develop/webpack/webpack-lib/build-dependencies.json'
+      - '.github/build-deps/package.json'
+      - 'scripts/sync-build-deps-tracking.mjs'
   pull_request:
+    paths:
+      - 'programs/develop/webpack/webpack-lib/build-dependencies.json'
+      - '.github/build-deps/package.json'
+      - 'scripts/sync-build-deps-tracking.mjs'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: build-deps-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build_deps_sync:
@@ -19,7 +32,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          # Only need enough depth to diff the relevant commits
+          fetch-depth: 2
+
+      - name: Fetch base ref for PR diff
+        if: github.event_name == 'pull_request'
+        run: git fetch --depth=1 origin ${{ github.event.pull_request.base.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v6

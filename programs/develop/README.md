@@ -312,4 +312,4 @@ dist/
 
 ## License
 
-MIT (c) Cezar Augusto and the Extension.js Authors.
+MIT (c) Cezar Augusto and the Extension.js authors.
