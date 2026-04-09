@@ -4,10 +4,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type {Compilation} from '@rspack/core'
 import type {Manifest} from '../../../webpack-types'
-import {
-  getCanonicalContentScriptCssAssetName,
-  getCanonicalContentScriptJsAssetName
-} from '../../feature-scripts/contracts'
+import {parseCanonicalContentScriptAsset} from '../../feature-scripts/contracts'
 
 /**
  * After each dev compile, canonical content bundles emit as
@@ -49,17 +46,19 @@ export function patchDevContentScriptManifestPaths(
 
 function resolveDevContentScriptDeclaredPath(
   declaredPath: string,
-  groupIndex: number,
+  _groupIndex: number,
   ext: 'js' | 'css',
   assetNames: Set<string>
 ): string {
-  const canonical =
-    ext === 'js'
-      ? getCanonicalContentScriptJsAssetName(groupIndex)
-      : getCanonicalContentScriptCssAssetName(groupIndex)
-  if (declaredPath !== canonical) return declaredPath
+  // Parse the numeric index from the declared path itself rather than
+  // using the array position.  MAIN world bridge entries are created at
+  // canonical indices that differ from their array position, so relying
+  // on groupIndex would produce a wrong canonical name and the path
+  // would never resolve to its hashed counterpart.
+  const parsed = parseCanonicalContentScriptAsset(declaredPath)
+  if (!parsed || parsed.extension !== ext) return declaredPath
 
-  const hashed = findHashedContentScriptAsset(assetNames, groupIndex, ext)
+  const hashed = findHashedContentScriptAsset(assetNames, parsed.index, ext)
   return hashed || declaredPath
 }
 
