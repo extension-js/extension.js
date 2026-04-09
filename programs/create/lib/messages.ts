@@ -216,12 +216,6 @@ export function installingDependencies() {
   )}`
 }
 
-export function installingBuildDependencies(dependencies: string[]) {
-  return `${statusPrefix} Installing general build dependencies... ${colors.gray(
-    '(This may take a moment)'
-  )}`
-}
-
 export function foundSpecializedDependencies(count: number) {
   return `${statusPrefix} Found ${colors.yellow(
     String(count)
