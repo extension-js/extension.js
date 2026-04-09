@@ -15,6 +15,12 @@
       "types": "./dist/module.d.ts",
       "import": "./dist/module.cjs",
       "require": "./dist/module.cjs"
+    },
+    "./preview": {
+      "development": "./preview-entry.ts",
+      "types": "./dist/preview.d.ts",
+      "import": "./dist/preview.cjs",
+      "require": "./dist/preview.cjs"
     }
   },
   "main": "./dist/module.cjs",
