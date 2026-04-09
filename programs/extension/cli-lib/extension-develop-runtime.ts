@@ -69,8 +69,11 @@ function resolvePreferredDevelopRoot(startDir: string): {
   return {root: undefined, source: 'missing'}
 }
 
-function resolveDevelopDistEntry(root: string): string | undefined {
-  const base = path.join(root, 'dist', 'module')
+function resolveDevelopDistEntry(
+  root: string,
+  name: string = 'module'
+): string | undefined {
+  const base = path.join(root, 'dist', name)
   const candidates = [`${base}.cjs`, `${base}.js`, `${base}.mjs`, base]
 
   for (const candidate of candidates) {
@@ -130,4 +133,37 @@ export function loadExtensionDevelopModule<T = any>(
   }
 
   return require('extension-develop') as T
+}
+
+/**
+ * Load only the lightweight preview entry from extension-develop.
+ * This avoids pulling in rspack and the full build toolchain, making
+ * `extension preview` start significantly faster.
+ */
+export function loadExtensionDevelopPreviewModule<T = any>(
+  startDir: string = __dirname
+): T {
+  const root = resolveExtensionDevelopRoot(startDir)
+  const {source} = resolvePreferredDevelopRoot(startDir)
+  const previewEntry = resolveDevelopDistEntry(root, 'preview')
+
+  if (previewEntry) {
+    return require(previewEntry) as T
+  }
+
+  // Fall back to the full module if the preview entry doesn't exist
+  // (e.g. older extension-develop versions without the split entry).
+  const fullEntry = resolveDevelopDistEntry(root)
+  if (fullEntry) {
+    return require(fullEntry) as T
+  }
+
+  if (source === 'workspace') {
+    throw new Error(
+      `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
+        'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
+    )
+  }
+
+  return require('extension-develop/preview') as T
 }
