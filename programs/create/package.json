@@ -73,7 +73,7 @@
   ],
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "axios": "^1.13.5",
+    "axios": "^1.15.0",
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.1.5",
     "pintor": "0.3.0",
