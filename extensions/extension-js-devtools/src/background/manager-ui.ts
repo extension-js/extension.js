@@ -44,7 +44,7 @@ export async function initManagerUI() {
 ██████████████████████████    ████████████████████████████
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
-MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors.
+MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors.
 `,
         bgGreen('')
       )
