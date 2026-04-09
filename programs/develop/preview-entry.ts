@@ -11,4 +11,8 @@
 // dependencies so that `extension preview` starts instantly.
 
 export {extensionPreview} from './webpack/command-preview'
+export type {
+  ResolvedPreviewOptions,
+  BrowserLauncherFn
+} from './webpack/command-preview'
 export type {PreviewOptions} from './webpack/webpack-types'

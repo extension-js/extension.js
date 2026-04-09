@@ -4,158 +4,277 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type Compiler} from '@rspack/core'
-import {normalizePluginOptions} from './browsers-lib/normalize-options'
-import {pickSharedBrowserRuntimeOptions} from './browsers-lib/runtime-options'
-import * as messages from './browsers-lib/messages'
-import {RunChromiumPlugin} from './run-chromium'
-import {RunFirefoxPlugin} from './run-firefox'
-import {
-  type PluginInterface,
-  type LogLevel,
-  type LogContext,
-  type LogFormat
-} from './browsers-types'
-import type {DevOptions} from '../webpack-types'
+import * as path from 'path'
+import {EventEmitter} from 'node:events'
+import type {Compiler} from '@rspack/core'
+
+// ---------------------------------------------------------------------------
+// Build event types
+// ---------------------------------------------------------------------------
+
+export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
+
+export interface ReloadInstruction {
+  type: ReloadType
+  changedContentScriptEntries?: string[]
+  changedAssets?: string[]
+}
+
+export interface CompiledEvent {
+  outputPath: string
+  contextDir: string
+  isFirstCompile: boolean
+  reloadInstruction?: ReloadInstruction
+  extensionsToLoad?: string[]
+}
+
+export interface BuildErrorEvent {
+  errors: string[]
+}
+
+export interface BuildEventMap {
+  compiled: [CompiledEvent]
+  error: [BuildErrorEvent]
+  close: []
+}
+
+export class BuildEmitter extends EventEmitter<BuildEventMap> {}
+
+// ---------------------------------------------------------------------------
+// Browser launcher contract (dependency-injected by the CLI)
+// ---------------------------------------------------------------------------
+
+export interface BrowserLaunchOptions {
+  browser: string
+  outputPath: string
+  contextDir: string
+  extensionsToLoad: string[]
+  mode?: 'development' | 'production'
+  enableDevtools?: boolean
+  noOpen?: boolean
+  profile?: string | false
+  persistProfile?: boolean
+  preferences?: Record<string, unknown>
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  startingUrl?: string
+  chromiumBinary?: string
+  geckoBinary?: string
+  instanceId?: string
+  port?: number | string
+  dryRun?: boolean
+  source?: string
+  watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean
+  logLevel?: string
+  logContexts?: string[]
+  logFormat?: 'pretty' | 'json' | 'ndjson'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
+}
+
+export interface BrowserController {
+  reload(instruction?: ReloadInstruction): Promise<void>
+  enableUnifiedLogging(opts: {
+    level?: string
+    contexts?: string[]
+    format?: 'pretty' | 'json' | 'ndjson'
+    timestamps?: boolean
+    color?: boolean
+    urlFilter?: string
+    tabFilter?: number | string
+  }): Promise<void>
+  close(): Promise<void>
+}
+
+export type BrowserLauncherFn = (
+  opts: BrowserLaunchOptions
+) => Promise<BrowserController>
+
+// ---------------------------------------------------------------------------
+// Plugin configuration
+// ---------------------------------------------------------------------------
+
+export interface BrowsersPluginOptions {
+  /** Injected browser launcher — provided by the CLI from programs/browser/ */
+  launcher: BrowserLauncherFn
+  /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */
+  browserOptions: Omit<
+    BrowserLaunchOptions,
+    'outputPath' | 'contextDir' | 'extensionsToLoad'
+  >
+}
+
+// ---------------------------------------------------------------------------
+// BrowsersPlugin — rspack plugin that wraps the browser API
+// ---------------------------------------------------------------------------
 
 /**
- * BrowsersPlugin responsibilities and supported capabilities:
- * - Supported browsers:
- *   - Chrome, Edge, generic Chromium-based
- *   - Firefox, generic Gecko-based
+ * BrowsersPlugin
  *
- * - Core features:
- *   - Launch target browser with one or more unpacked extensions
- *   - Custom browser flags and the ability to exclude default flags
- *   - Profile management:
- *     - System profile, explicit custom profile, or managed dev profiles
- *     - Ephemeral (temp) or persistent profiles
- *   - Custom binary paths (Chromium / Gecko)
- *   - Optional starting URL
- *   - Instance/port coordination for remote debugging and multi-instance runs
- *   - Dry run mode (no browser launch) for CI and diagnostics
+ * An rspack plugin that manages the browser lifecycle for extension development.
+ * On first successful compilation it launches a browser via the injected launcher
+ * function; on subsequent compilations it classifies changed files and triggers
+ * the appropriate reload strategy (full / service-worker / content-scripts).
  *
- * - Developer experience:
- *   - Source inspection (development mode):
- *     - For Chromium/Firefox: open a page and extract full HTML (incl. content-script Shadow DOM)
- *     - Optional watch mode to re-print HTML on file changes
- *   - Unified logging for Chromium via CDP (levels, contexts, formatting, timestamps, color)
- *   - One-time development banner with extension id and metadata
+ * A `BuildEmitter` is exposed as `plugin.emitter` so that external consumers
+ * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
+ * coupling to rspack.
  */
 export class BrowsersPlugin {
-  public static readonly name: string = 'plugin-browsers'
+  static readonly name = 'plugin-browsers'
 
-  public readonly extension!: string | string[]
-  public readonly browser!: DevOptions['browser']
-  public readonly noOpen?: boolean
-  public readonly browserFlags?: string[]
-  public readonly excludeBrowserFlags?: string[]
-  public readonly profile?: string | false
-  public readonly preferences?: Record<string, unknown>
-  public readonly startingUrl?: string
-  public readonly chromiumBinary?: string
-  public readonly geckoBinary?: string
-  public readonly instanceId?: string
-  public readonly port?: number | string
-  public readonly source?: string
-  public readonly watchSource?: boolean
-  public readonly sourceFormat?: LogFormat
-  public readonly sourceSummary?: boolean
-  public readonly sourceMeta?: boolean
-  public readonly sourceProbe?: string[]
-  public readonly sourceTree?: 'off' | 'root-only'
-  public readonly sourceConsole?: boolean
-  public readonly sourceDom?: boolean
-  public readonly sourceMaxBytes?: number
-  public readonly sourceRedact?: 'off' | 'safe' | 'strict'
-  public readonly sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  public readonly sourceDiff?: boolean
-  public readonly dryRun?: boolean
-  // Unified logger options (for CDP streaming in Chromium path)
-  public readonly logLevel?: LogLevel
-  public readonly logContexts?: Array<LogContext>
-  public readonly logFormat?: LogFormat
-  public readonly logTimestamps?: boolean
-  public readonly logColor?: boolean
-  public readonly logUrl?: string
-  public readonly logTab?: number | string
+  /** EventEmitter for build lifecycle events (compiled, error, close). */
+  readonly emitter = new BuildEmitter()
 
-  constructor(options: PluginInterface) {
-    const normalized = normalizePluginOptions(options)
+  /**
+   * Extension directories to load alongside the user extension.
+   * Set externally by webpack-config after computing companion extensions,
+   * before the first compilation.
+   */
+  extensionsToLoad: string[] = []
 
-    Object.assign(this, pickSharedBrowserRuntimeOptions(normalized))
-    this.chromiumBinary = normalized.chromiumBinary
-    this.geckoBinary = normalized.geckoBinary
+  private isFirstCompile = true
+  private controller: BrowserController | undefined
 
-    // Validate required binaries for engine-based selections
-    if (this.browser === 'chromium-based' && !this.chromiumBinary) {
-      console.error(messages.requireChromiumBinaryForChromiumBased())
-      process.exit(1)
-    }
-
-    if (
-      (this.browser === 'gecko-based' || this.browser === 'firefox-based') &&
-      !this.geckoBinary
-    ) {
-      console.error(messages.requireGeckoBinaryForGeckoBased())
-      process.exit(1)
-    }
-
-    if (
-      this.profile === false &&
-      process.env.EXTENSION_AUTHOR_MODE === 'true'
-    ) {
-      console.warn(
-        messages.profileFallbackWarning(
-          this.browser,
-          'system profile in use (profile: false)'
-        )
-      )
-    }
-  }
+  constructor(private readonly options: BrowsersPluginOptions) {}
 
   apply(compiler: Compiler) {
-    const wslDistro = String(process.env.WSL_DISTRO_NAME || '')
-      .trim()
-      .toLowerCase()
+    let pendingReloadReason: ReloadType | undefined
 
-    if (wslDistro === 'docker-desktop' || wslDistro === 'docker-desktop-data') {
-      console.warn(messages.wslDockerDesktopRunnerDisabled())
-      return
-    }
+    // ---- watchRun: classify changed files ----
+    compiler.hooks.watchRun.tap(BrowsersPlugin.name, () => {
+      pendingReloadReason = undefined
+      const modifiedFiles = compiler.modifiedFiles
+      if (!modifiedFiles || modifiedFiles.size === 0) return
 
-    if (
-      this.browser === 'chrome' ||
-      this.browser === 'edge' ||
-      this.browser === 'chromium' ||
-      this.browser === 'chromium-based'
-    ) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.usingChromiumRunner(this.browser as any))
+      for (const file of modifiedFiles) {
+        const relative = path.relative(compiler.options.context || '', file)
+        const normalized = relative.replace(/\\/g, '/')
+
+        if (normalized.includes('manifest.json')) {
+          pendingReloadReason = 'full'
+          return
+        }
+
+        if (normalized.includes('_locales/')) {
+          pendingReloadReason = 'full'
+          return
+        }
+      }
+    })
+
+    // ---- done: launch / reload browser, emit events ----
+    compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats: any) => {
+      const compilation = stats.compilation
+      const hasErrors = compilation.errors && compilation.errors.length > 0
+
+      if (hasErrors) {
+        this.emitter.emit('error', {
+          errors: compilation.errors.map((e: any) =>
+            typeof e === 'string' ? e : e.message || String(e)
+          )
+        })
+        return
       }
 
-      new RunChromiumPlugin(this).apply(compiler)
-    } else if (
-      this.browser === 'firefox' ||
-      this.browser === 'gecko-based' ||
-      this.browser === 'firefox-based'
-    ) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.usingFirefoxRunner(this.browser as any))
+      const outputPath = String(compilation.options?.output?.path || '')
+      const contextDir = String(compilation.options?.context || '')
+
+      // Classify reload type from changed files / emitted assets
+      let reloadInstruction: ReloadInstruction | undefined
+
+      if (!this.isFirstCompile && pendingReloadReason) {
+        reloadInstruction = {type: pendingReloadReason}
+      } else if (!this.isFirstCompile) {
+        const changedAssets = Object.keys(compilation.assets || {})
+        const hasServiceWorkerChange = changedAssets.some(
+          (a) =>
+            a.includes('background') ||
+            a.includes('service_worker') ||
+            a.includes('service-worker')
+        )
+
+        if (hasServiceWorkerChange) {
+          reloadInstruction = {
+            type: 'service-worker',
+            changedAssets
+          }
+        } else if (changedAssets.length > 0) {
+          const contentChanges = changedAssets.filter((a) =>
+            a.includes('content')
+          )
+          if (contentChanges.length > 0) {
+            reloadInstruction = {
+              type: 'content-scripts',
+              changedContentScriptEntries: contentChanges,
+              changedAssets
+            }
+          }
+        }
       }
 
-      new RunFirefoxPlugin(this).apply(compiler)
-    } else {
-      // Log helpful error before throwing to satisfy expected behavior in tests
-      try {
-        console.error(messages.unsupportedBrowser(String(this.browser)))
-      } catch {
-        // ignore logging errors
+      // --- Browser lifecycle ---
+      const wasFirstCompile = this.isFirstCompile
+      this.isFirstCompile = false
+
+      if (wasFirstCompile) {
+        try {
+          this.controller = await this.options.launcher({
+            ...this.options.browserOptions,
+            outputPath,
+            contextDir,
+            extensionsToLoad: this.extensionsToLoad
+          })
+
+          // Enable unified logging when requested
+          const logLevel = this.options.browserOptions.logLevel || 'off'
+          if (logLevel !== 'off' && this.controller) {
+            await this.controller.enableUnifiedLogging({
+              level: logLevel,
+              contexts: this.options.browserOptions.logContexts,
+              format: this.options.browserOptions.logFormat,
+              timestamps: this.options.browserOptions.logTimestamps,
+              color: this.options.browserOptions.logColor,
+              urlFilter: this.options.browserOptions.logUrl,
+              tabFilter: this.options.browserOptions.logTab
+            })
+          }
+        } catch (error) {
+          this.emitter.emit('error', {
+            errors: [error instanceof Error ? error.message : String(error)]
+          })
+        }
+      } else if (this.controller && reloadInstruction) {
+        try {
+          await this.controller.reload(reloadInstruction)
+        } catch {
+          // Reload failures are non-fatal — the browser may have been closed
+        }
       }
 
-      process.exit(1)
-    }
+      // --- Emit event for external consumers (telemetry, wait-mode) ---
+      this.emitter.emit('compiled', {
+        outputPath,
+        contextDir,
+        isFirstCompile: wasFirstCompile,
+        reloadInstruction,
+        extensionsToLoad: wasFirstCompile ? this.extensionsToLoad : undefined
+      })
+    })
   }
 }
