@@ -74,7 +74,8 @@ function getTemplateAwareScripts(
 }
 
 interface OverridePackageJsonOptions {
-  template: string
+  /** Defaults to `javascript` when omitted (same as `extensionCreate`). */
+  template?: string
   cliVersion?: string
 }
 
@@ -91,7 +92,7 @@ function resolveExtensionDevDependencyVersion(cliVersion?: string): string {
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  {template, cliVersion}: OverridePackageJsonOptions
+  {template = 'javascript', cliVersion}: OverridePackageJsonOptions
 ) {
   const extensionBinary = await resolveExtensionBinary()
   const candidatePath = path.join(projectPath, 'package.json')

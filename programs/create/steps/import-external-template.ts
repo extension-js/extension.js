@@ -70,8 +70,7 @@ export async function importExternalTemplate(
   const templateName = path.basename(template)
   const examplesUrl =
     'https://github.com/extension-js/examples/tree/main/examples'
-  // "init" is the canonical alias for the JavaScript starter template.
-  // Keep this mapping consistent for both local (dev) and remote (production) installs.
+  // Default template is `javascript`. `init` remains an alias for the same examples folder.
   const resolvedTemplate = templateName === 'init' ? 'javascript' : template
   const resolvedTemplateName =
     templateName === 'init' ? 'javascript' : templateName
