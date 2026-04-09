@@ -40,7 +40,7 @@ const childEnv = {
 const failurePatterns = [
   /Failed to force-reload extension/i,
   /'Extensions\.reload' wasn't found/i,
-  /\[plugin-browsers\] CDP post-launch setup failed/i
+  /\[browser\] CDP post-launch setup failed/i
 ]
 
 function runCollect(cmd, cmdArgs, opts = {}) {

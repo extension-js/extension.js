@@ -1,1 +1,1 @@
-export default ['programs/extension', 'programs/develop']
+export default ['programs/cli', 'programs/browser', 'programs/develop']

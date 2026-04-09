@@ -28,7 +28,6 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import {BuildEventBridgePlugin} from './plugin-build-events'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
 
@@ -158,52 +157,14 @@ export default function webpackConfig(
     )
   }
 
-  if (!devOptions.noBrowser) {
-    plugins.push(
-      new BrowsersPlugin({
-        extension: unpackedExtensionDirsToLoad,
-        browser: devOptions.browser,
-        noOpen: devOptions.noOpen,
-        startingUrl: devOptions.startingUrl,
-        profile: devOptions.profile,
-        persistProfile: (devOptions as any).persistProfile,
-        preferences: darkDefaults.preferences,
-        browserFlags: darkDefaults.browserFlags,
-        excludeBrowserFlags: devOptions.excludeBrowserFlags,
-        chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary,
-        instanceId: devOptions.instanceId,
-        port: devOptions.port,
-        source: devOptions.source,
-        watchSource: devOptions.watchSource,
-        sourceFormat: devOptions.sourceFormat,
-        sourceSummary: devOptions.sourceSummary,
-        sourceMeta: devOptions.sourceMeta,
-        sourceProbe: devOptions.sourceProbe,
-        sourceTree: devOptions.sourceTree,
-        sourceConsole: devOptions.sourceConsole,
-        sourceDom: devOptions.sourceDom,
-        sourceMaxBytes: devOptions.sourceMaxBytes,
-        sourceRedact: devOptions.sourceRedact,
-        sourceIncludeShadow: devOptions.sourceIncludeShadow,
-        sourceDiff: devOptions.sourceDiff,
-        // Prevent actual browser launch during monorepo watch
-        dryRun: process.env.EXTENSION_DEV_NO_BROWSER === '1',
-        // Forward unified logger options to BrowsersPlugin (CDP logger)
-        logLevel: devOptions.logLevel,
-        logContexts: devOptions.logContexts,
-        logFormat: devOptions.logFormat,
-        logTimestamps: devOptions.logTimestamps,
-        logColor: devOptions.logColor,
-        logUrl: devOptions.logUrl,
-        logTab: devOptions.logTab
-      })
-    )
-  }
-
-  // Emit build lifecycle events for CLI orchestration (runs alongside BrowsersPlugin)
-  if ((devOptions as any).emitter) {
-    plugins.push(new BuildEventBridgePlugin((devOptions as any).emitter))
+  // Wire the browser lifecycle plugin when a launcher is provided.
+  // BrowsersPlugin wraps the browser API (programs/browser/)
+  // behind rspack hooks — launching on first compile, reloading on
+  // subsequent compiles, and emitting events for CLI telemetry.
+  if ((devOptions as any).browsersPlugin) {
+    const browsersPlugin: BrowsersPlugin = (devOptions as any).browsersPlugin
+    browsersPlugin.extensionsToLoad = unpackedExtensionDirsToLoad
+    plugins.push(browsersPlugin)
   }
 
   return {

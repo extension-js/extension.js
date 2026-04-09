@@ -1,0 +1,18 @@
+{
+  "name": "rspack-run-chromium-extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Chromium browser runner for Extension.js — rspack-free, used by the CLI orchestration layer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/browser/run-chromium"
+  },
+  "x-internal-path": "programs/browser/run-chromium",
+  "x-exports": {
+    "class": "RunChromiumPlugin",
+    "entry": "./index.ts"
+  }
+}

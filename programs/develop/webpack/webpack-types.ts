@@ -135,6 +135,10 @@ export interface DevOptions extends BrowserOptionsBase {
    * Skip launching the browser (dev server still starts).
    */
   noBrowser?: boolean
+  // Browser flags and preferences forwarded to the browser launcher
+  preferences?: Record<string, unknown>
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']

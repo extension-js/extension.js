@@ -12,7 +12,11 @@ import {getProjectStructure} from './webpack-lib/project'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, normalizeBrowser} from './webpack-lib/paths'
 import {ensureProjectReady} from './webpack-lib/dependency-manager'
-import {BuildEmitter} from './build-events'
+import {
+  BrowsersPlugin,
+  BuildEmitter,
+  type BrowserLauncherFn
+} from './plugin-browsers'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -20,9 +24,57 @@ import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  devOptions: DevOptions
+  devOptions: DevOptions & {launcher?: BrowserLauncherFn}
 ): Promise<BuildEmitter> {
-  const emitter = new BuildEmitter()
+  // When a launcher is provided, create the BrowsersPlugin that wraps the
+  // browser API behind rspack hooks. Otherwise fall back to a plain emitter
+  // for no-browser / dry-run modes.
+  let browsersPlugin: BrowsersPlugin | undefined
+  let emitter: BuildEmitter
+
+  if (devOptions.launcher && !devOptions.noBrowser) {
+    browsersPlugin = new BrowsersPlugin({
+      launcher: devOptions.launcher,
+      browserOptions: {
+        browser: devOptions.browser,
+        mode: 'development',
+        enableDevtools: true,
+        noOpen: devOptions.noOpen,
+        profile: devOptions.profile,
+        persistProfile: devOptions.persistProfile,
+        preferences: devOptions.preferences,
+        browserFlags: devOptions.browserFlags,
+        startingUrl: devOptions.startingUrl,
+        chromiumBinary: devOptions.chromiumBinary,
+        geckoBinary: devOptions.geckoBinary || devOptions.firefoxBinary,
+        port: devOptions.port,
+        source: devOptions.source,
+        watchSource: devOptions.watchSource,
+        sourceFormat: devOptions.sourceFormat,
+        sourceSummary: devOptions.sourceSummary,
+        sourceMeta: devOptions.sourceMeta,
+        sourceProbe: devOptions.sourceProbe,
+        sourceTree: devOptions.sourceTree,
+        sourceConsole: devOptions.sourceConsole,
+        sourceDom: devOptions.sourceDom,
+        sourceMaxBytes: devOptions.sourceMaxBytes,
+        sourceRedact: devOptions.sourceRedact,
+        sourceIncludeShadow: devOptions.sourceIncludeShadow,
+        sourceDiff: devOptions.sourceDiff,
+        logLevel: devOptions.logLevel,
+        logContexts: devOptions.logContexts,
+        logFormat: devOptions.logFormat,
+        logTimestamps: devOptions.logTimestamps,
+        logColor: devOptions.logColor,
+        logUrl: devOptions.logUrl,
+        logTab: devOptions.logTab
+      }
+    })
+    emitter = browsersPlugin.emitter
+  } else {
+    emitter = new BuildEmitter()
+  }
+
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
@@ -85,8 +137,8 @@ export async function extensionDev(
       mode: 'development',
       browser,
       geckoBinary,
-      emitter
-    })
+      browsersPlugin
+    } as any)
 
     return emitter
   } catch (error) {
