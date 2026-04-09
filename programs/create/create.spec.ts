@@ -47,7 +47,7 @@ type TemplateMeta = {
 }
 
 let ALL_TEMPLATES: TemplateMeta[] = []
-let DEFAULT_TEMPLATE: TemplateMeta = {name: 'init'}
+let DEFAULT_TEMPLATE: TemplateMeta = {name: 'javascript'}
 try {
   const require = createRequire(import.meta.url)
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -58,8 +58,8 @@ try {
   ALL_TEMPLATES = m.ALL_TEMPLATES
   DEFAULT_TEMPLATE = m.DEFAULT_TEMPLATE
 } catch {
-  ALL_TEMPLATES = [{name: 'init'}]
-  DEFAULT_TEMPLATE = {name: 'init'}
+  ALL_TEMPLATES = [{name: 'javascript'}]
+  DEFAULT_TEMPLATE = {name: 'javascript'}
 }
 import {execFile} from 'child_process'
 import {promisify} from 'util'
@@ -137,15 +137,15 @@ describe('extension create', () => {
     }
   }, 30000)
 
-  it('creates a default project using without template flag', async () => {
-    const templatePath = path.resolve(__dirname, 'dist', 'test-template-init')
+  it('creates a default project when template is omitted (javascript)', async () => {
+    const templatePath = path.resolve(__dirname, 'dist', 'test-template-javascript')
     await extensionCreate(templatePath, {
-      template: 'init'
+      install: false
     })
 
-    expect(fileExists('init', 'package.json')).toBeTruthy()
-    expect(manifestExists('init')).toBeTruthy()
-    expect(fileExists('init', 'README.md')).toBeTruthy()
+    expect(fileExists('javascript', 'package.json')).toBeTruthy()
+    expect(manifestExists('javascript')).toBeTruthy()
+    expect(fileExists('javascript', 'README.md')).toBeTruthy()
   }, 30000)
 
   it('rejects a URL as project path', async () => {
@@ -174,7 +174,7 @@ describe('extension create', () => {
       const projectPath = path.resolve(
         __dirname,
         'dist',
-        `user-create-init-${uniqueSuffix}`
+        `user-create-javascript-${uniqueSuffix}`
       )
       const cwd = path.resolve(__dirname, '..', '..')
       const env = {
@@ -188,15 +188,7 @@ describe('extension create', () => {
 
       await execFileAsync(
         'pnpm',
-        [
-          'extension',
-          'create',
-          projectPath,
-          '--template',
-          'init',
-          '--install',
-          'false'
-        ],
+        ['extension', 'create', projectPath, '--install', 'false'],
         {cwd, env}
       )
       expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBeTruthy()
@@ -316,7 +308,7 @@ describe('extension create', () => {
       })
 
       // Expect images/extension_16.png and expect images/extension_16.png
-      if (template.name !== 'init') {
+      if (template.name !== 'init' && template.name !== 'javascript') {
         expect(
           fileExists(template.name, 'images/extension_48.png')
         ).toBeTruthy()

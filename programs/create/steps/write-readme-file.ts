@@ -35,10 +35,12 @@ This project was created with Extension.js. Use the commands below to run and bu
 ## Installation
 
 \`\`\`bash
-[runCommand] create <project-name> --template init
+[runCommand] create <project-name>
 cd <project-name>
 npm install
 \`\`\`
+
+For a different starter, add \`--template=<slug>\` (see the [templates](https://extension.js.org/docs/getting-started/templates) docs).
 
 ## Commands
 
