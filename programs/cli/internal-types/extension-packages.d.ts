@@ -3,7 +3,7 @@
 
 declare module 'extension-create' {
   export interface CreateOptions {
-    template: string
+    template?: string
     install?: boolean
     cliVersion?: string
   }
