@@ -26,11 +26,6 @@ type OptionalDepsPlan = {
   dependenciesByIntegration: Record<string, string[]>
 }
 
-type BuildDepsPlan = {
-  dependencies: string[]
-  dependencyMap: Record<string, string>
-}
-
 function resolveDevelopRoot(projectPath: string): string | null {
   try {
     const localPkgPath = path.join(
@@ -61,30 +56,6 @@ function resolveDevelopRoot(projectPath: string): string | null {
   } catch {
     return null
   }
-}
-
-function resolveBuildDepsPath(developRoot: string): string {
-  return path.join(
-    developRoot,
-    'webpack',
-    'webpack-lib',
-    'build-dependencies.json'
-  )
-}
-
-function loadBuildDependencies(developRoot: string): Record<string, string> {
-  const metadataPath = resolveBuildDepsPath(developRoot)
-  if (!fs.existsSync(metadataPath)) {
-    console.warn(
-      `${messages.installingBuildDependencies([])} ` +
-        '(build-dependencies.json missing; skipping build deps install)'
-    )
-    return {
-      // Do nothing
-    }
-  }
-
-  return JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
 }
 
 function readPackageJson(projectPath: string): PackageJson {
@@ -250,40 +221,6 @@ function buildOptionalInstallArgs(
   return ['install', ...dependencies, '--save-optional', '--legacy-peer-deps']
 }
 
-function buildBuildInstallArgs(
-  pm: string,
-  dependencies: string[],
-  dependencyMap: Record<string, string>
-) {
-  const depsWithVersions = dependencies.map(
-    (dep) => `${dep}@${dependencyMap[dep]}`
-  )
-
-  if (pm === 'yarn') {
-    return ['add', ...depsWithVersions]
-  }
-
-  if (pm === 'pnpm') {
-    return ['add', '--save', ...depsWithVersions]
-  }
-
-  if (pm === 'bun') {
-    return ['add', ...depsWithVersions]
-  }
-
-  return ['install', '--save', ...depsWithVersions]
-}
-
-function resolveMissingBuildDeps(developRoot: string): BuildDepsPlan {
-  const dependencyMap = loadBuildDependencies(developRoot)
-  const candidates = Object.keys(dependencyMap)
-  const missing = candidates.filter(
-    (dep) => !canResolve(dep, [developRoot, process.cwd()])
-  )
-
-  return {dependencies: missing, dependencyMap}
-}
-
 function resolveMissingOptionalDeps(
   developRoot: string,
   projectPath: string
@@ -312,31 +249,6 @@ function resolveMissingOptionalDeps(
     integrations,
     dependencies: Array.from(missing),
     dependenciesByIntegration
-  }
-}
-
-async function installBuildDependencies(
-  developRoot: string,
-  plan: BuildDepsPlan
-) {
-  if (plan.dependencies.length === 0) return
-
-  const pm = detectPackageManagerFromEnv()
-  const installMessage = messages.installingBuildDependencies(plan.dependencies)
-  console.log(installMessage)
-
-  const args = buildBuildInstallArgs(pm, plan.dependencies, plan.dependencyMap)
-  const stdio =
-    process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-  const result = await runInstall(pm, args, {
-    cwd: developRoot,
-    stdio
-  })
-
-  if (result.code !== 0) {
-    throw new Error(
-      messages.installingDependenciesFailed(pm, args, result.code)
-    )
   }
 }
 
@@ -390,11 +302,6 @@ export async function installInternalDependencies(projectPath: string) {
   const developRoot = resolveDevelopRoot(projectPath)
   if (!developRoot) return
 
-  const buildPlan = resolveMissingBuildDeps(developRoot)
-  if (buildPlan.dependencies.length > 0) {
-    await installBuildDependencies(developRoot, buildPlan)
-  }
-
   const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
   if (optionalPlan.dependencies.length > 0) {
     await installOptionalDependencies(developRoot, projectPath, optionalPlan)
@@ -403,7 +310,6 @@ export async function installInternalDependencies(projectPath: string) {
 
 export const __testing__ = {
   resolveDevelopRoot,
-  resolveMissingBuildDeps,
   resolveMissingOptionalDeps,
   detectOptionalDependencies
 }
