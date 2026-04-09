@@ -812,9 +812,10 @@ export class CDPExtensionController {
             message.method === 'Runtime.consoleAPICalled' ||
             message.method === 'Log.entryAdded'
           ) {
-            // Basic pretty print
-            const ts = new Date().toISOString()
-            console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
+            if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
+              const ts = new Date().toISOString()
+              console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
+            }
           }
         } catch {
           // ignore
