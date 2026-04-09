@@ -2,12 +2,31 @@ name: 🛠
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.github/FUNDING.yml'
+      - '.github/CODE_OF_CONDUCT.md'
+      - '.github/SECURITY.md'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.github/FUNDING.yml'
+      - '.github/CODE_OF_CONDUCT.md'
+      - '.github/SECURITY.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
   contents: read
   actions: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
@@ -37,8 +56,8 @@ jobs:
         if: matrix.suite == 'ci:test:cli'
         run: |
           sudo apt-get update
-          sudo apt-get install -y firefox xvfb
-          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+          sudo apt-get install -y --no-install-recommends firefox xvfb
+          sudo apt-get install -y --no-install-recommends chromium-browser || sudo apt-get install -y --no-install-recommends chromium
           echo "EXTENSION_TEST_GECKO_BINARY=$(command -v firefox || true)" >> $GITHUB_ENV
           echo "EXTENSION_TEST_CHROMIUM_BINARY=$(command -v chromium-browser || command -v chromium || true)" >> $GITHUB_ENV
 
@@ -66,6 +85,8 @@ jobs:
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
+    # Only run Windows tests on PRs and main — skip on workflow_dispatch unless explicitly needed
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
