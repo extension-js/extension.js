@@ -33,7 +33,8 @@ function getTagFallback(version: string) {
 
 async function updateExtensionDependencyTag(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const packageJsonPath = path.join(projectPath, 'package.json')
 
@@ -63,7 +64,7 @@ async function updateExtensionDependencyTag(
 
     return true
   } catch (error) {
-    console.error(messages.cantInstallDependencies(projectName, error))
+    logger.error(messages.cantInstallDependencies(projectName, error))
     return false
   }
 }
@@ -103,7 +104,8 @@ async function hasDependenciesToInstall(projectPath: string) {
 
 export async function installDependencies(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
@@ -117,7 +119,7 @@ export async function installDependencies(
   const dependenciesArgs = getInstallArgs()
 
   const installMessage = messages.installingDependencies()
-  console.log(installMessage)
+  logger.log(installMessage)
 
   try {
     // Create the node_modules directory if it doesn't exist
@@ -136,7 +138,7 @@ export async function installDependencies(
       const output = `${firstRun.stdout}\n${firstRun.stderr}`
       const shouldRetry = shouldRetryWithTagFallback(output)
       const didUpdate = shouldRetry
-        ? await updateExtensionDependencyTag(projectPath, projectName)
+        ? await updateExtensionDependencyTag(projectPath, projectName, logger)
         : false
 
       if (didUpdate) {
@@ -161,10 +163,10 @@ export async function installDependencies(
       )
     }
   } catch (error: any) {
-    console.error(
+    logger.error(
       messages.installingDependenciesProcessError(projectName, error)
     )
-    console.error(messages.cantInstallDependencies(projectName, error))
+    logger.error(messages.cantInstallDependencies(projectName, error))
     throw error
   }
 }
