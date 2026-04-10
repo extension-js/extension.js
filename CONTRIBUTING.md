@@ -8,7 +8,7 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 
 | Program            | Package name        | Description                                             |
 | ------------------ | ------------------- | ------------------------------------------------------- |
-| `programs/cli`     | `extension`         | The CLI that runs `extension <command>`                 |
+| `programs/extension` | `extension`       | The CLI that runs `extension <command>`                 |
 | `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and webpack integration |
 
 Related workspaces:
@@ -75,7 +75,7 @@ cd my-extension && pnpm dev
 
 - `pnpm compile` — Build all workspaces (produces `dist/` used by the local CLI)
 - `pnpm watch` — Build once then watch all programs for changes
-- `pnpm extension` — Run the local CLI at `programs/cli/dist/cli.js`
+- `pnpm extension` — Run the local CLI at `programs/extension/dist/cli.cjs`
 - `pnpm test` — Run all tests across packages via Turbo
 - `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build` — Focused test groups
 - `pnpm test:e2e` — Playwright end-to-end tests
