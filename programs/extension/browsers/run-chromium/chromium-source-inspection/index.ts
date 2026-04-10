@@ -69,6 +69,7 @@ export class ChromiumSourceInspectionPlugin {
   private debounceTimer: NodeJS.Timeout | null = null
   private watchSourceFlushTimer: NodeJS.Timeout | null = null
   private isFlushingWatchSourceUpdate = false
+  private lastFlushTimestamp = 0
   private runtimeMode?: string
   private lastOutputHash?: string
   private lastByteLength?: number
@@ -1049,6 +1050,8 @@ export class ChromiumSourceInspectionPlugin {
     ;(globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__ = async () => {
       if (!this.currentSessionId || !this.hasInspectedSourceOnce) return
       if (this.isWatching) return
+      // Dedup rapid content reloads — skip if flushed within the last 500ms
+      if (Date.now() - this.lastFlushTimestamp < 500) return
       if (this.watchSourceFlushTimer) {
         clearTimeout(this.watchSourceFlushTimer)
       }
@@ -1057,6 +1060,7 @@ export class ChromiumSourceInspectionPlugin {
         if (this.isFlushingWatchSourceUpdate || !this.currentSessionId) return
         this.isFlushingWatchSourceUpdate = true
         try {
+          this.lastFlushTimestamp = Date.now()
           await this.emitImmediateUpdatedSnapshotFromCurrentSession(
             this.currentSessionId
           )
@@ -1089,6 +1093,7 @@ export class ChromiumSourceInspectionPlugin {
 
       this.isFlushingWatchSourceUpdate = true
       try {
+        this.lastFlushTimestamp = Date.now()
         await this.emitUpdatedSnapshotFromCurrentSession(
           this.currentSessionId,
           previousRootMeta
