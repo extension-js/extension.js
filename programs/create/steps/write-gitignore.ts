@@ -40,7 +40,10 @@ const globalLines = [
   ...debugFiles
 ]
 
-export async function writeGitignore(projectPath: string) {
+export async function writeGitignore(
+  projectPath: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
+) {
   const gitIgnorePath = path.join(projectPath, '.gitignore')
   const paths = new Set<string>()
   let currentContents = ''
@@ -50,7 +53,7 @@ export async function writeGitignore(projectPath: string) {
       return ''
     }
 
-    console.error(err)
+    logger.error(err)
     throw err
   })
 
@@ -73,7 +76,7 @@ export async function writeGitignore(projectPath: string) {
     return
   }
 
-  console.log(messages.writingGitIgnore())
+  logger.log(messages.writingGitIgnore())
 
   const shouldPrefixWithNewline =
     currentContents.length > 0 && !currentContents.endsWith('\n')
@@ -81,7 +84,7 @@ export async function writeGitignore(projectPath: string) {
 
   // Append the missing lines while preserving final newline behavior.
   await fs.appendFile(gitIgnorePath, contentToAppend).catch((err) => {
-    console.error(err)
+    logger.error(err)
     throw err
   })
 }

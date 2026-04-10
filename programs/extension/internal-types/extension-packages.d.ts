@@ -2,16 +2,29 @@
 // extension-create/extension-develop types. These are not published.
 
 declare module 'extension-create' {
+  export interface CreateLogger {
+    log: (...args: any[]) => void
+    error: (...args: any[]) => void
+  }
+
   export interface CreateOptions {
     template?: string
     install?: boolean
     cliVersion?: string
+    logger?: CreateLogger
+  }
+
+  export interface CreateResult {
+    projectPath: string
+    projectName: string
+    template: string
+    depsInstalled: boolean
   }
 
   export function extensionCreate(
     projectNameInput: string | undefined,
     options: CreateOptions
-  ): Promise<void>
+  ): Promise<CreateResult>
 }
 
 declare module 'extension-develop' {
