@@ -11,13 +11,19 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 45000,
     include: [
-      '__spec__/unit/**/*.spec.ts',
-      'webpack/**/__spec__/**/*.spec.ts',
-      'webpack/**/__spec__/**/*.spec.tsx',
-      'webpack/**/__spec__/**/*.spec.js',
-      'webpack/**/__spec__/**/*.spec.jsx'
+      '__spec__/**/*.spec.ts',
+      '__spec__/**/*.spec.tsx',
+      '__spec__/**/*.spec.js',
+      '__spec__/**/*.spec.jsx',
+      'dev-server/**/__spec__/**/*.spec.ts',
+      'feature-*/**/__spec__/**/*.spec.ts',
+      'lib/**/__spec__/**/*.spec.ts',
+      'plugin-*/**/__spec__/**/*.spec.ts',
+      'plugin-*/**/__spec__/**/*.spec.tsx',
+      'plugin-*/**/__spec__/**/*.spec.js',
+      'plugin-*/**/__spec__/**/*.spec.jsx'
     ],
-    setupFiles: ['webpack/__spec__/setup/cleanup.ts'],
+    setupFiles: ['__spec__/setup/cleanup.ts'],
     // coverage disabled
     exclude: [
       '**/node_modules/**',

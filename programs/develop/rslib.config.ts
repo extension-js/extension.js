@@ -19,34 +19,34 @@ export default defineConfig({
       // HTML Plugin Loaders
       'ensure-hmr-for-scripts': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
+        './plugin-web-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
       ),
       'minimum-script-file': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-html/steps/minimum-script-file.ts'
+        './plugin-web-extension/feature-html/steps/minimum-script-file.ts'
       ),
       // Scripts Plugin Loaders
       'feature-scripts-content-script-wrapper': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
+        './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
       ),
       // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
       'main-world-bridge': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
+        './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
       ),
       'minimum-chromium-file': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
+        './plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
       ),
       'minimum-firefox-file': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
+        './plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
       ),
       // Resolve Plugin Loaders
       'resolve-paths-loader': path.resolve(
         __dirname,
-        './webpack/plugin-web-extension/feature-resolve/loader/index.ts'
+        './plugin-web-extension/feature-resolve/loader/index.ts'
       )
     }
   },
@@ -82,10 +82,7 @@ export default defineConfig({
           'sass-loader',
           'less-loader',
           'postcss-loader',
-          'postcss-preset-env',
-
-          // JS loader
-          'babel-loader'
+          'postcss-preset-env'
         ]
       }
       // dts: true

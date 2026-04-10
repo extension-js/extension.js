@@ -16,9 +16,9 @@ function createCdpServer(
 ): Promise<{server: http.Server; port: number}> {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      const handler = handlers[req.url || '']
-      if (handler) {
-        handler(res)
+      const url = req.url || ''
+      if (Object.hasOwn(handlers, url)) {
+        handlers[url](res)
       } else {
         res.writeHead(404)
         res.end('not found')

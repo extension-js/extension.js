@@ -46,7 +46,10 @@ function emitFirefoxAgentDebugLog(payload: Record<string, unknown>) {
 }
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import * as messages from '../../../browsers-lib/messages'
-import {RDP_MAX_RETRIES, RDP_RETRY_INTERVAL_MS} from '../../../browsers-lib/constants'
+import {
+  RDP_MAX_RETRIES,
+  RDP_RETRY_INTERVAL_MS
+} from '../../../browsers-lib/constants'
 import {
   printRunningInDevelopmentSummary,
   printSourceInspection
