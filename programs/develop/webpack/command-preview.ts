@@ -252,7 +252,7 @@ export async function extensionPreview(
   if (!browserLauncher) {
     throw new Error(
       'extensionPreview requires a browserLauncher callback. ' +
-        'The browser launch code has moved to programs/browser/.'
+        'The browser launch code has moved to programs/extension/browsers/.'
     )
   }
 

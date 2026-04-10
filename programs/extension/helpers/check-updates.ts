@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import checkForUpdate from 'update-check'
-import * as messages from './cli-lib/messages'
+import * as messages from './messages'
 import * as semver from 'semver'
 import {getCliPackageJson} from './cli-package-json'
 
