@@ -219,7 +219,7 @@ function getLocalWorkspacePackagePaths() {
   return {
     create: path.join(ROOT_DIR, 'programs', 'create'),
     develop: path.join(ROOT_DIR, 'programs', 'develop'),
-    extension: path.join(ROOT_DIR, 'programs', 'cli'),
+    extension: path.join(ROOT_DIR, 'programs', 'extension'),
     install: path.join(ROOT_DIR, 'programs', 'install')
   }
 }

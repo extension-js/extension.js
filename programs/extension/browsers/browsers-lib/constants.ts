@@ -25,16 +25,10 @@ export const CDP_COMMAND_TIMEOUT_MS = envMs(
 )
 
 /** CDP HTTP endpoint timeout for /json discovery (ms). Override: EXTENSION_CDP_HTTP_TIMEOUT_MS */
-export const CDP_HTTP_TIMEOUT_MS = envMs(
-  'EXTENSION_CDP_HTTP_TIMEOUT_MS',
-  1_200
-)
+export const CDP_HTTP_TIMEOUT_MS = envMs('EXTENSION_CDP_HTTP_TIMEOUT_MS', 1_200)
 
 /** Firefox RDP evaluation timeout (ms). Override: EXTENSION_RDP_EVAL_TIMEOUT_MS */
-export const RDP_EVAL_TIMEOUT_MS = envMs(
-  'EXTENSION_RDP_EVAL_TIMEOUT_MS',
-  8_000
-)
+export const RDP_EVAL_TIMEOUT_MS = envMs('EXTENSION_RDP_EVAL_TIMEOUT_MS', 8_000)
 
 /** Firefox RDP connect retry count. Override: EXTENSION_RDP_MAX_RETRIES */
 export const RDP_MAX_RETRIES = envMs('EXTENSION_RDP_MAX_RETRIES', 150)
