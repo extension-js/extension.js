@@ -10,9 +10,9 @@
 // This bundle intentionally avoids importing rspack or any heavy build
 // dependencies so that `extension preview` starts instantly.
 
-export {extensionPreview} from './webpack/command-preview'
+export {extensionPreview} from './command-preview'
 export type {
   ResolvedPreviewOptions,
-  BrowserLauncherFn
-} from './webpack/command-preview'
-export type {PreviewOptions} from './webpack/webpack-types'
+  PreviewLauncherFn
+} from './command-preview'
+export type {PreviewOptions} from './types'

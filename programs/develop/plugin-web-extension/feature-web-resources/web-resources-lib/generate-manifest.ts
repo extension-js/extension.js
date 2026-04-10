@@ -1,0 +1,582 @@
+// ██╗    ██╗███████╗██████╗       ██████╗ ███████╗███████╗ ██████╗ ██╗   ██╗██████╗  ██████╗███████╗███████╗
+// ██║    ██║██╔════╝██╔══██╗      ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔════╝██╔════╝
+// ██║ █╗ ██║█████╗  ██████╔╝█████╗██████╔╝█████╗  ███████╗██║   ██║██║   ██║██████╔╝██║     █████╗  ███████╗
+// ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔══██╗██╔══╝  ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  ╚════██║
+// ╚███╔███╔╝███████╗██████╔╝      ██║  ██║███████╗███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗███████║
+//  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
+import {Compilation, sources} from '@rspack/core'
+import {
+  getManifestContent,
+  setCurrentManifestContent
+} from '../../feature-manifest/manifest-lib/manifest'
+import {resolveUserDeclaredWAR} from './resolve-war'
+import {cleanMatches} from './clean-matches'
+import type {Manifest} from '../../../types'
+import {warPatchedSummary} from './messages'
+
+type AssetSource =
+  | string
+  | {source: () => string}
+  | {source: string | {source: () => string}}
+
+function getAssetSource(compilation: Compilation, filename: string) {
+  const byGet =
+    typeof compilation.getAsset === 'function'
+      ? compilation.getAsset(filename)
+      : undefined
+  const byAssets =
+    !byGet && compilation.assets ? compilation.assets[filename] : undefined
+  const asset = byGet || byAssets
+
+  if (!asset) return ''
+
+  const source = asset.source as AssetSource
+
+  if (!source) return ''
+
+  if (typeof source === 'string') return source
+
+  if (typeof source.source === 'function') {
+    const out = source.source()
+    return typeof out === 'string' ? out : ''
+  }
+
+  const nestedSource = source.source
+
+  if (typeof nestedSource === 'string') return nestedSource
+
+  if (nestedSource && typeof nestedSource.source === 'function') {
+    const out = nestedSource.source()
+    return typeof out === 'string' ? out : ''
+  }
+  return ''
+}
+
+function hasWildcardPattern(pattern: string) {
+  return /[*?\[\]]/.test(pattern)
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.+^${}()|\\]/g, '\\$&')
+}
+
+function globToRegex(pattern: string) {
+  const escaped = pattern
+    .split('*')
+    .map((seg) => escapeRegex(seg))
+    .join('.*')
+  return new RegExp('^' + escaped + '$')
+}
+
+function isCoveredByExistingGlobs(
+  existingPatterns: string[],
+  candidate: string
+) {
+  for (const existingPattern of existingPatterns) {
+    if (hasWildcardPattern(existingPattern)) {
+      try {
+        const re = globToRegex(existingPattern)
+        if (re.test(candidate)) return true
+      } catch {
+        // ignore invalid glob
+      }
+    }
+  }
+  return false
+}
+
+function isCanonicalContentScriptCss(resource: string) {
+  return /^content_scripts\/content-\d+\.css$/.test(resource)
+}
+
+function toCanonicalContentScriptCss(jsFile: string) {
+  const normalized = String(jsFile || '')
+  if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
+  return normalized.replace(/\.js$/, '.css')
+}
+
+export function generateManifestPatches(
+  compilation: Compilation,
+  manifestPath: string,
+  entryImports: Record<string, string[]>,
+  browser?: string
+) {
+  const canonicalManifest = getManifestContent(compilation, manifestPath)
+
+  const resolved = resolveUserDeclaredWAR(
+    compilation,
+    manifestPath,
+    canonicalManifest,
+    browser
+  )
+
+  const webAccessibleResourcesV3: {resources: string[]; matches: string[]}[] =
+    canonicalManifest.manifest_version === 3
+      ? resolved.v3.map((g) => ({
+          matches: g.matches,
+          resources: Array.from(g.resources)
+        }))
+      : []
+  const webAccessibleResourcesV2: string[] =
+    canonicalManifest.manifest_version === 2 ? Array.from(resolved.v2) : []
+
+  // Fallback scan: inspect emitted JS for content_scripts to discover referenced assets (e.g., assets/*.png)
+  if (
+    canonicalManifest.manifest_version === 3 &&
+    Array.isArray(canonicalManifest.content_scripts)
+  ) {
+    for (const contentScript of canonicalManifest.content_scripts) {
+      const matches = contentScript.matches || []
+      const normalizedMatches = cleanMatches(matches)
+      const jsFiles: string[] = Array.isArray(contentScript.js)
+        ? contentScript.js
+        : []
+
+      for (const jsFile of jsFiles) {
+        const source = getAssetSource(compilation, jsFile)
+
+        if (!source) continue
+
+        const re = /assets\/[A-Za-z0-9._-]+/g
+        const found = source.match(re) || []
+        const filtered = Array.from(
+          new Set(
+            found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))
+          )
+        ).sort()
+
+        if (filtered.length === 0) continue
+
+        const existingResource = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existingResource) {
+          const candidates = filtered.filter(
+            (resource) =>
+              !existingResource.resources.includes(resource) &&
+              !isCoveredByExistingGlobs(existingResource.resources, resource)
+          )
+          existingResource.resources = Array.from(
+            new Set([...(existingResource.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: filtered,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  }
+
+  for (const [entryName, resources] of Object.entries(entryImports)) {
+    const contentScript = canonicalManifest.content_scripts?.find(
+      (script: any) =>
+        script.js?.some((jsFile: string) => jsFile.includes(entryName))
+    )
+
+    if (contentScript) {
+      const matches = contentScript.matches || []
+      const filteredResources = resources.filter(
+        (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
+      )
+      const importedContentCss = filteredResources
+        .filter((resource) => resource.endsWith('.css'))
+        .filter(isCanonicalContentScriptCss)
+
+      if (importedContentCss.length > 0) {
+        contentScript.css = Array.from(
+          new Set([...(contentScript.css || []), ...importedContentCss])
+        ).sort()
+      }
+
+      if (filteredResources.length === 0) continue
+
+      if (canonicalManifest.manifest_version === 3) {
+        const normalizedMatches = cleanMatches(matches)
+        const existingResource = webAccessibleResourcesV3.find(
+          (resourceEntry) => {
+            const a = [...resourceEntry.matches].sort()
+            const b = [...normalizedMatches].sort()
+            return a.length === b.length && a.every((v, i) => v === b[i])
+          }
+        )
+
+        if (existingResource) {
+          const candidates = filteredResources.filter(
+            (resource) =>
+              !existingResource.resources.includes(resource) &&
+              !isCoveredByExistingGlobs(existingResource.resources, resource)
+          )
+          const merged = Array.from(
+            new Set([...existingResource.resources, ...candidates])
+          ).sort()
+          existingResource.resources = merged
+          existingResource.matches = [...existingResource.matches].sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: Array.from(new Set(filteredResources)).sort(),
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      } else {
+        filteredResources.forEach((resource) => {
+          if (!webAccessibleResourcesV2.includes(resource)) {
+            webAccessibleResourcesV2.push(resource)
+          }
+        })
+      }
+    }
+  }
+
+  // TODO: cezaraugusto this is not needed since for prod we skip teh content_script
+  // wrapper code. This is only commented out because I'm not sure whether its fully fixed
+  // and too busy at the moment w/ v3 release to test this out
+  // Production-only: include JS chunks produced by content_scripts entries in WAR
+  // Dynamic imports in content scripts create additional JS files (e.g., 86.js).
+  // These are injected via <script> into the page, so Chrome requires them to be
+  // declared in web_accessible_resources. We scope each chunk to the content
+  // script's matches to minimize exposure.
+  // if (
+  //   manifest.manifest_version === 3 &&
+  //   compilation.options.mode === 'production'
+  // ) {
+  //   const entryNameToMatches: Record<string, string[]> = {}
+
+  //   // Map entryName -> matches by correlating manifest content_scripts to logical output names
+  //   const contentScripts = Array.isArray(manifest.content_scripts)
+  //     ? manifest.content_scripts
+  //     : []
+
+  //   for (const contentScript of contentScripts) {
+  //     const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
+  //     const matches = cleanMatches(contentScript.matches || [])
+
+  //     for (const jsFile of jsFiles) {
+  //       // Logical output names for entries follow "content_scripts/<name>.js"
+  //       // Derive the entry name without .js to correlate with compilation entrypoints
+  //       if (typeof jsFile === 'string' && jsFile.endsWith('.js')) {
+  //         const withoutExt = jsFile.slice(0, -3) // remove ".js"
+  //         entryNameToMatches[withoutExt] = matches
+  //       }
+  //     }
+  //   }
+
+  //   // For each content_scripts entrypoint, collect its additional JS chunk files
+  //   compilation.entrypoints.forEach((entry, entryName) => {
+  //     const entryNameStr = String(entryName)
+
+  //     if (!entryNameStr.startsWith('content_scripts/')) {
+  //       return
+  //     }
+
+  //     const matches = entryNameToMatches[entryNameStr] || []
+
+  //     if (matches.length === 0) {
+  //       return
+  //     }
+
+  //     const logicalMain = `${entryNameStr}.js`
+  //     const chunkJsFiles: string[] = []
+
+  //     entry.chunks.forEach((chunk) => {
+  //       const files = chunk.files as unknown as string[] | undefined
+
+  //       if (!Array.isArray(files)) return
+
+  //       for (const file of files) {
+  //         const fileName = String(file)
+
+  //         if (!fileName.endsWith('.js')) continue
+  //         if (fileName === logicalMain) continue
+
+  //         chunkJsFiles.push(fileName)
+  //       }
+  //     })
+
+  //     if (chunkJsFiles.length === 0) {
+  //       // Fallback: scan the entry main JS for dynamic import chunk ids like r.e("86")
+  //       const mainSource = getAssetSource(compilation, logicalMain)
+
+  //       if (mainSource) {
+  //         const ids: string[] = []
+  //         const reDyn = /(?:^|[^A-Za-z0-9_$])r\.e\(\s*["']([^"']+)["']\s*\)/g
+
+  //         let match: RegExpExecArray | null = null
+  //         while ((match = reDyn.exec(mainSource)) !== null) {
+  //           const id = String(match[1]).trim()
+
+  //           if (id && !/[^A-Za-z0-9_-]/.test(id)) {
+  //             ids.push(id)
+  //           }
+  //         }
+
+  //         for (const id of Array.from(new Set(ids))) {
+  //           const candidate = `${id}.js`
+
+  //           if (candidate !== `${entryNameStr}.js`) {
+  //             chunkJsFiles.push(candidate)
+  //           }
+  //         }
+  //       }
+
+  //       if (chunkJsFiles.length === 0) {
+  //         return
+  //       }
+  //     }
+
+  //     // Merge into existing group for these matches or create a new one
+  //     const existing = webAccessibleResourcesV3.find((entry) => {
+  //       const a = [...entry.matches].sort()
+  //       const b = [...matches].sort()
+
+  //       return a.length === b.length && a.every((v, i) => v === b[i])
+  //     })
+
+  //     if (existing) {
+  //       const candidates = chunkJsFiles.filter(
+  //         (resource) =>
+  //           !existing.resources.includes(resource) &&
+  //           !isCoveredByExistingGlobs(existing.resources, resource)
+  //       )
+
+  //       existing.resources = Array.from(
+  //         new Set([...(existing.resources || []), ...candidates])
+  //       ).sort()
+  //     } else {
+  //       webAccessibleResourcesV3.push({
+  //         resources: Array.from(new Set(chunkJsFiles)).sort(),
+  //         matches: [...matches].sort()
+  //       })
+  //     }
+  //   })
+  // }
+
+  // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
+  if (canonicalManifest.manifest_version === 3) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const staticAssets = assetKeys
+      .filter((k) => k.startsWith('assets/'))
+      .filter((k) => !k.endsWith('.js') && !k.endsWith('.map'))
+      .sort()
+
+    if (staticAssets.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          (canonicalManifest.content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+      const normalizedMatches = cleanMatches(allMatches)
+      const existing = webAccessibleResourcesV3.find(
+        (entry: {resources: string[]; matches: string[]}) => {
+          const a: string[] = [...entry.matches].sort()
+          const b: string[] = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        }
+      )
+
+      if (existing) {
+        const candidates = staticAssets.filter(
+          (r) =>
+            !existing.resources.includes(r) &&
+            !isCoveredByExistingGlobs(existing.resources, r)
+        )
+        existing.resources = Array.from(
+          new Set([...(existing.resources || []), ...candidates])
+        ).sort()
+      } else if (normalizedMatches.length > 0) {
+        webAccessibleResourcesV3.push({
+          resources: staticAssets,
+          matches: [...normalizedMatches].sort()
+        })
+      }
+    }
+  }
+
+  // Last-resort fallback: expose emitted font files (e.g. `fonts/*.woff2` copied from public/)
+  // to the union of content_scripts matches. This covers common patterns like:
+  // - `public/fonts/MyFont.woff2` copied to output as `fonts/MyFont.woff2`
+  // - CSS referencing `url("/fonts/MyFont.woff2")` (which will NOT be bundled into `assets/`)
+  //
+  // We intentionally exclude files already emitted under `assets/` (bundled) or `content_scripts/`.
+  const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
+  if (canonicalManifest.manifest_version === 3) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const fontAssets = assetKeys
+      .filter((k) => fontExtRe.test(k))
+      .filter((k) => !k.startsWith('assets/'))
+      .filter((k) => !k.startsWith('content_scripts/'))
+      .sort()
+
+    if (fontAssets.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          (canonicalManifest.content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+      const normalizedMatches = cleanMatches(allMatches)
+
+      if (normalizedMatches.length > 0) {
+        const existing = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existing) {
+          const candidates = fontAssets.filter(
+            (r) =>
+              !existing.resources.includes(r) &&
+              !isCoveredByExistingGlobs(existing.resources, r)
+          )
+          existing.resources = Array.from(
+            new Set([...(existing.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: fontAssets,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const fontAssets = assetKeys.filter((k) => fontExtRe.test(k)).sort()
+    if (fontAssets.length > 0) {
+      for (const r of fontAssets) {
+        if (!webAccessibleResourcesV2.includes(r)) {
+          webAccessibleResourcesV2.push(r)
+        }
+      }
+    }
+  }
+
+  // Also expose emitted CSS under content_scripts/ to content scripts directly.
+  // This covers CSS imported by content scripts that end up emitted as files.
+  const assetKeys: string[] = Object.keys(compilation.assets || {})
+  const cssUnderContentScripts = assetKeys
+    .filter((k) => k.startsWith('content_scripts/'))
+    .filter((k) => k.endsWith('.css'))
+    .sort()
+
+  if (Array.isArray(canonicalManifest.content_scripts)) {
+    for (const contentScript of canonicalManifest.content_scripts) {
+      const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
+      const canonicalCss = jsFiles
+        .map(toCanonicalContentScriptCss)
+        .filter((resource): resource is string =>
+          Boolean(resource && cssUnderContentScripts.includes(resource))
+        )
+
+      if (canonicalCss.length > 0) {
+        contentScript.css = Array.from(
+          new Set([...(contentScript.css || []), ...canonicalCss])
+        ).sort()
+      }
+    }
+  }
+
+  if (canonicalManifest.manifest_version === 3) {
+    if (cssUnderContentScripts.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          (canonicalManifest.content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+
+      const normalizedMatches = cleanMatches(allMatches)
+
+      if (normalizedMatches.length > 0) {
+        const existing = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existing) {
+          const candidates = cssUnderContentScripts.filter(
+            (r) =>
+              !existing.resources.includes(r) &&
+              !isCoveredByExistingGlobs(existing.resources, r)
+          )
+          existing.resources = Array.from(
+            new Set([...(existing.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: cssUnderContentScripts,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    for (const resource of cssUnderContentScripts) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
+      }
+    }
+  }
+
+  if (canonicalManifest.manifest_version === 3) {
+    if (webAccessibleResourcesV3.length > 0) {
+      canonicalManifest.web_accessible_resources = webAccessibleResourcesV3
+        .map((entry) => ({
+          resources: Array.from(new Set(entry.resources)).sort(),
+          matches: Array.from(new Set(entry.matches)).sort()
+        }))
+        .sort((a, b) =>
+          a.matches.join(',').localeCompare(b.matches.join(','))
+        ) as Manifest['web_accessible_resources']
+    }
+  } else {
+    if (webAccessibleResourcesV2.length > 0) {
+      canonicalManifest.web_accessible_resources = Array.from(
+        new Set(webAccessibleResourcesV2)
+      ).sort() as Manifest['web_accessible_resources']
+    }
+  }
+
+  const source = JSON.stringify(canonicalManifest, null, 2)
+  const rawSource = new sources.RawSource(source)
+  setCurrentManifestContent(compilation, source)
+
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    try {
+      const v3Groups =
+        canonicalManifest.manifest_version === 3
+          ? webAccessibleResourcesV3.length
+          : 0
+      const v3ResourcesTotal =
+        canonicalManifest.manifest_version === 3
+          ? webAccessibleResourcesV3.reduce(
+              (sum, g) => sum + (g.resources?.length || 0),
+              0
+            )
+          : 0
+      const v2Resources =
+        canonicalManifest.manifest_version === 2
+          ? webAccessibleResourcesV2.length
+          : 0
+      console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
+    } catch {
+      // ignore
+    }
+  }
+
+  if (compilation.getAsset('manifest.json')) {
+    compilation.updateAsset('manifest.json', rawSource)
+  }
+}
