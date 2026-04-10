@@ -8,9 +8,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/extension-js/extension.js.git",
-    "directory": "programs/browser/run-chromium"
+    "directory": "programs/extension/browsers/run-chromium"
   },
-  "x-internal-path": "programs/browser/run-chromium",
+  "x-internal-path": "programs/extension/browsers/run-chromium",
   "x-exports": {
     "class": "RunChromiumPlugin",
     "entry": "./index.ts"

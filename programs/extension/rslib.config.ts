@@ -90,7 +90,8 @@ function transformReadme(content: string): string {
 export default defineConfig({
   source: {
     entry: {
-      cli: path.resolve(__dirname, './index.ts')
+      cli: path.resolve(__dirname, './index.ts'),
+      browsers: path.resolve(__dirname, './browsers/index.ts')
     }
   },
   lib: [

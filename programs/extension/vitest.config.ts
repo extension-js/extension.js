@@ -24,9 +24,10 @@ export default defineConfig({
     hookTimeout: 120_000,
     teardownTimeout: 120_000,
     include: [
-      'cli-lib/**/__spec__/**/*.spec.ts',
+      'helpers/**/__spec__/**/*.spec.ts',
       '__spec__/(dynamic-install|cache-reuse-offline|dlx-pnpm|telemetry-default).spec.ts',
-      '__spec__/exec/**/*.spec.ts'
+      '__spec__/exec/**/*.spec.ts',
+      'browsers/__spec__/**/*.spec.ts'
     ],
     sequence: {concurrent: false},
     allowOnly: !process.env.CI

@@ -110,7 +110,7 @@ export type BrowserLauncherFn = (
 // ---------------------------------------------------------------------------
 
 export interface BrowsersPluginOptions {
-  /** Injected browser launcher — provided by the CLI from programs/browser/ */
+  /** Injected browser launcher — provided by the CLI from programs/extension/browsers/ */
   launcher: BrowserLauncherFn
   /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */
   browserOptions: Omit<

@@ -122,7 +122,7 @@ jobs:
 
       - name: Compile local Extension.js packages for workspace first-dev check
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
-        run: pnpm --dir programs/create run compile && pnpm --dir programs/develop run compile && pnpm --dir programs/cli run compile
+        run: pnpm --dir programs/create run compile && pnpm --dir programs/develop run compile && pnpm --dir programs/extension run compile
 
       - name: Verify first dev content-react contract (Windows npm)
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'

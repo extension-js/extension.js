@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import checkUpdates from '../../check-updates'
+import checkUpdates from '../check-updates'
 
-vi.mock('../../cli-package-json', () => ({
+vi.mock('../cli-package-json', () => ({
   getCliPackageJson: () => ({name: 'extension', version: '2.0.0'})
 }))
 
