@@ -4,7 +4,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/extension-js/extension.js.git",
-    "directory": "programs/cli"
+    "directory": "programs/extension"
   },
   "engines": {
     "node": ">=18"
@@ -14,6 +14,11 @@
       "types": "./dist/cli.d.ts",
       "import": "./dist/cli.cjs",
       "require": "./dist/cli.cjs"
+    },
+    "./browsers": {
+      "types": "./dist/browsers.d.ts",
+      "import": "./dist/browsers.cjs",
+      "require": "./dist/browsers.cjs"
     },
     "./types": {
       "types": "./types/index.d.ts"
@@ -90,13 +95,18 @@
     "@types/chrome": "^0.1.33",
     "@types/node": "^25.2.0",
     "@types/webextension-polyfill": "0.12.4",
+    "chrome-location2": "4.0.0",
+    "chromium-location": "2.0.0",
     "cross-spawn": "^7.0.6",
+    "edge-location": "2.2.0",
+    "firefox-location2": "3.0.0",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
     "extension-install": "workspace:*",
     "commander": "^14.0.3",
     "pintor": "0.3.0",
     "semver": "^7.7.3",
+    "ws": "^8.19.0",
     "update-check": "^1.5.4"
   },
   "devDependencies": {

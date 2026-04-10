@@ -10,7 +10,7 @@ const resolveTranspilePackageDirsMock = vi.hoisted(() =>
 const computeExtensionsToLoadMock = vi.hoisted(() =>
   vi.fn<(..._args: any[]) => string[]>(() => [])
 )
-// BrowsersPlugin has been removed — browser code is in programs/browser/
+// BrowsersPlugin has been removed — browser code is in programs/extension/browsers/
 
 vi.mock('../webpack-lib/transpile-packages', async () => {
   const actual = await vi.importActual<
@@ -32,7 +32,7 @@ vi.mock('../webpack-lib/extensions-to-load', async () => {
   }
 })
 
-// BrowsersPlugin has been removed — browser code lives in programs/browser/
+// BrowsersPlugin has been removed — browser code lives in programs/extension/browsers/
 // The BrowsersPluginMock is no longer needed.
 
 function createProjectStructure() {

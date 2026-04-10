@@ -7,27 +7,24 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import * as messages from '../cli-lib/messages'
 import {runWaitMode} from './dev-wait'
-import {commandDescriptions} from '../cli-lib/messages'
-import {
-  loadExtensionDevelopModule,
-  loadExtensionDevelopPreviewModule
-} from '../cli-lib/extension-develop-runtime'
-import {runOnlyPreviewBrowser} from '../../browser/run-only'
-import {collectProjectProfile} from '../cli-lib/project-profile'
-import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
+import * as messages from '../helpers/messages'
+import {commandDescriptions} from '../helpers/messages'
+import {collectProjectProfile} from '../helpers/project-profile'
+import {collectWorkflowProfile} from '../helpers/workflow-profile'
+import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
+import {launchBrowser} from '../browsers'
 import {
   vendors,
   validateVendorsOrExit,
   type Browser,
   parseOptionalBoolean
-} from '../utils'
+} from '../helpers/vendors'
 import {
+  normalizeSourceOption,
   normalizeSourceFormatOption,
   normalizeSourceIncludeShadowOption,
   normalizeSourceMaxBytesOption,
-  normalizeSourceOption,
   normalizeSourceRedactOption,
   normalizeSourceMetaOption,
   normalizeSourceProbeOption,
@@ -37,21 +34,17 @@ import {
   normalizeSourceDiffOption,
   parseExtensionsList,
   parseLogContexts
-} from '../utils/normalize-options'
+} from '../helpers/normalize-options'
 
-type StartOptions = {
+type DevOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
+  persistProfile?: boolean
   chromiumBinary?: string
   geckoBinary?: string
-  startingUrl?: string
-  port?: string | number
   polyfill?: boolean | string
-  install?: boolean
-  // Internal maintainer flags
-  author?: boolean
-  authorMode?: boolean
-  // Source inspection (parity with dev/preview)
+  open?: boolean
+  startingUrl?: string
   source?: boolean | string
   watchSource?: boolean
   sourceFormat?: 'pretty' | 'json' | 'ndjson'
@@ -65,40 +58,36 @@ type StartOptions = {
   sourceRedact?: 'off' | 'safe' | 'strict'
   sourceIncludeShadow?: 'off' | 'open-only' | 'all'
   sourceDiff?: boolean | string
-  // Unified logger options (parity with dev/preview)
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string
   logTab?: string | number
+  install?: boolean
   extensions?: string
   wait?: boolean
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
 }
 
-export function registerStartCommand(program: Command, telemetry: any) {
+export function registerDevCommand(program: Command, telemetry: any) {
   program
-    .command('start')
+    .command('dev')
     .arguments('[project-path|remote-url]')
-    .usage('start [project-path|remote-url] [options]')
-    .description(commandDescriptions.start)
+    .usage('dev [project-path|remote-url] [options]')
+    .description(commandDescriptions.dev)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
+      '-b, --browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
       'specify a browser/engine to run. Defaults to `chromium`'
-    )
-    .option(
-      '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true`'
     )
     .option(
       '--chromium-binary <path-to-binary>',
@@ -107,6 +96,14 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .option(
       '--gecko-binary, --firefox-binary <path-to-binary>',
       'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
+    )
+    .option(
+      '--polyfill [boolean]',
+      'whether or not to apply the cross-browser polyfill. Defaults to `false`'
+    )
+    .option(
+      '--no-open',
+      'do not open the browser automatically (default: open)'
     )
     .option(
       '--starting-url <url>',
@@ -141,7 +138,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
     )
     .option(
       '--watch-source [boolean]',
-      '[experimental] re-print HTML on rebuilds or file changes',
+      '[experimental] re-print HTML on rebuilds or file changes (defaults to true when --source is present)',
       parseOptionalBoolean
     )
     .option(
@@ -199,7 +196,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
     )
     .option(
       '--install [boolean]',
-      '[experimental] install project dependencies when missing',
+      '[internal] install project dependencies when missing',
       parseOptionalBoolean
     )
     .option(
@@ -217,34 +214,13 @@ export function registerStartCommand(program: Command, telemetry: any) {
     )
     .option(
       '--author, --author-mode',
-      '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
+      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
     .action(async function (
       pathOrRemoteUrl: string,
-      {browser = 'chromium', ...startOptions}: StartOptions
+      {browser = 'chromium', ...devOptions}: DevOptions
     ) {
-      const hasSourceInspectionFlags =
-        typeof startOptions.source !== 'undefined' ||
-        typeof startOptions.watchSource !== 'undefined' ||
-        typeof startOptions.sourceFormat !== 'undefined' ||
-        typeof startOptions.sourceSummary !== 'undefined' ||
-        typeof startOptions.sourceMeta !== 'undefined' ||
-        typeof startOptions.sourceProbe !== 'undefined' ||
-        typeof startOptions.sourceTree !== 'undefined' ||
-        typeof startOptions.sourceConsole !== 'undefined' ||
-        typeof startOptions.sourceDom !== 'undefined' ||
-        typeof startOptions.sourceMaxBytes !== 'undefined' ||
-        typeof startOptions.sourceRedact !== 'undefined' ||
-        typeof startOptions.sourceIncludeShadow !== 'undefined' ||
-        typeof startOptions.sourceDiff !== 'undefined'
-
-      if (hasSourceInspectionFlags) {
-        // eslint-disable-next-line no-console
-        console.error(messages.sourceInspectionNotSupported('start'))
-        process.exit(1)
-      }
-
-      if (startOptions.author || startOptions.authorMode) {
+      if ((devOptions as any).author || (devOptions as any)['authorMode']) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
@@ -257,16 +233,21 @@ export function registerStartCommand(program: Command, telemetry: any) {
         !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
       )
       const workflowProfile = collectWorkflowProfile({
-        command: 'start',
+        command: 'dev',
         isMultiBrowser: list.length > 1,
         isRemoteInput: isRemoteInput,
-        isWaitMode: Boolean(startOptions.wait),
+        isWaitMode: Boolean(devOptions.wait),
         isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
         usesMachineReadableOutput:
-          startOptions.waitFormat === 'json' ||
-          startOptions.logFormat === 'json' ||
-          startOptions.logFormat === 'ndjson',
-        companionExtensionsProvided: Boolean(startOptions.extensions),
+          devOptions.waitFormat === 'json' ||
+          devOptions.logFormat === 'json' ||
+          devOptions.logFormat === 'ndjson' ||
+          devOptions.sourceFormat === 'json' ||
+          devOptions.sourceFormat === 'ndjson',
+        sourceInspectionRequested: Boolean(
+          devOptions.source || devOptions.watchSource
+        ),
+        companionExtensionsProvided: Boolean(devOptions.extensions),
         packageManager: projectProfile?.package_manager,
         frameworkPrimary: projectProfile?.framework_primary,
         hasNextDependency: projectProfile?.has_next_dependency,
@@ -274,19 +255,28 @@ export function registerStartCommand(program: Command, telemetry: any) {
       })
 
       telemetry.track('workflow_profile', {
-        command: 'start',
+        command: 'dev',
         ...workflowProfile
       })
       telemetry.track('cli_command_start', {
-        command: 'start',
+        command: 'dev',
         vendors: list,
         browser_count: list.length,
         is_multi_browser: list.length > 1,
         is_remote_input: isRemoteInput,
-        is_wait_mode: Boolean(startOptions.wait),
+        is_wait_mode: Boolean(devOptions.wait),
         is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        companion_extensions_provided: Boolean(startOptions.extensions),
-        polyfill_used: startOptions.polyfill?.toString() !== 'false',
+        polyfill_used:
+          devOptions.polyfill?.toString() === 'false' ? false : true,
+        source_inspection_requested: Boolean(
+          devOptions.source || devOptions.watchSource
+        ),
+        companion_extensions_provided: Boolean(devOptions.extensions),
+        log_level: devOptions.logLevel || 'off',
+        log_format: devOptions.logFormat || 'pretty',
+        custom_binary_used: Boolean(
+          devOptions.chromiumBinary || devOptions.geckoBinary
+        ),
         ...workflowProfile
       })
 
@@ -295,13 +285,13 @@ export function registerStartCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      if (startOptions.wait) {
+      if (devOptions.wait) {
         const waitResult = await runWaitMode({
-          command: 'start',
+          command: 'dev',
           pathOrRemoteUrl,
           browsers: list,
-          waitTimeout: startOptions.waitTimeout,
-          waitFormat: startOptions.waitFormat
+          waitTimeout: devOptions.waitTimeout,
+          waitFormat: devOptions.waitFormat
         })
 
         if (waitResult.format === 'json') {
@@ -310,7 +300,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
             JSON.stringify({
               ok: true,
               mode: 'wait',
-              command: 'start',
+              command: 'dev',
               browsers: waitResult.browsers,
               results: waitResult.results
             })
@@ -318,7 +308,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
         }
 
         telemetry.track('cli_command_finish', {
-          command: 'start',
+          command: 'dev',
           duration_ms: Date.now() - cmdStart,
           success: true,
           exit_code: 0,
@@ -327,148 +317,145 @@ export function registerStartCommand(program: Command, telemetry: any) {
         return
       }
 
+      // Normalize source/watch behavior:
+      // - If --source present without URL, fall back to startingUrl or https://example.com
+      // - When --source is provided, enable watch mode by default
       const normalizedSource = normalizeSourceOption(
-        startOptions.source,
-        startOptions.startingUrl
+        devOptions.source,
+        devOptions.startingUrl
       )
-
       if (normalizedSource) {
-        startOptions.source = normalizedSource
+        devOptions.source = normalizedSource
+        if (typeof devOptions.watchSource === 'undefined') {
+          devOptions.watchSource = true
+        }
       }
 
-      const sourceEnabled = Boolean(
-        startOptions.source || startOptions.watchSource
-      )
-
+      const sourceEnabled = Boolean(devOptions.source || devOptions.watchSource)
       const normalizedSourceFormat = normalizeSourceFormatOption({
-        sourceFormat: startOptions.sourceFormat,
-        logFormat: startOptions.logFormat,
+        sourceFormat: (devOptions as any).sourceFormat,
+        logFormat: devOptions.logFormat,
         sourceEnabled
       })
 
-      startOptions.sourceFormat = normalizedSourceFormat
-
+      devOptions.sourceFormat = normalizedSourceFormat
       if (sourceEnabled && normalizedSourceFormat) {
         process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
       }
 
-      startOptions.sourceRedact = normalizeSourceRedactOption(
-        startOptions.sourceRedact,
+      devOptions.sourceRedact = normalizeSourceRedactOption(
+        devOptions.sourceRedact,
         normalizedSourceFormat
       )
 
-      startOptions.sourceMeta = normalizeSourceMetaOption(
-        startOptions.sourceMeta,
+      devOptions.sourceMeta = normalizeSourceMetaOption(
+        devOptions.sourceMeta,
         sourceEnabled
       )
 
-      startOptions.sourceProbe = normalizeSourceProbeOption(
-        startOptions.sourceProbe
+      devOptions.sourceProbe = normalizeSourceProbeOption(
+        devOptions.sourceProbe
       )
 
-      startOptions.sourceTree = normalizeSourceTreeOption(
-        startOptions.sourceTree,
+      devOptions.sourceTree = normalizeSourceTreeOption(
+        devOptions.sourceTree,
         sourceEnabled
       )
 
-      startOptions.sourceConsole = normalizeSourceConsoleOption(
-        startOptions.sourceConsole,
+      devOptions.sourceConsole = normalizeSourceConsoleOption(
+        devOptions.sourceConsole,
         sourceEnabled
       )
 
-      startOptions.sourceDom = normalizeSourceDomOption(
-        startOptions.sourceDom,
-        startOptions.watchSource
+      devOptions.sourceDom = normalizeSourceDomOption(
+        devOptions.sourceDom,
+        devOptions.watchSource
       )
 
-      startOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
-        startOptions.sourceMaxBytes
+      devOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
+        devOptions.sourceMaxBytes
       )
 
-      startOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
-        startOptions.sourceIncludeShadow,
+      devOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
+        devOptions.sourceIncludeShadow,
         sourceEnabled
       )
 
-      startOptions.sourceDiff = normalizeSourceDiffOption(
-        startOptions.sourceDiff,
-        startOptions.watchSource
+      devOptions.sourceDiff = normalizeSourceDiffOption(
+        devOptions.sourceDiff,
+        devOptions.watchSource
       )
 
-      const {extensionBuild}: {extensionBuild: any} =
-        loadExtensionDevelopModule()
+      const {extensionDev}: {extensionDev: any} = loadExtensionDevelopModule()
+      const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
 
       for (const vendor of list) {
         const vendorStart = Date.now()
-        telemetry.track('cli_vendor_start', {command: 'start', vendor})
+        telemetry.track('cli_vendor_start', {command: 'dev', vendor})
 
-        const logsOption = (startOptions as unknown as {logs?: string}).logs
+        const logsOption = (devOptions as unknown as {logs?: string}).logs
         const logContextOption = (
-          startOptions as unknown as {logContext?: string}
+          devOptions as unknown as {logContext?: string}
         ).logContext
 
         const logContexts = parseLogContexts(logContextOption)
-        const logLevel = logsOption || startOptions.logLevel || 'off'
+        const logLevel = (logsOption || devOptions.logLevel || 'off') as string
 
-        // Phase 1: Build the extension in production mode
-        const buildResult = await extensionBuild(pathOrRemoteUrl, {
-          browser: vendor as StartOptions['browser'],
-          polyfill: startOptions.polyfill?.toString() !== 'false',
-          install: startOptions.install,
-          extensions: parseExtensionsList(startOptions.extensions),
-          silent: true
-        })
-
-        const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
-        if (noBrowser) {
-          telemetry.track('cli_vendor_finish', {
-            command: 'start',
-            vendor,
-            duration_ms: Date.now() - vendorStart
-          })
-          continue
+        const devArgs: any = {
+          ...devOptions,
+          profile:
+            devOptions.profile === false || devOptions.profile === 'false'
+              ? false
+              : typeof devOptions.profile === 'string'
+                ? devOptions.profile
+                : undefined,
+          browser: vendor as DevOptions['browser'],
+          chromiumBinary: devOptions.chromiumBinary,
+          geckoBinary: devOptions.geckoBinary,
+          polyfill: devOptions.polyfill?.toString() === 'false' ? false : true,
+          noOpen: devOptions.open === false,
+          startingUrl: devOptions.startingUrl,
+          install: devOptions.install,
+          noBrowser,
+          extensions: parseExtensionsList(devOptions.extensions),
+          source: devOptions.source,
+          watchSource: devOptions.watchSource,
+          sourceFormat: devOptions.sourceFormat,
+          sourceSummary: devOptions.sourceSummary,
+          sourceMeta: devOptions.sourceMeta,
+          sourceProbe: devOptions.sourceProbe,
+          sourceTree: devOptions.sourceTree,
+          sourceConsole: devOptions.sourceConsole,
+          sourceDom: devOptions.sourceDom,
+          sourceMaxBytes: devOptions.sourceMaxBytes,
+          sourceRedact: devOptions.sourceRedact,
+          sourceIncludeShadow: devOptions.sourceIncludeShadow,
+          sourceDiff: devOptions.sourceDiff,
+          logLevel,
+          logContexts,
+          logFormat: devOptions.logFormat || 'pretty',
+          logTimestamps: devOptions.logTimestamps !== false,
+          logColor: devOptions.logColor !== false,
+          logUrl: devOptions.logUrl,
+          logTab: devOptions.logTab,
+          // Inject the browser launcher — develop's BrowsersPlugin calls it
+          // on first compile; browser lifecycle is managed by the plugin.
+          launcher: noBrowser ? undefined : launchBrowser
         }
 
-        // Phase 2: Launch the browser with the built output via browser API.
-        // The extensionPreview module is still used under the hood to resolve
-        // project structure and extensions-to-load. We call launchBrowser
-        // through the preview module which handles all of this.
-        const {extensionPreview}: {extensionPreview: any} =
-          loadExtensionDevelopPreviewModule()
-
-        await extensionPreview(
-          pathOrRemoteUrl,
-          {
-            mode: 'production',
-            profile: startOptions.profile,
-            browser: vendor as StartOptions['browser'],
-            chromiumBinary: startOptions.chromiumBinary,
-            geckoBinary: startOptions.geckoBinary,
-            startingUrl: startOptions.startingUrl,
-            port: startOptions.port,
-            noBrowser: false,
-            extensions: parseExtensionsList(startOptions.extensions),
-            metadataCommand: 'start',
-            logLevel,
-            logContexts,
-            logFormat: startOptions.logFormat || 'pretty',
-            logTimestamps: startOptions.logTimestamps !== false,
-            logColor: startOptions.logColor !== false,
-            logUrl: startOptions.logUrl,
-            logTab: startOptions.logTab
-          },
-          (opts: any) => runOnlyPreviewBrowser(opts)
-        )
+        // extensionDev returns a BuildEmitter from the BrowsersPlugin.
+        // Browser launch/reload is handled internally by the plugin.
+        const emitter = await extensionDev(pathOrRemoteUrl, devArgs)
 
         telemetry.track('cli_vendor_finish', {
-          command: 'start',
+          command: 'dev',
           vendor,
           duration_ms: Date.now() - vendorStart
         })
       }
 
       telemetry.track('cli_command_finish', {
-        command: 'start',
+        command: 'dev',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
         exit_code: process.exitCode ?? 0,

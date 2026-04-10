@@ -158,7 +158,7 @@ export default function webpackConfig(
   }
 
   // Wire the browser lifecycle plugin when a launcher is provided.
-  // BrowsersPlugin wraps the browser API (programs/browser/)
+  // BrowsersPlugin wraps the browser API (programs/extension/browsers/)
   // behind rspack hooks — launching on first compile, reloading on
   // subsequent compiles, and emitting events for CLI telemetry.
   if ((devOptions as any).browsersPlugin) {
