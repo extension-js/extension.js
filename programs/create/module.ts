@@ -21,26 +21,42 @@ import {initializeGitRepository} from './steps/initialize-git-repository'
 import {setupBuiltInTests} from './steps/setup-built-in-tests'
 import {installInternalDependencies} from './steps/install-internal-deps'
 
+export interface CreateLogger {
+  log: (...args: any[]) => void
+  error: (...args: any[]) => void
+}
+
 export interface CreateOptions {
   template?: string
   install?: boolean
   cliVersion?: string
+  logger?: CreateLogger
+}
+
+export interface CreateResult {
+  projectPath: string
+  projectName: string
+  template: string
+  depsInstalled: boolean
 }
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {cliVersion, template = 'javascript', install = false}: CreateOptions
-) {
+  {
+    cliVersion,
+    template = 'javascript',
+    install = false,
+    logger = console
+  }: CreateOptions
+): Promise<CreateResult> {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
   }
 
-  // Maintain existing behavior: URLs are not allowed as project paths for create
   if (projectNameInput.startsWith('http')) {
     throw new Error(messages.noUrlAllowed())
   }
 
-  // Check if path is absolute
   const projectPath = path.isAbsolute(projectNameInput)
     ? projectNameInput
     : path.join(process.cwd(), projectNameInput)
@@ -48,40 +64,45 @@ export async function extensionCreate(
   const projectName = path.basename(projectPath)
 
   try {
-    await createDirectory(projectPath, projectName)
-    // If the template parameter looks like a remote path, import from remote
-    // Otherwise, use the local built-in template workflow
-    await importExternalTemplate(projectPath, projectName, template)
-    await overridePackageJson(projectPath, projectName, {
-      template,
-      cliVersion
-    })
+    await createDirectory(projectPath, projectName, logger)
+    await importExternalTemplate(projectPath, projectName, template, logger)
+    await overridePackageJson(
+      projectPath,
+      projectName,
+      {template, cliVersion},
+      logger
+    )
 
     if (install) {
-      await installDependencies(projectPath, projectName)
-      await installInternalDependencies(projectPath)
+      await installDependencies(projectPath, projectName, logger)
+      await installInternalDependencies(projectPath, logger)
     }
 
-    await writeReadmeFile(projectPath, projectName)
-    await writeManifestJson(projectPath, projectName)
-    await initializeGitRepository(projectPath, projectName)
-    await writeGitignore(projectPath)
-    await setupBuiltInTests(projectPath, projectName)
+    await writeReadmeFile(projectPath, projectName, logger)
+    await writeManifestJson(projectPath, projectName, logger)
+    await initializeGitRepository(projectPath, projectName, logger)
+    await writeGitignore(projectPath, logger)
+    await setupBuiltInTests(projectPath, projectName, logger)
 
     if (utils.isTypeScriptTemplate(template)) {
-      await generateExtensionTypes(projectPath, projectName)
+      await generateExtensionTypes(projectPath, projectName, logger)
     }
 
-    // All good!
     const successfulInstall = await messages.successfullInstall(
       projectPath,
       projectName,
       Boolean(install)
     )
 
-    console.log(successfulInstall)
+    logger.log(successfulInstall)
+
+    return {
+      projectPath,
+      projectName,
+      template,
+      depsInstalled: install
+    }
   } catch (error) {
-    // Re-throw the error so callers can handle logging once
     throw error
   }
 }

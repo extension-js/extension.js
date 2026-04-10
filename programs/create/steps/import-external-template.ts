@@ -65,7 +65,8 @@ async function getZipSourcePath(
 export async function importExternalTemplate(
   projectPath: string,
   projectName: string,
-  template: string
+  template: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const templateName = path.basename(template)
   const examplesUrl =
@@ -136,7 +137,7 @@ export async function importExternalTemplate(
     // Cleanup temp
     await fs.rm(tempRoot, {recursive: true, force: true})
   } catch (error: any) {
-    console.error(
+    logger.error(
       messages.installingFromTemplateError(projectName, templateName, error)
     )
     throw error

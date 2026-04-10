@@ -76,8 +76,7 @@
     "axios": "^1.15.0",
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.1.5",
-    "pintor": "0.3.0",
-    "tiny-glob": "^0.2.9"
+    "pintor": "0.3.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",

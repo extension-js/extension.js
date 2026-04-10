@@ -15,26 +15,28 @@ const allowlist = ['LICENSE', 'node_modules']
 
 export async function createDirectory(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
-  console.log(messages.startingNewExtension(projectName))
+  logger.log(messages.startingNewExtension(projectName))
 
   try {
     const isCurrentDirWriteable = await utils.isDirectoryWriteable(
       projectPath,
-      projectName
+      projectName,
+      logger
     )
 
-    console.log(messages.checkingIfPathIsWriteable())
+    logger.log(messages.checkingIfPathIsWriteable())
 
     if (!isCurrentDirWriteable) {
-      console.error(messages.destinationNotWriteable(projectPath))
+      logger.error(messages.destinationNotWriteable(projectPath))
       throw new Error(messages.destinationNotWriteable(projectPath))
     }
 
     const currentDir = await fs.readdir(projectPath)
 
-    console.log(messages.scanningPossiblyConflictingFiles())
+    logger.log(messages.scanningPossiblyConflictingFiles())
 
     const conflictingFiles = await Promise.all(
       currentDir

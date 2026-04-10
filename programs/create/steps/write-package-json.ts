@@ -92,7 +92,8 @@ function resolveExtensionDevDependencyVersion(cliVersion?: string): string {
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  {template = 'javascript', cliVersion}: OverridePackageJsonOptions
+  {template = 'javascript', cliVersion}: OverridePackageJsonOptions,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const extensionBinary = await resolveExtensionBinary()
   const candidatePath = path.join(projectPath, 'package.json')
@@ -145,13 +146,13 @@ export async function overridePackageJson(
   }
 
   try {
-    console.log(messages.writingPackageJsonMetadata())
+    logger.log(messages.writingPackageJsonMetadata())
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify(packageMetadata, null, 2)
     )
   } catch (error: any) {
-    console.error(messages.writingPackageJsonMetadataError(projectName, error))
+    logger.error(messages.writingPackageJsonMetadataError(projectName, error))
     throw error
   }
 }
