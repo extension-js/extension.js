@@ -38,7 +38,7 @@
     "extension": "./bin/extension.cjs"
   },
   "name": "extension",
-  "version": "3.12.1",
+  "version": "3.12.2",
   "description": "Create cross-browser extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
   "bugs": {
