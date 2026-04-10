@@ -21,7 +21,7 @@
   },
   "scripts": {
     "compile": "node scripts/run-compile.mjs",
-    "extension": "dotenv -- node programs/cli/dist/cli.cjs",
+    "extension": "dotenv -- node programs/extension/dist/cli.cjs",
     "watch": "node scripts/run-watch.mjs",
     "format": "node scripts/format-wrapper.cjs",
     "lint": "biome lint . --files-max-size=262144",
