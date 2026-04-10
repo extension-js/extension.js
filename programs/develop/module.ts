@@ -6,19 +6,16 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {extensionBuild} from './webpack/command-build'
-import {extensionDev} from './webpack/command-dev'
-import {extensionPreview} from './webpack/command-preview'
-import {ensureDependencies} from './webpack/webpack-lib/ensure-dependencies'
-import {getProjectStructure} from './webpack/webpack-lib/project'
-import {preflightOptionalDependencies} from './webpack/webpack-lib/preflight-optional-deps'
+import {extensionBuild} from './command-build'
+import {extensionDev} from './command-dev'
+import {extensionPreview} from './command-preview'
 import {
   type FileConfig,
   type BuildOptions,
   type DevOptions,
   type PreviewOptions,
   type Manifest
-} from './webpack/webpack-types'
+} from './types'
 import {
   BuildEmitter,
   type CompiledEvent,
@@ -28,18 +25,7 @@ import {
   type BrowserLauncherFn,
   type BrowserLaunchOptions,
   type BrowserController
-} from './webpack/plugin-browsers'
-
-export async function preflightOptionalDependenciesForProject(
-  pathOrRemoteUrl: string,
-  mode: DevOptions['mode'] = 'development'
-): Promise<void> {
-  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
-  await preflightOptionalDependencies(projectStructure, mode, {
-    exitOnInstall: false,
-    showRunAgainMessage: false
-  })
-}
+} from './plugin-browsers'
 
 export {
   extensionBuild,
@@ -54,7 +40,6 @@ export {
   PreviewOptions,
   FileConfig,
   Manifest,
-  ensureDependencies,
   BuildEmitter,
   CompiledEvent,
   BuildErrorEvent,

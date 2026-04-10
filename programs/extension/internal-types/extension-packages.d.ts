@@ -46,9 +46,6 @@ declare module 'extension-develop' {
     pathOrRemoteUrl: string | undefined,
     options: PreviewOptions
   ): Promise<any>
-  export function ensureDependencies(
-    pathOrRemoteUrl: string | undefined
-  ): Promise<void>
 }
 
 declare module 'extension-install' {
