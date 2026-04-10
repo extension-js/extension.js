@@ -36,7 +36,12 @@ const keepCache = parseFlag('--keep-cache')
 const useIsolatedCache = !parseFlag('--use-default-cache')
 const useWorkspacePackage = parseFlag('--use-workspace-package')
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
-const workspaceCliPackage = path.resolve(scriptDir, '..', 'programs', 'extension')
+const workspaceCliPackage = path.resolve(
+  scriptDir,
+  '..',
+  'programs',
+  'extension'
+)
 const workspaceDevelopRoot = path.resolve(
   scriptDir,
   '..',

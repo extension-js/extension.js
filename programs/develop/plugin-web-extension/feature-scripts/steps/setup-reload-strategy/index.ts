@@ -13,11 +13,7 @@ import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {getCanonicalContentScriptJsAssetName} from '../../contracts'
-import type {
-  Manifest,
-  PluginInterface,
-  DevOptions
-} from '../../../../types'
+import type {Manifest, PluginInterface, DevOptions} from '../../../../types'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string

@@ -170,9 +170,7 @@ describe('webpack/command-build', () => {
       '/proj',
       'build'
     )
-    expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith(
-      '/proj'
-    )
+    expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj')
   })
 
   it('prints branded success message when there are no warnings', async () => {

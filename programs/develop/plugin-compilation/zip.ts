@@ -34,7 +34,6 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
-
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
 
 async function getFilesToZip(projectDir: string): Promise<string[]> {
