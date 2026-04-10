@@ -48,10 +48,7 @@ function flattenValues(
   return paths
 }
 
-function diffArray(
-  prev: string[],
-  next: string[]
-): CategoryChange | null {
+function diffArray(prev: string[], next: string[]): CategoryChange | null {
   if (prev.join(',') === next.join(',')) return null
   const maxLen = Math.max(prev.length, next.length)
   let pathBefore: string | undefined
