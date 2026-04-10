@@ -203,9 +203,6 @@ importers:
       pintor:
         specifier: 0.3.0
         version: 0.3.0
-      tiny-glob:
-        specifier: ^0.2.9
-        version: 0.2.9
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.2.4
