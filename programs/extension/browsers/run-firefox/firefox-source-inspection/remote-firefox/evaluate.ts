@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as sourceMessages from '../../../browsers-lib/messages'
+import {RDP_EVAL_TIMEOUT_MS} from '../../../browsers-lib/constants'
 
 interface RdpClientLike {
   request: (payload: unknown) => Promise<unknown>
@@ -19,7 +20,7 @@ interface RdpClientLike {
   ) => unknown
 }
 
-const EVALUATION_TIMEOUT_MS = 8000
+const EVALUATION_TIMEOUT_MS = RDP_EVAL_TIMEOUT_MS
 const EVALUATION_TYPES = [
   'evaluateJSAsync',
   'evalWithOptions',
@@ -436,7 +437,9 @@ export async function getPageHTML(
   descriptorActor: string,
   consoleActorHint?: string
 ) {
-  console.log(sourceMessages.firefoxRdpClientTestingEvaluation())
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    console.log(sourceMessages.firefoxRdpClientTestingEvaluation())
+  }
   const actorToUse = await resolveActorForEvaluation(
     client,
     descriptorActor,
@@ -456,7 +459,9 @@ export async function getPageHTML(
 
   let mainHTML = await serializeDocument(client, actorToUse)
   if (!mainHTML) {
-    console.log(sourceMessages.firefoxRdpClientFailedToGetMainHTML())
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(sourceMessages.firefoxRdpClientFailedToGetMainHTML())
+    }
     const retry = await evaluateRaw(
       client,
       actorToUse,
