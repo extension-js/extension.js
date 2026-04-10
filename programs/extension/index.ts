@@ -9,11 +9,11 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {program} from 'commander'
-import checkUpdates from './check-updates'
-import * as messages from './cli-lib/messages'
-import {resolveExtensionDevelopVersion} from './cli-lib/extension-develop-runtime'
-import {telemetry} from './cli-lib/telemetry-cli'
-import {getCliPackageJson} from './cli-package-json'
+import checkUpdates from './helpers/check-updates'
+import * as messages from './helpers/messages'
+import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
+import {telemetry} from './helpers/telemetry-cli'
+import {getCliPackageJson} from './helpers/cli-package-json'
 
 import {registerCreateCommand} from './commands/create'
 import {registerDevCommand} from './commands/dev'

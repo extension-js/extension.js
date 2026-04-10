@@ -12,7 +12,7 @@ import path from 'node:path'
 import {
   buildContentScriptProbePlan,
   extractUpdatedHtmlFromNdjson
-} from '../../../browser/run-chromium/chromium-source-inspection/deterministic-hmr-harness'
+} from '../../browsers/run-chromium/chromium-source-inspection/deterministic-hmr-harness'
 
 function cliRoot(): string {
   return path.resolve(__dirname, '../..')

@@ -7,18 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import * as messages from '../cli-lib/messages'
-import {loadExtensionDevelopModule} from '../cli-lib/extension-develop-runtime'
-import {commandDescriptions} from '../cli-lib/messages'
-import {collectProjectProfile} from '../cli-lib/project-profile'
-import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
-import {parseExtensionsList} from '../utils/normalize-options'
+import * as messages from '../helpers/messages'
+import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
+import {commandDescriptions} from '../helpers/messages'
+import {collectProjectProfile} from '../helpers/project-profile'
+import {collectWorkflowProfile} from '../helpers/workflow-profile'
+import {parseExtensionsList} from '../helpers/normalize-options'
 import {
   vendors,
   validateVendorsOrExit,
   type Browser,
   parseOptionalBoolean
-} from '../utils'
+} from '../helpers/vendors'
 
 type BuildOptions = {
   browser?: Browser | 'all'

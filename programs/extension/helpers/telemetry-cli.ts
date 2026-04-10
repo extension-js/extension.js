@@ -9,7 +9,7 @@
 import fs from 'fs'
 import path from 'path'
 import {Telemetry} from './telemetry'
-import {getCliPackageJson} from '../cli-package-json'
+import {getCliPackageJson} from './cli-package-json'
 import {summarizeManifest} from './manifest-summary'
 import {collectProjectProfile} from './project-profile'
 
