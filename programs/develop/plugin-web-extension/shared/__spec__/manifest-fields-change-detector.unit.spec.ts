@@ -243,7 +243,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {bg: '/a.js'},
-      html: {'popup': '/popup.html'},
+      html: {popup: '/popup.html'},
       icons: {0: '/icon.png'},
       json: {}
     }
@@ -258,7 +258,7 @@ describe('ManifestFieldsChangeDetector', () => {
 
     mockFields = {
       scripts: {bg: '/b.js'},
-      html: {'popup': '/new-popup.html'},
+      html: {popup: '/new-popup.html'},
       icons: {0: '/new-icon.png'},
       json: {}
     }

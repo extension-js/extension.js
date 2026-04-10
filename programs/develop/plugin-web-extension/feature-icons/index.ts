@@ -11,11 +11,7 @@ import * as messages from './messages'
 import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {normalizeIconIncludeKeys} from './normalize-keys'
-import type {
-  ThemeIcon,
-  FilepathList,
-  PluginInterface
-} from '../../types'
+import type {ThemeIcon, FilepathList, PluginInterface} from '../../types'
 
 /**
  * IconsPlugin is responsible for handling the icon files defined

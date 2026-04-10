@@ -13,11 +13,7 @@ import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
-import type {
-  FilepathList,
-  PluginInterface,
-  DevOptions
-} from '../../types'
+import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
  * Feature-scripts is the official scripts pipeline:

@@ -22,10 +22,7 @@ import {
   isUsingTypeScript,
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
-import {
-  isSubPath,
-  resolveTranspilePackageDirs
-} from '../lib/transpile-packages'
+import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 
 export class JsFrameworksPlugin {
