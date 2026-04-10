@@ -14,7 +14,8 @@ import {findManifestJsonPath} from '../lib/find-manifest-json'
 
 export async function writeReadmeFile(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   // If a README already exists in the target folder, do not overwrite it
   try {
@@ -91,13 +92,13 @@ Learn more in the [Extension.js docs](https://extension.js.org).
     .replaceAll('[runCommand]', installCommand)
 
   try {
-    console.log(messages.writingReadmeMetaData())
+    logger.log(messages.writingReadmeMetaData())
 
     // Ensure path to project exists
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
   } catch (error: any) {
-    console.error(messages.writingReadmeMetaDataEError(projectName, error))
+    logger.error(messages.writingReadmeMetaDataEError(projectName, error))
     throw error
   }
 }

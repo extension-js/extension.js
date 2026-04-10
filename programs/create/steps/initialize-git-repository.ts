@@ -11,12 +11,13 @@ import * as messages from '../lib/messages'
 
 export async function initializeGitRepository(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const gitCommand = 'git'
   const gitArgs = ['init', '--quiet']
 
-  console.log(messages.initializingGitForRepository(projectName))
+  logger.log(messages.initializingGitForRepository(projectName))
 
   try {
     const stdio =
@@ -44,16 +45,14 @@ export async function initializeGitRepository(
       })
 
       child.on('error', (error) => {
-        console.error(
+        logger.error(
           messages.initializingGitForRepositoryProcessError(projectName, error)
         )
         reject(error)
       })
     })
   } catch (error: any) {
-    console.error(
-      messages.initializingGitForRepositoryError(projectName, error)
-    )
+    logger.error(messages.initializingGitForRepositoryError(projectName, error))
     throw error
   }
 }

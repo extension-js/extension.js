@@ -255,14 +255,15 @@ function resolveMissingOptionalDeps(
 async function installOptionalDependencies(
   developRoot: string,
   projectPath: string,
-  plan: OptionalDepsPlan
+  plan: OptionalDepsPlan,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   if (plan.dependencies.length === 0) return
 
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-  console.log(messages.foundSpecializedDependencies(plan.integrations.length))
+  logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
 
   for (const [index, integration] of plan.integrations.entries()) {
     const missingDeps = plan.dependenciesByIntegration[integration] || []
@@ -272,7 +273,7 @@ async function installOptionalDependencies(
       '⏵⏵⏵ ',
       `⏵⏵⏵ [${index + 1}/${plan.integrations.length}] `
     )
-    console.log(installMessage)
+    logger.log(installMessage)
 
     if (missingDeps.length === 0) {
       continue
@@ -292,7 +293,10 @@ async function installOptionalDependencies(
   }
 }
 
-export async function installInternalDependencies(projectPath: string) {
+export async function installInternalDependencies(
+  projectPath: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
+) {
   if (
     process.env.EXTENSION_ENV === 'test' ||
     process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true'
@@ -304,7 +308,12 @@ export async function installInternalDependencies(projectPath: string) {
 
   const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
   if (optionalPlan.dependencies.length > 0) {
-    await installOptionalDependencies(developRoot, projectPath, optionalPlan)
+    await installOptionalDependencies(
+      developRoot,
+      projectPath,
+      optionalPlan,
+      logger
+    )
   }
 }
 

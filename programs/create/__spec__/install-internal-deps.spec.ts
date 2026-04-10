@@ -82,7 +82,7 @@ describe('install-internal-deps', () => {
     process.chdir(projectRoot)
 
     const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot)
+    await mod.installInternalDependencies(projectRoot, console)
 
     process.chdir(cwd)
 
@@ -138,7 +138,7 @@ describe('install-internal-deps', () => {
     process.chdir(projectRoot)
 
     const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot)
+    await mod.installInternalDependencies(projectRoot, console)
 
     process.chdir(cwd)
 
