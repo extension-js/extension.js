@@ -17,11 +17,7 @@ import {UpdateHtmlFile} from './steps/update-html-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
-import type {
-  FilepathList,
-  PluginInterface,
-  DevOptions
-} from '../../types'
+import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 
@@ -102,7 +98,9 @@ export class HtmlPlugin {
     if ((compiler.options.mode || 'development') !== 'production') {
       const contentScriptEntryPaths = new Set<string>()
       try {
-        const manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
+        const manifest = parseJsonSafe(
+          fs.readFileSync(this.manifestPath, 'utf-8')
+        )
         const manifestDir = path.dirname(this.manifestPath)
         const contentScripts = Array.isArray(manifest?.content_scripts)
           ? manifest.content_scripts
@@ -167,6 +165,5 @@ export class HtmlPlugin {
       includeList,
       browser: this.browser
     }).apply(compiler)
-
   }
 }

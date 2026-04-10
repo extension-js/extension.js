@@ -9,11 +9,7 @@
 import {Compiler, Compilation} from '@rspack/core'
 import {processJsonAssets} from './process-assets'
 import {trackJsonDependencies} from './track-dependencies'
-import type {
-  FilepathList,
-  PluginInterface,
-  DevOptions
-} from '../../types'
+import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined

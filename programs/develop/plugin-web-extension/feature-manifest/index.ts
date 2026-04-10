@@ -19,11 +19,7 @@ import {AddDependencies} from './steps/add-dependencies'
 import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 
-import type {
-  FilepathList,
-  PluginInterface,
-  DevOptions
-} from '../../types'
+import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.
