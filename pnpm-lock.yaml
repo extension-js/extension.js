@@ -504,6 +504,9 @@ importers:
       '@rslib/core':
         specifier: ^0.19.4
         version: 0.19.4(typescript@6.0.2)
+      '@types/cross-spawn':
+        specifier: ^6.0.6
+        version: 6.0.6
       '@types/node':
         specifier: ^25.2.0
         version: 25.2.0
