@@ -8,7 +8,10 @@
 
 import WebSocket from 'ws'
 import * as messages from '../../browsers-lib/messages'
-import {CDP_COMMAND_TIMEOUT_MS, CDP_HEARTBEAT_INTERVAL_MS} from '../../browsers-lib/constants'
+import {
+  CDP_COMMAND_TIMEOUT_MS,
+  CDP_HEARTBEAT_INTERVAL_MS
+} from '../../browsers-lib/constants'
 import {discoverWebSocketDebuggerUrl} from './discovery'
 import {
   getExtensionInfo,
