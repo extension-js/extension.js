@@ -46,6 +46,7 @@ function emitFirefoxAgentDebugLog(payload: Record<string, unknown>) {
 }
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import * as messages from '../../../browsers-lib/messages'
+import {RDP_MAX_RETRIES, RDP_RETRY_INTERVAL_MS} from '../../../browsers-lib/constants'
 import {
   printRunningInDevelopmentSummary,
   printSourceInspection
@@ -72,8 +73,8 @@ import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
 
-const MAX_RETRIES = 150
-const RETRY_INTERVAL = 1000
+const MAX_RETRIES = RDP_MAX_RETRIES
+const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
 
 export class RemoteFirefox {
   private readonly options: PluginInterface & {

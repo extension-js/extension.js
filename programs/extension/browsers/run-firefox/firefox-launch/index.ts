@@ -483,7 +483,13 @@ export class FirefoxLaunchPlugin {
           messages.browserInstanceExited(this.host.browser)
         )
       }
-      this.cleanupInstance().catch(() => {})
+      this.cleanupInstance().catch((err) => {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          this.ctx.logger?.error?.(
+            `[browser] Cleanup error on child close: ${(err as Error)?.message || err}`
+          )
+        }
+      })
     })
 
     this.pipeChildOutput(child)
@@ -528,7 +534,13 @@ export class FirefoxLaunchPlugin {
         )
       } catch {}
       this.cleanupInstance()
-        .catch(() => {})
+        .catch((err) => {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            this.ctx.logger?.error?.(
+              `[browser] Cleanup error on watch timeout: ${(err as Error)?.message || err}`
+            )
+          }
+        })
         .finally(() => {
           process.exit(0)
         })
