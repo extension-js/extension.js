@@ -44,7 +44,9 @@ export class BoringPlugin {
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
-      const manifestName = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8')).name
+      const manifestName = parseJsonSafe(
+        fs.readFileSync(this.manifestPath, 'utf-8')
+      ).name
       const line = messages.boring(manifestName, duration, stats)
 
       try {

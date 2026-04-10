@@ -1,11 +1,12 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-const {loadCommandConfig, loadBrowserConfig, loadCustomConfig} =
-  vi.hoisted(() => ({
+const {loadCommandConfig, loadBrowserConfig, loadCustomConfig} = vi.hoisted(
+  () => ({
     loadCommandConfig: vi.fn(async () => ({})),
     loadBrowserConfig: vi.fn(async () => ({})),
     loadCustomConfig: vi.fn(async () => (config: any) => config)
-  }))
+  })
+)
 
 const {rspackSpy, devServerConfigCapture} = vi.hoisted(() => ({
   rspackSpy: vi.fn(() => ({})),
