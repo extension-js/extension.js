@@ -7,18 +7,22 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import * as messages from '../cli-lib/messages'
-import {commandDescriptions} from '../cli-lib/messages'
-import {loadExtensionDevelopPreviewModule} from '../cli-lib/extension-develop-runtime'
-import {runOnlyPreviewBrowser} from '../../browser/run-only'
-import {collectProjectProfile} from '../cli-lib/project-profile'
-import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
+import * as messages from '../helpers/messages'
+import {runWaitMode} from './dev-wait'
+import {commandDescriptions} from '../helpers/messages'
+import {
+  loadExtensionDevelopModule,
+  loadExtensionDevelopPreviewModule
+} from '../helpers/extension-develop-runtime'
+import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {collectProjectProfile} from '../helpers/project-profile'
+import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {
   vendors,
   validateVendorsOrExit,
   type Browser,
   parseOptionalBoolean
-} from '../utils'
+} from '../helpers/vendors'
 import {
   normalizeSourceFormatOption,
   normalizeSourceIncludeShadowOption,
@@ -33,16 +37,21 @@ import {
   normalizeSourceDiffOption,
   parseExtensionsList,
   parseLogContexts
-} from '../utils/normalize-options'
+} from '../helpers/normalize-options'
 
-type PreviewOptions = {
+type StartOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
   chromiumBinary?: string
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
-  // Source inspection (parity with dev)
+  polyfill?: boolean | string
+  install?: boolean
+  // Internal maintainer flags
+  author?: boolean
+  authorMode?: boolean
+  // Source inspection (parity with dev/preview)
   source?: boolean | string
   watchSource?: boolean
   sourceFormat?: 'pretty' | 'json' | 'ndjson'
@@ -56,7 +65,7 @@ type PreviewOptions = {
   sourceRedact?: 'off' | 'safe' | 'strict'
   sourceIncludeShadow?: 'off' | 'open-only' | 'all'
   sourceDiff?: boolean | string
-  // Unified logger options (parity with dev)
+  // Unified logger options (parity with dev/preview)
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
@@ -64,19 +73,20 @@ type PreviewOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
-  author?: boolean
-  authorMode?: boolean
+  wait?: boolean
+  waitTimeout?: string | number
+  waitFormat?: 'pretty' | 'json'
 }
 
-export function registerPreviewCommand(program: Command, telemetry: any) {
+export function registerStartCommand(program: Command, telemetry: any) {
   program
-    .command('preview')
-    .arguments('[project-name]')
-    .usage('preview [path-to-remote-extension] [options]')
-    .description(commandDescriptions.preview)
+    .command('start')
+    .arguments('[project-path|remote-url]')
+    .usage('start [project-path|remote-url] [options]')
+    .description(commandDescriptions.start)
     .addHelpText(
       'after',
-      '\nAdditional option:\n  --no-browser    do not launch the browser\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -85,6 +95,10 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
     .option(
       '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
       'specify a browser/engine to run. Defaults to `chromium`'
+    )
+    .option(
+      '--polyfill [boolean]',
+      'whether or not to apply the cross-browser polyfill. Defaults to `true`'
     )
     .option(
       '--chromium-binary <path-to-binary>',
@@ -184,35 +198,53 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       'comma-separated list of companion extensions or store URLs to load'
     )
     .option(
+      '--install [boolean]',
+      '[experimental] install project dependencies when missing',
+      parseOptionalBoolean
+    )
+    .option(
+      '--wait [boolean]',
+      'wait for dist/extension-js/<browser>/ready.json and exit',
+      parseOptionalBoolean
+    )
+    .option(
+      '--wait-timeout <ms>',
+      'timeout in milliseconds when using --wait (default: 60000)'
+    )
+    .option(
+      '--wait-format <pretty|json>',
+      'output format for --wait results (default: pretty)'
+    )
+    .option(
       '--author, --author-mode',
-      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+      '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
     )
     .action(async function (
       pathOrRemoteUrl: string,
-      {browser = 'chromium', ...previewOptions}: PreviewOptions
+      {browser = 'chromium', ...startOptions}: StartOptions
     ) {
       const hasSourceInspectionFlags =
-        typeof previewOptions.source !== 'undefined' ||
-        typeof previewOptions.watchSource !== 'undefined' ||
-        typeof previewOptions.sourceFormat !== 'undefined' ||
-        typeof previewOptions.sourceSummary !== 'undefined' ||
-        typeof previewOptions.sourceMeta !== 'undefined' ||
-        typeof previewOptions.sourceProbe !== 'undefined' ||
-        typeof previewOptions.sourceTree !== 'undefined' ||
-        typeof previewOptions.sourceConsole !== 'undefined' ||
-        typeof previewOptions.sourceDom !== 'undefined' ||
-        typeof previewOptions.sourceMaxBytes !== 'undefined' ||
-        typeof previewOptions.sourceRedact !== 'undefined' ||
-        typeof previewOptions.sourceIncludeShadow !== 'undefined' ||
-        typeof previewOptions.sourceDiff !== 'undefined'
+        typeof startOptions.source !== 'undefined' ||
+        typeof startOptions.watchSource !== 'undefined' ||
+        typeof startOptions.sourceFormat !== 'undefined' ||
+        typeof startOptions.sourceSummary !== 'undefined' ||
+        typeof startOptions.sourceMeta !== 'undefined' ||
+        typeof startOptions.sourceProbe !== 'undefined' ||
+        typeof startOptions.sourceTree !== 'undefined' ||
+        typeof startOptions.sourceConsole !== 'undefined' ||
+        typeof startOptions.sourceDom !== 'undefined' ||
+        typeof startOptions.sourceMaxBytes !== 'undefined' ||
+        typeof startOptions.sourceRedact !== 'undefined' ||
+        typeof startOptions.sourceIncludeShadow !== 'undefined' ||
+        typeof startOptions.sourceDiff !== 'undefined'
 
       if (hasSourceInspectionFlags) {
         // eslint-disable-next-line no-console
-        console.error(messages.sourceInspectionNotSupported('preview'))
+        console.error(messages.sourceInspectionNotSupported('start'))
         process.exit(1)
       }
 
-      if (previewOptions.author || previewOptions['authorMode']) {
+      if (startOptions.author || startOptions.authorMode) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
@@ -225,14 +257,16 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
       )
       const workflowProfile = collectWorkflowProfile({
-        command: 'preview',
+        command: 'start',
         isMultiBrowser: list.length > 1,
         isRemoteInput: isRemoteInput,
+        isWaitMode: Boolean(startOptions.wait),
         isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
         usesMachineReadableOutput:
-          previewOptions.logFormat === 'json' ||
-          previewOptions.logFormat === 'ndjson',
-        companionExtensionsProvided: Boolean(previewOptions.extensions),
+          startOptions.waitFormat === 'json' ||
+          startOptions.logFormat === 'json' ||
+          startOptions.logFormat === 'ndjson',
+        companionExtensionsProvided: Boolean(startOptions.extensions),
         packageManager: projectProfile?.package_manager,
         frameworkPrimary: projectProfile?.framework_primary,
         hasNextDependency: projectProfile?.has_next_dependency,
@@ -240,17 +274,19 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       })
 
       telemetry.track('workflow_profile', {
-        command: 'preview',
+        command: 'start',
         ...workflowProfile
       })
       telemetry.track('cli_command_start', {
-        command: 'preview',
+        command: 'start',
         vendors: list,
         browser_count: list.length,
         is_multi_browser: list.length > 1,
         is_remote_input: isRemoteInput,
+        is_wait_mode: Boolean(startOptions.wait),
         is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        companion_extensions_provided: Boolean(previewOptions.extensions),
+        companion_extensions_provided: Boolean(startOptions.extensions),
+        polyfill_used: startOptions.polyfill?.toString() !== 'false',
         ...workflowProfile
       })
 
@@ -259,144 +295,180 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      if (!process.env.EXTJS_LIGHT) {
-        const isRemote =
-          typeof pathOrRemoteUrl === 'string' &&
-          /^https?:/i.test(pathOrRemoteUrl)
-        if (isRemote) process.env.EXTJS_LIGHT = '1'
+      if (startOptions.wait) {
+        const waitResult = await runWaitMode({
+          command: 'start',
+          pathOrRemoteUrl,
+          browsers: list,
+          waitTimeout: startOptions.waitTimeout,
+          waitFormat: startOptions.waitFormat
+        })
+
+        if (waitResult.format === 'json') {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify({
+              ok: true,
+              mode: 'wait',
+              command: 'start',
+              browsers: waitResult.browsers,
+              results: waitResult.results
+            })
+          )
+        }
+
+        telemetry.track('cli_command_finish', {
+          command: 'start',
+          duration_ms: Date.now() - cmdStart,
+          success: true,
+          exit_code: 0,
+          ...workflowProfile
+        })
+        return
       }
 
       const normalizedSource = normalizeSourceOption(
-        previewOptions.source,
-        previewOptions.startingUrl
+        startOptions.source,
+        startOptions.startingUrl
       )
 
       if (normalizedSource) {
-        previewOptions.source = normalizedSource
+        startOptions.source = normalizedSource
       }
 
       const sourceEnabled = Boolean(
-        previewOptions.source || previewOptions.watchSource
+        startOptions.source || startOptions.watchSource
       )
 
       const normalizedSourceFormat = normalizeSourceFormatOption({
-        sourceFormat: previewOptions.sourceFormat,
-        logFormat: previewOptions.logFormat,
+        sourceFormat: startOptions.sourceFormat,
+        logFormat: startOptions.logFormat,
         sourceEnabled
       })
 
-      previewOptions.sourceFormat = normalizedSourceFormat
+      startOptions.sourceFormat = normalizedSourceFormat
 
       if (sourceEnabled && normalizedSourceFormat) {
         process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
       }
 
-      previewOptions.sourceRedact = normalizeSourceRedactOption(
-        previewOptions.sourceRedact,
+      startOptions.sourceRedact = normalizeSourceRedactOption(
+        startOptions.sourceRedact,
         normalizedSourceFormat
       )
 
-      previewOptions.sourceMeta = normalizeSourceMetaOption(
-        previewOptions.sourceMeta,
+      startOptions.sourceMeta = normalizeSourceMetaOption(
+        startOptions.sourceMeta,
         sourceEnabled
       )
 
-      previewOptions.sourceProbe = normalizeSourceProbeOption(
-        previewOptions.sourceProbe
+      startOptions.sourceProbe = normalizeSourceProbeOption(
+        startOptions.sourceProbe
       )
 
-      previewOptions.sourceTree = normalizeSourceTreeOption(
-        previewOptions.sourceTree,
+      startOptions.sourceTree = normalizeSourceTreeOption(
+        startOptions.sourceTree,
         sourceEnabled
       )
 
-      previewOptions.sourceConsole = normalizeSourceConsoleOption(
-        previewOptions.sourceConsole,
+      startOptions.sourceConsole = normalizeSourceConsoleOption(
+        startOptions.sourceConsole,
         sourceEnabled
       )
 
-      previewOptions.sourceDom = normalizeSourceDomOption(
-        previewOptions.sourceDom,
-        previewOptions.watchSource
+      startOptions.sourceDom = normalizeSourceDomOption(
+        startOptions.sourceDom,
+        startOptions.watchSource
       )
 
-      previewOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
-        previewOptions.sourceMaxBytes
+      startOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
+        startOptions.sourceMaxBytes
       )
 
-      previewOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
-        previewOptions.sourceIncludeShadow,
+      startOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
+        startOptions.sourceIncludeShadow,
         sourceEnabled
       )
 
-      previewOptions.sourceDiff = normalizeSourceDiffOption(
-        previewOptions.sourceDiff,
-        previewOptions.watchSource
+      startOptions.sourceDiff = normalizeSourceDiffOption(
+        startOptions.sourceDiff,
+        startOptions.watchSource
       )
 
-      const {extensionPreview}: {extensionPreview: any} =
-        loadExtensionDevelopPreviewModule()
+      const {extensionBuild}: {extensionBuild: any} =
+        loadExtensionDevelopModule()
 
       for (const vendor of list) {
         const vendorStart = Date.now()
-        telemetry.track('cli_vendor_start', {command: 'preview', vendor})
+        telemetry.track('cli_vendor_start', {command: 'start', vendor})
 
-        const logsOption = (previewOptions as unknown as {logs?: string}).logs
+        const logsOption = (startOptions as unknown as {logs?: string}).logs
         const logContextOption = (
-          previewOptions as unknown as {logContext?: string}
+          startOptions as unknown as {logContext?: string}
         ).logContext
 
         const logContexts = parseLogContexts(logContextOption)
+        const logLevel = logsOption || startOptions.logLevel || 'off'
+
+        // Phase 1: Build the extension in production mode
+        const buildResult = await extensionBuild(pathOrRemoteUrl, {
+          browser: vendor as StartOptions['browser'],
+          polyfill: startOptions.polyfill?.toString() !== 'false',
+          install: startOptions.install,
+          extensions: parseExtensionsList(startOptions.extensions),
+          silent: true
+        })
+
+        const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
+        if (noBrowser) {
+          telemetry.track('cli_vendor_finish', {
+            command: 'start',
+            vendor,
+            duration_ms: Date.now() - vendorStart
+          })
+          continue
+        }
+
+        // Phase 2: Launch the browser with the built output via browser API.
+        // The extensionPreview module is still used under the hood to resolve
+        // project structure and extensions-to-load. We call launchBrowser
+        // through the preview module which handles all of this.
+        const {extensionPreview}: {extensionPreview: any} =
+          loadExtensionDevelopPreviewModule()
 
         await extensionPreview(
           pathOrRemoteUrl,
           {
             mode: 'production',
-            profile: previewOptions.profile,
-            browser: vendor as PreviewOptions['browser'],
-            chromiumBinary: previewOptions.chromiumBinary,
-            geckoBinary: previewOptions.geckoBinary,
-            startingUrl: previewOptions.startingUrl,
-            port: previewOptions.port,
-            noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-            extensions: parseExtensionsList(previewOptions.extensions),
-            source:
-              typeof previewOptions.source === 'string'
-                ? previewOptions.source
-                : previewOptions.source,
-            watchSource: previewOptions.watchSource,
-            sourceFormat: previewOptions.sourceFormat,
-            sourceSummary: previewOptions.sourceSummary,
-            sourceMeta: previewOptions.sourceMeta,
-            sourceProbe: previewOptions.sourceProbe,
-            sourceTree: previewOptions.sourceTree,
-            sourceConsole: previewOptions.sourceConsole,
-            sourceDom: previewOptions.sourceDom,
-            sourceMaxBytes: previewOptions.sourceMaxBytes,
-            sourceRedact: previewOptions.sourceRedact,
-            sourceIncludeShadow: previewOptions.sourceIncludeShadow,
-            sourceDiff: previewOptions.sourceDiff,
-            logLevel: logsOption || previewOptions.logLevel || 'off',
+            profile: startOptions.profile,
+            browser: vendor as StartOptions['browser'],
+            chromiumBinary: startOptions.chromiumBinary,
+            geckoBinary: startOptions.geckoBinary,
+            startingUrl: startOptions.startingUrl,
+            port: startOptions.port,
+            noBrowser: false,
+            extensions: parseExtensionsList(startOptions.extensions),
+            metadataCommand: 'start',
+            logLevel,
             logContexts,
-            logFormat: previewOptions.logFormat || 'pretty',
-            logTimestamps: previewOptions.logTimestamps !== false,
-            logColor: previewOptions.logColor !== false,
-            logUrl: previewOptions.logUrl,
-            logTab: previewOptions.logTab
+            logFormat: startOptions.logFormat || 'pretty',
+            logTimestamps: startOptions.logTimestamps !== false,
+            logColor: startOptions.logColor !== false,
+            logUrl: startOptions.logUrl,
+            logTab: startOptions.logTab
           },
-          // Browser launcher callback — runs browser code from extension/browser/
-          // without pulling rspack into the preview path
           (opts: any) => runOnlyPreviewBrowser(opts)
         )
+
         telemetry.track('cli_vendor_finish', {
-          command: 'preview',
+          command: 'start',
           vendor,
           duration_ms: Date.now() - vendorStart
         })
       }
 
       telemetry.track('cli_command_finish', {
-        command: 'preview',
+        command: 'start',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
         exit_code: process.exitCode ?? 0,

@@ -8,10 +8,10 @@
 
 import type {Command} from 'commander'
 import path from 'node:path'
-import {commandDescriptions} from '../cli-lib/messages'
-import * as messages from '../cli-lib/messages'
-import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
-import {type Browser, validateVendorsOrExit, vendors} from '../utils'
+import {commandDescriptions} from '../helpers/messages'
+import * as messages from '../helpers/messages'
+import {collectWorkflowProfile} from '../helpers/workflow-profile'
+import {type Browser, validateVendorsOrExit, vendors} from '../helpers/vendors'
 
 type InstallOptions = {
   browser?: Browser | 'all'

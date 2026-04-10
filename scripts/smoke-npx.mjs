@@ -32,7 +32,7 @@ function run(cmd, args, opts = {}) {
 }
 
 const root = resolve(process.cwd())
-const cliDir = resolve(root, 'programs/cli')
+const cliDir = resolve(root, 'programs/extension')
 const devDir = resolve(root, 'programs/develop')
 const templatesReact = resolve(root, 'templates/react')
 

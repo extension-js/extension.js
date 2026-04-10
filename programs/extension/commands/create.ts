@@ -10,11 +10,11 @@ import * as path from 'path'
 import type {Command} from 'commander'
 import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
-import {commandDescriptions} from '../cli-lib/messages'
-import {resolveExtensionDevelopRoot} from '../cli-lib/extension-develop-runtime'
-import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
-import {getCliPackageJson} from '../cli-package-json'
-import {parseOptionalBoolean} from '../utils'
+import {commandDescriptions} from '../helpers/messages'
+import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
+import {collectWorkflowProfile} from '../helpers/workflow-profile'
+import {getCliPackageJson} from '../helpers/cli-package-json'
+import {parseOptionalBoolean} from '../helpers/vendors'
 
 const require = createRequire(import.meta.url)
 

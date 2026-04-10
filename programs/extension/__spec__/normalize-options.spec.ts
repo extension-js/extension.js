@@ -11,7 +11,7 @@ import {
   normalizeSourceConsoleOption,
   normalizeSourceDomOption,
   parseExtensionsList
-} from '../utils/normalize-options'
+} from '../helpers/normalize-options'
 
 describe('parseExtensionsList', () => {
   it('returns undefined for empty input', () => {
