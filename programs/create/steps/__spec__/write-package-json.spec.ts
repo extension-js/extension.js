@@ -25,9 +25,14 @@ describe('overridePackageJson template-aware scripts', () => {
         })
       )
 
-      await overridePackageJson(projectPath, 'seed', {
-        cliVersion: '3.8.7-canary.205.b380650'
-      })
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {
+          cliVersion: '3.8.7-canary.205.b380650'
+        },
+        console
+      )
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
@@ -48,9 +53,14 @@ describe('overridePackageJson template-aware scripts', () => {
         })
       )
 
-      await overridePackageJson(projectPath, 'seed', {
-        cliVersion: '3.8.7'
-      })
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {
+          cliVersion: '3.8.7'
+        },
+        console
+      )
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
@@ -87,9 +97,14 @@ describe('overridePackageJson template-aware scripts', () => {
       process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
 
       try {
-        await overridePackageJson(projectPath, 'dev-local-cli', {
-          cliVersion: '0.0.1'
-        })
+        await overridePackageJson(
+          projectPath,
+          'dev-local-cli',
+          {
+            cliVersion: '0.0.1'
+          },
+          console
+        )
       } finally {
         if (typeof prevDevelopRoot === 'undefined') {
           delete process.env.EXTENSION_CREATE_DEVELOP_ROOT
@@ -120,10 +135,15 @@ describe('overridePackageJson template-aware scripts', () => {
         })
       )
 
-      await overridePackageJson(projectPath, 'custom-monorepo-template', {
-        template: 'custom-monorepo-template',
-        cliVersion: '0.0.1'
-      })
+      await overridePackageJson(
+        projectPath,
+        'custom-monorepo-template',
+        {
+          template: 'custom-monorepo-template',
+          cliVersion: '0.0.1'
+        },
+        console
+      )
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
@@ -155,10 +175,15 @@ describe('overridePackageJson template-aware scripts', () => {
         })
       )
 
-      await overridePackageJson(projectPath, 'seed', {
-        template: 'custom-monorepo-template',
-        cliVersion: '0.0.1'
-      })
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {
+          template: 'custom-monorepo-template',
+          cliVersion: '0.0.1'
+        },
+        console
+      )
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
