@@ -131,7 +131,7 @@ test('getLocalWorkspacePackagePaths exposes every workspace package the fixture 
 })
 
 test('getLocalWorkspacePackagePaths entries resolve to real directories on disk', async () => {
-  // Regression guard for commit 57457569 (programs/cli -> programs/cli):
+  // Regression guard for commit 57457569 (programs/cli -> programs/extension):
   // stale hardcoded paths broke 5 CI smoke lanes with a cryptic pnpm error.
   // This test runs in the "Test optional deps smoke helpers" step, which
   // executes before the slow smoke lanes, so future renames fail fast and loud.
