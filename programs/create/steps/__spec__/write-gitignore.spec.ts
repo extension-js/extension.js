@@ -16,7 +16,7 @@ describe('writeGitignore', () => {
       await fsp.mkdir(projectPath, {recursive: true})
       await fsp.writeFile(gitIgnorePath, 'custom-entry')
 
-      await writeGitignore(projectPath)
+      await writeGitignore(projectPath, console)
 
       const contents = await fsp.readFile(gitIgnorePath, 'utf8')
       expect(contents.startsWith('custom-entry\n# See ')).toBe(true)
@@ -37,10 +37,10 @@ describe('writeGitignore', () => {
     try {
       await fsp.mkdir(projectPath, {recursive: true})
 
-      await writeGitignore(projectPath)
+      await writeGitignore(projectPath, console)
       const firstPass = await fsp.readFile(gitIgnorePath, 'utf8')
 
-      await writeGitignore(projectPath)
+      await writeGitignore(projectPath, console)
       const secondPass = await fsp.readFile(gitIgnorePath, 'utf8')
 
       expect(secondPass).toBe(firstPass)

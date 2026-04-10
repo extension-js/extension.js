@@ -12,7 +12,8 @@ import * as messages from '../lib/messages'
 
 export async function generateExtensionTypes(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
   // Always use the published package path to ensure compatibility in monorepos
@@ -32,11 +33,11 @@ export async function generateExtensionTypes(
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
-    console.log(messages.writingTypeDefinitions(projectName))
+    logger.log(messages.writingTypeDefinitions(projectName))
 
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error: any) {
-    console.error(messages.writingTypeDefinitionsError(error))
+    logger.error(messages.writingTypeDefinitionsError(error))
     throw error
   }
 }
