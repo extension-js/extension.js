@@ -81,75 +81,62 @@ function formatRefs(commits) {
 }
 
 const IGNORED_PATTERNS = [
-  /^Fix publish workflow$/i,
-  /^Fix publish workflow release notes and action runtimes$/i,
-  /^Fix release pipeline error$/i,
+  // ── Release / publish pipeline ────────────────────────────────────────
+  /^Fix publish workflow/i,
+  /^Fix release pipeline/i,
   /^Fix next\/canary publish workflows$/i,
-  /^Add privacy-safe workflow telemetry profiles$/i,
-  /^Exclude chore\(release\)\/release\(\) from changelog, add retroactive clean script$/i,
-  // CI / Actions only — no user-facing extension or CLI behavior
-  /^Use pnpm\/action-setup v\d+ for Node \d+ runtime on Actions$/i
+  /^Resolve release notes range/i,
+  /^Exclude chore\(release\)\/release\(\) from changelog/i,
+
+  // ── CI / Actions infrastructure ───────────────────────────────────────
+  /^Use pnpm\/action-setup v\d+/i,
+  /^Add privacy-safe workflow telemetry/i,
+  /^Optimize .+ workflows/i,
+  /^Add .+ CI .+ sandbox/i,
+  /^Fix stale .+ path in .+ (smoke|script)/i,
+
+  // ── Build-time type-declaration fixes (no runtime impact) ─────────────
+  /^Add missing @types\//i,
+
+  // ── Test-only additions ───────────────────────────────────────────────
+  /^Add .+ spec tests/i,
+
+  // ── Internal package restructuring (public package names unchanged) ───
+  /^Combine CLI \+ browser/i,
+  /^Extract programs\//i,
+  /^Rename programs\//i,
+
+  // ── Dependency bumps (Dependabot, manual audit) ───────────────────────
+  /^Bump .+ from .+ to /i,
+
+  // ── Lockfile / infrastructure-only maintenance ────────────────────────
+  /^Update pnpm lockfile$/i,
+  /^Remove build-dependencies\.json/i
 ]
 
 const GROUPS = [
   {
     summary:
-      'Improve build output and warning summaries so extension size and performance issues are easier to understand.',
+      'Improve browser launch, reload, and teardown reliability across Chromium and Firefox.',
     patterns: [
-      /Enhance output data view for performance hints/i,
-      /Richer build output/i,
-      /Fix branding warning spacing/i,
-      /Fix CLI banner consistency across dev, preview, and start/i,
-      /Fix empty line position on CLI ready status banner/i,
-      /Format warning details with paragraphs and consistent styling/i
+      /Harden browser CDP\/RDP reliability/i,
+      /Fix CDP race condition/i,
+      /fix signal race/i
     ]
   },
   {
     summary:
-      'Fix manifest emission, persistence, and reload flows to make development rebuilds more reliable.',
+      'Restructure the `start` command to run build then preview for faster iteration.',
     patterns: [
-      /Format Chromium hard reload controller calls/i,
-      /Fix dev-server manifest disk write guard on CI/i,
-      /Fix Chromium manifest reload recovery/i,
-      /Fix manifest pipeline ordering and disk persistence/i,
-      /Fix manifest\.json writes across plugin passes/i,
-      /Fix startup recompiles when special folders are missing/i,
-      /Guard Chromium reloads when developer mode is disabled/i
+      /Remove extensionStart from develop/i,
+      /Orchestrate start command/i,
+      /Add lightweight preview entry/i
     ]
   },
   {
     summary:
-      'Improve content script development behavior, including bridge resolution and clearer default export warnings.',
-    patterns: [
-      /content_script bridge resolution in development/i,
-      /content_script warn/i,
-      /export default.*content_script warn/i
-    ]
-  },
-  {
-    summary:
-      'Improve Chromium and Windows stability across teardown and follow-up test scenarios.',
-    patterns: [
-      /Skip Windows EBUSY teardown after timed dev tests/i,
-      /Wait for Windows CLI process cleanup before teardown/i,
-      /Fix Windows follow-up test regressions/i
-    ]
-  },
-  {
-    summary:
-      'Stabilize optional dependency installation during build and nested workspace environment resolution.',
-    patterns: [
-      /Stabilize optional dependency installs during build/i,
-      /Fix monorepo root env fallback for nested extension builds/i
-    ]
-  },
-  {
-    summary:
-      'Reduce noisy ecosystem warnings and refresh the lockfile security resolution.',
-    patterns: [
-      /Ignore Vue compiler-sfc critical dependency warning/i,
-      /Fix devalue security resolution in pnpm lockfile/i
-    ]
+      'Make `extension-create` and `extension-develop` programmatically accessible with injectable loggers, structured results, and a BuildEmitter event API.',
+    patterns: [/Make extensionCreate API/i, /Add BuildEmitter event API/i]
   }
 ]
 
