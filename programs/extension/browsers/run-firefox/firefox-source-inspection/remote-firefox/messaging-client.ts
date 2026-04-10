@@ -24,20 +24,50 @@ import {
 export class MessagingClient extends EventEmitter {
   private transport = new RdpTransport()
   private forwardingSetup = false
+  private lastPort: number | null = null
+  private reconnecting = false
+  private disconnectedByUser = false
 
   async connect(port: number) {
+    this.lastPort = port
+    this.disconnectedByUser = false
     await this.transport.connect(port)
     if (!this.forwardingSetup) {
       this.forwardingSetup = true
       this.transport.on('message', (message) => this.emit('message', message))
       this.transport.on('error', (error) => this.emit('error', error))
-      this.transport.on('end', () => this.emit('end'))
+      this.transport.on('end', () => {
+        this.emit('end')
+        this.attemptReconnect()
+      })
       this.transport.on('timeout', () => this.emit('timeout'))
     }
   }
 
   disconnect() {
+    this.disconnectedByUser = true
     this.transport.disconnect()
+  }
+
+  private async attemptReconnect() {
+    if (this.disconnectedByUser || this.reconnecting || !this.lastPort) return
+    this.reconnecting = true
+    const maxAttempts = 5
+    const retryDelay = 1000
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, retryDelay))
+      try {
+        this.transport = new RdpTransport()
+        this.forwardingSetup = false
+        await this.connect(this.lastPort)
+        this.reconnecting = false
+        this.emit('reconnected')
+        return
+      } catch {
+        // Retry
+      }
+    }
+    this.reconnecting = false
   }
 
   async request(requestProps: unknown) {
@@ -156,8 +186,14 @@ export class MessagingClient extends EventEmitter {
     return mergeShadowIntoMain(mainHTML, shadowContent)
   }
 
+  private isDev(): boolean {
+    return process.env.EXTENSION_AUTHOR_MODE === 'true'
+  }
+
   async getPageHTML(descriptorActor: string, consoleActorHint?: string) {
-    console.log(sourceMessages.firefoxRdpClientTestingEvaluation())
+    if (this.isDev()) {
+      console.log(sourceMessages.firefoxRdpClientTestingEvaluation())
+    }
     const actorToUse = await this.resolveActorForEvaluation(
       descriptorActor,
       consoleActorHint
@@ -175,7 +211,9 @@ export class MessagingClient extends EventEmitter {
 
     let mainHTML = await this.serializeDocument(actorToUse)
     if (!mainHTML) {
-      console.log(sourceMessages.firefoxRdpClientFailedToGetMainHTML())
+      if (this.isDev()) {
+        console.log(sourceMessages.firefoxRdpClientFailedToGetMainHTML())
+      }
       const retry = await this.evaluateRaw(
         actorToUse,
         'new XMLSerializer().serializeToString(document)'
