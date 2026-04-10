@@ -1,0 +1,192 @@
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {CDPClient} from '../../run-chromium/chromium-source-inspection/cdp-client'
+
+// Test forceReloadExtension: target ordering, retry logic, and fallback behavior.
+// CDPClient is used directly with mocked internal methods.
+
+describe('CDPClient.forceReloadExtension', () => {
+  let client: CDPClient
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    client = new CDPClient(9222, '127.0.0.1')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('tries service_worker targets before background_page targets', async () => {
+    const extensionId = 'test-extension-id'
+    const targetOrder: string[] = []
+
+    ;(client as any).getTargets = vi.fn(async () => [
+      {
+        targetId: 'bg-target',
+        type: 'background_page',
+        url: `chrome-extension://${extensionId}/background.html`
+      },
+      {
+        targetId: 'sw-target',
+        type: 'service_worker',
+        url: `chrome-extension://${extensionId}/sw.js`
+      }
+    ])
+
+    ;(client as any).attachToTarget = vi.fn(async (targetId: string) => {
+      targetOrder.push(targetId)
+      return `session-${targetId}`
+    })
+
+    ;(client as any).sendCommand = vi.fn(async (method: string) => {
+      if (method === 'Runtime.enable') return {}
+      if (method === 'Runtime.evaluate') return {result: {value: true}}
+      return {}
+    })
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    // Resolve all pending timers for backoff
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // service_worker (sw-target) should be tried first
+    expect(targetOrder[0]).toBe('sw-target')
+  })
+
+  it('tries next target type when first type fails evaluation', async () => {
+    const extensionId = 'test-extension-id'
+    const attemptedTypes: string[] = []
+
+    ;(client as any).getTargets = vi.fn(async () => [
+      {
+        targetId: 'sw-target',
+        type: 'service_worker',
+        url: `chrome-extension://${extensionId}/sw.js`
+      },
+      {
+        targetId: 'bg-target',
+        type: 'background_page',
+        url: `chrome-extension://${extensionId}/background.html`
+      }
+    ])
+
+    ;(client as any).attachToTarget = vi.fn(async (targetId: string) => {
+      attemptedTypes.push(targetId)
+      if (targetId === 'sw-target') {
+        throw new Error('Target closed')
+      }
+      return `session-${targetId}`
+    })
+
+    ;(client as any).sendCommand = vi.fn(async (method: string) => {
+      if (method === 'Runtime.enable') return {}
+      if (method === 'Runtime.evaluate') return {result: {value: true}}
+      return {}
+    })
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // Both targets should have been attempted
+    expect(attemptedTypes).toContain('sw-target')
+    expect(attemptedTypes).toContain('bg-target')
+  })
+
+  it('returns false and warns when all attempts fail', async () => {
+    const extensionId = 'test-extension-id'
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    ;(client as any).getTargets = vi.fn(async () => [])
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(false)
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('retries up to 8 times with backoff on repeated failures', async () => {
+    const extensionId = 'test-extension-id'
+    let getTargetsCalls = 0
+
+    ;(client as any).getTargets = vi.fn(async () => {
+      getTargetsCalls++
+      return []
+    })
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    await reloadPromise
+
+    expect(getTargetsCalls).toBe(8)
+    warnSpy.mockRestore()
+  })
+
+  it('ignores targets from other extensions', async () => {
+    const extensionId = 'my-extension-id'
+
+    ;(client as any).getTargets = vi.fn(async () => [
+      {
+        targetId: 'other-sw',
+        type: 'service_worker',
+        url: 'chrome-extension://other-extension-id/sw.js'
+      },
+      {
+        targetId: 'my-sw',
+        type: 'service_worker',
+        url: `chrome-extension://${extensionId}/sw.js`
+      }
+    ])
+
+    const attached: string[] = []
+    ;(client as any).attachToTarget = vi.fn(async (targetId: string) => {
+      attached.push(targetId)
+      return `session-${targetId}`
+    })
+
+    ;(client as any).sendCommand = vi.fn(async () => ({result: {value: true}}))
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // Should only attach to our extension's target, not the other
+    expect(attached).toEqual(['my-sw'])
+  })
+
+  it('returns true on first success without exhausting all attempts', async () => {
+    const extensionId = 'test-extension-id'
+    let getTargetsCalls = 0
+
+    ;(client as any).getTargets = vi.fn(async () => {
+      getTargetsCalls++
+      return [
+        {
+          targetId: 'sw-1',
+          type: 'service_worker',
+          url: `chrome-extension://${extensionId}/sw.js`
+        }
+      ]
+    })
+
+    ;(client as any).attachToTarget = vi.fn(async () => 'session-1')
+    ;(client as any).sendCommand = vi.fn(async () => ({result: {value: true}}))
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // Should succeed on first try, not all 8
+    expect(getTargetsCalls).toBe(1)
+  })
+})
