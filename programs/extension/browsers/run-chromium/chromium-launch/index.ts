@@ -51,6 +51,7 @@ import type {
   ChromiumPluginRuntime
 } from '../chromium-types'
 import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+import {checkChromeRemoteDebugging} from '../chromium-source-inspection/discovery'
 
 async function maybePrintDevBanner(args: {
   compilation: CompilationLike
@@ -571,6 +572,21 @@ export class ChromiumLaunchPlugin {
     }
 
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+
+    // Verify the debug port is actually bound before proceeding
+    if (enableCdp) {
+      let portReady = false
+      for (let attempt = 0; attempt < 10; attempt++) {
+        portReady = await checkChromeRemoteDebugging(selectedPort)
+        if (portReady) break
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      if (!portReady && process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        this.logger.warn?.(
+          `[browser] Debug port ${selectedPort} not bound after spawn — CDP may fail`
+        )
+      }
+    }
 
     if (compilation.options.mode === 'development' && !this.didReportReady) {
       // Use console.log so the message is always visible; infrastructureLogging

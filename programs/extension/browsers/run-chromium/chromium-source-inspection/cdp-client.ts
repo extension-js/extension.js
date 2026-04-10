@@ -8,6 +8,7 @@
 
 import WebSocket from 'ws'
 import * as messages from '../../browsers-lib/messages'
+import {CDP_COMMAND_TIMEOUT_MS, CDP_HEARTBEAT_INTERVAL_MS} from '../../browsers-lib/constants'
 import {discoverWebSocketDebuggerUrl} from './discovery'
 import {
   getExtensionInfo,
@@ -44,6 +45,7 @@ export class CDPClient {
       method?: string
     }
   >()
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(port: number = 9222, host: string = '127.0.0.1') {
     this.port = port
@@ -63,11 +65,15 @@ export class CDPClient {
           this.isDev()
         )
 
+        let pendingRejected = false
         this.ws = await establishBrowserConnection(
           this.targetWebSocketUrl!,
           this.isDev(),
           (data) => this.handleMessage(data),
           (reason) => {
+            // Guard against double-rejection (error + close fire in sequence)
+            if (pendingRejected) return
+            pendingRejected = true
             // Reject any pending requests to avoid hangs
             this.pendingRequests.forEach(({reject, timeout}, id) => {
               try {
@@ -83,8 +89,12 @@ export class CDPClient {
               if (timeout) clearTimeout(timeout)
               this.pendingRequests.delete(id)
             })
+            // Mark ws as dead so sendCommand rejects immediately
+            this.ws = null
           }
         )
+
+        this.startHeartbeat()
 
         if (this.isDev()) {
           console.log(messages.cdpClientConnected(this.host, this.port))
@@ -99,6 +109,7 @@ export class CDPClient {
   }
 
   disconnect() {
+    this.stopHeartbeat()
     if (this.ws) {
       try {
         this.ws.close()
@@ -106,6 +117,35 @@ export class CDPClient {
         // ignore
       }
       this.ws = null
+    }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.heartbeatTimer = setInterval(async () => {
+      if (!this.isConnected()) {
+        this.stopHeartbeat()
+        return
+      }
+      try {
+        await this.getBrowserVersion()
+      } catch {
+        // Heartbeat failure — connection is dead, disconnect to trigger cleanup
+        if (this.isDev()) {
+          console.warn('[CDP] Heartbeat failed, connection appears dead')
+        }
+        this.disconnect()
+      }
+    }, CDP_HEARTBEAT_INTERVAL_MS)
+    if (typeof this.heartbeatTimer.unref === 'function') {
+      this.heartbeatTimer.unref()
+    }
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
     }
   }
 
@@ -174,7 +214,7 @@ export class CDPClient {
     method: string,
     params: Record<string, unknown> = {},
     sessionId?: string,
-    timeoutMs: number = 12000
+    timeoutMs: number = CDP_COMMAND_TIMEOUT_MS
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
