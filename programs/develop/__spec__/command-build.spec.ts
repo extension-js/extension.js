@@ -48,7 +48,8 @@ vi.mock('../lib/config-loader', () => {
 })
 
 vi.mock('../lib/ensure-develop-artifacts', () => ({
-  ensureDevelopArtifacts: vi.fn(async () => {})
+  ensureDevelopArtifacts: vi.fn(async () => {}),
+  ensureUserProjectDependencies: vi.fn(async () => {})
 }))
 
 vi.mock('../lib/validate-user-dependencies', () => ({
