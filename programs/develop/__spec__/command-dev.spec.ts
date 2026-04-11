@@ -56,6 +56,7 @@ describe('webpack/command-dev', () => {
     ;(devServerMod as any).devServer?.mockClear?.()
     ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
     ;(ensureArtifactsMod as any).ensureDevelopArtifacts?.mockClear?.()
+    ;(ensureArtifactsMod as any).ensureUserProjectDependencies?.mockClear?.()
     ;(fs.existsSync as any)?.mockReset?.()
     ;(fs.readdirSync as any)?.mockReset?.()
     logSpy.mockClear()
@@ -85,6 +86,17 @@ describe('webpack/command-dev', () => {
       expect.any(Object),
       expect.objectContaining({mode: 'development', browser: 'chrome'})
     )
+  })
+
+  it('skips user dependency install when install option is false', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+
+    await extensionDev('/proj', {browser: undefined, port: 0, install: false} as any)
+
+    expect(
+      ensureArtifactsMod.ensureUserProjectDependencies
+    ).not.toHaveBeenCalled()
   })
 
   it('exits process(1) on unexpected error', async () => {
