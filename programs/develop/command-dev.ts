@@ -86,7 +86,9 @@ export async function extensionDev(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     await ensureDevelopArtifacts()
-    await ensureUserProjectDependencies(packageJsonDir)
+    if (devOptions.install !== false) {
+      await ensureUserProjectDependencies(packageJsonDir)
+    }
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
