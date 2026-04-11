@@ -15,7 +15,10 @@ import {loadCustomConfig} from './lib/config-loader'
 import {loadCommandConfig} from './lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
-import {ensureDevelopArtifacts} from './lib/ensure-develop-artifacts'
+import {
+  ensureDevelopArtifacts,
+  ensureUserProjectDependencies
+} from './lib/ensure-develop-artifacts'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 
@@ -40,6 +43,7 @@ export async function extensionBuild(
 
   try {
     await ensureDevelopArtifacts()
+    await ensureUserProjectDependencies(packageJsonDir)
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
