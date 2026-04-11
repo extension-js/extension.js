@@ -15,6 +15,20 @@ async function findAvailablePortNear(
   maxAttempts: number = 20,
   host: string = '127.0.0.1'
 ): Promise<number> {
+  // Port 0 means "let the OS pick a free port". We must read the actual
+  // assigned port from server.address() instead of returning 0.
+  if (startPort === 0) {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer()
+      server.once('error', (err) => reject(err))
+      server.once('listening', () => {
+        const addr = server.address() as net.AddressInfo
+        server.close(() => resolve(addr.port))
+      })
+      server.listen(0, host)
+    })
+  }
+
   function tryPort(port: number): Promise<boolean> {
     return new Promise((resolve) => {
       const server = net.createServer()
@@ -84,10 +98,9 @@ export class PortManager {
     requestedPort?: number
   ): Promise<PortAllocation> {
     try {
-      // Treat 0 and invalid ports as "no preference" and fall back to basePort
       const isValidRequested =
         typeof requestedPort === 'number' &&
-        requestedPort > 0 &&
+        requestedPort >= 0 &&
         requestedPort < 65536
       const base = isValidRequested ? requestedPort : this.basePort
       const port = await findAvailablePortNear(base)

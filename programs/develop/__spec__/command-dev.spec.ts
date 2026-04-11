@@ -92,7 +92,11 @@ describe('webpack/command-dev', () => {
     ;(fs.existsSync as any).mockReturnValue(false)
     ;(fs.readdirSync as any).mockReturnValue([])
 
-    await extensionDev('/proj', {browser: undefined, port: 0, install: false} as any)
+    await extensionDev('/proj', {
+      browser: undefined,
+      port: 0,
+      install: false
+    } as any)
 
     expect(
       ensureArtifactsMod.ensureUserProjectDependencies
