@@ -11,7 +11,10 @@ import {generateExtensionTypes} from './lib/generate-extension-types'
 import {getProjectStructure} from './lib/project'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {getDirs, normalizeBrowser} from './lib/paths'
-import {ensureDevelopArtifacts} from './lib/ensure-develop-artifacts'
+import {
+  ensureDevelopArtifacts,
+  ensureUserProjectDependencies
+} from './lib/ensure-develop-artifacts'
 import {
   BrowsersPlugin,
   BuildEmitter,
@@ -83,6 +86,7 @@ export async function extensionDev(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     await ensureDevelopArtifacts()
+    await ensureUserProjectDependencies(packageJsonDir)
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
