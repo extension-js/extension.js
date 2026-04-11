@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-- Respect --install flag to skip dependency install in build/dev commands (cc974447)
-- Fix user project dependency resolution for pnpm dlx and npx builds (8bf68ab9)
+- Fix --port 0 (OS-assigned port) crashing the dev server (9c8cb9cc)
 
 ## 3.8.2
 
