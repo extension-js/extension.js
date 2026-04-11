@@ -33,7 +33,8 @@ vi.mock('../lib/validate-user-dependencies', () => ({
 }))
 
 vi.mock('../lib/ensure-develop-artifacts', () => ({
-  ensureDevelopArtifacts: vi.fn(async () => {})
+  ensureDevelopArtifacts: vi.fn(async () => {}),
+  ensureUserProjectDependencies: vi.fn(async () => {})
 }))
 
 vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
