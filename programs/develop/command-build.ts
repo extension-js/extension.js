@@ -43,7 +43,9 @@ export async function extensionBuild(
 
   try {
     await ensureDevelopArtifacts()
-    await ensureUserProjectDependencies(packageJsonDir)
+    if (buildOptions?.install !== false) {
+      await ensureUserProjectDependencies(packageJsonDir)
+    }
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
