@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Improve browser launch, reload, and teardown reliability across Chromium and Firefox. (71df0578, b9167cb4, fb1f1011)
-- Make `extension-create` and `extension-develop` programmatically accessible with injectable loggers, structured results, and a BuildEmitter event API. (b026cba2)
+- Respect --install flag to skip dependency install in build/dev commands (cc974447)
+- Fix user project dependency resolution for pnpm dlx and npx builds (8bf68ab9)
 
 ## 3.8.2
 
