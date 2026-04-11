@@ -110,6 +110,7 @@ describe('webpack/command-build', () => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
     ;(ensureArtifactsMod.ensureDevelopArtifacts as any)?.mockClear?.()
+    ;(ensureArtifactsMod.ensureUserProjectDependencies as any)?.mockClear?.()
     ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
     ;(webpackConfig as any)?.mockClear?.()
     rspackMock.mockClear()
@@ -405,6 +406,24 @@ describe('webpack/command-build', () => {
     const message = String(localErrorSpy.mock.calls[0]?.[0] || '')
     expect(message).toContain('Build failed')
     expect(message).toContain('boom')
+  })
+
+  it('skips user dependency install when install option is false', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {
+      browser: 'chrome',
+      silent: true,
+      install: false
+    })
+
+    expect(
+      ensureArtifactsMod.ensureUserProjectDependencies
+    ).not.toHaveBeenCalled()
   })
 
   it('rejects when compiler returns missing stats (prevents silent success)', async () => {
