@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Fix CDP race condition, log leak, globalThis state, and MAIN world manifest persistence (f029d416)
+- Improve browser launch, reload, and teardown reliability across Chromium and Firefox. (71df0578, b9167cb4, fb1f1011)
+- Make `extension-create` and `extension-develop` programmatically accessible with injectable loggers, structured results, and a BuildEmitter event API. (b026cba2)
 
 ## 3.8.2
 
