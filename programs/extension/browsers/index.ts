@@ -15,6 +15,11 @@ import type {
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {printDevBannerOnce, printProdBannerOnce} from './browsers-lib/banner'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
+import {
+  readContentScriptRules,
+  selectContentScriptRules,
+  type ContentScriptTargetRule
+} from './browsers-lib/content-script-targets'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
@@ -72,6 +77,10 @@ export interface BrowserLaunchOptions {
 
 /**
  * Handle returned by `launchBrowser` — provides reload and logging control.
+ *
+ * Browser process cleanup is owned by signal handlers installed during launch
+ * (`setupFirefoxProcessHandlers` / Chromium equivalents). The controller is
+ * deliberately not responsible for teardown, so there is no `close()`.
  */
 export interface BrowserController {
   reload(instruction?: {
@@ -88,7 +97,6 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
-  close(): Promise<void>
 }
 
 function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
@@ -100,6 +108,27 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
     },
     outputOptions: {path: opts.outputPath}
   }
+}
+
+/**
+ * Convert canonical content-script entry names (e.g. `content_scripts/content-0`)
+ * into the ContentScriptTargetRule[] shape that the browser controllers expect.
+ *
+ * `develop/plugin-browsers` only has raw entry paths at reload time; the
+ * manifest (and therefore the match patterns those entries correspond to)
+ * lives on the compilation. Resolving it here keeps the controller APIs
+ * strongly typed and prevents silent HMR failures where rules/entries were
+ * passed interchangeably.
+ */
+function resolveContentScriptRulesForReload(
+  compilationLike: CompilationLike,
+  extensionsToLoad: string[],
+  entries: string[] | undefined
+): ContentScriptTargetRule[] {
+  if (!entries || entries.length === 0) return []
+  const extensionRoot = extensionsToLoad?.[0]
+  const rules = readContentScriptRules(compilationLike, extensionRoot)
+  return selectContentScriptRules(rules, entries)
 }
 
 function isChromiumBrowser(browser: BrowserType): boolean {
@@ -202,18 +231,20 @@ async function launchChromium(
   return {
     async reload(instruction) {
       if (!cdpController) return
-      // For a full reload or service-worker reload, use hardReload.
-      // For content-scripts, use targeted tab reload.
+      // For content-scripts, resolve entries → rules and use targeted reload.
+      // For everything else, fall through to a full hard reload.
       if (instruction?.type === 'content-scripts') {
         const ctrl = cdpController as any
         if (typeof ctrl.reloadMatchingTabsForContentScripts === 'function') {
-          await ctrl.reloadMatchingTabsForContentScripts(
-            instruction.changedContentScriptEntries || []
+          const rules = resolveContentScriptRulesForReload(
+            compilationLike,
+            opts.extensionsToLoad,
+            instruction.changedContentScriptEntries
           )
+          await ctrl.reloadMatchingTabsForContentScripts(rules)
           return
         }
       }
-      // Default: full hard reload
       const ctrl = cdpController as any
       if (typeof ctrl.hardReload === 'function') {
         await ctrl.hardReload(instruction?.changedAssets)
@@ -231,11 +262,6 @@ async function launchChromium(
           tabFilter: logOpts.tabFilter
         })
       }
-    },
-    async close() {
-      // Chromium processes are managed by the launcher — close is a no-op
-      // for now. The process cleanup is handled by signal handlers set up
-      // during launch.
     }
   }
 }
@@ -255,7 +281,30 @@ async function launchFirefox(
     geckoBinary: opts.geckoBinary,
     instanceId: opts.instanceId,
     port: opts.port,
-    dryRun: opts.dryRun
+    dryRun: opts.dryRun,
+    // Source inspection — forwarded to FirefoxRDPController via
+    // setup-rdp-after-launch so that Firefox reaches parity with Chromium.
+    source: opts.source,
+    watchSource: opts.watchSource,
+    sourceFormat: opts.sourceFormat,
+    sourceSummary: opts.sourceSummary,
+    sourceMeta: opts.sourceMeta,
+    sourceProbe: opts.sourceProbe,
+    sourceTree: opts.sourceTree,
+    sourceConsole: opts.sourceConsole,
+    sourceDom: opts.sourceDom,
+    sourceMaxBytes: opts.sourceMaxBytes,
+    sourceRedact: opts.sourceRedact,
+    sourceIncludeShadow: opts.sourceIncludeShadow,
+    sourceDiff: opts.sourceDiff,
+    // Unified logger options — consumed by FirefoxRDPController.enableUnifiedLogging
+    logLevel: opts.logLevel as PluginInterface['logLevel'],
+    logContexts: opts.logContexts as PluginInterface['logContexts'],
+    logFormat: opts.logFormat as PluginInterface['logFormat'],
+    logTimestamps: opts.logTimestamps,
+    logColor: opts.logColor,
+    logUrl: opts.logUrl,
+    logTab: opts.logTab
   }
 
   const pluginOptions = {
@@ -288,16 +337,49 @@ async function launchFirefox(
 
   await launcher.runOnce(compilationLike, launchRequest as any)
 
+  // Resolve the RDP controller created during launch (when available).
+  // In dry-run / VITEST paths launch() short-circuits and no controller
+  // is created — reload/logging will degrade to no-ops in that case.
+  const rdpController = ctx.getController?.()
+
   return {
-    async reload() {
-      // Firefox reload via RDP is currently handled internally during
-      // the build event flow. For now, this is a placeholder.
+    async reload(instruction) {
+      if (!rdpController) return
+      if (instruction?.type === 'content-scripts') {
+        const rules = resolveContentScriptRulesForReload(
+          compilationLike,
+          opts.extensionsToLoad,
+          instruction.changedContentScriptEntries
+        )
+        try {
+          await (rdpController as any).reloadMatchingTabsForContentScripts(
+            rules
+          )
+          return
+        } catch {
+          // Fall through to hard reload
+        }
+      }
+      try {
+        await rdpController.hardReload(
+          compilationLike,
+          instruction?.changedAssets || []
+        )
+      } catch {
+        // best-effort
+      }
     },
-    async enableUnifiedLogging() {
-      // Firefox unified logging is wired separately via the RDP controller.
-    },
-    async close() {
-      // Firefox process cleanup handled by signal handlers.
+    async enableUnifiedLogging(logOpts) {
+      if (!rdpController?.enableUnifiedLogging) return
+      await rdpController.enableUnifiedLogging({
+        level: logOpts.level,
+        contexts: logOpts.contexts,
+        format: logOpts.format as 'pretty' | 'json' | 'ndjson',
+        timestamps: logOpts.timestamps,
+        color: logOpts.color,
+        urlFilter: logOpts.urlFilter,
+        tabFilter: logOpts.tabFilter
+      })
     }
   }
 }

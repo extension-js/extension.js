@@ -73,6 +73,84 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   return argv.filter((arg) => arg !== '--no-browser')
 }
 
+const SOURCE_INSPECTION_FLAG_PREFIXES = [
+  '--source',
+  '--watch-source',
+  '--no-source',
+  '--no-watch-source'
+] as const
+
+function hasSourceInspectionFlag(argv: string[]): boolean {
+  return argv.some((arg) => {
+    if (typeof arg !== 'string') return false
+    return SOURCE_INSPECTION_FLAG_PREFIXES.some(
+      (prefix) =>
+        arg === prefix ||
+        arg.startsWith(`${prefix}=`) ||
+        arg.startsWith(`${prefix}-`)
+    )
+  })
+}
+
+function guardSourceInspectionFlags(argv: string[]): void {
+  const command = resolveCommandFromArgv(argv)
+
+  if (command !== 'start' && command !== 'preview') return
+  if (!hasSourceInspectionFlag(argv)) return
+
+  // eslint-disable-next-line no-console
+  console.error(messages.sourceInspectionNotSupported(command))
+  process.exit(1)
+}
+
+function hasWaitFlag(argv: string[]): boolean {
+  return argv.some(
+    (arg) =>
+      arg === '--wait' ||
+      arg.startsWith('--wait=') ||
+      arg === '--wait-timeout' ||
+      arg.startsWith('--wait-timeout=') ||
+      arg === '--wait-format' ||
+      arg.startsWith('--wait-format=')
+  )
+}
+
+function hasWaitModeEnabled(argv: string[]): boolean {
+  // --wait takes an optional boolean; treat presence as on unless explicitly
+  // set to false/0. --wait-timeout / --wait-format alone do not enable wait.
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (arg === '--wait') {
+      const next = argv[i + 1]
+      if (next === 'false' || next === '0') return false
+      return true
+    }
+    if (arg.startsWith('--wait=')) {
+      const value = arg.slice('--wait='.length).toLowerCase()
+      return value !== 'false' && value !== '0'
+    }
+  }
+  return false
+}
+
+function guardSourceWithWaitOrNoBrowser(argv: string[]): void {
+  const command = resolveCommandFromArgv(argv)
+  if (command !== 'dev') return
+  if (!hasSourceInspectionFlag(argv)) return
+
+  if (process.env.EXTENSION_CLI_NO_BROWSER === '1') {
+    // eslint-disable-next-line no-console
+    console.error(messages.sourceIncompatibleWithNoBrowser())
+    process.exit(1)
+  }
+
+  if (hasWaitFlag(argv) && hasWaitModeEnabled(argv)) {
+    // eslint-disable-next-line no-console
+    console.error(messages.sourceIncompatibleWithWait())
+    process.exit(1)
+  }
+}
+
 checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
 
@@ -138,6 +216,8 @@ if (process.argv.length <= 2) {
 }
 
 const argv = applyNoBrowserArgvShim(process.argv)
+guardSourceInspectionFlags(argv)
+guardSourceWithWaitOrNoBrowser(argv)
 
 extensionJs.parseAsync(argv).catch((err: unknown) => {
   // eslint-disable-next-line no-console
