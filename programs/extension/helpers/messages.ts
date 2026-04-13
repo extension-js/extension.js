@@ -570,3 +570,29 @@ export function noBrowserNotSupportedForCommand(command?: string) {
     )}.\n` + `Received command: ${code(command || '(none)')}`
   )
 }
+
+export function sourceIncompatibleWithWait() {
+  return (
+    `${getLoggingPrefix('error')} ${code(
+      '--source'
+    )} cannot be combined with ${code('--wait')}.\n` +
+    `Source inspection requires a live browser session; ${code(
+      '--wait'
+    )} exits as soon as the ready contract is satisfied.\n` +
+    `Run them separately: ${code('extension dev --wait')} for the readiness gate, then ${code(
+      'extension dev --source <url>'
+    )} for inspection.`
+  )
+}
+
+export function sourceIncompatibleWithNoBrowser() {
+  return (
+    `${getLoggingPrefix('error')} ${code(
+      '--source'
+    )} cannot be combined with ${code('--no-browser')}.\n` +
+    `Source inspection drives a real browser via CDP/RDP and cannot run headlessly against the dev server alone.\n` +
+    `Drop ${code('--no-browser')} or omit the ${code(
+      '--source'
+    )} flags to continue.`
+  )
+}
