@@ -151,6 +151,44 @@ describe('CLI help parity contract', () => {
     )
   })
 
+  it('contract #6b: preview/start do not declare source-inspection flags in --help', () => {
+    const program = buildProgramForInspection()
+    const preview = program.commands.find((cmd) => cmd.name() === 'preview')
+    const start = program.commands.find((cmd) => cmd.name() === 'start')
+    expect(preview).toBeDefined()
+    expect(start).toBeDefined()
+
+    for (const cmd of [preview!, start!]) {
+      const help = stripAnsi(cmd.helpInformation())
+      expect(help).not.toMatch(/^\s*--source\b/m)
+      expect(help).not.toMatch(/--source-/)
+      expect(help).not.toMatch(/--watch-source/)
+    }
+  })
+
+  it('contract #6c: preview/start reject source-inspection sub-flags with a helpful error', () => {
+    const cases: Array<[string, string]> = [
+      ['--source-dom', 'true'],
+      ['--source-format', 'json'],
+      ['--watch-source', 'true']
+    ]
+
+    for (const subcommand of ['preview', 'start'] as const) {
+      for (const [flag, value] of cases) {
+        const result = spawnSync(
+          process.execPath,
+          [cliBin(), subcommand, flag, value],
+          {cwd: cliRoot(), encoding: 'utf8'}
+        )
+        const out = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+        expect(result.status).toBe(1)
+        expect(out).toContain(
+          `extension ${subcommand} currently runs in run-only preview mode and does not support source inspection`
+        )
+      }
+    }
+  })
+
   it('contract #7: user help and ai-help remain aligned on source-inspection scope', () => {
     const userHelp = stripAnsi(programUserHelp())
     const aiHelp = stripAnsi(programAIHelp())
@@ -249,5 +287,33 @@ describe('CLI help parity contract', () => {
     expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]chrome/i)
     expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]edge/i)
     expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
+  })
+
+  it('contract #13: dev --source --wait is rejected with a helpful error', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'dev', '--source', 'https://example.com', '--wait'],
+      {cwd: cliRoot(), encoding: 'utf8'}
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(1)
+    expect(output).toContain('--source')
+    expect(output).toContain('--wait')
+    expect(output).toMatch(/cannot be combined/i)
+  })
+
+  it('contract #14: dev --source --no-browser is rejected with a helpful error', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'dev', '--source', 'https://example.com', '--no-browser'],
+      {cwd: cliRoot(), encoding: 'utf8'}
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(1)
+    expect(output).toContain('--source')
+    expect(output).toContain('--no-browser')
+    expect(output).toMatch(/cannot be combined/i)
   })
 })

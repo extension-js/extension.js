@@ -24,17 +24,6 @@ import {
   parseOptionalBoolean
 } from '../helpers/vendors'
 import {
-  normalizeSourceFormatOption,
-  normalizeSourceIncludeShadowOption,
-  normalizeSourceMaxBytesOption,
-  normalizeSourceOption,
-  normalizeSourceRedactOption,
-  normalizeSourceMetaOption,
-  normalizeSourceProbeOption,
-  normalizeSourceTreeOption,
-  normalizeSourceConsoleOption,
-  normalizeSourceDomOption,
-  normalizeSourceDiffOption,
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
@@ -51,20 +40,6 @@ type StartOptions = {
   // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
-  // Source inspection (parity with dev/preview)
-  source?: boolean | string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string | string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number | string
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean | string
   // Unified logger options (parity with dev/preview)
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
@@ -136,64 +111,6 @@ export function registerStartCommand(program: Command, telemetry: any) {
     )
     .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
     .option(
-      '--source [url]',
-      '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
-    )
-    .option(
-      '--watch-source [boolean]',
-      '[experimental] re-print HTML on rebuilds or file changes',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-format <pretty|json|ndjson>',
-      '[experimental] output format for source HTML (defaults to --log-format when present, otherwise JSON when --source is used)'
-    )
-    .option(
-      '--source-summary [boolean]',
-      '[experimental] output a compact summary instead of full HTML',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-meta [boolean]',
-      '[experimental] output page metadata (readyState, viewport, frames)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-probe <selectors>',
-      '[experimental] comma-separated CSS selectors to probe'
-    )
-    .option(
-      '--source-tree <off|root-only>',
-      '[experimental] output a compact extension root tree'
-    )
-    .option(
-      '--source-console [boolean]',
-      '[experimental] output console summary (best-effort)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-dom [boolean]',
-      '[experimental] output DOM snapshots and diffs (default: true when watch is enabled)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-max-bytes <bytes>',
-      '[experimental] limit HTML output size in bytes (0 disables truncation)'
-    )
-    .option(
-      '--source-redact <off|safe|strict>',
-      '[experimental] redact sensitive content in HTML output (default: safe for JSON/NDJSON)'
-    )
-    .option(
-      '--source-include-shadow <off|open-only|all>',
-      '[experimental] control Shadow DOM inclusion in HTML output (default: open-only)'
-    )
-    .option(
-      '--source-diff [boolean]',
-      '[experimental] include diff metadata on watch updates (default: true when watch is enabled)',
-      parseOptionalBoolean
-    )
-    .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
     )
@@ -223,27 +140,6 @@ export function registerStartCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...startOptions}: StartOptions
     ) {
-      const hasSourceInspectionFlags =
-        typeof startOptions.source !== 'undefined' ||
-        typeof startOptions.watchSource !== 'undefined' ||
-        typeof startOptions.sourceFormat !== 'undefined' ||
-        typeof startOptions.sourceSummary !== 'undefined' ||
-        typeof startOptions.sourceMeta !== 'undefined' ||
-        typeof startOptions.sourceProbe !== 'undefined' ||
-        typeof startOptions.sourceTree !== 'undefined' ||
-        typeof startOptions.sourceConsole !== 'undefined' ||
-        typeof startOptions.sourceDom !== 'undefined' ||
-        typeof startOptions.sourceMaxBytes !== 'undefined' ||
-        typeof startOptions.sourceRedact !== 'undefined' ||
-        typeof startOptions.sourceIncludeShadow !== 'undefined' ||
-        typeof startOptions.sourceDiff !== 'undefined'
-
-      if (hasSourceInspectionFlags) {
-        // eslint-disable-next-line no-console
-        console.error(messages.sourceInspectionNotSupported('start'))
-        process.exit(1)
-      }
-
       if (startOptions.author || startOptions.authorMode) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
@@ -326,74 +222,6 @@ export function registerStartCommand(program: Command, telemetry: any) {
         })
         return
       }
-
-      const normalizedSource = normalizeSourceOption(
-        startOptions.source,
-        startOptions.startingUrl
-      )
-
-      if (normalizedSource) {
-        startOptions.source = normalizedSource
-      }
-
-      const sourceEnabled = Boolean(
-        startOptions.source || startOptions.watchSource
-      )
-
-      const normalizedSourceFormat = normalizeSourceFormatOption({
-        sourceFormat: startOptions.sourceFormat,
-        logFormat: startOptions.logFormat,
-        sourceEnabled
-      })
-
-      startOptions.sourceFormat = normalizedSourceFormat
-
-      if (sourceEnabled && normalizedSourceFormat) {
-        process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
-      }
-
-      startOptions.sourceRedact = normalizeSourceRedactOption(
-        startOptions.sourceRedact,
-        normalizedSourceFormat
-      )
-
-      startOptions.sourceMeta = normalizeSourceMetaOption(
-        startOptions.sourceMeta,
-        sourceEnabled
-      )
-
-      startOptions.sourceProbe = normalizeSourceProbeOption(
-        startOptions.sourceProbe
-      )
-
-      startOptions.sourceTree = normalizeSourceTreeOption(
-        startOptions.sourceTree,
-        sourceEnabled
-      )
-
-      startOptions.sourceConsole = normalizeSourceConsoleOption(
-        startOptions.sourceConsole,
-        sourceEnabled
-      )
-
-      startOptions.sourceDom = normalizeSourceDomOption(
-        startOptions.sourceDom,
-        startOptions.watchSource
-      )
-
-      startOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
-        startOptions.sourceMaxBytes
-      )
-
-      startOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
-        startOptions.sourceIncludeShadow,
-        sourceEnabled
-      )
-
-      startOptions.sourceDiff = normalizeSourceDiffOption(
-        startOptions.sourceDiff,
-        startOptions.watchSource
-      )
 
       const {extensionBuild}: {extensionBuild: any} =
         loadExtensionDevelopModule()
