@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import {spawn, ChildProcess} from 'child_process'
+import {spawn, ChildProcess, type StdioOptions} from 'child_process'
 import * as os from 'os'
 
 type ChromiumLogger = {
@@ -68,7 +68,7 @@ export function resolveWslWindowsBinary(browser: string): string | null {
 export async function spawnChromiumProcess(opts: {
   binary: string
   launchArgs: string[]
-  stdio: 'ignore'
+  stdio: StdioOptions
   browser: string
   logger?: ChromiumLogger
 }): Promise<ChildProcess> {

@@ -88,7 +88,10 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--enable-features=SidePanelUpdates',
   // Disable the load extension command line switch
   // @ts-expect-error - this is a valid flag
-  '--disable-features=DisableLoadExtensionCommandLineSwitch'
+  '--disable-features=DisableLoadExtensionCommandLineSwitch',
+  // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
+  // Required since Chrome 126+ for reliable CDP extension operations
+  '--enable-unsafe-extension-debugging'
 ]
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -308,7 +311,8 @@ export function browserConfig(
     ...(sourceEnabled || devWantsCDP
       ? [
           `--remote-debugging-port=${cdpPort}`,
-          '--remote-debugging-address=127.0.0.1'
+          '--remote-debugging-address=127.0.0.1',
+          '--remote-debugging-pipe'
         ]
       : []),
     ...filteredFlags,
