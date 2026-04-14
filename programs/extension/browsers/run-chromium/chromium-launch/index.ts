@@ -571,10 +571,26 @@ export class ChromiumLaunchPlugin {
       return
     }
 
-    await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+    const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
+    const child = await this.launchWithDirectSpawn(
+      browserBinaryLocation,
+      chromiumConfig,
+      usePipe
+    )
 
-    // Verify the debug port is actually bound before proceeding
-    if (enableCdp) {
+    // Extract pipe streams for CDP transport (fds 3 & 4 from Chrome)
+    // child.stdio[3] = Writable (we write commands to Chrome)
+    // child.stdio[4] = Readable (Chrome writes responses to us)
+    const pipeStreams =
+      usePipe && child?.stdio?.[3] && child?.stdio?.[4]
+        ? {
+            input: child.stdio[4] as import('stream').Readable,
+            output: child.stdio[3] as import('stream').Writable
+          }
+        : undefined
+
+    // Verify the debug port is actually bound before proceeding (skip if using pipes)
+    if (enableCdp && !pipeStreams) {
       let portReady = false
       for (let attempt = 0; attempt < 10; attempt++) {
         portReady = await checkChromeRemoteDebugging(selectedPort)
@@ -656,7 +672,12 @@ export class ChromiumLaunchPlugin {
       // to avoid pulling in WS/CDP dependencies.
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
-        await mod.setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
+        await mod.setupCdpAfterLaunch(
+          compilation,
+          cdpConfig,
+          chromiumConfig,
+          pipeStreams
+        )
 
         if (cdpConfig.cdpController) {
           this.ctx.setController(
@@ -672,14 +693,24 @@ export class ChromiumLaunchPlugin {
     }
   }
 
-  private async launchWithDirectSpawn(binary: string, chromeFlags: string[]) {
+  private async launchWithDirectSpawn(
+    binary: string,
+    chromeFlags: string[],
+    usePipe: boolean = false
+  ) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       this.logger.info(messages.chromeInitializingEnhancedReload())
     }
     const launchArgs = this.options?.startingUrl
       ? [...chromeFlags, this.options.startingUrl]
       : [...chromeFlags]
-    const stdio = 'ignore'
+
+    // When using --remote-debugging-pipe, Chrome communicates via fds 3 & 4.
+    // stdio indices: 0=stdin, 1=stdout, 2=stderr, 3=pipe-write, 4=pipe-read
+    const stdio: import('child_process').StdioOptions = usePipe
+      ? ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']
+      : 'ignore'
+
     const normalizedBinary = normalizeBinaryPathForWsl(binary)
 
     try {
@@ -709,6 +740,8 @@ export class ChromiumLaunchPlugin {
       })
 
       setupProcessSignalHandlers(this.options?.browser, child, () => {})
+
+      return child
     } catch (error) {
       this.logger.error(messages.chromeFailedToSpawn(error))
       throw error

@@ -11,6 +11,12 @@ import {execFile as execFileCb} from 'child_process'
 
 const execFile = promisify(execFileCb)
 
+export function parseFlatpakBinary(binary: string): {appId: string} | null {
+  if (!binary || !binary.startsWith('flatpak:')) return null
+  const appId = binary.substring(8).trim()
+  return appId ? {appId} : null
+}
+
 export class FirefoxBinaryDetector {
   static generateFirefoxArgs(
     binaryPath: string,
@@ -18,6 +24,27 @@ export class FirefoxBinaryDetector {
     debugPort: number,
     additionalArgs: string[] = []
   ): {binary: string; args: string[]} {
+    // Flatpak: rewrite to `flatpak run` with sandbox filesystem access
+    const flatpak = parseFlatpakBinary(binaryPath)
+    if (flatpak) {
+      const args: string[] = [
+        'run',
+        `--filesystem=${profilePath}`,
+        flatpak.appId,
+        '--no-remote',
+        '--new-instance',
+        '-profile',
+        profilePath,
+        ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
+        '--foreground',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        ...additionalArgs
+      ]
+      return {binary: 'flatpak', args}
+    }
+
     const args: string[] = [
       '--no-remote',
       '--new-instance',
