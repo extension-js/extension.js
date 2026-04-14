@@ -293,7 +293,7 @@ export async function devServer(
   }
 
   const port = portAllocation.port
-  const devServerHost = '127.0.0.1'
+  const devServerHost = devOptions.host || '127.0.0.1'
   const devServerWebSocketURL = {
     protocol: 'ws',
     hostname: devServerHost,

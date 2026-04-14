@@ -213,4 +213,31 @@ describe('checkChromeRemoteDebugging', () => {
     const result = await checkChromeRemoteDebugging(port)
     expect(result).toBe(false)
   })
+
+  it('accepts a custom host parameter', async () => {
+    const server = net.createServer()
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+    const port = (server.address() as net.AddressInfo).port
+
+    try {
+      const result = await checkChromeRemoteDebugging(port, '127.0.0.1')
+      expect(result).toBe(true)
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()))
+    }
+  })
+
+  it('returns false when custom host does not match listening interface', async () => {
+    const server = net.createServer()
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+    const port = (server.address() as net.AddressInfo).port
+
+    try {
+      // Connecting to a non-routable address should fail
+      const result = await checkChromeRemoteDebugging(port, '192.0.2.1')
+      expect(result).toBe(false)
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()))
+    }
+  })
 })

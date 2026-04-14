@@ -202,3 +202,78 @@ describe('Chromium profile flags', () => {
     expect(fs.existsSync(customDir)).toBe(true)
   })
 })
+
+describe('Chromium container sandbox flags', () => {
+  const OLD_ENV = process.env
+  const OLD_PLATFORM = process.platform
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    process.env = {...OLD_ENV}
+    // Default to non-Linux so tests are explicit about platform
+    Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
+  })
+  afterEach(() => {
+    process.env = OLD_ENV
+    Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
+    try {
+      const distRoot = path.join(os.tmpdir(), 'project', 'dist')
+      fs.rmSync(distRoot, {recursive: true, force: true})
+    } catch {}
+  })
+
+  function flagsForEnv(envOverrides: Record<string, string | undefined> = {}) {
+    Object.defineProperty(process, 'platform', {value: 'linux'})
+    Object.assign(process.env, envOverrides)
+    return browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+  }
+
+  it('adds --no-sandbox when CI=true on Linux', () => {
+    const flags = flagsForEnv({CI: 'true'})
+    expect(flags).toContain('--no-sandbox')
+    expect(flags).toContain('--disable-setuid-sandbox')
+  })
+
+  it('adds --no-sandbox when REMOTE_CONTAINERS=true on Linux', () => {
+    const flags = flagsForEnv({REMOTE_CONTAINERS: 'true'})
+    expect(flags).toContain('--no-sandbox')
+  })
+
+  it('adds --no-sandbox when CODESPACES=true on Linux', () => {
+    const flags = flagsForEnv({CODESPACES: 'true'})
+    expect(flags).toContain('--no-sandbox')
+  })
+
+  it('adds --no-sandbox when container env var is set on Linux', () => {
+    const flags = flagsForEnv({container: 'podman'})
+    expect(flags).toContain('--no-sandbox')
+  })
+
+  it('does NOT add --no-sandbox on non-Linux even with CI=true', () => {
+    Object.defineProperty(process, 'platform', {value: 'darwin'})
+    process.env.CI = 'true'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(flags).not.toContain('--no-sandbox')
+  })
+
+  it('does NOT add --no-sandbox on Linux without container indicators', () => {
+    Object.defineProperty(process, 'platform', {value: 'linux'})
+    delete process.env.CI
+    delete process.env.REMOTE_CONTAINERS
+    delete process.env.CODESPACES
+    delete process.env.container
+    // Note: /.dockerenv and /run/.containerenv don't exist on standard test
+    // hosts, so the fs.existsSync checks naturally return false here.
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(flags).not.toContain('--no-sandbox')
+  })
+})

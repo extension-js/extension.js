@@ -22,12 +22,12 @@ export class RdpTransport extends EventEmitter {
   private active = new Map<string, Deferred>()
   private pending: Array<{to: string; payload: any; deferred: Deferred}> = []
 
-  async connect(port: number): Promise<void> {
+  async connect(port: number, host: string = '127.0.0.1'): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       try {
-        const c = net.createConnection({host: '127.0.0.1', port}, () => {
+        const c = net.createConnection({host, port}, () => {
           if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-            console.log(messages.firefoxRdpClientConnected('127.0.0.1', port))
+            console.log(messages.firefoxRdpClientConnected(host, port))
           }
           resolve()
         })
