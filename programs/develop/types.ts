@@ -126,6 +126,12 @@ export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
+  host?: string
   install?: boolean
   /**
    * Companion extensions (load-only) for this command.
@@ -232,6 +238,12 @@ export interface PreviewOptions extends BrowserOptionsBase {
   dryRun?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
+  host?: string
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
@@ -284,6 +296,12 @@ export interface StartOptions extends BrowserOptionsBase {
   noBrowser?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
+  host?: string
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
@@ -414,6 +432,7 @@ export interface FileConfig {
       | 'polyfill'
       | 'noBrowser'
       | 'port'
+      | 'host'
       | 'source'
       | 'watchSource'
       | 'logLevel'
@@ -440,6 +459,7 @@ export interface FileConfig {
       | 'geckoBinary'
       | 'noBrowser'
       | 'port'
+      | 'host'
       | 'source'
       | 'watchSource'
       | 'logLevel'

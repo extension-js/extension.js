@@ -22,14 +22,17 @@ function isRecoverableBootstrapError(error: unknown): boolean {
   )
 }
 
-export async function connectToChromeCdp(cdpPort: number): Promise<CDPClient> {
+export async function connectToChromeCdp(
+  cdpPort: number,
+  cdpHost: string = '127.0.0.1'
+): Promise<CDPClient> {
   // Wait until Chrome opens the debugging port
   let retries = 0
   const maxRetries = 60
   const backoffMs = 250
 
   while (retries < maxRetries) {
-    const ready = await checkChromeRemoteDebugging(cdpPort)
+    const ready = await checkChromeRemoteDebugging(cdpPort, cdpHost)
     if (ready) break
 
     retries++
@@ -41,7 +44,7 @@ export async function connectToChromeCdp(cdpPort: number): Promise<CDPClient> {
   let lastError: unknown = null
 
   for (let attempt = 1; attempt <= maxBootstrapAttempts; attempt++) {
-    const cdp = new CDPClient(cdpPort, '127.0.0.1')
+    const cdp = new CDPClient(cdpPort, cdpHost)
 
     try {
       await cdp.connect()
