@@ -34,7 +34,7 @@ import {setupFirefoxProcessHandlers} from './process-handlers'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
 import {browserConfig} from './browser-config'
-import {FirefoxBinaryDetector} from './binary-detector'
+import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
@@ -248,11 +248,17 @@ export class FirefoxLaunchPlugin {
     // Detect Firefox binary via firefox-location2
     try {
       if (this.host.geckoBinary && typeof this.host.geckoBinary === 'string') {
-        const normalized = normalizePath(this.host.geckoBinary)
-        if (normalized) {
-          browserBinaryLocation = normalized
+        // Flatpak: "flatpak:org.mozilla.firefox" is not a filesystem path
+        if (parseFlatpakBinary(this.host.geckoBinary)) {
+          browserBinaryLocation = this.host.geckoBinary
+          skipDetection = true
         } else {
-          failGeckoBinaryRequirement()
+          const normalized = normalizePath(this.host.geckoBinary)
+          if (normalized) {
+            browserBinaryLocation = normalized
+          } else {
+            failGeckoBinaryRequirement()
+          }
         }
       } else if (!skipDetection) {
         if (engineBased) {
@@ -274,10 +280,12 @@ export class FirefoxLaunchPlugin {
       failGeckoBinaryRequirement()
     }
 
+    const isFlatpak = !!parseFlatpakBinary(browserBinaryLocation || '')
     if (
-      !browserBinaryLocation ||
-      !browserBinaryLocation.trim() ||
-      !fs.existsSync(browserBinaryLocation)
+      !isFlatpak &&
+      (!browserBinaryLocation ||
+        !browserBinaryLocation.trim() ||
+        !fs.existsSync(browserBinaryLocation))
     ) {
       const normalizedFallback = resolveManagedBinary()
       if (normalizedFallback) {
@@ -302,18 +310,21 @@ export class FirefoxLaunchPlugin {
     const wslFallbackBinary =
       isWslEnv() && !engineBased ? resolveWslFallback() : null
 
-    try {
-      this.host.browserVersionLine =
-        getFirefoxVersion(binaryPath, {allowExec: true}) || ''
-    } catch {
-      // best-effort only; banner will fall back to generic browser label
-    }
+    // Flatpak binaries can't be validated or version-checked directly
+    if (!isFlatpak) {
+      try {
+        this.host.browserVersionLine =
+          getFirefoxVersion(binaryPath, {allowExec: true}) || ''
+      } catch {
+        // best-effort only; banner will fall back to generic browser label
+      }
 
-    // Optional: validate binary to obtain version (diagnostics)
-    try {
-      await FirefoxBinaryDetector.validateFirefoxBinary(binaryPath)
-    } catch {
-      // ignore
+      // Optional: validate binary to obtain version (diagnostics)
+      try {
+        await FirefoxBinaryDetector.validateFirefoxBinary(binaryPath)
+      } catch {
+        // ignore
+      }
     }
 
     // Prepare extension(s)

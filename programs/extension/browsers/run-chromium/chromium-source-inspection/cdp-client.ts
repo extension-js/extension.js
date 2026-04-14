@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Readable, Writable} from 'stream'
 import WebSocket from 'ws'
 import * as messages from '../../browsers-lib/messages'
 import {
@@ -35,7 +36,11 @@ import {establishBrowserConnection} from './ws'
 export class CDPClient {
   private port: number
   private host: string
+  private transport: 'websocket' | 'pipe' = 'websocket'
   private ws: WebSocket | null = null
+  private pipeIn: Readable | null = null
+  private pipeOut: Writable | null = null
+  private pipeBuffer: Buffer = Buffer.alloc(0)
   private targetWebSocketUrl: string | null = null
   private eventCallbacks = new Set<(message: Record<string, unknown>) => void>()
   private messageId = 0
@@ -97,6 +102,7 @@ export class CDPClient {
           }
         )
 
+        this.transport = 'websocket'
         this.startHeartbeat()
 
         if (this.isDev()) {
@@ -111,8 +117,67 @@ export class CDPClient {
     })
   }
 
+  async connectViaPipe(input: Readable, output: Writable): Promise<void> {
+    this.transport = 'pipe'
+    this.pipeIn = input
+    this.pipeOut = output
+    this.pipeBuffer = Buffer.alloc(0)
+
+    input.on('data', (chunk: Buffer) => {
+      this.pipeBuffer = Buffer.concat([this.pipeBuffer, chunk])
+      let idx: number
+
+      while ((idx = this.pipeBuffer.indexOf(0)) !== -1) {
+        const msg = this.pipeBuffer.subarray(0, idx).toString('utf-8')
+        this.pipeBuffer = this.pipeBuffer.subarray(idx + 1)
+        this.handleMessage(msg)
+      }
+    })
+
+    input.on('error', (error: Error) => {
+      if (this.isDev()) {
+        console.error(`[CDP] Pipe read error: ${error.message}`)
+      }
+      this.rejectAllPending('CDP pipe read error')
+    })
+
+    input.on('close', () => {
+      if (this.isDev()) console.log('[CDP] Pipe closed')
+      this.rejectAllPending('CDP pipe closed')
+      this.pipeIn = null
+    })
+
+    this.startHeartbeat()
+
+    if (this.isDev()) {
+      console.log(messages.cdpClientConnected(this.host, this.port))
+    }
+  }
+
+  private rejectAllPending(reason: string) {
+    this.pendingRequests.forEach(({reject, timeout}, id) => {
+      try {
+        reject(new Error(reason))
+      } catch {
+        // ignore
+      }
+      if (timeout) clearTimeout(timeout)
+      this.pendingRequests.delete(id)
+    })
+  }
+
   disconnect() {
     this.stopHeartbeat()
+    if (this.transport === 'pipe') {
+      try {
+        this.pipeIn?.removeAllListeners()
+        this.pipeOut?.end()
+      } catch {
+        // ignore
+      }
+      this.pipeIn = null
+      this.pipeOut = null
+    }
     if (this.ws) {
       try {
         this.ws.close()
@@ -153,6 +218,14 @@ export class CDPClient {
   }
 
   isConnected(): boolean {
+    if (this.transport === 'pipe') {
+      return (
+        !!this.pipeIn &&
+        !this.pipeIn.destroyed &&
+        !!this.pipeOut &&
+        !this.pipeOut.destroyed
+      )
+    }
     return !!this.ws && this.ws.readyState === WebSocket.OPEN
   }
 
@@ -220,8 +293,8 @@ export class CDPClient {
     timeoutMs: number = CDP_COMMAND_TIMEOUT_MS
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        return reject(new Error('WebSocket is not open'))
+      if (!this.isConnected()) {
+        return reject(new Error('CDP transport is not open'))
       }
 
       const id = ++this.messageId
@@ -245,7 +318,13 @@ export class CDPClient {
         }, timeoutMs)
 
         this.pendingRequests.set(id, {resolve, reject, timeout, method})
-        this.ws.send(JSON.stringify(message))
+
+        const data = JSON.stringify(message)
+        if (this.transport === 'pipe' && this.pipeOut) {
+          this.pipeOut.write(data + '\0')
+        } else if (this.ws) {
+          this.ws.send(data)
+        }
       } catch (error) {
         const pending = this.pendingRequests.get(id)
 
