@@ -147,7 +147,7 @@ describe('CDPClient.sendCommand', () => {
     mockWs.readyState = WebSocket.CLOSED
 
     await expect(client.sendCommand('Target.getTargets')).rejects.toThrow(
-      'WebSocket is not open'
+      'CDP transport is not open'
     )
   })
 
