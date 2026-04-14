@@ -100,7 +100,8 @@ export async function discoverWebSocketDebuggerUrl(
 }
 
 export async function checkChromeRemoteDebugging(
-  port: number = 9222
+  port: number = 9222,
+  host: string = '127.0.0.1'
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket()
@@ -120,6 +121,6 @@ export async function checkChromeRemoteDebugging(
     })
 
     socket.setTimeout(2000)
-    socket.connect(port, 'localhost')
+    socket.connect(port, host)
   })
 }

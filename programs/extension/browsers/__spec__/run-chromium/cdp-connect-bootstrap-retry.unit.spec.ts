@@ -71,4 +71,24 @@ describe('connectToChromeCdp', () => {
     )
     expect(mocks.connectMock).toHaveBeenCalledTimes(1)
   })
+
+  it('forwards custom host to CDPClient and checkChromeRemoteDebugging', async () => {
+    await connectToChromeCdp(9222, '0.0.0.0')
+
+    expect(mocks.checkChromeRemoteDebuggingMock).toHaveBeenCalledWith(
+      9222,
+      '0.0.0.0'
+    )
+    expect(mocks.cdpCtorMock).toHaveBeenCalledWith(9222, '0.0.0.0')
+  })
+
+  it('defaults host to 127.0.0.1 when not specified', async () => {
+    await connectToChromeCdp(9222)
+
+    expect(mocks.checkChromeRemoteDebuggingMock).toHaveBeenCalledWith(
+      9222,
+      '127.0.0.1'
+    )
+    expect(mocks.cdpCtorMock).toHaveBeenCalledWith(9222, '127.0.0.1')
+  })
 })
