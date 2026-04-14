@@ -162,7 +162,8 @@ ${'Common Options'}
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
 - ${code('--format')} ${arg('<pretty|json>')}          Output format for ${code('--ai-help')} (default: pretty)
 - ${code('--help')}                                    Show help output
-- ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080)
+- ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080; use 0 for OS-assigned)
+- ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1; use 0.0.0.0 for Docker/devcontainers)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
@@ -188,6 +189,7 @@ ${'Source Inspection (dev command)'}
 ${'Browser-Specific Options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
 - ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
+  Use ${code('flatpak:org.mozilla.firefox')} as the path to launch a Flatpak-installed Firefox
 
 ${'Build Options'}
 - ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension
@@ -381,12 +383,24 @@ ${'Troubleshooting'}
 - If HTML is not printed, ensure ${code('--source')} is provided and browser launched with debugging port.
 - Use ${code('--silent true')} during builds to reduce noise; logs still surface errors.
 - When ports conflict, pass ${code('--port 0')} to auto-select an available port.
+- In Docker/devcontainers, pass ${code('--host 0.0.0.0')} so the dev server is reachable from the host.
 
 ${'Non-Interactive / Auto Mode (CI)'}
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
   Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
   Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --source ${arg('https://example.com')}
 - Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback (defaults to auto-exit + 4000).
+
+${'Docker / Devcontainers / Codespaces'}
+- Use ${code('--host 0.0.0.0')} to bind the dev server on all interfaces so HMR is reachable from the host.
+- Use ${code('--no-browser')} inside the container and load the extension manually from ${code('dist/<browser>/')} in your host browser.
+- Chromium sandbox flags (${code('--no-sandbox')}) are added automatically when Docker, Podman, devcontainers, or Codespaces are detected.
+- File watching uses polling by default (1 s interval), which works across bind-mounted volumes.
+- Example: ${code('extension dev ./my-ext --host 0.0.0.0 --no-browser --port 8080')}
+
+${'Flatpak Firefox'}
+- Use ${code('--gecko-binary flatpak:org.mozilla.firefox')} (or ${code('--firefox-binary')}) to launch a Flatpak-installed Firefox.
+- Extension.js rewrites the binary path to ${code('flatpak run')} with the correct filesystem grants automatically.
 
 ${'Cross-Browser Compatibility'}
 - Use ${code('--polyfill')} flag to enable webextension-polyfill
@@ -409,7 +423,7 @@ export type ProgramAIHelpJSON = {
     supportsSourceInspection: boolean
   }>
   globalOptions: Array<{
-    name: '--ai-help' | '--format' | '--no-telemetry'
+    name: string
     values?: string[]
     default?: string
     description: string
@@ -429,6 +443,11 @@ export type ProgramAIHelpJSON = {
       enforcement: string
       trigger: string
       action: string
+    }
+    dockerAndContainers: {
+      hostFlag: string
+      sandboxDetection: string[]
+      notes: string[]
     }
   }
   examples: string[]
@@ -488,6 +507,32 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       {
         name: '--no-telemetry',
         description: 'Disable anonymous telemetry for this run'
+      },
+      {
+        name: '--browser',
+        values: [
+          'chrome',
+          'edge',
+          'firefox',
+          'chromium',
+          'chromium-based',
+          'gecko-based',
+          'firefox-based'
+        ],
+        default: 'chromium',
+        description: 'Target browser/engine'
+      },
+      {
+        name: '--port',
+        default: '8080',
+        description:
+          'Development server port (use 0 for OS-assigned available port)'
+      },
+      {
+        name: '--host',
+        default: '127.0.0.1',
+        description:
+          'Dev server host address (use 0.0.0.0 for Docker/devcontainers)'
       }
     ],
     capabilities: {
@@ -519,6 +564,21 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         trigger:
           'when managed packages are declared in package.json and referenced in extension.config',
         action: 'print an error and abort'
+      },
+      dockerAndContainers: {
+        hostFlag: '--host 0.0.0.0 binds the dev server to all interfaces',
+        sandboxDetection: [
+          '/.dockerenv',
+          '/run/.containerenv',
+          'REMOTE_CONTAINERS=true',
+          'CODESPACES=true',
+          'container env var'
+        ],
+        notes: [
+          'Use --no-browser inside the container and load dist/<browser>/ in the host browser',
+          'File watching uses polling (1s interval) for bind-mount compatibility',
+          '--no-sandbox is added automatically when a container environment is detected'
+        ]
       }
     },
     examples: [
@@ -526,8 +586,10 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       'extension --ai-help --format json',
       'extension dev ./my-ext --source https://example.com --source-format json',
       'extension dev ./my-ext --logs=info --log-format=json',
+      'extension dev ./my-ext --host 0.0.0.0 --no-browser',
       'extension dev ./my-ext --wait --browser=chromium --wait-format=json',
       'extension start ./my-ext --wait --browser=chromium --wait-format=json',
+      'extension dev ./my-ext --gecko-binary flatpak:org.mozilla.firefox',
       'extension install chromium',
       'extension install --where',
       'extension uninstall --where',
