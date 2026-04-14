@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import type {Readable, Writable} from 'stream'
 import * as messages from '../../../browsers-lib/messages'
 import {
   type ContentScriptTargetRule,
@@ -17,7 +18,7 @@ import {
 import {getCanonicalContentScriptEntryName} from '../../../browsers-lib/content-script-contracts'
 import {CDPClient} from '../cdp-client'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
-import {connectToChromeCdp} from './connect'
+import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {readManifestInfo} from './ensure'
 import {registerAutoEnableLogging} from './logging'
 
@@ -35,6 +36,8 @@ export class CDPExtensionController {
   private readonly cdpPort: number
   private readonly profilePath?: string
   private readonly extensionPaths?: string[]
+  private readonly pipeIn?: Readable
+  private readonly pipeOut?: Writable
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
   private lastRuntimeReinjectionReport: Record<string, unknown> | null = null
@@ -45,12 +48,16 @@ export class CDPExtensionController {
     cdpPort: number
     profilePath?: string
     extensionPaths?: string[]
+    pipeIn?: Readable
+    pipeOut?: Writable
   }) {
     this.outPath = args.outPath
     this.browser = args.browser
     this.cdpPort = args.cdpPort
     this.profilePath = args.profilePath
     this.extensionPaths = args.extensionPaths
+    this.pipeIn = args.pipeIn
+    this.pipeOut = args.pipeOut
   }
 
   async connect(): Promise<void> {
@@ -65,7 +72,20 @@ export class CDPExtensionController {
     const exists = fs.existsSync(this.outPath)
     if (!exists) throw new Error(`Output path not found: ${this.outPath}`)
 
-    // 1) Prefer deriving extensionId from Chrome targets (works when launched with --load-extension)
+    // CDP-first strategy: try Extensions.loadUnpacked (Chrome 126+ with
+    // --enable-unsafe-extension-debugging), then fall back to target derivation
+    // for older Chrome or when the CDP domain isn't available.
+    if (!this.extensionId) {
+      try {
+        const {loadUnpackedIfNeeded} = await import('./ensure')
+        const cdpId = await loadUnpackedIfNeeded(this.cdp, this.outPath)
+        if (cdpId) this.extensionId = cdpId
+      } catch {
+        // Extensions.loadUnpacked not supported — fall through to target derivation
+      }
+    }
+
+    // Fallback: derive extensionId from Chrome targets (--load-extension path)
     if (!this.extensionId) {
       const id = await this.deriveExtensionIdFromTargets()
       if (id) this.extensionId = id
@@ -117,10 +137,7 @@ export class CDPExtensionController {
     }
 
     try {
-      // 2) If still unknown, derive again from targets with a longer wait.
-      // Chromium is already launched with --load-extension, so calling
-      // Extensions.loadUnpacked here can relocate or disable the unpacked
-      // extension in fresh profiles before developer mode settles.
+      // If still unknown, derive from targets with a longer wait.
       if (!this.extensionId) {
         this.extensionId = await this.deriveExtensionIdFromTargets(20, 200)
       }
@@ -664,8 +681,17 @@ export class CDPExtensionController {
   }
 
   private async connectFreshClient(): Promise<void> {
-    // Use helper to wait for port, connect, and set auto-attach
-    this.cdp = await connectToChromeCdp(this.cdpPort)
+    // Prefer pipe transport (--remote-debugging-pipe) when available;
+    // fall back to WebSocket via --remote-debugging-port.
+    if (this.pipeIn && this.pipeOut && !this.pipeIn.destroyed) {
+      this.cdp = await connectToChromeCdpViaPipe(
+        this.pipeIn,
+        this.pipeOut,
+        this.cdpPort
+      )
+    } else {
+      this.cdp = await connectToChromeCdp(this.cdpPort)
+    }
 
     // Proactively enable auto-attach and capture extensionId from service worker targets as soon as they appear
     try {
