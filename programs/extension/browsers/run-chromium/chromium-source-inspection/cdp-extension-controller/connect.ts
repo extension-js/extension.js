@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as messages from '../../../browsers-lib/messages'
+import type {Readable, Writable} from 'stream'
 import {CDPClient} from '../cdp-client'
 import {checkChromeRemoteDebugging} from '../discovery'
 
@@ -15,11 +15,38 @@ function isRecoverableBootstrapError(error: unknown): boolean {
   return (
     msg.includes('econnreset') ||
     msg.includes('websocket is not open') ||
+    msg.includes('cdp transport is not open') ||
     msg.includes('cdp connection closed') ||
+    msg.includes('cdp pipe closed') ||
     msg.includes('socket hang up') ||
     msg.includes('timed out') ||
     msg.includes('no cdp websocket url')
   )
+}
+
+export async function connectToChromeCdpViaPipe(
+  pipeIn: Readable,
+  pipeOut: Writable,
+  cdpPort: number = 0,
+  cdpHost: string = '127.0.0.1'
+): Promise<CDPClient> {
+  const cdp = new CDPClient(cdpPort, cdpHost)
+
+  try {
+    await cdp.connectViaPipe(pipeIn, pipeOut)
+
+    await cdp.sendCommand('Target.setDiscoverTargets', {discover: true})
+    await cdp.sendCommand('Target.setAutoAttach', {
+      autoAttach: true,
+      waitForDebuggerOnStart: false,
+      flatten: true
+    })
+
+    return cdp
+  } catch (error: unknown) {
+    cdp.disconnect()
+    throw error
+  }
 }
 
 export async function connectToChromeCdp(
