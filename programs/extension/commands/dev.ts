@@ -114,6 +114,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
       'specify the port to use for the development server. Defaults to `8080`'
     )
     .option(
+      '--host <host>',
+      'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers. Defaults to `127.0.0.1`'
+    )
+    .option(
       '--log-context <list>',
       '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
     )
