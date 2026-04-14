@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Readable, Writable} from 'stream'
 import type {CompilationLike} from '../../browsers-types'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
@@ -20,7 +21,8 @@ import {getExtensionOutputPath} from './extension-output-path'
 export async function setupCdpAfterLaunch(
   compilation: CompilationLike | undefined,
   plugin: ChromiumPluginRuntime,
-  chromiumArgs: string[]
+  chromiumArgs: string[],
+  pipeStreams?: {input: Readable; output: Writable}
 ): Promise<void> {
   // Try to find the --load-extension flag for getting the user extension's output path
   const loadExtensionFlag = chromiumArgs.find((flag: string) =>
@@ -81,7 +83,9 @@ export async function setupCdpAfterLaunch(
       : plugin.browser) as 'chrome' | 'edge' | 'chromium-based',
     cdpPort: chromeRemoteDebugPort,
     profilePath: userDataDir || undefined,
-    extensionPaths: selectedExtensionPaths
+    extensionPaths: selectedExtensionPaths,
+    pipeIn: pipeStreams?.input,
+    pipeOut: pipeStreams?.output
   })
 
   // connectToChromeCdp already performs bounded startup retries internally.

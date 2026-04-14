@@ -19,7 +19,7 @@ describe('CDPExtensionController ensureLoaded', () => {
     }
   })
 
-  it('skips loadUnpacked when user extension path is already preloaded', async () => {
+  it('tries CDP-first loadUnpacked, then falls back to target derivation', async () => {
     const outPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'ext-cdp-controller-')
     )
@@ -44,7 +44,10 @@ describe('CDPExtensionController ensureLoaded', () => {
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => ({
         extensionInfo: {name: 'User Extension', version: '1.0.0'}
-      }))
+      })),
+      sendCommand: vi.fn(async () => {
+        throw new Error("'Extensions.loadUnpacked' wasn't found")
+      })
     }
     controller.deriveExtensionIdFromTargets = vi
       .fn()
@@ -57,7 +60,8 @@ describe('CDPExtensionController ensureLoaded', () => {
     const info = await controller.ensureLoaded()
 
     expect(info.extensionId).toBe('userid')
-    expect(loadUnpackedSpy).not.toHaveBeenCalled()
+    // CDP-first: loadUnpacked is always attempted before target derivation
+    expect(loadUnpackedSpy).toHaveBeenCalled()
   })
 
   it('drops mismatched derived extension id and re-derives user id from profile', async () => {

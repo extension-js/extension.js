@@ -84,6 +84,7 @@ export type DefaultBrowserFlags =
   | '--disable-features=DialMediaRouteProvider' // Disable the MediaRouter feature (lighter version)
   | '--no-pings' // Don't send hyperlink auditing pings
   | '--enable-features=SidePanelUpdates' // Ensure the side panel is visible for testing
+  | '--enable-unsafe-extension-debugging' // Allow CDP-based extension management (Chrome 126+)
 
 /**
  * Options for the browser plugin.
