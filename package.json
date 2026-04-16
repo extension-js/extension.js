@@ -16,7 +16,8 @@
       "immutable": "^5.1.5",
       "undici": "^7.24.0",
       "yauzl": "^3.2.1",
-      "vite": "^8.0.5"
+      "vite": "^8.0.5",
+      "follow-redirects": "^1.16.0"
     }
   },
   "scripts": {
