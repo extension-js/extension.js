@@ -11,8 +11,6 @@ import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {collectProjectProfile} from '../helpers/project-profile'
-import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {vendors, validateVendorsOrExit, type Browser} from '../helpers/vendors'
 import {
   parseExtensionsList,
@@ -38,7 +36,7 @@ type PreviewOptions = {
   authorMode?: boolean
 }
 
-export function registerPreviewCommand(program: Command, telemetry: any) {
+export function registerPreviewCommand(program: Command) {
   program
     .command('preview')
     .arguments('[project-name]')
@@ -112,42 +110,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
 
-      const cmdStart = Date.now()
       const list = vendors(browser)
-      const isRemoteInput =
-        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
-      const projectProfile = collectProjectProfile(
-        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
-      )
-      const workflowProfile = collectWorkflowProfile({
-        command: 'preview',
-        isMultiBrowser: list.length > 1,
-        isRemoteInput: isRemoteInput,
-        isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        usesMachineReadableOutput:
-          previewOptions.logFormat === 'json' ||
-          previewOptions.logFormat === 'ndjson',
-        companionExtensionsProvided: Boolean(previewOptions.extensions),
-        packageManager: projectProfile?.package_manager,
-        frameworkPrimary: projectProfile?.framework_primary,
-        hasNextDependency: projectProfile?.has_next_dependency,
-        hasTurboDependency: projectProfile?.has_turbo_dependency
-      })
-
-      telemetry.track('workflow_profile', {
-        command: 'preview',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'preview',
-        vendors: list,
-        browser_count: list.length,
-        is_multi_browser: list.length > 1,
-        is_remote_input: isRemoteInput,
-        is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        companion_extensions_provided: Boolean(previewOptions.extensions),
-        ...workflowProfile
-      })
 
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
@@ -165,9 +128,6 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         loadExtensionDevelopPreviewModule()
 
       for (const vendor of list) {
-        const vendorStart = Date.now()
-        telemetry.track('cli_vendor_start', {command: 'preview', vendor})
-
         const logsOption = (previewOptions as unknown as {logs?: string}).logs
         const logContextOption = (
           previewOptions as unknown as {logContext?: string}
@@ -199,19 +159,6 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           // without pulling rspack into the preview path
           (opts: any) => runOnlyPreviewBrowser(opts)
         )
-        telemetry.track('cli_vendor_finish', {
-          command: 'preview',
-          vendor,
-          duration_ms: Date.now() - vendorStart
-        })
       }
-
-      telemetry.track('cli_command_finish', {
-        command: 'preview',
-        duration_ms: Date.now() - cmdStart,
-        success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0,
-        ...workflowProfile
-      })
     })
 }

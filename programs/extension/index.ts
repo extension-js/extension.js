@@ -12,7 +12,7 @@ import {program} from 'commander'
 import checkUpdates from './helpers/check-updates'
 import * as messages from './helpers/messages'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
-import {telemetry} from './helpers/telemetry-cli'
+import {markCommandSuccess, markCommandFailure} from './helpers/telemetry-cli'
 import {getCliPackageJson} from './helpers/cli-package-json'
 
 import {registerCreateCommand} from './commands/create'
@@ -21,6 +21,7 @@ import {registerStartCommand} from './commands/start'
 import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
 import {registerInstallCommand} from './commands/install'
+import {registerTelemetryCommand} from './commands/telemetry'
 
 const cliPackageJson = getCliPackageJson()
 
@@ -176,12 +177,13 @@ extensionJs
   .showHelpAfterError(true)
   .showSuggestionAfterError(true)
 
-registerCreateCommand(extensionJs, telemetry)
-registerDevCommand(extensionJs, telemetry)
-registerStartCommand(extensionJs, telemetry)
-registerPreviewCommand(extensionJs, telemetry)
-registerBuildCommand(extensionJs, telemetry)
-registerInstallCommand(extensionJs, telemetry)
+registerCreateCommand(extensionJs)
+registerDevCommand(extensionJs)
+registerStartCommand(extensionJs)
+registerPreviewCommand(extensionJs)
+registerBuildCommand(extensionJs)
+registerInstallCommand(extensionJs)
+registerTelemetryCommand(extensionJs)
 
 extensionJs.on('option:ai-help', function () {
   const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()
@@ -219,8 +221,14 @@ const argv = applyNoBrowserArgvShim(process.argv)
 guardSourceInspectionFlags(argv)
 guardSourceWithWaitOrNoBrowser(argv)
 
-extensionJs.parseAsync(argv).catch((err: unknown) => {
-  // eslint-disable-next-line no-console
-  console.error(messages.unhandledError(err))
-  process.exit(1)
-})
+extensionJs
+  .parseAsync(argv)
+  .then(() => {
+    markCommandSuccess()
+  })
+  .catch((err: unknown) => {
+    markCommandFailure()
+    // eslint-disable-next-line no-console
+    console.error(messages.unhandledError(err))
+    process.exit(1)
+  })
