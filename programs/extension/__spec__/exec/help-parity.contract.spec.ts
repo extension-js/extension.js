@@ -10,6 +10,7 @@ import {registerStartCommand} from '../../commands/start'
 import {registerPreviewCommand} from '../../commands/preview'
 import {registerBuildCommand} from '../../commands/build'
 import {registerInstallCommand} from '../../commands/install'
+import {registerTelemetryCommand} from '../../commands/telemetry'
 
 function stripAnsi(input: string): string {
   return input.replace(/\u001b\[[0-9;]*m/g, '')
@@ -26,15 +27,15 @@ function cliBin(): string {
 }
 
 function buildProgramForInspection() {
-  const telemetry = {track: () => {}}
   const program = new Command()
 
-  registerCreateCommand(program, telemetry)
-  registerDevCommand(program, telemetry)
-  registerStartCommand(program, telemetry)
-  registerPreviewCommand(program, telemetry)
-  registerBuildCommand(program, telemetry)
-  registerInstallCommand(program, telemetry)
+  registerCreateCommand(program)
+  registerDevCommand(program)
+  registerStartCommand(program)
+  registerPreviewCommand(program)
+  registerBuildCommand(program)
+  registerInstallCommand(program)
+  registerTelemetryCommand(program)
 
   return program
 }
@@ -71,6 +72,7 @@ describe('CLI help parity contract', () => {
       'install',
       'preview',
       'start',
+      'telemetry',
       'uninstall'
     ])
   })

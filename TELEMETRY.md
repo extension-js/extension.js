@@ -1,87 +1,72 @@
 # Telemetry
 
-Extension.js collects anonymous, privacy-friendly telemetry to help guiding the project development. No personal or sensitive data is ever collected.
+Extension.js collects a tiny amount of anonymous telemetry to understand which commands are used and which fail. No source code, file paths, URLs, or project content is ever collected.
 
-- Minimal by design
-- Used to guide product improvements
-- Public, live dashboard (aggregate-only): https://us.posthog.com/shared/8E-cwAmEUCyxpSB6yePkc5HRN1SgLg
+- Two events total: `command_executed` and `command_failed`
+- Three properties: `command`, `success`, `version`
+- Opt-out, with notice on first run
+- Sampled and capped to stay well inside the PostHog free tier
 
 ## What is collected
 
-From the CLI and build steps only (never your source code):
+Per CLI run, at most one of:
 
-- CLI lifecycle: `cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_error`
-- Manifest statistics (privacy-safe counts): `manifest_summary`
-- Project profile (privacy-safe, coarse only): `project_profile`
-- Workflow cohort (run-level intent model): `workflow_profile`
-- Build metrics: `cli_build_summary` (total assets, bytes, largest asset bytes, warnings/errors counts)
-- Common properties: `app`, `version`, `os`, `arch`, `node`, `is_ci`, `schema_version`
+| event              | sampled                           | properties                     |
+| ------------------ | --------------------------------- | ------------------------------ |
+| `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
+| `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version` |
 
-## Privacy-safe profile data
-
-When available, Extension.js may send coarse project-shape signals that help us understand feature demand without identifying a person, repository, or company:
-
-- Package manager: `npm`, `pnpm`, `yarn`, `bun`, or `unknown`
-- Framework family: `react`, `preact`, `vue`, `svelte`, `solid`, `angular`, or `unknown`
-- Booleans only for broad ecosystem signals such as `has_typescript`, `is_monorepo`, `has_next_dependency`, `has_turbo_dependency`
-- Manifest surface buckets such as `action_popup`, `content_scripts`, `devtools`, `background_only`, or `multi_surface`
-- Permission count buckets instead of raw permission lists
-
-Command telemetry may also include coarse workflow flags such as:
-
-- `browser_count` / `is_multi_browser`
-- `is_wait_mode`
-- `is_no_browser_mode`
-- `is_remote_input`
-- `zip` / `zip_source` / `artifact_kind`
-
-## Workflow cohorts
-
-To keep investor and product reporting simple, Extension.js also emits a normalized `workflow_profile` event with one cohort field:
-
-- `local_only`: local iteration without strong release or automation signals
-- `shipping`: release-oriented behavior such as production commands, artifact output, or multi-browser packaging
-- `automation_heavy`: machine-oriented behavior such as wait-mode, no-browser workflows, or machine-readable output
-
-The event also includes:
-
-- `workflow_cohort`
-- `has_shipping_intent`
-- `has_automation_intent`
-- `shipping_signal_count`
-- `automation_signal_count`
-- `primary_workflow_signal`
-- `package_manager`
-- `framework_primary`
-- `has_next_dependency`
-- `has_turbo_dependency`
-
-This model is intentionally coarse. It is designed for aggregate product questions, not for identifying specific users or projects.
-
-Never collected: file paths, URLs, repo names, env variables, or any PII.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`. Nothing else.
 
 ## Explicitly never collected
 
-To keep telemetry privacy-safe, Extension.js does not collect:
-
-- Source code, manifest contents, HTML output, or package.json contents
-- Repo names, Git remotes, GitHub orgs/users, branch names, commit SHAs, or preview URLs
-- Raw dependency lists, raw permission lists, or freeform project identifiers
+- Source code, manifest contents, HTML output, or `package.json` contents
+- Repo names, git remotes, branch names, commit SHAs, preview URLs
+- Dependency lists, permission lists, or freeform project identifiers
 - Environment variable values, filesystem paths, or machine-local URLs
-- IP addresses (`$ip` is explicitly disabled in the telemetry payload)
+- Stack traces, error messages, or free-text error names
+- IP addresses (`$ip` is explicitly set to `null` on every payload)
 
-This telemetry contract applies to Extension.js CLI/build telemetry. It does not describe future hosted product analytics outside this repository.
+## Volume controls
+
+Three independent controls, all combined:
+
+- **Sampling** — `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 – 1.0). Failures are never sampled.
+- **Per-run cap** — at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
+- **Debounce** — duplicate `(event, command, success)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
+
+All three together mean a normal day of CLI usage sits comfortably under the PostHog free tier (1M events / month).
 
 ## Opting out
 
-Telemetry is opt-out via CLI flag only:
+Three ways, in precedence order:
 
 ```bash
-# Disable for a single run
+# 1. Environment variable (wins over everything else)
+EXTENSION_TELEMETRY_DISABLED=1 extension dev   # Next.js-style, preferred
+EXTENSION_TELEMETRY=0 extension dev            # back-compat, also honored
+
+# 2. Per-run flag
 extension dev --no-telemetry
+
+# 3. Persistent consent file
+extension telemetry disable
+extension telemetry enable
+extension telemetry             # no arg = show status
+extension telemetry status
 ```
 
-Telemetry is enabled by default, including CI environments.
+The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent) and is the only piece of telemetry state persisted on disk besides the anonymous install id and a local audit log of events actually sent.
+
+## Default behavior
+
+Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it and records an `enabled` consent marker so the notice does not repeat.
+
+CI environments are respected the same way as local runs — `EXTENSION_TELEMETRY=0` in your CI env turns it off across the board.
+
+## Local audit log
+
+Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
 
 ## Questions or concerns?
 
