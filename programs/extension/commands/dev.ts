@@ -10,8 +10,6 @@ import type {Command} from 'commander'
 import {runWaitMode} from './dev-wait'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {collectProjectProfile} from '../helpers/project-profile'
-import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import {launchBrowser} from '../browsers'
 import {
@@ -71,7 +69,7 @@ type DevOptions = {
   waitFormat?: 'pretty' | 'json'
 }
 
-export function registerDevCommand(program: Command, telemetry: any) {
+export function registerDevCommand(program: Command) {
   program
     .command('dev')
     .arguments('[project-path|remote-url]')
@@ -229,60 +227,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
 
-      const cmdStart = Date.now()
       const list = vendors(browser)
-      const isRemoteInput =
-        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
-      const projectProfile = collectProjectProfile(
-        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
-      )
-      const workflowProfile = collectWorkflowProfile({
-        command: 'dev',
-        isMultiBrowser: list.length > 1,
-        isRemoteInput: isRemoteInput,
-        isWaitMode: Boolean(devOptions.wait),
-        isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        usesMachineReadableOutput:
-          devOptions.waitFormat === 'json' ||
-          devOptions.logFormat === 'json' ||
-          devOptions.logFormat === 'ndjson' ||
-          devOptions.sourceFormat === 'json' ||
-          devOptions.sourceFormat === 'ndjson',
-        sourceInspectionRequested: Boolean(
-          devOptions.source || devOptions.watchSource
-        ),
-        companionExtensionsProvided: Boolean(devOptions.extensions),
-        packageManager: projectProfile?.package_manager,
-        frameworkPrimary: projectProfile?.framework_primary,
-        hasNextDependency: projectProfile?.has_next_dependency,
-        hasTurboDependency: projectProfile?.has_turbo_dependency
-      })
-
-      telemetry.track('workflow_profile', {
-        command: 'dev',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'dev',
-        vendors: list,
-        browser_count: list.length,
-        is_multi_browser: list.length > 1,
-        is_remote_input: isRemoteInput,
-        is_wait_mode: Boolean(devOptions.wait),
-        is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-        polyfill_used:
-          devOptions.polyfill?.toString() === 'false' ? false : true,
-        source_inspection_requested: Boolean(
-          devOptions.source || devOptions.watchSource
-        ),
-        companion_extensions_provided: Boolean(devOptions.extensions),
-        log_level: devOptions.logLevel || 'off',
-        log_format: devOptions.logFormat || 'pretty',
-        custom_binary_used: Boolean(
-          devOptions.chromiumBinary || devOptions.geckoBinary
-        ),
-        ...workflowProfile
-      })
 
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
@@ -310,14 +255,6 @@ export function registerDevCommand(program: Command, telemetry: any) {
             })
           )
         }
-
-        telemetry.track('cli_command_finish', {
-          command: 'dev',
-          duration_ms: Date.now() - cmdStart,
-          success: true,
-          exit_code: 0,
-          ...workflowProfile
-        })
         return
       }
 
@@ -394,9 +331,6 @@ export function registerDevCommand(program: Command, telemetry: any) {
       const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
 
       for (const vendor of list) {
-        const vendorStart = Date.now()
-        telemetry.track('cli_vendor_start', {command: 'dev', vendor})
-
         const logsOption = (devOptions as unknown as {logs?: string}).logs
         const logContextOption = (
           devOptions as unknown as {logContext?: string}
@@ -449,21 +383,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
 
         // extensionDev returns a BuildEmitter from the BrowsersPlugin.
         // Browser launch/reload is handled internally by the plugin.
-        const emitter = await extensionDev(pathOrRemoteUrl, devArgs)
-
-        telemetry.track('cli_vendor_finish', {
-          command: 'dev',
-          vendor,
-          duration_ms: Date.now() - vendorStart
-        })
+        await extensionDev(pathOrRemoteUrl, devArgs)
       }
-
-      telemetry.track('cli_command_finish', {
-        command: 'dev',
-        duration_ms: Date.now() - cmdStart,
-        success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0,
-        ...workflowProfile
-      })
     })
 }
