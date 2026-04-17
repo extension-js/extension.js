@@ -61,7 +61,9 @@ export const commandDescriptions = {
   preview: 'Previews the extension in production mode without building',
   build: 'Builds the extension for packaging/distribution',
   install: 'Installs a managed browser binary into Extension.js cache',
-  uninstall: 'Removes managed browser binaries from Extension.js cache'
+  uninstall: 'Removes managed browser binaries from Extension.js cache',
+  telemetry:
+    'Manage anonymous telemetry consent (enable, disable, or show status)'
 } as const
 
 export function unhandledError(err: unknown) {
@@ -154,11 +156,14 @@ ${'Available Commands'}
 - ${code('extension uninstall --where')}
   Prints the managed browser cache root (or browser install path(s) when --browser/--all is provided)
 
+- ${code('extension telemetry ' + arg('<enable|disable|status>'))}
+  ${commandDescriptions.telemetry}
+
 ${'Common Options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
-- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run
+- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY=0')})
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
 - ${code('--format')} ${arg('<pretty|json>')}          Output format for ${code('--ai-help')} (default: pretty)
 - ${code('--help')}                                    Show help output
@@ -419,6 +424,7 @@ export type ProgramAIHelpJSON = {
       | 'build'
       | 'install'
       | 'uninstall'
+      | 'telemetry'
     summary: string
     supportsSourceInspection: boolean
   }>
@@ -491,6 +497,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         name: 'uninstall',
         summary: commandDescriptions.uninstall,
         supportsSourceInspection: false
+      },
+      {
+        name: 'telemetry',
+        summary: commandDescriptions.telemetry,
+        supportsSourceInspection: false
       }
     ],
     globalOptions: [
@@ -506,7 +517,8 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       },
       {
         name: '--no-telemetry',
-        description: 'Disable anonymous telemetry for this run'
+        description:
+          'Disable anonymous telemetry for this run. Persistent toggle: `extension telemetry disable`. Hard override: `EXTENSION_TELEMETRY=0`.'
       },
       {
         name: '--browser',
