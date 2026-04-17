@@ -10,7 +10,16 @@ import os from 'node:os'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import colors from 'pintor'
+
+export type TelemetryEvent = 'command_executed' | 'command_failed'
+
+export type TelemetryProps = {
+  command: string
+  success: boolean
+  version: string
+}
+
+export type TelemetrySource = 'env' | 'flag' | 'config' | 'default'
 
 type TelemetryInit = {
   app: string
@@ -18,16 +27,9 @@ type TelemetryInit = {
   apiKey?: string
   host?: string
   disabled?: boolean
-}
-
-type CommonProps = {
-  app: string
-  version: string
-  os: string
-  arch: string
-  node: string
-  is_ci: boolean
-  schema_version: number
+  sampleRate?: number
+  maxEventsPerRun?: number
+  debounceMs?: number
 }
 
 type TelemetryStorage = {
@@ -36,6 +38,22 @@ type TelemetryStorage = {
   idFile: string
   consentFile: string
 }
+
+const DEFAULT_SAMPLE_RATE = Number(
+  process.env.EXTENSION_TELEMETRY_SAMPLE_RATE || 0.2
+)
+const DEFAULT_MAX_EVENTS = Number(
+  process.env.EXTENSION_TELEMETRY_MAX_EVENTS || 3
+)
+const DEFAULT_DEBOUNCE_MS = Number(
+  process.env.EXTENSION_TELEMETRY_DEBOUNCE_MS || 60_000
+)
+const DEFAULT_TIMEOUT_MS = Number(
+  process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 300
+)
+const DEFAULT_POSTHOG_KEY = process.env.POSTHOG_KEY || ''
+const DEFAULT_POSTHOG_HOST =
+  process.env.POSTHOG_HOST || 'https://us.i.posthog.com'
 
 function isCI(): boolean {
   const v = process.env
@@ -99,26 +117,6 @@ function ensureWritableDir(p: string): boolean {
   }
 }
 
-function loadOrCreateId(file: string): string {
-  try {
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
-  } catch {
-    // ignore read errors and fall back to generating a new id
-  }
-
-  const id = crypto.randomUUID()
-
-  if (ensureDir(path.dirname(file))) {
-    try {
-      fs.writeFileSync(file, id, 'utf8')
-    } catch {
-      // ignore write errors and return ephemeral id
-    }
-  }
-
-  return id
-}
-
 function telemetryCandidates(): string[] {
   const candidates = [
     configDir(),
@@ -126,11 +124,10 @@ function telemetryCandidates(): string[] {
     path.join(os.tmpdir(), 'extensionjs'),
     path.join(process.cwd(), '.cache', 'extensionjs')
   ].filter(Boolean) as string[]
-
   return Array.from(new Set(candidates))
 }
 
-function resolveTelemetryStorage(): TelemetryStorage | null {
+export function resolveTelemetryStorage(): TelemetryStorage | null {
   for (const base of telemetryCandidates()) {
     const telemetryDir = path.join(base, 'telemetry')
     if (!ensureWritableDir(telemetryDir)) continue
@@ -144,137 +141,199 @@ function resolveTelemetryStorage(): TelemetryStorage | null {
   return null
 }
 
-const DEFAULT_FLUSH_AT = Number(process.env.EXTENSION_TELEMETRY_FLUSH_AT || 10)
-const DEFAULT_FLUSH_INTERVAL = Number(
-  process.env.EXTENSION_TELEMETRY_FLUSH_INTERVAL || 2000
-)
-const DEFAULT_TIMEOUT_MS = Number(
-  process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 200
-)
-const DEFAULT_POSTHOG_KEY =
-  process.env.POSTHOG_KEY || 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
-const DEFAULT_POSTHOG_HOST =
-  process.env.POSTHOG_HOST || 'https://us.i.posthog.com'
+function loadOrCreateId(file: string): string {
+  try {
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
+  } catch {
+    // fall through to generating a new id
+  }
+
+  const id = crypto.randomUUID()
+  if (ensureDir(path.dirname(file))) {
+    try {
+      fs.writeFileSync(file, id, 'utf8')
+    } catch {
+      // ephemeral id is still valid for this run
+    }
+  }
+  return id
+}
+
+function readConsentFile(file: string): 'enabled' | 'disabled' | null {
+  try {
+    const raw = fs.readFileSync(file, 'utf8').trim().toLowerCase()
+    if (raw === 'enabled' || raw === 'ok' || raw === 'on' || raw === '1') {
+      return 'enabled'
+    }
+    if (raw === 'disabled' || raw === 'off' || raw === '0' || raw === 'no') {
+      return 'disabled'
+    }
+  } catch {
+    // missing or unreadable — treat as unset
+  }
+  return null
+}
+
+function envDisables(): boolean {
+  // Next.js-style presence flag: any truthy value disables.
+  const disabled = String(process.env.EXTENSION_TELEMETRY_DISABLED ?? '')
+    .trim()
+    .toLowerCase()
+  if (
+    disabled === '1' ||
+    disabled === 'true' ||
+    disabled === 'on' ||
+    disabled === 'yes'
+  ) {
+    return true
+  }
+
+  // Back-compat with the original `EXTENSION_TELEMETRY=0` form.
+  const raw = String(process.env.EXTENSION_TELEMETRY ?? '')
+    .trim()
+    .toLowerCase()
+  if (!raw) return false
+  return raw === '0' || raw === 'false' || raw === 'off' || raw === 'no'
+}
+
+export function resolveTelemetryConsent(argv: string[] = process.argv): {
+  enabled: boolean
+  source: TelemetrySource
+} {
+  if (envDisables()) return {enabled: false, source: 'env'}
+  if (argv.includes('--no-telemetry')) return {enabled: false, source: 'flag'}
+
+  const storage = resolveTelemetryStorage()
+  if (storage) {
+    const stored = readConsentFile(storage.consentFile)
+    if (stored === 'enabled') return {enabled: true, source: 'config'}
+    if (stored === 'disabled') return {enabled: false, source: 'config'}
+  }
+
+  return {enabled: true, source: 'default'}
+}
+
+export function writeConsent(value: 'enabled' | 'disabled'): boolean {
+  const storage = resolveTelemetryStorage()
+  if (!storage) return false
+  try {
+    fs.writeFileSync(storage.consentFile, value, 'utf8')
+    return true
+  } catch {
+    return false
+  }
+}
 
 export class Telemetry {
-  private anonId: string
-  private common: CommonProps
-  private debug: boolean
   private disabled: boolean
-  private apiKey?: string
-  private host?: string
+  private version: string
+  private app: string
+  private apiKey: string
+  private host: string
+  private anonId: string = 'disabled'
   private storage: TelemetryStorage | null = null
+  private sent = 0
+  private readonly sampleRate: number
+  private readonly maxEventsPerRun: number
+  private readonly debounceMs: number
+  private readonly debug: boolean
+  private readonly common: {
+    os: NodeJS.Platform
+    arch: string
+    node_major: number
+    is_ci: boolean
+  }
+  private recent = new Map<string, number>()
   private buffer: Array<{
-    event: string
+    event: TelemetryEvent
     properties: Record<string, unknown>
     distinct_id: string
   }> = []
-  private timer: NodeJS.Timeout | null = null
 
   constructor(init: TelemetryInit) {
     this.debug = process.env.EXTENSION_TELEMETRY_DEBUG === '1'
     this.disabled = Boolean(init.disabled)
+    this.app = init.app
+    this.version = init.version
+    this.apiKey = init.apiKey ?? DEFAULT_POSTHOG_KEY
+    this.host = init.host ?? DEFAULT_POSTHOG_HOST
+    this.sampleRate = clamp(init.sampleRate ?? DEFAULT_SAMPLE_RATE, 0, 1)
+    this.maxEventsPerRun = Math.max(
+      0,
+      init.maxEventsPerRun ?? DEFAULT_MAX_EVENTS
+    )
+    this.debounceMs = Math.max(0, init.debounceMs ?? DEFAULT_DEBOUNCE_MS)
+    this.common = {
+      os: process.platform,
+      arch: process.arch,
+      node_major: Number(String(process.versions.node).split('.')[0]) || 0,
+      is_ci: isCI()
+    }
 
-    // When telemetry is disabled, avoid creating or reading any identifiers
-    this.anonId = 'disabled'
     if (!this.disabled) {
       this.storage = resolveTelemetryStorage()
-      if (!this.storage) {
-        this.disabled = true
-      } else {
+      if (this.storage) {
         this.anonId = loadOrCreateId(this.storage.idFile)
       }
     }
+  }
 
-    this.common = {
-      app: init.app,
-      version: init.version,
-      os: process.platform,
-      arch: process.arch,
-      node: process.versions.node,
-      is_ci: isCI(),
-      schema_version: 2
-    }
+  get isEnabled(): boolean {
+    return !this.disabled
+  }
 
-    this.apiKey = init.apiKey || DEFAULT_POSTHOG_KEY
-    this.host = init.host || DEFAULT_POSTHOG_HOST
+  track(event: TelemetryEvent, props: TelemetryProps): void {
+    try {
+      if (this.disabled) return
+      if (this.sent >= this.maxEventsPerRun) return
 
-    // First-run consent marker (non-blocking, no prompt here; just record anonymous opt-in once)
-    // Only record consent when telemetry is enabled.
-    if (!this.disabled && this.storage) {
-      const consentPath = this.storage.consentFile
-      try {
-        if (!fs.existsSync(consentPath)) {
-          fs.writeFileSync(consentPath, 'ok', 'utf8')
-          this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
-          console.log(
-            `${colors.gray('⏵⏵⏵')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
-          )
-        }
-      } catch {
-        // swallow — best-effort consent marker
+      const key = `${event}|${props.command}|${props.success}`
+      const now = Date.now()
+      const last = this.recent.get(key)
+      if (last != null && now - last < this.debounceMs) return
+      this.recent.set(key, now)
+
+      const enforcedProps: TelemetryProps = {
+        command: String(props.command ?? 'unknown').slice(0, 32),
+        success: Boolean(props.success),
+        version: String(props.version ?? this.version).slice(0, 32)
       }
-    }
-  }
 
-  track(event: string, props: Record<string, unknown> = {}) {
-    if (this.disabled || !this.storage) return
+      const payload = {
+        event,
+        properties: {
+          ...enforcedProps,
+          ...this.common,
+          app: this.app,
+          $ip: null as unknown as undefined
+        },
+        distinct_id: this.anonId
+      }
 
-    const payload = {
-      event,
-      // $ip: null prevents IP storage on the server even if project settings change
-      properties: {
-        ...this.common,
-        ...props,
-        $ip: null as unknown as undefined
-      },
-      distinct_id: this.anonId
-    }
+      this.writeAudit(payload)
 
-    try {
-      fs.appendFileSync(this.storage.auditFile, JSON.stringify(payload) + '\n')
-    } catch {
-      // Stop telemetry if we can no longer write locally
-      this.disabled = true
-      return
-    }
+      if (event === 'command_executed' && Math.random() > this.sampleRate) {
+        return
+      }
 
-    if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.error('[telemetry]', JSON.stringify(payload))
-    }
+      if (!this.apiKey || !this.host) return
 
-    // No network configured; skip sending
-    if (!this.apiKey || !this.host) return
-
-    // `cli_shutdown` is emitted from a `beforeExit` hook. Scheduling a timer here
-    // would keep the event loop alive and can re-trigger `beforeExit` repeatedly.
-    if (event === 'cli_shutdown') {
       this.buffer.push(payload)
-      return
-    }
-
-    this.buffer.push(payload)
-    if (this.buffer.length >= DEFAULT_FLUSH_AT) {
-      void this.flush()
-      return
-    }
-    if (!this.timer) {
-      this.timer = setTimeout(() => {
-        this.timer = null
-        void this.flush()
-      }, DEFAULT_FLUSH_INTERVAL)
+      this.sent += 1
+    } catch {
+      // telemetry must never crash the CLI
     }
   }
 
-  async flush() {
-    if (this.disabled || !this.apiKey || !this.host) return
-    if (this.buffer.length === 0) return
-
-    const batch = this.buffer.splice(0, this.buffer.length)
+  async flush(): Promise<void> {
     try {
+      if (this.disabled || !this.apiKey || !this.host) return
+      if (this.buffer.length === 0) return
+
+      const batch = this.buffer.splice(0, this.buffer.length)
       const ac = new AbortController()
       const t = setTimeout(() => ac.abort(), DEFAULT_TIMEOUT_MS)
+
       const url = new URL('/capture/', this.host)
       await fetch(url.toString(), {
         method: 'POST',
@@ -288,16 +347,35 @@ export class Telemetry {
           }))
         }),
         signal: ac.signal,
-        // Best effort; avoid keeping the process alive
         keepalive: true as unknown as boolean
       }).catch(() => {})
+
       clearTimeout(t)
     } catch {
-      // swallow — best-effort
+      // best-effort — never crash
     }
   }
 
-  shutdown() {
-    // no-op
+  shutdown(): void {
+    // no-op; flush is async and the caller awaits it on beforeExit
   }
+
+  private writeAudit(payload: unknown): void {
+    if (!this.storage) return
+    try {
+      fs.appendFileSync(this.storage.auditFile, JSON.stringify(payload) + '\n')
+    } catch {
+      // if we can't audit locally, disable future sends too
+      this.disabled = true
+    }
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.error('[telemetry]', JSON.stringify(payload))
+    }
+  }
+}
+
+function clamp(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min
+  return Math.min(Math.max(n, min), max)
 }

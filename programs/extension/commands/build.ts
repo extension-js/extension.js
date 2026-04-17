@@ -10,8 +10,6 @@ import type {Command} from 'commander'
 import * as messages from '../helpers/messages'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
-import {collectProjectProfile} from '../helpers/project-profile'
-import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {
   vendors,
@@ -31,7 +29,7 @@ type BuildOptions = {
   extensions?: string
 }
 
-export function registerBuildCommand(program: Command, telemetry: any) {
+export function registerBuildCommand(program: Command) {
   program
     .command('build')
     .arguments('[project-name]')
@@ -83,48 +81,7 @@ export function registerBuildCommand(program: Command, telemetry: any) {
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
 
-      const cmdStart = Date.now()
       const list = vendors(browser)
-      const isRemoteInput =
-        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
-      const artifactKind = buildOptions.zipSource
-        ? buildOptions.zip
-          ? 'zip_and_source'
-          : 'source_zip'
-        : buildOptions.zip
-          ? 'zip'
-          : 'directory'
-      const projectProfile = collectProjectProfile(
-        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
-      )
-      const workflowProfile = collectWorkflowProfile({
-        command: 'build',
-        isMultiBrowser: list.length > 1,
-        isRemoteInput: isRemoteInput,
-        companionExtensionsProvided: Boolean(buildOptions.extensions),
-        artifactKind,
-        packageManager: projectProfile?.package_manager,
-        frameworkPrimary: projectProfile?.framework_primary,
-        hasNextDependency: projectProfile?.has_next_dependency,
-        hasTurboDependency: projectProfile?.has_turbo_dependency
-      })
-
-      telemetry.track('workflow_profile', {
-        command: 'build',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'build',
-        vendors: list,
-        browser_count: list.length,
-        is_multi_browser: list.length > 1,
-        is_remote_input: isRemoteInput,
-        polyfill_used: buildOptions.polyfill || false,
-        zip: buildOptions.zip || false,
-        zip_source: buildOptions.zipSource || false,
-        artifact_kind: artifactKind,
-        ...workflowProfile
-      })
 
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
@@ -135,10 +92,7 @@ export function registerBuildCommand(program: Command, telemetry: any) {
         loadExtensionDevelopModule()
 
       for (const vendor of list) {
-        const vendorStart = Date.now()
-        telemetry.track('cli_vendor_start', {command: 'build', vendor})
-
-        const buildSummary = await extensionBuild(pathOrRemoteUrl, {
+        await extensionBuild(pathOrRemoteUrl, {
           browser: vendor as BuildOptions['browser'],
           polyfill: buildOptions.polyfill,
           zip: buildOptions.zip,
@@ -148,29 +102,6 @@ export function registerBuildCommand(program: Command, telemetry: any) {
           install: buildOptions.install,
           extensions: parseExtensionsList((buildOptions as any).extensions)
         })
-
-        telemetry.track('cli_build_summary', {
-          ...buildSummary,
-          browser_count: list.length,
-          is_multi_browser: list.length > 1,
-          is_remote_input: isRemoteInput,
-          artifact_kind: artifactKind,
-          ...workflowProfile
-        })
-
-        telemetry.track('cli_vendor_finish', {
-          command: 'build',
-          vendor,
-          duration_ms: Date.now() - vendorStart
-        })
       }
-
-      telemetry.track('cli_command_finish', {
-        command: 'build',
-        duration_ms: Date.now() - cmdStart,
-        success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0,
-        ...workflowProfile
-      })
     })
 }
