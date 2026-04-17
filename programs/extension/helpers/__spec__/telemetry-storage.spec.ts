@@ -51,8 +51,18 @@ it('writes audit to cache when config path is unwritable', () => {
   process.env.XDG_CACHE_HOME = cacheHome
   process.chdir(work)
 
-  const telemetry = new Telemetry({app: 'extension', version: '0.0.0'})
-  telemetry.track('test_event')
+  const telemetry = new Telemetry({
+    app: 'extension',
+    version: '0.0.0',
+    // audit every call so we can assert the file exists
+    sampleRate: 1,
+    debounceMs: 0
+  })
+  telemetry.track('command_executed', {
+    command: 'test',
+    success: true,
+    version: '0.0.0'
+  })
 
   const configAudit = path.join(
     configHome,

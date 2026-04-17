@@ -12,13 +12,12 @@ import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../helpers/messages'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
-import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {parseOptionalBoolean} from '../helpers/vendors'
 
 const require = createRequire(import.meta.url)
 
-export function registerCreateCommand(program: Command, telemetry: any) {
+export function registerCreateCommand(program: Command) {
   program
     .command('create')
     .arguments('<project-name|project-path>')
@@ -38,77 +37,35 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {template, install}: CreateOptions
     ) {
-      const startedAt = Date.now()
-      const templateValue = String(template ?? 'javascript')
-      const isRemoteTemplate = /^https?:/i.test(templateValue)
-      const workflowProfile = collectWorkflowProfile({
-        command: 'create',
-        isRemoteInput: isRemoteTemplate
-      })
-
-      telemetry.track('workflow_profile', {
-        command: 'create',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'create',
-        template: templateValue,
-        template_source: isRemoteTemplate ? 'remote' : 'built_in',
-        install: Boolean(install),
-        ...workflowProfile
-      })
-
-      try {
-        if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
+      if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
+        try {
+          process.env.EXTENSION_CREATE_DEVELOP_ROOT =
+            resolveExtensionDevelopRoot()
+        } catch {
           try {
-            process.env.EXTENSION_CREATE_DEVELOP_ROOT =
-              resolveExtensionDevelopRoot()
+            const developPkg = require.resolve('extension-develop/package.json')
+            process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(developPkg)
           } catch {
+            // Some extension-develop builds don't export package.json.
+            // Fallback to the main entry and infer package root.
             try {
-              const developPkg = require.resolve(
-                'extension-develop/package.json'
+              const developEntry = require.resolve('extension-develop')
+              process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
+                path.dirname(developEntry)
               )
-              process.env.EXTENSION_CREATE_DEVELOP_ROOT =
-                path.dirname(developPkg)
             } catch {
-              // Some extension-develop builds don't export package.json.
-              // Fallback to the main entry and infer package root.
-              try {
-                const developEntry = require.resolve('extension-develop')
-                process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
-                  path.dirname(developEntry)
-                )
-              } catch {
-                // Leave unset if extension-develop is not available
-              }
+              // Leave unset if extension-develop is not available
             }
           }
         }
-        // Load the matching create runtime from the regular dependency graph.
-        const {extensionCreate} = await import('extension-create')
-
-        await extensionCreate(pathOrRemoteUrl, {
-          template,
-          install,
-          cliVersion: getCliPackageJson().version
-        })
-
-        telemetry.track('cli_command_finish', {
-          command: 'create',
-          duration_ms: Date.now() - startedAt,
-          success: true,
-          exit_code: 0,
-          ...workflowProfile
-        })
-      } catch (err) {
-        telemetry.track('cli_command_finish', {
-          command: 'create',
-          duration_ms: Date.now() - startedAt,
-          success: false,
-          exit_code: 1,
-          ...workflowProfile
-        })
-        throw err
       }
+      // Load the matching create runtime from the regular dependency graph.
+      const {extensionCreate} = await import('extension-create')
+
+      await extensionCreate(pathOrRemoteUrl, {
+        template,
+        install,
+        cliVersion: getCliPackageJson().version
+      })
     })
 }

@@ -6,20 +6,15 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import fs from 'fs'
-import path from 'path'
-import {Telemetry} from './telemetry'
+import colors from 'pintor'
+import {
+  Telemetry,
+  resolveTelemetryConsent,
+  resolveTelemetryStorage,
+  writeConsent,
+  type TelemetrySource
+} from './telemetry'
 import {getCliPackageJson} from './cli-package-json'
-import {summarizeManifest} from './manifest-summary'
-import {collectProjectProfile} from './project-profile'
-
-// Initialize telemetry singleton for CLI
-// Opt-out is controlled via CLI flag only: --no-telemetry
-function isTelemetryDisabledFromArgs(argv: string[]): boolean {
-  return argv.includes('--no-telemetry')
-}
-
-const telemetryDisabled = isTelemetryDisabledFromArgs(process.argv)
 
 type KnownCommand =
   | 'create'
@@ -29,126 +24,122 @@ type KnownCommand =
   | 'build'
   | 'install'
   | 'uninstall'
-  | 'cleanup'
+  | 'telemetry'
   | 'unknown'
 
-function findManifestJson(projectRoot: string): string | null {
-  // Best-effort: match project detection behavior (manifest may live under src/).
-  // Avoid expensive/unsafe traversals.
-  const stack: string[] = [projectRoot]
+const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
+  'create',
+  'dev',
+  'start',
+  'preview',
+  'build',
+  'install',
+  'uninstall',
+  'telemetry',
+  'unknown'
+])
 
-  while (stack.length > 0) {
-    const dir = stack.pop()
-    if (!dir) continue
-
-    let entries: fs.Dirent[]
-
-    try {
-      entries = fs.readdirSync(dir, {withFileTypes: true})
-    } catch {
-      continue
-    }
-
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name === 'manifest.json') {
-        return path.join(dir, entry.name)
-      }
-
-      if (
-        entry.isDirectory() &&
-        !entry.name.startsWith('.') &&
-        entry.name !== 'node_modules' &&
-        entry.name !== 'dist'
-      ) {
-        stack.push(path.join(dir, entry.name))
-      }
-    }
+export function detectInvokedCommand(argv: string[]): KnownCommand {
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (!arg || arg.startsWith('-')) continue
+    if (KNOWN_COMMANDS.has(arg as KnownCommand)) return arg as KnownCommand
+    return 'unknown'
   }
-
-  return null
+  return 'unknown'
 }
+
+const consent = resolveTelemetryConsent(process.argv)
+const invoked = detectInvokedCommand(process.argv)
+const version = getCliPackageJson().version
 
 export const telemetry = new Telemetry({
   app: 'extension',
-  version: getCliPackageJson().version,
-  disabled: telemetryDisabled
+  version,
+  disabled: !consent.enabled
 })
 
-export function detectInvokedCommand(argv: string[]): KnownCommand {
-  const known = new Set<KnownCommand>([
-    'create',
-    'dev',
-    'start',
-    'preview',
-    'build',
-    'install',
-    'uninstall',
-    'cleanup',
-    'unknown'
-  ])
-
-  return (argv
-    .slice(2)
-    .find((a): a is KnownCommand => known.has(a as KnownCommand)) ||
-    'unknown') as KnownCommand
+export function getTelemetryConsent(): {
+  enabled: boolean
+  source: TelemetrySource
+} {
+  return consent
 }
 
-if (!telemetryDisabled) {
-  const startedAt = Date.now()
+export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
+  ok: boolean
+  path: string | null
+} {
+  const ok = writeConsent(value)
+  const storage = resolveTelemetryStorage()
+  return {ok, path: storage?.consentFile ?? null}
+}
 
-  let shutdownTracked = false
+let tracked = false
 
-  const invoked = detectInvokedCommand(process.argv)
+function markTracked(): boolean {
+  if (tracked) return false
+  tracked = true
+  return true
+}
 
-  telemetry.track('cli_boot', {
-    command_guess: invoked
+export function markCommandSuccess(command = invoked): void {
+  if (!markTracked()) return
+  telemetry.track('command_executed', {
+    command,
+    success: true,
+    version
   })
+}
 
-  // Attempt to emit a one-time, privacy-safe manifest summary when present
-  const manifestPath = findManifestJson(process.cwd())
-  let manifestSummary: ReturnType<typeof summarizeManifest> | null = null
+export function markCommandFailure(command = invoked): void {
+  if (!markTracked()) return
+  telemetry.track('command_failed', {
+    command,
+    success: false,
+    version
+  })
+}
 
-  if (manifestPath) {
-    try {
-      const raw = fs.readFileSync(manifestPath, 'utf8')
-      const json = JSON.parse(raw)
-      manifestSummary = summarizeManifest(json)
-      telemetry.track('manifest_summary', manifestSummary)
-    } catch {
-      // Best-effort only: telemetry must never make project parsing stricter.
-    }
-  }
+function printOptOutNoticeIfFirstRun(): void {
+  if (!consent.enabled || consent.source !== 'default') return
 
-  const projectProfile = collectProjectProfile(process.cwd(), manifestSummary)
+  const storage = resolveTelemetryStorage()
+  if (!storage) return
 
-  if (projectProfile) {
-    telemetry.track('project_profile', projectProfile)
-  }
+  // Persist 'enabled' so the notice prints only once per machine.
+  const written = writeConsent('enabled')
+  if (!written) return
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `${colors.gray('⏵⏵⏵')} Extension.js collects anonymous, opt-out telemetry (two events: ` +
+      `${colors.cyan('command_executed')} + ${colors.cyan('command_failed')}). ` +
+      `Disable with ${colors.cyan('extension telemetry disable')}, ` +
+      `${colors.cyan('EXTENSION_TELEMETRY=0')}, or ${colors.cyan('--no-telemetry')}. ` +
+      `See TELEMETRY.md.`
+  )
+}
+
+if (consent.enabled) {
+  printOptOutNoticeIfFirstRun()
 
   process.on('beforeExit', async function () {
-    if (shutdownTracked) return
-
-    shutdownTracked = true
-
-    telemetry.track('cli_shutdown', {
-      command_guess: invoked,
-      duration_ms: Date.now() - startedAt,
-      exit_code: process.exitCode ?? 0
-    })
+    if (!tracked) {
+      if ((process.exitCode ?? 0) === 0) {
+        markCommandSuccess()
+      } else {
+        markCommandFailure()
+      }
+    }
     await telemetry.flush()
   })
 
-  process.on('uncaughtException', function (err) {
-    telemetry.track('cli_error', {
-      command_guess: invoked,
-      error_name: String((err as any)?.name || 'Error').slice(0, 64)
-    })
+  process.on('uncaughtException', function () {
+    markCommandFailure()
   })
 
-  process.on('unhandledRejection', function (reason: any) {
-    telemetry.track('cli_error', {
-      command_guess: invoked,
-      error_name: String(reason?.name || 'PromiseRejection').slice(0, 64)
-    })
+  process.on('unhandledRejection', function () {
+    markCommandFailure()
   })
 }

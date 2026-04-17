@@ -10,7 +10,6 @@ import type {Command} from 'commander'
 import path from 'node:path'
 import {commandDescriptions} from '../helpers/messages'
 import * as messages from '../helpers/messages'
-import {collectWorkflowProfile} from '../helpers/workflow-profile'
 import {type Browser, validateVendorsOrExit, vendors} from '../helpers/vendors'
 
 type InstallOptions = {
@@ -78,7 +77,7 @@ function normalizeInstallVendor(
   return 'chromium'
 }
 
-export function registerInstallCommand(program: Command, telemetry: any) {
+export function registerInstallCommand(program: Command) {
   program
     .command('install')
     .arguments('[browser-name]')
@@ -93,69 +92,33 @@ export function registerInstallCommand(program: Command, telemetry: any) {
       browserArg: string | undefined,
       options: InstallOptions
     ) {
-      const startedAt = Date.now()
       const selectedBrowser = (options.browser || browserArg || 'chromium') as
         | Browser
         | 'all'
       const browserList = vendors(selectedBrowser)
-      const workflowProfile = collectWorkflowProfile({
-        command: 'install',
-        isMultiBrowser: browserList.length > 1,
-        whereMode: Boolean(options.where)
-      })
 
       validateVendorsOrExit(browserList, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
-      telemetry.track('workflow_profile', {
-        command: 'install',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'install',
-        vendors: browserList,
-        browser_count: browserList.length,
-        is_multi_browser: browserList.length > 1,
-        where: Boolean(options.where),
-        ...workflowProfile
-      })
 
-      try {
-        if (options.where) {
-          const root = resolveManagedBrowsersCacheRoot()
-          if (options.browser || browserArg) {
-            for (const browser of browserList) {
-              // eslint-disable-next-line no-console
-              console.log(path.join(root, normalizeInstallVendor(browser)))
-            }
-          } else {
+      if (options.where) {
+        const root = resolveManagedBrowsersCacheRoot()
+        if (options.browser || browserArg) {
+          for (const browser of browserList) {
             // eslint-disable-next-line no-console
-            console.log(root)
+            console.log(path.join(root, normalizeInstallVendor(browser)))
           }
         } else {
-          const {extensionInstall} = await import('extension-install')
-          for (const browser of browserList) {
-            await extensionInstall({browser})
-          }
+          // eslint-disable-next-line no-console
+          console.log(root)
         }
+        return
+      }
 
-        telemetry.track('cli_command_finish', {
-          command: 'install',
-          duration_ms: Date.now() - startedAt,
-          success: true,
-          exit_code: 0,
-          ...workflowProfile
-        })
-      } catch (err) {
-        telemetry.track('cli_command_finish', {
-          command: 'install',
-          duration_ms: Date.now() - startedAt,
-          success: false,
-          exit_code: 1,
-          ...workflowProfile
-        })
-        throw err
+      const {extensionInstall} = await import('extension-install')
+      for (const browser of browserList) {
+        await extensionInstall({browser})
       }
     })
 
@@ -171,72 +134,37 @@ export function registerInstallCommand(program: Command, telemetry: any) {
       browserArg: string | undefined,
       {browser, all, where}: UninstallOptions
     ) {
-      const startedAt = Date.now()
       const target = browserArg || browser
-      const workflowProfile = collectWorkflowProfile({
-        command: 'uninstall',
-        whereMode: Boolean(where)
-      })
 
-      telemetry.track('workflow_profile', {
-        command: 'uninstall',
-        ...workflowProfile
-      })
-      telemetry.track('cli_command_start', {
-        command: 'uninstall',
-        browser: target,
-        all: Boolean(all),
-        where: Boolean(where),
-        ...workflowProfile
-      })
-
-      try {
-        if (where) {
-          const root = resolveManagedBrowsersCacheRoot()
-          if (all) {
-            for (const browser of ['chrome', 'chromium', 'edge', 'firefox']) {
-              // eslint-disable-next-line no-console
-              console.log(path.join(root, browser))
-            }
-          } else if (target) {
-            const list = vendors(target as Browser)
-            validateVendorsOrExit(list, (invalid, supported) => {
-              // eslint-disable-next-line no-console
-              console.error(messages.unsupportedBrowserFlag(invalid, supported))
-            })
-
-            for (const browser of list) {
-              // eslint-disable-next-line no-console
-              console.log(path.join(root, normalizeInstallVendor(browser)))
-            }
-          } else {
+      if (where) {
+        const root = resolveManagedBrowsersCacheRoot()
+        if (all) {
+          for (const browser of ['chrome', 'chromium', 'edge', 'firefox']) {
             // eslint-disable-next-line no-console
-            console.log(root)
+            console.log(path.join(root, browser))
+          }
+        } else if (target) {
+          const list = vendors(target as Browser)
+          validateVendorsOrExit(list, (invalid, supported) => {
+            // eslint-disable-next-line no-console
+            console.error(messages.unsupportedBrowserFlag(invalid, supported))
+          })
+
+          for (const browser of list) {
+            // eslint-disable-next-line no-console
+            console.log(path.join(root, normalizeInstallVendor(browser)))
           }
         } else {
-          const {extensionUninstall} = await import('extension-install')
-          await extensionUninstall({
-            browser: target,
-            all
-          } satisfies UninstallOptions)
+          // eslint-disable-next-line no-console
+          console.log(root)
         }
-
-        telemetry.track('cli_command_finish', {
-          command: 'uninstall',
-          duration_ms: Date.now() - startedAt,
-          success: true,
-          exit_code: 0,
-          ...workflowProfile
-        })
-      } catch (err) {
-        telemetry.track('cli_command_finish', {
-          command: 'uninstall',
-          duration_ms: Date.now() - startedAt,
-          success: false,
-          exit_code: 1,
-          ...workflowProfile
-        })
-        throw err
+        return
       }
+
+      const {extensionUninstall} = await import('extension-install')
+      await extensionUninstall({
+        browser: target,
+        all
+      } satisfies UninstallOptions)
     })
 }
