@@ -29,9 +29,9 @@ export function registerCreateCommand(program: Command) {
     )
     .option(
       '--install [boolean]',
-      'whether or not to install the dependencies after creating the project (enabled by default)',
+      'whether or not to install the dependencies after creating the project (disabled by default — pass --install to opt in)',
       parseOptionalBoolean,
-      true
+      false
     )
     .action(async function (
       pathOrRemoteUrl: string,
