@@ -29,6 +29,8 @@ import {extensionCreate} from 'extension-create'
 await extensionCreate('my-extension', {})
 
 // Create a React extension and install its dependencies
+// (dependency install is opt-in — users normally run their own
+// `npm install` so output is what they expect)
 await extensionCreate('my-react-extension', {
   template: 'react',
   install: true
@@ -46,7 +48,7 @@ Creates a new extension project with the specified configuration.
 - `projectName` (string, required) - The name of your extension project
 - `options` (object) - Configuration options
   - `template` (string, optional) - Template name or URL. Defaults to `'javascript'` (`init` is an alias)
-  - `install` (boolean, optional) - Whether to install dependencies. Defaults to `true`
+  - `install` (boolean, optional) - Whether to install dependencies after scaffolding. Defaults to `false` so project creation is fast and users see the familiar `npm install` output on their own.
   - `cliVersion` (string, optional) - CLI version for package.json
 
 ## Templates
