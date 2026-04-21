@@ -81,8 +81,7 @@ export async function cssInContentScriptLoader(
         test,
         exclude,
         type,
-        issuer: isContentScript,
-        resourceQuery: {not: [/url/]}
+        issuer: isContentScript
       }
       if (type === 'asset') {
         baseConfig.generator = {
