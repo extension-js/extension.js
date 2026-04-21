@@ -104,6 +104,52 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(ignored.test('/repo/dist/chrome/background.js')).toBe(true)
   })
 
+  it('disables module concatenation in development to avoid react-refresh __webpack_module__ clash', () => {
+    // Regression guard: when scope hoisting concatenates a vendor ESM module
+    // (e.g. tslib.es6.mjs) into a factory rspack names with CJS convention
+    // `(module, __webpack_exports__, ...)`, the @rspack/plugin-react-refresh
+    // prologue references `__webpack_module__` — not the factory's parameter —
+    // causing `__webpack_module__ is not defined` at runtime for HTML entries
+    // (sidebar/newtab/popup) that pull tslib in transitively.
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    const devConfig = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+    expect(devConfig.optimization?.concatenateModules).toBe(false)
+
+    const prodConfig = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'production',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+    expect(prodConfig.optimization?.concatenateModules).toBe(true)
+  })
+
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([
