@@ -76,8 +76,7 @@ export async function cssInHtmlLoader(
         test,
         exclude,
         type,
-        issuer: isNotContentScript,
-        resourceQuery: {not: [/url/]}
+        issuer: isNotContentScript
       }
 
       if (!loader) {

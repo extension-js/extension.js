@@ -42,7 +42,11 @@ describe('cssInContentScriptLoader', () => {
 
     for (const rule of rules as any[]) {
       expect(['asset', 'css/module']).toContain(rule.type)
-      expect(rule.resourceQuery).toEqual({not: [/url/]})
+      // Regression guard: `resourceQuery: {not: [/url/]}` used to silently
+      // bypass PostCSS for `?url` imports, shipping raw CSS (including
+      // uncompiled `@import "tailwindcss"`). The rule must cover every
+      // CSS specifier the issuer can produce — no query-string escape hatch.
+      expect(rule.resourceQuery).toBeUndefined()
       if (rule.type === 'asset') {
         expect(rule.generator?.filename).toContain('content_scripts')
       }
