@@ -39,3 +39,18 @@ export function scriptsManifestChangeDetected(before?: string, after?: string) {
   ].filter(Boolean)
   return parts.join(' — ')
 }
+
+export function reservedScriptsFolder(relPath: string, indicators: string[]) {
+  const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
+  return (
+    `${colors.red('ERROR')} scripts/ is a reserved folder in Extension.js.\n` +
+    `Every file under ${colors.yellow('scripts/')} is wrapped with the browser ` +
+    `content-script mount runtime, so Node.js-only files placed here will fail ` +
+    `to parse or run.\n` +
+    `Rename the folder at the project root (for example ${colors.yellow('bin/')}, ` +
+    `${colors.yellow('tools/')}, ${colors.yellow('ops/')}, ${colors.yellow('tasks/')}, ` +
+    `or ${colors.yellow('ci-scripts/')}) or move the file out of scripts/.\n\n` +
+    `${colors.red('NODE.JS SHAPE')}\n${reasons}\n` +
+    `${colors.red('NOT ALLOWED')} ${colors.underline(relPath)}`
+  )
+}
