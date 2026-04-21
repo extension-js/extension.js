@@ -16,6 +16,7 @@ import {
   getCanonicalContentScriptEntryName
 } from '../../../contracts'
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
+import * as messages from '../../../messages'
 
 const schema = {
   type: 'object',
@@ -49,6 +50,22 @@ function createBuildToken(source) {
     hash = (hash * 31 + source.charCodeAt(index)) >>> 0
   }
   return hash.toString(16)
+}
+
+function detectNodeJsShapedScript(source) {
+  const indicators = []
+  if (typeof source === 'string' && source.startsWith('#!')) {
+    indicators.push('shebang on line 1 (#!/usr/bin/env node ...)')
+  }
+  if (
+    typeof source === 'string' &&
+    /(?:^|\n)\s*(?:import[^\n;]*?from\s*|import\s*\(\s*|require\s*\(\s*)["']node:[\w/-]+["']/m.test(
+      source
+    )
+  ) {
+    indicators.push("import from the 'node:' protocol")
+  }
+  return indicators
 }
 
 function collectStyleAssetSpecifiers(source) {
@@ -224,6 +241,27 @@ export default function contentScriptWrapper(source) {
     relToScripts &&
     !relToScripts.startsWith('..') &&
     !path.isAbsolute(relToScripts)
+
+  // The scripts/ folder at the project root is reserved for browser-side
+  // content-script-like files — Extension.js prepends a mount/reload runtime to
+  // every file inside it. A Node.js CLI or launcher dropped into scripts/ would
+  // get the runtime prepended too, pushing the shebang past line 1 and yielding
+  // a cryptic swc "Expected ident" syntax error. Detect obvious Node.js shapes
+  // and surface an actionable message naming the reserved folder before we
+  // wrap anything.
+  if (isScriptsFolderScript && !declaredEntry) {
+    const nodeIndicators = detectNodeJsShapedScript(rewrittenSource)
+    if (nodeIndicators.length > 0) {
+      const relFromProject = path
+        .relative(packageJsonDir, resourceAbsPath)
+        .split(path.sep)
+        .join('/')
+      throw new Error(
+        messages.reservedScriptsFolder(relFromProject, nodeIndicators)
+      )
+    }
+  }
+
   const isContentScriptLike = Boolean(declaredEntry || isScriptsFolderScript)
 
   if (!isContentScriptLike) {

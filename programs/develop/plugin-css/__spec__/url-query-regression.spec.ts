@@ -34,9 +34,7 @@ function writeFixture(dir: string) {
       manifest_version: 3,
       name: 'fixture',
       version: '0.0.1',
-      content_scripts: [
-        {matches: ['<all_urls>'], js: ['content/scripts.js']}
-      ]
+      content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
     })
   )
   fs.writeFileSync(
@@ -149,9 +147,10 @@ describe('css-url-query regression (end-to-end)', () => {
     })
 
     const emitted = findEmittedCss(distDir)
-    expect(emitted, 'no CSS asset emitted under dist/content_scripts/').not.toBe(
-      null
-    )
+    expect(
+      emitted,
+      'no CSS asset emitted under dist/content_scripts/'
+    ).not.toBe(null)
     // If `?url` still bypassed the CSS pipeline, the raw marker comment
     // would survive and PostCSS would never have run.
     expect(

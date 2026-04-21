@@ -114,6 +114,91 @@ describe('content-script-wrapper loader', () => {
     )
   })
 
+  it('throws a reserved-folder diagnostic for a shebanged Node.js file in scripts/', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const scriptsDir = path.join(projectDir, 'scripts')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(scriptsDir, 'e2e-auth-launcher.mjs')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    const nodeSource =
+      "#!/usr/bin/env node\nimport {spawn} from 'node:child_process'\nspawn('echo', ['hi'])\n"
+
+    expect(() =>
+      contentScriptWrapper.call(
+        createLoaderContext(resourcePath, manifestPath) as any,
+        nodeSource
+      )
+    ).toThrow(/scripts\/ is a reserved folder/i)
+    expect(() =>
+      contentScriptWrapper.call(
+        createLoaderContext(resourcePath, manifestPath) as any,
+        nodeSource
+      )
+    ).toThrow(/scripts\/e2e-auth-launcher\.mjs/)
+    expect(() =>
+      contentScriptWrapper.call(
+        createLoaderContext(resourcePath, manifestPath) as any,
+        nodeSource
+      )
+    ).toThrow(/shebang/)
+  })
+
+  it('throws for a node:-protocol import in scripts/ even without a shebang', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const scriptsDir = path.join(projectDir, 'scripts')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(scriptsDir, 'build.mjs')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    expect(() =>
+      contentScriptWrapper.call(
+        createLoaderContext(resourcePath, manifestPath) as any,
+        "import fs from 'node:fs'\nfs.writeFileSync('x', 'y')\n"
+      )
+    ).toThrow(/node:/)
+  })
+
+  it('still wraps a regular browser-shaped file in scripts/', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const scriptsDir = path.join(projectDir, 'scripts')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(scriptsDir, 'widget.ts')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath) as any,
+      "document.body.dataset.extjs = '1'\n"
+    )
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="scripts/widget.ts";'
+    )
+  })
+
   it('keeps non-default-export files in executed mode', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
