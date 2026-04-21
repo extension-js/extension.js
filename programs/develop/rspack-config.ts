@@ -306,8 +306,15 @@ export default function webpackConfig(
       sideEffects: true,
       // Mark used exports globally to help dead-code elimination
       usedExports: 'global',
-      // Merge small modules for smaller, faster bundles
-      concatenateModules: true,
+      // Merge small modules for smaller, faster bundles in prod only.
+      // In dev, scope hoisting interacts badly with @rspack/plugin-react-refresh:
+      // when a vendor ESM module (e.g. tslib.es6.mjs) gets hoisted into a factory
+      // that rspack names with CJS convention `(module, __webpack_exports__, ...)`,
+      // the refresh prologue injected at the tail references `__webpack_module__`
+      // — which is not the factory's parameter — yielding a
+      // `__webpack_module__ is not defined` ReferenceError at runtime on sidebar/
+      // newtab/HTML entries that pull in tslib transitively.
+      concatenateModules: devOptions.mode === 'production',
       // Keep a single file per entry (extensions expect static file names)
       splitChunks: false,
       // Do not extract runtime into a separate chunk (keep runtime inline)
