@@ -91,7 +91,10 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
   // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
   // Required since Chrome 126+ for reliable CDP extension operations
-  '--enable-unsafe-extension-debugging'
+  '--enable-unsafe-extension-debugging',
+  // Suppress the "X is debugging this browser" infobar so real logins
+  // (claude.ai, Google, etc.) aren't pushed behind a persistent banner.
+  '--silent-debugger-extension-api'
 ]
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

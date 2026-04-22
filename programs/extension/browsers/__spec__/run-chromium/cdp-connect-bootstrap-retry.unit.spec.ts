@@ -21,7 +21,12 @@ vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
     sendCommand = mocks.sendCommandMock
     disconnect = mocks.disconnectMock
   }
-  return {CDPClient}
+  const EXTENSION_AUTO_ATTACH_FILTER = [
+    {type: 'page', exclude: true},
+    {type: 'iframe', exclude: true},
+    {}
+  ]
+  return {CDPClient, EXTENSION_AUTO_ATTACH_FILTER}
 })
 
 import {connectToChromeCdp} from '../../run-chromium/chromium-source-inspection/cdp-extension-controller/connect'
@@ -57,7 +62,8 @@ describe('connectToChromeCdp', () => {
     expect(mocks.sendCommandMock).toHaveBeenCalledWith('Target.setAutoAttach', {
       autoAttach: true,
       waitForDebuggerOnStart: false,
-      flatten: true
+      flatten: true,
+      filter: [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
     })
   })
 
