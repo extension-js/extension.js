@@ -71,6 +71,7 @@ import * as resolveDirsMod from '../plugin-special-folders/folder-extensions/res
 import * as extensionsToLoadMod from '../lib/extensions-to-load'
 import * as projectMod from '../lib/project'
 import * as validateDepsMod from '../lib/validate-user-dependencies'
+import * as configLoaderMod from '../lib/config-loader'
 
 describe('webpack/command-preview (run-only)', () => {
   let metadataRoot = ''
@@ -295,6 +296,51 @@ describe('webpack/command-preview (run-only)', () => {
         ]
       })
     )
+  })
+
+  it('loads commands.preview config when invoked as preview', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
+      '/proj',
+      'preview'
+    )
+  })
+
+  it('loads commands.start config when invoked via start delegation', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+    ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+      profile: '/from/commands/start',
+      browserFlags: ['--start-flag']
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', metadataCommand: 'start'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
+      '/proj',
+      'start'
+    )
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.profile).toBe('/from/commands/start')
+    expect(call.browserFlags).toEqual(['--start-flag'])
   })
 
   it('checks managed dependency conflicts using package root when manifest is in src', async () => {

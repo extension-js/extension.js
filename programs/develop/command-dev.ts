@@ -11,6 +11,8 @@ import {generateExtensionTypes} from './lib/generate-extension-types'
 import {getProjectStructure} from './lib/project'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {getDirs, normalizeBrowser} from './lib/paths'
+import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
+import {sanitize} from './lib/sanitize'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
@@ -20,7 +22,7 @@ import {
   BuildEmitter,
   type BrowserLauncherFn
 } from './plugin-browsers'
-import type {DevOptions} from './types'
+import type {BrowserConfig, DevOptions} from './types'
 
 // TODO cezaraugusto: move this out
 import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'
@@ -29,54 +31,8 @@ export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions & {launcher?: BrowserLauncherFn}
 ): Promise<BuildEmitter> {
-  // When a launcher is provided, create the BrowsersPlugin that wraps the
-  // browser API behind rspack hooks. Otherwise fall back to a plain emitter
-  // for no-browser / dry-run modes.
   let browsersPlugin: BrowsersPlugin | undefined
-  let emitter: BuildEmitter
-
-  if (devOptions.launcher && !devOptions.noBrowser) {
-    browsersPlugin = new BrowsersPlugin({
-      launcher: devOptions.launcher,
-      browserOptions: {
-        browser: devOptions.browser,
-        mode: 'development',
-        enableDevtools: true,
-        noOpen: devOptions.noOpen,
-        profile: devOptions.profile,
-        persistProfile: devOptions.persistProfile,
-        preferences: devOptions.preferences,
-        browserFlags: devOptions.browserFlags,
-        startingUrl: devOptions.startingUrl,
-        chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary || devOptions.firefoxBinary,
-        port: devOptions.port,
-        source: devOptions.source,
-        watchSource: devOptions.watchSource,
-        sourceFormat: devOptions.sourceFormat,
-        sourceSummary: devOptions.sourceSummary,
-        sourceMeta: devOptions.sourceMeta,
-        sourceProbe: devOptions.sourceProbe,
-        sourceTree: devOptions.sourceTree,
-        sourceConsole: devOptions.sourceConsole,
-        sourceDom: devOptions.sourceDom,
-        sourceMaxBytes: devOptions.sourceMaxBytes,
-        sourceRedact: devOptions.sourceRedact,
-        sourceIncludeShadow: devOptions.sourceIncludeShadow,
-        sourceDiff: devOptions.sourceDiff,
-        logLevel: devOptions.logLevel,
-        logContexts: devOptions.logContexts,
-        logFormat: devOptions.logFormat,
-        logTimestamps: devOptions.logTimestamps,
-        logColor: devOptions.logColor,
-        logUrl: devOptions.logUrl,
-        logTab: devOptions.logTab
-      }
-    })
-    emitter = browsersPlugin.emitter
-  } else {
-    emitter = new BuildEmitter()
-  }
+  let emitter: BuildEmitter = new BuildEmitter()
 
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
@@ -115,6 +71,63 @@ export async function extensionDev(
       )
     }
 
+    // Merge per-browser + per-command defaults from extension.config.js so user
+    // values (profile, startingUrl, browserFlags, preferences, etc.) reach the
+    // launcher. CLI devOptions take precedence — sanitize strips `undefined`
+    // so unset CLI fields fall through to extension.config.js
+    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+    const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+    const merged = {
+      ...sanitize(browserConfig as Record<string, any>),
+      ...sanitize(commandConfig as Record<string, any>),
+      ...sanitize(devOptions as Record<string, any>)
+    } as DevOptions & BrowserConfig
+
+    // When a launcher is provided, create the BrowsersPlugin that wraps the
+    // browser API behind rspack hooks. Otherwise fall back to a plain emitter
+    // for no-browser / dry-run modes
+    if (devOptions.launcher && !devOptions.noBrowser) {
+      browsersPlugin = new BrowsersPlugin({
+        launcher: devOptions.launcher,
+        browserOptions: {
+          browser,
+          mode: 'development',
+          enableDevtools: true,
+          noOpen: merged.noOpen,
+          profile: merged.profile,
+          persistProfile: merged.persistProfile,
+          preferences: merged.preferences,
+          browserFlags: merged.browserFlags,
+          excludeBrowserFlags: merged.excludeBrowserFlags,
+          startingUrl: merged.startingUrl,
+          chromiumBinary: merged.chromiumBinary,
+          geckoBinary: merged.geckoBinary || merged.firefoxBinary,
+          port: merged.port,
+          source: merged.source,
+          watchSource: merged.watchSource,
+          sourceFormat: merged.sourceFormat,
+          sourceSummary: merged.sourceSummary,
+          sourceMeta: merged.sourceMeta,
+          sourceProbe: merged.sourceProbe,
+          sourceTree: merged.sourceTree,
+          sourceConsole: merged.sourceConsole,
+          sourceDom: merged.sourceDom,
+          sourceMaxBytes: merged.sourceMaxBytes,
+          sourceRedact: merged.sourceRedact,
+          sourceIncludeShadow: merged.sourceIncludeShadow,
+          sourceDiff: merged.sourceDiff,
+          logLevel: merged.logLevel,
+          logContexts: merged.logContexts,
+          logFormat: merged.logFormat,
+          logTimestamps: merged.logTimestamps,
+          logColor: merged.logColor,
+          logUrl: merged.logUrl,
+          logTab: merged.logTab
+        }
+      })
+      emitter = browsersPlugin.emitter
+    }
+
     if (process.env.EXTENSION_DEV_DRY_RUN === 'true') {
       return emitter
     }
@@ -136,6 +149,4 @@ export async function extensionDev(
     console.error(error)
     process.exit(1)
   }
-
-  return emitter
 }
