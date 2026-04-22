@@ -47,11 +47,20 @@ function isCanonicalContentScriptAssetImpl(assetName: string): boolean {
   )
 }
 
-function parseCanonicalContentScriptEntryIndex(
+export function parseCanonicalContentScriptEntryIndex(
   entryName: string
 ): number | undefined {
-  if (!isCanonicalContentScriptEntryName(entryName)) return undefined
-  const suffix = entryName.slice(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX.length)
+  if (typeof entryName !== 'string') return undefined
+
+  const base = entryName
+    .replace(/\.[a-f0-9]+\.(js|css)$/i, '')
+    .replace(/\.(js|css)$/i, '')
+  if (!base.startsWith(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX)) return undefined
+
+  const suffix = base.slice(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX.length)
+  // Guard against empty / non-numeric suffixes — `Number("")` is 0, which
+  // would silently match `content_scripts/content-` and other malformed names.
+  if (!/^\d+$/.test(suffix)) return undefined
   const index = Number(suffix)
   return Number.isInteger(index) && index >= 0 ? index : undefined
 }
