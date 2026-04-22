@@ -63,7 +63,11 @@ describe('connectToChromeCdp', () => {
       autoAttach: true,
       waitForDebuggerOnStart: false,
       flatten: true,
-      filter: [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
+      filter: [
+        {type: 'page', exclude: true},
+        {type: 'iframe', exclude: true},
+        {}
+      ]
     })
   })
 
