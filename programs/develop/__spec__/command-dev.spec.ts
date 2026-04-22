@@ -41,10 +41,16 @@ vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true)
 }))
 
+vi.mock('../lib/config-loader', () => ({
+  loadBrowserConfig: vi.fn(async () => ({})),
+  loadCommandConfig: vi.fn(async () => ({}))
+}))
+
 import {extensionDev} from '../command-dev'
 import * as devServerMod from '../dev-server'
 import * as genTypesMod from '../lib/generate-extension-types'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
+import * as configLoaderMod from '../lib/config-loader'
 
 describe('webpack/command-dev', () => {
   // fs is mocked module - configure per-test behaviors via mockImplementation
@@ -57,6 +63,10 @@ describe('webpack/command-dev', () => {
     ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
     ;(ensureArtifactsMod as any).ensureDevelopArtifacts?.mockClear?.()
     ;(ensureArtifactsMod as any).ensureUserProjectDependencies?.mockClear?.()
+    ;(configLoaderMod as any).loadBrowserConfig?.mockReset?.()
+    ;(configLoaderMod as any).loadCommandConfig?.mockReset?.()
+    ;(configLoaderMod as any).loadBrowserConfig?.mockResolvedValue?.({})
+    ;(configLoaderMod as any).loadCommandConfig?.mockResolvedValue?.({})
     ;(fs.existsSync as any)?.mockReset?.()
     ;(fs.readdirSync as any)?.mockReset?.()
     logSpy.mockClear()
@@ -101,6 +111,63 @@ describe('webpack/command-dev', () => {
     expect(
       ensureArtifactsMod.ensureUserProjectDependencies
     ).not.toHaveBeenCalled()
+  })
+
+  it('forwards extension.config.js browser.profile to the BrowsersPlugin launcher', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+    ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
+      browser: 'chrome',
+      profile: '/explicit/profile',
+      browserFlags: ['--my-flag'],
+      persistProfile: true
+    })
+
+    const launcher = vi.fn(async () => ({
+      reload: vi.fn(async () => {}),
+      enableUnifiedLogging: vi.fn(async () => {}),
+      close: vi.fn(async () => {})
+    }))
+
+    await extensionDev('/proj', {
+      browser: 'chrome',
+      port: 0,
+      launcher
+    } as any)
+
+    const devServerCall = (devServerMod as any).devServer.mock.calls[0]
+    const forwardedOptions = devServerCall?.[1]
+    const plugin = forwardedOptions?.browsersPlugin
+    expect(plugin).toBeDefined()
+    const browserOptions = (plugin as any).options?.browserOptions
+    expect(browserOptions).toMatchObject({
+      profile: '/explicit/profile',
+      browserFlags: ['--my-flag'],
+      persistProfile: true
+    })
+  })
+
+  it('lets CLI devOptions.profile override extension.config.js profile', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+    ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
+      browser: 'chrome',
+      profile: '/from/config'
+    })
+
+    const launcher = vi.fn()
+
+    await extensionDev('/proj', {
+      browser: 'chrome',
+      port: 0,
+      profile: '/from/cli',
+      launcher
+    } as any)
+
+    const devServerCall = (devServerMod as any).devServer.mock.calls[0]
+    const plugin = devServerCall?.[1]?.browsersPlugin
+    const browserOptions = (plugin as any).options?.browserOptions
+    expect(browserOptions.profile).toBe('/from/cli')
   })
 
   it('exits process(1) on unexpected error', async () => {
