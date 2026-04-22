@@ -133,8 +133,10 @@ export async function extensionPreview(
     )
   }
 
-  // Load command + browser defaults from the project root (package.json dir)
-  const commandConfig = await loadCommandConfig(packageJsonDir, 'preview')
+  // Load command + browser defaults from the project root (package.json dir).
+  // When start.ts delegates here, honor the user's `commands.start.*` keys —
+  // otherwise `extension start` would silently read `commands.preview.*`.
+  const commandConfig = await loadCommandConfig(packageJsonDir, metadataCommand)
   const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
   console.log(messages.previewing(browser))
