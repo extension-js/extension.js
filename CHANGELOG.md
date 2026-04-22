@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-- Surface reserved-folder diagnostic for Node.js scripts dropped into scripts/ (f0806a84)
-- Disable module concatenation in dev to fix react-refresh __webpack_module__ clash (487779f8)
+- Forward extension.config.js browser/command fields to the browser launcher (2432af24)
 
 ## 3.8.2
 
