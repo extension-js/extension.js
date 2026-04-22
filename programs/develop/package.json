@@ -78,7 +78,7 @@
   "dependencies": {
     "@prefresh/core": "1.5.9",
     "@prefresh/utils": "1.2.1",
-    "@rspack/core": "^1.7.5",
+    "@rspack/core": "^2.0.0",
     "@rspack/dev-server": "^1.2.1",
     "@rspack/plugin-preact-refresh": "1.1.4",
     "@rspack/plugin-react-refresh": "1.6.0",
