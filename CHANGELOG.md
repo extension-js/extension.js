@@ -2,15 +2,8 @@
 
 ## Unreleased
 
-- Drop ?url query bypass in CSS loaders, add end-to-end regression spec (0e529e9d)
-- Pin @rspack/dev-server to ^1.2.1 until @rspack/core 2.x ships stable (64bbd22d)
-- Default --install to off on extension create (ecef8841)
-- Collapse CLI telemetry to 2 events with sampling, cap, and dedup (450206d4)
-- Fix follow-redirects auth header leak vulnerability (GHSA-r4q5-vmmm-2653) (43fcde8b)
-- Update --help and --ai-help with Docker, --host, and Flatpak Firefox docs (20641386)
-- Add CDP pipe transport and CDP-first extension loading (d54c7902)
-- Add --host flag and Docker/devcontainer support (6ff4c5c9)
-- Harden --source across platforms and tighten commands/* orchestration (91ee1101)
+- Surface reserved-folder diagnostic for Node.js scripts dropped into scripts/ (f0806a84)
+- Disable module concatenation in dev to fix react-refresh __webpack_module__ clash (487779f8)
 
 ## 3.8.2
 
