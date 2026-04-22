@@ -16,7 +16,7 @@ import {
   urlMatchesAnyContentScriptRule
 } from '../../../browsers-lib/content-script-targets'
 import {getCanonicalContentScriptEntryName} from '../../../browsers-lib/content-script-contracts'
-import {CDPClient} from '../cdp-client'
+import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {readManifestInfo} from './ensure'
@@ -701,7 +701,8 @@ export class CDPExtensionController {
       await this.cdp.sendCommand('Target.setAutoAttach', {
         autoAttach: true,
         waitForDebuggerOnStart: false,
-        flatten: true
+        flatten: true,
+        filter: EXTENSION_AUTO_ATTACH_FILTER
       })
     } catch (error: unknown) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {

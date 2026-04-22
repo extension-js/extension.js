@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {Readable, Writable} from 'stream'
-import {CDPClient} from '../cdp-client'
+import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {checkChromeRemoteDebugging} from '../discovery'
 
 function isRecoverableBootstrapError(error: unknown): boolean {
@@ -39,7 +39,8 @@ export async function connectToChromeCdpViaPipe(
     await cdp.sendCommand('Target.setAutoAttach', {
       autoAttach: true,
       waitForDebuggerOnStart: false,
-      flatten: true
+      flatten: true,
+      filter: EXTENSION_AUTO_ATTACH_FILTER
     })
 
     return cdp
@@ -82,7 +83,8 @@ export async function connectToChromeCdp(
       await cdp.sendCommand('Target.setAutoAttach', {
         autoAttach: true,
         waitForDebuggerOnStart: false,
-        flatten: true
+        flatten: true,
+        filter: EXTENSION_AUTO_ATTACH_FILTER
       })
 
       return cdp
