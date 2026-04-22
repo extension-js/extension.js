@@ -80,7 +80,12 @@ describe('CDPExtensionController hardReload', () => {
       {
         autoAttach: true,
         waitForDebuggerOnStart: false,
-        flatten: true
+        flatten: true,
+        filter: [
+          {type: 'page', exclude: true},
+          {type: 'iframe', exclude: true},
+          {}
+        ]
       }
     )
     expect(reconnectedCdp.forceReloadExtension).toHaveBeenCalledWith('ext-id')
