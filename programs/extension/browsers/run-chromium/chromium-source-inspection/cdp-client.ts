@@ -31,6 +31,17 @@ import {
 } from './page'
 import {establishBrowserConnection} from './ws'
 
+// Restrict browser-root auto-attach to extension-relevant target types.
+// Excluding page/iframe prevents third-party OAuth popups (claude.ai, Google, etc.)
+// from being pulled into our CDP session, which Chrome flags as "a debugger is
+// attached" and surfaces as "Debugger paused in another tab" when those popups
+// ship anti-debug `debugger;` statements. enableAutoAttach() below stays filter-less
+// for the unified-logging path, which needs page coverage.
+export const EXTENSION_AUTO_ATTACH_FILTER: Array<{
+  type?: string
+  exclude?: boolean
+}> = [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
+
 // Chrome DevTools Protocol Client for source inspection
 // Handles communication with Chrome's remote debugging interface
 export class CDPClient {
