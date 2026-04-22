@@ -9,6 +9,7 @@
 import * as path from 'path'
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 
 // ---------------------------------------------------------------------------
 // Build event types
@@ -155,25 +156,24 @@ export class BrowsersPlugin {
 
   apply(compiler: Compiler) {
     let pendingReloadReason: ReloadType | undefined
+    let pendingChangedSources: string[] = []
 
     // ---- watchRun: classify changed files ----
     compiler.hooks.watchRun.tap(BrowsersPlugin.name, () => {
       pendingReloadReason = undefined
+      pendingChangedSources = []
       const modifiedFiles = compiler.modifiedFiles
       if (!modifiedFiles || modifiedFiles.size === 0) return
 
+      const contextDir = compiler.options.context || ''
       for (const file of modifiedFiles) {
-        const relative = path.relative(compiler.options.context || '', file)
-        const normalized = relative.replace(/\\/g, '/')
+        const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
+        pendingChangedSources.push(normalized)
 
         if (normalized.includes('manifest.json')) {
           pendingReloadReason = 'full'
-          return
-        }
-
-        if (normalized.includes('_locales/')) {
+        } else if (normalized.includes('_locales/')) {
           pendingReloadReason = 'full'
-          return
         }
       }
     })
@@ -195,34 +195,46 @@ export class BrowsersPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // Classify reload type from changed files / emitted assets
+      // Classify reload type from modified source files. Asset-name heuristics
+      // are unreliable because `compilation.assets` contains every emitted
+      // asset on each compile (including a persistent background/service_worker.js),
+      // which made every classification resolve to 'service-worker' even when
+      // only a content script changed.
       let reloadInstruction: ReloadInstruction | undefined
 
       if (!this.isFirstCompile && pendingReloadReason) {
         reloadInstruction = {type: pendingReloadReason}
-      } else if (!this.isFirstCompile) {
-        const changedAssets = Object.keys(compilation.assets || {})
-        const hasServiceWorkerChange = changedAssets.some(
-          (a) =>
-            a.includes('background') ||
-            a.includes('service_worker') ||
-            a.includes('service-worker')
+      } else if (!this.isFirstCompile && pendingChangedSources.length > 0) {
+        const isServiceWorkerSource = (rel: string) =>
+          /(^|\/)background(\.|\/)/i.test(rel) ||
+          /service[-_.]?worker/i.test(rel)
+
+        const hasServiceWorkerChange = pendingChangedSources.some(
+          isServiceWorkerSource
         )
 
         if (hasServiceWorkerChange) {
           reloadInstruction = {
             type: 'service-worker',
-            changedAssets
+            changedAssets: pendingChangedSources
           }
-        } else if (changedAssets.length > 0) {
-          const contentChanges = changedAssets.filter((a) =>
-            a.includes('content')
+        } else {
+          // Any other source change falls under 'content-scripts'. Pass every
+          // content-script entry name so the controller can URL-match against
+          // open tabs and reload only the ones that actually run the scripts.
+          const contentScriptCount = readContentScriptCount(
+            compilation,
+            outputPath
           )
-          if (contentChanges.length > 0) {
+          if (contentScriptCount > 0) {
+            const entries: string[] = []
+            for (let i = 0; i < contentScriptCount; i++) {
+              entries.push(getCanonicalContentScriptEntryName(i))
+            }
             reloadInstruction = {
               type: 'content-scripts',
-              changedContentScriptEntries: contentChanges,
-              changedAssets
+              changedContentScriptEntries: entries,
+              changedAssets: pendingChangedSources
             }
           }
         }
@@ -277,4 +289,32 @@ export class BrowsersPlugin {
       })
     })
   }
+}
+
+function readContentScriptCount(compilation: any, outputPath: string): number {
+  try {
+    const asset = compilation.getAsset?.('manifest.json')
+    if (asset?.source) {
+      const manifest = JSON.parse(String(asset.source.source()))
+      const list = manifest?.content_scripts
+      if (Array.isArray(list)) return list.length
+    }
+  } catch {
+    // fall through to disk read
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs') as typeof import('fs')
+    const manifestPath = path.join(outputPath, 'manifest.json')
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      const list = manifest?.content_scripts
+      if (Array.isArray(list)) return list.length
+    }
+  } catch {
+    // ignore
+  }
+
+  return 0
 }
