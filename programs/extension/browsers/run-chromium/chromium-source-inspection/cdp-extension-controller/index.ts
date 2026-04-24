@@ -41,6 +41,20 @@ export class CDPExtensionController {
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
   private lastRuntimeReinjectionReport: Record<string, unknown> | null = null
+  // Persistent content-script registration for future page targets (fresh
+  // tabs, page reloads, cross-URL navigation). On each rebuild the reload
+  // flow calls registerContentScriptsForFutureNavigations(rules). The
+  // controller then keeps these rules in state and watches Target.* /
+  // Runtime.executionContextCreated events so that whenever Chrome creates
+  // the extension's isolated world on a matching URL we re-evaluate the
+  // latest bundle source there. The wrapper's __EXTENSIONJS_DEV_REINJECT__
+  // registry dedupes the static-cache-OLD + CDP-evaluated-NEW pair
+  private activeContentScriptRules: ContentScriptTargetRule[] = []
+  private contentScriptTargetListenerInstalled = false
+  private watchedPageSessions = new Map<
+    string,
+    {targetId: string; url: string}
+  >()
 
   constructor(args: {
     outPath: string
@@ -358,6 +372,196 @@ export class CDPExtensionController {
     }
 
     return reinjectedTabs
+  }
+
+  /**
+   * Install a persistent CDP listener that re-injects the latest content-
+   * script bundle into any page that navigates to a URL matching a rule —
+   * including fresh tabs, full page reloads, and same-tab URL changes.
+   *
+   * Chrome binds its static `content_scripts` list to the bytes it read when
+   * the extension was loaded, and those cached bytes don't change when
+   * Rspack rewrites the hashed bundle on edit. We can't reload the extension
+   * without losing SW state and closing popup/sidebar. So for every matching
+   * navigation we wait for Chrome to create the extension's isolated world
+   * (which happens at `document_start` just before the cached content script
+   * runs) and evaluate the fresh bundle source in that exact world. The
+   * wrapper's `__EXTENSIONJS_DEV_REINJECT__` registry keyed on the canonical
+   * bundle id unmounts the stale generation before mounting the new one, so
+   * what the user sees is the latest build.
+   *
+   * Called on every `content-scripts` reload instruction with the latest
+   * rules. Safe to call repeatedly — rules are simply replaced.
+   */
+  async registerContentScriptsForFutureNavigations(
+    rules: ContentScriptTargetRule[]
+  ): Promise<void> {
+    this.activeContentScriptRules = [...rules]
+    if (!this.cdp) return
+
+    if (!this.contentScriptTargetListenerInstalled) {
+      this.contentScriptTargetListenerInstalled = true
+      this.installContentScriptTargetListener()
+    }
+
+    // Proactively attach to page targets that already match so their next
+    // navigation (or an in-flight one) is covered without waiting for a
+    // `targetInfoChanged` event.
+    try {
+      const targets = await this.cdp.getTargets()
+      for (const target of targets || []) {
+        if (String((target as any)?.type || '') !== 'page') continue
+        const targetId = String((target as any)?.targetId || '')
+        const url = String((target as any)?.url || '')
+        if (!targetId || !url) continue
+        if (!this.urlMatchesAnyActiveRule(url)) continue
+        await this.ensureWatchedPageSession(targetId, url)
+      }
+    } catch {
+      // Best-effort pre-attach; the listener handles future targets.
+    }
+  }
+
+  private installContentScriptTargetListener(): void {
+    if (!this.cdp) return
+    this.cdp.onProtocolEvent((raw: Record<string, unknown>) => {
+      const method = String((raw as {method?: string}).method || '')
+      const params = (raw as {params?: any}).params
+      const sessionId = String((raw as {sessionId?: string}).sessionId || '')
+
+      if (
+        method === 'Target.targetCreated' ||
+        method === 'Target.targetInfoChanged'
+      ) {
+        const targetInfo = params?.targetInfo
+        if (!targetInfo || targetInfo.type !== 'page') return
+        const targetId = String(targetInfo.targetId || '')
+        const url = String(targetInfo.url || '')
+        if (!targetId) return
+        if (!this.urlMatchesAnyActiveRule(url)) {
+          // Update URL for tracked session so a future context created on a
+          // now-non-matching URL is skipped.
+          for (const info of this.watchedPageSessions.values()) {
+            if (info.targetId === targetId) info.url = url
+          }
+          return
+        }
+        this.ensureWatchedPageSession(targetId, url).catch(() => {
+          // Target may have closed mid-flight; ignore.
+        })
+        return
+      }
+
+      if (method === 'Runtime.executionContextCreated') {
+        if (!sessionId) return
+        const session = this.watchedPageSessions.get(sessionId)
+        if (!session) return
+        const context = params?.context
+        if (!context) return
+        this.evaluateContentScriptOnNewContext(
+          sessionId,
+          session,
+          context
+        ).catch(() => {
+          // Best-effort; next navigation will re-try.
+        })
+        return
+      }
+
+      if (method === 'Target.detachedFromTarget') {
+        if (sessionId) this.watchedPageSessions.delete(sessionId)
+      }
+    })
+  }
+
+  private urlMatchesAnyActiveRule(url: string): boolean {
+    if (!url || this.activeContentScriptRules.length === 0) return false
+    return this.activeContentScriptRules.some((rule) =>
+      urlMatchesAnyContentScriptRule(url, [rule])
+    )
+  }
+
+  private async ensureWatchedPageSession(
+    targetId: string,
+    url: string
+  ): Promise<void> {
+    if (!this.cdp) return
+    // Already attached to this target? Update URL and bail.
+    for (const info of this.watchedPageSessions.values()) {
+      if (info.targetId === targetId) {
+        info.url = url
+        return
+      }
+    }
+
+    let sessionId: string
+    try {
+      sessionId = await this.cdp.attachToTarget(targetId)
+    } catch {
+      return
+    }
+    this.watchedPageSessions.set(sessionId, {targetId, url})
+    try {
+      await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
+    } catch {
+      // If Runtime.enable fails the session is likely stale; clean up.
+      this.watchedPageSessions.delete(sessionId)
+    }
+  }
+
+  private async evaluateContentScriptOnNewContext(
+    sessionId: string,
+    session: {targetId: string; url: string},
+    context: {
+      id?: number
+      origin?: string
+      auxData?: {type?: string; isDefault?: boolean; frameId?: string}
+    }
+  ): Promise<void> {
+    if (!this.cdp) return
+    const contextId = context.id
+    if (typeof contextId !== 'number') return
+    if (!this.urlMatchesAnyActiveRule(session.url)) return
+
+    const auxData = context.auxData || {}
+    const origin = String(context.origin || '')
+    const extensionId =
+      this.extensionId || (await this.deriveExtensionIdFromTargets())
+    const extensionOrigin = extensionId
+      ? `chrome-extension://${extensionId}`
+      : ''
+
+    // Find rules that match this URL AND target the world of this context.
+    const matchingRules = this.activeContentScriptRules.filter((rule) => {
+      if (!urlMatchesAnyContentScriptRule(session.url, [rule])) return false
+      if (rule.world === 'main') {
+        return auxData.type === 'default' && auxData.isDefault === true
+      }
+      return auxData.type === 'isolated' && origin === extensionOrigin
+    })
+
+    if (matchingRules.length === 0) return
+
+    for (const rule of matchingRules) {
+      const bundlePath = resolveEmittedContentScriptFile(
+        this.outPath,
+        rule.index,
+        'js'
+      )
+      if (!bundlePath || !fs.existsSync(bundlePath)) continue
+      const source = this.patchReinjectSourceForInvalidatedRuntime(
+        fs.readFileSync(bundlePath, 'utf-8')
+      )
+      if (!source.trim()) continue
+      const bundleId = getCanonicalContentScriptEntryName(rule.index)
+      // allowCoarseCleanup=true: fresh navigation, nothing to preserve.
+      const expression = this.buildReinjectExpression(bundleId, source, true)
+      try {
+        await this.cdp.evaluateInContext(sessionId, expression, contextId)
+      } catch {
+        // Best-effort; ignore per-rule failures.
+      }
+    }
   }
 
   async reinjectMatchingTabsViaExtensionRuntime(
