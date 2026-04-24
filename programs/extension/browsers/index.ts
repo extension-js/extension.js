@@ -126,7 +126,18 @@ function resolveContentScriptRulesForReload(
   entries: string[] | undefined
 ): ContentScriptTargetRule[] {
   if (!entries || entries.length === 0) return []
-  const extensionRoot = extensionsToLoad?.[0]
+
+  // The user's extension is the one the reload is for. When dev loads
+  // companion extensions (extension-js-devtools, extension-js-theme, etc.), they
+  // appear first in `extensionsToLoad` — using `extensionsToLoad[0]` here
+  // reads the companion's manifest, which declares a single narrow content
+  // script, and every rule for the user's extension is silently dropped.
+  // Prefer the actual output path (the user's dist) and fall back only if it
+  // isn't known
+  const outputPath = (compilationLike as any)?.options?.output?.path as
+    | string
+    | undefined
+  const extensionRoot = outputPath || extensionsToLoad?.[0]
   const rules = readContentScriptRules(compilationLike, extensionRoot)
   return selectContentScriptRules(rules, entries)
 }
@@ -241,7 +252,23 @@ async function launchChromium(
             opts.extensionsToLoad,
             instruction.changedContentScriptEntries
           )
+          // 1. In-place reinject into tabs that already have the content
+          //    script running (Surface A' — preserves DOM/React state).
           await ctrl.reloadMatchingTabsForContentScripts(rules)
+          // 2. Register a persistent CDP hook so fresh tabs, page reloads,
+          //    and cross-URL navigations get the latest bundle evaluated in
+          //    the extension's isolated world the moment it's created
+          //    (Surfaces B + C). Preserves SW state + open extension pages.
+          if (
+            typeof ctrl.registerContentScriptsForFutureNavigations ===
+            'function'
+          ) {
+            try {
+              await ctrl.registerContentScriptsForFutureNavigations(rules)
+            } catch {
+              // Best-effort: open-tab reinjection already happened above.
+            }
+          }
           return
         }
       }
