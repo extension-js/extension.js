@@ -27,6 +27,8 @@ type ManifestLike = {
     exclude_matches?: string[]
     include_globs?: string[]
     exclude_globs?: string[]
+    js?: string[]
+    css?: string[]
   }>
 }
 
@@ -199,14 +201,64 @@ export function getContentScriptRulesFromManifest(
     ? manifest.content_scripts
     : []
 
-  return contentScripts.map((contentScript, index) => ({
-    index,
+  return contentScripts.map((contentScript, arrayIndex) => ({
+    // `index` must match the canonical bundle index baked into the emitted
+    // `content_scripts/content-N.js` filename so downstream file resolvers
+    // pick the right bundle. That's NOT the manifest array position — MAIN
+    // world bridges push entries into the manifest at positions whose
+    // canonical bundle index is higher (e.g. entry at position 3 may be the
+    // bridge with js=content-9.js). Parse the index from the actual js path.
+    index: resolveCanonicalIndexFromEntry(contentScript) ?? arrayIndex,
     world: contentScript?.world === 'MAIN' ? 'main' : 'extension',
     matches: normalizeStringArray(contentScript?.matches),
     excludeMatches: normalizeStringArray(contentScript?.exclude_matches),
     includeGlobs: normalizeStringArray(contentScript?.include_globs),
     excludeGlobs: normalizeStringArray(contentScript?.exclude_globs)
   }))
+}
+
+type ManifestContentScriptEntry = {
+  js?: unknown
+  css?: unknown
+}
+
+function resolveCanonicalIndexFromEntry(
+  entry: ManifestContentScriptEntry | undefined | null
+): number | undefined {
+  const js = Array.isArray(entry?.js) ? (entry as {js: unknown[]}).js : []
+
+  for (const rawPath of js) {
+    if (typeof rawPath !== 'string') continue
+    const parsed = parseCanonicalAssetPath(rawPath, 'js')
+    if (parsed !== undefined) return parsed
+  }
+
+  const css = Array.isArray(entry?.css) ? (entry as {css: unknown[]}).css : []
+
+  for (const rawPath of css) {
+    if (typeof rawPath !== 'string') continue
+    const parsed = parseCanonicalAssetPath(rawPath, 'css')
+    if (parsed !== undefined) return parsed
+  }
+
+  return undefined
+}
+
+function parseCanonicalAssetPath(
+  assetPath: string,
+  ext: 'js' | 'css'
+): number | undefined {
+  // content_scripts/content-<N>.js                     (stable)
+  // content_scripts/content-<N>.<hash>.js              (dev, hashed)
+  const match = new RegExp(
+    `^content_scripts\\/content-(\\d+)(?:\\.[a-f0-9]+)?\\.${ext}$`,
+    'i'
+  ).exec(assetPath)
+
+  if (!match) return undefined
+  const index = Number(match[1])
+
+  return Number.isInteger(index) && index >= 0 ? index : undefined
 }
 
 export function selectContentScriptRules(
