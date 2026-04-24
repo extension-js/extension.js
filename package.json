@@ -17,7 +17,8 @@
       "undici": "^7.24.0",
       "yauzl": "^3.2.1",
       "vite": "^8.0.5",
-      "follow-redirects": "^1.16.0"
+      "follow-redirects": "^1.16.0",
+      "uuid": "^14.0.0"
     }
   },
   "scripts": {
