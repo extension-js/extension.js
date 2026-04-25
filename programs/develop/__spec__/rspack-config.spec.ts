@@ -181,4 +181,39 @@ describe('webpack-config transpile packages watch behavior', () => {
       projectStructure.manifestPath
     )
   })
+
+  it('routes CJS requires through the `require` exports condition', () => {
+    // Regression guard for https://github.com/extension-js/extension.js/issues/445.
+    // When a project sets `"type": "module"`, packages that ship CJS code (e.g.
+    // antd / @ant-design/x) still issue `require()` calls into @babel/runtime.
+    // Those runtime helpers expose distinct files per condition; resolving CJS
+    // requires through `import` returns an ESM namespace whose default is the
+    // helper, which the caller cannot invoke directly — manifesting at runtime
+    // as `Uncaught TypeError: _interopRequireDefault is not a function`.
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const resolve: any = config.resolve
+    expect(resolve?.byDependency?.commonjs?.conditionNames).toContain('require')
+    expect(resolve?.byDependency?.commonjs?.conditionNames).not.toContain(
+      'import'
+    )
+    expect(resolve?.byDependency?.esm?.conditionNames).toContain('import')
+  })
 })

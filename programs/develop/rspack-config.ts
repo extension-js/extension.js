@@ -13,7 +13,6 @@ import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import {asAbsolute, getDirs} from './lib/paths'
-import {withDarkMode} from './lib/dark-mode'
 import * as messages from './lib/messages'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
@@ -93,13 +92,6 @@ export default function webpackConfig(
       console.warn(messages.noCompanionExtensionsResolved())
     }
   }
-
-  // Apply cross-browser dark mode defaults without overriding explicit user choices
-  const darkDefaults = withDarkMode({
-    browser: devOptions.browser,
-    browserFlags: devOptions.browserFlags,
-    preferences: devOptions.preferences
-  })
 
   const plugins: NonNullable<Configuration['plugins']> = [
     new CompilationPlugin({
@@ -221,7 +213,20 @@ export default function webpackConfig(
     resolve: {
       // Prefer browser fields and conditions; avoid Node-targeted builds
       mainFields: ['browser', 'module', 'main'],
-      conditionNames: ['browser', 'import', 'module', 'default'],
+      // Pick the right exports condition for the request kind. ESM imports
+      // get `import`, CJS requires get `require` — packages like
+      // `@babel/runtime` ship distinct files per condition, and using
+      // `import` for a CJS `require()` returns an ESM namespace
+      // (`{ default: fn }`) that the caller cannot invoke as a function
+      conditionNames: ['browser', 'import', 'require', 'module', 'default'],
+      byDependency: {
+        esm: {
+          conditionNames: ['browser', 'import', 'module', 'default']
+        },
+        commonjs: {
+          conditionNames: ['browser', 'require', 'module', 'default']
+        }
+      },
       aliasFields: ['browser'],
       fallback: {
         crypto: false,
