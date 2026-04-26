@@ -141,6 +141,62 @@ describe('chromium wsl-support', () => {
     expect(spawnOptions).not.toHaveProperty('shell')
   })
 
+  it('hasGuiDisplay reads DISPLAY / WAYLAND_DISPLAY', async () => {
+    const mod = await loadModule()
+    delete process.env.DISPLAY
+    delete process.env.WAYLAND_DISPLAY
+    expect(mod.hasGuiDisplay()).toBe(false)
+    process.env.DISPLAY = ':0'
+    expect(mod.hasGuiDisplay()).toBe(true)
+    delete process.env.DISPLAY
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    expect(mod.hasGuiDisplay()).toBe(true)
+  })
+
+  it('resolveWslLinuxBinary returns the real Chrome binary on WSL+GUI', async () => {
+    const mod = await loadModule()
+    process.env.WSL_DISTRO_NAME = 'Ubuntu'
+    process.env.DISPLAY = ':0'
+    const fs = await import('fs')
+    const existsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
+    existsSync.mockImplementation((p) => p === '/opt/google/chrome/chrome')
+    expect(mod.resolveWslLinuxBinary('chrome')).toBe(
+      '/opt/google/chrome/chrome'
+    )
+  })
+
+  it('resolveWslLinuxBinary is null without GUI', async () => {
+    const mod = await loadModule()
+    process.env.WSL_DISTRO_NAME = 'Ubuntu'
+    delete process.env.DISPLAY
+    delete process.env.WAYLAND_DISPLAY
+    expect(mod.resolveWslLinuxBinary('chrome')).toBeNull()
+  })
+
+  it('preferRealChromeBinary swaps wrapper for real binary on WSL+GUI', async () => {
+    const mod = await loadModule()
+    process.env.WSL_DISTRO_NAME = 'Ubuntu'
+    process.env.DISPLAY = ':0'
+    const fs = await import('fs')
+    const existsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
+    existsSync.mockImplementation((p) => p === '/opt/google/chrome/chrome')
+    expect(mod.preferRealChromeBinary('/usr/bin/google-chrome')).toBe(
+      '/opt/google/chrome/chrome'
+    )
+  })
+
+  it('preferRealChromeBinary is a no-op without WSL+GUI', async () => {
+    const mod = await loadModule()
+    delete process.env.WSL_DISTRO_NAME
+    delete process.env.WSL_INTEROP
+    delete process.env.WSLENV
+    delete process.env.DISPLAY
+    delete process.env.WAYLAND_DISPLAY
+    expect(mod.preferRealChromeBinary('/usr/bin/google-chrome')).toBe(
+      '/usr/bin/google-chrome'
+    )
+  })
+
   it('spawns without shell mode on non-Windows', async () => {
     const mod = await loadModule()
     setPlatform('linux')

@@ -37,6 +37,7 @@ import {browserConfig} from './browser-config'
 import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
 import {
   isWslEnv,
+  resolveWslLinuxBinary as resolveWslLinuxFirefox,
   normalizeBinaryPathForWsl,
   resolveWslWindowsBinary,
   spawnFirefoxProcess
@@ -238,10 +239,21 @@ export class FirefoxLaunchPlugin {
       this.host.browser === 'gecko-based' ||
       this.host.browser === 'firefox-based'
     if (!browserBinaryLocation && !engineBased && isWslEnv()) {
-      const wslFallback = resolveWslFallback()
-      if (wslFallback) {
-        browserBinaryLocation = wslFallback
+      // WSL+GUI: prefer a Linux-native Firefox so the dev loop stays
+      // entirely on the Linux side. Fall back to the Windows binary via
+      // /mnt/c when no Linux Firefox is installed or no GUI is available.
+      const linuxFallback = resolveWslLinuxFirefox()
+
+      if (linuxFallback) {
+        browserBinaryLocation = linuxFallback
         skipDetection = true
+      } else {
+        const wslFallback = resolveWslFallback()
+
+        if (wslFallback) {
+          browserBinaryLocation = wslFallback
+          skipDetection = true
+        }
       }
     }
 
@@ -294,12 +306,19 @@ export class FirefoxLaunchPlugin {
         if (engineBased || this.host.geckoBinary) {
           failGeckoBinaryRequirement()
         } else {
-          const wslFallback = resolveWslFallback()
-          if (wslFallback) {
-            browserBinaryLocation = wslFallback
+          const linuxFallback = resolveWslLinuxFirefox()
+
+          if (linuxFallback) {
+            browserBinaryLocation = linuxFallback
           } else {
-            this.printInstallHint(compilation, getInstallGuidanceText())
-            throwOrExitNotInstalled()
+            const wslFallback = resolveWslFallback()
+
+            if (wslFallback) {
+              browserBinaryLocation = wslFallback
+            } else {
+              this.printInstallHint(compilation, getInstallGuidanceText())
+              throwOrExitNotInstalled()
+            }
           }
         }
       }
