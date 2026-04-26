@@ -83,6 +83,36 @@ describe('firefox wsl-support', () => {
     expect(existsSync).toHaveBeenCalled()
   })
 
+  it('hasGuiDisplay reads DISPLAY / WAYLAND_DISPLAY', async () => {
+    const mod = await loadModule()
+    delete process.env.DISPLAY
+    delete process.env.WAYLAND_DISPLAY
+    expect(mod.hasGuiDisplay()).toBe(false)
+    process.env.DISPLAY = ':0'
+    expect(mod.hasGuiDisplay()).toBe(true)
+    delete process.env.DISPLAY
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    expect(mod.hasGuiDisplay()).toBe(true)
+  })
+
+  it('resolveWslLinuxBinary returns Linux Firefox on WSL+GUI', async () => {
+    const mod = await loadModule()
+    process.env.WSL_DISTRO_NAME = 'Ubuntu'
+    process.env.DISPLAY = ':0'
+    const fs = await import('fs')
+    const existsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
+    existsSync.mockImplementation((p) => p === '/usr/bin/firefox')
+    expect(mod.resolveWslLinuxBinary()).toBe('/usr/bin/firefox')
+  })
+
+  it('resolveWslLinuxBinary is null without GUI', async () => {
+    const mod = await loadModule()
+    process.env.WSL_DISTRO_NAME = 'Ubuntu'
+    delete process.env.DISPLAY
+    delete process.env.WAYLAND_DISPLAY
+    expect(mod.resolveWslLinuxBinary()).toBeNull()
+  })
+
   it('retries spawn with Windows binary on WSL failure', async () => {
     const mod = await loadModule()
     process.env.WSL_DISTRO_NAME = 'Ubuntu'

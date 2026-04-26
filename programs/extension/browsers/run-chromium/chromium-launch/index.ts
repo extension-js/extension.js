@@ -42,6 +42,8 @@ import {waitForStableManifest} from '../manifest-readiness'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
+  preferRealChromeBinary,
+  resolveWslLinuxBinary,
   resolveWslWindowsBinary,
   spawnChromiumProcess
 } from './wsl-support'
@@ -248,12 +250,27 @@ export class ChromiumLaunchPlugin {
 
     let skipDetection = Boolean(browserBinaryLocation)
     if (!browserBinaryLocation && isWslEnv()) {
-      const wslFallback = resolveWslFallback()
-      if (wslFallback) {
-        browserBinaryLocation = wslFallback
+      // WSL+GUI: prefer a Linux-native browser so the dev loop stays
+      // entirely on the Linux side (CDP, watchers, FDs all behave
+      // normally). Fall back to the Windows binary via /mnt/c when no
+      // Linux browser is installed or no GUI is available.
+      const linuxFallback = resolveWslLinuxBinary(browser)
+
+      if (linuxFallback) {
+        browserBinaryLocation = linuxFallback
         skipDetection = true
+      } else {
+        const wslFallback = resolveWslFallback()
+
+        if (wslFallback) {
+          browserBinaryLocation = wslFallback
+          skipDetection = true
+        }
       }
     }
+    // Swap any Chrome wrapper script for the real binary under WSL+GUI
+    // — the wrapper closes extra FDs on exec, breaking CDP pipe.
+    browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
 
     const getBrowserVersionLine = (bin: string): string => {
       try {
