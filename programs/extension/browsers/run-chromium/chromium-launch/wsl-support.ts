@@ -21,6 +21,89 @@ export function isWslEnv(): boolean {
   return /microsoft/i.test(os.release())
 }
 
+/**
+ * Whether a Linux GUI display server is reachable. WSLg sets these
+ * automatically when shipping its X / Wayland sockets into the distro;
+ * a normal Linux desktop session also sets them. Headless WSL has neither.
+ */
+export function hasGuiDisplay(): boolean {
+  const display = String(process.env.DISPLAY || '').trim()
+  const waylandDisplay = String(process.env.WAYLAND_DISPLAY || '').trim()
+  return display.length > 0 || waylandDisplay.length > 0
+}
+
+// Known Linux install locations, in preference order. Real binaries come
+// before bash wrappers so `--remote-debugging-pipe` keeps its FDs open
+// (the Debian/Ubuntu `google-chrome` script uses process substitution,
+// which closes extra FDs on exec — see issue covered by WXT PR #2055).
+const LINUX_BROWSER_PATHS: Record<string, string[]> = {
+  chrome: [
+    '/opt/google/chrome/chrome',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable'
+  ],
+  'chromium-based': [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium'
+  ],
+  chromium: [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium'
+  ],
+  edge: ['/opt/microsoft/msedge/msedge', '/usr/bin/microsoft-edge']
+}
+
+/**
+ * Native Linux browser binary for use under WSL+GUI. Prefers real binaries
+ * over wrapper scripts. Returns null when not in WSL, when no GUI is
+ * available, or when no candidate exists on disk.
+ */
+export function resolveWslLinuxBinary(browser: string): string | null {
+  if (!isWslEnv() || !hasGuiDisplay()) return null
+  const candidates =
+    LINUX_BROWSER_PATHS[browser] || LINUX_BROWSER_PATHS['chrome']
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}
+
+const CHROME_WRAPPER_BASENAMES = new Set([
+  'google-chrome',
+  'google-chrome-stable',
+  'google-chrome-beta',
+  'google-chrome-dev',
+  'google-chrome-unstable'
+])
+
+function basename(filePath: string): string {
+  const idx = filePath.lastIndexOf('/')
+  return idx === -1 ? filePath : filePath.slice(idx + 1)
+}
+
+function looksLikeChromeWrapperScript(filePath: string): boolean {
+  if (!filePath) return false
+  return CHROME_WRAPPER_BASENAMES.has(basename(filePath))
+}
+
+/**
+ * Under WSL+GUI, swap a Chrome wrapper script for the real binary if
+ * present. The wrapper closes extra file descriptors on exec, which
+ * breaks `--remote-debugging-pipe`. No-op outside WSL+GUI.
+ */
+export function preferRealChromeBinary(
+  binary: string | null | undefined
+): string | null {
+  if (!binary) return binary || null
+  if (!isWslEnv() || !hasGuiDisplay()) return binary
+  if (!looksLikeChromeWrapperScript(binary)) return binary
+  const realBinary = '/opt/google/chrome/chrome'
+  if (fs.existsSync(realBinary)) return realBinary
+  return binary
+}
+
 export function normalizeBinaryPathForWsl(input: string): string {
   let value = String(input || '').trim()
   if (!value) return value
