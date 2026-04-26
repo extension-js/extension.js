@@ -21,6 +21,33 @@ export function isWslEnv(): boolean {
   return /microsoft/i.test(os.release())
 }
 
+// Whether a Linux GUI display server is reachable. WSLg sets these
+// automatically when shipping its X / Wayland sockets into the distro;
+// a normal Linux desktop session also sets them. Headless WSL has neither
+export function hasGuiDisplay() {
+  const display = String(process.env.DISPLAY || '').trim()
+  const waylandDisplay = String(process.env.WAYLAND_DISPLAY || '').trim()
+  return display.length > 0 || waylandDisplay.length > 0
+}
+
+const LINUX_FIREFOX_PATHS = [
+  '/usr/bin/firefox',
+  '/snap/bin/firefox',
+  '/opt/firefox/firefox'
+]
+
+// Native Linux Firefox binary for use under WSL+GUI. Returns null when not
+// in WSL, when no GUI is available, or when no candidate exists on disk
+export function resolveWslLinuxBinary() {
+  if (!isWslEnv() || !hasGuiDisplay()) return null
+
+  for (const candidate of LINUX_FIREFOX_PATHS) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  return null
+}
+
 export function normalizeBinaryPathForWsl(input: string): string {
   let value = String(input || '').trim()
   if (!value) return value
