@@ -12,91 +12,83 @@ import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
 
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function writeReadmeFile(
   projectPath: string,
   projectName: string,
   logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
-  // If a README already exists in the target folder, do not overwrite it
-  try {
-    await fs.access(path.join(projectPath, 'README.md'))
-    // README exists; respect the existing file
-    return
-  } catch {}
-
-  const initTemplateReadme = `
-<a href="https://extension.js.org" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
-
-# [projectName]
-
-> [templateDescription]
-
-This project was created with Extension.js. Use the commands below to run and build it.
-
-## Installation
-
-\`\`\`bash
-[runCommand] create <project-name>
-cd <project-name>
-npm install
-\`\`\`
-
-For a different starter, add \`--template=<slug>\` (see the [templates](https://extension.js.org/docs/getting-started/templates) docs).
-
-## Commands
-
-### dev
-
-Run the extension in development mode. You can target a specific browser using the
-\`--browser <browser>\` flag. Supported values: \`chrome\`, \`firefox\`, \`edge\`.
-
-\`\`\`bash
-[runCommand] dev --browser chrome
-# or
-[runCommand] dev --browser firefox
-# or
-[runCommand] dev --browser edge
-\`\`\`
-
-### build
-
-Build the extension for production. Use \`--browser <browser>\` to select a target.
-
-\`\`\`bash
-[runCommand] build (defaults to Chrome)
-# or use convenience scripts
-[runCommand] build:firefox (Firefox)
-[runCommand] build:edge (Edge)
-\`\`\`
-
-### Preview
-
-Preview the extension in the browser.
-
-\`\`\`bash
-[runCommand] preview
-\`\`\`
-
-## Learn more
-
-Learn more in the [Extension.js docs](https://extension.js.org).
-  `
+  // Always overwrite the template's README so the scaffolded project
+  // reads as the user's own — not the upstream template's marketing
+  // README. The bulk script in the examples repo keeps those rich,
+  // template-specific READMEs for browsing on GitHub.
 
   const installCommand = await utils.getInstallCommand()
   const manifestJsonPath = await findManifestJsonPath(projectPath)
   const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
+  const description = String(manifestJson.description || '').trim()
 
-  const readmeFileEdited = initTemplateReadme
-    .replaceAll('[projectName]', projectName)
-    .replaceAll('[templateDescription]', manifestJson.description)
-    .replaceAll('[runCommand]', installCommand)
+  const screenshotPath = path.join(projectPath, 'public', 'screenshot.png')
+  const hasScreenshot = await pathExists(screenshotPath)
+  const screenshotEmbed = hasScreenshot
+    ? `\n![screenshot](./public/screenshot.png)\n`
+    : ''
+
+  const blockquote = description ? `> ${description}\n\n` : ''
+
+  const readme =
+    `<a href="https://extension.js.org" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>\n` +
+    `\n` +
+    `# ${projectName}\n` +
+    `\n` +
+    blockquote +
+    `${screenshotEmbed}` +
+    `## Commands\n` +
+    `\n` +
+    `### dev\n` +
+    `\n` +
+    `Run the extension in development mode. Target a browser with \`--browser\`:\n` +
+    `\n` +
+    `\`\`\`bash\n` +
+    `${installCommand} run dev\n` +
+    `${installCommand} run dev -- --browser=firefox\n` +
+    `${installCommand} run dev -- --browser=edge\n` +
+    `\`\`\`\n` +
+    `\n` +
+    `### build\n` +
+    `\n` +
+    `Build for production. Convenience scripts target each browser:\n` +
+    `\n` +
+    `\`\`\`bash\n` +
+    `${installCommand} run build           # Chrome (default)\n` +
+    `${installCommand} run build:firefox\n` +
+    `${installCommand} run build:edge\n` +
+    `\`\`\`\n` +
+    `\n` +
+    `### preview\n` +
+    `\n` +
+    `Preview the production build in the browser:\n` +
+    `\n` +
+    `\`\`\`bash\n` +
+    `${installCommand} run preview\n` +
+    `\`\`\`\n` +
+    `\n` +
+    `## Learn more\n` +
+    `\n` +
+    `[Extension.js docs](https://extension.js.org).\n`
 
   try {
     logger.log(messages.writingReadmeMetaData())
-
-    // Ensure path to project exists
     await fs.mkdir(projectPath, {recursive: true})
-    await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
+    await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error: any) {
     logger.error(messages.writingReadmeMetaDataEError(projectName, error))
     throw error
