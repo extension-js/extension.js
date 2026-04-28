@@ -27,6 +27,7 @@ type BuildOptions = {
   silent?: boolean
   install?: boolean
   extensions?: string
+  mode?: string
 }
 
 export function registerBuildCommand(program: Command) {
@@ -69,6 +70,10 @@ export function registerBuildCommand(program: Command) {
       'comma-separated list of companion extensions or store URLs to load'
     )
     .option(
+      '--mode <development|production|none>',
+      'bundler mode override (also sets NODE_ENV). Defaults to `production`'
+    )
+    .option(
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
@@ -88,6 +93,23 @@ export function registerBuildCommand(program: Command) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
+      // Validate --mode upfront so users get a clear error rather than a
+      // silent fall-through to the production default.
+      let mode: 'development' | 'production' | 'none' | undefined
+      if (typeof buildOptions.mode === 'string') {
+        const m = buildOptions.mode.trim().toLowerCase()
+        if (m === 'development' || m === 'production' || m === 'none') {
+          mode = m
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
+              `Expected one of: development, production, none.`
+          )
+          process.exit(1)
+        }
+      }
+
       const {extensionBuild}: {extensionBuild: any} =
         loadExtensionDevelopModule()
 
@@ -100,7 +122,8 @@ export function registerBuildCommand(program: Command) {
           zipFilename: buildOptions.zipFilename,
           silent: buildOptions.silent,
           install: buildOptions.install,
-          extensions: parseExtensionsList((buildOptions as any).extensions)
+          extensions: parseExtensionsList((buildOptions as any).extensions),
+          mode
         })
       }
     })

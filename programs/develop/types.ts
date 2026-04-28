@@ -200,6 +200,14 @@ export interface BuildOptions {
   polyfill?: boolean
   silent?: boolean
   /**
+   * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
+   * preserve historical behavior. Setting 'development' is useful for
+   * staging/QA dists that should still pass through the bundler's debug
+   * pipeline (sourcemaps, looser minification). Mirrors `vite build --mode`
+   * and `webpack --mode`.
+   */
+  mode?: 'development' | 'production' | 'none'
+  /**
    * [internal] Auto-install project dependencies when missing.
    */
   install?: boolean
@@ -381,9 +389,18 @@ export interface CommonWebpackOptions {
  * Canonical options type for webpack-config consumers.
  * Accepts any of the command option fields (dev/preview/start/build),
  * while requiring browser and mode, and the common output settings.
+ *
+ * `mode` is omitted from the partial intersection because PreviewOptions
+ * and StartOptions narrow it to `'production'`. Without the omit the
+ * outer override below becomes ineffective: TypeScript intersects the
+ * outer `'development' | 'production' | 'none'` with the inner
+ * `'production'` and the input is locked back to `'production'`.
  */
 export type WebpackConfigOptions = CommonWebpackOptions &
-  Partial<DevOptions & PreviewOptions & StartOptions & BuildOptions> & {
+  Omit<
+    Partial<DevOptions & PreviewOptions & StartOptions & BuildOptions>,
+    'mode'
+  > & {
     browser: BrowserType
     mode: 'development' | 'production' | 'none'
   }
