@@ -117,7 +117,7 @@ function printOptOutNoticeIfFirstRun(): void {
       `${colors.cyan('command_executed')} + ${colors.cyan('command_failed')}). ` +
       `Disable with ${colors.cyan('extension telemetry disable')}, ` +
       `${colors.cyan('EXTENSION_TELEMETRY=0')}, or ${colors.cyan('--no-telemetry')}. ` +
-      `See TELEMETRY.md.`
+      `See docs/TELEMETRY.md.`
   )
 }
 
