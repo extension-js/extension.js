@@ -33,6 +33,34 @@ type ListAddonsResponse = {
 // we can evaluate against. Returns undefined if the addon isn't installed yet
 // or the descriptor doesn't expose a console actor (e.g. cold event page that
 // couldn't be woken)
+// Wrap an RDP request promise with a hard timeout. Firefox occasionally
+// fails to reply to a packet (observed on content-react MV3 where
+// getWatcher to the addon's webExtensionDescriptor never resolves), and a
+// silent hang here strands every subsequent reinjection attempt. With a
+// timeout the runtime path returns undefined and the caller falls back to
+// the legacy reinstall+navigate flow that works regardless of MV2/MV3
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  return Promise.race<T>([
+    promise.then((value) => {
+      if (timer) clearTimeout(timer)
+      return value
+    }),
+    new Promise<T>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`rdp request timeout: ${label} (${timeoutMs}ms)`)),
+        timeoutMs
+      )
+    })
+  ])
+}
+
+const RDP_REQUEST_TIMEOUT_MS = 5000
+
 export async function attachToAddonBackgroundConsole(
   client: MessagingClient,
   addonsActor: string,
@@ -48,10 +76,11 @@ export async function attachToAddonBackgroundConsole(
     // listAddons lives on the root actor, not on AddonsManagerActor —
     // addonsActor only handles installTemporaryAddon. The root actor
     // returns webExtensionDescriptors keyed by addon id.
-    const response = (await client.request({
-      to: 'root',
-      type: 'listAddons'
-    })) as ListAddonsResponse
+    const response = (await withTimeout(
+      client.request({to: 'root', type: 'listAddons'}),
+      RDP_REQUEST_TIMEOUT_MS,
+      'listAddons'
+    )) as ListAddonsResponse
 
     listAddonsResponseSample = (response?.addons || []).map((entry) => ({
       id: String(entry?.id || ''),
@@ -95,10 +124,11 @@ export async function attachToAddonBackgroundConsole(
   // addon's frame target through its target-available-form stream.
   let watcherActor: string
   try {
-    const watcherResponse = (await client.request({
-      to: descriptorActor,
-      type: 'getWatcher'
-    })) as {actor?: string}
+    const watcherResponse = (await withTimeout(
+      client.request({to: descriptorActor, type: 'getWatcher'}),
+      RDP_REQUEST_TIMEOUT_MS,
+      'getWatcher'
+    )) as {actor?: string}
     if (typeof watcherResponse?.actor !== 'string' || !watcherResponse.actor) {
       if (isAuthor) {
         // eslint-disable-next-line no-console
@@ -146,11 +176,15 @@ export async function attachToAddonBackgroundConsole(
   client.on('message', messageListener)
 
   try {
-    await client.request({
-      to: watcherActor,
-      type: 'watchTargets',
-      targetType: 'frame'
-    })
+    await withTimeout(
+      client.request({
+        to: watcherActor,
+        type: 'watchTargets',
+        targetType: 'frame'
+      }),
+      RDP_REQUEST_TIMEOUT_MS,
+      'watchTargets'
+    )
     // The watchTargets response resolves once initial target-available-form
     // events have been emitted, but Firefox sometimes flushes them on the
     // following tick. Brief settle catches stragglers.
