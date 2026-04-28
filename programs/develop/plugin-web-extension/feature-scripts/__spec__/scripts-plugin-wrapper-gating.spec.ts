@@ -1,10 +1,12 @@
-// Regression: AddContentScriptWrapper should NOT install its loader rule
-// when the build mode is production OR when EXTENSION_NO_RELOAD is set.
-// Production dists carried the wrapper for years (registry +
-// __extjsGeneration tracking + data-extjs-reinject-* attributes baked
-// into every content_script bundle), which was dead code in prod and
-// caused flicker on `extension dev` rebuilds. The CLI's `--no-reload`
-// surfaces the same opt-out for development.
+// Regression: AddContentScriptWrapper must install its loader rule in every
+// build mode. The wrapper rewrites `export default fn` into
+// `__EXTENSIONJS_default__` and emits the `__EXTENSIONJS_mount(...)` call
+// that actually invokes the user's default export. Without it, rspack treats
+// the entry chunk as a side-effect-free module exporting an unused default
+// and tree-shakes the entire body — content scripts ship empty in
+// production. EXTENSION_NO_RELOAD opts out of the dev reload strategy
+// (SetupReloadStrategy + StripContentScriptDevServerRuntime), not the
+// wrapper itself.
 
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
@@ -75,7 +77,7 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
     vi.restoreAllMocks()
   })
 
-  it('installs the wrapper in development mode by default', () => {
+  it('installs the wrapper in development mode', () => {
     new ScriptsPlugin({
       manifestPath: fixtureManifest,
       browser: 'chromium'
@@ -83,25 +85,16 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
     expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the wrapper in production mode (no dead reinject runtime in prod dists)', () => {
+  it('installs the wrapper in production mode (mount call must run in prod)', () => {
     new ScriptsPlugin({
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('production'))
-    expect(AddContentScriptWrapper).not.toHaveBeenCalled()
+    expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the wrapper in development when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
+  it('still installs the wrapper when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
     process.env.EXTENSION_NO_RELOAD = 'true'
-    new ScriptsPlugin({
-      manifestPath: fixtureManifest,
-      browser: 'chromium'
-    } as any).apply(makeCompiler('development'))
-    expect(AddContentScriptWrapper).not.toHaveBeenCalled()
-  })
-
-  it('still installs the wrapper in development when EXTENSION_NO_RELOAD is unset/other', () => {
-    process.env.EXTENSION_NO_RELOAD = ''
     new ScriptsPlugin({
       manifestPath: fixtureManifest,
       browser: 'chromium'
