@@ -426,6 +426,45 @@ describe('webpack/command-build', () => {
     ).not.toHaveBeenCalled()
   })
 
+  it('defaults to mode=production when --mode is not passed', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    expect(webpackConfig).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({mode: 'production'})
+    )
+  })
+
+  it('honors mode: development override and aligns NODE_ENV', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+    const previousNodeEnv = process.env.NODE_ENV
+
+    await extensionBuild('/proj', {
+      browser: 'chrome',
+      silent: true,
+      mode: 'development'
+    })
+
+    expect(webpackConfig).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({mode: 'development'})
+    )
+    expect(process.env.NODE_ENV).toBe('development')
+    process.env.NODE_ENV = previousNodeEnv
+  })
+
   it('rejects when compiler returns missing stats (prevents silent success)', async () => {
     process.env.VITEST = 'true'
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
