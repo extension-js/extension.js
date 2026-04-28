@@ -621,6 +621,31 @@ export class RemoteFirefox {
         url?: string
         state?: string
       }
+      if (
+        process.env.EXTENSION_AUTHOR_MODE === 'true' &&
+        process.env.EXTJS_F2_TRACE === '1' &&
+        (message.type || message.from)
+      ) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[f2-trace] type=${message.type} from=${message.from} state=${message.state} url=${(message.url || '').slice(0, 80)}`
+          )
+        } catch {}
+      }
+      // Two complementary signals on the connection:
+      //   tabListChanged — root-actor broadcast when any tab opens/closes,
+      //                    fired on every connection regardless of attach
+      //   tabNavigated  — per-tab actor emits state=stop on attached tabs
+      // tabListChanged catches fresh tabs the dev connection hasn't
+      // attached to yet; tabNavigated catches navigations on already-known
+      // tabs. The runtime reinject inside scheduleFutureNavReinject queries
+      // browser.tabs.query, so it doesn't matter which tab triggered the
+      // event — the addon picks up every matching tab on the next pass.
+      if (message.type === 'tabListChanged' && message.from === 'root') {
+        this.scheduleFutureNavReinject()
+        return
+      }
       if (message.type !== 'tabNavigated') return
       if (message.state !== 'stop') return
 
