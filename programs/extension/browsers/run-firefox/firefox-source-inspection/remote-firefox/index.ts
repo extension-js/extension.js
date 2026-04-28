@@ -6,44 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {appendFileSync, existsSync, mkdirSync} from 'fs'
-import path from 'path'
 import type {CompilationLike} from '../../../browsers-types'
 import {MessagingClient} from './messaging-client'
-
-function emitFirefoxAgentDebugLog(payload: Record<string, unknown>) {
-  const line = JSON.stringify({
-    sessionId: 'a87efc',
-    timestamp: Date.now(),
-    ...payload
-  })
-  fetch('http://127.0.0.1:7795/ingest/9eb8f923-a325-4455-a46c-a6e706558307', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'a87efc'
-    },
-    body: line
-  }).catch(() => {})
-  try {
-    let dir = path.resolve(process.cwd())
-    for (let depth = 0; depth < 24; depth++) {
-      if (existsSync(path.join(dir, 'programs', 'develop', 'package.json'))) {
-        const filePath = path.join(dir, '.cursor', 'debug-a87efc.log')
-        mkdirSync(path.dirname(filePath), {recursive: true})
-        appendFileSync(filePath, `${line}\n`)
-        return
-      }
-      const parent = path.dirname(dir)
-      if (parent === dir) {
-        break
-      }
-      dir = parent
-    }
-  } catch {
-    // ignore
-  }
-}
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import * as messages from '../../../browsers-lib/messages'
 import {
@@ -69,6 +33,10 @@ import {
   urlMatchesAnyContentScriptRule
 } from '../../../browsers-lib/content-script-targets'
 import {
+  reinjectMatchingTabsViaAddonRuntime,
+  type ReinjectionReport
+} from './runtime-reinject'
+import {
   getInstancePorts,
   getLastRDPPort
 } from '../../../browsers-lib/instance-registry'
@@ -90,6 +58,35 @@ export class RemoteFirefox {
   private cachedSupportsReload: boolean | null = null
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
+  private lastRuntimeReinjectionReport: ReinjectionReport | null = null
+
+  // Phase F2 — future-navigation parity (mirrors Chromium's
+  // registerContentScriptsForFutureNavigations). Tracks the latest rules and
+  // a single subscription to tabNavigated/tabListChanged on the RDP transport,
+  // so that fresh tabs and same-tab navigations between rebuilds get the
+  // current bundle without waiting for the next file edit.
+  private activeContentScriptRules: ContentScriptTargetRule[] = []
+  private contentScriptListenerInstalled = false
+  private futureNavReinjectScheduled = false
+
+  // Phase F3 — capability cache. Probed once per session against the addon
+  // background to short-circuit runtime reinjection when browser.scripting
+  // isn't reachable (older Firefox or sleeping event-page).
+  private cachedRuntimeCapability: {
+    hasScripting: boolean
+    probedAt: number
+  } | null = null
+
+  public getLastRuntimeReinjectionReport(): ReinjectionReport | null {
+    return this.lastRuntimeReinjectionReport
+  }
+
+  public getRuntimeCapability(): {
+    hasScripting: boolean
+    probedAt: number
+  } | null {
+    return this.cachedRuntimeCapability
+  }
 
   private selectPrimaryAddonPath(
     compilation: CompilationLike,
@@ -211,33 +208,6 @@ export class RemoteFirefox {
       candidateAddonPaths
     )
 
-    // #region agent log
-    try {
-      const outPath = String(compilation?.options?.output?.path || '').replace(
-        /\\/g,
-        '/'
-      )
-      emitFirefoxAgentDebugLog({
-        runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
-        hypothesisId: 'H-COMP-3',
-        location: 'remote-firefox/index.ts:installAddons:paths',
-        message: 'Firefox candidate add-on paths and primary selection',
-        data: {
-          normalizedOutputPath: outPath,
-          primaryAddonPath: primaryAddonPath
-            ? String(primaryAddonPath).replace(/\\/g, '/')
-            : null,
-          candidateAddonPaths: candidateAddonPaths.map((p) =>
-            String(p).replace(/\\/g, '/')
-          ),
-          devtools: Boolean(devtools)
-        }
-      })
-    } catch {
-      // ignore
-    }
-    // #endregion
-
     for (const addonPath of candidateAddonPaths) {
       try {
         const ready = await waitForStableExtensionOutput(addonPath, {
@@ -291,30 +261,6 @@ export class RemoteFirefox {
           primaryUserAddonId = maybeId
         }
 
-        // #region agent log
-        emitFirefoxAgentDebugLog({
-          runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
-          hypothesisId: 'H-COMP-1',
-          location: 'remote-firefox/index.ts:installAddons:each',
-          message: 'Firefox temporary add-on installed',
-          data: {
-            index,
-            addonPath: String(addonPath).replace(/\\/g, '/'),
-            isManager,
-            isDevtoolsEnabled,
-            addonId: maybeId,
-            setDerivedExtensionIdFromThisInstall: Boolean(
-              primaryAddonPath &&
-                String(addonPath) === String(primaryAddonPath) &&
-                maybeId
-            ),
-            matchesPrimary:
-              Boolean(primaryAddonPath) &&
-              String(addonPath) === String(primaryAddonPath)
-          }
-        })
-        // #endregion
-
         if (isManager) {
           await waitForManagerWelcome(client)
         }
@@ -353,22 +299,6 @@ export class RemoteFirefox {
         this.derivedExtensionId = await deriveMozExtensionId(client)
       }
     } catch {}
-
-    // #region agent log
-    emitFirefoxAgentDebugLog({
-      runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-install',
-      hypothesisId: 'H-COMP-2',
-      location: 'remote-firefox/index.ts:installAddons:derived-id',
-      message:
-        'Firefox derivedExtensionId after installs + deriveMozExtensionId',
-      data: {
-        derivedExtensionId: this.derivedExtensionId || null,
-        lastInstalledAddonPath: primaryAddonPath
-          ? String(primaryAddonPath).replace(/\\/g, '/')
-          : null
-      }
-    })
-    // #endregion
 
     // Print banner with best-effort extensionId when available
     this.lastInstalledAddonPath = primaryAddonPath
@@ -518,6 +448,23 @@ export class RemoteFirefox {
     try {
       const rdpPort = this.resolveRdpPort()
       const client = this.client || (await this.connectClient(rdpPort))
+
+      // Mirror Chromium's reinjectMatchingTabsViaExtensionRuntime: try to
+      // re-execute the latest content-script bundle from the addon's own
+      // background context first. This preserves background/popup/sidebar
+      // state — the legacy reinstall+navigate path tears it all down on
+      // every content-script edit.
+      const runtimeAttempt = await this.tryRuntimeReinjection(client, rules)
+
+      if (runtimeAttempt.reinjectedTabs > 0) {
+        return runtimeAttempt.reinjectedTabs
+      }
+
+      // Fallback: full addon reload + per-tab navigate. Same behavior as
+      // before this change. Required when the addon background isn't
+      // reachable (event-page asleep, listAddons missing, scripting API
+      // unavailable on older Firefox), or when zero tabs were touched
+      // because the runtime path matched nothing
       await this.reloadAddonOrReinstall(client)
 
       // Brief settle after reinstall so Firefox updates internal tab state.
@@ -572,6 +519,195 @@ export class RemoteFirefox {
       return reloadedTabs
     } catch {
       return 0
+    }
+  }
+
+  private async tryRuntimeReinjection(
+    client: MessagingClient,
+    rules: ContentScriptTargetRule[]
+  ): Promise<{reinjectedTabs: number}> {
+    const addonsActor = this.cachedAddonsActor
+    const addonId = this.derivedExtensionId
+    const outPath = this.lastInstalledAddonPath
+
+    if (!addonsActor || !addonId || !outPath) {
+      this.lastRuntimeReinjectionReport = {
+        phase: 'skipped',
+        reason: 'missing_actor_or_addon_id_or_path',
+        addonId
+      }
+      return {reinjectedTabs: 0}
+    }
+
+    try {
+      const {reinjectedTabs, report} =
+        await reinjectMatchingTabsViaAddonRuntime(client, {
+          outPath,
+          rules,
+          addonsActor,
+          addonId,
+          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule])
+        })
+      this.lastRuntimeReinjectionReport = report
+      if (
+        report.phase === 'evaluated' &&
+        typeof report.hasScripting === 'boolean'
+      ) {
+        this.cachedRuntimeCapability = {
+          hasScripting: report.hasScripting,
+          probedAt: Date.now()
+        }
+      }
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        try {
+          console.log(
+            messages.firefoxRdpRuntimeReinjectionResult(JSON.stringify(report))
+          )
+        } catch {
+          // Do nothing
+        }
+      }
+      return {reinjectedTabs}
+    } catch (error) {
+      this.lastRuntimeReinjectionReport = {
+        phase: 'unavailable',
+        reason: `unhandled: ${String((error as Error)?.message || error)}`,
+        addonId
+      }
+      return {reinjectedTabs: 0}
+    }
+  }
+
+  public async registerContentScriptsForFutureNavigations(
+    rules: ContentScriptTargetRule[]
+  ): Promise<void> {
+    this.activeContentScriptRules = [...rules]
+    if (rules.length === 0) return
+
+    let client: MessagingClient | null = this.client
+    if (!client) {
+      try {
+        const port = this.resolveRdpPort()
+        client = await this.connectClient(port)
+      } catch {
+        return
+      }
+    }
+
+    if (this.contentScriptListenerInstalled) return
+    this.contentScriptListenerInstalled = true
+    this.installContentScriptTabListener(client)
+  }
+
+  private installContentScriptTabListener(client: MessagingClient): void {
+    client.on('message', (raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return
+
+      const message = raw as {
+        type?: string
+        from?: string
+        url?: string
+        state?: string
+      }
+      if (message.type !== 'tabNavigated') return
+      if (message.state !== 'stop') return
+
+      const url = String(message.url || '')
+
+      if (!url) return
+      if (!this.urlMatchesAnyActiveRule(url)) return
+
+      this.scheduleFutureNavReinject()
+    })
+  }
+
+  private urlMatchesAnyActiveRule(url: string): boolean {
+    if (!url || this.activeContentScriptRules.length === 0) return false
+
+    return this.activeContentScriptRules.some((rule) =>
+      urlMatchesAnyContentScriptRule(url, [rule])
+    )
+  }
+
+  private scheduleFutureNavReinject(): void {
+    if (this.futureNavReinjectScheduled) return
+    this.futureNavReinjectScheduled = true
+
+    // Coalesce bursts of tabNavigated events (multi-frame loads, redirect
+    // chains) into a single runtime reinject pass. The runtime path is
+    // idempotent — re-running on tabs that already received the latest
+    // generation is a no-op via __EXTENSIONJS_DEV_REINJECT__.
+    setTimeout(() => {
+      this.futureNavReinjectScheduled = false
+      const rules = this.activeContentScriptRules
+      const client = this.client
+
+      if (!client || rules.length === 0) return
+      this.tryRuntimeReinjection(client, rules).catch(() => {
+        // Best-effort; the next rebuild will retry.
+      })
+    }, 100)
+  }
+
+  public async probeRuntimeCapability(
+    client?: MessagingClient
+  ): Promise<{hasScripting: boolean} | null> {
+    if (this.cachedRuntimeCapability) return this.cachedRuntimeCapability
+
+    const addonsActor = this.cachedAddonsActor
+    const addonId = this.derivedExtensionId
+
+    if (!addonsActor || !addonId) return null
+
+    const target = client || this.client
+    if (!target) return null
+
+    const {attachToAddonBackgroundConsole} = await import('./runtime-reinject')
+    const console_ = await attachToAddonBackgroundConsole(
+      target,
+      addonsActor,
+      addonId
+    )
+
+    if (!console_) return null
+
+    try {
+      const probe = (await target.evaluate(
+        console_.consoleActor,
+        `(() => {
+          const api = (typeof globalThis === 'object' && globalThis)
+            ? (globalThis.browser || globalThis.chrome || null)
+            : null;
+          return JSON.stringify({
+            hasScripting: !!(api && api.scripting && typeof api.scripting.executeScript === 'function')
+          });
+        })()`
+      )) as unknown
+      const raw =
+        typeof probe === 'string' ? probe : (probe as {value?: unknown})?.value
+      const text = typeof raw === 'string' ? raw : ''
+
+      if (!text) return null
+
+      const parsed = JSON.parse(text) as {hasScripting?: boolean}
+      const hasScripting = Boolean(parsed?.hasScripting)
+
+      this.cachedRuntimeCapability = {hasScripting, probedAt: Date.now()}
+
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        try {
+          console.log(
+            messages.firefoxRdpRuntimeCapabilitySummary(
+              hasScripting ? 'available' : 'unavailable'
+            )
+          )
+        } catch {
+          // Do nothing
+        }
+      }
+      return this.cachedRuntimeCapability
+    } catch {
+      return null
     }
   }
 
