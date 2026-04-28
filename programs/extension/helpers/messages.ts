@@ -120,7 +120,7 @@ ${'Usage:'} extension [command] [options]
 
 ${'Notes'}
 - All high-level commands offer their own \`--help\` with usage and flag lists.
-- Telemetry is anonymous and privacy-safe by default; see ${code('TELEMETRY.md')} for the full contract.
+- Telemetry is anonymous and privacy-safe by default; see ${code('docs/TELEMETRY.md')} for the full contract.
 
 ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
