@@ -78,12 +78,7 @@ export class RemoteFirefox {
     probedAt: number
   } | null = null
 
-  // Firefox's watcher emits target-available-form only when a target first
-  // becomes available — not on every watchTargets call. The probe (or the
-  // first reload) consumes those events; without caching, subsequent
-  // attempts to attach return no_runtime_target. Cache the resolved actors
-  // and reuse them across reinjection passes within the same session.
-  private cachedAddonRuntimeTarget: AddonRuntimeTarget | null = null
+  private runtimePathPermanentlyUnavailable = false
 
   public getLastRuntimeReinjectionReport(): ReinjectionReport | null {
     return this.lastRuntimeReinjectionReport
@@ -531,7 +526,7 @@ export class RemoteFirefox {
   }
 
   private async tryRuntimeReinjection(
-    client: MessagingClient,
+    _persistentClient: MessagingClient,
     rules: ContentScriptTargetRule[]
   ): Promise<{reinjectedTabs: number}> {
     const addonsActor = this.cachedAddonsActor
@@ -547,18 +542,45 @@ export class RemoteFirefox {
       return {reinjectedTabs: 0}
     }
 
+    if (this.runtimePathPermanentlyUnavailable) {
+      this.lastRuntimeReinjectionReport = {
+        phase: 'skipped',
+        reason: 'runtime_path_marked_unavailable',
+        addonId
+      }
+      return {reinjectedTabs: 0}
+    }
+
+    // Firefox WatcherActor.target-available-form events fire only when a
+    // target first becomes available on a connection. After the initial
+    // capture the same connection's watcher will not re-emit, so caching
+    // the resolved actors and retrying breaks down when the addon's MV3
+    // event-page background restarts mid-session — the cached consoleActor
+    // becomes "No such actor" and re-discovery returns nothing. Open a
+    // fresh RDP socket per reinject; each connection's watcher is a fresh
+    // subscription that emits the *current* addon background target.
+    let scopedClient: MessagingClient | null = null
     try {
+      scopedClient = new MessagingClient()
+      await scopedClient.connect(this.resolveRdpPort())
+      // Firefox writes the root-actor welcome packet ({from:'root', ...})
+      // immediately after a client connects. The transport routes
+      // packets by `from` to the matching pending request, so if our
+      // first request (listTabs to root) reaches the wire before the
+      // welcome lands in our read buffer, the welcome ends up resolving
+      // the listTabs deferred — and listTabs sees `{tabs: undefined}`,
+      // producing a phantom no_payload skip per reinject. Wait briefly
+      // for the welcome to flow through transport.handleMessage with no
+      // active deferred (it falls through to a 'message' emit we don't
+      // listen to) before we send the first request.
+      await new Promise((resolve) => setTimeout(resolve, 50))
       const {reinjectedTabs, report} =
-        await reinjectMatchingTabsViaAddonRuntime(client, {
+        await reinjectMatchingTabsViaAddonRuntime(scopedClient, {
           outPath,
           rules,
           addonsActor,
           addonId,
-          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule]),
-          cachedTarget: this.cachedAddonRuntimeTarget || undefined,
-          onTargetResolved: (target) => {
-            this.cachedAddonRuntimeTarget = target
-          }
+          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule])
         })
       this.lastRuntimeReinjectionReport = report
       if (
@@ -568,6 +590,24 @@ export class RemoteFirefox {
         this.cachedRuntimeCapability = {
           hasScripting: report.hasScripting,
           probedAt: Date.now()
+        }
+      }
+      // Mark the runtime path as permanently unavailable on signals that
+      // imply Firefox can't expose the addon background to us via RDP at
+      // all (no descriptor matched, getWatcher hangs, scripting API not
+      // reachable). Subsequent reinjects skip F1 and go straight to the
+      // legacy reinstall+navigate fallback — preventing the cascade where
+      // each fallback's tabListChanged retriggers F1, hangs, and reloads
+      // again indefinitely.
+      if (report.phase === 'unavailable') {
+        const reason = String(report.reason || '')
+        if (
+          reason === 'no_runtime_target' ||
+          reason === 'no_runtime_target_after_stale' ||
+          reason === 'no_browser_scripting_in_runtime' ||
+          /timeout/i.test(reason)
+        ) {
+          this.runtimePathPermanentlyUnavailable = true
         }
       }
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
@@ -587,6 +627,12 @@ export class RemoteFirefox {
         addonId
       }
       return {reinjectedTabs: 0}
+    } finally {
+      try {
+        scopedClient?.disconnect()
+      } catch {
+        // best-effort socket teardown
+      }
     }
   }
 
@@ -700,16 +746,11 @@ export class RemoteFirefox {
     if (!target) return null
 
     const {attachToAddonBackgroundConsole} = await import('./runtime-reinject')
-    let console_ = this.cachedAddonRuntimeTarget
-    if (!console_ || console_.addonId !== addonId) {
-      console_ =
-        (await attachToAddonBackgroundConsole(
-          target,
-          addonsActor,
-          addonId
-        )) || null
-      if (console_) this.cachedAddonRuntimeTarget = console_
-    }
+    const console_ = await attachToAddonBackgroundConsole(
+      target,
+      addonsActor,
+      addonId
+    )
 
     if (!console_) return null
 

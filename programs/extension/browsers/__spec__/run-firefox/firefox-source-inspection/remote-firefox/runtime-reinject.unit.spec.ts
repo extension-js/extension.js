@@ -3,6 +3,47 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+
+// tryRuntimeReinjection now opens a fresh MessagingClient per call so the
+// per-connection WatcherActor emits a current target every time. Stub
+// the messaging-client module so tests inject the same mock-client they
+// already wire onto RemoteFirefox.client.
+let mockClientFactory: () => any = () => ({
+  connect: async () => {},
+  disconnect: () => {}
+})
+vi.mock(
+  '../../../../run-firefox/firefox-source-inspection/remote-firefox/messaging-client',
+  () => ({
+    MessagingClient: class {
+      private impl: any
+      constructor() {
+        this.impl = mockClientFactory()
+      }
+      connect = (port: number) => this.impl.connect?.(port) ?? Promise.resolve()
+      disconnect = () => this.impl.disconnect?.()
+      on = (event: string, cb: (msg: unknown) => void) =>
+        this.impl.on?.(event, cb)
+      removeListener = (event: string, cb: (msg: unknown) => void) =>
+        this.impl.removeListener?.(event, cb)
+      emit = (event: string, payload: unknown) =>
+        this.impl.emit?.(event, payload)
+      request = (req: unknown) => this.impl.request?.(req)
+      getTargets = () => this.impl.getTargets?.()
+      getTargetFromDescriptor = (id: string) =>
+        this.impl.getTargetFromDescriptor?.(id)
+      evaluate = (actor: string, expr: string) =>
+        this.impl.evaluate?.(actor, expr)
+      navigate = (...args: unknown[]) => this.impl.navigate?.(...args)
+      navigateViaScript = (...args: unknown[]) =>
+        this.impl.navigateViaScript?.(...args)
+      waitForLoadEvent = (...args: unknown[]) =>
+        this.impl.waitForLoadEvent?.(...args)
+      attach = (...args: unknown[]) => this.impl.attach?.(...args)
+    }
+  })
+)
+
 import {reinjectMatchingTabsViaAddonRuntime} from '../../../../run-firefox/firefox-source-inspection/remote-firefox/runtime-reinject'
 import {RemoteFirefox} from '../../../../run-firefox/firefox-source-inspection/remote-firefox'
 import type {ContentScriptTargetRule} from '../../../../browsers-lib/content-script-targets'
@@ -285,6 +326,7 @@ describe('RemoteFirefox.registerContentScriptsForFutureNavigations (F2)', () => 
     const {client} = makeMockClient()
     const onSpy = vi.spyOn(client, 'on')
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -304,6 +346,7 @@ describe('RemoteFirefox.registerContentScriptsForFutureNavigations (F2)', () => 
     } as any)
     const {client, evaluate} = makeMockClient()
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -331,6 +374,7 @@ describe('RemoteFirefox.registerContentScriptsForFutureNavigations (F2)', () => 
     } as any)
     const {client, evaluate} = makeMockClient()
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -356,6 +400,7 @@ describe('RemoteFirefox.registerContentScriptsForFutureNavigations (F2)', () => 
     } as any)
     const {client, request} = makeMockClient()
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -387,6 +432,7 @@ describe('RemoteFirefox.registerContentScriptsForFutureNavigations (F2)', () => 
     const {client} = makeMockClient()
     const onSpy = vi.spyOn(client, 'on')
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -422,6 +468,7 @@ describe('RemoteFirefox.probeRuntimeCapability (F3)', () => {
       JSON.stringify({hasScripting: true})
     ) as any
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
 
@@ -437,6 +484,7 @@ describe('RemoteFirefox.probeRuntimeCapability (F3)', () => {
     } as any)
     const {client} = makeMockClient({addons: []})
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
 
@@ -480,6 +528,7 @@ describe('RemoteFirefox.reloadMatchingTabsForContentScripts (runtime-first)', ()
     } as any)
     const {client, navigate, navigateViaScript} = makeMockClient()
     ;(rf as any).client = client
+    mockClientFactory = () => client
     ;(rf as any).cachedAddonsActor = 'addonsActor'
     ;(rf as any).derivedExtensionId = 'ext@example'
     ;(rf as any).lastInstalledAddonPath = fixtureDir
@@ -517,6 +566,7 @@ describe('RemoteFirefox.reloadMatchingTabsForContentScripts (runtime-first)', ()
     })
 
     ;(rf as any).client = client
+    mockClientFactory = () => client
     // No cachedAddonsActor / derivedExtensionId / lastInstalledAddonPath →
     // runtime path is skipped immediately, legacy fallback runs.
 
