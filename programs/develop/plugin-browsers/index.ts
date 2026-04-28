@@ -283,10 +283,17 @@ export class BrowsersPlugin {
           })
         }
       } else if (this.controller && reloadInstruction) {
-        try {
-          await this.controller.reload(reloadInstruction)
-        } catch {
-          // Reload failures are non-fatal — the browser may have been closed
+        // EXTENSION_NO_RELOAD: skip the on-rebuild reload dispatch entirely.
+        // The bundler still emits the new dist; the user is responsible for
+        // a manual page or extension reload when they want to pick up
+        // changes. Mirrors the wrapper-skip in feature-scripts/index.ts so
+        // a clean dev-mode dist is produced without any reinjection runtime.
+        if (process.env.EXTENSION_NO_RELOAD !== 'true') {
+          try {
+            await this.controller.reload(reloadInstruction)
+          } catch {
+            // Reload failures are non-fatal — the browser may have been closed
+          }
         }
       }
 
