@@ -9,6 +9,7 @@
       "!extensions/**",
       "!extensions/**/dist/**",
       "!templates/**/dist/**",
+      "!templates-artifacts/**",
       "!**/dist/**",
       "!**/build/**",
       "!**/out/**",
@@ -23,7 +24,12 @@
       "!**/.turbo/**",
       "!**/.pnpm-store/**",
       "!extensions/browser-extension/**",
-      "!extensions/monorepo/**"
+      "!extensions/monorepo/**",
+      "!**/__TEST__/**",
+      "!**/webpack.config.js",
+      "!**/postcss.config.js",
+      "!**/tailwind.config.js",
+      "!**/stylelint.config.json"
     ]
   },
   "formatter": {

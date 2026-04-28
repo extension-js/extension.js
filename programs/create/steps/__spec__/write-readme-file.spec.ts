@@ -8,7 +8,9 @@ async function withTempProject(
   setup: (projectPath: string) => Promise<void>,
   body: (projectPath: string) => Promise<void>
 ) {
-  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'ext-create-readme-'))
+  const tmpRoot = await fsp.mkdtemp(
+    path.join(os.tmpdir(), 'ext-create-readme-')
+  )
   const projectPath = path.join(tmpRoot, 'my-ext')
   try {
     await fsp.mkdir(projectPath, {recursive: true})
