@@ -155,7 +155,6 @@ export async function printDevBannerOnce(opts: {
   if (printedKeys.has(k)) return false
 
   const manifestPath = path.join(opts.outPath, 'manifest.json')
-  const updateSuffix = readUpdateSuffixOnce()
 
   if (!fs.existsSync(manifestPath)) return false
 
@@ -195,6 +194,17 @@ export async function printDevBannerOnce(opts: {
     }
   }
 
+  // Consume the update-suffix env var only at the moment we're committed
+  // to printing. Earlier in the function we may bail (manifest not yet on
+  // disk, extensionId not yet derivable) — Chromium's launch flow calls
+  // this twice on the same process: an early call before the manifest is
+  // stable that would early-return, and a later one after CDP wires up.
+  // If we consumed the suffix at the top, the early call would delete it
+  // and the visible banner would lose the "(version X.Y.Z is available!)"
+  // hint. Reading it here, after every early-return, makes both browsers
+  // surface the suffix consistently.
+  const updateSuffix = readUpdateSuffixOnce()
+
   console.log(messages.emptyLine())
   console.log(
     messages.runningInDevelopment(
@@ -230,7 +240,6 @@ export async function printProdBannerOnce(opts: {
     opts.browserVersionLine && opts.browserVersionLine.trim().length > 0
       ? opts.browserVersionLine.trim()
       : String(opts.browser || 'unknown')
-  const updateSuffix = readUpdateSuffixOnce()
 
   try {
     const manifestPath = path.join(opts.outPath, 'manifest.json')
@@ -261,6 +270,9 @@ export async function printProdBannerOnce(opts: {
         }
       }
 
+      // Read the suffix at the moment of printing — see printDevBannerOnce
+      // for context. Avoids losing it across a try-catch fallback path.
+      const updateSuffix = readUpdateSuffixOnce()
       console.log(messages.emptyLine())
       console.log(
         messages.runningInDevelopment(
@@ -288,6 +300,7 @@ export async function printProdBannerOnce(opts: {
         }
       }
 
+      const updateSuffix = readUpdateSuffixOnce()
       console.log(messages.emptyLine())
       console.log(
         messages.runningInDevelopment(
@@ -308,6 +321,8 @@ export async function printProdBannerOnce(opts: {
     // Fallback: if anything goes wrong, still try to print a minimal card.
     // We cannot re-read the manifest here (it likely failed above), so we
     // print a short summary using only the information already available.
+    // Don't consume the suffix on this path — leave it for a later
+    // banner attempt that has more information to work with.
     console.log(messages.emptyLine())
     console.log(
       ` 🧩 ${colors.brightBlue('Extension.js')}\n` +
