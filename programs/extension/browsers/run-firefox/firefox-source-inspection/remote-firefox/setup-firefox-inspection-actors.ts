@@ -6,119 +6,10 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {appendFileSync, existsSync, mkdirSync} from 'fs'
-import path from 'path'
-import {fileURLToPath} from 'url'
-
 import * as messages from '../../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
 
 const TARGET_SCAN_INTERVAL_MS = 250
-
-function guessRepoRoot(startDir: string): string | null {
-  let dir = path.resolve(startDir)
-  // Prefer the Extension.js monorepo root (avoids nested workspaces like _FUTURE/examples).
-  for (let depth = 0; depth < 24; depth++) {
-    if (existsSync(path.join(dir, 'programs', 'develop', 'package.json'))) {
-      return dir
-    }
-    const parent = path.dirname(dir)
-    if (parent === dir) {
-      break
-    }
-    dir = parent
-  }
-  dir = path.resolve(startDir)
-  for (let depth = 0; depth < 16; depth++) {
-    if (
-      existsSync(path.join(dir, 'pnpm-workspace.yaml')) ||
-      existsSync(path.join(dir, '.git'))
-    ) {
-      return dir
-    }
-    const parent = path.dirname(dir)
-    if (parent === dir) {
-      break
-    }
-    dir = parent
-  }
-  return null
-}
-
-/**
- * Dev server cwd is often a subfolder or unrelated to the repo; this file's path
- * still lives under extension-develop and walks up to the workspace root.
- */
-function guessRepoRootFromThisModule(): string | null {
-  try {
-    const here = path.dirname(fileURLToPath(import.meta.url))
-    return guessRepoRoot(here)
-  } catch {
-    return null
-  }
-}
-
-function appendDebugLogLine(line: string) {
-  const paths: string[] = []
-  const fromEnv = process.env.EXTENSION_DEBUG_SESSION_LOG
-  if (typeof fromEnv === 'string' && fromEnv.length > 0) {
-    paths.push(fromEnv)
-  }
-  const repoFromModule = guessRepoRootFromThisModule()
-  if (repoFromModule) {
-    paths.push(path.join(repoFromModule, '.cursor', 'debug-a87efc.log'))
-  }
-  const repoFromCwd = guessRepoRoot(process.cwd())
-  if (repoFromCwd) {
-    paths.push(path.join(repoFromCwd, '.cursor', 'debug-a87efc.log'))
-  }
-  for (const root of [
-    process.env.INIT_CWD,
-    process.env.PROJECT_ROOT,
-    process.cwd()
-  ]) {
-    if (typeof root === 'string' && root.length > 0) {
-      paths.push(path.join(root, '.cursor', 'debug-a87efc.log'))
-    }
-  }
-  const seen = new Set<string>()
-  for (const filePath of paths) {
-    if (seen.has(filePath)) {
-      continue
-    }
-    seen.add(filePath)
-    try {
-      mkdirSync(path.dirname(filePath), {recursive: true})
-      appendFileSync(filePath, `${line}\n`)
-      return
-    } catch {
-      // try next candidate root
-    }
-  }
-  // #region agent log
-  console.error(
-    '[extension-develop][debug-session a87efc] log file write failed',
-    line
-  )
-  // #endregion
-}
-
-function agentDebugLog(payload: Record<string, unknown>) {
-  const line = JSON.stringify({
-    sessionId: 'a87efc',
-    timestamp: Date.now(),
-    ...payload
-  })
-  fetch('http://127.0.0.1:7795/ingest/9eb8f923-a325-4455-a46c-a6e706558307', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'a87efc'
-    },
-    body: line
-  }).catch(() => {})
-  appendDebugLogLine(line)
-}
 
 /** When we intend to inspect a real document URL, never bind to an unrelated tab (e.g. about:blank) while the target list is still catching up after navigation. */
 function shouldDeferFallbackUntilExactMatch(normalizedUrl: string): boolean {
@@ -240,54 +131,6 @@ export async function selectActors(
         ? exactMatches[exactMatches.length - 1]
         : undefined
     if (exactMatch?.actor) {
-      const matchDiagnostics = []
-      for (const target of exactMatches.slice(-5)) {
-        const actor = String(target.actor || '')
-        const consoleActor = String(target.consoleActor || actor)
-        let hostCount: number | undefined
-        let href: string | undefined
-        try {
-          const probe = await client.evaluate(
-            consoleActor,
-            `(() => JSON.stringify({
-              href: String(location.href || ''),
-              readyState: String(document.readyState || ''),
-              hostCount: document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])').length
-            }))()`
-          )
-          if (typeof probe === 'string' && probe) {
-            const parsed = JSON.parse(probe)
-            hostCount =
-              typeof parsed?.hostCount === 'number'
-                ? parsed.hostCount
-                : undefined
-            href = typeof parsed?.href === 'string' ? parsed.href : undefined
-          }
-        } catch {
-          // Ignore diagnostics failures.
-        }
-        matchDiagnostics.push({
-          actor,
-          consoleActor,
-          url: target.url || '',
-          href,
-          hostCount
-        })
-      }
-      // #region agent log
-      agentDebugLog({
-        runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-select-actors',
-        hypothesisId: 'H20',
-        location: 'setup-firefox-inspection-actors.ts:exact-match-selection',
-        message: 'Firefox exact URL match selection diagnostics',
-        data: {
-          urlToInspect,
-          selectedActor: exactMatch.actor,
-          selectedConsoleActor: exactMatch.consoleActor || exactMatch.actor,
-          matchDiagnostics
-        }
-      })
-      // #endregion
       return {
         tabActor: exactMatch.actor,
         consoleActor: exactMatch.consoleActor || exactMatch.actor
@@ -302,44 +145,6 @@ export async function selectActors(
         normalizedUrlToInspect
       )
       if (livePair) {
-        let hostCount: number | undefined
-        let href: string | undefined
-        try {
-          const probe = await client.evaluate(
-            livePair.consoleActor,
-            `(() => JSON.stringify({
-              href: String(location.href || ''),
-              readyState: String(document.readyState || ''),
-              hostCount: document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])').length
-            }))()`
-          )
-          if (typeof probe === 'string' && probe) {
-            const parsed = JSON.parse(probe)
-            hostCount =
-              typeof parsed?.hostCount === 'number'
-                ? parsed.hostCount
-                : undefined
-            href = typeof parsed?.href === 'string' ? parsed.href : undefined
-          }
-        } catch {
-          // Ignore diagnostics failures.
-        }
-        // #region agent log
-        agentDebugLog({
-          runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-select-actors',
-          hypothesisId: 'H23',
-          location: 'setup-firefox-inspection-actors.ts:live-href-match',
-          message:
-            'Firefox actor matched by live location.href (listTabs URL was stale)',
-          data: {
-            urlToInspect,
-            selectedActor: livePair.tabActor,
-            selectedConsoleActor: livePair.consoleActor,
-            href,
-            hostCount
-          }
-        })
-        // #endregion
         return livePair
       }
     }
@@ -371,35 +176,6 @@ export async function selectActors(
             typeof target.outerWindowID === 'number' ||
             typeof target.outerWindowId === 'number')
         ) {
-          // #region agent log
-          agentDebugLog({
-            runId: process.env.EXTENSION_INSTANCE_ID || 'firefox-select-actors',
-            hypothesisId: 'H21',
-            location: 'setup-firefox-inspection-actors.ts:fallback-selection',
-            message: 'Firefox actor selection fell back to first valid target',
-            data: {
-              urlToInspect,
-              selectedActor: String(target.actor || ''),
-              selectedConsoleActor: String(
-                target.consoleActor || target.actor || ''
-              ),
-              targets: allTargets.slice(0, 10).map((item, index) => ({
-                index,
-                actor: String(item?.actor || ''),
-                consoleActor: String(item?.consoleActor || ''),
-                url: String(item?.url || ''),
-                outerWindowID:
-                  typeof item?.outerWindowID === 'number'
-                    ? item.outerWindowID
-                    : undefined,
-                outerWindowId:
-                  typeof item?.outerWindowId === 'number'
-                    ? item.outerWindowId
-                    : undefined
-              }))
-            }
-          })
-          // #endregion
           return {
             tabActor: String(target.actor || ''),
             consoleActor: String(target.consoleActor || target.actor || '')
