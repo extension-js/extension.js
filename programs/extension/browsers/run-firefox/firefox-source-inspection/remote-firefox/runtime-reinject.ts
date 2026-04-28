@@ -298,9 +298,25 @@ export async function reinjectMatchingTabsViaAddonRuntime(
     addonsActor: string
     addonId: string
     matchUrl: (url: string, rule: ContentScriptTargetRule) => boolean
+    // Firefox's watcher emits target-available-form only when a target
+    // becomes available — not on every watchTargets call. Once the first
+    // attach consumes those events, a second attach gets nothing. Caller
+    // can pass the previously-resolved target to skip re-discovery.
+    cachedTarget?: AddonRuntimeTarget
+    // Notify the caller when discovery succeeds so they can update their
+    // cache. Called only on a fresh resolve; not when cachedTarget is used.
+    onTargetResolved?: (target: AddonRuntimeTarget) => void
   }
 ): Promise<{reinjectedTabs: number; report: ReinjectionReport}> {
-  const {outPath, rules, addonsActor, addonId, matchUrl} = opts
+  const {
+    outPath,
+    rules,
+    addonsActor,
+    addonId,
+    matchUrl,
+    cachedTarget,
+    onTargetResolved
+  } = opts
 
   if (rules.length === 0) {
     return {
@@ -340,11 +356,20 @@ export async function reinjectMatchingTabsViaAddonRuntime(
     }
   }
 
-  const target = await attachToAddonBackgroundConsole(
-    client,
-    addonsActor,
-    addonId
-  )
+  let target: AddonRuntimeTarget | undefined =
+    cachedTarget && cachedTarget.addonId === addonId ? cachedTarget : undefined
+  if (!target) {
+    target = await attachToAddonBackgroundConsole(
+      client,
+      addonsActor,
+      addonId
+    )
+    if (target && onTargetResolved) {
+      try {
+        onTargetResolved(target)
+      } catch {}
+    }
+  }
   if (!target) {
     return {
       reinjectedTabs: 0,
