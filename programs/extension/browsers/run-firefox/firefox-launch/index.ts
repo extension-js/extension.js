@@ -86,13 +86,11 @@ export class FirefoxLaunchPlugin {
         debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
       } as any
     }
-    await this.launch(compilation, options)
+
     if (options.mode === 'development') {
-      this.ctx.logger?.info?.(
-        messages.stdoutData(this.host.browser, options.mode)
-      )
       this.ctx.logger?.info?.(devServerReady(options.mode, this.host.browser))
     }
+    await this.launch(compilation, options)
     this.ctx.didLaunch = true
   }
 
@@ -129,6 +127,17 @@ export class FirefoxLaunchPlugin {
             return
           }
 
+          // Match Chromium's banner ordering: ready line BEFORE the
+          // banner. See runOnce above for context.
+          if (stats.compilation.options.mode === 'development') {
+            console.log(
+              devServerReady(
+                stats.compilation.options.mode as 'development' | 'production',
+                this.host.browser
+              )
+            )
+          }
+
           await this.launch(
             stats.compilation,
             buildBrowserLaunchRequest(
@@ -138,24 +147,6 @@ export class FirefoxLaunchPlugin {
                 | 'production'
                 | 'none'
             ) as LaunchOptions
-          )
-
-          // Use console.log so the message is always visible; infrastructureLogging
-          // level is 'error' by default, which would suppress logger.info()
-          console.log(
-            messages.stdoutData(
-              this.host.browser,
-              stats.compilation.options.mode as
-                | 'development'
-                | 'production'
-                | 'none'
-            )
-          )
-          console.log(
-            devServerReady(
-              stats.compilation.options.mode as 'development' | 'production',
-              this.host.browser
-            )
           )
 
           this.ctx.didLaunch = true
