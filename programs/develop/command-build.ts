@@ -92,12 +92,28 @@ export async function extensionBuild(
       config: mergedExtensionsConfig
     })
 
+    // Mode override: defaults to 'production' for distribution-ready dists.
+    // Surfacing this as a CLI flag matches Vite/webpack and lets users
+    // produce a dev-mode dist without flipping to `extension dev`. NODE_ENV
+    // is aligned to mode so user-source `process.env.NODE_ENV` reflects the
+    // intent and downstream tooling that keys off it (React, etc.) gets the
+    // expected build behavior.
+    const resolvedMode: 'development' | 'production' | 'none' =
+      buildOptions?.mode === 'development' ||
+      buildOptions?.mode === 'none' ||
+      buildOptions?.mode === 'production'
+        ? buildOptions.mode
+        : 'production'
+    if (resolvedMode === 'development' || resolvedMode === 'production') {
+      process.env.NODE_ENV = resolvedMode
+    }
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...commandConfig,
       ...buildOptions,
       extensions: resolvedExtensionsConfig,
       browser,
-      mode: 'production',
+      mode: resolvedMode,
       output: {
         clean: true,
         path: distPath
