@@ -369,6 +369,21 @@ async function launchFirefox(
   // is created — reload/logging will degrade to no-ops in that case.
   const rdpController = ctx.getController?.()
 
+  // F3 — front-load the runtime capability probe so the author-mode
+  // summary lands once at install rather than on the first content-script
+  // edit. Best-effort: if the addon background isn't reachable yet, the
+  // probe returns null and the on-edit path fills the cache instead.
+  if (
+    rdpController &&
+    typeof (rdpController as any).probeRuntimeCapability === 'function'
+  ) {
+    Promise.resolve((rdpController as any).probeRuntimeCapability()).catch(
+      () => {
+        // Best-effort capability probe; runtime path will degrade gracefully.
+      }
+    )
+  }
+
   return {
     async reload(instruction) {
       if (!rdpController) return
@@ -382,6 +397,22 @@ async function launchFirefox(
           await (rdpController as any).reloadMatchingTabsForContentScripts(
             rules
           )
+          // F2 — after the in-place reinject, register a tabNavigated hook
+          // so fresh tabs and same-tab navigations between rebuilds get the
+          // current bundle without waiting for the next file edit. Mirrors
+          // the Chromium launcher path at line 263.
+          if (
+            typeof (rdpController as any)
+              .registerContentScriptsForFutureNavigations === 'function'
+          ) {
+            try {
+              await (
+                rdpController as any
+              ).registerContentScriptsForFutureNavigations(rules)
+            } catch {
+              // Best-effort: open-tab reinjection already happened above.
+            }
+          }
           return
         } catch {
           // Fall through to hard reload
