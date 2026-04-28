@@ -231,6 +231,20 @@ export function firefoxRdpReloadCapabilitySummary(
   return `${getLoggingPrefix('info')} Firefox RDP reload: ${txt}`
 }
 
+export function firefoxRdpRuntimeReinjectionResult(reportJson: string) {
+  return `${getLoggingPrefix('info')} Firefox RDP runtime reinjection: ${reportJson}`
+}
+
+export function firefoxRdpRuntimeCapabilitySummary(
+  state: 'available' | 'unavailable'
+) {
+  const txt =
+    state === 'available'
+      ? 'browser.scripting available — content-script edits will preserve background/popup state'
+      : 'browser.scripting unavailable — content-script edits will fall back to addon reinstall'
+  return `${getLoggingPrefix('info')} Firefox RDP runtime capability: ${txt}`
+}
+
 export function rdpAddTabFailed(message: string) {
   return `[RDP] addTab failed: ${message}`
 }
