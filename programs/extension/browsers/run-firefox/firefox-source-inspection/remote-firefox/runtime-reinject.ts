@@ -40,13 +40,24 @@ export async function attachToAddonBackgroundConsole(
 ): Promise<AddonRuntimeTarget | undefined> {
   if (!addonsActor || !addonId) return undefined
 
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
   let descriptorActor: string | undefined
+  let listAddonsResponseSample: unknown = null
 
   try {
+    // listAddons lives on the root actor, not on AddonsManagerActor —
+    // addonsActor only handles installTemporaryAddon. The root actor
+    // returns webExtensionDescriptors keyed by addon id.
     const response = (await client.request({
-      to: addonsActor,
+      to: 'root',
       type: 'listAddons'
     })) as ListAddonsResponse
+
+    listAddonsResponseSample = (response?.addons || []).map((entry) => ({
+      id: String(entry?.id || ''),
+      actor: String(entry?.actor || ''),
+      isWebExtension: entry?.isWebExtension
+    }))
 
     const match = (response?.addons || []).find(
       (entry) => String(entry?.id || '') === addonId
@@ -54,23 +65,149 @@ export async function attachToAddonBackgroundConsole(
 
     descriptorActor =
       typeof match?.actor === 'string' && match.actor ? match.actor : undefined
-  } catch {
+  } catch (error) {
+    if (isAuthor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[firefox-rt-reinject] listAddons failed: ${String(
+          (error as Error)?.message || error
+        )}`
+      )
+    }
     return undefined
   }
 
-  if (!descriptorActor) return undefined
+  if (!descriptorActor) {
+    if (isAuthor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[firefox-rt-reinject] no descriptor matched addonId=${addonId}; addons=${JSON.stringify(
+          listAddonsResponseSample
+        )}`
+      )
+    }
+    return undefined
+  }
 
-  const detail = await client.getTargetFromDescriptor(descriptorActor)
-  const consoleActor =
-    typeof detail.consoleActor === 'string' ? detail.consoleActor : ''
-  const targetActor =
-    typeof detail.targetActor === 'string' ? detail.targetActor : ''
+  // Modern Firefox (post-Fission) doesn't expose getTarget on
+  // webExtensionDescriptor — only [reload, terminateBackgroundScript,
+  // reloadDescriptor, getWatcher]. Resolve the watcher and discover the
+  // addon's frame target through its target-available-form stream.
+  let watcherActor: string
+  try {
+    const watcherResponse = (await client.request({
+      to: descriptorActor,
+      type: 'getWatcher'
+    })) as {actor?: string}
+    if (typeof watcherResponse?.actor !== 'string' || !watcherResponse.actor) {
+      if (isAuthor) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[firefox-rt-reinject] getWatcher(${descriptorActor}) returned no actor`
+        )
+      }
+      return undefined
+    }
+    watcherActor = watcherResponse.actor
+  } catch (error) {
+    if (isAuthor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[firefox-rt-reinject] getWatcher(${descriptorActor}) failed: ${String(
+          (error as Error)?.message || error
+        )}`
+      )
+    }
+    return undefined
+  }
 
-  if (!consoleActor) return undefined
+  const captured: Array<{
+    actor?: string
+    consoleActor?: string
+    url?: string
+    targetType?: string
+  }> = []
+  const messageListener = (raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return
+    const msg = raw as {
+      type?: string
+      from?: string
+      target?: {
+        actor?: string
+        consoleActor?: string
+        url?: string
+        targetType?: string
+      }
+    }
+    if (msg.from !== watcherActor) return
+    if (msg.type !== 'target-available-form') return
+    if (msg.target) captured.push(msg.target)
+  }
+  client.on('message', messageListener)
+
+  try {
+    await client.request({
+      to: watcherActor,
+      type: 'watchTargets',
+      targetType: 'frame'
+    })
+    // The watchTargets response resolves once initial target-available-form
+    // events have been emitted, but Firefox sometimes flushes them on the
+    // following tick. Brief settle catches stragglers.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  } catch (error) {
+    if (isAuthor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[firefox-rt-reinject] watchTargets(${watcherActor}) failed: ${String(
+          (error as Error)?.message || error
+        )}`
+      )
+    }
+    client.removeListener('message', messageListener)
+    return undefined
+  } finally {
+    // Leave the listener attached briefly for late events, then detach to
+    // avoid leaking listeners across rebuilds.
+    setTimeout(() => {
+      client.removeListener('message', messageListener)
+    }, 1000)
+  }
+
+  if (isAuthor) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[firefox-rt-reinject] watcher=${watcherActor} captured=${JSON.stringify(
+        captured.map((entry) => ({
+          url: entry.url,
+          targetType: entry.targetType,
+          actor: entry.actor ? '<actor>' : null,
+          consoleActor: entry.consoleActor ? '<consoleActor>' : null
+        }))
+      )}`
+    )
+  }
+
+  // The watcher is per-descriptor, so any frame-target it emits belongs to
+  // this addon. Prefer the moz-extension:// frame (the addon background) over
+  // any incidental about:blank entries.
+  const addonFrame =
+    captured.find(
+      (entry) =>
+        typeof entry.url === 'string' &&
+        entry.url.startsWith('moz-extension://') &&
+        !!entry.actor &&
+        !!entry.consoleActor
+    ) ||
+    captured.find((entry) => !!entry.actor && !!entry.consoleActor)
+
+  if (!addonFrame || !addonFrame.actor || !addonFrame.consoleActor) {
+    return undefined
+  }
 
   return {
-    consoleActor,
-    targetActor: targetActor || descriptorActor,
+    consoleActor: String(addonFrame.consoleActor),
+    targetActor: String(addonFrame.actor),
     addonId
   }
 }
@@ -219,90 +356,159 @@ export async function reinjectMatchingTabsViaAddonRuntime(
     }
   }
 
-  const expression = `(() => (async () => {
-    const payload = ${JSON.stringify(payload)};
-    const runtimeApi =
-      typeof globalThis === 'object' && globalThis
-        ? (globalThis.browser || globalThis.chrome || null)
-        : null;
-    const runtime =
-      runtimeApi && runtimeApi.scripting && runtimeApi.tabs ? runtimeApi : null;
-    if (!runtime) {
-      return {
-        reinjectedTabs: 0,
-        hasRuntime: false,
-        hasChrome: !!runtimeApi,
-        hasScripting: !!(runtimeApi && runtimeApi.scripting),
-        hasTabs: !!(runtimeApi && runtimeApi.tabs),
-        entries: payload.length,
-        matches: []
-      };
-    }
-    let reinjectedTabs = 0;
-    const matches = [];
-    for (const entry of payload) {
-      let queriedTabs = [];
+  // Firefox RDP's evaluateJSAsync returns an object-grip for object results
+  // and treats top-level await as syntax error / returns undefined. The
+  // reliable cross-version pattern is: kick off the async work, store the
+  // result as a JSON string on globalThis, and poll it from the client.
+  // Each poll is a fresh synchronous eval that returns a primitive string.
+  const resultKey = `__EXTJS_REINJECT_RESULT_${Date.now()}__`
+  const errorKey = `${resultKey}_ERR`
+  const startedKey = `${resultKey}_STARTED`
+  const kickoffExpression = `(() => {
+    globalThis['${resultKey}'] = '';
+    globalThis['${errorKey}'] = '';
+    globalThis['${startedKey}'] = true;
+    (async () => {
       try {
-        queriedTabs = await runtime.tabs.query(
-          entry.matches.length > 0 ? { url: entry.matches } : {}
-        );
-      } catch (error) {
-        matches.push({
-          index: entry.index,
-          queriedTabs: 0,
-          matchingTabs: 0,
-          queryError: String((error && error.message) || error)
-        });
-        continue;
-      }
-      const matchingTabs = queriedTabs.filter((tab) => {
-        if (!tab || typeof tab.id !== 'number') return false;
-        if (typeof tab.url !== 'string' || !tab.url) return true;
-        return entry.urls.length === 0 || entry.urls.includes(tab.url);
-      });
-      matches.push({
-        index: entry.index,
-        queriedTabs: queriedTabs.length,
-        matchingTabs: matchingTabs.length
-      });
-      for (const tab of matchingTabs) {
-        const target = { tabId: tab.id, allFrames: false };
-        if (entry.cssFile) {
-          try {
-            await runtime.scripting.insertCSS({
-              target,
-              files: [entry.cssFile]
-            });
-          } catch (error) {}
-        }
-        try {
-          await runtime.scripting.executeScript({
-            target,
-            files: [entry.jsFile]
+        const payload = ${JSON.stringify(payload)};
+        const runtimeApi =
+          typeof globalThis === 'object' && globalThis
+            ? (globalThis.browser || globalThis.chrome || null)
+            : null;
+        const runtime =
+          runtimeApi && runtimeApi.scripting && runtimeApi.tabs ? runtimeApi : null;
+        if (!runtime) {
+          globalThis['${resultKey}'] = JSON.stringify({
+            reinjectedTabs: 0,
+            hasRuntime: false,
+            hasChrome: !!runtimeApi,
+            hasScripting: !!(runtimeApi && runtimeApi.scripting),
+            hasTabs: !!(runtimeApi && runtimeApi.tabs),
+            entries: payload.length,
+            matches: []
           });
-          reinjectedTabs += 1;
-        } catch (error) {}
+          return;
+        }
+        let reinjectedTabs = 0;
+        const matches = [];
+        for (const entry of payload) {
+          let queriedTabs = [];
+          try {
+            queriedTabs = await runtime.tabs.query(
+              entry.matches.length > 0 ? { url: entry.matches } : {}
+            );
+          } catch (error) {
+            matches.push({
+              index: entry.index,
+              queriedTabs: 0,
+              matchingTabs: 0,
+              queryError: String((error && error.message) || error)
+            });
+            continue;
+          }
+          const matchingTabs = queriedTabs.filter((tab) => {
+            if (!tab || typeof tab.id !== 'number') return false;
+            if (typeof tab.url !== 'string' || !tab.url) return true;
+            return entry.urls.length === 0 || entry.urls.includes(tab.url);
+          });
+          matches.push({
+            index: entry.index,
+            queriedTabs: queriedTabs.length,
+            matchingTabs: matchingTabs.length
+          });
+          for (const tab of matchingTabs) {
+            const target = { tabId: tab.id, allFrames: false };
+            if (entry.cssFile) {
+              try {
+                await runtime.scripting.insertCSS({
+                  target,
+                  files: [entry.cssFile]
+                });
+              } catch (error) {}
+            }
+            try {
+              await runtime.scripting.executeScript({
+                target,
+                files: [entry.jsFile]
+              });
+              reinjectedTabs += 1;
+            } catch (error) {}
+          }
+        }
+        globalThis['${resultKey}'] = JSON.stringify({
+          reinjectedTabs,
+          hasRuntime: true,
+          hasScripting: true,
+          entries: payload.length,
+          matches
+        });
+      } catch (error) {
+        globalThis['${errorKey}'] = String((error && error.stack) || (error && error.message) || error);
       }
+    })();
+    return 'started';
+  })()`
+  const pollExpression = `(() => {
+    const r = globalThis['${resultKey}'];
+    const e = globalThis['${errorKey}'];
+    if (typeof r === 'string' && r.length > 0) return 'OK:' + r;
+    if (typeof e === 'string' && e.length > 0) return 'ERR:' + e;
+    return '';
+  })()`
+
+  function unwrapEvalString(response: unknown): string {
+    if (typeof response === 'string') return response
+    if (!response || typeof response !== 'object') return ''
+    const r = (response as any).result ?? (response as any).value ?? response
+    if (typeof r === 'string') return r
+    if (r && typeof r === 'object' && typeof (r as any).value === 'string') {
+      return (r as any).value
     }
-    return {
-      reinjectedTabs,
-      hasRuntime: true,
-      hasScripting: true,
-      entries: payload.length,
-      matches
-    };
-  })())()`
+    return ''
+  }
 
   let result: unknown
   try {
-    const response = (await client.evaluate(
-      target.consoleActor,
-      expression
-    )) as unknown
-    result =
-      response && typeof response === 'object' && 'value' in (response as any)
-        ? (response as any).value
-        : response
+    await client.evaluate(target.consoleActor, kickoffExpression)
+    // Poll for completion. Each poll is a synchronous eval returning a
+    // string ("" until done, "OK:<json>" or "ERR:<msg>" once finished).
+    const startedAt = Date.now()
+    const timeoutMs = 8000
+    let pollResult = ''
+    while (Date.now() - startedAt < timeoutMs) {
+      const pollResponse = (await client.evaluate(
+        target.consoleActor,
+        pollExpression
+      )) as unknown
+      pollResult = unwrapEvalString(pollResponse)
+      if (pollResult) break
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    if (pollResult.startsWith('OK:')) {
+      try {
+        result = JSON.parse(pollResult.slice(3))
+      } catch {
+        result = null
+      }
+    } else if (pollResult.startsWith('ERR:')) {
+      return {
+        reinjectedTabs: 0,
+        report: {
+          phase: 'unavailable',
+          reason: `runtime_threw: ${pollResult.slice(4).slice(0, 200)}`,
+          addonId
+        }
+      }
+    } else {
+      return {
+        reinjectedTabs: 0,
+        report: {
+          phase: 'unavailable',
+          reason: 'runtime_timeout',
+          addonId
+        }
+      }
+    }
   } catch (error) {
     return {
       reinjectedTabs: 0,
