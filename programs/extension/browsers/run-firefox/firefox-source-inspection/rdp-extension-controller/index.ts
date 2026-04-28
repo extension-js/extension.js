@@ -86,6 +86,25 @@ export class FirefoxRDPController {
     return this.remote.reloadMatchingTabsForContentScripts(rules)
   }
 
+  async registerContentScriptsForFutureNavigations(
+    rules: ContentScriptTargetRule[]
+  ): Promise<void> {
+    await this.remote.registerContentScriptsForFutureNavigations(rules)
+  }
+
+  async probeRuntimeCapability(): Promise<{hasScripting: boolean} | null> {
+    return this.remote.probeRuntimeCapability()
+  }
+
+  getLastRuntimeReinjectionReport(): Record<string, unknown> | null {
+    const report = this.remote.getLastRuntimeReinjectionReport()
+    return report ? (report as unknown as Record<string, unknown>) : null
+  }
+
+  getRuntimeCapability(): {hasScripting: boolean; probedAt: number} | null {
+    return this.remote.getRuntimeCapability()
+  }
+
   async enableUnifiedLogging(opts: {
     level?: string
     contexts?: string[] | undefined

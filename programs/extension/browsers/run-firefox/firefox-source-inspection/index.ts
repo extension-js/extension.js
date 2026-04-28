@@ -1773,46 +1773,6 @@ export class FirefoxSourceInspectionPlugin {
                 }
               }
             }
-            try {
-              const actorHref = this.currentConsoleActor
-                ? await this.client?.evaluate(
-                    this.currentConsoleActor,
-                    'String(location.href || "")'
-                  )
-                : undefined
-              // #region agent log
-              fetch(
-                'http://127.0.0.1:7795/ingest/9eb8f923-a325-4455-a46c-a6e706558307',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': 'a87efc'
-                  },
-                  body: JSON.stringify({
-                    sessionId: 'a87efc',
-                    runId:
-                      process.env.EXTENSION_INSTANCE_ID ||
-                      'firefox-source-inspection',
-                    hypothesisId: 'H4',
-                    location:
-                      'firefox-source-inspection/index.ts:before-content-script-event',
-                    message: 'Firefox content-script event boundary',
-                    data: {
-                      urlToInspect,
-                      currentTabActor: this.currentTabActor,
-                      currentConsoleActor: this.currentConsoleActor,
-                      injected,
-                      actorHref
-                    },
-                    timestamp: Date.now()
-                  })
-                }
-              ).catch(() => {})
-              // #endregion
-            } catch {
-              // Ignore debug probe failures.
-            }
             if (injected) {
               const emitOk =
                 await this.shouldEmitFirefoxContentScriptInjected(injected)
