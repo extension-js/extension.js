@@ -77,7 +77,7 @@ export function registerDevCommand(program: Command) {
     .description(commandDescriptions.dev)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --no-reload     emit a dev-mode dist without the content-script reload runtime; tabs need manual reload to see changes\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
     )
     .option(
       '--profile <path-to-file | boolean>',

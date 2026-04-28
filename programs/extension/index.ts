@@ -57,10 +57,32 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
     process.exit(1)
   }
 
-  const hasNoBrowser = argv.includes('--no-browser')
-  if (!hasNoBrowser) return argv
+  let nextArgv = argv
+  // --no-reload: dev-only. Skips the content-script reinjection wrapper +
+  // the on-rebuild reload dispatch in plugin-browsers, so the dist bundle
+  // stays clean and an open tab is not disturbed when files change. The
+  // user is expected to manually reload the extension/page to pick up
+  // changes. Implemented as an env var because plugin-web-extension and
+  // plugin-browsers run in the develop process and don't see CLI flags
+  // directly.
+  const hasNoReload = nextArgv.includes('--no-reload')
+  if (hasNoReload) {
+    const command = resolveCommandFromArgv(nextArgv)
+    if (command !== 'dev') {
+      // eslint-disable-next-line no-console
+      console.error(
+        `--no-reload is only supported on \`extension dev\` (got: ${command || 'no command'}).`
+      )
+      process.exit(1)
+    }
+    process.env.EXTENSION_NO_RELOAD = 'true'
+    nextArgv = nextArgv.filter((arg) => arg !== '--no-reload')
+  }
 
-  const command = resolveCommandFromArgv(argv)
+  const hasNoBrowser = nextArgv.includes('--no-browser')
+  if (!hasNoBrowser) return nextArgv
+
+  const command = resolveCommandFromArgv(nextArgv)
   const supportsNoBrowser =
     command === 'dev' || command === 'start' || command === 'preview'
 
@@ -71,7 +93,7 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   }
 
   process.env.EXTENSION_CLI_NO_BROWSER = '1'
-  return argv.filter((arg) => arg !== '--no-browser')
+  return nextArgv.filter((arg) => arg !== '--no-browser')
 }
 
 const SOURCE_INSPECTION_FLAG_PREFIXES = [
