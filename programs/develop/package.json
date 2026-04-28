@@ -120,7 +120,7 @@
   },
   "devDependencies": {
     "@prefresh/webpack": "4.0.6",
-    "@rslib/core": "^0.19.4",
+    "@rslib/core": "^0.21.3",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/chrome": "^0.1.33",
