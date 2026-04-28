@@ -256,3 +256,30 @@ describe('BrowsersPlugin classifier', () => {
     expect(h.reload).not.toHaveBeenCalled()
   })
 })
+
+describe('BuildEmitter', () => {
+  it('emit("error") does not throw when no listener is attached', async () => {
+    // Regression: BuildEmitter inherits EventEmitter, which throws
+    // ERR_UNHANDLED_ERROR when 'error' is emitted with no listener. The
+    // CLI awaits extensionDev() but doesn't subscribe to 'error', so a
+    // single rspack compile failure (e.g. user typo in a content script)
+    // would crash the dev process via uncaughtException + cleanup.exit().
+    // BuildEmitter installs a default no-op 'error' listener at construction
+    // so build errors stay informational and the file watcher keeps
+    // running, allowing the user to fix the source and recover on the
+    // next save.
+    const {BuildEmitter} = await import('../index')
+    const emitter = new BuildEmitter()
+    expect(() => emitter.emit('error', {errors: ['boom']})).not.toThrow()
+  })
+
+  it('user-installed error listeners still fire alongside the default', async () => {
+    const {BuildEmitter} = await import('../index')
+    const emitter = new BuildEmitter()
+    const seen: string[][] = []
+    emitter.on('error', (event) => seen.push([...event.errors]))
+    emitter.emit('error', {errors: ['boom']})
+    emitter.emit('error', {errors: ['second', 'third']})
+    expect(seen).toEqual([['boom'], ['second', 'third']])
+  })
+})
