@@ -47,23 +47,18 @@ export class ScriptsPlugin {
       includeList: this.includeList || {}
     }).apply(compiler)
 
-    // The content-script wrapper exists to drive in-place reinjection on
-    // rebuild. It threads __EXTENSIONJS_DEV_REINJECT__ registry plumbing,
-    // generation tracking, and data-extjs-reinject-* attributes into every
-    // content-script entry — useful in development, dead weight in
-    // production. EXTENSION_NO_RELOAD lets `extension dev --no-reload`
-    // produce a dev-mode dist without the wrapper for users who want to
-    // run the watcher without disrupting an open page.
-    const wrapperDisabled =
-      compiler.options.mode === 'production' ||
-      process.env.EXTENSION_NO_RELOAD === 'true'
-
-    if (!wrapperDisabled) {
-      new AddContentScriptWrapper({
-        manifestPath: this.manifestPath,
-        browser: this.browser
-      }).apply(compiler)
-    }
+    // The content-script wrapper is load-bearing in every mode: it converts
+    // `export default fn` into `__EXTENSIONJS_default__` and emits the
+    // `__EXTENSIONJS_mount(__EXTENSIONJS_default__, runAt)` call that
+    // actually invokes the user's default export. Without it, rspack treats
+    // the entry chunk as a side-effect-free module that exports an unused
+    // default, and tree-shakes the entire body out of the production bundle.
+    // EXTENSION_NO_RELOAD opts out of the reload strategy below, not the
+    // wrapper itself — the mount call has to run in every build mode.
+    new AddContentScriptWrapper({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
 
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
