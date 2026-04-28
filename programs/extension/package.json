@@ -111,7 +111,7 @@
     "update-check": "^1.5.4"
   },
   "devDependencies": {
-    "@rslib/core": "^0.19.4",
+    "@rslib/core": "^0.21.3",
     "@types/cross-spawn": "^6.0.6",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
