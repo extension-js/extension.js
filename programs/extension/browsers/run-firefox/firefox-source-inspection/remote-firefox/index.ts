@@ -34,6 +34,7 @@ import {
 } from '../../../browsers-lib/content-script-targets'
 import {
   reinjectMatchingTabsViaAddonRuntime,
+  type AddonRuntimeTarget,
   type ReinjectionReport
 } from './runtime-reinject'
 import {
@@ -76,6 +77,13 @@ export class RemoteFirefox {
     hasScripting: boolean
     probedAt: number
   } | null = null
+
+  // Firefox's watcher emits target-available-form only when a target first
+  // becomes available — not on every watchTargets call. The probe (or the
+  // first reload) consumes those events; without caching, subsequent
+  // attempts to attach return no_runtime_target. Cache the resolved actors
+  // and reuse them across reinjection passes within the same session.
+  private cachedAddonRuntimeTarget: AddonRuntimeTarget | null = null
 
   public getLastRuntimeReinjectionReport(): ReinjectionReport | null {
     return this.lastRuntimeReinjectionReport
@@ -546,7 +554,11 @@ export class RemoteFirefox {
           rules,
           addonsActor,
           addonId,
-          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule])
+          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule]),
+          cachedTarget: this.cachedAddonRuntimeTarget || undefined,
+          onTargetResolved: (target) => {
+            this.cachedAddonRuntimeTarget = target
+          }
         })
       this.lastRuntimeReinjectionReport = report
       if (
@@ -663,11 +675,16 @@ export class RemoteFirefox {
     if (!target) return null
 
     const {attachToAddonBackgroundConsole} = await import('./runtime-reinject')
-    const console_ = await attachToAddonBackgroundConsole(
-      target,
-      addonsActor,
-      addonId
-    )
+    let console_ = this.cachedAddonRuntimeTarget
+    if (!console_ || console_.addonId !== addonId) {
+      console_ =
+        (await attachToAddonBackgroundConsole(
+          target,
+          addonsActor,
+          addonId
+        )) || null
+      if (console_) this.cachedAddonRuntimeTarget = console_
+    }
 
     if (!console_) return null
 
