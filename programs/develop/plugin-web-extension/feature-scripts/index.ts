@@ -47,16 +47,32 @@ export class ScriptsPlugin {
       includeList: this.includeList || {}
     }).apply(compiler)
 
-    new AddContentScriptWrapper({
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    }).apply(compiler)
+    // The content-script wrapper exists to drive in-place reinjection on
+    // rebuild. It threads __EXTENSIONJS_DEV_REINJECT__ registry plumbing,
+    // generation tracking, and data-extjs-reinject-* attributes into every
+    // content-script entry — useful in development, dead weight in
+    // production. EXTENSION_NO_RELOAD lets `extension dev --no-reload`
+    // produce a dev-mode dist without the wrapper for users who want to
+    // run the watcher without disrupting an open page.
+    const wrapperDisabled =
+      compiler.options.mode === 'production' ||
+      process.env.EXTENSION_NO_RELOAD === 'true'
+
+    if (!wrapperDisabled) {
+      new AddContentScriptWrapper({
+        manifestPath: this.manifestPath,
+        browser: this.browser
+      }).apply(compiler)
+    }
 
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
 
-    if (compiler.options.mode !== 'production') {
+    if (
+      compiler.options.mode !== 'production' &&
+      process.env.EXTENSION_NO_RELOAD !== 'true'
+    ) {
       new StripContentScriptDevServerRuntime().apply(compiler)
 
       new SetupReloadStrategy({
