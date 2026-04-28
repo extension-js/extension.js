@@ -41,7 +41,18 @@ export interface BuildEventMap {
   close: []
 }
 
-export class BuildEmitter extends EventEmitter<BuildEventMap> {}
+export class BuildEmitter extends EventEmitter<BuildEventMap> {
+  constructor() {
+    super()
+    // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' is emitted without
+    // a listener. Build errors here are rspack/swc compile failures that are
+    // already printed by the bundler — losing them shouldn't kill the dev
+    // process and prevent recovery on the next save. Install a default
+    // listener so user-installed handlers still fire (EventEmitter delivers
+    // to all listeners) while the emit itself is non-throwing.
+    this.on('error', () => {})
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Browser launcher contract (dependency-injected by the CLI)
