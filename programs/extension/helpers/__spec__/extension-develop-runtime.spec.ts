@@ -71,6 +71,53 @@ describe('extension-develop runtime resolution', () => {
     expect(resolveExtensionDevelopVersion(startDir, '0.0.0')).toBe('9.9.9')
   })
 
+  it('does not escape node_modules to claim an outer workspace runtime', () => {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-develop-runtime-installed-')
+    )
+    const outerWorkspaceDevelopRoot = path.join(root, 'programs', 'develop')
+    const envDevelopRoot = path.join(
+      root,
+      'consumer',
+      'node_modules',
+      'extension-develop'
+    )
+    const startDir = path.join(
+      root,
+      'consumer',
+      'node_modules',
+      'extension',
+      'dist'
+    )
+
+    // Outer workspace looks like a sibling extension.js monorepo whose
+    // programs/develop has not been compiled (no dist/). The walker must
+    // ignore it because startDir is inside a node_modules tree.
+    writeJson(path.join(outerWorkspaceDevelopRoot, 'package.json'), {
+      name: 'extension-develop',
+      version: '9.9.9'
+    })
+
+    writeJson(path.join(envDevelopRoot, 'package.json'), {
+      name: 'extension-develop',
+      version: '1.2.3'
+    })
+    fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
+    fs.writeFileSync(
+      path.join(envDevelopRoot, 'dist', 'module.cjs'),
+      'module.exports = {extensionDev: "env"}\n'
+    )
+
+    fs.mkdirSync(startDir, {recursive: true})
+
+    process.env.EXTENSION_DEVELOP_ROOT = envDevelopRoot
+
+    expect(resolveExtensionDevelopRoot(startDir)).toBe(envDevelopRoot)
+    expect(
+      loadExtensionDevelopModule<{extensionDev: string}>(startDir)
+    ).toEqual({extensionDev: 'env'})
+  })
+
   it('fails loudly when the workspace runtime exists but is not built', () => {
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-develop-runtime-missing-')
