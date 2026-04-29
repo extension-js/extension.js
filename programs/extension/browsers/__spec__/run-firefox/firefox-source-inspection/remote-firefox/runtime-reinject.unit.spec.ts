@@ -575,7 +575,10 @@ describe('RemoteFirefox.reloadMatchingTabsForContentScripts (runtime-first)', ()
     ])
 
     expect(reloaded).toBe(1)
-    expect(navigate).toHaveBeenCalledWith('tab-1', 'https://docs.example.com/page')
+    expect(navigate).toHaveBeenCalledWith(
+      'tab-1',
+      'https://docs.example.com/page'
+    )
     const report = rf.getLastRuntimeReinjectionReport()
     expect(report?.phase).toBe('skipped')
   })
