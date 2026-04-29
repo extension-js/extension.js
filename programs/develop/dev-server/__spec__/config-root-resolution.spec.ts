@@ -146,10 +146,13 @@ describe('dev-server config root resolution', () => {
 
     const watchFiles = devServerConfigCapture.current.watchFiles
     expect(watchFiles).toBeDefined()
-    const paths = watchFiles.paths as string[]
+    // Normalize Windows backslashes so the assertion runs on both platforms.
+    const norm = (p: string) => p.replace(/\\/g, '/')
+    const paths = (watchFiles.paths as string[]).map(norm)
     expect(paths.some((p) => p.includes('/public/'))).toBe(true)
     expect(paths.some((p) => p.endsWith('/**/*.html'))).toBe(true)
-    expect(watchFiles.options.ignored).toContain('/proj/dist/**/*')
+    const ignored = (watchFiles.options.ignored as string[]).map(norm)
+    expect(ignored).toContain('/proj/dist/**/*')
   })
 
   it('enables hot and liveReload but disables WDS client injection', async () => {
