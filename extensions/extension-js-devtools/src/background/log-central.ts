@@ -194,11 +194,13 @@ chrome.runtime.onConnect.addListener((port) => {
   })
 })
 
-chrome.action.onClicked.addListener(async () => {
-  try {
-    await chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
-  } catch {}
-})
+if (import.meta.env.EXTENSION_BROWSER !== 'firefox') {
+  chrome.action.onClicked.addListener(async () => {
+    try {
+      await chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
+    } catch {}
+  })
+}
 
 // Recent dedupe to avoid accidental duplicates
 const recentKeys: string[] = []
@@ -467,57 +469,59 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   )
 })
 
-// These require "webNavigation" permission
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId !== 0) return
-  logLifecycle('info', ['Before navigate'], {
-    tabId: details.tabId,
-    frameId: details.frameId,
-    url: details.url,
-    title: '[navigation]'
+// These require "webNavigation" permission (not granted on Firefox MV2)
+if (import.meta.env.EXTENSION_BROWSER !== 'firefox') {
+  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    if (details.frameId !== 0) return
+    logLifecycle('info', ['Before navigate'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url,
+      title: '[navigation]'
+    })
   })
-})
 
-chrome.webNavigation.onCommitted.addListener((details) => {
-  if (details.frameId !== 0) return
-  logLifecycle('info', ['Navigation committed'], {
-    tabId: details.tabId,
-    frameId: details.frameId,
-    url: details.url,
-    title: '[navigation]'
+  chrome.webNavigation.onCommitted.addListener((details) => {
+    if (details.frameId !== 0) return
+    logLifecycle('info', ['Navigation committed'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url,
+      title: '[navigation]'
+    })
   })
-})
 
-chrome.webNavigation.onCompleted.addListener((details) => {
-  if (details.frameId !== 0) return
-  logLifecycle('info', ['Navigation completed'], {
-    tabId: details.tabId,
-    frameId: details.frameId,
-    url: details.url,
-    title: '[navigation]'
+  chrome.webNavigation.onCompleted.addListener((details) => {
+    if (details.frameId !== 0) return
+    logLifecycle('info', ['Navigation completed'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url,
+      title: '[navigation]'
+    })
   })
-})
 
-chrome.webNavigation.onErrorOccurred.addListener((details) => {
-  if (details.frameId !== 0) return
-  logLifecycle('error', ['Navigation error', details.error], {
-    tabId: details.tabId,
-    frameId: details.frameId,
-    url: details.url,
-    title: '[navigation]'
+  chrome.webNavigation.onErrorOccurred.addListener((details) => {
+    if (details.frameId !== 0) return
+    logLifecycle('error', ['Navigation error', details.error], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url,
+      title: '[navigation]'
+    })
   })
-})
 
-chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  // Covers SPA route changes
-  if (details.frameId !== 0) return
-  logLifecycle('info', ['History state updated'], {
-    tabId: details.tabId,
-    frameId: details.frameId,
-    url: details.url,
-    title: '[navigation]'
+  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    // Covers SPA route changes
+    if (details.frameId !== 0) return
+    logLifecycle('info', ['History state updated'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url,
+      title: '[navigation]'
+    })
   })
-})
+}
 
 chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
   const m = msg as {type?: string}
