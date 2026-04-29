@@ -1,12 +1,9 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
-import {pathToFileURL} from 'url'
-import * as path from 'path'
-import * as fs from 'fs'
+import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
 
 /**
- * `programs/develop/dist/preact-refresh-shim.cjs` is the first module in
- * every dev-mode HTML entry chain. It exists so the user's bundle does not
- * crash with `$RefreshReg$ is not defined` when a refresh plugin is silently
+ * `preact-refresh-shim.ts` is the first module in every dev-mode HTML entry
+ * chain. It exists so the user's bundle does not crash with
+ * `$RefreshReg$ is not defined` when a refresh plugin is silently
  * mis-wired. The known case at the time of writing is
  * `@rspack/plugin-preact-refresh@1.1.4` against rspack 2.x, where the
  * plugin's HMR runtime intercept is keyed on `runtimeModule.constructorName`
@@ -18,16 +15,15 @@ import * as fs from 'fs'
  *   1. Define `globalThis.$RefreshReg$` and `globalThis.$RefreshSig$` as
  *      no-ops when they are not already defined.
  *   2. Be a transparent backstop — must not clobber an existing definition.
+ *
+ * Imported from source (vitest TS transform). Avoids a hard dependency on
+ * `pnpm compile` running before tests in CI.
  */
 describe('preact-refresh-shim (dev page)', () => {
-  const builtPath = path.resolve(
-    __dirname,
-    '../../../../dist/preact-refresh-shim.cjs'
-  )
-
   beforeEach(() => {
     delete (globalThis as any).$RefreshReg$
     delete (globalThis as any).$RefreshSig$
+    vi.resetModules()
   })
 
   afterEach(() => {
@@ -35,14 +31,10 @@ describe('preact-refresh-shim (dev page)', () => {
     delete (globalThis as any).$RefreshSig$
   })
 
-  function loadFreshShim() {
-    if (!fs.existsSync(builtPath)) {
-      throw new Error(
-        `expected built dist/preact-refresh-shim.cjs at ${builtPath} — run \`pnpm compile\` first`
-      )
-    }
-    const url = pathToFileURL(builtPath).href + '?t=' + Date.now()
-    return import(url)
+  async function loadFreshShim() {
+    // vi.resetModules() above forces a fresh evaluation of the module's
+    // top-level side effects, which is what we're verifying.
+    return import('../../steps/preact-refresh-shim.ts')
   }
 
   it('installs no-op $RefreshReg$ and $RefreshSig$ when undefined', async () => {
