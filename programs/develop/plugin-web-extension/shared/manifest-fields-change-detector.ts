@@ -116,15 +116,23 @@ export class ManifestFieldsChangeDetector {
 
     const html = (fields.html || {}) as Record<string, string>
 
+    // `browser-extension-manifest-fields` returns icons keyed by icon group
+    // (`manifest.icons`, `action.default_icon`, etc.) where each value is an
+    // *array* of resolved icon paths — one per declared size. Treating that
+    // record as `Record<string, string>` left the snapshot as an
+    // Array<Array<string>>, which made `diffArray` compare inner arrays by
+    // reference (always unequal) and fired a spurious "Restart the dev
+    // server" error on every rebuild — with the offending `pathBefore`
+    // displayed as a comma-joined dump of every icon path
     const iconsRaw = fields.icons as
-      | Record<string, string>
+      | Record<string, string | string[]>
       | string[]
       | undefined
     const icons = !iconsRaw
       ? []
       : Array.isArray(iconsRaw)
         ? iconsRaw
-        : Object.values(iconsRaw)
+        : flattenValues(iconsRaw)
 
     const jsonMap = (fields.json || {}) as Record<string, string | string[]>
     const json: string[] = []

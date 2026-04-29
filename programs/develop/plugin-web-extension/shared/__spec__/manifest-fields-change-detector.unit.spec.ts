@@ -238,6 +238,91 @@ describe('ManifestFieldsChangeDetector', () => {
     expect(registered).toBe(false)
   })
 
+  it('treats real-shape icons (Record<string, string[]>) as a flat list', async () => {
+    // `browser-extension-manifest-fields` returns icons keyed by icon group
+    // (`icons`, `action`, `browser_action`, …) where each value is an array
+    // of resolved paths — one per declared size. Before flattening, the
+    // snapshot was Array<Array<string>> and `prev[i] !== next[i]` always
+    // tripped (different array references) → spurious error every rebuild
+    // with a comma-joined dump as `pathBefore`.
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    const realShape = {
+      icons: ['/a/16.png', '/a/32.png', '/a/48.png', '/a/64.png', '/a/128.png'],
+      action: ['/a/16.png', '/a/32.png', '/a/48.png', '/a/64.png', '/a/128.png']
+    }
+    mockFields = {scripts: {}, html: {}, icons: realShape, json: {}}
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    // Same logical content, fresh array references — must NOT trip diff
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {
+        icons: [
+          '/a/16.png',
+          '/a/32.png',
+          '/a/48.png',
+          '/a/64.png',
+          '/a/128.png'
+        ],
+        action: [
+          '/a/16.png',
+          '/a/32.png',
+          '/a/48.png',
+          '/a/64.png',
+          '/a/128.png'
+        ]
+      },
+      json: {}
+    }
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+
+    expect(errors.length).toBe(0)
+  })
+
+  it('reports a single icon path (not a comma-joined dump) when icons actually change', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {icons: ['/a/16.png', '/a/32.png']},
+      json: {}
+    }
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {icons: ['/b/16.png', '/a/32.png']},
+      json: {}
+    }
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+
+    expect(errors.length).toBe(1)
+    const message = String(errors[0].message || errors[0])
+    expect(message).toContain('Entrypoint references changed')
+    // The "before" path must be a single resolved path, not a CSV.
+    expect(message).not.toMatch(/PATH BEFORE\b[^\n]*,[^\n]*/)
+  })
+
   it('emits multiple category errors when multiple fields change', async () => {
     const errors: any[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
