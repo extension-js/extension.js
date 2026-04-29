@@ -22,6 +22,12 @@ function resolveDevelopRootFromDir(dir: string): string | undefined {
 function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
   let currentDir = path.resolve(startDir)
 
+  // If we're inside an installed copy (node_modules in the path), don't
+  // escape into the surrounding project. That would let an outer monorepo
+  // hijack the resolution and force a workspace build that has nothing to
+  // do with the consumer
+  if (currentDir.split(path.sep).includes('node_modules')) return undefined
+
   for (let depth = 0; depth < 8; depth += 1) {
     const candidate = path.join(currentDir, 'programs', 'develop')
     const resolved = resolveDevelopRootFromDir(candidate)
