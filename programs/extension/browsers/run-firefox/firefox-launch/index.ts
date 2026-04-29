@@ -432,9 +432,6 @@ export class FirefoxLaunchPlugin {
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
         ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
         '--foreground',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
         ...firefoxArgs
       ]
 
