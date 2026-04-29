@@ -30,7 +30,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-npx -y -c "node -e \"const goGitIt = require('go-git-it'); const run = goGitIt.default || goGitIt; run('$REPO_URL', '$TMP_DIR', 'Hydrating templates from extension-js/examples').catch((err) => { console.error(err); process.exit(1); });\""
+echo "Hydrating templates from extension-js/examples"
+git clone --depth 1 "$REPO_URL" "$TMP_DIR/examples"
 
 mkdir -p "$TEMPLATES_DIR" "$SCRIPTS_DIR"
 cp -R "$TMP_DIR/examples/examples/." "$TEMPLATES_DIR/"
