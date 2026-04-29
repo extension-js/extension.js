@@ -117,85 +117,84 @@ export async function handleFirstRun() {
   ).toLowerCase()
   const storageKey = devExtension?.id || `__first_run__:${browserStr}`
 
-  chrome.storage.local.get(storageKey, (result) => {
+  chrome.storage.local.get(storageKey, async (result) => {
     if (result?.[storageKey]?.didRun) {
       return
     }
 
-    const openWelcomeTab = () => {
-      try {
-        const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
-        if (isFirefox) {
-          // Always open a new welcome tab and focus it
-          try {
-            chrome.tabs.create({url: welcomeUrl, active: true})
-          } catch {
-            console.error('Error opening welcome tab')
-          }
-
-          // Ensure the addons manager exists in the background for convenience
-          try {
-            chrome.tabs.query({url: 'about:addons'}, (xtabs) => {
-              if (!Array.isArray(xtabs) || xtabs.length === 0) {
-                try {
-                  chrome.tabs.create({url: 'about:addons', active: false})
-                } catch {
-                  console.error('Error creating addons tab')
-                }
-              }
-            })
-          } catch {
-            console.error('Error querying addons tab')
-          }
-        } else {
-          // Chromium/Edge: open welcome page as the active tab
-          chrome.tabs.create({url: welcomeUrl, active: true})
-
-          // Then update the original active tab to the extensions page
-          // in the background (avoid stealing focus on Edge).
-          try {
-            if (typeof originalActiveTabId === 'number') {
-              try {
-                chrome.tabs.update(originalActiveTabId, {
-                  url: extensionsPage
-                })
-              } catch {
-                console.error('Error updating original active tab')
-              }
+    // Promise-wrap `chrome.tabs.create` so we know the welcome tab is actually
+    // open before we commit `didRun`. Firefox MV2's `chrome.*` API is a
+    // best-effort callback bridge over the native Promise-returning API:
+    // certain calls leave the callback unresolved without throwing. Relying
+    // on the callback for control flow there silently no-oped the previous
+    // implementation, and didRun was set anyway → the welcome page never
+    // surfaced for that user again
+    const createTab = (createProperties: chrome.tabs.CreateProperties) =>
+      new Promise<chrome.tabs.Tab | undefined>((resolve) => {
+        try {
+          const ret = chrome.tabs.create(createProperties, (tab) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                'Error creating tab:',
+                chrome.runtime.lastError.message
+              )
+              resolve(undefined)
+              return
             }
+            resolve(tab)
+          })
+          // Firefox returns a Promise from `chrome.tabs.create`. Bridge it.
+          if (ret && typeof (ret as Promise<chrome.tabs.Tab>).then === 'function') {
+            ;(ret as Promise<chrome.tabs.Tab>).then(resolve, () =>
+              resolve(undefined)
+            )
+          }
+        } catch (error) {
+          console.error('Error creating tab:', error)
+          resolve(undefined)
+        }
+      })
+
+    let opened: chrome.tabs.Tab | undefined
+    try {
+      const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
+
+      if (isFirefox) {
+        opened = await createTab({url: welcomeUrl, active: true})
+
+        // Ensure the addons manager exists in the background for convenience.
+        // Best-effort: not gated on the welcome tab guard.
+        try {
+          chrome.tabs.query({url: 'about:addons'}, (xtabs) => {
+            if (!Array.isArray(xtabs) || xtabs.length === 0) {
+              void createTab({url: 'about:addons', active: false})
+            }
+          })
+        } catch {
+          console.error('Error querying addons tab')
+        }
+      } else {
+        opened = await createTab({url: welcomeUrl, active: true})
+
+        // Then update the original active tab to the extensions page
+        // in the background (avoid stealing focus on Edge).
+        if (typeof originalActiveTabId === 'number') {
+          try {
+            chrome.tabs.update(originalActiveTabId, {url: extensionsPage})
           } catch {
             console.error('Error updating original active tab')
           }
         }
-      } catch {
-        // Fallback to relative URL if runtime URL resolution fails
-        try {
-          chrome.tabs.create({url: 'pages/welcome.html', active: true})
-        } catch {
-          console.error('Error creating welcome tab')
-        }
       }
-    }
-
-    // Guard against opening multiple welcome pages
-    try {
-      chrome.tabs.query(
-        {url: chrome.runtime.getURL('pages/welcome.html')},
-        (tabs) => {
-          if (Array.isArray(tabs) && tabs.length > 0) {
-            // Already open. Do not create another
-            return
-          }
-
-          openWelcomeTab()
-        }
-      )
     } catch {
-      // If querying fails (Firefox restrictions), still open the welcome tab
-      openWelcomeTab()
+      // Fallback to relative URL if runtime URL resolution fails
+      opened = await createTab({url: 'pages/welcome.html', active: true})
     }
 
-    // Ensure the welcome page shows only once per extension installation
-    chrome.storage.local.set({[storageKey]: {didRun: true}})
+    // Only commit didRun after the welcome tab is confirmed open. If the
+    // creation failed, leave didRun unset so the next install/startup retries
+    if (opened) {
+      chrome.storage.local.set({[storageKey]: {didRun: true}})
+    }
   })
 }
