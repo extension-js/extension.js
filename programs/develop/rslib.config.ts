@@ -25,6 +25,10 @@ export default defineConfig({
         __dirname,
         './plugin-web-extension/feature-html/steps/minimum-script-file.ts'
       ),
+      'preact-refresh-shim': path.resolve(
+        __dirname,
+        './plugin-web-extension/feature-html/steps/preact-refresh-shim.ts'
+      ),
       // Scripts Plugin Loaders
       'feature-scripts-content-script-wrapper': path.resolve(
         __dirname,
