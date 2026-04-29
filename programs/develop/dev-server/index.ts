@@ -430,9 +430,12 @@ export async function devServer(
     // Rspack must inject `module.hot` so `webpack/hot/dev-server` (prepended to
     // HTML entry chains in development) does not throw. Content scripts do not
     // rely on that client: StripContentScriptDevServerRuntime strips HMR startup
-    // from `content_scripts/content-*.js` bundles.
+    // from `content_scripts/content-*.js` bundles, so re-enabling liveReload no
+    // longer triggers content-script reload loops — and it is the only path
+    // that delivers HTML-entry edits to already-open extension pages once
+    // rspack 2.x stopped bumping stats.hash on asset-only rebuilds.
     hot: true,
-    liveReload: false
+    liveReload: true
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler)

@@ -52,7 +52,8 @@ function withTimeout<T>(
     }),
     new Promise<T>((_resolve, reject) => {
       timer = setTimeout(
-        () => reject(new Error(`rdp request timeout: ${label} (${timeoutMs}ms)`)),
+        () =>
+          reject(new Error(`rdp request timeout: ${label} (${timeoutMs}ms)`)),
         timeoutMs
       )
     })
@@ -232,8 +233,7 @@ export async function attachToAddonBackgroundConsole(
         entry.url.startsWith('moz-extension://') &&
         !!entry.actor &&
         !!entry.consoleActor
-    ) ||
-    captured.find((entry) => !!entry.actor && !!entry.consoleActor)
+    ) || captured.find((entry) => !!entry.actor && !!entry.consoleActor)
 
   if (!addonFrame || !addonFrame.actor || !addonFrame.consoleActor) {
     return undefined
@@ -393,11 +393,7 @@ export async function reinjectMatchingTabsViaAddonRuntime(
   let target: AddonRuntimeTarget | undefined =
     cachedTarget && cachedTarget.addonId === addonId ? cachedTarget : undefined
   if (!target) {
-    target = await attachToAddonBackgroundConsole(
-      client,
-      addonsActor,
-      addonId
-    )
+    target = await attachToAddonBackgroundConsole(client, addonsActor, addonId)
     if (target && onTargetResolved) {
       try {
         onTargetResolved(target)
