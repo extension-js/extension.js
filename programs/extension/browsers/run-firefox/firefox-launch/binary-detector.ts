@@ -37,9 +37,6 @@ export class FirefoxBinaryDetector {
         profilePath,
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
         '--foreground',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
         ...additionalArgs
       ]
       return {binary: 'flatpak', args}
@@ -53,9 +50,6 @@ export class FirefoxBinaryDetector {
       profilePath,
       ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
       '--foreground',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
       ...additionalArgs
     ]
 
