@@ -401,8 +401,7 @@ export async function devServer(
       // Manifest writes must stay atomic; let the manifest plugin own disk
       // persistence so Chromium never reads an in-place truncated file.
       writeToDisk: shouldWriteAssetToDisk,
-      // Ensure no server-side stats spam leaks to users
-      stats: false
+      stats: {all: false}
     },
     watchFiles: {
       paths: [
