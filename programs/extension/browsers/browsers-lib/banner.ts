@@ -17,8 +17,14 @@ import type {BrowserType} from '../browsers-types'
 // the boolean so other modules can query whether the banner was already
 // emitted during this process lifetime.
 let bannerPrinted = false
+export const BANNER_PRINTED_EVENT = 'extensionjs:banner-printed'
 function markBannerPrinted() {
   bannerPrinted = true
+  // Cross-package signal so develop's shared-state can flush any compile
+  // line that arrived before the banner was visible. Without this, the
+  // first deferred line stays parked until the next `done` hook, which
+  // makes the initial run silent and double-prints on first reload.
+  ;(process as any).emit(BANNER_PRINTED_EVENT)
 }
 export function isBannerPrinted(): boolean {
   return bannerPrinted
