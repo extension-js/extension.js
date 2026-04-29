@@ -47,7 +47,12 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
     installPackages: [
       '@prefresh/core@1.5.9',
       '@prefresh/utils@1.2.1',
-      '@rspack/plugin-preact-refresh@1.1.4',
+      // 1.1.5 is required for rspack 2.x: 1.1.4 only checks
+      // `runtimeModule.constructorName`, which is `undefined` in rspack 2.x.
+      // Without the v1.1.5 fallback to `runtimeModule.constructor?.name`,
+      // the HMR runtime intercept is never appended and `$RefreshReg$` is
+      // undefined when the user's bundle evaluates.
+      '@rspack/plugin-preact-refresh@1.1.5',
       'preact@10.27.2'
     ],
     verificationRules: [

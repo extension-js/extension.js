@@ -47,7 +47,7 @@ export class AddScriptsAndStylesToCompilation {
         // Parity with special-folders and @feature-scripts:
         // Exclude only public-root URL references (leading '/') that do NOT
         // exist on disk. Absolute filesystem paths must still be bundled.
-        // Remote URLs are excluded as well.
+        // Remote URLs are excluded as well
         const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
         const looksLikePublicRootUrl = (p: string) =>
           p.startsWith('/public/') ||
@@ -65,7 +65,17 @@ export class AddScriptsAndStylesToCompilation {
             fileAssets.unshift(...devServerHmrImports)
           }
 
-          // you can't HMR without a .js file, so we add a minimum script file.
+          // The refresh shim must run before any user module that the
+          // refresh loader transformed (top-level `$RefreshReg$`/`$RefreshSig$`
+          // calls). It is a no-op fallback that gets transparently overwritten
+          // per-factory when a working refresh plugin is wired up; when the
+          // plugin is silently broken (e.g. `@rspack/plugin-preact-refresh@1.1.4`
+          // against rspack 2.x, where `runtimeModule.constructorName` is
+          // undefined and the intercept is never appended), the shim keeps the
+          // user's bundle from crashing on `$RefreshReg$ is not defined`
+          fileAssets.unshift(resolveDevelopDistFile('preact-refresh-shim'))
+
+          // you can't HMR without a .js file, so we add a minimum script file
           const hmrScript = resolveDevelopDistFile('minimum-script-file')
           fileAssets.push(hmrScript)
         }

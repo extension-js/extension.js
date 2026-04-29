@@ -28,10 +28,9 @@ const wrapperCtor = vi.hoisted(() =>
     this.apply = () => {}
   })
 )
-vi.mock(
-  '../steps/setup-reload-strategy/add-content-script-wrapper',
-  () => ({AddContentScriptWrapper: wrapperCtor})
-)
+vi.mock('../steps/setup-reload-strategy/add-content-script-wrapper', () => ({
+  AddContentScriptWrapper: wrapperCtor
+}))
 vi.mock('../steps/add-scripts', () => ({
   AddScripts: vi.fn(function (this: any) {
     this.apply = () => {}

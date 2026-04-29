@@ -86,14 +86,25 @@ describe('AddScriptsAndStylesToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
-    const firstImport = compiler.options.entry['feature/index'].import[0]
-    const normalized = firstImport.replace(/\\/g, '/')
-    expect(normalized).toContain('dev-server/client/index.js?')
+    const imports = compiler.options.entry['feature/index'].import as string[]
+    // Refresh shim must run before the rspack-dev-server HMR client and any
+    // user .tsx module that the refresh loader transformed (top-level
+    // `$RefreshReg$`/`$RefreshSig$` calls). Verify the order: shim → HMR
+    // client → ... → minimum-script-file.
+    const shimIdx = imports.findIndex((p) => p.includes('preact-refresh-shim'))
+    const hmrIdx = imports.findIndex((p) =>
+      p.replace(/\\/g, '/').includes('dev-server/client/index.js?')
+    )
     expect(
-      compiler.options.entry['feature/index'].import.some((p: string) =>
-        p.includes('minimum-script-file')
-      )
-    ).toBe(true)
+      shimIdx,
+      'preact-refresh-shim must be in entry chain'
+    ).toBeGreaterThanOrEqual(0)
+    expect(
+      hmrIdx,
+      'rspack-dev-server client must be in entry chain'
+    ).toBeGreaterThanOrEqual(0)
+    expect(shimIdx).toBeLessThan(hmrIdx)
+    expect(imports.some((p) => p.includes('minimum-script-file'))).toBe(true)
   })
 
   it('keeps page HMR imports via env wiring when compiler devServer is absent', () => {
@@ -119,14 +130,16 @@ describe('AddScriptsAndStylesToCompilation', () => {
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
 
-    const firstImport = compiler.options.entry['feature/index'].import[0]
-    expect(firstImport.replace(/\\/g, '/')).toContain(
-      'dev-server/client/index.js?'
+    const imports = compiler.options.entry['feature/index'].import as string[]
+    const shimIdx = imports.findIndex((p) => p.includes('preact-refresh-shim'))
+    const hmrIdx = imports.findIndex((p) =>
+      p.replace(/\\/g, '/').includes('dev-server/client/index.js?')
     )
+    expect(shimIdx).toBeGreaterThanOrEqual(0)
+    expect(hmrIdx).toBeGreaterThanOrEqual(0)
+    expect(shimIdx).toBeLessThan(hmrIdx)
     expect(
-      compiler.options.entry['feature/index'].import.some((p: string) =>
-        p.replace(/\\/g, '/').includes('hot/dev-server')
-      )
+      imports.some((p) => p.replace(/\\/g, '/').includes('hot/dev-server'))
     ).toBe(true)
   })
 })
