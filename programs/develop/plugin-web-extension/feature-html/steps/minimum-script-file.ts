@@ -15,10 +15,11 @@
  * - Some extension UI pages (sidebar/options/popup) historically relied on reload-based
  *   recovery after syntax errors.
  *
- * Rspack dev-server client checks `location.search` for:
- *   `webpack-dev-server-hot=false`
- * If present, it will NOT attempt HMR and will fall back to liveReload (full reload).
- *
+ * Rspack dev-server client (v2.x) checks `location.search` for: rspack-dev-server-hot=false
+ * If present, it will NOT attempt HMR and will fall back to liveReload (full
+ * reload). The same param was named `webpack-dev-server-hot=false` in
+ * @rspack/dev-server 1.x; v2.0 renamed both the hot and live-reload guards to
+ * the rspack-prefixed forms, so we set both names for forward/back compat.
  * We set that flag only for extension pages (`*-extension:` protocols) so UI pages
  * keep their previous "reload to recover" behavior, while content scripts remain protected.
  */
@@ -33,16 +34,21 @@ try {
     safeLocation &&
     String(safeLocation.protocol || '').includes('-extension:')
   ) {
-    const q = String(safeLocation.search || '')
-    if (q.toLowerCase().includes('webpack-dev-server-hot=false')) {
-      // already set
-    } else if (
+    const q = String(safeLocation.search || '').toLowerCase()
+    const alreadySet =
+      q.includes('rspack-dev-server-hot=false') &&
+      q.includes('webpack-dev-server-hot=false')
+
+    if (
+      !alreadySet &&
       typeof URL === 'function' &&
       typeof safeHistory === 'object' &&
       safeHistory &&
       typeof safeHistory.replaceState === 'function'
     ) {
       const u = new URL(String(safeLocation.href))
+
+      u.searchParams.set('rspack-dev-server-hot', 'false')
       u.searchParams.set('webpack-dev-server-hot', 'false')
       safeHistory.replaceState(null, '', u.toString())
     }

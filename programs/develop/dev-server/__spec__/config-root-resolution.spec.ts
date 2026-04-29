@@ -128,7 +128,38 @@ describe('dev-server config root resolution', () => {
     ).toBe(false)
   })
 
-  it('enables hot but disables liveReload and client for content scripts', async () => {
+  it('watches public/** and HTML sources for non-framework projects', async () => {
+    // The dev-server's watchFiles broadcast (`static-changed` →
+    // `self.location.reload()` in the bundled HMR client) is the only path
+    // that delivers public/* asset edits and HTML-entry edits to already-open
+    // extension pages once rspack 2.x stopped bumping stats.hash for
+    // asset-only rebuilds. Without these watch paths, edits to
+    // _locales/*.json, manifest.json, public/*, or src/**/*.html are
+    // invisible to the open extension UI until the user manually reloads.
+    await devServer(
+      {
+        manifestPath: '/proj/src/manifest.json',
+        packageJsonPath: '/proj/package.json'
+      },
+      {browser: 'chrome'} as any
+    )
+
+    const watchFiles = devServerConfigCapture.current.watchFiles
+    expect(watchFiles).toBeDefined()
+    const paths = watchFiles.paths as string[]
+    expect(paths.some((p) => p.includes('/public/'))).toBe(true)
+    expect(paths.some((p) => p.endsWith('/**/*.html'))).toBe(true)
+    expect(watchFiles.options.ignored).toContain('/proj/dist/**/*')
+  })
+
+  it('enables hot and liveReload but disables WDS client injection', async () => {
+    // Content scripts strip the dev-server runtime entirely via
+    // StripContentScriptDevServerRuntime, so re-enabling liveReload no longer
+    // triggers content-script reload loops. liveReload: true is required so
+    // the dev-server's watchFiles change broadcast and the bundled HMR
+    // client's reloadApp -> liveReload fallback both fire when an HTML entry
+    // is edited (rspack 2.x stopped bumping stats.hash on asset-only
+    // rebuilds, breaking the previous accidental hot-update path).
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',
@@ -138,7 +169,7 @@ describe('dev-server config root resolution', () => {
     )
 
     expect(devServerConfigCapture.current.hot).toBe(true)
-    expect(devServerConfigCapture.current.liveReload).toBe(false)
+    expect(devServerConfigCapture.current.liveReload).toBe(true)
     expect(devServerConfigCapture.current.client).toBe(false)
   })
 })
