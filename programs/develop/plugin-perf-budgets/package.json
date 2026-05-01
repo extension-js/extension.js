@@ -1,0 +1,14 @@
+{
+  "name": "@extension.js/webpack-browser-extension-perf-budgets",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Internal placeholder for future extraction from extension.js (webpack/plugin-perf-budgets).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/plugin-perf-budgets"
+  },
+  "x-internal-path": "programs/develop/plugin-perf-budgets"
+}
