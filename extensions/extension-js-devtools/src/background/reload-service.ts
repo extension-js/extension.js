@@ -20,8 +20,6 @@ interface LoggerMessage {
   events?: unknown[]
 }
 
-// CDP fallback removed; relying on management-only reload
-
 export async function connect() {
   if (webSocket) {
     // If already connected, do nothing
@@ -257,22 +255,33 @@ async function hardReloadAllExtensions(changedFile: string) {
   const isExtensionReady = await checkExtensionReadiness(isCriticalFile)
 
   if (isExtensionReady) {
+    // The CLI controller drives the actual extension reload via CDP/RDP
+    // (chrome.runtime.reload() / reloadAddon). This companion only
+    // forwards the changedFile signal so user extensions that listen for
+    // it can run in-process HMR. We deliberately do NOT call
+    // chrome.management.setEnabled(false→true) here — repeated toggling
+    // of dev-loaded extensions clobbers the manifest registration of
+    // OTHER dev-mode add-ons (this companion included), which breaks
+    // its own content_script auto-injection after a few rebuild cycles
     const devExtensions = await getDevExtensions()
-    const reloadAll = devExtensions.map(async (extension) => {
-      await hardReloadExtension(extension.id)
 
-      chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
-        if (response) {
-          console.info(
-            `[Extension.js] Extension reloaded and ready for instance ${instanceId}.`
-          )
-        }
-      })
-
-      return true
-    })
-
-    await Promise.all(reloadAll)
+    for (const extension of devExtensions) {
+      try {
+        chrome.runtime.sendMessage(
+          extension.id,
+          {changedFile},
+          (response) => {
+            if (response) {
+              console.info(
+                `[Extension.js] Change notification delivered for instance ${instanceId}.`
+              )
+            }
+          }
+        )
+      } catch {
+        // The user extension may not expose a runtime message listener
+      }
+    }
   } else {
     console.info(
       `[Extension.js] External extension is not ready for instance ${instanceId}.`
@@ -292,10 +301,6 @@ async function checkExtensionReadiness(
       resolve(true)
     }, delay)
   })
-}
-
-async function delay(ms: number): Promise<void> {
-  return await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export function keepAlive() {
@@ -330,61 +335,3 @@ async function ensureClientReadyHandshake() {
   }
 }
 
-// Smart reload strategy: Try standard method first, fallback to CDP if needed
-async function hardReloadExtension(extensionId: string) {
-  try {
-    // Try the standard enable/disable reload first (feels natural)
-    await chrome.management.setEnabled(extensionId, false)
-    await chrome.management.setEnabled(extensionId, true)
-
-    // Verify it worked with a simple health check
-    const isHealthy = await verifyExtensionHealth(extensionId)
-    if (isHealthy) {
-      console.info(
-        `[Extension.js] Standard reload successful for ${extensionId}`
-      )
-      return true
-    }
-    // If we get here, the reload "succeeded" but extension isn't healthy
-    console.warn('[Extension.js] Extension reloaded but not responding')
-    return false
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error'
-    console.warn(
-      `[Extension.js] Standard reload failed for ${extensionId}: ${errorMessage}`
-    )
-    return false
-  }
-}
-
-// CDP fallback and client resolution removed
-
-// Simple health check to verify extension is responsive
-async function verifyExtensionHealth(extensionId: string) {
-  try {
-    // Simple ping to see if extension responds
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Health check timeout'))
-      }, 2000)
-
-      chrome.runtime.sendMessage(extensionId, {type: 'PING'}, (response) => {
-        clearTimeout(timeout)
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message))
-        } else {
-          resolve(response)
-        }
-      })
-    })
-    return true
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error'
-    console.warn(
-      `[Extension.js] Health check failed for ${extensionId}: ${errorMessage}`
-    )
-    return false
-  }
-}
