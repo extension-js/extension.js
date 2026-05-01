@@ -21,10 +21,19 @@ export function resolveLocalesFolder(
   manifestPath: string,
   projectRoot?: string
 ): string | undefined {
-  const root = projectRoot || path.dirname(manifestPath)
-  const folder = path.join(root, '_locales')
-
-  return isUsableDir(folder) ? folder : undefined
+  // Prefer `<projectRoot>/_locales` (platform-aligned layout — sibling of
+  // package.json, public/, dist/), but accept `<manifestDir>/_locales` as
+  // a fallback so existing templates with `src/_locales/` next to a
+  // src/manifest.json continue to build. validation.ts surfaces a build
+  // warning when the fallback path is used so authors are nudged toward
+  // the canonical layout without breaking the build.
+  if (projectRoot) {
+    const fromRoot = path.join(projectRoot, '_locales')
+    if (isUsableDir(fromRoot)) return fromRoot
+  }
+  const fromManifest = path.join(path.dirname(manifestPath), '_locales')
+  if (isUsableDir(fromManifest)) return fromManifest
+  return undefined
 }
 
 function listLocaleFiles(folder: string): string[] {
