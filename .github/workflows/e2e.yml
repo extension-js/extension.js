@@ -39,7 +39,13 @@ jobs:
         run: bash scripts/hydrate-templates-from-examples.sh
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # See `nightly-firefox` in programs-nightly.yml: hold the firefox
+        # apt package so `--with-deps` doesn't try to upgrade it into the
+        # snap transitional shim that hangs on snap-store contact for
+        # ~50 minutes on GitHub-hosted Ubuntu 24.04 runners.
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install --with-deps
 
       - name: Run E2E Tests (headed under Xvfb)
         run: xvfb-run -a pnpm test:e2e
