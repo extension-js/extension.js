@@ -10,7 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, Compilation, sources} from '@rspack/core'
 import * as messages from './messages'
-import {getLocales} from './get-locales'
+import {getLocales, resolveLocalesFolder} from './get-locales'
 
 export function processLocaleAssets(
   compiler: Compiler,
@@ -19,8 +19,11 @@ export function processLocaleAssets(
 ): void {
   if (compilation.errors.length > 0) return
 
-  const localesFields = getLocales(manifestPath)
-  const discoveredList = getLocales(manifestPath) || []
+  const projectRoot =
+    (compiler.options.context as string | undefined) || undefined
+  const localesFields = getLocales(manifestPath, projectRoot)
+  const discoveredList = getLocales(manifestPath, projectRoot) || []
+  const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
   let emittedCount = 0
   let missingCount = 0
 
@@ -57,9 +60,11 @@ export function processLocaleAssets(
       const source = fs.readFileSync(thisResource)
       const rawSource = new sources.RawSource(source)
       // Always emit locales at the bundle root: `_locales/...`
-      // regardless of where the manifest lives (e.g., src/manifest.json)
-      const manifestDir = path.dirname(manifestPath)
-      const localesRoot = path.join(manifestDir, '_locales')
+      // regardless of where the source `_locales/` lives (project root or
+      // next to manifest). Compute the relative path from the resolved
+      // locales root so the dist asset key stays platform-correct.
+      const localesRoot =
+        resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
       const relativeToLocales = path.relative(localesRoot, thisResource)
 
       // Normalize to POSIX-style for asset keys

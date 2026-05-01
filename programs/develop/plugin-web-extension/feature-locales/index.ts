@@ -71,18 +71,10 @@ export class LocalesPlugin {
       )
     })
 
-    // Ensure this locales file and its assets are stored as file
-    // dependencies so webpack can watch and trigger changes.
-    compiler.hooks.thisCompilation.tap('locales:module', (compilation) => {
-      compilation.hooks.processAssets.tap(
-        {
-          name: 'locales:module',
-          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-        },
-        () => {
-          trackLocaleDependencies(compilation, this.manifestPath)
-        }
-      )
+    compiler.hooks.afterCompile.tap('locales:module', (compilation) => {
+      const projectRoot =
+        (compiler.options.context as string | undefined) || undefined
+      trackLocaleDependencies(compilation, this.manifestPath, projectRoot)
     })
   }
 }
