@@ -71,8 +71,13 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Resolve Chromium binary
+        # `@playwright/test` is the workspace-root devDependency and
+        # re-exports the browser launchers. `playwright-core` is a
+        # transitive dep that pnpm doesn't hoist to the root, so an
+        # `import("playwright-core")` from the workspace root fails with
+        # ERR_MODULE_NOT_FOUND.
         run: |
-          CHROMIUM_BIN="$(node -e 'import("playwright-core").then((m) => console.log(m.chromium.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
+          CHROMIUM_BIN="$(node -e 'import("@playwright/test").then((m) => console.log(m.chromium.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
           echo "CHROMIUM_BIN=$CHROMIUM_BIN" >> "$GITHUB_ENV"
       - name: Build examples (edge)
         run: |
@@ -110,8 +115,10 @@ jobs:
       - name: Install Playwright Firefox
         run: npx playwright install --with-deps firefox
       - name: Resolve Firefox binary
+        # See `Resolve Chromium binary` above for why we import
+        # `@playwright/test` here instead of `playwright-core`.
         run: |
-          FIREFOX_BIN="$(node -e 'import("playwright-core").then((m) => console.log(m.firefox.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
+          FIREFOX_BIN="$(node -e 'import("@playwright/test").then((m) => console.log(m.firefox.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
           echo "FIREFOX_BIN=$FIREFOX_BIN" >> "$GITHUB_ENV"
       - name: Build examples (firefox)
         run: |
