@@ -52,14 +52,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install browsers (cli suite)
+      - name: Install xvfb (cli suite)
+        # ci:test:cli is a vitest unit-test suite; it does not need real
+        # browser binaries. Previously this step also `apt-get install`ed
+        # firefox + chromium and exported their paths into env vars —
+        # but nothing in the repo reads those env vars (`grep -rn
+        # EXTENSION_TEST_GECKO_BINARY`/EXTENSION_TEST_CHROMIUM_BINARY
+        # finds zero consumers). On Ubuntu 24.04 (noble), `apt-get
+        # install firefox` triggers a snap transitional shim that hangs
+        # 30+20 minutes on snap-store contact and aborts the job. We
+        # only need xvfb for any headed display the tests touch.
         if: matrix.suite == 'ci:test:cli'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends firefox xvfb
-          sudo apt-get install -y --no-install-recommends chromium-browser || sudo apt-get install -y --no-install-recommends chromium
-          echo "EXTENSION_TEST_GECKO_BINARY=$(command -v firefox || true)" >> $GITHUB_ENV
-          echo "EXTENSION_TEST_CHROMIUM_BINARY=$(command -v chromium-browser || command -v chromium || true)" >> $GITHUB_ENV
+          sudo apt-get install -y --no-install-recommends xvfb
 
       - name: Start Xvfb (cli suite)
         if: matrix.suite == 'ci:test:cli'
