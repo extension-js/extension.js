@@ -60,13 +60,15 @@ function listExampleDirs() {
 }
 
 // Parse a captured build output and extract perf-warning facts.
-// Looks for the rspack "WARNING in ⚠ asset size limit" block and the
-// trailing "Build succeeded with N warning(s)" / "compiled with warnings"
-// markers. Returns {ok, hadAssetWarn, hadRecommendationWarn, oversized: [{asset, kib}]}.
+// The plugin-perf-budgets PerfBudgetWarning is the authoritative signal —
+// rspack's stock single-threshold warning is disabled in rspack-config.ts,
+// so the only "Build succeeded with N warning(s)" line that should fire
+// for size-related issues comes from us.
 function parseBuildOutput(text) {
+  const hadBuildWarnLine = /Build succeeded with \d+ warning\(s\)/i.test(text)
   const hadAssetWarn =
-    /asset size limit exceeded/i.test(text) ||
-    /asset size limit:/i.test(text) ||
+    /exceed the extension performance budget/i.test(text) ||
+    /asset size limit exceeded/i.test(text) || // legacy rspack pattern, kept for future-proofing
     /asset(s)? exceed the recommended size limit/i.test(text)
   const hadRecommendationWarn = /Rspack performance recommendations/i.test(text)
   const ok =
@@ -74,32 +76,60 @@ function parseBuildOutput(text) {
     /compiled successfully/i.test(text) ||
     /compiled with warnings/i.test(text)
 
-  // Extract per-asset entries inside the "asset size limit" block. Lines
-  // look like:
-  //   │   pages/centralized-logger.js (441.283 KiB)
-  // Tolerate variations in whitespace and box-drawing chars.
+  // Extract per-asset entries from the structured PerfBudgetWarning block:
+  //
+  //   <name>
+  //     size:   470.0 KiB
+  //     budget: 150.0 KiB  (over by 213%)
+  //     role:   content script — injected on every page navigation
+  //
+  // Anchoring on `size:`/`budget:` pairs avoids the dist-tree false
+  // positives where every emitted file is listed with its size.
+  // Per-asset blocks may appear two ways:
+  //   (a) raw warning text — entries on their own lines (\n separated)
+  //   (b) routed through Extension.js' Performance formatter, which
+  //       flattens to one line with `│` separators. Accept both.
   const oversized = []
-  const re =
-    /([^\s│|]+\.(?:js|css|wasm|png|jpe?g|gif|webp|svg|woff2?|ttf|html))\s*\((\d+(?:\.\d+)?)\s*([KMG]i?B)\)/gi
+  const blockRe =
+    /([\w._/-]+\.(?:js|css|wasm))\s*[│|\n]+\s*size:\s*(\d+(?:\.\d+)?)\s*([KMG]i?B)\s*[│|\n]+\s*budget:\s*(\d+(?:\.\d+)?)\s*([KMG]i?B)/gi
+  const toKiB = (val, unit) => {
+    const u = String(unit).toLowerCase()
+    if (u.startsWith('m')) return val * 1024
+    if (u.startsWith('g')) return val * 1024 * 1024
+    return val
+  }
   let m
-  while ((m = re.exec(text)) !== null) {
+  while ((m = blockRe.exec(text)) !== null) {
     const asset = m[1]
-    const size = parseFloat(m[2])
-    const unit = m[3].toLowerCase()
-    let kib = size
-    if (unit.startsWith('m')) kib = size * 1024
-    else if (unit.startsWith('g')) kib = size * 1024 * 1024
-    if (kib < 300) continue
-    const isCode = /\.(js|css|wasm)$/i.test(asset)
+    const sizeKiB = toKiB(parseFloat(m[2]), m[3])
+    const budgetKiB = toKiB(parseFloat(m[4]), m[5])
     oversized.push({
       asset,
-      kib: Math.round(kib * 100) / 100,
-      kind: isCode ? 'code' : 'binary'
+      kib: Math.round(sizeKiB * 100) / 100,
+      budget: Math.round(budgetKiB * 100) / 100,
+      kind: 'code'
     })
   }
 
-  // Dedupe by asset path; same line is sometimes printed twice across
-  // the warning summary and the dist tree.
+  // Fallback for the legacy rspack warning shape (in case the plugin is
+  // ever disabled and rspack's stock hint comes back).
+  if (oversized.length === 0 && hadAssetWarn) {
+    const legacyRe =
+      /([^\s│|]+\.(?:js|css|wasm))\s*\((\d+(?:\.\d+)?)\s*([KMG]i?B)\)/gi
+    let lm
+    while ((lm = legacyRe.exec(text)) !== null) {
+      const asset = lm[1]
+      const sizeKiB = toKiB(parseFloat(lm[2]), lm[3])
+      if (sizeKiB < 300) continue
+      oversized.push({
+        asset,
+        kib: Math.round(sizeKiB * 100) / 100,
+        budget: 300,
+        kind: 'code'
+      })
+    }
+  }
+
   const seen = new Set()
   const unique = []
   for (const o of oversized) {
@@ -109,7 +139,13 @@ function parseBuildOutput(text) {
   }
   unique.sort((a, b) => b.kib - a.kib)
 
-  return {ok, hadAssetWarn, hadRecommendationWarn, oversized: unique}
+  return {
+    ok,
+    hadAssetWarn,
+    hadBuildWarnLine,
+    hadRecommendationWarn,
+    oversized: unique
+  }
 }
 
 function fmtKiB(kib) {
@@ -144,13 +180,16 @@ function printSummary(results) {
     (r) =>
       r.status === 0 &&
       r.parsed.ok &&
-      (r.parsed.hadAssetWarn || r.parsed.oversized.length > 0)
+      (r.parsed.hadAssetWarn ||
+        r.parsed.hadBuildWarnLine ||
+        r.parsed.oversized.length > 0)
   )
   const clean = results.filter(
     (r) =>
       r.status === 0 &&
       r.parsed.ok &&
       !r.parsed.hadAssetWarn &&
+      !r.parsed.hadBuildWarnLine &&
       r.parsed.oversized.length === 0
   )
 
@@ -172,26 +211,16 @@ function printSummary(results) {
     })
     for (const r of ranked) {
       const assets = r.parsed.oversized
-      const code = assets.filter((a) => a.kind === 'code')
-      const binary = assets.filter((a) => a.kind === 'binary')
       console.log(`  ${r.name}`)
-      if (code.length) {
+      if (assets.length === 0) {
         console.log(
-          `    code:   ${code
-            .map((a) => `${a.asset} (${fmtKiB(a.kib)})`)
-            .join(', ')}`
+          `    → build emitted a warning but no perf-budget asset block matched`
         )
+        continue
       }
-      if (binary.length) {
+      for (const a of assets) {
         console.log(
-          `    binary: ${binary
-            .map((a) => `${a.asset} (${fmtKiB(a.kib)})`)
-            .join(', ')}`
-        )
-      }
-      if (!code.length && !binary.length) {
-        console.log(
-          `    → threshold warning fired but no asset matched the line parser`
+          `    ${a.asset}  ${fmtKiB(a.kib)} (budget ${fmtKiB(a.budget)})`
         )
       }
     }
