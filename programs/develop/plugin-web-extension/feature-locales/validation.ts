@@ -31,31 +31,33 @@ export function validateLocales(
       resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
     const hasLocalesRoot = Boolean(resolvedLocalesRoot)
 
-    if (projectRoot) {
+    // Project-root layout is the canonical placement (sibling of public/,
+    // dist/, package.json — matches Chrome's view of the dist root). When
+    // the resolver falls back to `<manifestDir>/_locales` instead, emit a
+    // build WARNING so authors are nudged toward the canonical layout —
+    // not a fatal error, since plenty of existing templates and external
+    // projects still use the legacy nested layout and shouldn't break.
+    if (projectRoot && resolvedLocalesRoot) {
       const manifestDir = path.dirname(manifestPath)
-      const expected = path.join(projectRoot, '_locales')
-      const nextToManifest = path.join(manifestDir, '_locales')
-      const sameAsRoot = path.resolve(manifestDir) === path.resolve(projectRoot)
+      const sameAsRoot =
+        path.resolve(manifestDir) === path.resolve(projectRoot)
+      const usedManifestDirFallback =
+        !sameAsRoot &&
+        path.resolve(resolvedLocalesRoot) ===
+          path.resolve(path.join(manifestDir, '_locales'))
 
-      if (!sameAsRoot) {
-        try {
-          if (
-            fs.existsSync(nextToManifest) &&
-            fs.statSync(nextToManifest).isDirectory()
-          ) {
-            pushCompilationError(
-              compiler,
-              compilation,
-              'LocalesValidationError',
-              messages.localesMustBeAtProjectRoot(nextToManifest, expected),
-              'manifest.json'
-            )
-            return false
-          }
-        } catch {
-          // If filesystem checks fail, fall through to the existing
-          // default_locale validations below
-        }
+      if (usedManifestDirFallback) {
+        const ErrorConstructor =
+          (compiler as any)?.rspack?.WebpackError || Error
+        const warning = new ErrorConstructor(
+          messages.localesMustBeAtProjectRoot(
+            resolvedLocalesRoot,
+            path.join(projectRoot, '_locales')
+          )
+        )
+        ;(warning as any).name = 'LocalesLayoutWarning'
+        if (!compilation.warnings) compilation.warnings = []
+        compilation.warnings.push(warning)
       }
     }
 
