@@ -29,6 +29,7 @@ import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
+import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 
 // Types
 import type {WebpackConfigOptions} from './types'
@@ -133,7 +134,12 @@ export default function webpackConfig(
     }),
     new SpecialFoldersPlugin({
       manifestPath
-    })
+    }),
+    // Extension-aware performance budgets (per-category thresholds tuned
+    // for content scripts vs. service workers vs. cold UI pages). Replaces
+    // rspack's stock single-threshold `performance.hints` — see the
+    // `performance` block below where hints are disabled.
+    new PerfBudgetsPlugin()
   ]
 
   if (devOptions.noBrowser) {
@@ -301,8 +307,12 @@ export default function webpackConfig(
       console: makeSanitizedConsole('Extension.js') as any
     },
     performance: {
-      // Align with defaults: warn in production only
-      hints: devOptions.mode === 'production' ? 'warning' : false
+      // PerfBudgetsPlugin (registered above) applies extension-aware,
+      // per-category budgets. Disable rspack's stock single-threshold
+      // hints so authors don't see two overlapping warnings for the same
+      // asset, and so binary assets (images, fonts) don't trip a
+      // code-splitting hint that doesn't apply to them.
+      hints: false
     },
     optimization: {
       // Minify only in production to reduce bundle size
