@@ -163,6 +163,53 @@ describe('CDPClient.forceReloadExtension', () => {
     expect(attached).toEqual(['my-sw'])
   })
 
+  it('does not reload sideloaded companion extensions (devtools/theme)', async () => {
+    // Dev mode sideloads extension-js-devtools and extension-js-theme alongside
+    // the user's extension via --load-extension. Their service workers appear
+    // in CDP getTargets() with their own chrome-extension:// origins. A reload
+    // triggered for the USER's extension must never attach to or evaluate
+    // chrome.runtime.reload() inside a companion's worker — that would reload
+    // the wrong extension and silently break dev workflow.
+    const userExtensionId = 'user-extension-id'
+    const devtoolsExtensionId = 'devtools-companion-id'
+    const themeExtensionId = 'theme-companion-id'
+
+    ;(client as any).getTargets = vi.fn(async () => [
+      {
+        targetId: 'devtools-sw',
+        type: 'service_worker',
+        url: `chrome-extension://${devtoolsExtensionId}/background/service_worker.js`
+      },
+      {
+        targetId: 'theme-sw',
+        type: 'service_worker',
+        url: `chrome-extension://${themeExtensionId}/background/service_worker.js`
+      },
+      {
+        targetId: 'user-sw',
+        type: 'service_worker',
+        url: `chrome-extension://${userExtensionId}/background.js`
+      }
+    ])
+
+    const attached: string[] = []
+    ;(client as any).attachToTarget = vi.fn(async (targetId: string) => {
+      attached.push(targetId)
+      return `session-${targetId}`
+    })
+
+    ;(client as any).sendCommand = vi.fn(async () => ({result: {value: true}}))
+
+    const reloadPromise = client.forceReloadExtension(userExtensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // The companion service workers must be filtered out by extensionId scope.
+    // Only the user's worker may be attached for the chrome.runtime.reload() eval.
+    expect(attached).toEqual(['user-sw'])
+  })
+
   it('returns true on first success without exhausting all attempts', async () => {
     const extensionId = 'test-extension-id'
     let getTargetsCalls = 0

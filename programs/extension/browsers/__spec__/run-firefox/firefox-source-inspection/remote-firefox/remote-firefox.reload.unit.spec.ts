@@ -92,6 +92,76 @@ describe('RemoteFirefox hardReloadIfNeeded', () => {
     })
   })
 
+  it('treats project-root _locales edits as critical', async () => {
+    // Platform-standard layout puts _locales/ at the project root (no src/).
+    // The Firefox path detector must recognize this shape — otherwise locale
+    // edits silently no-op on Firefox even though Chromium reloads fine.
+    const rf = new RemoteFirefox({
+      extension: 'dist/firefox',
+      browser: 'firefox'
+    } as any)
+
+    const client = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          types: ['installTemporaryAddon', 'reloadAddon']
+        })
+        .mockResolvedValueOnce({ok: true})
+    }
+
+    ;(rf as any).client = client
+    ;(rf as any).cachedAddonsActor = 'addonsActor'
+    ;(rf as any).lastInstalledAddonPath = '/abs/addon'
+    ;(rf as any).cachedSupportsReload = null
+
+    const compilation = makeCompilationWithManifest({default_locale: 'en'})
+    await rf.hardReloadIfNeeded(compilation, ['_locales/en/messages.json'])
+
+    expect(client.request).toHaveBeenCalledWith({
+      to: 'addonsActor',
+      type: 'reloadAddon'
+    })
+  })
+
+  it('treats project-relative manifest/SW paths as critical (src/ prefix)', async () => {
+    // BrowsersPlugin emits paths relative to the user's project context
+    // (e.g. src/manifest.json, src/background.js), not the dist root.
+    // Older versions used Array.includes(exactString) which silently
+    // rejected the prefixed paths and skipped the reload entirely.
+    const rf = new RemoteFirefox({
+      extension: 'dist/firefox',
+      browser: 'firefox'
+    } as any)
+
+    const client = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          types: ['installTemporaryAddon', 'reloadAddon']
+        })
+        .mockResolvedValueOnce({ok: true})
+    }
+
+    ;(rf as any).client = client
+    ;(rf as any).cachedAddonsActor = 'addonsActor'
+    ;(rf as any).lastInstalledAddonPath = '/abs/addon'
+    ;(rf as any).cachedSupportsReload = null
+
+    const compilation = makeCompilationWithManifest({
+      background: {service_worker: 'background.js'}
+    })
+    await rf.hardReloadIfNeeded(compilation, [
+      'src/manifest.json',
+      'src/background.js'
+    ])
+
+    expect(client.request).toHaveBeenCalledWith({
+      to: 'addonsActor',
+      type: 'reloadAddon'
+    })
+  })
+
   it('reloads only tabs matching affected content script rules', async () => {
     const rf = new RemoteFirefox({
       extension: 'dist/firefox',
