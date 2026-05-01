@@ -11,6 +11,7 @@ import * as path from 'path'
 import {Compiler, Compilation} from '@rspack/core'
 import * as messages from './messages'
 import {pushCompilationError} from './compilation-error'
+import {resolveLocalesFolder} from './get-locales'
 
 export function validateLocales(
   compiler: Compiler,
@@ -18,14 +19,45 @@ export function validateLocales(
   manifestPath: string
 ): boolean {
   // Validate locales/default_locale consistency across browsers
+  const projectRoot =
+    (compiler.options.context as string | undefined) || undefined
   try {
-    const manifestDir = path.dirname(manifestPath)
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestRaw) as Record<string, any>
     const defaultLocale = manifest?.default_locale
 
-    const localesRoot = path.join(manifestDir, '_locales')
-    const hasLocalesRoot = fs.existsSync(localesRoot)
+    const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
+    const localesRoot =
+      resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
+    const hasLocalesRoot = Boolean(resolvedLocalesRoot)
+
+    if (projectRoot) {
+      const manifestDir = path.dirname(manifestPath)
+      const expected = path.join(projectRoot, '_locales')
+      const nextToManifest = path.join(manifestDir, '_locales')
+      const sameAsRoot = path.resolve(manifestDir) === path.resolve(projectRoot)
+
+      if (!sameAsRoot) {
+        try {
+          if (
+            fs.existsSync(nextToManifest) &&
+            fs.statSync(nextToManifest).isDirectory()
+          ) {
+            pushCompilationError(
+              compiler,
+              compilation,
+              'LocalesValidationError',
+              messages.localesMustBeAtProjectRoot(nextToManifest, expected),
+              'manifest.json'
+            )
+            return false
+          }
+        } catch {
+          // If filesystem checks fail, fall through to the existing
+          // default_locale validations below
+        }
+      }
+    }
 
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
@@ -199,9 +231,9 @@ export function validateLocales(
 
   // Validate all locale JSON files are syntactically valid
   try {
-    const manifestDir = path.dirname(manifestPath)
-    const localesRoot = path.join(manifestDir, '_locales')
-    if (fs.existsSync(localesRoot)) {
+    const localesRoot = resolveLocalesFolder(manifestPath, projectRoot)
+
+    if (localesRoot && fs.existsSync(localesRoot)) {
       const localeDirs = fs
         .readdirSync(localesRoot)
         .map((d) => path.join(localesRoot, d))
