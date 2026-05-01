@@ -398,7 +398,9 @@ export class RemoteFirefox {
         .map((n) => String(n || ''))
         .map((n) => n.replace(/\\/g, '/'))
 
-      const isManifestChanged = normalized.includes('manifest.json')
+      const isManifestChanged = normalized.some(
+        (n) => n === 'manifest.json' || n.endsWith('/manifest.json')
+      )
       const isLocalesChanged = normalized.some((n) =>
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
@@ -422,7 +424,9 @@ export class RemoteFirefox {
 
           if (typeof sw === 'string' && sw) {
             const swUnix = (sw as string).replace(/\\/g, '/')
-            isServiceWorkerChanged = normalized.includes(swUnix)
+            isServiceWorkerChanged = normalized.some(
+              (n) => n === swUnix || n.endsWith('/' + swUnix)
+            )
           }
         }
       } catch {
