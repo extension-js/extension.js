@@ -189,6 +189,21 @@ describe('BrowsersPlugin classifier', () => {
     expect(h.lastReload()?.type).toBe('full')
   })
 
+  it('forwards changedAssets on a "full" reload', async () => {
+    // Firefox's hardReloadIfNeeded inspects changedAssets to decide whether
+    // the change is critical. Without forwarding the list, manifest/locale
+    // edits silently no-op on Firefox (April 2026 regression).
+    const h = createHarness(1)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['src/manifest.json'])
+    await h.triggerDone()
+
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual(['src/manifest.json'])
+  })
+
   it('classifies a _locales edit as "full"', async () => {
     const h = createHarness(1)
     await primeFirstCompile(h)
@@ -197,6 +212,39 @@ describe('BrowsersPlugin classifier', () => {
     await h.triggerDone()
 
     expect(h.lastReload()?.type).toBe('full')
+  })
+
+  it('classifies a project-root _locales edit as "full"', async () => {
+    // Platform-standard layout: _locales/ sits at the project root (sibling
+    // of public/, dist/, package.json), not nested inside src/. After the
+    // resolver flip in feature-locales, the project-root file is what ends
+    // up in fileDependencies — so the classifier must detect a relative
+    // path with no src/ prefix.
+    const h = createHarness(1)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['_locales/en/messages.json'])
+    await h.triggerDone()
+
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
+  })
+
+  it('falls back to "full" when a non-content-script project edits a page asset', async () => {
+    // Action / popup / options-only extensions declare no content_scripts.
+    // Page asset edits (popup HTML/JS/CSS) used to fall through with no
+    // instruction at all because the content-scripts branch was gated on
+    // contentScriptCount > 0, leaving manual reload as the only path.
+    const h = createHarness(0)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['src/action/scripts.js'])
+    await h.triggerDone()
+
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual(['src/action/scripts.js'])
   })
 
   it('background + content change prefers "service-worker" (widest blast radius wins)', async () => {

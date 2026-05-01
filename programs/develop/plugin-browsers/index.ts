@@ -214,7 +214,10 @@ export class BrowsersPlugin {
       let reloadInstruction: ReloadInstruction | undefined
 
       if (!this.isFirstCompile && pendingReloadReason) {
-        reloadInstruction = {type: pendingReloadReason}
+        reloadInstruction = {
+          type: pendingReloadReason,
+          changedAssets: pendingChangedSources
+        }
       } else if (!this.isFirstCompile && pendingChangedSources.length > 0) {
         const isServiceWorkerSource = (rel: string) =>
           /(^|\/)background(\.|\/)/i.test(rel) ||
@@ -245,6 +248,14 @@ export class BrowsersPlugin {
             reloadInstruction = {
               type: 'content-scripts',
               changedContentScriptEntries: entries,
+              changedAssets: pendingChangedSources
+            }
+          } else {
+            // No content scripts declared — popup/options/devtools/etc page
+            // edits land here. Fall back to a full extension reload so the
+            // updated bundles are picked up on the next page open
+            reloadInstruction = {
+              type: 'full',
               changedAssets: pendingChangedSources
             }
           }
