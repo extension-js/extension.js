@@ -86,6 +86,14 @@ export function isCanonicalContentScriptAsset(assetName: string): boolean {
 /**
  * Resolves the on-disk file for a canonical content bundle. In development the
  * emitted name may include a fullhash (e.g. content_scripts/content-0.a1b2c3d4.js).
+ *
+ * Dev mode runs with `output.clean: false`, so successive rebuilds leave old
+ * hashed bundles on disk for the same `content-<index>` entry. Returning the
+ * first `readdirSync` match would pick a stale bundle whenever the filesystem
+ * order doesn't align with write order — and Firefox / Chromium would then
+ * `executeScript` an outdated content script, making reload look unreliable.
+ * Pick the most recently written match instead so the live reload always
+ * reflects the latest rebuild.
  */
 export function resolveEmittedContentScriptFile(
   extensionOutPath: string,
@@ -103,13 +111,29 @@ export function resolveEmittedContentScriptFile(
   if (!fs.existsSync(dir)) return null
   try {
     const re = new RegExp(`^content-${index}\\.[a-f0-9]+\\.${ext}$`, 'i')
+    let latestPath: string | null = null
+    let latestMtimeMs = -Infinity
+
     for (const name of fs.readdirSync(dir)) {
-      if (re.test(name)) return path.join(dir, name)
+      if (!re.test(name)) continue
+
+      const candidate = path.join(dir, name)
+
+      try {
+        const stat = fs.statSync(candidate)
+
+        if (stat.mtimeMs > latestMtimeMs) {
+          latestMtimeMs = stat.mtimeMs
+          latestPath = candidate
+        }
+      } catch {
+        // Skip unreadable entries; another match may still resolve.
+      }
     }
+    return latestPath
   } catch {
     return null
   }
-  return null
 }
 
 export function getChangedContentScriptEntryNames(

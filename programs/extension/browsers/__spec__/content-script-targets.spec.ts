@@ -70,6 +70,33 @@ describe('content-script targets helper', () => {
     fs.rmSync(root, {recursive: true, force: true})
   })
 
+  it('resolveEmittedContentScriptFile picks the most recently written hashed bundle when multiple coexist', () => {
+    // Dev mode runs with output.clean: false, so each rebuild writes a new
+    // content-0.<hash>.js without removing the previous one. Returning the
+    // first readdirSync match (filesystem order — typically alphabetical)
+    // would point Firefox/Chromium at a stale bundle and the user's edit
+    // wouldn't appear in the page. Always pick the newest by mtime.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-out-mtime-'))
+    const cs = path.join(root, 'content_scripts')
+    fs.mkdirSync(cs)
+
+    // Older bundle, alphabetically FIRST so a naive readdir match returns it.
+    const olderJs = path.join(cs, 'content-0.0a0a0a0a.js')
+    fs.writeFileSync(olderJs, '/* older */')
+    const olderTime = new Date('2024-01-01T00:00:00Z')
+    fs.utimesSync(olderJs, olderTime, olderTime)
+
+    // Newer bundle, alphabetically LATER. The resolver must pick this one.
+    const newerJs = path.join(cs, 'content-0.ffffffff.js')
+    fs.writeFileSync(newerJs, '/* newer */')
+    const newerTime = new Date('2026-01-01T00:00:00Z')
+    fs.utimesSync(newerJs, newerTime, newerTime)
+
+    expect(resolveEmittedContentScriptFile(root, 0, 'js')).toBe(newerJs)
+
+    fs.rmSync(root, {recursive: true, force: true})
+  })
+
   it('selects only the rules that correspond to changed content entries', () => {
     const rules = getContentScriptRulesFromManifest({
       content_scripts: [
