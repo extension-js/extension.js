@@ -453,12 +453,11 @@ describe('LocalesPlugin (unit)', () => {
     expect(emitted.some((p) => p.startsWith('src/_locales/'))).toBe(false)
   })
 
-  it('errors when _locales/ is found next to the manifest instead of the project root', () => {
-    // Strict layout: _locales/ must live at the project root. Finding one
-    // next to the manifest (when manifest is not at the project root) is a
-    // hard validation error with a migration message — silently picking
-    // would reintroduce the misleading precedence we set out to fix.
-    const pkgRoot = path.join(tmpRoot, 'strict-migration')
+  it('warns when _locales/ is found next to the manifest instead of the project root', () => {
+    // Project-root layout is canonical, but the legacy `<manifestDir>/_locales`
+    // shape still works — emit a build warning to nudge migration without
+    // breaking templates / external projects that rely on the legacy layout.
+    const pkgRoot = path.join(tmpRoot, 'legacy-layout-warn')
     const innerSrc = path.join(pkgRoot, 'src')
     const innerLocales = path.join(innerSrc, '_locales', 'en')
     fs.mkdirSync(innerLocales, {recursive: true})
@@ -495,16 +494,23 @@ describe('LocalesPlugin (unit)', () => {
     new LocalesPlugin({manifestPath: srcManifestPath}).apply(compiler)
     ;(processAssetsHook as any)._runAll()
 
+    // Build must NOT fail — no error pushed.
     const error = compilation.errors.find(
       (e: any) => e.name === 'LocalesValidationError'
     )
-    expect(error).toBeDefined()
-    expect(String(error.message)).toContain('must live at the project root')
-    expect(String(error.message)).toContain(path.join(innerSrc, '_locales'))
-    expect(String(error.message)).toContain(path.join(pkgRoot, '_locales'))
+    expect(error).toBeUndefined()
+
+    // A LocalesLayoutWarning should be present pointing at the legacy path.
+    const warning = compilation.warnings.find(
+      (w: any) => w.name === 'LocalesLayoutWarning'
+    )
+    expect(warning).toBeDefined()
+    expect(String(warning.message)).toContain('canonically placed')
+    expect(String(warning.message)).toContain(path.join(innerSrc, '_locales'))
+    expect(String(warning.message)).toContain(path.join(pkgRoot, '_locales'))
   })
 
-  it('does not error when only project-root _locales/ exists', () => {
+  it('does not warn or error when only project-root _locales/ exists', () => {
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
@@ -512,10 +518,14 @@ describe('LocalesPlugin (unit)', () => {
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
+    const layoutWarning = compilation.warnings.find(
+      (w: any) => w.name === 'LocalesLayoutWarning'
+    )
+    expect(layoutWarning).toBeUndefined()
     const migrationError = compilation.errors.find(
       (e: any) =>
         e.name === 'LocalesValidationError' &&
-        String(e.message).includes('must live at the project root')
+        String(e.message).includes('canonically placed')
     )
     expect(migrationError).toBeUndefined()
   })
