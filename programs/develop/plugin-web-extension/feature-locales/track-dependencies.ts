@@ -14,33 +14,23 @@ import {getLocales} from './get-locales'
 
 export function trackLocaleDependencies(
   compilation: Compilation,
-  manifestPath: string
+  manifestPath: string,
+  projectRoot?: string
 ): void {
   if (compilation.errors?.length) return
 
-  const localesFields = getLocales(manifestPath)
+  // Strict project-root layout: only the canonical `<projectRoot>/_locales/`
+  // is scanned. A `_locales/` folder next to the manifest is rejected at
+  // validation time with a migration error — see validation.ts
+  const localesFields = getLocales(manifestPath, projectRoot) || []
   let added = 0
 
-  for (const field of Object.entries(localesFields || [])) {
-    const [, resource] = field
-
-    if (resource) {
-      const fileDependencies = new Set(compilation.fileDependencies)
-
-      const fileResources = localesFields || []
-
-      for (const thisResource of fileResources) {
-        // Only add JSON files to the dependencies
-        if (
-          fs.existsSync(thisResource) &&
-          path.extname(thisResource) === '.json'
-        ) {
-          if (!fileDependencies.has(thisResource)) {
-            fileDependencies.add(thisResource)
-            compilation.fileDependencies.add(thisResource)
-            added++
-          }
-        }
+  for (const thisResource of localesFields) {
+    // Only add JSON files to the dependencies
+    if (fs.existsSync(thisResource) && path.extname(thisResource) === '.json') {
+      if (!compilation.fileDependencies.has(thisResource)) {
+        compilation.fileDependencies.add(thisResource)
+        added++
       }
     }
   }

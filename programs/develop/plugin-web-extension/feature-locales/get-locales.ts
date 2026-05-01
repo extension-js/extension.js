@@ -9,30 +9,50 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-export function getLocales(manifestPath: string): string[] | undefined {
-  const localesFolder = path.join(path.dirname(manifestPath), '_locales')
+function isUsableDir(p: string): boolean {
+  try {
+    return fs.existsSync(p) && fs.statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
 
-  const localeFiles: string[] = []
+export function resolveLocalesFolder(
+  manifestPath: string,
+  projectRoot?: string
+): string | undefined {
+  const root = projectRoot || path.dirname(manifestPath)
+  const folder = path.join(root, '_locales')
 
-  if (fs.existsSync(localesFolder)) {
-    // Iterate over all major locale folders
-    for (const locale of fs.readdirSync(localesFolder)) {
-      const localeDir = path.join(localesFolder, locale)
+  return isUsableDir(folder) ? folder : undefined
+}
 
-      if (localeDir && fs.statSync(localeDir).isDirectory()) {
-        for (const localeEntity of fs.readdirSync(localeDir)) {
-          localeFiles.push(
-            path.join(
-              path.dirname(manifestPath),
-              '_locales',
-              locale,
-              localeEntity
-            )
-          )
-        }
-      }
+function listLocaleFiles(folder: string): string[] {
+  const out: string[] = []
+
+  for (const locale of fs.readdirSync(folder)) {
+    const localeDir = path.join(folder, locale)
+
+    try {
+      if (!fs.statSync(localeDir).isDirectory()) continue
+    } catch {
+      continue
+    }
+
+    for (const entry of fs.readdirSync(localeDir)) {
+      out.push(path.join(localeDir, entry))
     }
   }
+  return out
+}
 
-  return localeFiles
+export function getLocales(
+  manifestPath: string,
+  projectRoot?: string
+): string[] | undefined {
+  const localesFolder = resolveLocalesFolder(manifestPath, projectRoot)
+
+  if (!localesFolder) return []
+
+  return listLocaleFiles(localesFolder)
 }
