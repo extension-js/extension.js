@@ -33,8 +33,22 @@ export default defineConfig({
   // Increase retries for both CI and local
   retries: process.env.CI ? 3 : 2,
 
-  // Reduce concurrent workers to prevent resource contention
-  workers: process.env.CI ? 2 : 2,
+  // Single worker — DELIBERATE.
+  //
+  // The content-reload spec (`template.content-reload.spec.ts`) edits source
+  // files in `templates/<example>/src/...` to assert that the dev server
+  // reinjects the change into an already-open tab. With multiple workers,
+  // the chromium worker's mid-flight edit ("Open sidebar RELOADED_<ts>")
+  // leaks into the dist read by another worker's `template.assets.spec.ts`
+  // — surfacing as deterministic Firefox-only "pill text mismatch" failures
+  // even though the underlying implementation is correct.
+  //
+  // Until the reload spec moves to per-test isolated working copies (a
+  // refactor that depends on `extension dev` producing a stable manifest
+  // for projects whose dist is bootstrapped from empty), single-worker is
+  // the only race-free option. Roughly doubles wall time; still fits in
+  // the 60-min timeout.
+  workers: 1,
 
   // Enhanced reporting for better debugging
   reporter: [
