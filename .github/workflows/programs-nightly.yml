@@ -113,7 +113,18 @@ jobs:
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Firefox
-        run: npx playwright install --with-deps firefox
+        # On Ubuntu 24.04 (noble), the `firefox` apt package is a snap
+        # transitional shim. `playwright install --with-deps firefox`
+        # ends up upgrading that shim, which triggers `Installing the
+        # firefox snap` and hangs ~50 minutes on snap-store contact in
+        # GitHub-hosted runners. Holding the apt package keeps it pinned
+        # so the `--with-deps` apt-get pass installs only the system
+        # libraries Firefox needs at runtime; the actual Firefox binary
+        # used by Playwright is downloaded from playwright.dev's CDN
+        # into ~/.cache/ms-playwright and never touches snap.
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install --with-deps firefox
       - name: Resolve Firefox binary
         # See `Resolve Chromium binary` above for why we import
         # `@playwright/test` here instead of `playwright-core`.
