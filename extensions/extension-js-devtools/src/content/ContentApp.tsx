@@ -124,14 +124,51 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
     window.addEventListener('message', onMessage)
 
+    const isExtensionOrigin = (url: string) =>
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('moz-extension://') ||
+      url.startsWith('safari-web-extension://')
+
+    const stackHasExtensionOrigin = (stack: string) =>
+      /\b(?:chrome|moz|safari-web)-extension:\/\//.test(stack)
+
+    const classifyErrorEvent = (event: ErrorEvent): LoggerContext => {
+      const filename = String(event.filename || '')
+      const stack = String(
+        (event.error as Error | undefined)?.stack || ''
+      )
+
+      if (
+        (filename && isExtensionOrigin(filename)) ||
+        (stack && stackHasExtensionOrigin(stack))
+      ) {
+        return 'content'
+      }
+      return 'page'
+    }
+
+    const classifyRejection = (
+      event: PromiseRejectionEvent
+    ): LoggerContext => {
+      const reason = event.reason as unknown
+      const stack =
+        reason instanceof Error ? String(reason.stack || '') : ''
+      return stack && stackHasExtensionOrigin(stack) ? 'content' : 'page'
+    }
+
     const onError = (event: ErrorEvent) => {
-      addEntry('error', 'content', [event.message], location.href)
+      addEntry(
+        'error',
+        classifyErrorEvent(event),
+        [event.message],
+        event.filename || location.href
+      )
     }
 
     const onRejection = (event: PromiseRejectionEvent) => {
       addEntry(
         'error',
-        'content',
+        classifyRejection(event),
         ['unhandledrejection', String(event.reason)],
         location.href
       )
