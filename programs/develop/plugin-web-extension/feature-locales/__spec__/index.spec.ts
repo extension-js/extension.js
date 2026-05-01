@@ -63,6 +63,7 @@ describe('LocalesPlugin (unit)', () => {
     overrides?: {mockGetLocales?: string[]}
   ) {
     const processAssetsHook = createHook()
+    const afterCompileHook = createHook()
     const thisCompilationHook = {
       tap: (_name: string, cb: (compilation: any) => void) => {
         cb(compilation)
@@ -83,7 +84,16 @@ describe('LocalesPlugin (unit)', () => {
 
     const compiler = {
       options: {context: tmpRoot},
-      hooks: {thisCompilation: thisCompilationHook}
+      hooks: {
+        thisCompilation: thisCompilationHook,
+        // afterCompile is called with the compilation; bind it here so the
+        // tap fires against the same compilation when _runAll() runs.
+        afterCompile: {
+          tap: (_name: string, cb: (compilation: any) => void) => {
+            afterCompileHook.tap('', () => cb(compilation))
+          }
+        }
+      }
     } as any
 
     if (overrides?.mockGetLocales) {
@@ -93,8 +103,9 @@ describe('LocalesPlugin (unit)', () => {
     }
 
     plugin.apply(compiler)
-    // run all registered processAssets hooks
+    // run processAssets first (asset emission), then afterCompile (dep tracking)
     ;(processAssetsHook as any)._runAll()
+    ;(afterCompileHook as any)._runAll()
     return compilation as any
   }
 
@@ -140,6 +151,47 @@ describe('LocalesPlugin (unit)', () => {
     expect(
       deps.some((p) => toPosix(p).endsWith('_locales/pt_BR/messages.json'))
     ).toBe(true)
+  })
+
+  it('tracks locale fileDependencies on afterCompile, not processAssets', () => {
+    // Rspack's filewatcher snapshots compilation.fileDependencies after seal;
+    // additions made during processAssets are not always picked up for the
+    // next watch cycle, so editing _locales/<locale>/messages.json silently
+    // failed to trigger a rebuild. The hook must be afterCompile (mirroring
+    // feature-manifest/add-dependencies).
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+
+    const tappedHooks: string[] = []
+    const compilation: any = {
+      assets: {},
+      errors: [],
+      warnings: [],
+      fileDependencies: new Set<string>(),
+      hooks: {
+        processAssets: {
+          tap: () => tappedHooks.push('processAssets')
+        }
+      },
+      emitAsset: () => {}
+    }
+    const compiler: any = {
+      options: {context: tmpRoot},
+      hooks: {
+        thisCompilation: {
+          tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+        },
+        afterCompile: {
+          tap: () => tappedHooks.push('afterCompile')
+        }
+      }
+    }
+
+    new LocalesPlugin({manifestPath}).apply(compiler)
+
+    expect(tappedHooks).toContain('afterCompile')
   })
 
   it('warns when a referenced file is missing (with metadata, no path in message)', () => {
@@ -253,7 +305,10 @@ describe('LocalesPlugin (unit)', () => {
     }
     const compiler: any = {
       options: {context: cleanRoot},
-      hooks: {thisCompilation: thisCompilationHook}
+      hooks: {
+        thisCompilation: thisCompilationHook,
+        afterCompile: {tap: () => {}}
+      }
     }
 
     const plugin = new LocalesPlugin({manifestPath: missingManifestPath})
@@ -345,19 +400,22 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(err.message)).toContain('Fix the JSON syntax')
   })
 
-  it('emits _locales at bundle root when manifest is under src/', () => {
-    // Prepare structure: tmpRoot/src/manifest.json and tmpRoot/src/_locales/...
-    const srcRoot = path.join(tmpRoot, 'src')
-    const srcLocales = path.join(srcRoot, '_locales')
-    const srcEn = path.join(srcLocales, 'en')
-    fs.mkdirSync(srcEn, {recursive: true})
-    const srcManifestPath = path.join(srcRoot, 'manifest.json')
+  it('emits _locales at bundle root when manifest is under src/ and _locales is at project root', () => {
+    // Strict layout: manifest under tmpRoot/src/, _locales/ at tmpRoot/
+    // (sibling of src/, public/, etc.). Emit must produce `_locales/...`
+    // regardless of where the manifest lives in source.
+    const pkgRoot = path.join(tmpRoot, 'pkg-root')
+    const innerSrc = path.join(pkgRoot, 'src')
+    const rootLocales = path.join(pkgRoot, '_locales', 'en')
+    fs.mkdirSync(innerSrc, {recursive: true})
+    fs.mkdirSync(rootLocales, {recursive: true})
+    const srcManifestPath = path.join(innerSrc, 'manifest.json')
     fs.writeFileSync(
       srcManifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
     fs.writeFileSync(
-      path.join(srcEn, 'messages.json'),
+      path.join(rootLocales, 'messages.json'),
       '{"hello":{"message":"hi"}}'
     )
 
@@ -379,8 +437,11 @@ describe('LocalesPlugin (unit)', () => {
         }
       }
       const compiler: any = {
-        options: {context: tmpRoot},
-        hooks: {thisCompilation: thisCompilationHook}
+        options: {context: pkgRoot},
+        hooks: {
+          thisCompilation: thisCompilationHook,
+          afterCompile: {tap: () => {}}
+        }
       }
       plugin.apply(compiler)
       ;(processAssetsHook as any)._runAll()
@@ -388,8 +449,74 @@ describe('LocalesPlugin (unit)', () => {
     })()
 
     const emitted: string[] = (compilation as any)._emitted || []
-    // Should NOT include 'src/' prefix
     expect(emitted.some((p) => p === '_locales/en/messages.json')).toBe(true)
     expect(emitted.some((p) => p.startsWith('src/_locales/'))).toBe(false)
+  })
+
+  it('errors when _locales/ is found next to the manifest instead of the project root', () => {
+    // Strict layout: _locales/ must live at the project root. Finding one
+    // next to the manifest (when manifest is not at the project root) is a
+    // hard validation error with a migration message — silently picking
+    // would reintroduce the misleading precedence we set out to fix.
+    const pkgRoot = path.join(tmpRoot, 'strict-migration')
+    const innerSrc = path.join(pkgRoot, 'src')
+    const innerLocales = path.join(innerSrc, '_locales', 'en')
+    fs.mkdirSync(innerLocales, {recursive: true})
+    const srcManifestPath = path.join(innerSrc, 'manifest.json')
+    fs.writeFileSync(
+      srcManifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    fs.writeFileSync(
+      path.join(innerLocales, 'messages.json'),
+      '{"k":{"message":"s"}}'
+    )
+
+    const processAssetsHook = createHook()
+    const thisCompilationHook = {
+      tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+    }
+    const compilation: any = {
+      assets: {},
+      errors: [],
+      warnings: [],
+      fileDependencies: new Set<string>(),
+      hooks: {processAssets: processAssetsHook},
+      emitAsset: () => {}
+    }
+    const compiler: any = {
+      options: {context: pkgRoot},
+      hooks: {
+        thisCompilation: thisCompilationHook,
+        afterCompile: {tap: () => {}}
+      }
+    }
+
+    new LocalesPlugin({manifestPath: srcManifestPath}).apply(compiler)
+    ;(processAssetsHook as any)._runAll()
+
+    const error = compilation.errors.find(
+      (e: any) => e.name === 'LocalesValidationError'
+    )
+    expect(error).toBeDefined()
+    expect(String(error.message)).toContain('must live at the project root')
+    expect(String(error.message)).toContain(path.join(innerSrc, '_locales'))
+    expect(String(error.message)).toContain(path.join(pkgRoot, '_locales'))
+  })
+
+  it('does not error when only project-root _locales/ exists', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    const migrationError = compilation.errors.find(
+      (e: any) =>
+        e.name === 'LocalesValidationError' &&
+        String(e.message).includes('must live at the project root')
+    )
+    expect(migrationError).toBeUndefined()
   })
 })
