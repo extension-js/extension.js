@@ -83,11 +83,12 @@ export function localesMustBeAtProjectRoot(
   expectedAt: string
 ) {
   return (
-    '_locales/ must live at the project root (sibling of package.json, ' +
-    'public/, dist/) — not next to manifest.json. This mirrors public/ ' +
-    'and matches how Chrome reads locales from the extension root in dist.\n\n' +
+    '_locales/ is canonically placed at the project root (sibling of ' +
+    'package.json, public/, dist/) — mirroring public/ and how Chrome ' +
+    'reads locales from the extension root in dist. Found in the legacy ' +
+    'next-to-manifest location; the build will use it, but consider ' +
+    'moving it for consistency with public/ and to silence this warning.\n\n' +
     `  found:    ${foundAt}\n` +
-    `  expected: ${expectedAt}\n\n` +
-    'Move the folder to the expected location and remove the original.'
+    `  preferred: ${expectedAt}`
   )
 }
