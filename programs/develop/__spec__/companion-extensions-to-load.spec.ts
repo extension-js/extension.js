@@ -394,10 +394,13 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     fs.mkdirSync(shadowDevtools, {recursive: true})
     fs.mkdirSync(shadowTheme, {recursive: true})
 
-    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
-      shadowDevtools,
-      shadowTheme
-    ])
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
+      userOut,
+      [shadowDevtools, shadowTheme]
+    )
 
     expect(list).toEqual([devtoolsBuiltIn, themeBuiltIn, userOut])
   })
@@ -422,11 +425,16 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const aliasedUserOut = path.join(userOut, '.', '..', 'chrome')
 
-    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
       userOut,
-      aliasedUserOut
-    ])
+      [userOut, aliasedUserOut]
+    )
 
-    expect(list.filter((p) => path.resolve(p) === path.resolve(userOut))).toHaveLength(1)
+    expect(
+      list.filter((p) => path.resolve(p) === path.resolve(userOut))
+    ).toHaveLength(1)
   })
 })

@@ -7,11 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Compiler, Compilation} from '@rspack/core'
-import {
-  BUDGET_BYTES,
-  categorizeAsset,
-  type AssetCategory
-} from './categorize'
+import {BUDGET_BYTES, categorizeAsset, type AssetCategory} from './categorize'
 import {perfBudgetWarning, type OversizedAsset} from './messages'
 
 interface PerfBudgetsPluginOptions {
