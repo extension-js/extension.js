@@ -336,4 +336,97 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     )
     expect(list).toEqual([themeForBrowser, userOut])
   })
+
+  it('skips companion entries whose basename matches a reserved built-in package', () => {
+    // Regression: when the user keeps source folders like
+    // ./extensions/extension-js-devtools next to their project, the auto
+    // companion scan would surface that path as a load entry. The built-in
+    // resolver also adds the mirrored devtools dir, so Chrome would render
+    // two unpacked entries for the same logical extension.
+    const root = tmpDir('extjs-devtools-companion-shadow-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const devtoolsBuiltIn = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chrome'
+    )
+    const themeBuiltIn = path.join(root, 'dist', 'extension-js-theme', 'chrome')
+    fs.mkdirSync(devtoolsBuiltIn, {recursive: true})
+    fs.mkdirSync(themeBuiltIn, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtoolsBuiltIn, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(themeBuiltIn, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js Theme',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    // Companion-style shadow paths the user could have on disk
+    const shadowDevtools = path.join(
+      root,
+      'extensions',
+      'extension-js-devtools'
+    )
+    const shadowTheme = path.join(root, 'extensions', 'extension-js-theme')
+    fs.mkdirSync(shadowDevtools, {recursive: true})
+    fs.mkdirSync(shadowTheme, {recursive: true})
+
+    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
+      shadowDevtools,
+      shadowTheme
+    ])
+
+    expect(list).toEqual([devtoolsBuiltIn, themeBuiltIn, userOut])
+  })
+
+  it('dedupes the final load list by absolute path', () => {
+    // Regression: a companion entry pointing at the same absolute path as the
+    // user output (or an aliased duplicate via ./ prefix) must collapse to a
+    // single Chrome --load-extension argument so chrome://extensions does
+    // not show two cards for the same unpacked extension.
+    const root = tmpDir('extjs-load-dedupe-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const aliasedUserOut = path.join(userOut, '.', '..', 'chrome')
+
+    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
+      userOut,
+      aliasedUserOut
+    ])
+
+    expect(list.filter((p) => path.resolve(p) === path.resolve(userOut))).toHaveLength(1)
+  })
 })
