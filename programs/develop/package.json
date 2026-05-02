@@ -86,7 +86,7 @@
     "@swc/helpers": "^0.5.18",
     "@vue/compiler-sfc": "3.5.26",
     "adm-zip": "^0.5.16",
-    "browser-extension-manifest-fields": "^2.2.1",
+    "browser-extension-manifest-fields": "^2.2.3",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",
