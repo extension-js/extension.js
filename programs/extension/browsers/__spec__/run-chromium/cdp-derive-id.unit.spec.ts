@@ -205,6 +205,58 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     expect(id).toBe('userid')
   })
 
+  it('does not pick a companion target that shares version + manifest_version when names differ', async () => {
+    // Regression: extension-js-devtools companion ships
+    // {name: 'Extension.js', version: '3.0.0', manifest_version: 3}.
+    // User templates ship version 3.0.0 + manifest_version 3 too. Pre-fix the
+    // version-only fallback returned the FIRST target whose version + MV
+    // matched, which is the companion when Chromium iterates targets in the
+    // order extensions were registered. The controller then called
+    // chrome.runtime.reload() on the companion instead of the user's
+    // extension, so manifest/background edits never propagated.
+    const outPath = createExtensionFixture({
+      name: 'JavaScript Action Example',
+      version: '3.0.0',
+      manifest_version: 3
+    })
+
+    const cdp: any = {
+      getTargets: vi.fn(async () => [
+        {
+          targetId: 'target-companion',
+          type: 'service_worker',
+          url: 'chrome-extension://companionid/background/service_worker.js'
+        },
+        {
+          targetId: 'target-user',
+          type: 'service_worker',
+          url: 'chrome-extension://userid/background/service_worker.js'
+        }
+      ]),
+      attachToTarget: vi.fn(async (targetId: string) => `session:${targetId}`),
+      sendCommand: vi.fn(async () => ({})),
+      evaluate: vi.fn(async (sessionId: string) => {
+        if (sessionId === 'session:target-companion') {
+          return {
+            id: 'companionid',
+            name: 'Extension.js',
+            version: '3.0.0',
+            manifestVersion: 3
+          }
+        }
+        return {
+          id: 'userid',
+          name: 'JavaScript Action Example',
+          version: '3.0.0',
+          manifestVersion: 3
+        }
+      })
+    }
+
+    const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath)
+    expect(id).toBe('userid')
+  })
+
   it('retries when only non-matching extension target appears initially', async () => {
     const outPath = createExtensionFixture({
       name: 'User Extension',

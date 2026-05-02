@@ -178,10 +178,18 @@ export async function deriveExtensionIdFromTargetsHelper(
       const targets = await cdp.getTargets()
       const profileCandidateId = deriveFromProfile()
 
-      // 1) Try to derive from extension background/service worker contexts
+      // 1) Try to derive from extension background/service worker contexts.
+      //    Walk every candidate target before deciding — version-only matches
+      //    are kept in a separate bucket and only applied at the END of the
+      //    pass, so a target that matches by NAME later in the iteration
+      //    always wins over an earlier target that matches by version alone.
+      //    This avoids returning the wrong extension when the user's
+      //    extension and a companion (e.g. extension-js-devtools) ship the
+      //    same version + manifest_version
       let firstEvalId: string | null = null
       let evalIdCount = 0
       let urlDerivedId: string | null = null
+      const versionFallbackIds: string[] = []
 
       for (const t of targets || []) {
         const url: string = String((t as any)?.url || '')
@@ -250,11 +258,25 @@ export async function deriveExtensionIdFromTargetsHelper(
             (expectedManifestVersion ? manifestVersionMatches : true) &&
             (!profileCandidateId || id === profileCandidateId)
           ) {
-            return id
+            // Defer: only fall back to a version-only match if no name match
+            // is found in the entire pass, AND the match is unambiguous
+            // (exactly one such candidate).
+            if (!versionFallbackIds.includes(id)) versionFallbackIds.push(id)
           }
         } catch {
           // Ignore
         }
+      }
+
+      // No name match found this pass — accept a version-only match only when
+      // it is unique. Multiple version-only candidates means we cannot
+      // distinguish the user extension from a sibling (for example, companion),
+      // so fall through to the next retry / profile-derived fallback
+      if (
+        versionFallbackIds.length === 1 &&
+        (expectedName ? !expectedNameIsMsg : true)
+      ) {
+        return versionFallbackIds[0]
       }
 
       // With exactly one viable extension runtime, use it.
