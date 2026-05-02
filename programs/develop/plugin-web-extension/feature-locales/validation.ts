@@ -39,8 +39,7 @@ export function validateLocales(
     // projects still use the legacy nested layout and shouldn't break.
     if (projectRoot && resolvedLocalesRoot) {
       const manifestDir = path.dirname(manifestPath)
-      const sameAsRoot =
-        path.resolve(manifestDir) === path.resolve(projectRoot)
+      const sameAsRoot = path.resolve(manifestDir) === path.resolve(projectRoot)
       const usedManifestDirFallback =
         !sameAsRoot &&
         path.resolve(resolvedLocalesRoot) ===

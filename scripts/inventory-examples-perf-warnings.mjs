@@ -31,7 +31,12 @@ const arg = (name) => {
 const browser = arg('browser') || 'chromium'
 const onlyArg = arg('only')
 const onlySet = onlyArg
-  ? new Set(onlyArg.split(',').map((s) => s.trim()).filter(Boolean))
+  ? new Set(
+      onlyArg
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    )
   : null
 const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 
@@ -193,8 +198,7 @@ function printSummary(results) {
       r.parsed.oversized.length === 0
   )
 
-  const banner = (title) =>
-    `\n${'━'.repeat(72)}\n${title}\n${'━'.repeat(72)}`
+  const banner = (title) => `\n${'━'.repeat(72)}\n${title}\n${'━'.repeat(72)}`
 
   console.log(banner(`Inventory — browser=${browser}`))
   console.log(
@@ -271,8 +275,8 @@ function main() {
       r.status !== 0 || !r.parsed.ok
         ? 'FAIL'
         : r.parsed.hadAssetWarn || r.parsed.oversized.length > 0
-        ? 'WARN'
-        : 'OK'
+          ? 'WARN'
+          : 'OK'
     process.stdout.write(`[${tag}] ${r.elapsedMs}ms\n`)
     if (verbose && tag !== 'OK') {
       console.log(r.combined.split('\n').slice(-30).join('\n'))
