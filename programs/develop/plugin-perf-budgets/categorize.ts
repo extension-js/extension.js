@@ -66,7 +66,7 @@ export function categorizeAsset(rawName: string): AssetCategory {
 export const BUDGET_BYTES: Record<AssetCategory, number> = {
   'content-script': 150 * 1024,
   'service-worker': 200 * 1024,
-  'page': 500 * 1024,
+  page: 500 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }
 
