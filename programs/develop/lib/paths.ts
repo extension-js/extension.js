@@ -50,40 +50,43 @@ export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
 
 export function needsInstall(packageJsonDir: AbsolutePath): boolean {
   const nm = getNodeModulesDir(packageJsonDir)
+  const packageJsonPath = path.join(packageJsonDir, 'package.json')
+
+  // Web-only mode: no package.json means there is nothing to install.
+  // Running `npm install` here would crash with ENOENT (e.g. when running
+  // `extension dev <github-url>` against a vanilla Chrome sample).
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
   try {
-    const packageJsonPath = path.join(packageJsonDir, 'package.json')
-    if (fs.existsSync(packageJsonPath)) {
-      const raw = fs.readFileSync(packageJsonPath, 'utf-8')
-      const packageJson = JSON.parse(raw)
-      const depsCount = Object.keys(packageJson?.dependencies || {}).length
-      const devDepsCount = Object.keys(
-        packageJson?.devDependencies || {}
-      ).length
-      if (depsCount + devDepsCount === 0) {
-        return false
-      }
-
-      if (!fs.existsSync(nm)) {
-        return true
-      }
-
-      const deps = Object.keys(packageJson?.dependencies || {})
-      const devDeps = Object.keys(packageJson?.devDependencies || {})
-
-      if (fs.existsSync(path.join(nm, '.pnpm'))) {
-        return false
-      }
-
-      if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
-        return false
-      }
-
-      const hasInstalledDep = [...deps, ...devDeps].some((dep) =>
-        fs.existsSync(path.join(nm, dep))
-      )
-      return !hasInstalledDep
+    const raw = fs.readFileSync(packageJsonPath, 'utf-8')
+    const packageJson = JSON.parse(raw)
+    const depsCount = Object.keys(packageJson?.dependencies || {}).length
+    const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
+    if (depsCount + devDepsCount === 0) {
+      return false
     }
-    return !fs.existsSync(nm) || fs.readdirSync(nm).length === 0
+
+    if (!fs.existsSync(nm)) {
+      return true
+    }
+
+    const deps = Object.keys(packageJson?.dependencies || {})
+    const devDeps = Object.keys(packageJson?.devDependencies || {})
+
+    if (fs.existsSync(path.join(nm, '.pnpm'))) {
+      return false
+    }
+
+    if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
+      return false
+    }
+
+    const hasInstalledDep = [...deps, ...devDeps].some((dep) =>
+      fs.existsSync(path.join(nm, dep))
+    )
+    return !hasInstalledDep
   } catch {
     return true
   }
