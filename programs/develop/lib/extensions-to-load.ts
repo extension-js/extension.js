@@ -57,6 +57,38 @@ function resolveBuiltInExtensionForBrowser(input: {
   return undefined
 }
 
+// Reserved companion package names. The built-in resolver owns these and
+// loads them from a deterministic path. A user-side companion entry that
+// shadows one of these would create a second Chrome unpacked-extension entry
+// (different path = different ID) and surface as a duplicate in
+// chrome://extensions.
+const RESERVED_BUILT_IN_NAMES: ReadonlySet<string> = new Set([
+  'extension-js-devtools',
+  'extension-js-theme'
+])
+
+function isReservedBuiltInPath(extensionPath: string): boolean {
+  const base = path.basename(path.normalize(extensionPath))
+  if (RESERVED_BUILT_IN_NAMES.has(base)) return true
+
+  // Also catch nested layouts like `extensions/extension-js-devtools/dist/<engine>`
+  // by checking any segment of the path.
+  const segments = path.normalize(extensionPath).split(path.sep)
+  return segments.some((segment) => RESERVED_BUILT_IN_NAMES.has(segment))
+}
+
+function dedupeByResolvedPath(paths: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const entry of paths) {
+    const resolved = path.resolve(entry)
+    if (seen.has(resolved)) continue
+    seen.add(resolved)
+    result.push(entry)
+  }
+  return result
+}
+
 export function computeExtensionsToLoad(
   baseDir: string,
   mode: 'development' | 'production' | 'none' | string | undefined,
@@ -106,9 +138,19 @@ export function computeExtensionsToLoad(
   }
 
   // Add companion extensions (load-only) before the user extension.
-  for (const p of extraExtensionDirs) list.push(p)
+  // Skip companions whose path basename matches a reserved built-in package
+  // so the user can keep the source folders side-by-side with their project
+  // without triggering a second devtools/theme load.
+  for (const p of extraExtensionDirs) {
+    if (isReservedBuiltInPath(p)) continue
+    list.push(p)
+  }
 
   // Always load the user extension last to give it precedence on conflicts
   list.push(userExtensionOutputPath)
-  return list
+
+  // Final dedupe: a companion config + the user output + the resolved
+  // built-in could otherwise emit the same absolute path twice, which
+  // makes Chrome render the same unpacked extension twice on launch.
+  return dedupeByResolvedPath(list)
 }
