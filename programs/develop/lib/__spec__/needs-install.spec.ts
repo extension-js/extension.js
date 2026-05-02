@@ -80,6 +80,25 @@ describe('needsInstall', () => {
     expect(needsInstall(asAbsolute(project))).toBe(false)
   })
 
+  it('returns false when package.json is missing (web-only mode)', async () => {
+    // Regression: vanilla Chrome samples (e.g. sample.page-redder) cloned via
+    // `extension dev <github-url>` ship a manifest.json but no package.json.
+    // Returning true here would trigger `npm install` against a directory
+    // with no package.json and crash with ENOENT.
+    const project = makeTempDir('extjs-needs-install-webonly-')
+
+    const {needsInstall, asAbsolute} = await import('../paths')
+    expect(needsInstall(asAbsolute(project))).toBe(false)
+  })
+
+  it('returns false when package.json is missing even if node_modules exists', async () => {
+    const project = makeTempDir('extjs-needs-install-webonly-nm-')
+    fs.mkdirSync(path.join(project, 'node_modules'), {recursive: true})
+
+    const {needsInstall, asAbsolute} = await import('../paths')
+    expect(needsInstall(asAbsolute(project))).toBe(false)
+  })
+
   it('returns false when .pnpm directory exists', async () => {
     const project = makeTempDir('extjs-needs-install-')
     fs.writeFileSync(
