@@ -1,9 +1,5 @@
 import {describe, it, expect} from 'vitest'
-import {
-  BUDGET_BYTES,
-  categorizeAsset,
-  PerfBudgetsPlugin
-} from '../index'
+import {BUDGET_BYTES, categorizeAsset, PerfBudgetsPlugin} from '../index'
 
 describe('categorizeAsset', () => {
   it('classifies content scripts as content-script regardless of hash', () => {
@@ -66,9 +62,11 @@ describe('BUDGET_BYTES', () => {
 })
 
 describe('PerfBudgetsPlugin', () => {
-  function fakeCompilation(
-    assets: Record<string, number>
-  ): {warnings: any[]; errors: any[]; assets: Record<string, any>} {
+  function fakeCompilation(assets: Record<string, number>): {
+    warnings: any[]
+    errors: any[]
+    assets: Record<string, any>
+  } {
     const built: Record<string, any> = {}
     for (const [name, size] of Object.entries(assets)) {
       built[name] = {size: () => size}
