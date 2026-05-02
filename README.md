@@ -2,18 +2,16 @@
 [npm-version-url]: https://www.npmjs.com/package/extension
 [npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
 [npm-downloads-url]: https://www.npmjs.com/package/extension
+[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0971fe
+[stars-url]: https://github.com/extension-js/extension.js/stargazers
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
 [discord-url]: https://discord.gg/v9h2RgeTSN
 [snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension
-[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0971fe
-[stars-url]: https://github.com/extension-js/extension.js/stargazers
 
-[![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![Stars][stars-image]][stars-url]
-
-# Extension.js
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
 > Build extensions for Chrome, Edge, and Firefox. No build config required.
 
@@ -72,14 +70,6 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 
 ## Browsers
 
-<div align="center">
-
-| <img alt="Chrome" src="https://media.extension.land/logos/browsers/chrome.svg" width="70"> | <img alt="Edge" src="https://media.extension.land/logos/browsers/edge.svg" width="70"> | <img alt="Firefox" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> | <img alt="Safari" src="https://media.extension.land/logos/browsers/safari.svg" width="70"> | <img alt="Chromium" src="https://media.extension.land/logos/browsers/chromium.svg" width="70"> | <img alt="Gecko" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> |
-| :-: | :-: | :-: | :-: | :-: | :-: |
-| Chrome<br>Supported | Edge<br>Supported | Firefox<br>Supported | Safari<br>On the roadmap | Chromium-based<br>`--chromium-binary` | Gecko-based<br>`--gecko-binary` |
-
-</div>
-
 Use these flags with `extension dev`, `extension start`, or `extension preview`:
 
 - Select a browser: `--browser <chrome | edge | firefox>`
@@ -99,6 +89,14 @@ npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Cont
 # Custom Firefox path
 npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"
 ```
+
+<div align="center">
+
+| <img alt="Chrome" src="https://media.extension.land/logos/browsers/chrome.svg" width="70"> | <img alt="Edge" src="https://media.extension.land/logos/browsers/edge.svg" width="70"> | <img alt="Firefox" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> | <img alt="Safari" src="https://media.extension.land/logos/browsers/safari.svg" width="70"> | <img alt="Chromium" src="https://media.extension.land/logos/browsers/chromium.svg" width="70"> | <img alt="Gecko" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> |
+| :-: | :-: | :-: | :-: | :-: | :-: |
+| Google Chrome<br>✅ Supported | Microsoft Edge<br>✅ Supported | Mozilla Firefox<br>✅ Supported | Apple Safari<br> 🚙 Next | Chromium-based<br>✅ Supported | Gecko-based<br>✅ Supported |
+
+</div>
 
 ## Ship to the store
 
