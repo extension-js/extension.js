@@ -264,6 +264,21 @@ export async function connectObserver({port, host = '127.0.0.1', deadlineMs = 15
     snapshot() {
       return events.slice()
     },
+    /**
+     * Open a new tab navigating to `url`. Used to put extension pages in an
+     * "open" state so per-edit reloads of those pages are observable. Returns
+     * the targetId so the caller can later close the tab via closeTarget.
+     */
+    async openTarget(url) {
+      const result = await send('Target.createTarget', {url})
+      return result?.targetId
+    },
+    /** Close a previously opened tab. Best-effort; throws are swallowed. */
+    async closeTarget(targetId) {
+      try {
+        await send('Target.closeTarget', {targetId})
+      } catch {}
+    },
     /** Block until at least `count` events of `category` are recorded, or timeout. */
     async waitForCategory(category, count, timeoutMs) {
       const start = Date.now()
