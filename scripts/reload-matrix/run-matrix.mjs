@@ -1,12 +1,24 @@
 // Run the full reload matrix. Each scenario runs `repeat` times; a scenario
 // passes only if all repetitions are within the expected bounds. The output
 // is a fixed-width table that's easy to compare across runs.
+//
+// Modes:
+//   RELOAD_MATRIX_MODE=local  (default) → run against the local CLI build at
+//                                         <repo>/programs/extension/dist/cli.cjs.
+//   RELOAD_MATRIX_MODE=remote          → run against `npx -y extension@<tag>`,
+//                                         where <tag> is RELOAD_MATRIX_TAG
+//                                         (default `canary`). Use this after
+//                                         a canary publish to verify the
+//                                         shipped artifacts behave the same
+//                                         as the local build.
 
 import {SCENARIOS} from './scenarios.mjs'
 import {runScenario} from './harness.mjs'
 
 const REPEAT = Number(process.env.RELOAD_MATRIX_REPEAT || '3')
 const FILTER = process.env.RELOAD_MATRIX_FILTER
+const MODE = process.env.RELOAD_MATRIX_MODE || 'local'
+const REMOTE_TAG = process.env.RELOAD_MATRIX_TAG || 'canary'
 
 function bar(char = '─', n = 88) {
   return char.repeat(n)
@@ -74,8 +86,9 @@ function expectedSpec(expected) {
 
 async function main() {
   console.log(bar())
+  const modeLabel = MODE === 'remote' ? `remote(${REMOTE_TAG})` : 'local'
   console.log(
-    `reload matrix · ${SCENARIOS.length} scenarios × ${REPEAT} repeats` +
+    `reload matrix · ${SCENARIOS.length} scenarios × ${REPEAT} repeats · mode=${modeLabel}` +
       (FILTER ? ` · filter=${FILTER}` : '')
   )
   console.log(bar())
@@ -86,7 +99,11 @@ async function main() {
     const reps = []
     for (let i = 0; i < REPEAT; i++) {
       try {
-        const result = await runScenario(scenario)
+        const result = await runScenario({
+          ...scenario,
+          mode: scenario.mode || MODE,
+          remoteTag: scenario.remoteTag || REMOTE_TAG
+        })
         reps.push(summarize(result))
       } catch (err) {
         reps.push({error: err.message})
