@@ -142,6 +142,120 @@ function resolveContentScriptRulesForReload(
   return selectContentScriptRules(rules, entries)
 }
 
+type ReloadInstruction = NonNullable<Parameters<BrowserController['reload']>[0]>
+
+/**
+ * Combine two reload instructions into the strictest superset.
+ *
+ * - 'full' beats anything (extension-wide chrome.runtime.reload covers every
+ *   change classified at the BrowsersPlugin layer).
+ * - Two 'service-worker' or two 'content-scripts' merge their changedAssets and
+ *   (for content-scripts) their changedContentScriptEntries.
+ * - Mixed 'service-worker' + 'content-scripts' is upgraded to 'service-worker'
+ *   so the SW restart reissues content-script registration anyway.
+ */
+function mergeReloadInstructions(
+  pending: ReloadInstruction | undefined,
+  next: ReloadInstruction
+): ReloadInstruction {
+  if (!pending) return next
+  if (pending.type === 'full' || next.type === 'full') {
+    return {
+      type: 'full',
+      changedAssets: [
+        ...(pending.changedAssets || []),
+        ...(next.changedAssets || [])
+      ]
+    }
+  }
+  if (pending.type === 'service-worker' || next.type === 'service-worker') {
+    return {
+      type: 'service-worker',
+      changedAssets: [
+        ...(pending.changedAssets || []),
+        ...(next.changedAssets || [])
+      ]
+    }
+  }
+  return {
+    type: 'content-scripts',
+    changedContentScriptEntries: Array.from(
+      new Set([
+        ...(pending.changedContentScriptEntries || []),
+        ...(next.changedContentScriptEntries || [])
+      ])
+    ),
+    changedAssets: [
+      ...(pending.changedAssets || []),
+      ...(next.changedAssets || [])
+    ]
+  }
+}
+
+/**
+ * Wrap a raw reload implementation with serialization + coalescing.
+ *
+ * The user-facing symptom this addresses: editing one file (e.g.
+ * `_locales/en/messages.json`) sometimes produced a sequence of flashes
+ * because multiple sources can land a reload request inside the same save
+ * window:
+ *
+ *  - rspack-dev-server's livereload broadcast for any open extension page
+ *    (popup/options/devtools) when `liveReload: true` is on
+ *  - the BrowsersPlugin's `done` hook firing chrome.runtime.reload via CDP
+ *  - the hardReload secondary retry path on transient CDP socket errors
+ *  - rare double-`done` events from the watcher under polling
+ *
+ * Without serialization each of those becomes its own visible flash. The
+ * gate below guarantees: at most one reload runs at a time; any reloads that
+ * arrive while one is in flight are merged into a single follow-up that fires
+ * after the current reload has had a moment to settle.
+ */
+const RELOAD_SETTLE_MS = 350
+
+function serializeReloads(
+  perform: (instruction: ReloadInstruction) => Promise<void>
+): (instruction: ReloadInstruction | undefined) => Promise<void> {
+  let inFlight: Promise<void> | null = null
+  let pending: ReloadInstruction | undefined
+
+  const drain = async (initial: ReloadInstruction): Promise<void> => {
+    let current: ReloadInstruction = initial
+    while (current) {
+      try {
+        await perform(current)
+      } catch {
+        // Reload failures are non-fatal; the user can save again.
+      }
+      // Settle window: any reload requests that arrive during this short
+      // pause get folded into a single follow-up call rather than flashing
+      // back-to-back. Long enough to swallow rspack-dev-server's livereload
+      // broadcast that races our CDP reload, short enough that a deliberate
+      // second save still feels instant.
+      await new Promise((resolve) => setTimeout(resolve, RELOAD_SETTLE_MS))
+
+      const next = pending
+      pending = undefined
+      if (!next) return
+      current = next
+    }
+  }
+
+  return async (instruction) => {
+    if (!instruction) return
+
+    if (inFlight) {
+      pending = mergeReloadInstructions(pending, instruction)
+      return inFlight
+    }
+
+    inFlight = drain(instruction).finally(() => {
+      inFlight = null
+    })
+    await inFlight
+  }
+}
+
 function isChromiumBrowser(browser: BrowserType): boolean {
   return (
     browser === 'chrome' ||
@@ -239,44 +353,47 @@ async function launchChromium(
     cdpController = ctx.getController?.()
   }
 
-  return {
-    async reload(instruction) {
-      if (!cdpController) return
-      // For content-scripts, resolve entries → rules and use targeted reload.
-      // For everything else, fall through to a full hard reload.
-      if (instruction?.type === 'content-scripts') {
-        const ctrl = cdpController as any
-        if (typeof ctrl.reloadMatchingTabsForContentScripts === 'function') {
-          const rules = resolveContentScriptRulesForReload(
-            compilationLike,
-            opts.extensionsToLoad,
-            instruction.changedContentScriptEntries
-          )
-          // 1. In-place reinject into tabs that already have the content
-          //    script running (Surface A' — preserves DOM/React state).
-          await ctrl.reloadMatchingTabsForContentScripts(rules)
-          // 2. Register a persistent CDP hook so fresh tabs, page reloads,
-          //    and cross-URL navigations get the latest bundle evaluated in
-          //    the extension's isolated world the moment it's created
-          //    (Surfaces B + C). Preserves SW state + open extension pages.
-          if (
-            typeof ctrl.registerContentScriptsForFutureNavigations ===
-            'function'
-          ) {
-            try {
-              await ctrl.registerContentScriptsForFutureNavigations(rules)
-            } catch {
-              // Best-effort: open-tab reinjection already happened above.
-            }
-          }
-          return
-        }
-      }
+  const performReload = async (instruction: ReloadInstruction) => {
+    if (!cdpController) return
+    // For content-scripts, resolve entries → rules and use targeted reload.
+    // For everything else, fall through to a full hard reload.
+    if (instruction?.type === 'content-scripts') {
       const ctrl = cdpController as any
-      if (typeof ctrl.hardReload === 'function') {
-        await ctrl.hardReload(instruction?.changedAssets)
+      if (typeof ctrl.reloadMatchingTabsForContentScripts === 'function') {
+        const rules = resolveContentScriptRulesForReload(
+          compilationLike,
+          opts.extensionsToLoad,
+          instruction.changedContentScriptEntries
+        )
+        // 1. In-place reinject into tabs that already have the content
+        //    script running (Surface A' — preserves DOM/React state).
+        await ctrl.reloadMatchingTabsForContentScripts(rules)
+        // 2. Register a persistent CDP hook so fresh tabs, page reloads,
+        //    and cross-URL navigations get the latest bundle evaluated in
+        //    the extension's isolated world the moment it's created
+        //    (Surfaces B + C). Preserves SW state + open extension pages.
+        if (
+          typeof ctrl.registerContentScriptsForFutureNavigations === 'function'
+        ) {
+          try {
+            await ctrl.registerContentScriptsForFutureNavigations(rules)
+          } catch {
+            // Best-effort: open-tab reinjection already happened above.
+          }
+        }
+        return
       }
-    },
+    }
+    const ctrl = cdpController as any
+    if (typeof ctrl.hardReload === 'function') {
+      await ctrl.hardReload(instruction?.changedAssets)
+    }
+  }
+
+  const reload = serializeReloads(performReload)
+
+  return {
+    reload,
     async enableUnifiedLogging(logOpts) {
       if (cdpController?.enableUnifiedLogging) {
         await cdpController.enableUnifiedLogging({
@@ -384,49 +501,51 @@ async function launchFirefox(
     )
   }
 
-  return {
-    async reload(instruction) {
-      if (!rdpController) return
-      if (instruction?.type === 'content-scripts') {
-        const rules = resolveContentScriptRulesForReload(
-          compilationLike,
-          opts.extensionsToLoad,
-          instruction.changedContentScriptEntries
-        )
-        try {
-          await (rdpController as any).reloadMatchingTabsForContentScripts(
-            rules
-          )
-          // F2 — after the in-place reinject, register a tabNavigated hook
-          // so fresh tabs and same-tab navigations between rebuilds get the
-          // current bundle without waiting for the next file edit. Mirrors
-          // the Chromium launcher path at line 263.
-          if (
-            typeof (rdpController as any)
-              .registerContentScriptsForFutureNavigations === 'function'
-          ) {
-            try {
-              await (
-                rdpController as any
-              ).registerContentScriptsForFutureNavigations(rules)
-            } catch {
-              // Best-effort: open-tab reinjection already happened above.
-            }
-          }
-          return
-        } catch {
-          // Fall through to hard reload
-        }
-      }
+  const performReload = async (instruction: ReloadInstruction) => {
+    if (!rdpController) return
+    if (instruction?.type === 'content-scripts') {
+      const rules = resolveContentScriptRulesForReload(
+        compilationLike,
+        opts.extensionsToLoad,
+        instruction.changedContentScriptEntries
+      )
       try {
-        await rdpController.hardReload(
-          compilationLike,
-          instruction?.changedAssets || []
-        )
+        await (rdpController as any).reloadMatchingTabsForContentScripts(rules)
+        // F2 — after the in-place reinject, register a tabNavigated hook
+        // so fresh tabs and same-tab navigations between rebuilds get the
+        // current bundle without waiting for the next file edit. Mirrors
+        // the Chromium launcher path at line 263.
+        if (
+          typeof (rdpController as any)
+            .registerContentScriptsForFutureNavigations === 'function'
+        ) {
+          try {
+            await (
+              rdpController as any
+            ).registerContentScriptsForFutureNavigations(rules)
+          } catch {
+            // Best-effort: open-tab reinjection already happened above.
+          }
+        }
+        return
       } catch {
-        // best-effort
+        // Fall through to hard reload
       }
-    },
+    }
+    try {
+      await rdpController.hardReload(
+        compilationLike,
+        instruction?.changedAssets || []
+      )
+    } catch {
+      // best-effort
+    }
+  }
+
+  const reload = serializeReloads(performReload)
+
+  return {
+    reload,
     async enableUnifiedLogging(logOpts) {
       if (!rdpController?.enableUnifiedLogging) return
       await rdpController.enableUnifiedLogging({
@@ -444,3 +563,12 @@ async function launchFirefox(
 
 // Re-export run-only for backward compatibility with the preview command
 export {runOnlyPreviewBrowser} from './run-only'
+
+/**
+ * Internal helpers exposed for unit tests. Not part of the public API —
+ * see browsers/__spec__/reload-serialization.unit.spec.ts.
+ */
+export const __test__ = {
+  mergeReloadInstructions,
+  serializeReloads
+}
