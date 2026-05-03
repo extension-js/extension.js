@@ -1,35 +1,61 @@
 // Reload-matrix scenarios.
 //
 // Each row is one ground-truth assertion about the dev pipeline. The harness
-// runs the row and the matrix runner compares observed vs. expected. The
-// expectations are written from the user's perspective: "for save X, the
+// runs the row and the matrix runner compares observed vs. expected.
+//
+// Expectations are written from the user's perspective: "for save X, the
 // user extension's SW should restart Y times and its pages should reload Z
 // times". Companion-extension noise is filtered out at classification time.
 //
-// We deliberately keep expectations slightly loose where Chrome's behavior
-// is non-deterministic (e.g. SW idle restarts on a fresh profile). Where
-// the matrix sees an upper bound rather than an exact count, the row uses
-// `serviceWorkerRestartsAtMost` instead of `serviceWorkerRestarts`.
+// The rows here are the executable counterpart of `_FUTURE/examples/RELOAD_MATRIX.md`,
+// which documents the expected outcome per template × surface. Each cell in
+// that doc maps to one row below; when the doc and the runtime diverge, the
+// matrix flips to FAIL and surfaces the specific cell.
+//
+// Where Chrome's behavior is non-deterministic (e.g. SW idle restarts on a
+// fresh profile under memory pressure), the row uses `serviceWorkerRestartsAtMost`
+// instead of `serviceWorkerRestarts`. We default to exact counts unless the
+// surface is documented as ambiguous.
 
-import {join, resolve} from 'node:path'
+import {resolveTemplateFixture} from './harness.mjs'
 
-const REPO_ROOT = resolve(new URL('../..', import.meta.url).pathname)
-const FIX_ACTION_LOCALES = join(REPO_ROOT, '_FUTURE/examples/examples/action-locales')
-const FIX_ACTION = join(REPO_ROOT, '_FUTURE/examples/examples/action')
+/**
+ * Helper: replace any string field's value matching `searchPattern` with
+ * `replacement`. Used to make controlled, harmless edits to fixture files
+ * without rewriting them wholesale.
+ */
+function regexReplace(searchPattern, replacement) {
+  return (current) => current.replace(searchPattern, replacement)
+}
+
+/**
+ * Append a comment to a file so its mtime changes without breaking the
+ * file. Used for HTML / config files where any whitespace edit is fine but
+ * the watcher needs a real content delta.
+ */
+function appendComment(commentText) {
+  return (current) =>
+    `${current}\n<!-- reload-matrix: ${commentText} ${Date.now()} -->\n`
+}
+
+const ACTION_LOCALES = resolveTemplateFixture('action-locales')
+const ACTION = resolveTemplateFixture('action')
 
 export const SCENARIOS = [
+  // ---------------------------------------------------------------------------
+  // _locales / message catalog edits
+  // ---------------------------------------------------------------------------
   {
     name: 'locales-single-edit-popup-closed',
-    fixturePath: FIX_ACTION_LOCALES,
+    fixturePath: ACTION_LOCALES,
     openPages: [],
     edits: [
       {
         relativePath: '_locales/en/messages.json',
-        transform: (s) =>
-          s.replace(
-            /"message":\s*"Welcome[^"]*"/,
-            '"message": "Welcome (matrix run)"'
-          ),
+        transform: regexReplace(
+          /"message":\s*"Welcome[^"]*"/,
+          '"message": "Welcome (matrix run)"'
+        ),
         waitMsAfter: 200
       }
     ],
@@ -40,22 +66,21 @@ export const SCENARIOS = [
   },
   {
     name: 'locales-single-edit-popup-open',
-    fixturePath: FIX_ACTION_LOCALES,
+    fixturePath: ACTION_LOCALES,
     openPages: ['action/index.html'],
     edits: [
       {
         relativePath: '_locales/en/messages.json',
-        transform: (s) =>
-          s.replace(
-            /"message":\s*"Welcome[^"]*"/,
-            '"message": "Welcome (matrix run popup-open)"'
-          ),
+        transform: regexReplace(
+          /"message":\s*"Welcome[^"]*"/,
+          '"message": "Welcome (matrix run popup-open)"'
+        ),
         waitMsAfter: 200
       }
     ],
     // The popup is a chrome-extension:// page; the extension reload tears it
-    // down. From the user's perspective that is one navigation event for the
-    // popup, plus one SW restart for the extension.
+    // down. From CDP that's one navigation event for the popup, plus one SW
+    // restart for the extension.
     expected: {
       serviceWorkerRestarts: 1,
       extensionPageNavigationsAtMost: 1
@@ -63,56 +88,56 @@ export const SCENARIOS = [
   },
   {
     name: 'locales-rapid-edits-popup-closed',
-    fixturePath: FIX_ACTION_LOCALES,
+    fixturePath: ACTION_LOCALES,
     openPages: [],
     edits: [
       {
         relativePath: '_locales/en/messages.json',
-        transform: (s) =>
-          s.replace(
-            /"message":\s*"Welcome[^"]*"/,
-            '"message": "Welcome (rapid 1)"'
-          ),
+        transform: regexReplace(
+          /"message":\s*"Welcome[^"]*"/,
+          '"message": "Welcome (rapid 1)"'
+        ),
         waitMsAfter: 80
       },
       {
         relativePath: '_locales/en/messages.json',
-        transform: (s) =>
-          s.replace(
-            /"message":\s*"Welcome[^"]*"/,
-            '"message": "Welcome (rapid 2)"'
-          ),
+        transform: regexReplace(
+          /"message":\s*"Welcome[^"]*"/,
+          '"message": "Welcome (rapid 2)"'
+        ),
         waitMsAfter: 80
       },
       {
         relativePath: '_locales/en/messages.json',
-        transform: (s) =>
-          s.replace(
-            /"message":\s*"Welcome[^"]*"/,
-            '"message": "Welcome (rapid 3)"'
-          ),
+        transform: regexReplace(
+          /"message":\s*"Welcome[^"]*"/,
+          '"message": "Welcome (rapid 3)"'
+        ),
         waitMsAfter: 80
       }
     ],
-    // The watcher's polling + aggregateTimeout collapses the burst; we expect
+    // Polling watcher + aggregateTimeout collapse the burst; we expect
     // 1 or 2 SW restarts, never 3.
     expected: {
       serviceWorkerRestartsAtMost: 2,
       extensionPageNavigations: 0
     }
   },
+
+  // ---------------------------------------------------------------------------
+  // manifest.json edits
+  // ---------------------------------------------------------------------------
   {
     name: 'manifest-edit-popup-closed',
-    fixturePath: FIX_ACTION_LOCALES,
+    fixturePath: ACTION_LOCALES,
     openPages: [],
     edits: [
       {
         relativePath: 'src/manifest.json',
-        transform: (s) =>
-          s.replace(
-            /"description":\s*"[^"]*"/,
-            '"description": "Matrix-run description bump"'
-          ),
+        transform: regexReplace(
+          /"description":\s*"[^"]*"/,
+          '"description": "Matrix-run description bump"'
+        ),
         waitMsAfter: 200
       }
     ],
@@ -121,25 +146,44 @@ export const SCENARIOS = [
       extensionPageNavigations: 0
     }
   },
+
+  // ---------------------------------------------------------------------------
+  // Page-only edits (popup HTML/JS/CSS) on a non-content-script extension.
+  // These should NOT restart the SW — the dev-server's livereload broadcast
+  // refreshes the open page on its own.
+  // ---------------------------------------------------------------------------
   {
     name: 'popup-html-edit-popup-open',
-    fixturePath: FIX_ACTION,
+    fixturePath: ACTION,
     openPages: ['action/index.html'],
     edits: [
       {
         relativePath: 'src/action/index.html',
-        // Append a comment node so the file mtime changes without breaking
-        // the page. Plain whitespace appends are sometimes optimized away.
-        transform: (s) => s + `\n<!-- matrix-run ${Date.now()} -->\n`,
+        transform: appendComment('popup-html-edit'),
         waitMsAfter: 200
       }
     ],
-    // Editing a popup page should NOT restart the SW. It SHOULD navigate the
-    // open popup (livereload broadcast / HMR fallback) — but not multiple
-    // times in a row.
     expected: {
       serviceWorkerRestartsAtMost: 0,
       extensionPageNavigationsAtMost: 1
+    }
+  },
+  {
+    name: 'popup-html-edit-popup-closed',
+    fixturePath: ACTION,
+    openPages: [],
+    edits: [
+      {
+        relativePath: 'src/action/index.html',
+        transform: appendComment('popup-html-edit-no-popup'),
+        waitMsAfter: 200
+      }
+    ],
+    // No popup open = nothing to refresh. The SW must NOT restart; the
+    // updated bundle is on disk for the next time the user opens the popup.
+    expected: {
+      serviceWorkerRestartsAtMost: 0,
+      extensionPageNavigationsAtMost: 0
     }
   }
 ]

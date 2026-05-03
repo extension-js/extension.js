@@ -9,14 +9,9 @@
 // plus the raw event list with timestamps. The numbers in this table are
 // the ground truth that future fixes have to move.
 
-import {dirname, join, resolve} from 'node:path'
-import {runScenario} from './harness.mjs'
+import {runScenario, resolveTemplateFixture} from './harness.mjs'
 
-const REPO_ROOT = resolve(new URL('../..', import.meta.url).pathname)
-const FIXTURE = join(
-  REPO_ROOT,
-  '_FUTURE/examples/examples/action-locales'
-)
+const FIXTURE = resolveTemplateFixture('action-locales')
 
 function bar(char = '─', n = 72) {
   return char.repeat(n)
