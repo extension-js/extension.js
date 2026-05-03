@@ -176,7 +176,15 @@ export function browserConfig(
   }
 
   if (hasExplicitProfile) {
-    userProfilePath = path.resolve(rawProfile.trim())
+    // Resolve relative profile paths against the rspack compilation context
+    // (the project root that owns extension.config.js), not process.cwd().
+    // Otherwise running examples sequentially from a parent dir collapses
+    // every example to the same shared profile, and Chrome carries the
+    // previous example's --load-extension path into the next session
+    const trimmedProfile = rawProfile.trim()
+    userProfilePath = path.isAbsolute(trimmedProfile)
+      ? trimmedProfile
+      : path.resolve(contextDir, trimmedProfile)
   } else if (!useSystemProfile) {
     const outPath =
       compilation?.options?.output?.path ||
