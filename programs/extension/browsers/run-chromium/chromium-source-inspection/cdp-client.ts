@@ -570,22 +570,44 @@ export class CDPClient {
 
           if (!targetId) continue
 
+          let sessionId: string
           try {
-            const sessionId = await this.attachToTarget(targetId)
-            await this.sendCommand('Runtime.enable', {}, sessionId)
-            await this.sendCommand(
-              'Runtime.evaluate',
-              {
-                expression:
-                  '(function(){ try { if (!chrome || !chrome.runtime || !chrome.runtime.reload) return false; chrome.runtime.reload(); return true; } catch (error) { return false; } })()',
-                returnByValue: true
-              },
-              sessionId
-            )
-            return true
+            sessionId = await this.attachToTarget(targetId)
           } catch {
             // ignore and try next target
+            continue
           }
+
+          try {
+            await this.sendCommand('Runtime.enable', {}, sessionId)
+          } catch {
+            // Runtime.enable can race with SW termination; don't retry
+            // by re-attaching to a sibling target — that would dispatch a
+            // second chrome.runtime.reload() and the user would see the
+            // extension flash twice. Treat the reload as fired and let the
+            // outer hardReload caller wait on the SW restart event instead.
+            return true
+          }
+
+          // Fire chrome.runtime.reload() and DO NOT await the response.
+          // Awaiting races with SW termination: if the worker dies before
+          // CDP returns the evaluate result, the await throws, the catch
+          // walks to the next matching target, and we re-issue the reload
+          // there — the user sees the extension reload N times in a row
+          // (one flash per matching target). Send the command once and
+          // trust Chrome to honor it.
+          this.sendCommand(
+            'Runtime.evaluate',
+            {
+              expression:
+                '(function(){ try { if (!chrome || !chrome.runtime || !chrome.runtime.reload) return false; chrome.runtime.reload(); return true; } catch (error) { return false; } })()',
+              returnByValue: true
+            },
+            sessionId
+          ).catch(() => {
+            // SW likely terminated mid-response; expected, no follow-up.
+          })
+          return true
         }
       }
       return false
