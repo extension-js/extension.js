@@ -3,9 +3,17 @@
 // One run = one scenario from the matrix. The driver:
 //   1. Copies the source fixture into a temp directory so edits cannot leak
 //      back to the repo. The temp dir is the project root for this run.
-//   2. Spawns `node programs/extension/dist/cli.cjs dev --browser=chromium`
-//      against the temp project, parses stdout for the CDP debug port, and
-//      waits for the dev banner to confirm the browser is up.
+//   2. Spawns the dev pipeline against the temp project. Two modes:
+//      - "local"  → runs `node <monorepo>/programs/extension/dist/cli.cjs dev`
+//                   so we measure what the dev branch produces. This is the
+//                   inner-loop mode used for matrix-driven fix iteration.
+//      - "remote" → runs `npx -y extension@<tag> dev` so we measure what an
+//                   end user installs from npm. This is the publish-gate mode
+//                   used after a canary is uploaded; it catches packaging
+//                   bugs (missing dist files, wrong cross-package deps, broken
+//                   bin entries) that local mode never sees.
+//      Both modes parse stdout for the CDP debug port and wait for the dev
+//      banner to confirm the browser is up.
 //   3. Connects the passive CDP observer to the same Chrome instance.
 //   4. Optionally opens extension pages requested by the scenario (the popup,
 //      options page, etc.) so we can measure their reload behavior.
@@ -25,13 +33,39 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {join, resolve} from 'node:path'
+import {dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {connectObserver} from './cdp-observer.mjs'
 
-const REPO_ROOT = resolve(new URL('../..', import.meta.url).pathname)
-const CLI_PATH = join(REPO_ROOT, 'programs/extension/dist/cli.cjs')
+// __dirname is `<repo>/scripts/reload-matrix`. The harness lives at the
+// monorepo root so it can gate CI. Fixtures are currently pulled by
+// template name from `_FUTURE/examples/examples/<name>`; that subtree is
+// gitignored on contributors' machines today but contains the canonical
+// example templates we validate against. When fixtures move into the
+// tracked tree, point TEMPLATES_DIR at the new location.
+const HARNESS_DIR = dirname(fileURLToPath(import.meta.url))
+const MONOREPO_ROOT = resolve(HARNESS_DIR, '..', '..')
+const LOCAL_CLI_PATH = join(MONOREPO_ROOT, 'programs/extension/dist/cli.cjs')
+const TEMPLATES_DIR = join(MONOREPO_ROOT, '_FUTURE/examples/examples')
 
 const COMPANION_ORIGINS_HINT = ['extension-js-devtools', 'extension-js-theme']
+
+/**
+ * Resolve a fixture path from a template name. Scenarios reference templates
+ * by short name (e.g. `'action-locales'`); the harness anchors that name to
+ * `_FUTURE/examples/examples/<name>` so paths stay portable across machines
+ * and CI.
+ */
+export function resolveTemplateFixture(templateName) {
+  const path = join(TEMPLATES_DIR, templateName)
+  if (!existsSync(path)) {
+    throw new Error(
+      `Template "${templateName}" not found at ${path}. Available templates ` +
+        `are listed under ${TEMPLATES_DIR}.`
+    )
+  }
+  return path
+}
 
 function nodeBin() {
   return process.execPath
@@ -49,20 +83,53 @@ function copyFixture(sourceDir) {
   return {tempRoot, projectDir}
 }
 
-function spawnDev({projectDir, env}) {
-  const child = spawn(
-    nodeBin(),
-    [CLI_PATH, 'dev', '--browser=chromium', '--no-telemetry'],
-    {
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        EXTENSION_AUTHOR_MODE: 'true',
-        ...env
-      },
-      stdio: ['ignore', 'pipe', 'pipe']
+/**
+ * Build the spawn descriptor for the dev process based on the requested
+ * mode. The same args/cwd/env shape works for both modes so the harness
+ * downstream of this point doesn't care which one is in play.
+ */
+function buildDevSpawn({projectDir, env, mode = 'local', remoteTag = 'canary'}) {
+  if (mode === 'local') {
+    if (!existsSync(LOCAL_CLI_PATH)) {
+      throw new Error(
+        `Local CLI build not found at ${LOCAL_CLI_PATH}. Run ` +
+          `\`pnpm --dir programs/extension run compile\` from the monorepo ` +
+          `root before running the matrix in local mode.`
+      )
     }
-  )
+    return {
+      command: nodeBin(),
+      args: [LOCAL_CLI_PATH, 'dev', '--browser=chromium', '--no-telemetry']
+    }
+  }
+  if (mode === 'remote') {
+    // `npx -y` accepts the install on first use without a TTY prompt. The
+    // remote-tag is honored via the registry's dist-tag (e.g. `extension@canary`).
+    return {
+      command: 'npx',
+      args: [
+        '-y',
+        `extension@${remoteTag}`,
+        'dev',
+        '--browser=chromium',
+        '--no-telemetry'
+      ]
+    }
+  }
+  throw new Error(`Unknown harness mode: ${mode}`)
+}
+
+function spawnDev({projectDir, env, mode, remoteTag}) {
+  const {command, args} = buildDevSpawn({projectDir, env, mode, remoteTag})
+  const child = spawn(command, args, {
+    cwd: projectDir,
+    env: {
+      ...process.env,
+      EXTENSION_AUTHOR_MODE: 'true',
+      ...env
+    },
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
   let stdout = ''
   let stderr = ''
   child.stdout.on('data', (chunk) => {
@@ -74,7 +141,8 @@ function spawnDev({projectDir, env}) {
   return {
     child,
     getStdout: () => stdout,
-    getStderr: () => stderr
+    getStderr: () => stderr,
+    spawnDescription: `${command} ${args.join(' ')}`
   }
 }
 
@@ -204,7 +272,12 @@ export async function runScenario(scenario) {
   const {tempRoot, projectDir} = copyFixture(scenario.fixturePath)
   const userManifestName = readManifestName(projectDir)
 
-  const dev = spawnDev({projectDir, env: scenario.env || {}})
+  const dev = spawnDev({
+    projectDir,
+    env: scenario.env || {},
+    mode: scenario.mode || 'local',
+    remoteTag: scenario.remoteTag || 'canary'
+  })
   let observer
   try {
     const port = await waitForCdpPort(dev.getStdout, 30_000)
