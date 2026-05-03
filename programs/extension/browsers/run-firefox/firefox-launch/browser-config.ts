@@ -93,7 +93,14 @@ export async function browserConfig(
   }
 
   if (typeof profile === 'string' && profile.trim().length > 0) {
-    profilePath = path.resolve(profile.trim())
+    // Resolve relative profile paths against the rspack compilation context
+    // (the project root that owns extension.config.js), not process.cwd().
+    // Otherwise running examples sequentially from a parent dir collapses
+    // every example to the same shared profile
+    const trimmedProfile = profile.trim()
+    profilePath = path.isAbsolute(trimmedProfile)
+      ? trimmedProfile
+      : path.resolve(contextDir, trimmedProfile)
   } else if (!useSystemProfile) {
     const base = path.resolve(
       distRoot,
