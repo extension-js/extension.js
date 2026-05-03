@@ -142,6 +142,95 @@ describe('Chromium profile flags', () => {
     )
   })
 
+  it('resolves relative explicit profile paths against the compilation context, not process.cwd()', () => {
+    // Regression: running examples sequentially from a parent directory used
+    // to collapse every example's `profile: './dist/extension-profile-<browser>'`
+    // to the same shared dir, because path.resolve() resolved against
+    // process.cwd() instead of the project root that owns extension.config.js.
+    // Chrome's persistent profile then carried the previous run's
+    // --load-extension path into the next session and the previous example
+    // appeared loaded in the new one.
+    const projectA = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-profile-ctx-a-'))
+    const projectB = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-profile-ctx-b-'))
+    const oldCwd = process.cwd()
+
+    try {
+      process.chdir(os.tmpdir())
+
+      const compilationA = {
+        options: {
+          context: projectA,
+          output: {path: path.join(projectA, 'dist', 'chrome')}
+        }
+      } as any
+      const compilationB = {
+        options: {
+          context: projectB,
+          output: {path: path.join(projectB, 'dist', 'chrome')}
+        }
+      } as any
+
+      const flagsA = browserConfig(compilationA, {
+        extension: '/ext',
+        browser: 'chrome',
+        profile: './dist/extension-profile-chrome'
+      } as any)
+      const flagsB = browserConfig(compilationB, {
+        extension: '/ext',
+        browser: 'chrome',
+        profile: './dist/extension-profile-chrome'
+      } as any)
+
+      const userDirA = getUserDataDir(flagsA)
+      const userDirB = getUserDataDir(flagsB)
+
+      expect(userDirA).toBe(
+        path.resolve(projectA, 'dist', 'extension-profile-chrome')
+      )
+      expect(userDirB).toBe(
+        path.resolve(projectB, 'dist', 'extension-profile-chrome')
+      )
+      expect(userDirA).not.toBe(userDirB)
+    } finally {
+      process.chdir(oldCwd)
+      try {
+        fs.rmSync(projectA, {recursive: true, force: true})
+        fs.rmSync(projectB, {recursive: true, force: true})
+      } catch {}
+    }
+  })
+
+  it('keeps absolute explicit profile paths as-is regardless of context', () => {
+    const explicitProfile = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-explicit-abs-')
+    )
+    const projectDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-project-')
+    )
+
+    try {
+      const compilation = {
+        options: {
+          context: projectDir,
+          output: {path: path.join(projectDir, 'dist', 'chrome')}
+        }
+      } as any
+
+      const flags = browserConfig(compilation, {
+        extension: '/ext',
+        browser: 'chrome',
+        profile: explicitProfile
+      } as any)
+
+      expect(getUserDataDir(flags)).toBe(explicitProfile)
+    } finally {
+      try {
+        fs.rmSync(explicitProfile, {recursive: true, force: true})
+        fs.rmSync(projectDir, {recursive: true, force: true})
+      } catch {}
+    }
+  })
+
   it('throws when explicit profile appears to be in use locally', () => {
     const explicitProfile = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-explicit-profile-live-')
