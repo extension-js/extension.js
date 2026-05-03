@@ -231,20 +231,24 @@ describe('BrowsersPlugin classifier', () => {
     expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
-  it('falls back to "full" when a non-content-script project edits a page asset', async () => {
+  it('emits NO reload instruction when a non-content-script project edits a page asset', async () => {
     // Action / popup / options-only extensions declare no content_scripts.
-    // Page asset edits (popup HTML/JS/CSS) used to fall through with no
-    // instruction at all because the content-scripts branch was gated on
-    // contentScriptCount > 0, leaving manual reload as the only path.
+    // Page asset edits (popup HTML/JS/CSS) are picked up by
+    // rspack-dev-server's livereload broadcast — the HMR client injected
+    // into every extension HTML entry refreshes the open page on its own.
+    //
+    // We deliberately do NOT fire chrome.runtime.reload() here: that path
+    // races livereload, kills the open popup, and produces a visible flash
+    // for every popup save. The reload-matrix harness scenario
+    // "popup-html-edit-popup-open" measures this from CDP ground truth.
     const h = createHarness(0)
     await primeFirstCompile(h)
 
     h.triggerWatchRun(['src/action/scripts.js'])
     await h.triggerDone()
 
-    const instruction = h.lastReload()
-    expect(instruction?.type).toBe('full')
-    expect(instruction?.changedAssets).toEqual(['src/action/scripts.js'])
+    expect(h.lastReload()).toBeUndefined()
+    expect(h.reload).not.toHaveBeenCalled()
   })
 
   it('background + content change prefers "service-worker" (widest blast radius wins)', async () => {

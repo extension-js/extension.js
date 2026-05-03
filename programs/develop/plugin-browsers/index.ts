@@ -251,13 +251,25 @@ export class BrowsersPlugin {
               changedAssets: pendingChangedSources
             }
           } else {
-            // No content scripts declared — popup/options/devtools/etc page
-            // edits land here. Fall back to a full extension reload so the
-            // updated bundles are picked up on the next page open
-            reloadInstruction = {
-              type: 'full',
-              changedAssets: pendingChangedSources
-            }
+            // No content scripts declared and the SW source did not change.
+            // Page-only edits (popup HTML/JS/CSS, options page, devtools
+            // page, newtab) are already handled by rspack-dev-server's
+            // livereload broadcast — the HMR client injected into every
+            // extension HTML entry connects to ws://host:port/ws and
+            // refreshes the open page on its own when a build completes.
+            //
+            // Firing chrome.runtime.reload() here would race that broadcast,
+            // tear the popup down before livereload arrives, and surface as
+            // a disruptive flash for every popup HTML/CSS/JS save. The
+            // dist directory on disk stays current (rspack-dev-server's
+            // devMiddleware writes assets through to disk for non-manifest
+            // files), so any popup opened later still loads the fresh
+            // bundle without needing an extension restart.
+            //
+            // See scripts/reload-matrix/scenarios.mjs scenario
+            // "popup-html-edit-popup-open" for the ground-truth assertion
+            // that drove this change.
+            reloadInstruction = undefined
           }
         }
       }
