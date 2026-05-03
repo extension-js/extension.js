@@ -219,6 +219,29 @@ export async function runScenario(scenario) {
       scenario.startupQuietMs ?? 1_500,
       scenario.startupTimeoutMs ?? 8_000
     )
+
+    // Identify the user extension origin from the extension ID printed by
+    // the CLI banner. We need this to (a) classify origins later and (b)
+    // open user-extension pages on request.
+    const userExtensionId = extractExtensionIdFromStdout(dev.getStdout())
+
+    // Open any extension pages the scenario asks for (popup, options, etc.)
+    const openedTargets = []
+    for (const open of scenario.openPages || []) {
+      if (!userExtensionId) {
+        throw new Error(
+          `Scenario "${scenario.name}" asked to open ${open} but the user ` +
+            `extension ID was not found in dev stdout`
+        )
+      }
+      const url = `chrome-extension://${userExtensionId}/${open.replace(/^\//, '')}`
+      const targetId = await observer.openTarget(url)
+      if (targetId) openedTargets.push(targetId)
+    }
+    if (openedTargets.length > 0) {
+      await observer.waitForQuiescence(800, 5_000)
+    }
+
     const baselineEventCount = observer.events.length
 
     for (const edit of scenario.edits || []) {
@@ -246,11 +269,17 @@ export async function runScenario(scenario) {
 
     const editEvents = observer.events.slice(baselineEventCount)
     const buckets = classifyEvents(editEvents)
-    const userOrigin = findUserExtensionOrigin(buckets, userManifestName)
+    const userOrigin = userExtensionId || findUserExtensionOrigin(buckets, userManifestName)
+
+    // Best-effort close on the way out so the next scenario starts clean.
+    for (const targetId of openedTargets) {
+      await observer.closeTarget(targetId)
+    }
 
     return {
       name: scenario.name,
       userManifestName,
+      userExtensionId,
       userOrigin,
       buckets,
       events: editEvents,
@@ -270,4 +299,9 @@ export async function runScenario(scenario) {
       rmSync(tempRoot, {recursive: true, force: true})
     } catch {}
   }
+}
+
+function extractExtensionIdFromStdout(stdout) {
+  const match = stdout.match(/Extension ID\s+([a-p]{32})/)
+  return match ? match[1] : undefined
 }
