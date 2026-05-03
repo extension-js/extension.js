@@ -210,6 +210,57 @@ describe('CDPClient.forceReloadExtension', () => {
     expect(attached).toEqual(['user-sw'])
   })
 
+  it('fires chrome.runtime.reload() at most once even when Runtime.evaluate hangs', async () => {
+    // Regression: previously the eval response was awaited. When the reload
+    // call killed the worker before CDP could return, the await threw, the
+    // catch walked to the next matching target, and another
+    // chrome.runtime.reload() got dispatched there. Editing _locales/en/
+    // messages.json reliably reproduced this and the user saw the extension
+    // flash multiple times for one save. The eval must be fire-and-forget.
+    const extensionId = 'flash-extension-id'
+
+    ;(client as any).getTargets = vi.fn(async () => [
+      {
+        targetId: 'sw-target',
+        type: 'service_worker',
+        url: `chrome-extension://${extensionId}/sw.js`
+      },
+      {
+        targetId: 'page-target',
+        type: 'page',
+        url: `chrome-extension://${extensionId}/popup.html`
+      }
+    ])
+
+    const attached: string[] = []
+    ;(client as any).attachToTarget = vi.fn(async (targetId: string) => {
+      attached.push(targetId)
+      return `session-${targetId}`
+    })
+
+    let evaluateCalls = 0
+    ;(client as any).sendCommand = vi.fn(async (method: string) => {
+      if (method === 'Runtime.enable') return {}
+      if (method === 'Runtime.evaluate') {
+        evaluateCalls++
+        // Simulate the SW dying mid-call: never resolve. The fix dispatches
+        // the command without awaiting, so the outer code does not stall on
+        // this and does not retry against the page target.
+        return new Promise(() => {})
+      }
+      return {}
+    })
+
+    const reloadPromise = client.forceReloadExtension(extensionId)
+    await vi.runAllTimersAsync()
+    const ok = await reloadPromise
+
+    expect(ok).toBe(true)
+    // Only the SW target receives a reload. No fallback to popup/page targets.
+    expect(attached).toEqual(['sw-target'])
+    expect(evaluateCalls).toBe(1)
+  })
+
   it('returns true on first success without exhausting all attempts', async () => {
     const extensionId = 'test-extension-id'
     let getTargetsCalls = 0
