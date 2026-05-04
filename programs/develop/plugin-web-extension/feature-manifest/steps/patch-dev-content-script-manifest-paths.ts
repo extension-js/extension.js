@@ -84,6 +84,14 @@ function findHashedContentScriptAsset(
  * Delete hashed content script files from previous builds that are no longer
  * referenced by the manifest. Prevents ambiguity when resolving files by glob
  * and avoids unbounded disk growth during long dev sessions.
+ *
+ * Treats `compilation.getAssets()` as the source of truth for what this
+ * compilation just emitted under `content_scripts/`. Anything on disk under
+ * that directory matching a `<stem>.<hash>.<ext>` shape that is NOT in the
+ * emitted set is a leftover from a prior rebuild and gets unlinked. This
+ * covers both the canonical `content-N.<hash>.<ext>` bundle and named CSS
+ * chunks like `content-index.<hash>.css` (emitted by content-script CSS
+ * imports via `import.meta.url`).
  */
 function purgeStaleHashedContentScripts(
   compilation: Compilation,
@@ -94,13 +102,24 @@ function purgeStaleHashedContentScripts(
   const csDir = path.join(outputPath, 'content_scripts')
   if (!fs.existsSync(csDir)) return
 
-  const hashedRe = /^content-\d+\.[a-f0-9]+\.(js|css)(\.map)?$/i
+  const emittedNames = new Set<string>()
+  const assets =
+    typeof compilation.getAssets === 'function' ? compilation.getAssets() : []
+  for (const asset of assets) {
+    const name = asset?.name || ''
+    if (name.startsWith('content_scripts/')) emittedNames.add(name)
+  }
+
+  const hashedRe = /^[A-Za-z0-9._-]+\.[a-f0-9]{6,}\.(js|css)(\.map)?$/i
   try {
     for (const name of fs.readdirSync(csDir)) {
       if (!hashedRe.test(name)) continue
       const rel = `content_scripts/${name}`
-      if (currentNames.has(rel)) continue
-      if (currentNames.has(rel.replace(/\.map$/, ''))) continue
+      const relNoMap = rel.replace(/\.map$/, '')
+
+      if (currentNames.has(rel) || currentNames.has(relNoMap)) continue
+      if (emittedNames.has(rel) || emittedNames.has(relNoMap)) continue
+
       try {
         fs.unlinkSync(path.join(csDir, name))
       } catch {
