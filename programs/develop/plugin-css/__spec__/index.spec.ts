@@ -85,32 +85,19 @@ describe('CssPlugin', () => {
     )
   })
 
-  it('adds asset/resource rules for SASS and LESS content scripts when integrations are present', async () => {
+  it('does not add separate asset/resource rules for SASS/LESS content scripts (cssInContentScriptLoader owns this)', async () => {
     const compiler = createCompiler('development')
     const plugin = new CssPlugin({manifestPath: '/project/manifest.json'})
 
     await plugin.apply(compiler)
 
+    // Regression guard: an earlier version of `index.ts` pushed duplicate
+    // `type: 'asset/resource'` rules for `.sass/.scss/.less` that overlapped
+    // (and overrode) the `type: 'asset/inline'` rules emitted by
+    // `cssInContentScriptLoader`. The duplicates triggered emit-as-file for
+    // content-script CSS, which then needed `web_accessible_resources` and
+    // failed across rebuilds. Ownership now lives solely in the loader file.
     const rules = compiler.options.module.rules as any[]
-    const hasSassAssets = rules.some(
-      (rule) =>
-        String(rule.test) === String(/\.(sass|scss)$/) &&
-        rule.type === 'asset/resource'
-    )
-    const hasLessAssets = rules.some(
-      (rule) =>
-        String(rule.test) === String(/\.less$/) &&
-        rule.type === 'asset/resource'
-    )
-
-    expect(hasSassAssets).toBe(true)
-    expect(hasLessAssets).toBe(true)
-
-    // Ensure issuer predicate is present for both additional asset rules
-    expect(
-      rules.filter(
-        (r) => r.type === 'asset/resource' && typeof r.issuer === 'function'
-      ).length
-    ).toBeGreaterThanOrEqual(2)
+    expect(rules.some((r) => r.type === 'asset/resource')).toBe(false)
   })
 })
