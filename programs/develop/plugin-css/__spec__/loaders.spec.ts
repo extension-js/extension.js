@@ -47,14 +47,11 @@ describe('cssInContentScriptLoader', () => {
         (r: any) =>
           String(r.test) === String(/\.css$/) &&
           String(r.exclude) === String(/\.module\.css$/) &&
-          r.type === 'asset'
+          r.type === 'asset/inline'
       )
     ).toBe(true)
     for (const rule of rules) {
-      expect(['asset', 'css/module']).toContain((rule as any).type)
-      if ((rule as any).type === 'asset') {
-        expect((rule as any).generator?.filename).toContain('content_scripts')
-      }
+      expect(['asset/inline', 'css/module']).toContain((rule as any).type)
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

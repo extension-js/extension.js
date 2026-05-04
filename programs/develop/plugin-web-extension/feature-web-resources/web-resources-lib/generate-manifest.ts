@@ -6,6 +6,8 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
+import * as path from 'path'
 import {Compilation, sources} from '@rspack/core'
 import {
   getManifestContent,
@@ -464,10 +466,39 @@ export function generateManifestPatches(
   // Also expose emitted CSS under content_scripts/ to content scripts directly.
   // This covers CSS imported by content scripts that end up emitted as files.
   const assetKeys: string[] = Object.keys(compilation.assets || {})
-  const cssUnderContentScripts = assetKeys
+  const emittedCssUnderContentScripts = assetKeys
     .filter((k) => k.startsWith('content_scripts/'))
     .filter((k) => k.endsWith('.css'))
-    .sort()
+
+  // Dev mode runs with `output.clean: false`, so prior compilations leave
+  // hashed CSS chunks (e.g. `content-index.<hash>.css`) behind in the output
+  // directory. A tab still running a pre-rebuild content script will resolve
+  // its `import.meta.url` fetch against one of those leftover chunks; without
+  // a WAR entry the fetch hits a 403 and the Shadow DOM renders unstyled
+  // until the tab reloads. Union the emitted CSS with whatever CSS is on
+  // disk so those stragglers stay reachable in their lifetime
+  const onDiskCssUnderContentScripts: string[] = []
+  const outputPath = compilation.options.output?.path
+
+  if (outputPath) {
+    try {
+      const csDir = path.join(outputPath, 'content_scripts')
+
+      if (fs.existsSync(csDir)) {
+        for (const name of fs.readdirSync(csDir)) {
+          if (name.endsWith('.css')) {
+            onDiskCssUnderContentScripts.push(`content_scripts/${name}`)
+          }
+        }
+      }
+    } catch {
+      // Fall back to emitted-only list.
+    }
+  }
+
+  const cssUnderContentScripts = Array.from(
+    new Set([...emittedCssUnderContentScripts, ...onDiskCssUnderContentScripts])
+  ).sort()
 
   if (Array.isArray(canonicalManifest.content_scripts)) {
     for (const contentScript of canonicalManifest.content_scripts) {

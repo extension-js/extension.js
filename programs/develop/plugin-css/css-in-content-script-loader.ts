@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {RuleSetRule} from '@rspack/core'
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'
@@ -29,18 +30,17 @@ export async function cssInContentScriptLoader(
   manifestPath: string,
   mode: DevOptions['mode'],
   usage: PreprocessorUsage = {}
-) {
+): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
   const isContentScript = (issuer: string) =>
     isContentScriptEntry(issuer, manifestPath, projectPath)
 
-  // Define file type configurations
   const fileTypes = [
     {test: /\.module\.css$/, type: 'css/module' as const, loader: null},
     {
       test: /\.css$/,
       exclude: /\.module\.css$/,
-      type: 'asset' as const,
+      type: 'asset/inline' as const,
       loader: null
     },
     ...(useSass
@@ -48,7 +48,7 @@ export async function cssInContentScriptLoader(
           {
             test: /\.(sass|scss)$/,
             exclude: /\.module\.(sass|scss)$/,
-            type: 'asset' as const,
+            type: 'asset/inline' as const,
             loader: 'sass-loader'
           },
           {
@@ -63,7 +63,7 @@ export async function cssInContentScriptLoader(
           {
             test: /\.less$/,
             exclude: /\.module\.less$/,
-            type: 'asset' as const,
+            type: 'asset/inline' as const,
             loader: 'less-loader'
           },
           {
@@ -75,50 +75,34 @@ export async function cssInContentScriptLoader(
       : [])
   ]
 
-  const rules = await Promise.all(
-    fileTypes.map(async ({test, exclude, type = 'asset', loader}) => {
-      const baseConfig: Record<string, any> = {
+  const rules: RuleSetRule[] = await Promise.all(
+    fileTypes.map(async ({test, exclude, type, loader}) => {
+      const use = loader
+        ? await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production',
+            loader: resolvePreprocessorLoader(
+              loader as 'sass-loader' | 'less-loader',
+              projectPath
+            ),
+            loaderOptions:
+              loader === 'sass-loader'
+                ? createSassLoaderOptions(
+                    projectPath,
+                    mode as 'development' | 'production'
+                  )
+                : {sourceMap: true}
+          })
+        : await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production'
+          })
+
+      return {
         test,
         exclude,
         type,
-        issuer: isContentScript
-      }
-      if (type === 'asset') {
-        baseConfig.generator = {
-          filename: 'content_scripts/[name].[contenthash:8].css'
-        }
-      }
-
-      if (!loader) {
-        // Regular CSS - no preprocessor needed
-        return {
-          ...baseConfig,
-          use: await commonStyleLoaders(projectPath, {
-            mode: mode as 'development' | 'production'
-          })
-        }
-      }
-
-      // Preprocessor CSS
-      const loaderOptions =
-        loader === 'sass-loader'
-          ? createSassLoaderOptions(
-              projectPath,
-              mode as 'development' | 'production'
-            )
-          : {sourceMap: true}
-
-      return {
-        ...baseConfig,
-        use: await commonStyleLoaders(projectPath, {
-          mode: mode as 'development' | 'production',
-          loader: resolvePreprocessorLoader(
-            loader as 'sass-loader' | 'less-loader',
-            projectPath
-          ),
-          loaderOptions
-        })
-      }
+        issuer: isContentScript,
+        use
+      } as RuleSetRule
     })
   )
 

@@ -20,7 +20,6 @@ import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {isContentScriptEntry} from './css-lib/is-content-script'
 import type {DevOptions, PluginInterface} from '../types'
 import {getStylelintConfigFile} from './css-tools/stylelint'
 import {getTailwindConfigFile} from './css-tools/tailwind'
@@ -58,9 +57,10 @@ export class CssPlugin {
     // because it's a content script and we need to load it as an asset.
     // For HTML we need to use the css loader because it's a HTML file
     // and we need to load it as a CSS file.
-    // Add Sass/Less support if needed before resolving loaders
-    const maybeInstallSass = await maybeUseSass(projectPath)
-    const maybeInstallLess = await maybeUseLess(projectPath, manifestPath)
+    // Trigger the optional-package contract so sass-loader / less-loader get
+    // resolved (and installed if missing) before the CSS loader chain runs.
+    await maybeUseSass(projectPath)
+    await maybeUseLess(projectPath, manifestPath)
 
     const loaders: RuleSetRule[] = [
       ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
@@ -72,35 +72,6 @@ export class CssPlugin {
         useLess: usingLess
       }))
     ]
-
-    // Add SASS/LESS loaders for content scripts
-    if (maybeInstallSass.length) {
-      loaders.push(
-        // SASS files for content scripts
-        {
-          test: /\.(sass|scss)$/,
-          exclude: /\.module\.(sass|scss)$/,
-          type: 'asset/resource',
-          generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
-          issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, manifestPath, projectPath)
-        }
-      )
-    }
-
-    if (maybeInstallLess.length) {
-      loaders.push(
-        // LESS files for content scripts
-        {
-          test: /\.less$/,
-          exclude: /\.module\.less$/,
-          type: 'asset/resource',
-          generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
-          issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, manifestPath, projectPath)
-        }
-      )
-    }
 
     // CSS output naming.  Rspack's native CSS (`experiments.css`) already
     // bakes a content-hash into [name] for CSS chunks split from content-

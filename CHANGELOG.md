@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Inline content-script CSS as data URLs to close the WAR gap on rspack 2.x (52a64932)
 - Fire chrome.runtime.reload() once per save instead of N times racing on the eval response (93ff8482)
 - Anchor relative profile paths to the rspack context so sequential examples do not share one profile (7d7c55ef)
 - Bump browser-extension-manifest-fields (26b3bedc)

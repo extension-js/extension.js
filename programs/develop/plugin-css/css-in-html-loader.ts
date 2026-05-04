@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {RuleSetRule} from '@rspack/core'
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'
@@ -29,7 +30,7 @@ export async function cssInHtmlLoader(
   mode: DevOptions['mode'],
   manifestPath: string,
   usage: PreprocessorUsage = {}
-) {
+): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
   const isNotContentScript = (issuer: string) =>
     !isContentScriptEntry(issuer, manifestPath, projectPath)
@@ -70,45 +71,34 @@ export async function cssInHtmlLoader(
       : [])
   ]
 
-  const rules = await Promise.all(
+  const rules: RuleSetRule[] = await Promise.all(
     fileTypes.map(async ({test, exclude, type, loader}) => {
-      const baseConfig = {
+      const use = loader
+        ? await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production',
+            loader: resolvePreprocessorLoader(
+              loader as 'sass-loader' | 'less-loader',
+              projectPath
+            ),
+            loaderOptions:
+              loader === 'sass-loader'
+                ? createSassLoaderOptions(
+                    projectPath,
+                    mode as 'development' | 'production'
+                  )
+                : {sourceMap: true}
+          })
+        : await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production'
+          })
+
+      return {
         test,
         exclude,
         type,
-        issuer: isNotContentScript
-      }
-
-      if (!loader) {
-        // Regular CSS - no preprocessor needed
-        return {
-          ...baseConfig,
-          use: await commonStyleLoaders(projectPath, {
-            mode: mode as 'development' | 'production'
-          })
-        }
-      }
-
-      // Preprocessor CSS
-      const loaderOptions =
-        loader === 'sass-loader'
-          ? createSassLoaderOptions(
-              projectPath,
-              mode as 'development' | 'production'
-            )
-          : {sourceMap: true}
-
-      return {
-        ...baseConfig,
-        use: await commonStyleLoaders(projectPath, {
-          mode: mode as 'development' | 'production',
-          loader: resolvePreprocessorLoader(
-            loader as 'sass-loader' | 'less-loader',
-            projectPath
-          ),
-          loaderOptions
-        })
-      }
+        issuer: isNotContentScript,
+        use
+      } as RuleSetRule
     })
   )
 

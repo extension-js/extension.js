@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as fs from 'fs'
 import {getBuildSummary, type BuildSummary} from './lib/build-summary'
 import type {Configuration} from '@rspack/core'
 import {createRequire} from 'module'
@@ -70,6 +71,18 @@ export async function extensionBuild(
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
     const distPath = getDistPath(packageJsonDir, browser)
+
+    // Vite-style `emptyOutDir` semantics: wipe the per-browser dist before the
+    // build so the output is deterministic regardless of prior `extension dev`
+    // runs (which leave stale hashed bundles behind under `output.clean: false`)
+    // or any rspack-side regression in `output.clean`. Cheap, idempotent, and
+    // matches what users intuit from running `build`
+    try {
+      fs.rmSync(distPath, {recursive: true, force: true})
+    } catch {
+      // Best-effort; rspack will still emit into the directory.
+    }
+
     if (debug) {
       console.log(messages.debugDirs(manifestDir, packageJsonDir))
       console.log(
