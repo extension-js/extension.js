@@ -61,10 +61,6 @@ export async function maybeUsePreact(
         ((mod && mod.default) || mod) as PreactRefreshPluginCtor
     })
 
-  const preactPlugins: RspackPluginInstance[] = [
-    new PreactRefreshPlugin({}) as any // TODO: cezaraugusto fix this
-  ]
-
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
   )
@@ -76,12 +72,28 @@ export async function maybeUsePreact(
     }
   }
 
+  const preactPath = resolveFromProject('preact')
   const preactCompat = resolveFromProject('preact/compat')
   const preactTestUtils = resolveFromProject('preact/test-utils')
   const preactJsxRuntime = resolveFromProject('preact/jsx-runtime')
   const preactJsxDevRuntime = resolveFromProject('preact/jsx-dev-runtime')
 
+  // The plugin sets `compiler.options.resolve.alias.preact = options.preactPath`
+  // and stops resolving `preact` through Node when this is undefined. In pnpm
+  // strict layouts the plugin lives at .pnpm/@rspack+plugin-preact-refresh/.../
+  // which doesn't sibling-link `preact`, so without an explicit path the alias
+  // becomes `preact: undefined` and webpack falls back to a Node lookup that
+  // can't reach the user's preact symlink. Pass the project-resolved preact
+  // explicitly so HMR works regardless of node-linker mode.
+  const preactPlugins: RspackPluginInstance[] = [
+    new PreactRefreshPlugin(preactPath ? {preactPath} : {}) as any
+  ]
+
   const alias: Record<string, string> = {}
+
+  if (preactPath) {
+    alias.preact = preactPath
+  }
 
   if (preactCompat) {
     alias.react = preactCompat
