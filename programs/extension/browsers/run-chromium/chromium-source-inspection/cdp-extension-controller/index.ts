@@ -62,6 +62,14 @@ export class CDPExtensionController {
   // listener keeps the cache live across rule iterations and target lifetime.
   private sessionContexts = new Map<string, Map<number, unknown>>()
   private sessionContextsUnsubscribe = new Map<string, () => void>()
+  // Sessions whose Runtime.enable just fired but whose initial executionContext
+  // re-emission burst we want to ignore. After reloadMatchingTabsForContentScripts
+  // already evaluated each rule into the target's existing contexts, we attach
+  // a watch session and call Runtime.enable for navigation tracking — that
+  // enable re-emits the same existing contexts as `executionContextCreated`,
+  // and without suppression the persistent listener would re-evaluate every
+  // rule a second time, racing with the just-created roots in MAIN world.
+  private suppressInitialContextBurst = new Set<string>()
 
   constructor(args: {
     outPath: string
@@ -463,6 +471,12 @@ export class CDPExtensionController {
         if (!sessionId) return
         const session = this.watchedPageSessions.get(sessionId)
         if (!session) return
+        // Initial Runtime.enable on a freshly-attached session re-emits every
+        // existing context as if it were just created. The reinject loop has
+        // already evaluated each rule into those contexts, so re-evaluating
+        // here would race with the just-mounted roots — observable as MAIN
+        // world content disappearing milliseconds after a file edit.
+        if (this.suppressInitialContextBurst.has(sessionId)) return
         const context = params?.context
         if (!context) return
         this.evaluateContentScriptOnNewContext(
@@ -479,6 +493,7 @@ export class CDPExtensionController {
         if (sessionId) {
           this.watchedPageSessions.delete(sessionId)
           this.releaseSessionContexts(sessionId)
+          this.suppressInitialContextBurst.delete(sessionId)
         }
       }
     })
@@ -511,11 +526,20 @@ export class CDPExtensionController {
       return
     }
     this.watchedPageSessions.set(sessionId, {targetId, url})
+    // Suppress the executionContextCreated burst that Runtime.enable fires for
+    // already-existing contexts — those have already been handled by the
+    // reinject loop. Anything emitted >250ms after enable is a genuine new
+    // context (page navigation, iframe creation) and gets the normal eval.
+    this.suppressInitialContextBurst.add(sessionId)
     try {
       await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
+      setTimeout(() => {
+        this.suppressInitialContextBurst.delete(sessionId)
+      }, 250)
     } catch {
       // If Runtime.enable fails the session is likely stale; clean up.
       this.watchedPageSessions.delete(sessionId)
+      this.suppressInitialContextBurst.delete(sessionId)
     }
   }
 
