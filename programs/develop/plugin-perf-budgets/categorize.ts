@@ -9,9 +9,12 @@
 //   • images, fonts, locales, manifest.json don't have a code-splitting
 //     fix — silenced from the budget warning entirely.
 //
-// Numbers are tuned to match what shipping extensions actually carry
-// (uBlock Origin, Bitwarden, 1Password): content scripts well under
-// 100 KiB, MV3 SWs under ~150 KiB, UIs in the 200–500 KiB range.
+// Hand-optimized extensions (uBlock Origin, Bitwarden, 1Password) keep
+// content scripts well under 100 KiB, but framework-based templates
+// (Vue, React, Preact, Svelte) ship a runtime that's ~150–225 KiB
+// minified before any user code. Setting the budget at 256 KiB keeps the
+// warning useful for hand-written content scripts while not crying wolf
+// on every framework template scaffolded by `extension create`.
 
 export type AssetCategory =
   | 'content-script'
@@ -64,7 +67,7 @@ export function categorizeAsset(rawName: string): AssetCategory {
 }
 
 export const BUDGET_BYTES: Record<AssetCategory, number> = {
-  'content-script': 150 * 1024,
+  'content-script': 256 * 1024,
   'service-worker': 200 * 1024,
   page: 500 * 1024,
   ignored: Number.POSITIVE_INFINITY
@@ -72,7 +75,7 @@ export const BUDGET_BYTES: Record<AssetCategory, number> = {
 
 export const CATEGORY_DESCRIPTIONS: Record<AssetCategory, string> = {
   'content-script':
-    'content script — injected on every page navigation; keep under 150 KiB',
+    'content script — injected on every page navigation; keep under 256 KiB',
   'service-worker':
     'service worker / background — wakes from cold; keep under 200 KiB',
   page: 'page UI — cold-start; keep under 500 KiB',
