@@ -75,5 +75,45 @@ describe('preact tools', () => {
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/preact/jsx-dev-runtime'
     )
+    // Regression: @rspack/plugin-preact-refresh sets
+    // `compiler.options.resolve.alias.preact = options.preactPath` at apply-
+    // time. If we pass `{}` here pnpm strict layouts wedge the dev server
+    // because `preact: undefined` short-circuits webpack's alias and the
+    // plugin's pnpm dir doesn't sibling-link preact for Node fallback.
+    expect(result?.alias?.preact).toBe('/project/node_modules/preact')
+  })
+
+  it('passes preactPath to PreactRefreshPlugin so it can alias preact in pnpm strict layouts', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'preact'
+    )
+
+    let pluginOptions: unknown
+    const PreactRefreshPluginMock = function (this: any, options: unknown) {
+      pluginOptions = options
+      this.apply = vi.fn()
+    } as any
+    vi.doMock('module', () => ({
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === '@rspack/plugin-preact-refresh') {
+            return {default: PreactRefreshPluginMock}
+          }
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
+    }))
+
+    const {maybeUsePreact} = await import('../../js-tools/preact')
+    await maybeUsePreact('/p')
+
+    expect(pluginOptions).toEqual({
+      preactPath: '/project/node_modules/preact'
+    })
   })
 })
