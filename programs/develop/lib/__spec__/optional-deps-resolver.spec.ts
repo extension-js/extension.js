@@ -258,6 +258,57 @@ describe('optional-deps-resolver', () => {
     expect(failures).toEqual([])
   })
 
+  it('treats install-root rules as resolved when the project package.json declares the dependency', async () => {
+    // Repro: pnpm strict layouts hide preact behind .pnpm symlinks that
+    // Node's resolver can't traverse from extension-develop's package
+    // context. As long as the user's package.json declares the dep, trust
+    // their package manager — the bundler will surface a real error later
+    // if the install was a lie.
+    const dependencyId = '@extjs-test/preact-like'
+    writeJson(path.join(projectPath, 'package.json'), {
+      name: 'project-using-preact-like',
+      dependencies: {[dependencyId]: '^10.0.0'}
+    })
+    // Intentionally do NOT createPackage(...) for `dependencyId` so the
+    // Node resolver fails — we want to confirm the package.json fallback.
+
+    const {getContractVerificationFailuresFromKnownLocations} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresFromKnownLocations(
+      {
+        id: 'test-preact-like',
+        integration: 'PreactLike',
+        installPackages: [`${dependencyId}@10.0.0`],
+        verificationRules: [{type: 'install-root', packageId: dependencyId}]
+      },
+      projectPath
+    )
+
+    expect(failures).toEqual([])
+  })
+
+  it('still reports install-root failures when the project package.json does not declare the dependency', async () => {
+    const dependencyId = '@extjs-test/never-installed'
+
+    const {getContractVerificationFailuresFromKnownLocations} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresFromKnownLocations(
+      {
+        id: 'test-never-installed',
+        integration: 'NeverInstalled',
+        installPackages: [`${dependencyId}@1.0.0`],
+        verificationRules: [{type: 'install-root', packageId: dependencyId}]
+      },
+      projectPath
+    )
+
+    expect(failures).toEqual([dependencyId])
+  })
+
   it('loads optional module with adapter after deterministic resolution', async () => {
     const dependencyId = '@extjs-test/plugin-react-refresh'
     createPackage(
