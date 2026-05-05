@@ -423,6 +423,14 @@ export function getContractVerificationFailuresFromKnownLocations(
     }
 
     const failure = evaluateModuleContextRule(rule, fromPackagePath)
+    // Pnpm strict layouts hide the user-side framework (preact, vue, etc.)
+    // from the contract tooling's pnpm dir because it isn't a peer dep
+    // there. The bundler aliases the framework at compile time, so the
+    // module-context check is only useful for catching genuine missing
+    // peers — not user-declared deps that webpack/rspack will route via
+    // resolve.alias. Trust the project package.json the same way the
+    // install-root path does.
+    if (failure && declaresDependency(projectPath, failure)) continue
     if (failure) failures.push(failure)
   }
 
