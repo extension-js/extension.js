@@ -27,7 +27,7 @@ interface PerfBudgetsPluginOptions {
  * per-asset-category budget tuned to how browser extensions actually
  * load code:
  *
- *   content_scripts/*    → 150 KiB  (injected on every navigation)
+ *   content_scripts/*    → 256 KiB  (injected on every navigation)
  *   background / SW      → 200 KiB  (wakes from cold each session)
  *   pages / sidebar / …  → 500 KiB  (opened on demand)
  *   images, fonts, etc.  → silenced (not a code-splitting concern)

@@ -54,8 +54,8 @@ describe('BUDGET_BYTES', () => {
     expect(BUDGET_BYTES.ignored).toBe(Number.POSITIVE_INFINITY)
   })
 
-  it('matches the documented 150/200/500 KiB targets', () => {
-    expect(BUDGET_BYTES['content-script']).toBe(150 * 1024)
+  it('matches the documented 256/200/500 KiB targets', () => {
+    expect(BUDGET_BYTES['content-script']).toBe(256 * 1024)
     expect(BUDGET_BYTES['service-worker']).toBe(200 * 1024)
     expect(BUDGET_BYTES.page).toBe(500 * 1024)
   })
@@ -97,9 +97,9 @@ describe('PerfBudgetsPlugin', () => {
     return compilation
   }
 
-  it('warns when a content-script bundle exceeds 150 KiB', () => {
+  it('warns when a content-script bundle exceeds 256 KiB', () => {
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
-      'content_scripts/content-0.abc12345.js': 200 * 1024
+      'content_scripts/content-0.abc12345.js': 300 * 1024
     })
     expect(compilation.warnings).toHaveLength(1)
     expect(compilation.warnings[0].name).toBe('PerfBudgetWarning')
@@ -145,7 +145,7 @@ describe('PerfBudgetsPlugin', () => {
 
   it('reports multiple oversized assets sorted by size desc', () => {
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
-      'content_scripts/content-0.js': 200 * 1024,
+      'content_scripts/content-0.js': 300 * 1024,
       'sidebar/index.js': 800 * 1024,
       'background/service_worker.js': 250 * 1024
     })
@@ -157,8 +157,8 @@ describe('PerfBudgetsPlugin', () => {
     expect(sidebarIdx).toBeGreaterThan(-1)
     expect(swIdx).toBeGreaterThan(-1)
     expect(csIdx).toBeGreaterThan(-1)
-    // Sidebar (800 KiB) > SW (250 KiB) > CS (200 KiB)
-    expect(sidebarIdx).toBeLessThan(swIdx)
-    expect(swIdx).toBeLessThan(csIdx)
+    // Sidebar (800 KiB) > CS (300 KiB) > SW (250 KiB)
+    expect(sidebarIdx).toBeLessThan(csIdx)
+    expect(csIdx).toBeLessThan(swIdx)
   })
 })
