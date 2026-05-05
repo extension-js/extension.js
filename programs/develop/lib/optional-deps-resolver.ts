@@ -113,7 +113,47 @@ function resolveFromKnownLocations(
   dependencyId: string,
   projectPath: string
 ): string | undefined {
-  return resolveDependency(dependencyId, projectPath)?.resolvedPath
+  const direct = resolveDependency(dependencyId, projectPath)?.resolvedPath
+  if (direct) return direct
+
+  // Pnpm with strict resolution sometimes hides peer-tooling like `preact`
+  // behind a symlink chain that Node's resolver can't traverse from
+  // extension-develop's package context. If the user's package.json declares
+  // the dependency we trust their package manager installed it — the
+  // bundler will still surface a clean error later if the install was a lie.
+  if (declaresDependency(projectPath, dependencyId)) {
+    return projectPath
+  }
+
+  return undefined
+}
+
+function declaresDependency(
+  projectPath: string,
+  dependencyId: string
+): boolean {
+  try {
+    const packageJsonPath = path.join(projectPath, 'package.json')
+    if (!fs.existsSync(packageJsonPath)) return false
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<
+      string,
+      unknown
+    >
+    const sections = [
+      pkg.dependencies,
+      pkg.devDependencies,
+      pkg.optionalDependencies,
+      pkg.peerDependencies
+    ]
+    return sections.some(
+      (section) =>
+        section &&
+        typeof section === 'object' &&
+        dependencyId in (section as object)
+    )
+  } catch {
+    return false
+  }
 }
 
 function getPackageDirFromInstallRoot(
