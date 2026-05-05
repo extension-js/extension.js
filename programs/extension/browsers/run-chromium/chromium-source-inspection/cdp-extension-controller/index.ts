@@ -55,6 +55,13 @@ export class CDPExtensionController {
     string,
     {targetId: string; url: string}
   >()
+  // Per-session cache of execution contexts. `Runtime.enable` only re-emits
+  // existing contexts on the first call per session — without caching, the
+  // second call to resolveExecutionContextId() in a single rule iteration
+  // returns no contexts and every rule after the first bails. The persistent
+  // listener keeps the cache live across rule iterations and target lifetime.
+  private sessionContexts = new Map<string, Map<number, unknown>>()
+  private sessionContextsUnsubscribe = new Map<string, () => void>()
 
   constructor(args: {
     outPath: string
@@ -469,7 +476,10 @@ export class CDPExtensionController {
       }
 
       if (method === 'Target.detachedFromTarget') {
-        if (sessionId) this.watchedPageSessions.delete(sessionId)
+        if (sessionId) {
+          this.watchedPageSessions.delete(sessionId)
+          this.releaseSessionContexts(sessionId)
+        }
       }
     })
   }
@@ -1214,9 +1224,15 @@ export class CDPExtensionController {
     if (existing && typeof existing.cleanup === 'function') existing.cleanup();
   } catch (error) {}
   if (${allowCoarseCleanup ? 'true' : 'false'}) {
+    // Bundle-scoped sweep: only remove roots owned by this bundleId. The inner
+    // wrapper tags every host with data-extjs-reinject-key on mount, so this
+    // catches roots from a manifest-cached run before the outer cleanup
+    // registry was populated. A broad querySelector('[data-extension-root]')
+    // would destroy roots owned by sibling content_scripts entries that
+    // didn't change — leaving the page with only this bundle's roots.
     try {
-      const staleRoots = Array.from(document.querySelectorAll(rootSelector));
-      for (const root of staleRoots) {
+      const staleKeyed = Array.from(document.querySelectorAll(keyedSelector));
+      for (const root of staleKeyed) {
         if (root && typeof root.remove === 'function') root.remove();
       }
     } catch (error) {}
@@ -1413,30 +1429,67 @@ export class CDPExtensionController {
   private async collectExecutionContexts(sessionId: string): Promise<any[]> {
     if (!this.cdp) return []
 
-    const contextsById = new Map<number, any>()
+    const cached = this.sessionContexts.get(sessionId)
+    if (cached) return Array.from(cached.values())
+
+    // First call for this session: install a persistent listener so subsequent
+    // rule iterations see the same contexts without needing Runtime.enable to
+    // re-emit them (it only emits existing contexts on the first enable).
+    const contextsById = new Map<number, unknown>()
+    this.sessionContexts.set(sessionId, contextsById)
+
     const unsubscribe = this.cdp.onProtocolEvent((message) => {
       if (
         String((message as {sessionId?: string}).sessionId || '') !== sessionId
       ) {
         return
       }
-      if (String(message.method || '') !== 'Runtime.executionContextCreated') {
+      const method = String(message.method || '')
+      if (method === 'Runtime.executionContextCreated') {
+        const context = (message as {params?: {context?: any}}).params?.context
+        const contextId = context?.id
+        if (typeof contextId === 'number') {
+          contextsById.set(contextId, context)
+        }
         return
       }
-      const context = (message as {params?: {context?: any}}).params?.context
-      const contextId = context?.id
-      if (typeof contextId === 'number') {
-        contextsById.set(contextId, context)
+      if (method === 'Runtime.executionContextDestroyed') {
+        const params =
+          (message as {params?: {executionContextId?: number}}).params || {}
+        if (typeof params.executionContextId === 'number') {
+          contextsById.delete(params.executionContextId)
+        }
+        return
+      }
+
+      if (method === 'Runtime.executionContextsCleared') {
+        contextsById.clear()
       }
     })
 
-    try {
-      await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    } finally {
-      unsubscribe()
-    }
+    this.sessionContextsUnsubscribe.set(sessionId, unsubscribe)
+
+    await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
+
+    // Wait briefly for Chrome to emit the initial executionContextCreated
+    // events for any contexts that already existed when the session attached.
+    await new Promise((resolve) => setTimeout(resolve, 100))
 
     return Array.from(contextsById.values())
+  }
+
+  private releaseSessionContexts(sessionId: string): void {
+    const unsubscribe = this.sessionContextsUnsubscribe.get(sessionId)
+
+    if (unsubscribe) {
+      try {
+        unsubscribe()
+      } catch {
+        // Ignore listener teardown errors.
+      }
+    }
+
+    this.sessionContextsUnsubscribe.delete(sessionId)
+    this.sessionContexts.delete(sessionId)
   }
 }
