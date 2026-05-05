@@ -72,7 +72,8 @@ export async function maybeUsePreact(
     }
   }
 
-  const preactPath = resolveFromProject('preact')
+  const preactPkgJson = resolveFromProject('preact/package.json')
+  const preactDir = preactPkgJson ? path.dirname(preactPkgJson) : undefined
   const preactCompat = resolveFromProject('preact/compat')
   const preactTestUtils = resolveFromProject('preact/test-utils')
   const preactJsxRuntime = resolveFromProject('preact/jsx-runtime')
@@ -84,15 +85,17 @@ export async function maybeUsePreact(
   // which doesn't sibling-link `preact`, so without an explicit path the alias
   // becomes `preact: undefined` and webpack falls back to a Node lookup that
   // can't reach the user's preact symlink. Pass the project-resolved preact
-  // explicitly so HMR works regardless of node-linker mode.
+  // package directory (not the entry file — webpack alias treats values as
+  // prefixes for sub-paths like `preact/hooks`) so HMR works regardless of
+  // node-linker mode.
   const preactPlugins: RspackPluginInstance[] = [
-    new PreactRefreshPlugin(preactPath ? {preactPath} : {}) as any
+    new PreactRefreshPlugin(preactDir ? {preactPath: preactDir} : {}) as any
   ]
 
   const alias: Record<string, string> = {}
 
-  if (preactPath) {
-    alias.preact = preactPath
+  if (preactDir) {
+    alias.preact = preactDir
   }
 
   if (preactCompat) {
