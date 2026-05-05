@@ -79,7 +79,9 @@ describe('preact tools', () => {
     // `compiler.options.resolve.alias.preact = options.preactPath` at apply-
     // time. If we pass `{}` here pnpm strict layouts wedge the dev server
     // because `preact: undefined` short-circuits webpack's alias and the
-    // plugin's pnpm dir doesn't sibling-link preact for Node fallback.
+    // plugin's pnpm dir doesn't sibling-link preact for Node fallback. The
+    // alias resolves to the *package directory* (parent of package.json) so
+    // webpack treats it as a prefix for sub-paths like `preact/hooks`.
     expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 
