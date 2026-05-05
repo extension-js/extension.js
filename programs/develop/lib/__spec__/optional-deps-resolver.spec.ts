@@ -289,6 +289,88 @@ describe('optional-deps-resolver', () => {
     expect(failures).toEqual([])
   })
 
+  it('treats module-context-resolve failures as resolved when the project declares the missing peer', async () => {
+    // Repro: @rspack/plugin-preact-refresh's peerDependencies are only
+    // @prefresh/* — preact isn't a peer there, so pnpm strict doesn't
+    // sibling-link it next to the plugin. Node's req.resolve('preact')
+    // from the plugin's package context fails. The bundler routes preact
+    // via resolve.alias at compile time, so the cross-package check is
+    // only useful for genuine missing peers — not user-declared deps.
+    const pluginId = '@extjs-test/plugin-framework-refresh'
+    const peerId = '@extjs-test/framework'
+    createPackage(
+      runtimePath,
+      pluginId,
+      'module.exports = class FrameworkRefreshPlugin {}'
+    )
+    // Plugin can NOT resolve the peer — peer isn't sibling-linked next to it.
+    writeJson(path.join(projectPath, 'package.json'), {
+      name: 'project-with-framework',
+      dependencies: {[peerId]: '^1.0.0'}
+    })
+
+    const {getContractVerificationFailuresFromKnownLocations} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresFromKnownLocations(
+      {
+        id: 'test-framework-refresh',
+        integration: 'FrameworkRefresh',
+        installPackages: [`${pluginId}@1.0.0`, `${peerId}@1.0.0`],
+        verificationRules: [
+          {type: 'install-root', packageId: pluginId},
+          {type: 'install-root', packageId: peerId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: pluginId,
+            packageId: peerId
+          }
+        ]
+      },
+      projectPath
+    )
+
+    expect(failures).toEqual([])
+  })
+
+  it('still reports module-context-resolve failures when the project does not declare the missing peer', async () => {
+    const pluginId = '@extjs-test/plugin-strict-peer'
+    const peerId = '@extjs-test/strict-peer'
+    createPackage(
+      runtimePath,
+      pluginId,
+      'module.exports = class StrictPeerPlugin {}'
+    )
+    // Project does NOT declare the peer.
+    writeJson(path.join(projectPath, 'package.json'), {
+      name: 'project-without-peer'
+    })
+
+    const {getContractVerificationFailuresFromKnownLocations} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresFromKnownLocations(
+      {
+        id: 'test-strict-peer',
+        integration: 'StrictPeer',
+        installPackages: [`${pluginId}@1.0.0`, `${peerId}@1.0.0`],
+        verificationRules: [
+          {type: 'install-root', packageId: pluginId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: pluginId,
+            packageId: peerId
+          }
+        ]
+      },
+      projectPath
+    )
+
+    expect(failures).toEqual([peerId])
+  })
+
   it('still reports install-root failures when the project package.json does not declare the dependency', async () => {
     const dependencyId = '@extjs-test/never-installed'
 
