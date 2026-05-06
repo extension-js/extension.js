@@ -47,6 +47,7 @@
     "prepublishOnly": "rslib build && node scripts/write-dist-js-aliases.mjs && node ../../scripts/build-extensions.cjs",
     "compile": "rslib build && node scripts/write-dist-js-aliases.mjs",
     "watch": "rslib build --watch",
+    "pretest": "pnpm run compile",
     "test": "vitest run"
   },
   "keywords": [
