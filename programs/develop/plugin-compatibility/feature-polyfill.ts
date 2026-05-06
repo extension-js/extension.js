@@ -6,10 +6,13 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═════╝ ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {createRequire} from 'module'
 import rspack, {Compiler} from '@rspack/core'
 import * as compatMessages from './compatibility-lib/messages'
 import * as compatDevMessages from './compatibility-lib/messages'
 import type {PluginInterface, DevOptions} from '../types'
+
+const cjsRequire = createRequire(import.meta.url)
 
 /**
  * PolyfillPlugin is responsible for providing the `browser`
@@ -30,7 +33,7 @@ export class PolyfillPlugin {
       // (or otherwise do not place them under extension-develop/node_modules).
       // Resolving from `compiler.options.context` avoids hard-coding a nested path
       // that the bundler may not be able to resolve in all layouts.
-      const polyfillPath = require.resolve(
+      const polyfillPath = cjsRequire.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
         {
           paths: [compiler.options.context as string, __dirname].filter(Boolean)

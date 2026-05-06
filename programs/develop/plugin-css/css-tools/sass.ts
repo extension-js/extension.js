@@ -9,6 +9,8 @@
 import * as path from 'path'
 import {createRequire} from 'module'
 import colors from 'pintor'
+
+const cjsRequire = createRequire(import.meta.url)
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../lib/has-dependency'
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
@@ -69,7 +71,7 @@ export function resolveSassImplementation(
     // This is primarily for npm/npx usage where we install SASS into the
     // extension-develop cache directory.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let mod = require('sass')
+    let mod = cjsRequire('sass')
 
     if (mod && typeof mod === 'object' && 'default' in mod) {
       mod = (mod as any).default

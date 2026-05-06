@@ -38,7 +38,13 @@ const FORBIDDEN_FIREFOX_TOKENS = [
 ] as const
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..')
-const CLI_DIST = path.join(REPO_ROOT, 'programs', 'extension', 'dist', 'cli.cjs')
+const CLI_DIST = path.join(
+  REPO_ROOT,
+  'programs',
+  'extension',
+  'dist',
+  'cli.cjs'
+)
 
 interface Companion {
   name: string
@@ -66,11 +72,15 @@ function ensureCliBuilt(): boolean {
   // The companion build scripts shell out to programs/extension/dist/cli.cjs.
   // CI suites that filter to programs/develop never produce that artifact, so
   // compile it on demand here so the spec is self-contained.
-  const result = spawnSync('pnpm', ['-C', 'programs/extension', 'run', 'compile'], {
-    cwd: REPO_ROOT,
-    stdio: 'inherit',
-    shell: false
-  })
+  const result = spawnSync(
+    'pnpm',
+    ['-C', 'programs/extension', 'run', 'compile'],
+    {
+      cwd: REPO_ROOT,
+      stdio: 'inherit',
+      shell: false
+    }
+  )
 
   return result.status === 0 && fs.existsSync(CLI_DIST)
 }

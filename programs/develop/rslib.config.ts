@@ -57,16 +57,34 @@ export default defineConfig({
   tools: {
     // Disable caching to avoid rspack module graph panics in CI builds.
     rspack: {
-      cache: false
+      cache: false,
+      // Emit ESM-aware polyfills for CJS-only globals so source files that use
+      // `__dirname` / `__filename` keep working after the format flip to ESM.
+      // Without this, references blow up at runtime as `ReferenceError`
+      node: {
+        __dirname: 'node-module',
+        __filename: 'node-module'
+      }
     }
   },
   lib: [
     {
-      format: 'cjs',
-      syntax: 'es2021',
+      format: 'esm',
+      syntax: 'es2022',
       // Toolchain packages ship with extension-develop but stay external to the
       // compiled bundle; they are loaded at runtime via Node resolution.
+      banner: {
+        // Inject a CJS-style `require` into every emitted ESM chunk. Source
+        // files (and bundled deps) that call `require(...)` or
+        // `require.resolve(...)` at runtime would otherwise hit a
+        // ReferenceError in pure ESM. createRequire is not available as a
+        // global in ESM, so we wire it up explicitly.
+        js: 'import { createRequire as __extjsCreateRequire } from "node:module"; const require = __extjsCreateRequire(import.meta.url);'
+      },
       output: {
+        filename: {
+          js: '[name].mjs'
+        },
         externals: [
           // React / Preact
           'react-refresh',

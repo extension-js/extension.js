@@ -18,12 +18,14 @@ function createControllerWithFakeCdp() {
       handlers.add(handler)
       return () => handlers.delete(handler)
     },
-    sendCommand: vi.fn(async (method: string, _params: unknown, sessionId?: string) => {
-      if (method === 'Runtime.enable') {
-        enableCalls.push(String(sessionId || ''))
+    sendCommand: vi.fn(
+      async (method: string, _params: unknown, sessionId?: string) => {
+        if (method === 'Runtime.enable') {
+          enableCalls.push(String(sessionId || ''))
+        }
+        return {}
       }
-      return {}
-    })
+    )
   }
   controller.extensionId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
