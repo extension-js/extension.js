@@ -7,10 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import {type Compilation} from '@rspack/core'
 import type {Manifest, DevOptions} from '../../../types'
 import {getManifestOverrides} from '../manifest-overrides'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
+
+const cjsRequire = createRequire(import.meta.url)
 
 const INTERNAL_MANIFEST_SOURCE = '__extensionjs_manifest_source__'
 const INTERNAL_MANIFEST_CURRENT_SOURCE =
@@ -106,7 +109,7 @@ export function getManifestContent(
   } catch {
     // Fallback to require when available
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require(manifestPath)
+    return cjsRequire(manifestPath)
   }
 }
 

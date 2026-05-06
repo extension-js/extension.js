@@ -8,6 +8,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import * as crypto from 'crypto'
 import {Compilation, sources, WebpackError} from '@rspack/core'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
@@ -49,7 +50,6 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   let outName = filenamePattern.replace('[name]', name).replace('[ext]', ext)
 
   if (outName.includes('[contenthash:8]')) {
-    const crypto = require('crypto') as typeof import('crypto')
     const hash = crypto
       .createHash('sha1')
       .update(content)
