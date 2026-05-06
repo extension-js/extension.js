@@ -61,7 +61,7 @@
     "dotenv-cli": "^11.0.0",
     "extension": "workspace:*",
     "husky": "9.1.7",
-    "lint-staged": "16.4.0",
+    "lint-staged": "17.0.0",
     "serialize-javascript": "^7.0.5",
     "tsx": "^4.21.0",
     "turbo": "^2.8.12",
