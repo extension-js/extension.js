@@ -21,7 +21,17 @@ const cliScenario =
   scenarioIndex >= 0 ? process.argv[scenarioIndex + 1] : 'default'
 const packageManager = cliPackageManager || 'npm'
 
-const supportedScenarios = new Set(['default', 'react-content-dev'])
+// `default` (the implicit value) runs the standard fixture AND the React
+// content-dev fixture — the latter is the only smoke that exercises the
+// content-script-wrapper + browser-shim graph that broke in a9153af9.
+// `default-only` runs the standard fixture without the React fixture, for
+// cases where a contributor wants the lighter check.
+// `react-content-dev` is kept as an explicit alias, identical to `default`.
+const supportedScenarios = new Set([
+  'default',
+  'default-only',
+  'react-content-dev'
+])
 
 function assertValidCliArgs(pm, scenario) {
   if (!pm || !supportedManagers.has(pm)) {
@@ -32,7 +42,7 @@ function assertValidCliArgs(pm, scenario) {
 
   if (!supportedScenarios.has(scenario)) {
     throw new Error(
-      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun> [--scenario <default|react-content-dev>]'
+      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun> [--scenario <default|default-only|react-content-dev>]'
     )
   }
 }
@@ -886,21 +896,27 @@ async function main() {
     await rewriteConsumerPackageJson(workdir, packageManager)
     installAndBuild(workdir, packageManager)
 
-    if (
-      cliScenario === 'react-content-dev' ||
-      (process.platform === 'win32' && packageManager === 'npm')
-    ) {
+    // The React content-script dev smoke is the part of the build graph that
+    // pulls in `feature-scripts-content-script-wrapper` + browser-runtime
+    // shims (preact-refresh-shim, main-world-bridge, minimum-script-file).
+    // It is also the ONLY smoke that compiled the user fixture far enough to
+    // catch the ESM-banner-leaking-into-browser regression captured in
+    // a9153af9. Run it on every matrix cell, not just windows/npm — the
+    // bug was platform-agnostic; only the dispatch was platform-specific.
+    // The `--scenario default` opt-out exists for cases where a contributor
+    // wants to run only the lighter check; CI passes no scenario so it runs.
+    if (cliScenario !== 'default-only') {
       const reactDevDir = path.join(tempRoot, 'react-content-dev')
       await writeReactContentDevFixture(reactDevDir)
+      // npm is the package manager used inside the fixture (it ships an
+      // npm-style lockfile); the outer matrix's `packageManager` is independent.
       await rewriteConsumerPackageJson(reactDevDir, 'npm')
       run('npm', ['install', '--no-audit', '--no-fund'], reactDevDir, {
         ...buildSmokeEnv('npm'),
         EXTENSION_JS_CACHE_DIR: path.join(reactDevDir, '.extensionjs-cache')
       })
       await runReactContentDevSmoke(reactDevDir)
-      console.log(
-        '\nWindows/npm React content-script dev smoke completed successfully.'
-      )
+      console.log('\nReact content-script dev smoke completed successfully.')
     }
 
     console.log(
