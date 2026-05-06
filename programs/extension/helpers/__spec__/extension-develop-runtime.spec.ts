@@ -30,7 +30,7 @@ describe('extension-develop runtime resolution', () => {
     }
   })
 
-  it('prefers the workspace extension-develop root over an env override', () => {
+  it('prefers the workspace extension-develop root over an env override', async () => {
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-develop-runtime-')
     )
@@ -43,8 +43,8 @@ describe('extension-develop runtime resolution', () => {
     })
     fs.mkdirSync(path.join(workspaceDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
-      path.join(workspaceDevelopRoot, 'dist', 'module.cjs'),
-      'module.exports = {extensionDev: "workspace"}\n'
+      path.join(workspaceDevelopRoot, 'dist', 'module.mjs'),
+      'export const extensionDev = "workspace"\n'
     )
 
     writeJson(path.join(envDevelopRoot, 'package.json'), {
@@ -53,8 +53,8 @@ describe('extension-develop runtime resolution', () => {
     })
     fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
-      path.join(envDevelopRoot, 'dist', 'module.cjs'),
-      'module.exports = {extensionDev: "env"}\n'
+      path.join(envDevelopRoot, 'dist', 'module.mjs'),
+      'export const extensionDev = "env"\n'
     )
 
     process.env.EXTENSION_DEVELOP_ROOT = envDevelopRoot
@@ -63,15 +63,14 @@ describe('extension-develop runtime resolution', () => {
     fs.mkdirSync(startDir, {recursive: true})
 
     expect(resolveExtensionDevelopRoot(startDir)).toBe(workspaceDevelopRoot)
-    expect(
-      loadExtensionDevelopModule<{extensionDev: string}>(startDir)
-    ).toEqual({
-      extensionDev: 'workspace'
-    })
+    const mod = await loadExtensionDevelopModule<{extensionDev: string}>(
+      startDir
+    )
+    expect(mod.extensionDev).toBe('workspace')
     expect(resolveExtensionDevelopVersion(startDir, '0.0.0')).toBe('9.9.9')
   })
 
-  it('does not escape node_modules to claim an outer workspace runtime', () => {
+  it('does not escape node_modules to claim an outer workspace runtime', async () => {
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-develop-runtime-installed-')
     )
@@ -104,8 +103,8 @@ describe('extension-develop runtime resolution', () => {
     })
     fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
-      path.join(envDevelopRoot, 'dist', 'module.cjs'),
-      'module.exports = {extensionDev: "env"}\n'
+      path.join(envDevelopRoot, 'dist', 'module.mjs'),
+      'export const extensionDev = "env"\n'
     )
 
     fs.mkdirSync(startDir, {recursive: true})
@@ -113,12 +112,13 @@ describe('extension-develop runtime resolution', () => {
     process.env.EXTENSION_DEVELOP_ROOT = envDevelopRoot
 
     expect(resolveExtensionDevelopRoot(startDir)).toBe(envDevelopRoot)
-    expect(
-      loadExtensionDevelopModule<{extensionDev: string}>(startDir)
-    ).toEqual({extensionDev: 'env'})
+    const mod = await loadExtensionDevelopModule<{extensionDev: string}>(
+      startDir
+    )
+    expect(mod.extensionDev).toBe('env')
   })
 
-  it('fails loudly when the workspace runtime exists but is not built', () => {
+  it('fails loudly when the workspace runtime exists but is not built', async () => {
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-develop-runtime-missing-')
     )
@@ -131,7 +131,7 @@ describe('extension-develop runtime resolution', () => {
     })
     fs.mkdirSync(startDir, {recursive: true})
 
-    expect(() => loadExtensionDevelopModule(startDir)).toThrow(
+    await expect(loadExtensionDevelopModule(startDir)).rejects.toThrow(
       /Run `pnpm --filter extension-develop compile`/
     )
   })

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
+import * as fs from 'fs'
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
@@ -345,8 +346,6 @@ function readContentScriptCount(compilation: any, outputPath: string): number {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const fs = require('fs') as typeof import('fs')
     const manifestPath = path.join(outputPath, 'manifest.json')
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
