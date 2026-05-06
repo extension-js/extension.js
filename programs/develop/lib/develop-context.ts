@@ -1,7 +1,10 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import packageJson from '../package.json'
 import {parseJsonSafe} from './parse-json-safe'
+
+const cjsRequire = createRequire(import.meta.url)
 
 if (!process.env.EXTENSION_JS_OPTIONAL_DEPS_VERSION) {
   process.env.EXTENSION_JS_OPTIONAL_DEPS_VERSION = packageJson.version
@@ -74,7 +77,7 @@ export function resolveDevelopInstallRoot(): string | undefined {
   }
 
   try {
-    const pkgPath = require.resolve('extension-develop/package.json', {
+    const pkgPath = cjsRequire.resolve('extension-develop/package.json', {
       paths: [__dirname]
     })
     return resolveDevelopRootFromDir(path.dirname(pkgPath))

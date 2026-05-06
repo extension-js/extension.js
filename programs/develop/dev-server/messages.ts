@@ -7,7 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import colors from 'pintor'
+
+const cjsRequire = createRequire(import.meta.url)
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
@@ -68,7 +71,7 @@ function getExtensionVersion(): string {
     process.env.EXTENSION_CLI_VERSION ||
     (() => {
       try {
-        return require('../package.json').version
+        return cjsRequire('../package.json').version
       } catch {
         return 'unknown'
       }
