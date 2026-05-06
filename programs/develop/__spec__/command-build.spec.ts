@@ -65,19 +65,9 @@ vi.mock('../plugin-special-folders/get-data', () => ({
 
 const rspackMock = vi.hoisted(() => vi.fn())
 
-vi.mock('module', async () => {
-  const actual = await vi.importActual<any>('module')
-  const realRequire = actual.createRequire(import.meta.url)
-  return {
-    ...actual,
-    createRequire: () => (id: string) => {
-      if (id === '@rspack/core') {
-        return {rspack: rspackMock}
-      }
-      return realRequire(id)
-    }
-  }
-})
+vi.mock('@rspack/core', () => ({
+  rspack: rspackMock
+}))
 
 // Make rspack compiler controllable
 function makeCompiler(statsImpl: any, failErr?: any) {

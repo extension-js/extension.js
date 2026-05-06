@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
+import * as path from 'path'
 import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
@@ -39,12 +40,12 @@ export class EmitHtmlFile {
             // - Leading "/" means extension root (manifest dir)
             // - Relative paths are resolved from manifest dir
             // - Absolute OS paths are used as-is
-            const projectDir = require('path').dirname(this.manifestPath)
-            const resolved = require('path').isAbsolute(resource)
+            const projectDir = path.dirname(this.manifestPath)
+            const resolved = path.isAbsolute(resource)
               ? resource
               : resource.startsWith('/')
-                ? require('path').join(projectDir, resource.slice(1))
-                : require('path').join(projectDir, resource)
+                ? path.join(projectDir, resource.slice(1))
+                : path.join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
               // Only warn for non-entrypoint HTML (special pages/*). Entrypoint

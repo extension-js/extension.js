@@ -150,8 +150,12 @@ describe('Chromium profile flags', () => {
     // Chrome's persistent profile then carried the previous run's
     // --load-extension path into the next session and the previous example
     // appeared loaded in the new one.
-    const projectA = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-profile-ctx-a-'))
-    const projectB = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-profile-ctx-b-'))
+    const projectA = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-profile-ctx-a-')
+    )
+    const projectB = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-profile-ctx-b-')
+    )
     const oldCwd = process.cwd()
 
     try {
@@ -204,9 +208,7 @@ describe('Chromium profile flags', () => {
     const explicitProfile = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-explicit-abs-')
     )
-    const projectDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-project-')
-    )
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-project-'))
 
     try {
       const compilation = {
