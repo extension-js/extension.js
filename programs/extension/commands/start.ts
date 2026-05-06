@@ -179,7 +179,7 @@ export function registerStartCommand(program: Command) {
       }
 
       const {extensionBuild}: {extensionBuild: any} =
-        loadExtensionDevelopModule()
+        await loadExtensionDevelopModule()
 
       for (const vendor of list) {
         const logsOption = (startOptions as unknown as {logs?: string}).logs
@@ -209,7 +209,7 @@ export function registerStartCommand(program: Command) {
         // project structure and extensions-to-load. We call launchBrowser
         // through the preview module which handles all of this.
         const {extensionPreview}: {extensionPreview: any} =
-          loadExtensionDevelopPreviewModule()
+          await loadExtensionDevelopPreviewModule()
 
         await extensionPreview(
           pathOrRemoteUrl,

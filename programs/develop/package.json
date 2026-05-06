@@ -7,23 +7,22 @@
     "directory": "programs/develop"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.18"
   },
   "exports": {
     ".": {
       "development": "./module.ts",
       "types": "./dist/module.d.ts",
-      "import": "./dist/module.cjs",
-      "require": "./dist/module.cjs"
+      "import": "./dist/module.mjs"
     },
     "./preview": {
       "development": "./preview-entry.ts",
       "types": "./dist/preview.d.ts",
-      "import": "./dist/preview.cjs",
-      "require": "./dist/preview.cjs"
-    }
+      "import": "./dist/preview.mjs"
+    },
+    "./package.json": "./package.json"
   },
-  "main": "./dist/module.cjs",
+  "main": "./dist/module.mjs",
   "types": "./dist/module.d.ts",
   "files": [
     "dist"

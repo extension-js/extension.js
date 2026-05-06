@@ -1,4 +1,7 @@
+import {createRequire} from 'module'
 import {type Compiler} from '@rspack/core'
+
+const cjsRequire = createRequire(import.meta.url)
 
 function normalizeBoolean(value: unknown, fallback: boolean): string {
   return String(typeof value === 'boolean' ? value : fallback)
@@ -18,7 +21,7 @@ let _resolvedHotPath: string | undefined
 function resolveHmrClientPath(): string {
   if (!_resolvedClientPath) {
     try {
-      _resolvedClientPath = require.resolve(
+      _resolvedClientPath = cjsRequire.resolve(
         '@rspack/dev-server/client/index.js',
         {paths: [__dirname]}
       )
@@ -32,7 +35,7 @@ function resolveHmrClientPath(): string {
 function resolveHmrHotPath(): string {
   if (!_resolvedHotPath) {
     try {
-      _resolvedHotPath = require.resolve('webpack/hot/dev-server', {
+      _resolvedHotPath = cjsRequire.resolve('webpack/hot/dev-server', {
         paths: [__dirname]
       })
     } catch {

@@ -188,11 +188,7 @@ function resolveCommandOnPath(command: string) {
 
 function canRunCorepack(): boolean {
   try {
-    const fallback = require('child_process') as typeof import('child_process')
-    const spawnSync =
-      (spawnSyncImported as any)?.mock !== undefined
-        ? spawnSyncImported
-        : fallback.spawnSync || spawnSyncImported
+    const spawnSync = spawnSyncImported
     const result = spawnSync('corepack', ['--version'], {
       stdio: 'ignore',
       windowsHide: true

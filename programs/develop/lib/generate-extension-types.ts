@@ -9,6 +9,7 @@
 import * as path from 'path'
 import {Dirent} from 'fs'
 import * as fs from 'fs/promises'
+import {parseJsonSafe} from './parse-json-safe'
 import * as messages from './messages'
 
 export async function generateExtensionTypes(
@@ -49,7 +50,12 @@ export async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
     // File does not exist, continue to write it
-    const manifest = require(path.join(manifestDir, 'manifest.json'))
+    const manifestText = await fs.readFile(
+      path.join(manifestDir, 'manifest.json'),
+      'utf8'
+    )
+
+    const manifest = parseJsonSafe(manifestText)
     console.log(messages.writingTypeDefinitions(manifest))
     try {
       await fs.writeFile(extensionEnvFile, fileContent)

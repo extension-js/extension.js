@@ -107,7 +107,7 @@ function handleCantResolveError(
           const warn = new WebpackError(errorMsg)
           warn.name = 'HtmlEntrypointMissing'
           // @ts-expect-error - file is not a property of WebpackError
-          warn.file = require('path').relative(manifestDir, resource as string)
+          warn.file = path.relative(manifestDir, resource as string)
           return warn
         }
       }
@@ -151,7 +151,7 @@ export class HandleCommonErrors {
                   this.includeList || {},
                   error as StatsError,
                   compilation,
-                  require('path').dirname(this.manifestPath)
+                  path.dirname(this.manifestPath)
                 )
                 if (cantResolveError) {
                   compilation.errors[index] = cantResolveError
@@ -169,7 +169,7 @@ export class HandleCommonErrors {
               this.includeList || {},
               error as unknown as StatsError,
               compilation,
-              require('path').dirname(this.manifestPath)
+              path.dirname(this.manifestPath)
             )
             return replaced || error
           })
@@ -188,7 +188,7 @@ export class HandleCommonErrors {
             this.includeList || {},
             error as unknown as StatsError,
             compilation,
-            require('path').dirname(this.manifestPath)
+            path.dirname(this.manifestPath)
           )
           return replaced || error
         })
