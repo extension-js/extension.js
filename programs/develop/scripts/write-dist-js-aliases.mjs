@@ -19,16 +19,16 @@ const stems = [
 async function main() {
   await Promise.all(
     stems.map(async (stem) => {
-      const cjsPath = path.join(distDir, `${stem}.cjs`)
+      const mjsPath = path.join(distDir, `${stem}.mjs`)
       const jsPath = path.join(distDir, `${stem}.js`)
-      const source = await fs.readFile(cjsPath)
+      const source = await fs.readFile(mjsPath)
       await fs.writeFile(jsPath, source)
     })
   )
 
   await fs.writeFile(
     path.join(distDir, 'package.json'),
-    `${JSON.stringify({type: 'commonjs'}, null, 2)}\n`
+    `${JSON.stringify({type: 'module'}, null, 2)}\n`
   )
 }
 

@@ -67,7 +67,9 @@ describe('CDPExtensionController initial-burst suppression', () => {
     )
 
     // Simulate Runtime.enable's re-emission burst right after attach.
-    const sessionId = Array.from(controller.watchedPageSessions.keys())[0] as string
+    const sessionId = Array.from(
+      controller.watchedPageSessions.keys()
+    )[0] as string
     expect(sessionId).toBeTruthy()
     expect(controller.suppressInitialContextBurst.has(sessionId)).toBe(true)
 
@@ -110,7 +112,9 @@ describe('CDPExtensionController initial-burst suppression', () => {
       }
     })
 
-    expect(controller.evaluateContentScriptOnNewContext).toHaveBeenCalledTimes(1)
+    expect(controller.evaluateContentScriptOnNewContext).toHaveBeenCalledTimes(
+      1
+    )
   })
 
   it('clears the suppression entry when the watched session detaches', async () => {
@@ -131,7 +135,9 @@ describe('CDPExtensionController initial-burst suppression', () => {
     await controller.registerContentScriptsForFutureNavigations(
       controller.activeContentScriptRules
     )
-    const sessionId = Array.from(controller.watchedPageSessions.keys())[0] as string
+    const sessionId = Array.from(
+      controller.watchedPageSessions.keys()
+    )[0] as string
     expect(controller.suppressInitialContextBurst.has(sessionId)).toBe(true)
 
     emit(sessionId, {method: 'Target.detachedFromTarget', params: {}})

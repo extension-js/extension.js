@@ -327,7 +327,8 @@ export function registerDevCommand(program: Command) {
         devOptions.watchSource
       )
 
-      const {extensionDev}: {extensionDev: any} = loadExtensionDevelopModule()
+      const {extensionDev}: {extensionDev: any} =
+        await loadExtensionDevelopModule()
       const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
 
       for (const vendor of list) {

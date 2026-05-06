@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import {pathToFileURL} from 'url'
 import {createRequire} from 'module'
 
 const require = createRequire(import.meta.url)
@@ -80,7 +81,7 @@ function resolveDevelopDistEntry(
   name: string = 'module'
 ): string | undefined {
   const base = path.join(root, 'dist', name)
-  const candidates = [`${base}.cjs`, `${base}.js`, `${base}.mjs`, base]
+  const candidates = [`${base}.mjs`, `${base}.cjs`, `${base}.js`, base]
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
@@ -120,15 +121,25 @@ export function resolveExtensionDevelopVersion(
   }
 }
 
-export function loadExtensionDevelopModule<T = any>(
+async function importModule<T = any>(filePath: string): Promise<T> {
+  const mod: any = await import(pathToFileURL(filePath).href)
+
+  return (
+    mod?.default && typeof mod.default === 'object'
+      ? {...mod.default, ...mod}
+      : mod
+  ) as T
+}
+
+export async function loadExtensionDevelopModule<T = any>(
   startDir: string = __dirname
-): T {
+): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
   const distEntry = resolveDevelopDistEntry(root)
 
   if (distEntry) {
-    return require(distEntry) as T
+    return importModule<T>(distEntry)
   }
 
   if (source === 'workspace') {
@@ -138,7 +149,7 @@ export function loadExtensionDevelopModule<T = any>(
     )
   }
 
-  return require('extension-develop') as T
+  return (await import('extension-develop')) as T
 }
 
 /**
@@ -146,22 +157,22 @@ export function loadExtensionDevelopModule<T = any>(
  * This avoids pulling in rspack and the full build toolchain, making
  * `extension preview` start significantly faster.
  */
-export function loadExtensionDevelopPreviewModule<T = any>(
+export async function loadExtensionDevelopPreviewModule<T = any>(
   startDir: string = __dirname
-): T {
+): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
   const previewEntry = resolveDevelopDistEntry(root, 'preview')
 
   if (previewEntry) {
-    return require(previewEntry) as T
+    return importModule<T>(previewEntry)
   }
 
   // Fall back to the full module if the preview entry doesn't exist
   // (e.g. older extension-develop versions without the split entry).
   const fullEntry = resolveDevelopDistEntry(root)
   if (fullEntry) {
-    return require(fullEntry) as T
+    return importModule<T>(fullEntry)
   }
 
   if (source === 'workspace') {
@@ -171,5 +182,5 @@ export function loadExtensionDevelopPreviewModule<T = any>(
     )
   }
 
-  return require('extension-develop/preview') as T
+  return (await import('extension-develop/preview')) as T
 }

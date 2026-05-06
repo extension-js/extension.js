@@ -48,6 +48,15 @@ declare module 'extension-develop' {
   ): Promise<any>
 }
 
+declare module 'extension-develop/preview' {
+  export type PreviewOptions = Record<string, unknown>
+
+  export function extensionPreview(
+    pathOrRemoteUrl: string | undefined,
+    options: PreviewOptions
+  ): Promise<any>
+}
+
 declare module 'extension-install' {
   export interface InstallOptions {
     browser: string

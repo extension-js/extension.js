@@ -111,7 +111,7 @@ export function registerBuildCommand(program: Command) {
       }
 
       const {extensionBuild}: {extensionBuild: any} =
-        loadExtensionDevelopModule()
+        await loadExtensionDevelopModule()
 
       for (const vendor of list) {
         await extensionBuild(pathOrRemoteUrl, {

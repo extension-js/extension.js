@@ -125,7 +125,7 @@ export function registerPreviewCommand(program: Command) {
       }
 
       const {extensionPreview}: {extensionPreview: any} =
-        loadExtensionDevelopPreviewModule()
+        await loadExtensionDevelopPreviewModule()
 
       for (const vendor of list) {
         const logsOption = (previewOptions as unknown as {logs?: string}).logs
