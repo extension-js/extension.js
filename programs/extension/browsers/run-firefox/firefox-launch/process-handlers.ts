@@ -88,6 +88,12 @@ export function setupFirefoxProcessHandlers(
   process.on('beforeExit', onSignal)
 
   process.on('uncaughtException', async (error) => {
+    if (isBenignSocketTeardown(error)) {
+      // RDP socket reads can fire ECONNRESET while Firefox is being closed
+      // (auto-exit, Ctrl+C). Ignoring keeps a graceful shutdown clean —
+      // mirrors the Chromium handler so both browsers behave the same.
+      return
+    }
     console.error(
       messages.enhancedProcessManagementUncaughtException(browser, error)
     )
@@ -96,10 +102,24 @@ export function setupFirefoxProcessHandlers(
   })
 
   process.on('unhandledRejection', async (reason) => {
+    if (isBenignSocketTeardown(reason)) return
     console.error(
       messages.enhancedProcessManagementUnhandledRejection(browser, reason)
     )
     await attemptCleanup()
     process.exit(1)
   })
+}
+
+const BENIGN_SOCKET_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'EPIPE',
+  'ECONNABORTED',
+  'ENOTCONN'
+])
+
+function isBenignSocketTeardown(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const code = (value as {code?: unknown}).code
+  return typeof code === 'string' && BENIGN_SOCKET_ERROR_CODES.has(code)
 }
