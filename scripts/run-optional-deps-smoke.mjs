@@ -936,11 +936,20 @@ const isDirectExecution =
   import.meta.url === pathToFileURL(process.argv[1]).toString()
 
 if (isDirectExecution) {
-  main().catch((error) => {
-    console.error('\nOptional dependency matrix smoke test failed.')
-    console.error(error instanceof Error ? error.stack : error)
-    process.exit(1)
-  })
+  main()
+    .then(() => {
+      // Force-exit after main() resolves: spawned `extension dev` subprocesses
+      // can leak orphan node children that hold stdio pipes open and keep the
+      // event loop alive on Linux runners (Windows uses taskkill /T to kill
+      // the tree; macOS happens to clean up). Without this, CI jobs report
+      // success in stdout but the runner step hangs until cancellation.
+      process.exit(0)
+    })
+    .catch((error) => {
+      console.error('\nOptional dependency matrix smoke test failed.')
+      console.error(error instanceof Error ? error.stack : error)
+      process.exit(1)
+    })
 }
 
 export {
