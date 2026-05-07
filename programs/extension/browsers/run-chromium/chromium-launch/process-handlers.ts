@@ -66,6 +66,13 @@ export function setupProcessSignalHandlers(
   process.on('exit', cleanup)
 
   process.on('uncaughtException', (error) => {
+    if (isBenignSocketTeardown(error)) {
+      // Browser auto-exit (EXTENSION_AUTO_EXIT_MS) and Ctrl+C teardowns close
+      // the CDP/HTTP sockets while reads may still be in flight. The runner
+      // can safely ignore these — keeping `process.exit(1)` here turns a
+      // clean shutdown into a CI failure (Templates Nightly Edge).
+      return
+    }
     console.error(
       messages.enhancedProcessManagementUncaughtException(browser, error)
     )
@@ -74,10 +81,27 @@ export function setupProcessSignalHandlers(
   })
 
   process.on('unhandledRejection', (reason) => {
+    if (isBenignSocketTeardown(reason)) return
     console.error(
       messages.enhancedProcessManagementUnhandledRejection(browser, reason)
     )
     cleanup()
     process.exit(1)
   })
+}
+
+// Errors that come from a socket the browser is in the middle of closing.
+// They are not faults in the runner — they mean "the peer hung up while we
+// were reading". Treat as no-op so a graceful shutdown stays graceful.
+const BENIGN_SOCKET_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'EPIPE',
+  'ECONNABORTED',
+  'ENOTCONN'
+])
+
+function isBenignSocketTeardown(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const code = (value as {code?: unknown}).code
+  return typeof code === 'string' && BENIGN_SOCKET_ERROR_CODES.has(code)
 }

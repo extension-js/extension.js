@@ -81,6 +81,42 @@ describe('Chromium setupProcessSignalHandlers', () => {
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
   })
 
+  it('ignores ECONNRESET / EPIPE thrown during browser teardown', async () => {
+    // Regression: Templates Nightly Edge job hit ECONNRESET on a CDP socket
+    // during EXTENSION_AUTO_EXIT_MS shutdown and force-exited the runner with
+    // code 1, turning a clean shutdown into a CI failure.
+    const {setupProcessSignalHandlers} = await import(
+      '../../run-chromium/chromium-launch/process-handlers'
+    )
+
+    const child: any = {killed: false, kill: vi.fn(), pid: 12345}
+    const cleanupInstance = vi.fn()
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    setupProcessSignalHandlers('chrome', child, cleanupInstance)
+
+    const handlers = registeredHandlers.get('uncaughtException') || []
+    expect(handlers).toHaveLength(1)
+
+    for (const code of ['ECONNRESET', 'EPIPE', 'ECONNABORTED', 'ENOTCONN']) {
+      const err: NodeJS.ErrnoException = new Error(`read ${code}`)
+      err.code = code
+      handlers[0](err)
+    }
+
+    expect(exitSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    expect(cleanupInstance).not.toHaveBeenCalled()
+
+    // Real errors still go through the fatal path.
+    handlers[0](new Error('real failure'))
+    expect(cleanupInstance).toHaveBeenCalledTimes(1)
+    expect(exitSpy).toHaveBeenCalledWith(1)
+  })
+
   it('calling setup twice causes cleanup to fire twice on signal (no guard)', async () => {
     const {setupProcessSignalHandlers} = await import(
       '../../run-chromium/chromium-launch/process-handlers'
@@ -186,6 +222,38 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
     // childRef should have been called to get the current child
     expect(childRef).toHaveBeenCalled()
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+  })
+
+  it('ignores ECONNRESET / EPIPE thrown during Firefox teardown', async () => {
+    const {setupFirefoxProcessHandlers} = await import(
+      '../../run-firefox/firefox-launch/process-handlers'
+    )
+
+    const child: any = {killed: false, kill: vi.fn(), pid: 12345}
+    const cleanupInstance = vi.fn(async () => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    setupFirefoxProcessHandlers('firefox', () => child, cleanupInstance)
+
+    const handlers = registeredHandlers.get('uncaughtException') || []
+    expect(handlers).toHaveLength(1)
+
+    for (const code of ['ECONNRESET', 'EPIPE', 'ECONNABORTED', 'ENOTCONN']) {
+      const err: NodeJS.ErrnoException = new Error(`read ${code}`)
+      err.code = code
+      await handlers[0](err)
+    }
+
+    expect(exitSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    expect(cleanupInstance).not.toHaveBeenCalled()
+
+    await handlers[0](new Error('real failure'))
+    expect(cleanupInstance).toHaveBeenCalledTimes(1)
+    expect(exitSpy).toHaveBeenCalledWith(1)
   })
 
   it('handles null child ref gracefully', async () => {
