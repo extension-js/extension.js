@@ -2,24 +2,12 @@
 
 ## Unreleased
 
-- Update preact.spec assertions to match package-directory preactPath (792b9895)
-- Pass preact package directory to PreactRefreshPlugin (not entry file) (d891bc87)
-- Add regression test for PreactRefreshPlugin preactPath option (5064a559)
-- Pass project preact path to PreactRefreshPlugin for pnpm strict layouts (30d4e851)
-- Add regression tests for module-context-resolve project-package fallback (28f31ad5)
-- Raise content-script perf budget to 256 KiB for framework templates (3e10d6ce)
-- Apply project-package fallback to module-context-resolve rules (a031e07e)
-- Trust project package.json when pnpm symlinks hide the contract dep (68d8fe23)
-- Suppress executionContextCreated burst on watched-session attach (7911dc82)
-- Preserve sibling content_scripts entries during dev reinject (2447d185)
-- Inline content-script CSS as data URLs to close the WAR gap on rspack 2.x (32323b25)
-- Relocate reload-matrix harness to _FUTURE/examples per workspace convention (57c0d3a7)
-- Add remote-mode and template-name fixture resolution to reload-matrix harness (51f7e557)
-- Stop firing chrome.runtime.reload for page-only edits in non-content-script extensions (e01377fd)
-- Extend reload-matrix harness with multi-scenario runner and 5-row matrix (f6f932d2)
-- Scaffold reload-matrix CDP harness for ground-truth reload measurement (047f702a)
-- Revert "Serialize and coalesce reload requests at the controller boundary" (4e48859c)
-- Serialize and coalesce reload requests at the controller boundary (b49bbabe)
+- Ignore benign socket teardown errors in browser process handlers (Templates Nightly Edge ECONNRESET) (fda84038)
+- Force-exit optional-deps smoke after main() so Linux orphans don't hang the CI step (16eb6708)
+- Compile extension-develop before vitest so dist-shape spec has artifacts (d7cc6227)
+- Scope ESM banner to Node-side bundles and add regression gates (c0dd71d6)
+- Flip extension-develop to ESM output for @rspack/core@2 compatibility (fc952d97)
+- Update WASM example link in README (6f7ab3dd)
 
 ## 3.8.2
 
