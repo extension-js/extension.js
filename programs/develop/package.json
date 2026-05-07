@@ -28,7 +28,7 @@
     "dist"
   ],
   "name": "extension-develop",
-  "version": "3.15.1",
+  "version": "3.16.0",
   "description": "Develop, build, preview, and package Extension.js projects.",
   "author": {
     "name": "Cezar Augusto",
