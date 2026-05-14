@@ -12,7 +12,7 @@ import {Compiler} from '@rspack/core'
 import * as featureScriptMessages from '../../messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
-import {type DevOptions} from '../../../../types'
+import {type DevOptions, type Manifest} from '../../../../types'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 
 export class SetupBackgroundEntry {
@@ -61,8 +61,11 @@ export class SetupBackgroundEntry {
         : 'minimum-chromium-file'
     )
     const dirname = path.dirname(this.manifestPath)
-    let manifestBg = filterKeysForThisBrowser(manifest, browser)
-    manifestBg = manifestBg?.background ?? manifest.background
+    const filteredManifest =
+      (filterKeysForThisBrowser(manifest, browser) as Manifest) || manifest
+    const manifestBg = filteredManifest?.background ?? manifest.background
+    const manifestVersion =
+      filteredManifest?.manifest_version ?? manifest.manifest_version
 
     function hookError(maybeError: string) {
       compiler.hooks.thisCompilation.tap(
@@ -87,7 +90,7 @@ export class SetupBackgroundEntry {
     }
 
     // chromium / manifest v3 or v2
-    if (manifest.manifest_version === 3) {
+    if (manifestVersion === 3) {
       const serviceWorker = manifestBg?.service_worker
       if (serviceWorker) {
         const swPath = path.join(dirname, serviceWorker)
@@ -111,7 +114,7 @@ export class SetupBackgroundEntry {
           minimumBgScript
         )
       }
-    } else if (manifest.manifest_version === 2) {
+    } else if (manifestVersion === 2) {
       const bgScripts = manifestBg?.scripts
 
       if (bgScripts && bgScripts.length > 0) {
