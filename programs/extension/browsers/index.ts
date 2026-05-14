@@ -269,6 +269,27 @@ async function launchChromium(
               // Best-effort: open-tab reinjection already happened above.
             }
           }
+          // 3. Re-execute any programmatic `chrome.scripting.executeScript`
+          //    calls that referenced a changed `/scripts/<name>.js` file.
+          //    Declarative content_scripts handle their own HMR via the
+          //    reinject above; this brings programmatic injection closer to
+          //    parity. No-op when no /scripts/* file changed or when the
+          //    user's SW never called executeScript.
+          const changedScripts = (instruction.changedAssets || []).filter(
+            (asset) =>
+              /(^|\/)scripts\//i.test(String(asset || '')) &&
+              /\.[cm]?[jt]sx?$/i.test(String(asset || ''))
+          )
+          if (
+            changedScripts.length > 0 &&
+            typeof ctrl.replayProgrammaticScripts === 'function'
+          ) {
+            try {
+              await ctrl.replayProgrammaticScripts(changedScripts)
+            } catch {
+              // Best-effort; the dist-on-disk is already fresh.
+            }
+          }
           return
         }
       }
