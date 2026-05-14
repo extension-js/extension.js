@@ -63,10 +63,13 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   const [copyTabState, setCopyTabState] = useState<'idle' | 'copied' | 'failed'>(
     'idle'
   )
+  const [isReloading, setIsReloading] = useState(false)
+  const [localNetworkDismissed, setLocalNetworkDismissed] = useState(false)
   const idRef = useRef(1)
   const autoOpenedRef = useRef(false)
   const lastLocalNetworkSignalRef = useRef<string>('')
   const lastExtensionSignalRef = useRef<string>('')
+  const reloadDoneTimerRef = useRef<number | undefined>(undefined)
 
   const errorCount = entries.filter((e) => e.level === 'error').length
   const pageErrors = useMemo(
@@ -191,6 +194,42 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       window.removeEventListener('unhandledrejection', onRejection)
 
       console.error = originalError
+    }
+  }, [isErrorOverlayEnabled])
+
+  useEffect(() => {
+    if (!isErrorOverlayEnabled) return
+    const onMessage = (message: unknown) => {
+      const payload = message as
+        | {type?: string; state?: 'reloading' | 'reloaded'}
+        | undefined
+      if (!payload || payload.type !== 'extjs-dev-reload') return
+
+      if (payload.state === 'reloading') {
+        if (reloadDoneTimerRef.current !== undefined) {
+          window.clearTimeout(reloadDoneTimerRef.current)
+          reloadDoneTimerRef.current = undefined
+        }
+        setIsReloading(true)
+      } else if (payload.state === 'reloaded') {
+        if (reloadDoneTimerRef.current !== undefined) {
+          window.clearTimeout(reloadDoneTimerRef.current)
+        }
+        // Briefly keep the indicator visible so the transition is perceivable
+        // even when the disabled→enabled flip is near-instant.
+        setIsReloading(true)
+        reloadDoneTimerRef.current = window.setTimeout(() => {
+          setIsReloading(false)
+          reloadDoneTimerRef.current = undefined
+        }, 900)
+      }
+    }
+    chrome.runtime.onMessage.addListener(onMessage)
+    return () => {
+      chrome.runtime.onMessage.removeListener(onMessage)
+      if (reloadDoneTimerRef.current !== undefined) {
+        window.clearTimeout(reloadDoneTimerRef.current)
+      }
     }
   }, [isErrorOverlayEnabled])
 
@@ -540,17 +579,32 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     <>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
         <DialogPrimitive.Portal container={portalContainer}>
-          <DialogContent className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 border border-neutral-700 bg-neutral-900 p-6 text-neutral-100 opacity-100 shadow-[0_20px_48px_rgba(0,0,0,0.5)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%] sm:rounded-lg">
-            <div>
-              <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight text-red-400">
-                Extension.js diagnostics
-              </DialogPrimitive.Title>
-              <DialogPrimitive.Description className="text-sm text-neutral-300">
-                Setup health + split errors from page and content script contexts.
-              </DialogPrimitive.Description>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2 rounded border border-neutral-800 bg-neutral-950 p-3">
+          <DialogContent
+            // Radix scans the *direct* children of `Content` for a `Title` and
+            // emits an a11y warning when none is found. The Title used to live
+            // inside a wrapping `<div>`, which tripped that check on every
+            // open — render it as a direct child instead.
+            //
+            // Background is set with both `bg-neutral-900` and an explicit
+            // `bg-opacity-100` so the dialog is never semi-transparent, even
+            // mid-animation when the data-state classes are toggling.
+            className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-neutral-700 bg-neutral-900 bg-opacity-100 p-6 text-neutral-100 opacity-100 shadow-[0_20px_48px_rgba(0,0,0,0.6)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%]"
+          >
+            <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight text-red-400">
+              Extension.js diagnostics
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-neutral-300">
+              Setup health + split errors from page and content script contexts.
+            </DialogPrimitive.Description>
+            <div
+              className={
+                'grid gap-3 ' +
+                (localNetworkDismissed
+                  ? 'grid-cols-1'
+                  : 'grid-cols-1 sm:grid-cols-2')
+              }
+            >
+              <div className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950 bg-opacity-100 p-3">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-neutral-300">User extension enabled</span>
                   <span
@@ -568,25 +622,27 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
                 <p className="text-xs text-neutral-400">{userExtensionDescription}</p>
               </div>
 
-              <div className="space-y-2 rounded border border-neutral-800 bg-neutral-950 p-3">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-neutral-300">
-                    Local network access (this site)
-                  </span>
-                  <span
-                    className={
-                      localNetworkStatus === 'granted'
-                        ? 'text-emerald-400'
-                        : localNetworkStatus === 'checking'
-                        ? 'text-neutral-400'
-                        : 'text-amber-400'
-                    }
-                  >
-                    {localNetworkStatus}
-                  </span>
+              {localNetworkDismissed ? null : (
+                <div className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950 bg-opacity-100 p-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-neutral-300">
+                      Local network access (this site)
+                    </span>
+                    <span
+                      className={
+                        localNetworkStatus === 'granted'
+                          ? 'text-emerald-400'
+                          : localNetworkStatus === 'checking'
+                          ? 'text-neutral-400'
+                          : 'text-amber-400'
+                      }
+                    >
+                      {localNetworkStatus}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400">{localNetworkDescription}</p>
                 </div>
-                <p className="text-xs text-neutral-400">{localNetworkDescription}</p>
-              </div>
+              )}
             </div>
             <div className="relative flex min-h-0 flex-col rounded border border-neutral-800 bg-neutral-950 p-3">
               <h4 className="text-sm font-medium text-neutral-200">
@@ -700,21 +756,32 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647]">
+      <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647] flex items-center gap-2">
         <Button
-          onClick={() => setOpen(true)}
-          className="pointer-events-auto relative rounded-none border border-neutral-700 bg-neutral-900 text-neutral-300 opacity-100 shadow hover:bg-neutral-900"
+          onClick={() => {
+            setLocalNetworkDismissed(true)
+            setOpen(true)
+          }}
+          // `rounded-full` makes the launcher fully circular; explicit
+          // `bg-opacity-100` keeps it solid even mid-animation. z-index lifted
+          // to the max signed 32-bit value so the pill always wins over any
+          // host-page stacking context.
+          className="pointer-events-auto relative rounded-full border border-neutral-700 bg-neutral-900 bg-opacity-100 text-neutral-300 opacity-100 shadow hover:bg-neutral-900"
           size="icon"
           variant="secondary"
           aria-label={
-            diagnosticsIssueCount > 0
+            isReloading
+              ? 'Extension is reloading'
+              : diagnosticsIssueCount > 0
               ? diagnosticsIssueLabel
               : errorCount > 0
               ? `Show errors (${errorCount})`
               : 'Show diagnostics'
           }
           title={
-            diagnosticsIssueCount > 0
+            isReloading
+              ? 'Extension is reloading'
+              : diagnosticsIssueCount > 0
               ? diagnosticsIssueLabel
               : errorCount > 0
               ? `Show errors (${errorCount})`
@@ -740,6 +807,15 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             </span>
           ) : null}
         </Button>
+        {isReloading ? (
+          <span
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none rounded-full border border-neutral-700 bg-neutral-900 bg-opacity-100 px-3 py-1 text-xs font-medium text-neutral-200 opacity-100 shadow"
+          >
+            Reloading…
+          </span>
+        ) : null}
       </div>
     </>
   )
