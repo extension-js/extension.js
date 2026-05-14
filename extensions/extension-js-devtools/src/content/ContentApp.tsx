@@ -20,14 +20,6 @@ interface LogEntry {
   time: string
 }
 
-type LocalNetworkStatus =
-  | 'checking'
-  | 'granted'
-  | 'prompt'
-  | 'denied'
-  | 'unsupported'
-  | 'error'
-
 type UserExtensionStatus =
   | 'checking'
   | 'enabled'
@@ -54,8 +46,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       .toLowerCase() === 'true'
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<LogEntry[]>([])
-  const [localNetworkStatus, setLocalNetworkStatus] =
-    useState<LocalNetworkStatus>('checking')
   const [userExtensionStatus, setUserExtensionStatus] =
     useState<UserExtensionStatus>('checking')
   const [userExtensionName, setUserExtensionName] = useState<string>('')
@@ -64,10 +54,8 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     'idle'
   )
   const [isReloading, setIsReloading] = useState(false)
-  const [localNetworkDismissed, setLocalNetworkDismissed] = useState(false)
   const idRef = useRef(1)
   const autoOpenedRef = useRef(false)
-  const lastLocalNetworkSignalRef = useRef<string>('')
   const lastExtensionSignalRef = useRef<string>('')
   const reloadDoneTimerRef = useRef<number | undefined>(undefined)
 
@@ -84,9 +72,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     () => entries.filter((e) => e.level === 'error'),
     [entries]
   )
-  const diagnosticsIssueCount =
-    (localNetworkStatus !== 'granted' ? 1 : 0) +
-    (userExtensionStatus !== 'enabled' ? 1 : 0)
+  const diagnosticsIssueCount = userExtensionStatus !== 'enabled' ? 1 : 0
 
   const addEntry = (
     level: LogLevel,
@@ -260,30 +246,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     if (!isErrorOverlayEnabled) return
     let mounted = true
 
-    const refreshLocalNetworkStatus = async () => {
-      try {
-        if (!navigator.permissions?.query) {
-          if (!mounted) return
-          setLocalNetworkStatus('unsupported')
-          return
-        }
-
-        const status = await navigator.permissions.query({
-          name: 'local-network-access' as PermissionName
-        })
-        if (!mounted) return
-
-        const value = String(status.state || '').toLowerCase()
-        if (value === 'granted') setLocalNetworkStatus('granted')
-        else if (value === 'prompt') setLocalNetworkStatus('prompt')
-        else if (value === 'denied') setLocalNetworkStatus('denied')
-        else setLocalNetworkStatus('error')
-      } catch {
-        if (!mounted) return
-        setLocalNetworkStatus('unsupported')
-      }
-    }
-
     const refreshUserExtensionStatus = async () => {
       try {
         const response = await new Promise<any>((resolve) => {
@@ -311,11 +273,9 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       }
     }
 
-    refreshLocalNetworkStatus()
     refreshUserExtensionStatus()
 
     const onFocus = () => {
-      refreshLocalNetworkStatus()
       refreshUserExtensionStatus()
     }
 
@@ -332,31 +292,12 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   useEffect(() => {
     if (!isErrorOverlayEnabled) return
     if (autoOpenedRef.current) return
-    if (
-      localNetworkStatus === 'checking' ||
-      userExtensionStatus === 'checking'
-    ) {
-      return
-    }
-
-    const shouldAutoOpen =
-      localNetworkStatus !== 'granted' || userExtensionStatus !== 'enabled'
-    if (!shouldAutoOpen) return
+    if (userExtensionStatus === 'checking') return
+    if (userExtensionStatus === 'enabled') return
 
     setOpen(true)
     autoOpenedRef.current = true
-  }, [isErrorOverlayEnabled, localNetworkStatus, userExtensionStatus])
-
-  const localNetworkDescription =
-    localNetworkStatus === 'granted'
-      ? 'Local network access is enabled for this site.'
-      : localNetworkStatus === 'prompt'
-      ? 'Chrome will ask on first local-network request. Click Allow.'
-      : localNetworkStatus === 'denied'
-      ? 'Local network access is blocked. Re-enable it in site settings.'
-      : localNetworkStatus === 'checking'
-      ? 'Checking local network permission...'
-      : 'Could not read local network permission.'
+  }, [isErrorOverlayEnabled, userExtensionStatus])
 
   const userExtensionDescription =
     userExtensionStatus === 'enabled'
@@ -409,8 +350,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       pageUrl: location.href,
       setup: {
         userExtensionStatus,
-        userExtensionName: userExtensionName || null,
-        localNetworkStatus
+        userExtensionName: userExtensionName || null
       },
       counts: {
         all: allErrors.length,
@@ -448,68 +388,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       window.setTimeout(() => setCopyTabState('idle'), 1500)
     }
   }
-
-  useEffect(() => {
-    if (!isErrorOverlayEnabled) return
-    if (localNetworkStatus === 'checking') return
-    const key = `${localNetworkStatus}:${location.href}`
-    if (lastLocalNetworkSignalRef.current === key) return
-    lastLocalNetworkSignalRef.current = key
-
-    if (localNetworkStatus === 'granted') {
-      emitDxSignal({
-        code: 'DX_LOCAL_NETWORK_GRANTED',
-        status: 'ok',
-        level: 'info',
-        messageParts: ['Local network access is granted for this site.'],
-        data: {localNetworkState: localNetworkStatus}
-      })
-      return
-    }
-
-    if (localNetworkStatus === 'prompt') {
-      emitDxSignal({
-        code: 'DX_LOCAL_NETWORK_PROMPT',
-        status: 'warn',
-        level: 'warn',
-        messageParts: [
-          'Local network access is pending prompt on this site.',
-          'Allow when prompted to keep content script reload reliable.'
-        ],
-        remediation: 'Allow local network access when Chrome prompts.',
-        data: {localNetworkState: localNetworkStatus}
-      })
-      return
-    }
-
-    if (localNetworkStatus === 'denied') {
-      emitDxSignal({
-        code: 'DX_LOCAL_NETWORK_DENIED',
-        status: 'fail',
-        level: 'error',
-        messageParts: [
-          'Local network access is denied for this site.',
-          'Content script reload may fail.'
-        ],
-        remediation:
-          'Re-enable local network access in this site settings and reload the page.',
-        data: {localNetworkState: localNetworkStatus}
-      })
-      return
-    }
-
-    emitDxSignal({
-      code: 'DX_LOCAL_NETWORK_UNSUPPORTED',
-      status: 'warn',
-      level: 'warn',
-      messageParts: [
-        'Local network permission status is not available on this page/browser.'
-      ],
-      remediation:
-        'If HMR fails, verify local network access in browser/site settings.',
-      data: {localNetworkState: localNetworkStatus}
-    })
-  }, [isErrorOverlayEnabled, localNetworkStatus])
 
   useEffect(() => {
     if (!isErrorOverlayEnabled) return
@@ -575,6 +453,21 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     return null
   }
 
+  // Hardcoded surface colors. Tailwind v4 routes `bg-neutral-900` through the
+  // CSS variable `--color-neutral-900`, and CSS variables inherit through open
+  // shadow roots — so a host page that overrides that variable (or one of the
+  // shadcn `--background`/`--card`/etc. tokens this project also defines) can
+  // bleed transparency or any other color into our overlay. `bg-opacity-100`
+  // is a no-op in Tailwind v4 (it generates zero rules), so the safety net I
+  // added earlier was illusory. Inline-styling the dialog/card/launcher
+  // surfaces with concrete RGB removes every layer of indirection and makes
+  // the overlay opaque regardless of host-page CSS or Tailwind version.
+  const SURFACE_DIALOG = '#0a0a0a' // neutral-950 equivalent, fully opaque
+  const SURFACE_CARD = '#171717' // neutral-900 equivalent
+  const SURFACE_LAUNCHER = '#0a0a0a'
+  const BORDER_NEUTRAL = '#404040' // neutral-700 equivalent
+  const BORDER_CARD = '#262626' // neutral-800 equivalent
+
   return (
     <>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
@@ -584,11 +477,16 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             // emits an a11y warning when none is found. The Title used to live
             // inside a wrapping `<div>`, which tripped that check on every
             // open — render it as a direct child instead.
-            //
-            // Background is set with both `bg-neutral-900` and an explicit
-            // `bg-opacity-100` so the dialog is never semi-transparent, even
-            // mid-animation when the data-state classes are toggling.
-            className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-neutral-700 bg-neutral-900 bg-opacity-100 p-6 text-neutral-100 opacity-100 shadow-[0_20px_48px_rgba(0,0,0,0.6)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%]"
+            style={{
+              backgroundColor: SURFACE_DIALOG,
+              borderColor: BORDER_NEUTRAL,
+              color: '#f5f5f5',
+              opacity: 1
+            }}
+            // Row template: Title, Description, diagnostics card (intrinsic
+            // height — just what the User-extension box needs), then the error
+            // tabs section taking the remaining 1fr.
+            className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-[0_20px_48px_rgba(0,0,0,0.6)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%]"
           >
             <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight text-red-400">
               Extension.js diagnostics
@@ -596,15 +494,11 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             <DialogPrimitive.Description className="text-sm text-neutral-300">
               Setup health + split errors from page and content script contexts.
             </DialogPrimitive.Description>
-            <div
-              className={
-                'grid gap-3 ' +
-                (localNetworkDismissed
-                  ? 'grid-cols-1'
-                  : 'grid-cols-1 sm:grid-cols-2')
-              }
-            >
-              <div className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950 bg-opacity-100 p-3">
+            <div className="grid grid-cols-1 gap-3">
+              <div
+                style={{backgroundColor: SURFACE_CARD, borderColor: BORDER_CARD}}
+                className="space-y-2 rounded-xl border p-3"
+              >
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-neutral-300">User extension enabled</span>
                   <span
@@ -621,59 +515,46 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
                 </div>
                 <p className="text-xs text-neutral-400">{userExtensionDescription}</p>
               </div>
-
-              {localNetworkDismissed ? null : (
-                <div className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950 bg-opacity-100 p-3">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-neutral-300">
-                      Local network access (this site)
-                    </span>
-                    <span
-                      className={
-                        localNetworkStatus === 'granted'
-                          ? 'text-emerald-400'
-                          : localNetworkStatus === 'checking'
-                          ? 'text-neutral-400'
-                          : 'text-amber-400'
-                      }
-                    >
-                      {localNetworkStatus}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400">{localNetworkDescription}</p>
-                </div>
-              )}
             </div>
-            <div className="relative flex min-h-0 flex-col rounded border border-neutral-800 bg-neutral-950 p-3">
-              <h4 className="text-sm font-medium text-neutral-200">
-                Error inbox by source
-              </h4>
-              <button
-                type="button"
-                onClick={copyCurrentTabView}
-                className="absolute right-3 top-3 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800"
-                title="Copy current tab diagnostics as JSON"
-              >
-                {copyTabState === 'copied'
-                  ? 'Copied'
-                  : copyTabState === 'failed'
-                  ? 'Copy failed'
-                  : 'Copy tab view'}
-              </button>
+            <div
+              style={{backgroundColor: SURFACE_CARD, borderColor: BORDER_CARD}}
+              className="flex min-h-0 flex-col rounded border p-3"
+            >
               <Tabs
                 value={errorTab}
                 onValueChange={(v) => setErrorTab(v as 'all' | 'page' | 'content')}
-                className="flex min-h-0 flex-1"
+                className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="w-fit border border-neutral-800 bg-neutral-950">
-                  <TabsTrigger value="all">All ({allErrors.length})</TabsTrigger>
-                  <TabsTrigger value="page">Page ({pageErrors.length})</TabsTrigger>
-                  <TabsTrigger value="content">
-                    Content script ({contentErrors.length})
-                  </TabsTrigger>
-                </TabsList>
+                {/* TabsList and the "Copy tab view" button share a single row
+                    now that the section heading is gone, so the button no
+                    longer overlaps the tab triggers. */}
+                <div className="flex items-center justify-between gap-2">
+                  <TabsList className="w-fit border border-neutral-800 bg-neutral-950">
+                    <TabsTrigger value="all">All ({allErrors.length})</TabsTrigger>
+                    <TabsTrigger value="page">Page ({pageErrors.length})</TabsTrigger>
+                    <TabsTrigger value="content">
+                      Content script ({contentErrors.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  <button
+                    type="button"
+                    onClick={copyCurrentTabView}
+                    style={{
+                      backgroundColor: SURFACE_DIALOG,
+                      borderColor: BORDER_NEUTRAL
+                    }}
+                    className="shrink-0 rounded border px-2 py-1 text-[11px] text-neutral-300 hover:opacity-90"
+                    title="Copy current tab diagnostics as JSON"
+                  >
+                    {copyTabState === 'copied'
+                      ? 'Copied'
+                      : copyTabState === 'failed'
+                      ? 'Copy failed'
+                      : 'Copy tab view'}
+                  </button>
+                </div>
 
-                <TabsContent value="all" className="min-h-0">
+                <TabsContent value="all" className="min-h-0 flex-1 data-[state=active]:flex">
                   <div className="h-full rounded border border-neutral-800 p-2">
                     <ScrollArea className="h-full">
                       <div className="space-y-2 pr-2">
@@ -699,7 +580,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="page" className="min-h-0">
+                <TabsContent value="page" className="min-h-0 flex-1 data-[state=active]:flex">
                   <div className="h-full rounded border border-neutral-800 p-2">
                     <ScrollArea className="h-full">
                       <div className="space-y-2 pr-2">
@@ -725,7 +606,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="content" className="min-h-0">
+                <TabsContent value="content" className="min-h-0 flex-1 data-[state=active]:flex">
                   <div className="h-full rounded border border-neutral-800 p-2">
                     <ScrollArea className="h-full">
                       <div className="space-y-2 pr-2">
@@ -758,15 +639,19 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
       <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647] flex items-center gap-2">
         <Button
-          onClick={() => {
-            setLocalNetworkDismissed(true)
-            setOpen(true)
-          }}
-          // `rounded-full` makes the launcher fully circular; explicit
-          // `bg-opacity-100` keeps it solid even mid-animation. z-index lifted
-          // to the max signed 32-bit value so the pill always wins over any
+          onClick={() => setOpen(true)}
+          // `rounded-full` makes the launcher fully circular. The background
+          // is forced via inline style (concrete RGB) so it stays solid
+          // regardless of host-page CSS variable overrides; z-index lifted to
+          // the max signed 32-bit value so the pill always wins over any
           // host-page stacking context.
-          className="pointer-events-auto relative rounded-full border border-neutral-700 bg-neutral-900 bg-opacity-100 text-neutral-300 opacity-100 shadow hover:bg-neutral-900"
+          style={{
+            backgroundColor: SURFACE_LAUNCHER,
+            borderColor: BORDER_NEUTRAL,
+            color: '#d4d4d4',
+            opacity: 1
+          }}
+          className="pointer-events-auto relative rounded-full border shadow hover:opacity-90"
           size="icon"
           variant="secondary"
           aria-label={
@@ -811,7 +696,13 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
           <span
             role="status"
             aria-live="polite"
-            className="pointer-events-none rounded-full border border-neutral-700 bg-neutral-900 bg-opacity-100 px-3 py-1 text-xs font-medium text-neutral-200 opacity-100 shadow"
+            style={{
+              backgroundColor: SURFACE_LAUNCHER,
+              borderColor: BORDER_NEUTRAL,
+              color: '#e5e5e5',
+              opacity: 1
+            }}
+            className="pointer-events-none rounded-full border px-3 py-1 text-xs font-medium shadow"
           >
             Reloading…
           </span>
