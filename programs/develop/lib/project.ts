@@ -231,6 +231,49 @@ export async function getProjectPath(
   return path.resolve(process.cwd(), pathOrRemoteUrl)
 }
 
+function collectManifestCandidates(
+  rootDir: string,
+  maxDepth: number
+): string[] {
+  const SKIP_DIRS = new Set([
+    'node_modules',
+    'dist',
+    'build',
+    'out',
+    '.git',
+    '.turbo',
+    '.next',
+    'coverage',
+    '.cache',
+    '.vercel'
+  ])
+  const results: string[] = []
+  const walk = (dir: string, depth: number) => {
+    if (depth > maxDepth || results.length >= 10) return
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name === 'manifest.json') {
+        results.push(path.join(dir, entry.name))
+        continue
+      }
+      if (
+        entry.isDirectory() &&
+        !entry.name.startsWith('.') &&
+        !SKIP_DIRS.has(entry.name)
+      ) {
+        walk(path.join(dir, entry.name), depth + 1)
+      }
+    }
+  }
+  walk(rootDir, 0)
+  return results
+}
+
 // Gets the project structure with manifest and package.json locations
 // Supports monorepo structure where manifest and package.json may be in different directories
 export async function getProjectStructure(
@@ -261,39 +304,52 @@ export async function getProjectStructure(
     : rootManifestPath
 
   if (!fs.existsSync(manifestPath)) {
-    // If we have a package.json at/above the project root, do NOT
-    // guess a manifest from arbitrary subfolders. Force explicit location.
     if (packageJsonDirFromProject) {
-      throw new Error(messages.manifestNotFoundError(manifestPath))
-    }
+      const absoluteCandidates = collectManifestCandidates(projectPath, 3)
+      const relativeCandidates = absoluteCandidates.map(
+        (candidate) => path.relative(projectPath, candidate) || candidate
+      )
 
-    // Web-only mode: Try to find manifest.json in subdirectories
-    const findManifest = (dir: string): string | null => {
-      const files = fs.readdirSync(dir, {withFileTypes: true})
-
-      for (const file of files) {
-        if (file.isFile() && file.name === 'manifest.json') {
-          return path.join(dir, file.name)
-        }
-        if (
-          file.isDirectory() &&
-          !file.name.startsWith('.') &&
-          file.name !== 'node_modules' &&
-          file.name !== 'dist' &&
-          file.name !== 'public'
-        ) {
-          const found = findManifest(path.join(dir, file.name))
-          if (found) return found
-        }
+      if (absoluteCandidates.length === 1) {
+        manifestPath = absoluteCandidates[0]
+        console.log(
+          messages.resolvedWorkspaceManifest(projectPath, manifestPath)
+        )
+      } else {
+        throw new Error(
+          messages.manifestNotFoundError(manifestPath, relativeCandidates)
+        )
       }
-      return null
-    }
-
-    const foundManifest = findManifest(projectPath)
-    if (foundManifest) {
-      manifestPath = foundManifest
     } else {
-      throw new Error(messages.manifestNotFoundError(manifestPath))
+      // Web-only mode: Try to find manifest.json in subdirectories
+      const findManifest = (dir: string): string | null => {
+        const files = fs.readdirSync(dir, {withFileTypes: true})
+
+        for (const file of files) {
+          if (file.isFile() && file.name === 'manifest.json') {
+            return path.join(dir, file.name)
+          }
+
+          if (
+            file.isDirectory() &&
+            !file.name.startsWith('.') &&
+            file.name !== 'node_modules' &&
+            file.name !== 'dist' &&
+            file.name !== 'public'
+          ) {
+            const found = findManifest(path.join(dir, file.name))
+            if (found) return found
+          }
+        }
+        return null
+      }
+
+      const foundManifest = findManifest(projectPath)
+      if (foundManifest) {
+        manifestPath = foundManifest
+      } else {
+        throw new Error(messages.manifestNotFoundError(manifestPath))
+      }
     }
   }
 

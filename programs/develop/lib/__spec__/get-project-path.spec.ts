@@ -133,14 +133,41 @@ describe('get-project-path', () => {
     await expect(getProjectStructure(root)).rejects.toThrow(/manifest\.json/i)
   })
 
-  it('does not guess nested manifest when package.json exists', async () => {
-    const root = makeTempDir('extjs-manifest-no-guess-')
-    const nested = path.join(root, 'nested', 'ext')
+  it('auto-resolves a single nested manifest when package.json exists (workspace root)', async () => {
+    const root = makeTempDir('extjs-manifest-single-candidate-')
+    const nested = path.join(root, 'packages', 'ext')
     fs.mkdirSync(nested, {recursive: true})
     fs.writeFileSync(path.join(nested, 'manifest.json'), '{}')
     fs.writeFileSync(
       path.join(root, 'package.json'),
-      JSON.stringify({name: 'pkg'})
+      JSON.stringify({name: 'workspace-root', workspaces: ['packages/*']})
+    )
+    fs.writeFileSync(
+      path.join(nested, 'package.json'),
+      JSON.stringify({name: 'ext'})
+    )
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const s = await getProjectStructure(root)
+    expect(path.dirname(s.manifestPath)).toBe(nested)
+    const printed = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(printed).toMatch(/Workspace root detected/i)
+    logSpy.mockRestore()
+  })
+
+  it('rejects when multiple nested manifests exist (ambiguous workspace)', async () => {
+    const root = makeTempDir('extjs-manifest-multi-candidate-')
+    const first = path.join(root, 'packages', 'ext-a')
+    const second = path.join(root, 'packages', 'ext-b')
+    fs.mkdirSync(first, {recursive: true})
+    fs.mkdirSync(second, {recursive: true})
+    fs.writeFileSync(path.join(first, 'manifest.json'), '{}')
+    fs.writeFileSync(path.join(second, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'workspace-root', workspaces: ['packages/*']})
     )
 
     await expect(getProjectStructure(root)).rejects.toThrow(/manifest\.json/i)
