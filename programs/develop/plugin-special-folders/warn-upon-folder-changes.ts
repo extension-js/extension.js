@@ -21,6 +21,47 @@ type PendingChange = {
 
 export class WarnUponFolderChanges {
   private pendingChanges: PendingChange[] = []
+  // Snapshot of files present in pages/ and scripts/ at first compile, used to
+  // distinguish "newly added" from "modified" on subsequent invalidations.
+  // `compiler.modifiedFiles` is the union of both events and the warning was
+  // misfiring on every save of an existing scripts/<name>.js. Restart-required
+  // is only correct for genuine additions (rspack scans the folder once at
+  // startup to build the entry list and won't pick up files added after that).
+  private knownFolderFiles = new Set<string>()
+  private hasSnapshot = false
+
+  private snapshotFolderFiles(projectPath: string) {
+    if (this.hasSnapshot) return
+    this.hasSnapshot = true
+    const SKIP_DIRS = new Set([
+      'node_modules',
+      'dist',
+      'build',
+      '.git',
+      '.turbo',
+      '.next',
+      'coverage'
+    ])
+    const walk = (dir: string) => {
+      let entries: fs.Dirent[]
+      try {
+        entries = fs.readdirSync(dir, {withFileTypes: true})
+      } catch {
+        return
+      }
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue
+        if (SKIP_DIRS.has(entry.name)) continue
+        const full = path.join(dir, entry.name)
+        if (entry.isFile()) this.knownFolderFiles.add(full)
+        else if (entry.isDirectory()) walk(full)
+      }
+    }
+    for (const folder of ['pages', 'scripts']) {
+      const folderPath = path.join(projectPath, folder)
+      if (fs.existsSync(folderPath)) walk(folderPath)
+    }
+  }
 
   private getContextDependencyPaths(projectPath: string): string[] {
     const dependencies = new Set<string>()
@@ -102,6 +143,7 @@ export class WarnUponFolderChanges {
   private collectChanges(compiler: Compiler) {
     const projectPath: string =
       (compiler.options.context as string) || process.cwd()
+    this.snapshotFolderFiles(projectPath)
     const pagesPath = path.join(projectPath, 'pages') + path.sep
     const scriptsPath = path.join(projectPath, 'scripts') + path.sep
     const extensionsSupported = compiler.options.resolve?.extensions as
@@ -115,20 +157,33 @@ export class WarnUponFolderChanges {
     const removedFiles = compiler.removedFiles || new Set<string>()
 
     for (const filePath of modifiedFiles) {
+      // Modifications of an existing file are NOT additions. Rspack already
+      // watches the entry and recompiles in place — the "restart required"
+      // warning only applies when a brand-new file appears in the folder
+      // after startup (won't be in the entry list, won't be served).
+      const isPreexisting = this.knownFolderFiles.has(filePath)
+
       if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
+        if (isPreexisting) continue
+        this.knownFolderFiles.add(filePath)
         this.trackChange(projectPath, 'pages', 'add', filePath)
+        continue
       }
 
       if (filePath.startsWith(scriptsPath)) {
         const ext = path.extname(filePath).toLowerCase()
-
-        if (supportedScripts.has(ext)) {
-          this.trackChange(projectPath, 'scripts', 'add', filePath)
-        }
+        if (!supportedScripts.has(ext)) continue
+        if (isPreexisting) continue
+        this.knownFolderFiles.add(filePath)
+        this.trackChange(projectPath, 'scripts', 'add', filePath)
       }
     }
 
     for (const filePath of removedFiles) {
+      // Drop from the snapshot so a future re-add of the same name is
+      // detected as a genuine addition rather than a modification.
+      this.knownFolderFiles.delete(filePath)
+
       if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
         this.trackChange(projectPath, 'pages', 'remove', filePath)
       }

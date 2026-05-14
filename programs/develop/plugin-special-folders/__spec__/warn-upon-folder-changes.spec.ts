@@ -175,6 +175,53 @@ describe('WarnUponFolderChanges', () => {
     )
   })
 
+  it('does NOT warn when editing a preexisting scripts/<file>.js (modification, not addition)', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    // Pre-populate the folder BEFORE the plugin applies — same shape as a
+    // real user project where scripts/script-one.js exists at dev startup.
+    const existingFile = path.join(projectRoot, 'scripts', 'script-one.js')
+    fs.writeFileSync(existingFile, '// pre-existing', 'utf8')
+
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    // Save the existing file — `compiler.modifiedFiles` reports it (rspack
+    // unions newly-added AND modified files into the same Set).
+    compiler.modifiedFiles = new Set([existingFile])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('still warns when a NEW scripts/<file>.js appears after the snapshot', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    // No pre-existing file — the snapshot is empty.
+
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const newFile = path.join(projectRoot, 'scripts', 'script-new.js')
+    compiler.modifiedFiles = new Set([newFile])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+
+    expect(compilation.warnings.length).toBe(1)
+    expect(
+      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
+    ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
+
+    // Saving the SAME file again on a later cycle is a modification of a
+    // file we've now seen — should NOT warn a second time.
+    compilation.warnings.length = 0
+    compiler.modifiedFiles = new Set([newFile])
+    runCycle(compiler, compilation)
+    expect(compilation.warnings.length).toBe(0)
+  })
+
   it('falls back to the project root when special folders are missing', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
