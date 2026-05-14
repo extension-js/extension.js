@@ -60,12 +60,54 @@ function isPathLike(input: string) {
   return input.includes('/') || input.includes('\\') || path.isAbsolute(input)
 }
 
-export function manifestNotFoundError(manifestPath: string) {
-  return (
+export function resolvedWorkspaceManifest(
+  projectPath: string,
+  manifestPath: string
+) {
+  const manifestDir = path.dirname(manifestPath)
+  const packageDir =
+    path.basename(manifestDir) === 'src'
+      ? path.dirname(manifestDir)
+      : manifestDir
+  const display = path.relative(projectPath, packageDir) || packageDir
+  return `${getLoggingPrefix('info')} ${colors.gray(
+    'Workspace root detected — resolved extension package:'
+  )} ${colors.brightBlue(display)}`
+}
+
+export function manifestNotFoundError(
+  manifestPath: string,
+  candidates: string[] = []
+) {
+  const base =
     `${getLoggingPrefix('error')} Manifest file not found.\n` +
     `${colors.red('Ensure the path to your extension exists and try again.')}` +
     `\n${colors.red('NOT FOUND')}\n${colors.gray('PATH')} ${colors.underline(manifestPath)}`
-  )
+
+  if (!candidates.length) return base
+
+  const projectRoot = path.dirname(manifestPath)
+  const hint =
+    candidates.length === 1
+      ? `Did you mean to point at this workspace package?`
+      : `Did you mean to point at one of these workspace packages?`
+  const suggestions = candidates
+    .map((candidate) => {
+      // Suggest the directory that contains the manifest — that's the path the
+      // user passes to `extension dev`, not the manifest file itself.
+      const dir =
+        path.basename(candidate) === 'manifest.json'
+          ? path.dirname(candidate)
+          : candidate
+      const normalized = path.basename(dir) === 'src' ? path.dirname(dir) : dir
+      const display = path.isAbsolute(normalized)
+        ? path.relative(projectRoot, normalized) || normalized
+        : normalized
+      return `  extension dev ${display}`
+    })
+    .join('\n')
+
+  return `${base}\n\n${colors.gray(hint)}\n${colors.brightBlue(suggestions)}`
 }
 
 export function packageJsonNotFoundError(manifestPath: string) {
