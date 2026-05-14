@@ -831,6 +831,72 @@ export class CDPExtensionController {
     }
   }
 
+  /**
+   * Replay previously-tracked `chrome.scripting.executeScript` calls from the
+   * background SW. The dev-only `__extjsScriptsReplay` shim (injected by
+   * `feature-scripts/InjectScriptsReplayShim`) keeps an in-memory registry of
+   * `executeScript({target.tabId, files, world})` calls the user's SW has
+   * made. When the user edits a file in `/scripts/*` we evaluate that
+   * registry inside the SW and re-issue every matching injection — bringing
+   * programmatic injection HMR closer to parity with declarative content
+   * scripts.
+   *
+   * No-op if no scripts changed, if the shim isn't installed (e.g. the SW
+   * was injected before the shim shipped, or the user disabled reload), or
+   * if no runtime target is reachable.
+   */
+  async replayProgrammaticScripts(
+    changedScriptFiles: string[]
+  ): Promise<{replayed: number}> {
+    if (!this.cdp) return {replayed: 0}
+    if (!Array.isArray(changedScriptFiles) || changedScriptFiles.length === 0) {
+      return {replayed: 0}
+    }
+    const runtimeTarget = await this.attachToExtensionRuntimeTarget()
+    if (!runtimeTarget) return {replayed: 0}
+
+    const result = await this.cdp.evaluate(
+      runtimeTarget.sessionId,
+      `(() => (async () => {
+        if (typeof globalThis !== "object" || !globalThis) return {ok: false, reason: "no globalThis"};
+        if (typeof globalThis.__extjsScriptsReplay !== "function") {
+          return {ok: false, reason: "shim_missing"};
+        }
+        try {
+          const outcome = await globalThis.__extjsScriptsReplay(${JSON.stringify(
+            changedScriptFiles
+          )});
+          const list = Array.isArray(outcome) ? outcome : [];
+          return {
+            ok: true,
+            replayed: list.filter((entry) => entry && entry.ok).length,
+            failures: list.filter((entry) => entry && entry.ok === false).length
+          };
+        } catch (error) {
+          return {ok: false, reason: "eval_error", message: String((error && error.message) || error)};
+        }
+      })())()`,
+      {awaitPromise: true}
+    )
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      try {
+        console.log(
+          `[CDP] scripts replay result: ${JSON.stringify({
+            changedScriptFiles,
+            result
+          })}`
+        )
+      } catch {
+        // ignore
+      }
+    }
+    if (result && typeof result === 'object') {
+      const replayed = Number((result as any).replayed)
+      return {replayed: Number.isFinite(replayed) ? replayed : 0}
+    }
+    return {replayed: 0}
+  }
+
   async hardReload(): Promise<boolean> {
     if (!this.extensionId) return false
 

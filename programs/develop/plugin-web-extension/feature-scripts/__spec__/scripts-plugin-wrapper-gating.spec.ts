@@ -51,6 +51,11 @@ vi.mock('../steps/add-public-path-runtime-module', () => ({
     this.apply = () => {}
   })
 }))
+vi.mock('../steps/setup-reload-strategy/inject-scripts-replay-shim', () => ({
+  InjectScriptsReplayShim: vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+}))
 
 import {ScriptsPlugin} from '../index'
 import {AddContentScriptWrapper} from '../steps/setup-reload-strategy/add-content-script-wrapper'
