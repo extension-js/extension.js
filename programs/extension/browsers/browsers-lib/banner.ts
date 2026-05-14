@@ -81,6 +81,15 @@ function resolveRunLabel(ready: ReadyLike): string {
   return ''
 }
 
+function encodeChromiumExtensionIdFromDigest(digest: Buffer): string {
+  let extensionId = ''
+  for (const byte of digest) {
+    extensionId += String.fromCharCode(97 + ((byte >> 4) & 0x0f))
+    extensionId += String.fromCharCode(97 + (byte & 0x0f))
+  }
+  return extensionId
+}
+
 function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
   const key = toNormalizedId((manifest as {key?: unknown})?.key)
 
@@ -94,14 +103,35 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
       .update(decodedKey)
       .digest()
       .subarray(0, 16)
-    let extensionId = ''
 
-    for (const byte of digest) {
-      extensionId += String.fromCharCode(97 + ((byte >> 4) & 0x0f))
-      extensionId += String.fromCharCode(97 + (byte & 0x0f))
-    }
+    return encodeChromiumExtensionIdFromDigest(digest)
+  } catch {
+    return ''
+  }
+}
 
-    return extensionId
+// Mirror Chrome's `crx_file::id_util::GenerateIdForPath` so we can surface the
+// same extension ID Chrome assigns to an unpacked extension loaded via
+// `--load-extension=<path>`. Needed for extensions with no manifest `key` and
+// no runtime surface (no background, no content scripts, no action) — without
+// this fallback the dev banner has no ID to render and gets suppressed
+function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
+  if (!extensionPath || typeof extensionPath !== 'string') return ''
+
+  try {
+    const absolute = path.resolve(extensionPath)
+    const isWindows = process.platform === 'win32'
+    // Chrome on Windows hashes the wide-char path bytes (UTF-16LE) with
+    // backslash separators; POSIX hashes the UTF-8 absolute path bytes.
+    const seedBuffer = isWindows
+      ? Buffer.from(absolute.replace(/\//g, '\\'), 'utf16le')
+      : Buffer.from(absolute, 'utf8')
+    const digest = createHash('sha256')
+      .update(seedBuffer)
+      .digest()
+      .subarray(0, 16)
+
+    return encodeChromiumExtensionIdFromDigest(digest)
   } catch {
     return ''
   }
@@ -125,6 +155,7 @@ function resolveExtensionId(args: {
   info: Info
   fallback?: {extensionId?: string}
   manifest: unknown
+  extensionPath?: string
 }): string {
   const fromInfo = toNormalizedId(args.info?.extensionId)
   if (fromInfo) return fromInfo
@@ -138,7 +169,9 @@ function resolveExtensionId(args: {
     args.browser === 'chromium' ||
     args.browser === 'chromium-based'
   ) {
-    return deriveChromiumExtensionIdFromManifest(args.manifest)
+    const fromKey = deriveChromiumExtensionIdFromManifest(args.manifest)
+    if (fromKey) return fromKey
+    return deriveChromiumExtensionIdFromPath(args.extensionPath || '')
   }
 
   if (args.browser === 'firefox' || args.browser === 'firefox-based') {
@@ -169,7 +202,8 @@ export async function printDevBannerOnce(opts: {
     browser: opts.browser,
     info: null,
     fallback: opts.fallback,
-    manifest
+    manifest,
+    extensionPath: opts.outPath
   })
 
   // Prefer manifest/fallback IDs first so startup banner can render ASAP.
@@ -185,7 +219,8 @@ export async function printDevBannerOnce(opts: {
     browser: opts.browser,
     info,
     fallback: opts.fallback,
-    manifest
+    manifest,
+    extensionPath: opts.outPath
   })
 
   if (!extensionId) return false
@@ -262,7 +297,8 @@ export async function printProdBannerOnce(opts: {
     const resolvedExtensionId = resolveExtensionId({
       browser: opts.browser,
       info: runtimeInfo,
-      manifest
+      manifest,
+      extensionPath: opts.outPath
     })
 
     if (resolvedExtensionId) {
