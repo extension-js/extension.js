@@ -543,6 +543,15 @@ export default function contentScriptWrapper(source) {
     '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
     '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
     '      if (!hostOwner || hostOwner !== String(__EXTENSIONJS_REINJECT_KEY || "")) continue;\n' +
+    '      // Build-aware: only remove hosts owned by us whose build token does NOT\n' +
+    '      // match the current bundle. Fresh roots from the current mount carry\n' +
+    '      // the active build token and must be preserved; orphans from a prior\n' +
+    '      // build (e.g. the old isolated world after `chrome.runtime.reload`)\n' +
+    '      // carry stale tokens and should be cleared so we never end up with two\n' +
+    '      // hosts owned by the same key.\n' +
+    '      var hostBuild = String(host.getAttribute("data-extjs-reinject-build") || "");\n' +
+    '      var currentBuild = String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || "");\n' +
+    '      if (hostBuild && currentBuild && hostBuild === currentBuild) continue;\n' +
     '      try {\n' +
     '        var pageRoot = document.documentElement;\n' +
     '        if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
@@ -553,6 +562,26 @@ export default function contentScriptWrapper(source) {
     '          pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(host.tagName || "").toLowerCase());\n' +
     '        }\n' +
     '      } catch (error) {}\n' +
+    '      try { host.remove(); } catch (error) {}\n' +
+    '    }\n' +
+    '  } catch (error) {}\n' +
+    '}\n' +
+    'function __EXTENSIONJS_cleanupOrphanRoots(){\n' +
+    '  try {\n' +
+    '    // At bundle execution start, before this run has mounted anything, any\n' +
+    '    // `data-extension-root` host without `data-extjs-reinject-owner` is an\n' +
+    '    // orphan from a prior session that died before `setReinjectMarker`\n' +
+    '    // could tag it (typically: the previous isolated world was destroyed\n' +
+    '    // by a `chrome.runtime.reload` mid-mount, or its `whenReady`-deferred\n' +
+    '    // `apply` never fired). We have not created our own root yet, so any\n' +
+    '    // untagged host we touch here is by definition NOT from this run.\n' +
+    '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
+    '    var roots = Array.from(document.querySelectorAll("[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
+    '    for (var i = 0; i < roots.length; i++) {\n' +
+    '      var host = roots[i];\n' +
+    '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
+    '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
+    '      if (hostOwner) continue;\n' +
     '      try { host.remove(); } catch (error) {}\n' +
     '    }\n' +
     '  } catch (error) {}\n' +
@@ -641,6 +670,10 @@ export default function contentScriptWrapper(source) {
     'try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
     'var __EXTENSIONJS_previousEntry=__EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY];\n' +
     'var __EXTENSIONJS_REINJECT_GENERATION=__EXTENSIONJS_readReinjectGeneration(__EXTENSIONJS_previousEntry);\n' +
+    '// Sweep untagged orphans (prior-session roots that died before tagging)\n' +
+    '// before any further cleanup runs. Safe here because our mount has not\n' +
+    '// produced any roots yet — any untagged host is by definition not ours.\n' +
+    'try { __EXTENSIONJS_cleanupOrphanRoots(); } catch (error) {}\n' +
     'try {\n' +
     '  var __EXTENSIONJS_previousCleanup=typeof __EXTENSIONJS_previousEntry === "function" ? __EXTENSIONJS_previousEntry : (__EXTENSIONJS_previousEntry && typeof __EXTENSIONJS_previousEntry.cleanup === "function" ? __EXTENSIONJS_previousEntry.cleanup : null);\n' +
     '  if (typeof __EXTENSIONJS_previousCleanup === "function") {\n' +
