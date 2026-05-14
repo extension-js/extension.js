@@ -42,6 +42,31 @@ describe('printDevBannerOnce', () => {
     logSpy.mockRestore()
   })
 
+  it('derives Chromium extension id from load path when manifest has no key and no runtime surface', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Init Example',
+      version: '1.0.0'
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printDevBannerOnce({
+      browser: 'chromium',
+      outPath,
+      hostPort: {host: '127.0.0.1', port: 9333},
+      getInfo: async () => null
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    const idLine =
+      output.split('\n').find((line) => line.includes('Extension ID')) || ''
+    const extracted = idLine.split('Extension ID')[1]?.trim() || ''
+    expect(extracted).toMatch(/^[a-p]{32}$/)
+    logSpy.mockRestore()
+  })
+
   it('derives Firefox extension id from manifest gecko id when runtime info is unavailable', async () => {
     const outPath = makeTempOutPath({
       name: 'Test Firefox Extension',
@@ -71,7 +96,7 @@ describe('printDevBannerOnce', () => {
 })
 
 describe('printProdBannerOnce', () => {
-  it('does not render an empty Extension ID line when no id is available', async () => {
+  it('derives Chromium extension id from load path when no manifest key is present', async () => {
     const outPath = makeTempOutPath({
       name: 'No Key Extension',
       version: '1.0.0'
@@ -88,7 +113,10 @@ describe('printProdBannerOnce', () => {
     const output = logSpy.mock.calls
       .map((call) => String(call[0] || ''))
       .join('\n')
-    expect(output).not.toContain('Extension ID')
+    const idLine =
+      output.split('\n').find((line) => line.includes('Extension ID')) || ''
+    const extracted = idLine.split('Extension ID')[1]?.trim() || ''
+    expect(extracted).toMatch(/^[a-p]{32}$/)
     logSpy.mockRestore()
   })
 
