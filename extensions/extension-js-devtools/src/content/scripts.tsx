@@ -42,6 +42,36 @@ export default function initial() {
   appRoot.className = 'extjs-overlay-root'
   shadowRoot.appendChild(appRoot)
 
+  // Radix `DialogContent` verifies that `DialogTitle` rendered by calling
+  // `document.getElementById(titleId)` from a useEffect. That call is
+  // hard-coded against the LIGHT DOM, so when the dialog is portalled into
+  // our shadow root (as it is here) Radix can't find the title element and
+  // logs `DialogContent requires a DialogTitle for the component to be
+  // accessible for screen reader users.` even though a `DialogTitle` IS
+  // rendered as a direct child of the content. Shim `document.getElementById`
+  // to fall back through our shadow root so Radix's check passes; host-page
+  // calls still get the original behavior because we only fall through when
+  // the light-DOM lookup misses.
+  if (!(document as any).__extjsDevtoolsGetByIdShimmed) {
+    const originalGetById = document.getElementById.bind(document)
+    ;(document as any).getElementById = function patchedGetElementById(
+      id: string
+    ) {
+      const fromLight = originalGetById(id)
+      if (fromLight) return fromLight
+      try {
+        return (
+          (shadowRoot.querySelector(`#${CSS.escape(String(id))}`) as
+            | HTMLElement
+            | null) || null
+        )
+      } catch {
+        return null
+      }
+    }
+    ;(document as any).__extjsDevtoolsGetByIdShimmed = true
+  }
+
   const mountingPoint = ReactDOM.createRoot(appRoot)
   mountingPoint.render(
     <div className="content_script">
