@@ -2,12 +2,16 @@
 
 ## Unreleased
 
-- Ignore benign socket teardown errors in browser process handlers (Templates Nightly Edge ECONNRESET) (fda84038)
-- Force-exit optional-deps smoke after main() so Linux orphans don't hang the CI step (16eb6708)
-- Compile extension-develop before vitest so dist-shape spec has artifacts (d7cc6227)
-- Scope ESM banner to Node-side bundles and add regression gates (c0dd71d6)
-- Flip extension-develop to ESM output for @rspack/core@2 compatibility (fc952d97)
-- Update WASM example link in README (6f7ab3dd)
+- Bump Extension.js (c0febe63)
+- Bump fast-uri to ^3.1.2 to clear Dependabot path-traversal + host-confusion advisories (5d12061a)
+- Replay programmatic chrome.scripting.executeScript calls on /scripts/* edits (3a128b3a)
+- Only warn for genuinely new files in pages/ and scripts/, not modifications (4c6bf8a6)
+- Sweep orphan content-script roots and ignore current-build roots in cleanupKnownRoots (8c911cbf)
+- Gate devtools overlay at content-script entry and harden launcher UX (ab6eb325)
+- Gate devtools overlay at content-script entry and harden launcher UX (1a937fad)
+- Auto-resolve workspace subpackage when extension dev is given the monorepo root (8e413f3f)
+- Honor namespaced manifest_version in SetupBackgroundEntry default background entry (0f0774a7)
+- Derive Chromium extension ID from load path when no manifest key + no runtime target (51527433)
 
 ## 3.8.2
 
