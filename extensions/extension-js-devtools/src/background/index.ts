@@ -165,3 +165,63 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.runtime.onInstalled.addListener(async () => {
   await initManagerUI()
 })
+
+// Broadcast reload-state pings to the content-script overlay so the floating
+// pill can render a "Reloading…" indicator while the user's unpacked
+// extension is cycling. Chrome's `chrome.runtime.reload()` (which the
+// Extension.js SDK fires on file edits) flips the target extension through
+// onDisabled → onEnabled, so we hook both and rebroadcast to every tab.
+function isUserDevExtensionForReload(
+  info: chrome.management.ExtensionInfo
+): boolean {
+  if (!info) return false
+  if (info.id === chrome.runtime.id) return false
+  if (info.installType !== 'development') return false
+  if (info.type === 'theme') return false
+  return !isBuiltInExtension(info)
+}
+
+function broadcastReloadState(state: 'reloading' | 'reloaded') {
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs || []) {
+        if (typeof tab.id !== 'number') continue
+        try {
+          chrome.tabs
+            .sendMessage(tab.id, {type: 'extjs-dev-reload', state})
+            .catch(() => {
+              // Tab has no listener — ignore (most pages won't host the overlay).
+            })
+        } catch {
+          // Older Chrome may throw synchronously; nothing to do.
+        }
+      }
+    })
+  } catch {
+    // chrome.tabs may be unavailable in odd contexts; ignore.
+  }
+}
+
+if (typeof chrome.management?.onDisabled?.addListener === 'function') {
+  chrome.management.onDisabled.addListener((info) => {
+    if (!isUserDevExtensionForReload(info)) return
+    broadcastReloadState('reloading')
+  })
+}
+
+if (typeof chrome.management?.onEnabled?.addListener === 'function') {
+  chrome.management.onEnabled.addListener((info) => {
+    if (!isUserDevExtensionForReload(info)) return
+    broadcastReloadState('reloaded')
+  })
+}
+
+if (typeof chrome.management?.onInstalled?.addListener === 'function') {
+  // Reloaded unpacked extensions fire onInstalled with reason=update without
+  // necessarily flipping onDisabled first. Treat that as a "reloaded" event
+  // so the pill clears its spinner even on the install-only path.
+  chrome.management.onInstalled.addListener((info) => {
+    if (!isUserDevExtensionForReload(info)) return
+    broadcastReloadState('reloaded')
+  })
+}
