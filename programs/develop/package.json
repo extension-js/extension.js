@@ -106,7 +106,7 @@
     "postcss-scss": "4.0.9",
     "preact": "10.27.3",
     "react-refresh": "0.18.0",
-    "sass-loader": "16.0.7",
+    "sass-loader": "17.0.0",
     "schema-utils": "^4.3.3",
     "svelte-loader": "3.2.4",
     "tiny-glob": "^0.2.9",
