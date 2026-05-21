@@ -183,6 +183,7 @@ export interface DevOptions extends BrowserOptionsBase {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
+  hashContentScripts?: boolean
 }
 
 export interface BuildOptions {
@@ -431,6 +432,7 @@ export interface FileConfig {
         | 'logColor'
         | 'logUrl'
         | 'logTab'
+        | 'hashContentScripts'
       > & {
         browserFlags?: string[]
         excludeBrowserFlags?: string[]
