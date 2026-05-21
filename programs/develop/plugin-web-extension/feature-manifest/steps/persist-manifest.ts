@@ -28,16 +28,6 @@ function normalizeManifestFile(filePath: unknown): string | undefined {
   return normalized
 }
 
-function compilationHasAsset(compilation: Compilation, filename: string) {
-  if (typeof compilation.getAsset === 'function') {
-    if (compilation.getAsset(filename)) return true
-  }
-
-  return Boolean(
-    (compilation.assets as Record<string, unknown> | undefined)?.[filename]
-  )
-}
-
 function collectRequiredManifestFiles(manifest: any): string[] {
   const required = new Set<string>()
 
@@ -69,19 +59,19 @@ function collectRequiredManifestFiles(manifest: any): string[] {
   return [...required]
 }
 
-function isFinalManifestReadyForDisk(
-  compilation: Compilation,
-  manifestSource: string
-) {
-  const manifest = readJsonSafe(manifestSource)
-  if (!manifest) return false
+function findMissingFilesOnDisk(
+  outputPath: string,
+  required: string[]
+): string[] {
+  const missing: string[] = []
 
-  const requiredFiles = collectRequiredManifestFiles(manifest)
-  if (requiredFiles.length === 0) return true
+  for (const relativeFile of required) {
+    if (!fs.existsSync(path.join(outputPath, relativeFile))) {
+      missing.push(relativeFile)
+    }
+  }
 
-  return requiredFiles.every((filename) =>
-    compilationHasAsset(compilation, filename)
-  )
+  return missing
 }
 
 function writeFileAtomically(targetPath: string, content: string) {
@@ -100,53 +90,92 @@ function writeFileAtomically(targetPath: string, content: string) {
 
 export class PersistManifestToDisk {
   apply(compiler: Compiler) {
+    let pendingManifestSource: string | undefined
+    let pendingOutputPath: string | undefined
+    let pendingHadErrors = false
+
     compiler.hooks.thisCompilation.tap(
-      'manifest:persist-manifest',
+      'manifest:persist-manifest:capture',
       (compilation: Compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'manifest:persist-manifest',
+            name: 'manifest:persist-manifest:capture',
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
           },
           () => {
-            if (compilation.errors.length > 0) return
-
-            const outputPath =
+            pendingHadErrors = compilation.errors.length > 0
+            pendingOutputPath =
               compilation.outputOptions.path || compiler.options.output?.path
-
-            if (!outputPath) return
 
             const manifestAsset = compilation.getAsset('manifest.json')
             const manifestSource =
               getCurrentManifestContent(compilation) ||
               manifestAsset?.source?.source?.().toString()
 
-            if (!manifestSource) return
-            if (!isFinalManifestReadyForDisk(compilation, manifestSource))
-              return
-
-            const manifestOutputPath = path.join(outputPath, 'manifest.json')
-
-            try {
-              try {
-                const currentOnDisk = fs.readFileSync(
-                  manifestOutputPath,
-                  'utf-8'
-                )
-                if (currentOnDisk === manifestSource) return
-              } catch {
-                // File may not exist yet; continue to write it.
-              }
-              writeFileAtomically(manifestOutputPath, manifestSource)
-            } catch (error: any) {
-              const err = new rspack.WebpackError(
-                `Failed to persist manifest.json to disk: ${error.message}`
-              ) as Error & {file?: string}
-              err.file = 'manifest.json'
-              compilation.errors.push(err)
-            }
+            pendingManifestSource =
+              typeof manifestSource === 'string' ? manifestSource : undefined
           }
         )
+      }
+    )
+
+    compiler.hooks.afterEmit.tap(
+      'manifest:persist-manifest:flush',
+      (compilation: Compilation) => {
+        const outputPath = pendingOutputPath
+        const manifestSource = pendingManifestSource
+        const hadErrors = pendingHadErrors
+
+        pendingManifestSource = undefined
+        pendingOutputPath = undefined
+        pendingHadErrors = false
+
+        if (hadErrors || !outputPath || !manifestSource) return
+
+        const manifest = readJsonSafe(manifestSource)
+        if (!manifest) return
+
+        const requiredFiles = collectRequiredManifestFiles(manifest)
+        const missingFiles = findMissingFilesOnDisk(outputPath, requiredFiles)
+
+        if (missingFiles.length > 0) {
+          const sample = missingFiles.slice(0, 5).join('\n  - ')
+          const more =
+            missingFiles.length > 5
+              ? `\n  ... and ${missingFiles.length - 5} more`
+              : ''
+          const err = new rspack.WebpackError(
+            [
+              'manifest.json references files that were not emitted to disk for this build:',
+              `  - ${sample}${more}`,
+              '',
+              'The previous manifest.json was kept to avoid loading a broken extension.',
+              'This usually means the bundler skipped a chunk during an incremental rebuild.',
+              'Try saving any source file again, or restart `extension dev` if it persists.'
+            ].join('\n')
+          ) as Error & {file?: string}
+          err.file = 'manifest.json'
+          compilation.errors.push(err)
+          return
+        }
+
+        const manifestOutputPath = path.join(outputPath, 'manifest.json')
+
+        try {
+          try {
+            const currentOnDisk = fs.readFileSync(manifestOutputPath, 'utf-8')
+            if (currentOnDisk === manifestSource) return
+          } catch {
+            // File may not exist yet; continue to write it.
+          }
+          writeFileAtomically(manifestOutputPath, manifestSource)
+        } catch (error: any) {
+          const err = new rspack.WebpackError(
+            `Failed to persist manifest.json to disk: ${error.message}`
+          ) as Error & {file?: string}
+          err.file = 'manifest.json'
+          compilation.errors.push(err)
+        }
       }
     )
   }
