@@ -182,6 +182,63 @@ describe('webpack-config transpile packages watch behavior', () => {
     )
   })
 
+  it('hashes content-script bundles per-entry by default in development', () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const filename = config.output?.filename as any
+    expect(typeof filename).toBe('function')
+    expect(filename({chunk: {name: 'content_scripts/content-0'}})).toBe(
+      'content_scripts/content-0.[contenthash:8].js'
+    )
+    expect(filename({chunk: {name: 'content_scripts/content-1'}})).toBe(
+      'content_scripts/content-1.[contenthash:8].js'
+    )
+    expect(filename({chunk: {name: 'background/service_worker'}})).toBe(
+      '[name].js'
+    )
+  })
+
+  it('emits unhashed content-script filenames when hashContentScripts is false', () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        hashContentScripts: false,
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    expect(config.output?.filename).toBe('[name].js')
+  })
+
   it('routes CJS requires through the `require` exports condition', () => {
     // Regression guard for https://github.com/extension-js/extension.js/issues/445.
     // When a project sets `"type": "module"`, packages that ship CJS code (e.g.

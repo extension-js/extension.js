@@ -86,4 +86,43 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     expect(fs.existsSync(path.join(csDir, userFile))).toBe(true)
     expect(fs.existsSync(path.join(csDir, plainCss))).toBe(true)
   })
+
+  it('rewrites both content_scripts entries with their per-entry hashed names and purges stale bundles', () => {
+    const stale0 = 'content-0.aaaaaaaa.js'
+    const stale1 = 'content-1.aaaaaaaa.js'
+    const fresh0 = 'content-0.bbbbbbbb.js'
+    const fresh1 = 'content-1.cccccccc.js'
+
+    fs.writeFileSync(path.join(csDir, stale0), '/* stale 0 */')
+    fs.writeFileSync(path.join(csDir, stale1), '/* stale 1 */')
+    fs.writeFileSync(path.join(csDir, fresh0), '/* fresh 0 */')
+    fs.writeFileSync(path.join(csDir, fresh1), '/* fresh 1 */')
+
+    const manifest: any = {
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']},
+        {matches: ['<all_urls>'], js: ['content_scripts/content-1.js']}
+      ]
+    }
+
+    const result = patchDevContentScriptManifestPaths(
+      makeCompilation([
+        `content_scripts/${fresh0}`,
+        `content_scripts/${fresh1}`
+      ]),
+      manifest
+    )
+
+    expect(result.content_scripts?.[0]?.js).toEqual([
+      `content_scripts/${fresh0}`
+    ])
+    expect(result.content_scripts?.[1]?.js).toEqual([
+      `content_scripts/${fresh1}`
+    ])
+    expect(fs.existsSync(path.join(csDir, stale0))).toBe(false)
+    expect(fs.existsSync(path.join(csDir, stale1))).toBe(false)
+    expect(fs.existsSync(path.join(csDir, fresh0))).toBe(true)
+    expect(fs.existsSync(path.join(csDir, fresh1))).toBe(true)
+  })
 })
