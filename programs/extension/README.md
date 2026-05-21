@@ -172,21 +172,6 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 - Open issues and feature requests on [GitHub](https://github.com/extension-js/extension.js/issues)
 - Browse production-ready [examples](https://github.com/extension-js/examples)
 
-## Sponsors
-
-<div align="center">
-  <p>
-    <span style="font-size:21px">Browser testing via</span><br>
-    <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://assets.testmu.ai/resources/images/testmu-ai/common/whiteTestmulogo.svg" />
-        <source media="(prefers-color-scheme: light)" srcset="https://assets.testmu.ai/resources/images/logos/black-logo.png" />
-        <img src="https://assets.testmu.ai/resources/images/logos/black-logo.png" width="250" height="45" alt="TestMu AI Logo" />
-      </picture>
-    </a>
-  </p>
-</div>
-
 ## License
 
 MIT (c) Cezar Augusto and the Extension.js authors.
