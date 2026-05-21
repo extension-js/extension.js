@@ -65,7 +65,7 @@
     "lint-staged": "17.0.0",
     "serialize-javascript": "^7.0.5",
     "tsx": "^4.21.0",
-    "turbo": "^2.8.12",
+    "turbo": "^2.9.14",
     "typescript": "6.0.2",
     "vite": "^8.0.5"
   }
