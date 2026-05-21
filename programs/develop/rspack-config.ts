@@ -182,17 +182,16 @@ export default function webpackConfig(
       path: primaryExtensionOutputDir,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
-      // Development: hash canonical content-script bundles so Cmd+Shift+R loads a new
-      // chrome-extension:// URL after edits; stable names are aggressively cached.
       filename:
-        (devOptions.mode || 'development') === ('development' as any)
+        (devOptions.mode || 'development') === ('development' as any) &&
+        (devOptions as any).hashContentScripts !== false
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
               if (
                 typeof chunkName === 'string' &&
                 /^content_scripts\/content-\d+$/.test(chunkName)
               ) {
-                return `${chunkName}.[fullhash:8].js`
+                return `${chunkName}.[contenthash:8].js`
               }
               return '[name].js'
             }
