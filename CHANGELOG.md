@@ -2,16 +2,9 @@
 
 ## Unreleased
 
-- Bump Extension.js (c0febe63)
-- Bump fast-uri to ^3.1.2 to clear Dependabot path-traversal + host-confusion advisories (5d12061a)
-- Replay programmatic chrome.scripting.executeScript calls on /scripts/* edits (3a128b3a)
-- Only warn for genuinely new files in pages/ and scripts/, not modifications (4c6bf8a6)
-- Sweep orphan content-script roots and ignore current-build roots in cleanupKnownRoots (8c911cbf)
-- Gate devtools overlay at content-script entry and harden launcher UX (ab6eb325)
-- Gate devtools overlay at content-script entry and harden launcher UX (1a937fad)
-- Auto-resolve workspace subpackage when extension dev is given the monorepo root (8e413f3f)
-- Honor namespaced manifest_version in SetupBackgroundEntry default background entry (0f0774a7)
-- Derive Chromium extension ID from load path when no manifest key + no runtime target (51527433)
+- Write dev manifest.json in afterEmit and switch content-script hashing to contenthash (f4c6eec9)
+- Write dev manifest.json in afterEmit and switch content-script hashing to contenthash (9d6d67b9)
+- Bump svelte to 5.55.9 to clear Dependabot XSS advisories (4ee9a2bc)
 
 ## 3.8.2
 
