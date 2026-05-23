@@ -27,9 +27,9 @@ describe('sass tools', () => {
     expect(logSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('maybeUseSass returns an array (rules or empty) depending on env', async () => {
+  it('maybeUseSass resolves without emitting rules when sass is not in use', async () => {
     const sass = await import('../../css-tools/sass')
-    const result = await sass.maybeUseSass('/p')
-    expect(Array.isArray(result)).toBe(true)
+    // sass not declared (mock returns false) -> no contract work, returns void.
+    await expect(sass.maybeUseSass('/p')).resolves.toBeUndefined()
   })
 })

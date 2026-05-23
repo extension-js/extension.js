@@ -86,67 +86,63 @@ afterAll(() => {
 })
 
 describe('build: content script (real rspack)', () => {
-  it(
-    'compiles the user extension without the node:module / web-target leak',
-    async () => {
-      // Heavy module — only loaded inside this spec to keep the rest of the
-      // suite fast. extensionBuild calls the same pipeline a real
-      // `extension build` invocation does (rspack + content-script wrapper +
-      // browser shims), so a regression here mirrors the smoke breakage.
-      const {extensionBuild} = await import('../command-build')
+  it('compiles the user extension without the node:module / web-target leak', async () => {
+    // Heavy module — only loaded inside this spec to keep the rest of the
+    // suite fast. extensionBuild calls the same pipeline a real
+    // `extension build` invocation does (rspack + content-script wrapper +
+    // browser shims), so a regression here mirrors the smoke breakage.
+    const {extensionBuild} = await import('../command-build')
 
-      const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
-      const previousVitest = process.env.VITEST
-      // VITEST=true flips extensionBuild's `shouldExitOnError` to false, so a
-      // bundler error rejects the promise instead of killing the test process.
-      process.env.VITEST = 'true'
-      // Suppress the noisy author-mode banner; we still surface real
-      // bundler errors via stats.
-      delete process.env.EXTENSION_AUTHOR_MODE
+    const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
+    const previousVitest = process.env.VITEST
+    // VITEST=true flips extensionBuild's `shouldExitOnError` to false, so a
+    // bundler error rejects the promise instead of killing the test process.
+    process.env.VITEST = 'true'
+    // Suppress the noisy author-mode banner; we still surface real
+    // bundler errors via stats.
+    delete process.env.EXTENSION_AUTHOR_MODE
 
-      try {
-        const summary = await extensionBuild(FIXTURE_ROOT, {
-          browser: 'chrome',
-          silent: true,
-          install: false,
-          mode: 'development',
-          exitOnError: false
-        } as any)
+    try {
+      const summary = await extensionBuild(FIXTURE_ROOT, {
+        browser: 'chrome',
+        silent: true,
+        install: false,
+        mode: 'development',
+        exitOnError: false
+      } as any)
 
-        // Build must produce assets and zero compile errors. The original
-        // regression manifested as `errors_count > 0` with the message
-        // 'Reading from "node:module" is not handled by plugins' — failing
-        // here means a node-only import sneaked into a browser-target chunk.
-        expect(summary.errors_count).toBe(0)
-        expect(summary.total_assets).toBeGreaterThan(0)
-      } finally {
-        if (previousAuthorMode === undefined) {
-          delete process.env.EXTENSION_AUTHOR_MODE
-        } else {
-          process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
-        }
-        if (previousVitest === undefined) {
-          delete process.env.VITEST
-        } else {
-          process.env.VITEST = previousVitest
-        }
+      // Build must produce assets and zero compile errors. The original
+      // regression manifested as `errors_count > 0` with the message
+      // 'Reading from "node:module" is not handled by plugins' — failing
+      // here means a node-only import sneaked into a browser-target chunk.
+      expect(summary.errors_count).toBe(0)
+      expect(summary.total_assets).toBeGreaterThan(0)
+    } finally {
+      if (previousAuthorMode === undefined) {
+        delete process.env.EXTENSION_AUTHOR_MODE
+      } else {
+        process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
       }
-
-      // Sanity-check the asset graph: the wrapper-driven content script
-      // bundle should be on disk and the manifest should reference it.
-      const distDir = path.join(FIXTURE_ROOT, 'dist', 'chrome')
-      const manifest = JSON.parse(
-        fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
-      )
-      const contentJs: string[] = manifest.content_scripts?.[0]?.js ?? []
-      expect(contentJs.length).toBeGreaterThan(0)
-      for (const rel of contentJs) {
-        expect(
-          fs.existsSync(path.join(distDir, rel)),
-          `${rel} declared by manifest but missing from ${distDir}`
-        ).toBe(true)
+      if (previousVitest === undefined) {
+        delete process.env.VITEST
+      } else {
+        process.env.VITEST = previousVitest
       }
-    },
-    120_000
-  )
+    }
+
+    // Sanity-check the asset graph: the wrapper-driven content script
+    // bundle should be on disk and the manifest should reference it.
+    const distDir = path.join(FIXTURE_ROOT, 'dist', 'chrome')
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
+    )
+    const contentJs: string[] = manifest.content_scripts?.[0]?.js ?? []
+    expect(contentJs.length).toBeGreaterThan(0)
+    for (const rel of contentJs) {
+      expect(
+        fs.existsSync(path.join(distDir, rel)),
+        `${rel} declared by manifest but missing from ${distDir}`
+      ).toBe(true)
+    }
+  }, 120_000)
 })

@@ -57,6 +57,7 @@ vi.mock('../js-tools/svelte', () => ({
 }))
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true),
+  ensureTypeScriptConfig: vi.fn(),
   getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json')
 }))
 vi.mock('../../lib/transpile-packages', () => ({
@@ -93,6 +94,11 @@ function createCompiler(
       ;(beforeRun as any)._cb = cb
     })
   }
+  const watchRun: any = {
+    tapPromise: vi.fn((_name: string, cb: () => Promise<void>) => {
+      ;(watchRun as any)._cb = cb
+    })
+  }
 
   return {
     options: {
@@ -103,7 +109,7 @@ function createCompiler(
       resolve: {alias: {}, extensions: [] as string[]},
       module: {rules: [] as any[]}
     },
-    hooks: {beforeRun}
+    hooks: {beforeRun, watchRun}
   } as any
 }
 

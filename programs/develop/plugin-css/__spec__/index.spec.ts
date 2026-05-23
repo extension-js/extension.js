@@ -1,21 +1,15 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 // Mocks for internal dependencies used by CssPlugin
-const mockedStylelintPlugins = [{}]
 const mockedContentLoaders = [{test: /a\.css$/}]
 const mockedHtmlLoaders = [{test: /b\.css$/}]
 
-vi.mock('../css-tools/stylelint', () => ({
-  maybeUseStylelint: vi.fn(async () => mockedStylelintPlugins),
-  getStylelintConfigFile: vi.fn(() => undefined)
-}))
-
 vi.mock('../css-tools/sass', () => ({
-  maybeUseSass: vi.fn(async () => [{}])
+  maybeUseSass: vi.fn(async () => undefined)
 }))
 
 vi.mock('../css-tools/less', () => ({
-  maybeUseLess: vi.fn(async () => [{}])
+  maybeUseLess: vi.fn(async () => undefined)
 }))
 
 vi.mock('../css-in-content-script-loader', () => ({
@@ -37,6 +31,11 @@ function createCompiler(
       ;(beforeRun as any)._cb = cb
     })
   }
+  const watchRun: any = {
+    tapPromise: vi.fn((_name: string, cb: () => Promise<void>) => {
+      ;(watchRun as any)._cb = cb
+    })
+  }
 
   return {
     options: {
@@ -45,7 +44,7 @@ function createCompiler(
       module: {rules: [] as any[]},
       output: {} as Record<string, unknown>
     },
-    hooks: {beforeRun}
+    hooks: {beforeRun, watchRun}
   } as any
 }
 
@@ -60,8 +59,6 @@ describe('CssPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Stylelint plugins appended
-    expect(compiler.options.plugins.length).toBeGreaterThanOrEqual(1)
     // Loaders from both content + html plus conditional sass/less rules
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
       mockedContentLoaders.length + mockedHtmlLoaders.length
@@ -79,7 +76,6 @@ describe('CssPlugin', () => {
     // Simulate Rspack calling the hook
     await (compiler.hooks.beforeRun as any)._cb()
 
-    expect(compiler.options.plugins.length).toBeGreaterThanOrEqual(1)
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
       mockedContentLoaders.length + mockedHtmlLoaders.length
     )
