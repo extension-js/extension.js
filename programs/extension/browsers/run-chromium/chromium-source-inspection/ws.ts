@@ -40,6 +40,8 @@ export function establishBrowserConnection(
     ws.on('close', () => {
       if (isDev) console.log(messages.cdpClientConnectionClosed())
       onRejectPending('CDP connection closed')
+
+      reject(new Error('CDP WebSocket closed before the connection opened'))
     })
   })
 }

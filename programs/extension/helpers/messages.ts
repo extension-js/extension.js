@@ -234,6 +234,18 @@ export function unsupportedBrowserFlag(value: string, supported: string[]) {
   return `${getLoggingPrefix('error')} Unsupported --browser value: ${value}. Supported: ${supported.join(', ')}.`
 }
 
+export function safariCommandNotSupported(
+  command: 'dev' | 'preview' | 'start'
+) {
+  return (
+    `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari automatically.\n` +
+    `Safari extensions ship inside a signed app and are enabled by hand, so there's no live ` +
+    `browser session to load into — unlike Chromium and Firefox.\n` +
+    `Build the Safari app instead: ${code('extension build --browser safari')}\n` +
+    `Then open the generated app and enable it in Safari → Settings → Extensions.`
+  )
+}
+
 export function invalidLogsOptionPipe(value: string) {
   return (
     `${getLoggingPrefix('error')} Invalid value for ${code('--logs')}: ${colors.red(String(value))}\n` +
