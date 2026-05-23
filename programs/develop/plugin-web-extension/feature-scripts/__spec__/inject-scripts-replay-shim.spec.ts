@@ -97,8 +97,6 @@ describe('InjectScriptsReplayShim', () => {
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
     // Should equal the input — no double-prepend.
-    expect(out).toBe(
-      '/* __extjsScriptsReplayInstalled marker */ /* user sw */'
-    )
+    expect(out).toBe('/* __extjsScriptsReplayInstalled marker */ /* user sw */')
   })
 })

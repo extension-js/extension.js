@@ -34,4 +34,24 @@ describe('getAssetsFromHtml', () => {
     expect(res.css).toEqual([path.join(baseDir, 'styles.css')])
     expect(res.static).toEqual(['/public/favicon.png', '/public/logo.png'])
   })
+
+  it('collects <link> imagesrcset candidates as static assets', () => {
+    const html = `
+		<html>
+		<head>
+		  <link rel="preload" as="image" imagesrcset="hero.png 1x, hero-2x.png 2x">
+		</head>
+		<body></body>
+		</html>
+		`
+    const dir = path.join(tmp, 'imgset')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'hero.png'),
+      path.join(dir, 'hero-2x.png')
+    ])
+  })
 })

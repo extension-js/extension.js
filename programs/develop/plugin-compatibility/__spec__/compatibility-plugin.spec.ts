@@ -60,4 +60,20 @@ describe('CompatibilityPlugin', () => {
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
+
+  it('does not apply PolyfillPlugin for gecko-based engines even when polyfill=true', async () => {
+    const spyPolyfill = vi
+      .spyOn(PolyfillPlugin.prototype, 'apply')
+      .mockImplementation(() => {})
+
+    const plugin = new CompatibilityPlugin({
+      manifestPath: '/abs/path/manifest.json',
+      browser: 'gecko-based',
+      polyfill: true
+    })
+
+    await plugin.apply({} as any)
+
+    expect(spyPolyfill).toHaveBeenCalledTimes(0)
+  })
 })

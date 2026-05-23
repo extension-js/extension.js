@@ -27,9 +27,9 @@ describe('less tools', () => {
     expect(logSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('maybeUseLess returns an array (rules or empty) depending on env', async () => {
+  it('maybeUseLess resolves without emitting rules when less is not in use', async () => {
     const less = await import('../../css-tools/less')
-    const result = await less.maybeUseLess('/p')
-    expect(Array.isArray(result)).toBe(true)
+    // less not declared (mock returns false) -> no contract work, returns void.
+    await expect(less.maybeUseLess('/p')).resolves.toBeUndefined()
   })
 })
