@@ -45,7 +45,7 @@ describe('typescript tools', () => {
     )
   })
 
-  it('isUsingTypeScript throws when TS files present but no tsconfig next to package.json', async () => {
+  it('ensureTypeScriptConfig throws when TS files present but no tsconfig next to package.json', async () => {
     // Package.json in /project (stop search early)
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       toPosix(String(p)).endsWith('/project/package.json') ? true : false
@@ -60,10 +60,15 @@ describe('typescript tools', () => {
       {isFile: () => true, isDirectory: () => false, name: 'file.ts'}
     ])
 
-    const {isUsingTypeScript} = await import('../../js-tools/typescript')
+    const {ensureTypeScriptConfig, isUsingTypeScript} = await import(
+      '../../js-tools/typescript'
+    )
+
+    // Detection itself is side-effect-free and just returns false here.
+    expect(isUsingTypeScript('/project')).toBe(false)
 
     // No tsconfig present, but TS files exist -> hard error, no writes
-    expect(() => isUsingTypeScript('/project')).toThrowError(
+    expect(() => ensureTypeScriptConfig('/project')).toThrowError(
       /Missing tsconfig\.json next to package\.json/
     )
     expect(fs.writeFileSync).not.toHaveBeenCalled()

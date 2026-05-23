@@ -1,16 +1,13 @@
 import {describe, expect, it} from 'vitest'
-import patchBackground from '../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-background'
-import patchExternallyConnectable from '../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-externally-connectable'
-import {
-  patchV2CSP,
-  patchV3CSP
-} from '../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-csp'
+import patchBackground from '../apply-dev-defaults-lib/patch-background'
+import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
+import {patchV2CSP, patchV3CSP} from '../apply-dev-defaults-lib/patch-csp'
 import {
   patchWebResourcesV2,
   patchWebResourcesV3
-} from '../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-web-resources'
+} from '../apply-dev-defaults-lib/patch-web-resources'
 
-describe('ApplyManifestDevDefaults patch helpers', () => {
+describe('ApplyDevDefaults patch helpers', () => {
   it('adds a fallback background script for firefox and mv3 chromium', () => {
     expect(
       patchBackground({manifest_version: 3} as any, 'firefox').background

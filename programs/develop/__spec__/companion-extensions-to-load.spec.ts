@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
 import {computeExtensionsToLoad} from '../lib/extensions-to-load'
-import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/companion-extensions'
+import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
 
 const created: string[] = []
 const toPosix = (value: string) => value.replace(/\\/g, '/')
