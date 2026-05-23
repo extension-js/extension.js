@@ -213,6 +213,16 @@ export async function extensionBuild(
       })
     })
 
+    // Safari is packaged from the freshly built dist (convert + xcodebuild).
+    // The packager is injected by the CLI so develop stays decoupled from the
+    // browser-runner package
+    if (
+      (browser === 'safari' || browser === 'webkit-based') &&
+      buildOptions?.safariPackager
+    ) {
+      await buildOptions.safariPackager(distPath, 'full')
+    }
+
     return summary
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'

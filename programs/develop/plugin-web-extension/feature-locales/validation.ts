@@ -130,11 +130,15 @@ export function validateLocales(
         return false
       }
 
-      // Validate JSON of default locale messages
+      // Validate JSON of default locale messages. Parse once here and reuse
+      // the result for the placeholder scan below (this file was previously
+      // read and JSON.parse'd twice in a row)
+      let defaultLocaleMessages: any
+
       try {
         const content = fs.readFileSync(messagesJsonPath, 'utf8')
-        JSON.parse(content)
-      } catch (e) {
+        defaultLocaleMessages = JSON.parse(content)
+      } catch {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(
             messages.localesValidationDetected(
@@ -155,8 +159,7 @@ export function validateLocales(
 
       // Ensure all __MSG_*__ placeholders referenced in manifest exist in default locale
       try {
-        const content = fs.readFileSync(messagesJsonPath, 'utf8')
-        const dict = JSON.parse(content)
+        const dict = defaultLocaleMessages
 
         const collectMsgKeys = (value: unknown, acc: Set<string>) => {
           if (typeof value === 'string') {

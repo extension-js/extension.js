@@ -19,6 +19,30 @@ import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {type FilepathList} from '../../../types'
 
+function warnIfPublicRootAssetMissing(
+  compilation: Compilation,
+  htmlEntry: string,
+  cleanPath: string
+): void {
+  const projectDir = path.dirname(path.dirname(htmlEntry))
+  const publicCandidate = path.join(projectDir, 'public', cleanPath.slice(1))
+
+  if (fs.existsSync(publicCandidate)) return
+
+  const warn = new WebpackError(
+    messages.fileNotFound(htmlEntry, cleanPath)
+  ) as Error & {name?: string; file?: string}
+  warn.name = 'HtmlPublicAssetMissing'
+  warn.file = htmlEntry
+
+  const filtered = String(warn.message)
+    .split('\n')
+    .filter((line) => !line.includes(String(cleanPath)))
+  warn.message = filtered.join('\n').trim()
+
+  compilation.warnings.push(warn)
+}
+
 export function patchHtml(
   compilation: Compilation,
   feature: string,
@@ -193,32 +217,7 @@ export function patchHtmlNested(
           switch (assetType) {
             case 'script': {
               if (cleanPath.startsWith('/')) {
-                const projectDir = path.dirname(path.dirname(htmlEntry))
-                const publicCandidate = path.join(
-                  projectDir,
-                  'public',
-                  cleanPath.slice(1)
-                )
-
-                if (!fs.existsSync(publicCandidate)) {
-                  const errorMessage = messages.fileNotFound(
-                    htmlEntry,
-                    cleanPath
-                  )
-
-                  const warn = new WebpackError(errorMessage)
-                  warn.name = 'HtmlPublicAssetMissing'
-                  // @ts-expect-error file is not typed
-                  warn.file = htmlEntry
-
-                  const lines = String(warn.message).split('\n')
-                  const filtered = lines.filter(
-                    (line) => !line.includes(String(cleanPath))
-                  )
-                  warn.message = filtered.join('\n').trim()
-
-                  compilation.warnings.push(warn)
-                }
+                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
 
                 // Keep as-is (but normalize URL for query/hash)
                 thisChildNode = parse5utilities.setAttribute(
@@ -233,32 +232,7 @@ export function patchHtmlNested(
 
             case 'css': {
               if (cleanPath.startsWith('/')) {
-                const projectDir = path.dirname(path.dirname(htmlEntry))
-                const publicCandidate = path.join(
-                  projectDir,
-                  'public',
-                  cleanPath.slice(1)
-                )
-
-                if (!fs.existsSync(publicCandidate)) {
-                  const errorMessage = messages.fileNotFound(
-                    htmlEntry,
-                    cleanPath
-                  )
-
-                  const warn = new WebpackError(errorMessage)
-                  warn.name = 'HtmlPublicAssetMissing'
-                  // @ts-expect-error file is not typed
-                  warn.file = htmlEntry
-
-                  const lines = String(warn.message).split('\n')
-                  const filtered = lines.filter(
-                    (line) => !line.includes(String(cleanPath))
-                  )
-                  warn.message = filtered.join('\n').trim()
-
-                  compilation.warnings.push(warn)
-                }
+                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'href',
@@ -270,30 +244,7 @@ export function patchHtmlNested(
             case 'staticHref':
             case 'staticSrc': {
               if (cleanPath.startsWith('/')) {
-                const projectDir = path.dirname(path.dirname(htmlEntry))
-                const publicCandidate = path.join(
-                  projectDir,
-                  'public',
-                  cleanPath.slice(1)
-                )
-
-                if (!fs.existsSync(publicCandidate)) {
-                  const errorMessage = messages.fileNotFound(
-                    htmlEntry,
-                    cleanPath
-                  )
-                  const warn = new WebpackError(errorMessage)
-                  warn.name = 'HtmlPublicAssetMissing'
-                  // @ts-expect-error file is not typed
-                  warn.file = htmlEntry
-                  const lines = String(warn.message).split('\n')
-                  const filtered = lines.filter(
-                    (line) => !line.includes(String(cleanPath))
-                  )
-                  warn.message = filtered.join('\n').trim()
-
-                  compilation.warnings.push(warn)
-                }
+                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   assetType === 'staticSrc' ? 'src' : 'href',

@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation} from '@rspack/core'
 import * as messages from '../messages'
+import {iconValuesToStrings} from '../normalize-keys'
 import {type FilepathList, type PluginInterface} from '../../../types'
 
 // Shared utility for reporting errors or warnings to the compilation
@@ -62,37 +63,7 @@ export class EmitFile {
 
             if (resource === undefined) continue
 
-            const normalizeToStrings = (response: unknown): string[] => {
-              if (!response) return []
-
-              if (typeof response === 'string') return [response]
-
-              if (Array.isArray(response)) {
-                const flat = response.flatMap((v) => {
-                  if (typeof v === 'string') return [v]
-
-                  if (v && typeof v === 'object') {
-                    return Object.values(
-                      v as Record<string, unknown>
-                    ) as string[]
-                  }
-
-                  return []
-                })
-
-                return flat.filter((s): s is string => typeof s === 'string')
-              }
-
-              if (typeof response === 'object') {
-                return Object.values(response).filter(
-                  (value): value is string => typeof value === 'string'
-                )
-              }
-
-              return []
-            }
-
-            const stringEntries = normalizeToStrings(resource)
+            const stringEntries = iconValuesToStrings(resource)
             let emittedCount = 0
             let underPublicCount = 0
             let missingCount = 0

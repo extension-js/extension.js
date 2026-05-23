@@ -56,6 +56,17 @@ export interface ParsedHtmlAsset {
   static?: string[]
 }
 
+const cloneParsedHtmlAsset = (assets: ParsedHtmlAsset): ParsedHtmlAsset => ({
+  css: [...(assets.css || [])],
+  js: [...(assets.js || [])],
+  static: [...(assets.static || [])]
+})
+
+const assetsFromHtmlCache = new Map<
+  string,
+  {key: string; assets: ParsedHtmlAsset}
+>()
+
 export function getAssetsFromHtml(
   htmlFilePath: string | undefined,
   htmlContent?: string,
@@ -69,6 +80,22 @@ export function getAssetsFromHtml(
 
   if (!htmlFilePath) {
     return assets
+  }
+
+  let cacheKey: string | undefined
+
+  if (htmlContent === undefined) {
+    try {
+      const stat = fs.statSync(htmlFilePath)
+      cacheKey = `${stat.mtimeMs}:${stat.size}:${publicPath}`
+
+      const cached = assetsFromHtmlCache.get(htmlFilePath)
+      if (cached && cached.key === cacheKey) {
+        return cloneParsedHtmlAsset(cached.assets)
+      }
+    } catch {
+      cacheKey = undefined
+    }
   }
 
   try {
@@ -133,6 +160,13 @@ export function getAssetsFromHtml(
     return assets
   }
 
+  if (cacheKey) {
+    assetsFromHtmlCache.set(htmlFilePath, {
+      key: cacheKey,
+      assets: cloneParsedHtmlAsset(assets)
+    })
+  }
+
   return assets
 }
 
@@ -144,10 +178,11 @@ export function getHtmlPageDeclaredAssetPath(
   const entryname =
     Object.keys(filepathList).find((key) => {
       const includePath = filepathList[key] as string
-      return (
-        filepathList[key] === filePath ||
-        getAssetsFromHtml(includePath)?.js?.includes(filePath) ||
-        getAssetsFromHtml(includePath)?.css?.includes(filePath)
+      if (includePath === filePath) return true
+
+      const assets = getAssetsFromHtml(includePath)
+      return Boolean(
+        assets?.js?.includes(filePath) || assets?.css?.includes(filePath)
       )
     }) || ''
 

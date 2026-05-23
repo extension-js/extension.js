@@ -84,8 +84,16 @@ function writeFileAtomically(targetPath: string, content: string) {
   )
 
   fs.mkdirSync(directory, {recursive: true})
-  fs.writeFileSync(tempPath, content, 'utf-8')
-  fs.renameSync(tempPath, targetPath)
+  try {
+    fs.writeFileSync(tempPath, content, 'utf-8')
+    fs.renameSync(tempPath, targetPath)
+  } finally {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+    } catch {
+      // Best-effort cleanup; nothing actionable if the unlink itself fails.
+    }
+  }
 }
 
 export class PersistManifestToDisk {

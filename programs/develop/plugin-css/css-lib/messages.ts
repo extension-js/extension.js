@@ -18,7 +18,6 @@ export function cssIntegrationsEnabled(integrations: string[]) {
 
 export function cssConfigsDetected(
   postcssConfig?: string,
-  stylelintConfig?: string,
   tailwindConfig?: string,
   browserslistSource?: string
 ) {
@@ -26,7 +25,6 @@ export function cssConfigsDetected(
   return (
     `${colors.gray('⏵⏵⏵')} CSS: Configs\n` +
     `${colors.gray('POSTCSS')} ${fmt(postcssConfig)}\n` +
-    `${colors.gray('STYLELINT')} ${fmt(stylelintConfig)}\n` +
     `${colors.gray('TAILWIND')} ${fmt(tailwindConfig)}\n` +
     `${colors.gray('BROWSERSLIST')} ${fmt(browserslistSource)}`
   )

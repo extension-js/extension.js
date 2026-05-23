@@ -8,21 +8,16 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {
-  type RspackPluginInstance,
-  type Compiler,
-  type RuleSetRule
-} from '@rspack/core'
+import {type Compiler, type RuleSetRule} from '@rspack/core'
 import * as messages from './css-lib/messages'
 import {hasDependency} from '../lib/has-dependency'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
-import {maybeUseStylelint} from './css-tools/stylelint'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import type {DevOptions, PluginInterface} from '../types'
-import {getStylelintConfigFile} from './css-tools/stylelint'
 import {getTailwindConfigFile} from './css-tools/tailwind'
+import {findPostCssConfig} from './css-tools/postcss'
 
 // Re-export CSS utilities so other plugins can import from @plugin-css
 export {resolveCssAsset} from './css-lib/resolve-css-asset'
@@ -43,12 +38,9 @@ export class CssPlugin {
       (compiler.options.mode as DevOptions['mode']) || 'development'
     const projectPath = (compiler.options.context as string) || process.cwd()
 
-    const plugins: RspackPluginInstance[] = []
     const manifestPath = this.manifestPath
     const usingSass = hasDependency(projectPath, 'sass')
     const usingLess = hasDependency(projectPath, 'less')
-    const maybeInstallStylelint = await maybeUseStylelint(projectPath)
-    plugins.push(...maybeInstallStylelint)
 
     // We have two main loaders:
     // 1. cssInContentScriptLoader - for CSS in content scripts
@@ -60,7 +52,7 @@ export class CssPlugin {
     // Trigger the optional-package contract so sass-loader / less-loader get
     // resolved (and installed if missing) before the CSS loader chain runs.
     await maybeUseSass(projectPath)
-    await maybeUseLess(projectPath, manifestPath)
+    await maybeUseLess(projectPath)
 
     const loaders: RuleSetRule[] = [
       ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
@@ -82,9 +74,6 @@ export class CssPlugin {
     compiler.options.output.cssChunkFilename = '[name].css'
 
     // Update compiler configuration
-    compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(
-      Boolean
-    )
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
@@ -109,14 +98,12 @@ export class CssPlugin {
       console.log(messages.cssIntegrationsEnabled(integrations))
 
       const postcssConfig = findPostCssConfig(projectPath)
-      const stylelintConfig = getStylelintConfigFile(projectPath)
       const tailwindConfig = getTailwindConfigFile(projectPath)
       const browserslistSource = findBrowserslistSource(projectPath)
 
       console.log(
         messages.cssConfigsDetected(
           postcssConfig,
-          stylelintConfig,
           tailwindConfig,
           browserslistSource
         )
@@ -127,35 +114,20 @@ export class CssPlugin {
   public async apply(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     if (mode === 'production') {
-      compiler.hooks.beforeRun.tapPromise(
-        CssPlugin.name,
-        async () => await this.configureOptions(compiler)
+      // build runs via compiler.run(), which awaits beforeRun before reading rules.
+      compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () =>
+        this.configureOptions(compiler)
       )
       return
     }
-    await this.configureOptions(compiler)
+    // dev/watch: beforeRun never fires, so begin configuring eagerly and also
+    // gate the first compilation on the same promise via watchRun. This closes
+    // the race where the compiler could read module.rules before the (async)
+    // loader-contract resolution finished mutating them.
+    const configuring = this.configureOptions(compiler)
+    compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
+    await configuring
   }
-}
-
-const postCssConfigFiles = [
-  '.postcssrc',
-  '.postcssrc.json',
-  '.postcssrc.yaml',
-  '.postcssrc.yml',
-  '.postcssrc.js',
-  '.postcssrc.cjs',
-  'postcss.config.js',
-  'postcss.config.cjs'
-]
-
-function findPostCssConfig(projectPath: string): string | undefined {
-  for (const configFile of postCssConfigFiles) {
-    const configPath = path.join(projectPath, configFile)
-    if (fs.existsSync(configPath)) {
-      return configPath
-    }
-  }
-  return undefined
 }
 
 function findBrowserslistSource(projectPath: string): string | undefined {

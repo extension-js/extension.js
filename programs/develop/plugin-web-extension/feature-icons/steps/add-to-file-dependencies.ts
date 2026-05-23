@@ -9,6 +9,7 @@
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../types'
+import {iconValuesToStrings} from '../normalize-keys'
 import * as messages from '../messages'
 
 export class AddToFileDependencies {
@@ -38,47 +39,16 @@ export class AddToFileDependencies {
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
 
-              const normalizeToStrings = (response: unknown): string[] => {
-                if (!response) return []
-
-                if (typeof response === 'string') return [response]
-
-                if (Array.isArray(response)) {
-                  const flat = response.flatMap((value) => {
-                    if (typeof value === 'string') return [value]
-
-                    if (value && typeof value === 'object') {
-                      return Object.values(value)
-                    }
-
-                    return []
-                  })
-
-                  return flat.filter((s): s is string => typeof s === 'string')
-                }
-
-                if (typeof response === 'object') {
-                  return Object.values(response).filter(
-                    (value): value is string => typeof value === 'string'
-                  )
-                }
-
-                return []
-              }
-
-              const stringEntries = normalizeToStrings(resource)
+              const stringEntries = iconValuesToStrings(resource)
 
               for (const entry of stringEntries) {
-                if (entry) {
-                  const fileDependencies = new Set(compilation.fileDependencies)
-
-                  if (fs.existsSync(entry)) {
-                    if (!fileDependencies.has(entry)) {
-                      fileDependencies.add(entry)
-                      compilation.fileDependencies.add(entry)
-                      added++
-                    }
-                  }
+                if (
+                  entry &&
+                  fs.existsSync(entry) &&
+                  !compilation.fileDependencies.has(entry)
+                ) {
+                  compilation.fileDependencies.add(entry)
+                  added++
                 }
               }
             }

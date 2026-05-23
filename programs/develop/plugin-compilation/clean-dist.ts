@@ -11,11 +11,6 @@ import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import * as messages from './compilation-lib/messages'
 
-const rmdirSync = fs.rmdirSync as unknown as (
-  path: fs.PathLike,
-  options?: {recursive?: boolean}
-) => void
-
 export class CleanDistFolderPlugin {
   constructor(private options: {browser: string}) {}
   apply(compiler: Compiler): void {
@@ -34,38 +29,29 @@ export class CleanDistFolderPlugin {
       }
 
       try {
-        if (fs.rmSync) {
-          fs.rmSync(distPath, {recursive: true, force: true})
-        } else {
-          // Node <14 fallback
-          rmdirSync(distPath, {recursive: true})
-        }
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-          console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
-        }
+        fs.rmSync(distPath, {recursive: true, force: true})
 
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
           logger.info(
             '[CleanDistFolderPlugin] Removed old hot-update files before compilation.'
           )
         }
       } catch (error: any) {
-        // Retry once on Windows when files are temporarily locked
+        // Windows can transiently lock files (EBUSY/EPERM); retry shortly and
+        // don't surface an error for the recoverable case
         if (
           process.platform === 'win32' &&
           /EBUSY|EPERM/i.test(String(error?.code || error?.message))
         ) {
           setTimeout(() => {
             try {
-              if (fs.rmSync) {
-                fs.rmSync(distPath, {recursive: true, force: true})
-              } else {
-                rmdirSync(distPath, {recursive: true})
-              }
+              fs.rmSync(distPath, {recursive: true, force: true})
             } catch {
               // Ignore
             }
           }, 100)
+          return
         }
 
         logger.error(

@@ -24,10 +24,15 @@ export class CompatibilityPlugin {
     this.polyfill = options.polyfill || false
   }
 
-  public async apply(compiler: Compiler) {
+  public apply(compiler: Compiler) {
+    const isGeckoFamily =
+      this.browser === 'firefox' ||
+      this.browser === 'gecko-based' ||
+      this.browser === 'firefox-based'
+
     // Allow browser polyfill as needed
     if (this.polyfill) {
-      if (this.browser !== 'firefox') {
+      if (!isGeckoFamily) {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(
             messages.compatibilityPolyfillEnabled(

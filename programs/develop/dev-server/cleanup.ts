@@ -65,15 +65,16 @@ export function setupCleanupHandlers(
     }
   }
 
-  // Handle uncaught exceptions
+  // An uncaught exception leaves the process in an undefined state — tear down
   process.on('uncaughtException', async (error) => {
     console.error('[Extension.js Runner] Uncaught exception.', error)
     await cleanup()
   })
 
-  process.on('unhandledRejection', async (reason, promise) => {
+  // A stray rejection (common from browser plugins / CDP during long HMR
+  // sessions) should NOT kill the dev server — log it and keep serving
+  process.on('unhandledRejection', (reason, promise) => {
     console.error('[Extension.js Runner] Unhandled rejection.', promise, reason)
-    await cleanup()
   })
 
   // Optional auto-exit support for non-interactive (AI/CI) runs
@@ -95,7 +96,6 @@ export function setupCleanupHandlers(
 
   // Do not remove other listeners; let browser plugins receive signals too.
   // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
-  process.on('ERROR', cancelAndCleanup)
   process.on('SIGINT', cancelAndCleanup)
   process.on('SIGTERM', cancelAndCleanup)
   process.on('SIGHUP', cancelAndCleanup)

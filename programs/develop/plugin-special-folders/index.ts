@@ -59,6 +59,11 @@ export class SpecialFoldersPlugin {
         }
       )
 
+      // Only ignore the root public/manifest.json to avoid overwriting the
+      // generated manifest. Nested public/**/manifest.json should be copied
+      // through (e.g., templates/assets)
+      const copyIgnore = ['manifest.json']
+
       // Use Rspack's CopyRspackPlugin by default to mirror public/ into the output root
       new rspack.CopyRspackPlugin({
         patterns: [
@@ -67,21 +72,14 @@ export class SpecialFoldersPlugin {
             to: '.',
             noErrorOnMissing: true,
             globOptions: {
-              // Only ignore the root public/manifest.json to avoid overwriting
-              // the generated manifest. Nested public/**/manifest.json should
-              // be copied through (e.g., templates/assets).
-              ignore: ['manifest.json']
+              ignore: copyIgnore
             }
           }
         ]
       }).apply(compiler)
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          messages.specialFoldersSetupSummary(
-            true,
-            true,
-            ['**/manifest.json'].length
-          )
+          messages.specialFoldersSetupSummary(true, true, copyIgnore.length)
         )
       }
     }

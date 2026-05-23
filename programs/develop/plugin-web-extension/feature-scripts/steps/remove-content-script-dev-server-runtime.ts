@@ -1,9 +1,3 @@
-import fs from 'fs'
-import path from 'path'
-import {Compilation, type Compiler, sources} from '@rspack/core'
-
-const CONTENT_SCRIPT_ASSET =
-  /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.js$/i
 const DEV_SERVER_CLIENT_MARKERS = [
   '@rspack/dev-server/client/index.js?',
   '@rspack/dev-server/client/utils/ansiHTML.js',
@@ -16,73 +10,8 @@ const DEV_SERVER_HOT_MARKERS = [
   'module.hot.check()'
 ]
 
-export class RemoveContentScriptDevServerRuntime {
-  apply(compiler: Compiler) {
-    compiler.hooks.thisCompilation.tap(
-      RemoveContentScriptDevServerRuntime.name,
-      (compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: RemoveContentScriptDevServerRuntime.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
-          },
-          () => {
-            for (const asset of compilation.getAssets()) {
-              if (!CONTENT_SCRIPT_ASSET.test(asset.name)) continue
-
-              const originalSource = asset.source.source().toString()
-              const strippedSource =
-                stripDevServerStartupFromContentScript(originalSource)
-
-              if (strippedSource === originalSource) continue
-
-              compilation.updateAsset(
-                asset.name,
-                new sources.RawSource(strippedSource)
-              )
-            }
-          }
-        )
-      }
-    )
-
-    compiler.hooks.afterEmit.tap(
-      RemoveContentScriptDevServerRuntime.name,
-      (compilation) => {
-        for (const asset of compilation.getAssets()) {
-          if (!CONTENT_SCRIPT_ASSET.test(asset.name)) continue
-
-          const outputPath = path.join(
-            compilation.outputOptions.path || '',
-            asset.name
-          )
-
-          if (!outputPath || !fs.existsSync(outputPath)) continue
-
-          const originalSource = fs.readFileSync(outputPath, 'utf-8')
-          const strippedSource =
-            stripDevServerStartupFromContentScript(originalSource)
-
-          if (strippedSource !== originalSource) {
-            fs.writeFileSync(outputPath, strippedSource, 'utf-8')
-          }
-        }
-      }
-    )
-
-    compiler.hooks.done.tap(
-      RemoveContentScriptDevServerRuntime.name,
-      (stats) => {
-        const outputPath = stats.compilation.outputOptions.path || ''
-        if (!outputPath) return
-        try {
-          sanitizeOutputDirectory(outputPath)
-        } catch {
-          // Best-effort post-emit sanitization.
-        }
-      }
-    )
-  }
+export function contentScriptRetainsDevServerRuntime(source: string): boolean {
+  return source.includes('@rspack/dev-server/client')
 }
 
 export function stripDevServerStartupFromContentScript(source: string): string {
@@ -139,29 +68,6 @@ function getModuleBody(source: string, moduleId: string): string | null {
     moduleStart,
     nextHeaderMatch ? nextHeaderMatch.index : source.length
   )
-}
-
-function sanitizeOutputDirectory(outputPath: string) {
-  const contentScriptsDir = path.join(outputPath, 'content_scripts')
-  if (!fs.existsSync(contentScriptsDir)) return false
-
-  let changed = false
-
-  for (const fileName of fs.readdirSync(contentScriptsDir)) {
-    if (!/^content-\d+(?:\.[a-f0-9]+)?\.js$/i.test(fileName)) continue
-
-    const filePath = path.join(contentScriptsDir, fileName)
-    const originalSource = fs.readFileSync(filePath, 'utf-8')
-    const strippedSource =
-      stripDevServerStartupFromContentScript(originalSource)
-
-    if (strippedSource !== originalSource) {
-      fs.writeFileSync(filePath, strippedSource, 'utf-8')
-      changed = true
-    }
-  }
-
-  return changed
 }
 
 function stripExtraStartupRequires(source: string) {

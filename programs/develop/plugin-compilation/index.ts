@@ -53,59 +53,25 @@ export class CompilationPlugin {
         ? [existing]
         : []
 
+    const SUPPRESSED_THIRD_PARTY_WARNINGS = [
+      'Critical dependency: the request of a dependency is an expression',
+      'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted',
+      'Accessing import.meta directly is unsupported'
+    ]
     ignoreWarnings.push((warning: any) => {
       try {
         const message = String((warning && (warning.message || warning)) || '')
-        const modulePath =
+        const modulePath = String(
           (warning &&
             warning.module &&
             (warning.module.resource || warning.module.userRequest)) ||
-          ''
-        if (
-          message.includes(
-            'Critical dependency: the request of a dependency is an expression'
-          ) &&
-          /[\\\/]@ffmpeg[\\\/]ffmpeg[\\\/]dist[\\\/]esm[\\\/](classes|worker)\.js$/.test(
-            modulePath
-          )
-        ) {
-          return true
-        }
-        if (
-          message.includes(
-            'Critical dependency: the request of a dependency is an expression'
-          ) &&
-          /[\\\/]@techstark[\\\/]opencv-js[\\\/]dist[\\\/]opencv\.js$/.test(
-            modulePath
-          )
-        ) {
-          return true
-        }
-        if (
-          message.includes(
-            'Critical dependency: the request of a dependency is an expression'
-          ) &&
-          /[\\\/]@sqlite\.org[\\\/]sqlite-wasm[\\\/]dist[\\\/]sqlite3-worker1\.mjs$/.test(
-            modulePath
-          )
-        ) {
-          return true
-        }
-        if (
-          message.includes(
-            'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted'
-          ) &&
-          /[\\\/]@vue[\\\/]compiler-sfc[\\\/]dist[\\\/]compiler-sfc\.esm-browser\.js$/.test(
-            modulePath
-          )
-        ) {
-          return true
-        }
-        return (
-          message.includes('Accessing import.meta directly is unsupported') &&
-          /[\\\/]@huggingface[\\\/]transformers[\\\/].*transformers\.web\.js$/.test(
-            modulePath
-          )
+            ''
+        )
+        const isThirdParty = /[\\/]node_modules[\\/]/.test(modulePath)
+        if (!isThirdParty) return false
+
+        return SUPPRESSED_THIRD_PARTY_WARNINGS.some((needle) =>
+          message.includes(needle)
         )
       } catch {
         return false
@@ -118,7 +84,6 @@ export class CompilationPlugin {
   public apply(compiler: Compiler): void {
     this.applyIgnoreWarnings(compiler)
 
-    // TODO: This is outdated
     new CaseSensitivePathsPlugin().apply(compiler as any)
 
     new EnvPlugin({
