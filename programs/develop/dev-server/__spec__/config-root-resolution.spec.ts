@@ -74,7 +74,7 @@ vi.mock('../../rspack-config', () => ({
 
 vi.mock('../port-manager', () => ({
   PortManager: class MockPortManager {
-    allocatePorts = vi.fn(async () => ({port: 8080, webSocketPort: 8081}))
+    allocatePorts = vi.fn(async () => ({port: 8080}))
     getCurrentInstance = vi.fn(() => ({instanceId: 'instance-1'}))
   }
 }))

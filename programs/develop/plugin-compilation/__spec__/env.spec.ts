@@ -3,6 +3,8 @@ import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
 // Mocks
 const defineApply = vi.fn()
 let lastDefineArgs: any = null
+const provideApply = vi.fn()
+let lastProvideArgs: any = null
 vi.mock('@rspack/core', () => {
   class DefinePluginMock {
     public args: any
@@ -11,6 +13,14 @@ vi.mock('@rspack/core', () => {
       lastDefineArgs = args
     }
     apply = defineApply
+  }
+  class ProvidePluginMock {
+    public args: any
+    constructor(args: any) {
+      this.args = args
+      lastProvideArgs = args
+    }
+    apply = provideApply
   }
   class RawSourceMock {
     private content: string
@@ -26,6 +36,7 @@ vi.mock('@rspack/core', () => {
   }
   return {
     DefinePlugin: DefinePluginMock,
+    ProvidePlugin: ProvidePluginMock,
     Compilation: {PROCESS_ASSETS_STAGE_SUMMARIZE: 1000},
     sources: {RawSource: RawSourceMock}
   }
@@ -74,6 +85,8 @@ describe('EnvPlugin', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     defineApply.mockReset()
+    provideApply.mockReset()
+    lastProvideArgs = null
     ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
       const path = toPosix(String(p))
       return (
@@ -153,9 +166,33 @@ describe('EnvPlugin', () => {
     // Ensure DefinePlugin applied at least once
     expect(defineApply).toHaveBeenCalled()
     expect(lastDefineArgs).toBeTruthy()
-    // Bun/browser safety: process and process.env stubs
+    // The process shim isn't resolvable here (fs.existsSync mocked to .env
+    // paths only), so the inline fallback stub is defined for browser safety.
     expect(lastDefineArgs['process']).toBeTruthy()
     expect(lastDefineArgs['process.env']).toBeTruthy()
+    expect(provideApply).not.toHaveBeenCalled()
+  })
+
+  it('uses ProvidePlugin for the bundled process shim when available', async () => {
+    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) =>
+      toPosix(String(p)).endsWith('/runtime/process-shim.cjs')
+    )
+
+    const {compiler} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    expect(provideApply).toHaveBeenCalled()
+    expect(toPosix(String(lastProvideArgs.process))).toContain(
+      '/runtime/process-shim.cjs'
+    )
+    // With a real shim provided, the broad process / process.env defines are
+    // omitted so they don't shadow the polyfill.
+    expect(lastDefineArgs['process']).toBeUndefined()
+    expect(lastDefineArgs['process.env']).toBeUndefined()
   })
 
   it('replaces $EXTENSION_* and $EXTENSION_PUBLIC_* in json/html assets', async () => {
