@@ -8,6 +8,34 @@
 
 import type {FilepathList} from '../../types'
 
+export function iconValuesToStrings(response: unknown): string[] {
+  if (!response) return []
+
+  if (typeof response === 'string') return [response]
+
+  if (Array.isArray(response)) {
+    return response
+      .flatMap((value) => {
+        if (typeof value === 'string') return [value]
+
+        if (value && typeof value === 'object') {
+          return Object.values(value as Record<string, unknown>)
+        }
+
+        return []
+      })
+      .filter((value): value is string => typeof value === 'string')
+  }
+
+  if (typeof response === 'object') {
+    return Object.values(response as Record<string, unknown>).filter(
+      (value): value is string => typeof value === 'string'
+    )
+  }
+
+  return []
+}
+
 export function normalizeIconIncludeKeys(
   icons?: Record<string, unknown>
 ): FilepathList {

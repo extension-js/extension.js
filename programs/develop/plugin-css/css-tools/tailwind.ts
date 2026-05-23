@@ -34,13 +34,17 @@ export function isUsingTailwind(projectPath: string) {
 }
 
 export function getTailwindConfigFile(projectPath: string) {
-  const configFileMjs = path.join(projectPath, 'tailwind.config.mjs')
-  const configFileCjs = path.join(projectPath, 'tailwind.config.cjs')
-  const configFileJs = path.join(projectPath, 'tailwind.config.js')
+  const candidates = [
+    'tailwind.config.mjs',
+    'tailwind.config.cjs',
+    'tailwind.config.ts',
+    'tailwind.config.js'
+  ]
 
-  if (fs.existsSync(configFileMjs)) return configFileMjs
-  if (fs.existsSync(configFileCjs)) return configFileCjs
-  if (fs.existsSync(configFileJs)) return configFileJs
+  for (const candidate of candidates) {
+    const configPath = path.join(projectPath, candidate)
+    if (fs.existsSync(configPath)) return configPath
+  }
 
   return undefined
 }

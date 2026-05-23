@@ -27,11 +27,7 @@ function resolveFromProject(id: string, projectPath: string) {
       // Try next base
     }
   }
-  try {
-    return require.resolve(id, {paths: [projectPath, process.cwd()]})
-  } catch {
-    return undefined
-  }
+  return undefined
 }
 
 export function isUsingSvelte(projectPath: string) {

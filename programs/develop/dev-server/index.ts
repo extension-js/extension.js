@@ -274,17 +274,13 @@ export async function devServer(
     devOptions.browser
   )
 
-  // Initialize port manager and allocate ports for this instance
-  const portManager = new PortManager(devOptions.browser, packageJsonDir, 8080)
+  // Initialize port manager and allocate a port for this instance
+  const portManager = new PortManager(8080)
   const desiredPort =
     typeof devOptions.port === 'string'
       ? parseInt(devOptions.port, 10)
       : devOptions.port
-  const portAllocation = await portManager.allocatePorts(
-    devOptions.browser,
-    packageJsonDir,
-    desiredPort
-  )
+  const portAllocation = await portManager.allocatePorts(desiredPort)
 
   const currentInstance = portManager.getCurrentInstance()
 
@@ -417,8 +413,19 @@ export async function devServer(
         // Avoid a startup recompile caused by chokidar "add" events for
         // existing files in watched folders.
         ignoreInitial: true,
-        usePolling: true,
-        interval: 1000
+        // Default to native FS events (FSEvents/inotify): polling wakes the
+        // CPU every interval and adds up to `interval`ms of HMR latency.
+        // Opt into polling only where native events are unreliable (some
+        // network shares, bind-mounted Docker volumes) via EXTENSION_WATCH_POLL
+        ...(process.env.EXTENSION_WATCH_POLL === 'true'
+          ? {
+              usePolling: true,
+              interval: parseInt(
+                String(process.env.EXTENSION_WATCH_POLL_INTERVAL || '1000'),
+                10
+              )
+            }
+          : {})
       }
     },
     client: false,

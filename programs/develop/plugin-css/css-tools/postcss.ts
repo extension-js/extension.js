@@ -30,7 +30,7 @@ const postCssConfigFiles = [
   'postcss.config.cjs'
 ]
 
-function findPostCssConfig(projectPath: string): string | undefined {
+export function findPostCssConfig(projectPath: string): string | undefined {
   const ordered = isTypeModuleProject(projectPath)
     ? [
         '.postcssrc',

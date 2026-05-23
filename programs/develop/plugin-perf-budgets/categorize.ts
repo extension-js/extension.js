@@ -72,12 +72,3 @@ export const BUDGET_BYTES: Record<AssetCategory, number> = {
   page: 500 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }
-
-export const CATEGORY_DESCRIPTIONS: Record<AssetCategory, string> = {
-  'content-script':
-    'content script — injected on every page navigation; keep under 256 KiB',
-  'service-worker':
-    'service worker / background — wakes from cold; keep under 200 KiB',
-  page: 'page UI — cold-start; keep under 500 KiB',
-  ignored: ''
-}
