@@ -10,60 +10,94 @@ import {ChildProcess, spawn} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
 import type {BrowserType} from '../../browsers-types'
 
-export function setupProcessSignalHandlers(
-  browser: BrowserType,
-  child: ChildProcess,
+interface ChromiumInstanceHandlers {
+  browser: BrowserType
+  child: ChildProcess
   cleanupInstance: () => void
-) {
-  const cleanup = () => {
-    try {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.enhancedProcessManagementCleanup(browser))
-      }
+  isCleaningUp: boolean
+}
 
-      if (child && !child.killed) {
-        // On Windows, ensure the entire process tree is terminated.
-        // Chromium spawns multiple processes; taskkill /T /F is most reliable.
-        if (process.platform === 'win32') {
-          try {
-            spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-              stdio: 'ignore',
-              windowsHide: true
-            }).on('error', () => {
-              // Ignore errors from taskkill
-            })
-          } catch {
-            // Ignore
-          }
-        }
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-          console.log(messages.enhancedProcessManagementTerminating(browser))
-        }
+const activeInstances = new Set<ChromiumInstanceHandlers>()
+let globalHandlersInstalled = false
 
-        child.kill('SIGTERM')
+export function __activeChromiumInstanceCount() {
+  return activeInstances.size
+}
 
-        setTimeout(() => {
-          if (child && !child.killed) {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-              console.log(messages.enhancedProcessManagementForceKill(browser))
-            }
-            child.kill('SIGKILL')
-          }
-        }, 5000)
-      }
+export function __resetChromiumProcessHandlersForTest() {
+  activeInstances.clear()
+  globalHandlersInstalled = false
+}
 
-      cleanupInstance()
-    } catch (error) {
-      console.error(
-        messages.enhancedProcessManagementCleanupError(browser, error)
-      )
+function cleanupOne(instance: ChromiumInstanceHandlers) {
+  if (instance.isCleaningUp) return
+  instance.isCleaningUp = true
+
+  const {browser, child, cleanupInstance} = instance
+
+  try {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.enhancedProcessManagementCleanup(browser))
     }
-  }
 
-  process.on('SIGINT', cleanup)
-  process.on('SIGTERM', cleanup)
-  process.on('SIGHUP', cleanup)
-  process.on('exit', cleanup)
+    if (child && !child.killed) {
+      // On Windows, ensure the entire process tree is terminated.
+      // Chromium spawns multiple processes; taskkill /T /F is most reliable.
+      if (process.platform === 'win32') {
+        try {
+          spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+            stdio: 'ignore',
+            windowsHide: true
+          }).on('error', () => {
+            // Ignore errors from taskkill
+          })
+        } catch {
+          // Ignore
+        }
+      }
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.enhancedProcessManagementTerminating(browser))
+      }
+
+      child.kill('SIGTERM')
+
+      const killTimer = setTimeout(() => {
+        if (child && !child.killed) {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(messages.enhancedProcessManagementForceKill(browser))
+          }
+          child.kill('SIGKILL')
+        }
+      }, 5000)
+      // The SIGKILL fallback must not keep the event loop alive on its own
+      killTimer.unref?.()
+    }
+
+    cleanupInstance()
+  } catch (error) {
+    console.error(
+      messages.enhancedProcessManagementCleanupError(browser, error)
+    )
+  }
+}
+
+function cleanupAll() {
+  for (const instance of activeInstances) cleanupOne(instance)
+}
+
+function firstBrowserLabel(): BrowserType {
+  for (const instance of activeInstances) return instance.browser
+  return 'chrome' as BrowserType
+}
+
+function installGlobalHandlersOnce() {
+  if (globalHandlersInstalled) return
+  globalHandlersInstalled = true
+
+  process.on('SIGINT', cleanupAll)
+  process.on('SIGTERM', cleanupAll)
+  process.on('SIGHUP', cleanupAll)
+  process.on('exit', cleanupAll)
 
   process.on('uncaughtException', (error) => {
     if (isBenignSocketTeardown(error)) {
@@ -74,20 +108,50 @@ export function setupProcessSignalHandlers(
       return
     }
     console.error(
-      messages.enhancedProcessManagementUncaughtException(browser, error)
+      messages.enhancedProcessManagementUncaughtException(
+        firstBrowserLabel(),
+        error
+      )
     )
-    cleanup()
+    cleanupAll()
     process.exit(1)
   })
 
   process.on('unhandledRejection', (reason) => {
     if (isBenignSocketTeardown(reason)) return
     console.error(
-      messages.enhancedProcessManagementUnhandledRejection(browser, reason)
+      messages.enhancedProcessManagementUnhandledRejection(
+        firstBrowserLabel(),
+        reason
+      )
     )
-    cleanup()
+    cleanupAll()
     process.exit(1)
   })
+}
+
+/**
+ * Register a Chromium instance for process-exit cleanup. Returns a disposer that
+ * unregisters the instance (call it once the child has exited). Global process
+ * listeners are installed only on the first call.
+ */
+export function setupProcessSignalHandlers(
+  browser: BrowserType,
+  child: ChildProcess,
+  cleanupInstance: () => void
+): () => void {
+  const instance: ChromiumInstanceHandlers = {
+    browser,
+    child,
+    cleanupInstance,
+    isCleaningUp: false
+  }
+  activeInstances.add(instance)
+  installGlobalHandlersOnce()
+
+  return () => {
+    activeInstances.delete(instance)
+  }
 }
 
 // Errors that come from a socket the browser is in the middle of closing.

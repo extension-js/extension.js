@@ -140,6 +140,30 @@ describe('establishBrowserConnection', () => {
   })
 
   // -----------------------------------------------------------------------
+  // 4b. Close BEFORE open rejects the connect promise (no infinite hang)
+  // -----------------------------------------------------------------------
+
+  it('rejects when the socket closes before it opens', async () => {
+    const onMessage = vi.fn()
+    const onRejectPending = vi.fn()
+
+    const promise = establishBrowserConnection(
+      'ws://127.0.0.1:9222/devtools/browser',
+      false,
+      onMessage,
+      onRejectPending
+    )
+
+    const ws = getLastWs()
+    // Chrome accepted the TCP connection then dropped it mid-handshake:
+    // 'close' with no preceding 'open' or 'error'. Previously this hung forever.
+    ws.emit('close')
+
+    await expect(promise).rejects.toThrow(/closed before/)
+    expect(onRejectPending).toHaveBeenCalledWith('CDP connection closed')
+  })
+
+  // -----------------------------------------------------------------------
   // 5. Messages are forwarded to onMessage callback
   // -----------------------------------------------------------------------
 

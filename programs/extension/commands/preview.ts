@@ -11,7 +11,12 @@ import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {vendors, validateVendorsOrExit, type Browser} from '../helpers/vendors'
+import {
+  vendors,
+  validateVendorsOrExit,
+  isSafariVendor,
+  type Browser
+} from '../helpers/vendors'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -116,6 +121,11 @@ export function registerPreviewCommand(program: Command) {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
+
+      if (list.some(isSafariVendor)) {
+        console.error(messages.safariCommandNotSupported('preview'))
+        process.exit(1)
+      }
 
       if (!process.env.EXTJS_LIGHT) {
         const isRemote =

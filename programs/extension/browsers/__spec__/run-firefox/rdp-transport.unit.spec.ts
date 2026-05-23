@@ -295,15 +295,12 @@ describe('RdpTransport', () => {
   })
 
   // -----------------------------------------------------------------------
-  // 9. Socket end event is emitted (even though it doesn't reject pending)
-  //
-  //    NOTE: This documents a gap — when the server closes the connection,
-  //    the transport emits 'end' but does NOT reject pending requests.
-  //    Callers relying on request() must add their own timeout or listen
-  //    for the 'end' event to avoid hanging promises.
+  // 9. Server-initiated close emits 'end' AND rejects in-flight requests
+  //    (previously a documented gap: requests hung forever on close because
+  //    the reconnect path swaps the transport without calling disconnect()).
   // -----------------------------------------------------------------------
 
-  it('emits end event when server closes connection', async () => {
+  it('rejects in-flight requests and emits end when the server closes', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
 
@@ -311,9 +308,44 @@ describe('RdpTransport', () => {
       transport.on('end', () => resolve())
     })
 
+    const req = transport.request({to: 'tab-1', type: 'attach'})
+    await new Promise((r) => setTimeout(r, 30))
+
     sock.end()
 
     await endPromise
-    // 'end' was emitted — callers can listen for this to handle cleanup
+    await expect(req).rejects.toThrow()
+  })
+
+  // -----------------------------------------------------------------------
+  // 10. A request that never gets a reply rejects after the timeout
+  //     (instead of hanging the actor's queue forever)
+  // -----------------------------------------------------------------------
+
+  it('rejects a request that never gets a reply after the timeout', async () => {
+    process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS = '60'
+    const t = new RdpTransport()
+    try {
+      await t.connect(mockState.port)
+      // Mock server never responds.
+      await expect(t.request({to: 'tab-1', type: 'noReply'})).rejects.toThrow(
+        /timed out/
+      )
+    } finally {
+      delete process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS
+      try {
+        t.disconnect()
+      } catch {}
+    }
+  })
+
+  // -----------------------------------------------------------------------
+  // 11. A request made before connect rejects cleanly (no socket) rather
+  //     than throwing out of flush() and corrupting the pending queue
+  // -----------------------------------------------------------------------
+
+  it('rejects a request made before connect instead of throwing', async () => {
+    const t = new RdpTransport()
+    await expect(t.request({to: 'root', type: 'listTabs'})).rejects.toThrow()
   })
 })
