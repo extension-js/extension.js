@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process'
 import {spawn} from 'cross-spawn'
 import {InstallBrowserTarget} from './browser-target'
 
-type PackageManagerName = 'pnpm' | 'npm' | 'bun' | 'unknown'
+type PackageManagerName = 'pnpm' | 'yarn' | 'bun' | 'npm'
 
 function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   if (process.platform !== 'win32') return base
@@ -29,10 +29,21 @@ function detectCurrentPackageManager(): PackageManagerName {
   ).toLowerCase()
 
   if (userAgent.includes('pnpm')) return 'pnpm'
+  if (userAgent.includes('yarn')) return 'yarn'
   if (userAgent.includes('bun')) return 'bun'
   if (userAgent.includes('npm')) return 'npm'
 
-  return 'unknown'
+  const execPath = String(
+    process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+  ).toLowerCase()
+
+  if (execPath.includes('pnpm')) return 'pnpm'
+  if (execPath.includes('yarn')) return 'yarn'
+  if (execPath.includes('bun')) return 'bun'
+
+  // yarn and npm both have a universally-available `npx` runner, so anything
+  // unrecognized safely defaults to the npm/npx path below
+  return 'npm'
 }
 
 export function browserInstallCommand(_target: InstallBrowserTarget): string {
