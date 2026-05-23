@@ -32,35 +32,25 @@ export class JsonPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    // Add the JSON to the compilation. This is important so other
-    // plugins can get it via the compilation.assets object,
-    // allowing them to modify it.
     compiler.hooks.thisCompilation.tap('json:module', (compilation) => {
       compilation.hooks.processAssets.tap(
         {
           name: 'json:module',
-          // Add additional assets to the compilation.
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
+          // 1) Emit the JSON to the compilation so other plugins can read and
+          //    modify it via compilation.assets.
           processJsonAssets(
             compilation,
             this.manifestPath,
             this.includeList || {}
           )
-        }
-      )
-    })
 
-    // Ensure this JSON file and its assets are stored as file
-    // dependencies so webpack can watch and trigger changes.
-    compiler.hooks.thisCompilation.tap('json:module', (compilation) => {
-      compilation.hooks.processAssets.tap(
-        {
-          name: 'json:module',
-          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-        },
-        () => {
+          // 2) Register the JSON file and its assets as file dependencies so
+          // watch mode recompiles when they change. Runs in the same tap
+          // (previously two taps shared the name "json:module" at the same
+          // stage, making profiling and hook tracing ambiguous)
           trackJsonDependencies(
             compilation,
             this.manifestPath,

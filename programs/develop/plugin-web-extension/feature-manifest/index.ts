@@ -16,7 +16,6 @@ import {PatchWAR} from './steps/patch-war'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {AddDependencies} from './steps/add-dependencies'
-import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 
 import type {FilepathList, PluginInterface, DevOptions} from '../../types'

@@ -11,7 +11,6 @@ import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
-import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {getCanonicalContentScriptJsAssetName} from '../../contracts'
 import type {Manifest, PluginInterface, DevOptions} from '../../../../types'
 
@@ -103,11 +102,6 @@ export class SetupReloadStrategy {
     } catch {
       // ignore - runtime has safe defaults
     }
-
-    new ApplyManifestDevDefaults({
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    }).apply(compiler)
 
     new SetupBackgroundEntry({
       manifestPath: this.manifestPath,

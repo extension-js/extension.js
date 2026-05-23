@@ -57,40 +57,52 @@ export class PerfBudgetsPlugin {
       ...(this.options.budgets || {})
     }
 
-    compiler.hooks.afterCompile.tap(
+    const report = (compilation: Compilation) => {
+      if (compilation.errors?.length) return
+
+      const oversized: OversizedAsset[] = []
+      const assets = compilation.assets || {}
+
+      for (const [name, source] of Object.entries(assets)) {
+        const size = (source as {size?: () => number})?.size?.() ?? 0
+        if (!size) continue
+
+        const category = categorizeAsset(name)
+        if (category === 'ignored') continue
+
+        const budget = budgets[category]
+        if (!Number.isFinite(budget)) continue
+        if (size <= budget) continue
+
+        oversized.push({name, size, budget, category})
+      }
+
+      if (oversized.length === 0) return
+
+      oversized.sort((a, b) => b.size - a.size)
+
+      const ErrorConstructor = (compiler as any)?.rspack?.WebpackError || Error
+      const warning = new ErrorConstructor(perfBudgetWarning(oversized))
+      ;(warning as any).name = 'PerfBudgetWarning'
+
+      if (!compilation.warnings) {
+        ;(compilation as any).warnings = []
+      }
+
+      compilation.warnings.push(warning)
+    }
+
+    const REPORT_STAGE =
+      (compiler as any)?.rspack?.Compilation?.PROCESS_ASSETS_STAGE_REPORT ??
+      5000
+
+    compiler.hooks.thisCompilation.tap(
       PerfBudgetsPlugin.name,
       (compilation: Compilation) => {
-        if (compilation.errors?.length) return
-
-        const oversized: OversizedAsset[] = []
-        const assets = compilation.assets || {}
-
-        for (const [name, source] of Object.entries(assets)) {
-          const size = (source as {size?: () => number})?.size?.() ?? 0
-          if (!size) continue
-
-          const category = categorizeAsset(name)
-          if (category === 'ignored') continue
-
-          const budget = budgets[category]
-          if (!isFinite(budget)) continue
-          if (size <= budget) continue
-
-          oversized.push({name, size, budget, category})
-        }
-
-        if (oversized.length === 0) return
-
-        oversized.sort((a, b) => b.size - a.size)
-
-        const ErrorConstructor =
-          (compiler as any)?.rspack?.WebpackError || Error
-        const warning = new ErrorConstructor(perfBudgetWarning(oversized))
-        ;(warning as any).name = 'PerfBudgetWarning'
-        if (!compilation.warnings) {
-          ;(compilation as any).warnings = []
-        }
-        compilation.warnings.push(warning)
+        compilation.hooks.processAssets.tap(
+          {name: PerfBudgetsPlugin.name, stage: REPORT_STAGE},
+          () => report(compilation)
+        )
       }
     )
   }

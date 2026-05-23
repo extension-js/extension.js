@@ -6,7 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-// @ts-nocheck
 import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
@@ -18,13 +17,20 @@ import {
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
 import * as messages from '../../../messages'
 
+interface ContentScriptLoaderContext {
+  getOptions(): {manifestPath: string; mode?: string}
+  _compilation?: any
+  resourcePath: string
+  emitWarning?(warning: Error): void
+}
+
 const schema = {
   type: 'object',
   properties: {
     manifestPath: {type: 'string'},
     mode: {type: 'string'}
   }
-}
+} as Parameters<typeof validate>[0]
 
 function escapeCodeString(str: string): string {
   return str.replace(/[<>\u2028\u2029]/g, (ch) => {
@@ -38,13 +44,13 @@ function escapeCodeString(str: string): string {
   })
 }
 
-function getSourceSignature(source) {
+function getSourceSignature(source: unknown): string {
   const head = String(source || '').slice(0, 64)
   const tail = String(source || '').slice(-64)
   return `${String(source || '').length}:${head}:${tail}`
 }
 
-function createBuildToken(source) {
+function createBuildToken(source: string): string {
   let hash = 0
   for (let index = 0; index < source.length; index++) {
     hash = (hash * 31 + source.charCodeAt(index)) >>> 0
@@ -52,8 +58,8 @@ function createBuildToken(source) {
   return hash.toString(16)
 }
 
-function detectNodeJsShapedScript(source) {
-  const indicators = []
+function detectNodeJsShapedScript(source: unknown): string[] {
+  const indicators: string[] = []
   if (typeof source === 'string' && source.startsWith('#!')) {
     indicators.push('shebang on line 1 (#!/usr/bin/env node ...)')
   }
@@ -68,9 +74,9 @@ function detectNodeJsShapedScript(source) {
   return indicators
 }
 
-function collectStyleAssetSpecifiers(source) {
+function collectStyleAssetSpecifiers(source: string): string[] {
   const SAFE_SPECIFIER = /^[\w./@~\-?&=#+%]+$/
-  const styleSpecifiers = new Set()
+  const styleSpecifiers = new Set<string>()
   const patterns = [
     /import\s+(?:[^'"`]*from\s*)?["']([^"'`]+\.(?:css|scss|sass|less|styl)(?:\?[^"'`]+)?)["']/g,
     /require\(\s*["']([^"'`]+\.(?:css|scss|sass|less|styl)(?:\?[^"'`]+)?)["']\s*\)/g
@@ -95,7 +101,11 @@ function collectStyleAssetSpecifiers(source) {
   return Array.from(styleSpecifiers)
 }
 
-function hasDefaultExport(source, resourcePath, compilation) {
+function hasDefaultExport(
+  source: string,
+  resourcePath: string,
+  compilation: any
+): boolean {
   try {
     const ext = path.extname(resourcePath).toLowerCase()
     const isTS =
@@ -112,6 +122,8 @@ function hasDefaultExport(source, resourcePath, compilation) {
       if (typeof cached === 'boolean') return cached
     }
 
+    // The SWC parser config is a discriminated union on `syntax`; a computed
+    // syntax value can't be expressed cleanly, so cast just this options object
     const ast = parseSync(source, {
       syntax: isTS ? 'typescript' : 'ecmascript',
       tsx: isTS && isJSX,
@@ -120,9 +132,10 @@ function hasDefaultExport(source, resourcePath, compilation) {
       dynamicImport: true,
       importAssertions: true,
       topLevelAwait: true
-    })
+    } as Parameters<typeof parseSync>[1])
 
-    const body = Array.isArray(ast?.body) ? ast.body : []
+    // SWC AST nodes are traversed dynamically by `type`; keep them loose
+    const body: any[] = Array.isArray(ast?.body) ? ast.body : []
     for (const item of body) {
       if (!item || typeof item !== 'object') continue
       if (
@@ -181,7 +194,34 @@ function hasDefaultExport(source, resourcePath, compilation) {
   }
 }
 
-export default function contentScriptWrapper(source) {
+const __EXTENSIONJS_manifestParseCache = new Map<
+  string,
+  {key: string; manifest: any}
+>()
+
+function readManifestCached(manifestPath: string): any {
+  try {
+    const stat = fs.statSync(manifestPath)
+    const key = `${stat.mtimeMs}:${stat.size}`
+    const cached = __EXTENSIONJS_manifestParseCache.get(manifestPath)
+
+    if (cached && cached.key === key) return cached.manifest
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    __EXTENSIONJS_manifestParseCache.set(manifestPath, {key, manifest})
+
+    return manifest
+  } catch {
+    // stat/read/parse failures fall back to a direct read so callers keep
+    // their existing error behavior.
+    return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+  }
+}
+
+export default function contentScriptWrapper(
+  this: ContentScriptLoaderContext,
+  source: string
+): string {
   const options = this.getOptions()
   validate(schema, options, {
     name: 'scripts:content-script-wrapper',
@@ -195,12 +235,17 @@ export default function contentScriptWrapper(source) {
   const packageJsonDir = packageJsonPath
     ? path.dirname(packageJsonPath)
     : manifestDir
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+  const manifest = readManifestCached(manifestPath)
   const isProd =
     String((options && options.mode) || '').toLowerCase() === 'production'
   const rewrittenSource = String(source)
 
-  const declaredContentJsAbsEntries = []
+  const declaredContentJsAbsEntries: Array<{
+    abs: string
+    runAt: string
+    index: number
+    scriptIndex: number
+  }> = []
   const contentScripts = Array.isArray(manifest.content_scripts)
     ? manifest.content_scripts
     : []
@@ -487,6 +532,7 @@ export default function contentScriptWrapper(source) {
     '}\n' +
     'function __EXTENSIONJS_debugObserveOwnedRootRemoval(){\n' +
     '  try {\n' +
+    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
     '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__) return;\n' +
     '    if (typeof MutationObserver !== "function" || typeof document === "undefined") return;\n' +
     '    var target = document.documentElement || document.body || document;\n' +
@@ -596,6 +642,7 @@ export default function contentScriptWrapper(source) {
     '}\n' +
     'function __EXTENSIONJS_recordExecutionSnapshot(stage){\n' +
     '  try {\n' +
+    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
     '    if (typeof document === "undefined") return;\n' +
     '    var pageRoot = document.documentElement;\n' +
     '    if (!pageRoot || typeof pageRoot.getAttribute !== "function" || typeof pageRoot.setAttribute !== "function") return;\n' +
@@ -611,6 +658,7 @@ export default function contentScriptWrapper(source) {
     '}\n' +
     'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
     '  try {\n' +
+    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
     '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__) return;\n' +
     '    var record = function(source, node, parent){\n' +
     '      try {\n' +
@@ -665,9 +713,14 @@ export default function contentScriptWrapper(source) {
     '    globalThis.registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
     '  }\n' +
     '} catch (error) {}\n' +
-    'try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
-    'try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
-    'try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
+    '// Dev-only DOM instrumentation. Gated so production content scripts never\n' +
+    '// install a whole-document MutationObserver, monkey-patch Node.prototype\n' +
+    '// removal APIs, or write data-extjs-debug-* attributes onto the host page.\n' +
+    'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
+    '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
+    '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
+    '  try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
+    '}\n' +
     'var __EXTENSIONJS_previousEntry=__EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY];\n' +
     'var __EXTENSIONJS_REINJECT_GENERATION=__EXTENSIONJS_readReinjectGeneration(__EXTENSIONJS_previousEntry);\n' +
     '// Sweep untagged orphans (prior-session roots that died before tagging)\n' +
@@ -677,15 +730,17 @@ export default function contentScriptWrapper(source) {
     'try {\n' +
     '  var __EXTENSIONJS_previousCleanup=typeof __EXTENSIONJS_previousEntry === "function" ? __EXTENSIONJS_previousEntry : (__EXTENSIONJS_previousEntry && typeof __EXTENSIONJS_previousEntry.cleanup === "function" ? __EXTENSIONJS_previousEntry.cleanup : null);\n' +
     '  if (typeof __EXTENSIONJS_previousCleanup === "function") {\n' +
-    '    try {\n' +
-    '      var __extjsPageRoot = document.documentElement;\n' +
-    '      if (__extjsPageRoot && typeof __extjsPageRoot.setAttribute === "function") {\n' +
-    '        __extjsPageRoot.setAttribute("data-extjs-debug-stage", "previous-cleanup");\n' +
-    '        __extjsPageRoot.setAttribute("data-extjs-debug-last-removal", "previous-cleanup");\n' +
-    '        __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-    '        __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-source", "previous-cleanup");\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
+    '    if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
+    '      try {\n' +
+    '        var __extjsPageRoot = document.documentElement;\n' +
+    '        if (__extjsPageRoot && typeof __extjsPageRoot.setAttribute === "function") {\n' +
+    '          __extjsPageRoot.setAttribute("data-extjs-debug-stage", "previous-cleanup");\n' +
+    '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal", "previous-cleanup");\n' +
+    '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
+    '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-source", "previous-cleanup");\n' +
+    '        }\n' +
+    '      } catch (error) {}\n' +
+    '    }\n' +
     '    __EXTENSIONJS_previousCleanup();\n' +
     '  }\n' +
     '} catch (error) {}\n' +
@@ -793,7 +848,7 @@ export default function contentScriptWrapper(source) {
     'const __EXTENSIONJS_default__ ='
   )
 
-  let defaultName
+  let defaultName: string | undefined
   {
     const matchFunction = rewrittenSource.match(
       /\bexport\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/

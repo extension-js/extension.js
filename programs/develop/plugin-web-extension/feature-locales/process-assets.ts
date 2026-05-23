@@ -21,8 +21,8 @@ export function processLocaleAssets(
 
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
-  const localesFields = getLocales(manifestPath, projectRoot)
-  const discoveredList = getLocales(manifestPath, projectRoot) || []
+  const localesFields = getLocales(manifestPath, projectRoot) || []
+  const discoveredList = localesFields
   const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
   let emittedCount = 0
   let missingCount = 0
