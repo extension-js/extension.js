@@ -151,6 +151,55 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
+  // parseRdpFrame — multi-byte UTF-8 bodies (byte-length framing)
+  // -----------------------------------------------------------------------
+
+  describe('parseRdpFrame — multi-byte UTF-8', () => {
+    it('round-trips a body with accents, CJK, and emoji', () => {
+      const payload = {
+        from: 'tab-1',
+        text: 'héllo 日本語 🎉 — accented & wide & astral'
+      }
+      const frame = buildRdpFrame(payload)
+      const result = parseRdpFrame(Buffer.from(frame))
+
+      expect(result.error).toBeUndefined()
+      expect(result.parsedMessage).toEqual(payload)
+      expect(result.remainingData.length).toBe(0)
+    })
+
+    it('keeps a following frame intact after a multi-byte frame', () => {
+      const msg1 = {from: 'tab-1', text: '日本語テスト🎉'}
+      const msg2 = {from: 'tab-2', type: 'attached'}
+      const combined = Buffer.from(buildRdpFrame(msg1) + buildRdpFrame(msg2))
+
+      const r1 = parseRdpFrame(combined)
+      expect(r1.parsedMessage).toEqual(msg1)
+
+      const r2 = parseRdpFrame(r1.remainingData)
+      expect(r2.parsedMessage).toEqual(msg2)
+      expect(r2.remainingData.length).toBe(0)
+    })
+
+    it('reassembles a multi-byte frame split mid-character across chunks', () => {
+      const payload = {from: 'tab-1', text: 'café 日本語 🎉'}
+      const frame = Buffer.from(buildRdpFrame(payload))
+
+      // Split at a byte offset that lands inside a multi-byte sequence.
+      const chunk1 = frame.subarray(0, frame.length - 3)
+      const chunk2 = frame.subarray(frame.length - 3)
+
+      const r1 = parseRdpFrame(chunk1)
+      expect(r1.parsedMessage).toBeUndefined()
+      expect(r1.error).toBeUndefined()
+
+      const r2 = parseRdpFrame(Buffer.concat([r1.remainingData, chunk2]))
+      expect(r2.parsedMessage).toEqual(payload)
+      expect(r2.remainingData.length).toBe(0)
+    })
+  })
+
+  // -----------------------------------------------------------------------
   // parseRdpFrame — error handling
   // -----------------------------------------------------------------------
 

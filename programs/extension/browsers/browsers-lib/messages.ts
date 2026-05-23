@@ -631,6 +631,109 @@ export function firefoxDryRunConfig(cfg: string) {
   return `${getLoggingPrefix('info')} [browser] Config: ${colors.gray(cfg)}`
 }
 
+export function safariBuildCalled() {
+  return `${getLoggingPrefix('info')} Safari build requested.`
+}
+
+function prettyPlatform(platform: string) {
+  if (platform === 'win32') return 'Windows'
+  if (platform === 'linux') return 'Linux'
+  return platform
+}
+
+export function safariRequiresMacOS(platform: string) {
+  return (
+    `${getLoggingPrefix('warn')} Safari extensions can only be built on macOS.\n` +
+    `Detected ${colors.gray(prettyPlatform(platform))} — skipping Safari packaging. ` +
+    `The web-extension build in ${colors.yellow('dist/safari')} is still complete and can be ` +
+    `packaged later on a Mac with Xcode.`
+  )
+}
+
+export function safariXcodeRequired(developerDir: string | null) {
+  const current = developerDir
+    ? `${colors.gray('Active toolchain:')} ${colors.underline(developerDir)}`
+    : `${colors.gray('No active developer directory was found.')}`
+
+  return (
+    `${getLoggingPrefix('error')} Safari packaging needs the full Xcode app (not just the Command Line Tools).\n` +
+    `${colors.red('NOT FOUND')} ${colors.underline('safari-web-extension-converter')}\n` +
+    `${current}\n\n` +
+    `To enable Safari builds:\n` +
+    `- Install ${colors.yellow('Xcode')} from the Mac App Store, then\n` +
+    `- Point the toolchain at it: ${colors.blue('sudo xcode-select --switch')} ${colors.gray('/Applications/Xcode.app')}\n` +
+    `- Finish setup once: ${colors.blue('xcodebuild -runFirstLaunch')}\n\n` +
+    `Prefer to keep building now? Target another browser via ` +
+    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.`
+  )
+}
+
+export function safariToolchainMissing(tool: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari packaging tool not found: ${colors.underline(tool)}\n` +
+    `Your Xcode install looks incomplete. Try ${colors.blue('xcodebuild -runFirstLaunch')}, ` +
+    `or reinstall Xcode from the Mac App Store.`
+  )
+}
+
+export function safariConverting(extensionDir: string) {
+  return `${getLoggingPrefix('info')} Converting web extension into a Safari app project from ${colors.underline(extensionDir)}`
+}
+
+export function safariConverted(projectDir: string) {
+  return `${getLoggingPrefix('success')} Generated Safari Xcode project at ${colors.underline(projectDir)}`
+}
+
+export function safariBuilding(scheme: string) {
+  return `${getLoggingPrefix('info')} Building Safari app with xcodebuild (scheme: ${colors.gray(scheme)})`
+}
+
+export function safariBuilt(appPath: string) {
+  return `${getLoggingPrefix('success')} Built Safari app at ${colors.underline(appPath)}`
+}
+
+export function safariOpening(target: string) {
+  return `${getLoggingPrefix('info')} Opening ${colors.underline(target)}`
+}
+
+export function safariFailed(error: unknown) {
+  return `${getLoggingPrefix('error')} Safari build failed:\n${colors.red(errorDetail(error))}`
+}
+
+export function safariDryRunNotBuilding() {
+  return `${getLoggingPrefix('info')} [browser] Dry run: not building Safari app`
+}
+
+export function safariDryRunConverter(cmd: string) {
+  return `${getLoggingPrefix('info')} [browser] Converter: ${colors.gray(cmd)}`
+}
+
+export function safariDryRunXcodebuild(cmd: string) {
+  return `${getLoggingPrefix('info')} [browser] xcodebuild: ${colors.gray(cmd)}`
+}
+
+export function safariNextSteps(appName: string) {
+  return (
+    `${getLoggingPrefix('info')} One-time setup to load ${colors.brightBlue(appName)} in Safari:\n` +
+    `  ${colors.gray('1.')} Safari ▸ Settings ▸ Advanced ▸ check ${colors.yellow('“Show features for web developers”')}\n` +
+    `  ${colors.gray('2.')} Safari ▸ Develop ▸ ${colors.yellow('Allow Unsigned Extensions')} ${colors.gray('(resets each launch)')}\n` +
+    `  ${colors.gray('3.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n` +
+    `  ${colors.gray('→')} The app window that just opened can also take you there.`
+  )
+}
+
+export function safariRegistered(appName: string) {
+  return `${getLoggingPrefix('success')} Safari recognizes ${colors.brightBlue(appName)} — finish enabling it with the steps above.`
+}
+
+export function safariNotYetRegistered(appName: string) {
+  return `${getLoggingPrefix('warn')} Safari hasn't picked up ${colors.brightBlue(appName)} yet. Open the app once, then check Safari ▸ Settings ▸ Extensions.`
+}
+
+export function safariRebuilt(appName: string) {
+  return `${getLoggingPrefix('success')} Rebuilt ${colors.brightBlue(appName)} — reload the page (or toggle the extension) in Safari to see changes.`
+}
+
 export function sourceInspectorInitialized() {
   return `${getLoggingPrefix('info')} Chrome source inspector initialized successfully`
 }

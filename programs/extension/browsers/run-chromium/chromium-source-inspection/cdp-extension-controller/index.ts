@@ -30,6 +30,25 @@ interface ExtensionInfoResult {
 
 export type ChromiumDeveloperModeStatus = 'enabled' | 'disabled' | 'unknown'
 
+const __fileReadCache = new Map<string, {key: string; text: string}>()
+
+function readTextFileCached(filePath: string): string {
+  try {
+    const stat = fs.statSync(filePath)
+    const key = `${stat.mtimeMs}:${stat.size}`
+    const cached = __fileReadCache.get(filePath)
+
+    if (cached && cached.key === key) return cached.text
+
+    const text = fs.readFileSync(filePath, 'utf-8')
+    __fileReadCache.set(filePath, {key, text})
+
+    return text
+  } catch {
+    return fs.readFileSync(filePath, 'utf-8')
+  }
+}
+
 export class CDPExtensionController {
   private readonly outPath: string
   private readonly browser: 'chrome' | 'edge' | 'chromium-based'
@@ -145,7 +164,7 @@ export class CDPExtensionController {
 
         if (!info) {
           const manifest = JSON.parse(
-            fs.readFileSync(path.join(this.outPath, 'manifest.json'), 'utf-8')
+            readTextFileCached(path.join(this.outPath, 'manifest.json'))
           )
 
           return {
@@ -584,7 +603,7 @@ export class CDPExtensionController {
       )
       if (!bundlePath || !fs.existsSync(bundlePath)) continue
       const source = this.patchReinjectSourceForInvalidatedRuntime(
-        fs.readFileSync(bundlePath, 'utf-8')
+        readTextFileCached(bundlePath)
       )
       if (!source.trim()) continue
       const bundleId = getCanonicalContentScriptEntryName(rule.index)
@@ -645,7 +664,7 @@ export class CDPExtensionController {
           cssPath && fs.existsSync(cssPath)
             ? path.relative(this.outPath, cssPath).replace(/\\/g, '/')
             : null
-        const jsSource = fs.readFileSync(jsPath, 'utf-8')
+        const jsSource = readTextFileCached(jsPath)
         const buildTokenMatch = jsSource.match(
           /__EXTENSIONJS_REINJECT_BUILD_TOKEN\s*=\s*"([^"]+)"/
         )
@@ -1188,7 +1207,7 @@ export class CDPExtensionController {
       } catch {
         try {
           const manifest = JSON.parse(
-            fs.readFileSync(path.join(this.outPath, 'manifest.json'), 'utf-8')
+            readTextFileCached(path.join(this.outPath, 'manifest.json'))
           )
           name = manifest?.name
           version = manifest?.version
@@ -1226,7 +1245,7 @@ export class CDPExtensionController {
     const source = this.patchReinjectSourceForInvalidatedRuntime(
       typeof sourceOverride === 'string'
         ? sourceOverride
-        : fs.readFileSync(bundlePath, 'utf-8')
+        : readTextFileCached(bundlePath)
     )
     const buildTokenMatch = source.match(
       /__EXTENSIONJS_REINJECT_BUILD_TOKEN\s*=\s*"([^"]+)"/

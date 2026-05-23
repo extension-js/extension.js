@@ -8,7 +8,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
   let originalProcessOn: typeof process.on
   let registeredHandlers: Map<string, Function[]>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     registeredHandlers = new Map()
     originalProcessOn = process.on
 
@@ -19,6 +19,13 @@ describe('Chromium setupProcessSignalHandlers', () => {
       registeredHandlers.set(event, existing)
       return process
     })
+
+    // Module installs global handlers once and tracks instances in a registry;
+    // reset so each test re-installs against the freshly mocked process.on.
+    const mod = await import(
+      '../../run-chromium/chromium-launch/process-handlers'
+    )
+    mod.__resetChromiumProcessHandlersForTest()
   })
 
   afterEach(() => {
@@ -117,25 +124,46 @@ describe('Chromium setupProcessSignalHandlers', () => {
     expect(exitSpy).toHaveBeenCalledWith(1)
   })
 
-  it('calling setup twice causes cleanup to fire twice on signal (no guard)', async () => {
+  it('installs only one SIGINT listener even when setup is called twice', async () => {
     const {setupProcessSignalHandlers} = await import(
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
     const child: any = {killed: false, kill: vi.fn(), pid: 12345}
-    const cleanupInstance = vi.fn()
 
-    // Register twice — this is the documented issue
-    setupProcessSignalHandlers('chrome', child, cleanupInstance)
-    setupProcessSignalHandlers('chrome', child, cleanupInstance)
+    // Two launches register two instances but must NOT add a second global
+    // listener — that was the leak (a handler per launch).
+    const dispose1 = setupProcessSignalHandlers('chrome', child, vi.fn())
+    const dispose2 = setupProcessSignalHandlers('chrome', child, vi.fn())
 
-    // Two handlers registered for SIGINT
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
-    expect(sigintHandlers).toHaveLength(2)
+    expect(sigintHandlers).toHaveLength(1)
 
-    // Both fire
+    // The single listener fans out to both live instances...
     sigintHandlers.forEach((h) => h())
-    expect(cleanupInstance).toHaveBeenCalledTimes(2)
+
+    // ...and after disposing one, a fresh signal only cleans the survivor.
+    dispose1()
+    const survivorCleanup = vi.fn()
+    setupProcessSignalHandlers('chrome', child, survivorCleanup)
+    // still one global listener
+    expect((registeredHandlers.get('SIGINT') || []).length).toBe(1)
+
+    dispose2()
+  })
+
+  it('unregisters an instance via the returned disposer', async () => {
+    const {setupProcessSignalHandlers, __activeChromiumInstanceCount} =
+      await import('../../run-chromium/chromium-launch/process-handlers')
+
+    const child: any = {killed: false, kill: vi.fn(), pid: 12345}
+    const base = __activeChromiumInstanceCount()
+
+    const dispose = setupProcessSignalHandlers('chrome', child, vi.fn())
+    expect(__activeChromiumInstanceCount()).toBe(base + 1)
+
+    dispose()
+    expect(__activeChromiumInstanceCount()).toBe(base)
   })
 })
 
@@ -143,7 +171,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
   let originalProcessOn: typeof process.on
   let registeredHandlers: Map<string, Function[]>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     registeredHandlers = new Map()
     originalProcessOn = process.on
     ;(process as any).on = vi.fn((event: string, handler: Function) => {
@@ -152,6 +180,13 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       registeredHandlers.set(event, existing)
       return process
     })
+    // The module now installs global handlers once and tracks instances in a
+    // module-level registry; reset it so each test starts from a clean state
+    // (handlers re-install against the freshly mocked process.on).
+    const mod = await import(
+      '../../run-firefox/firefox-launch/process-handlers'
+    )
+    mod.__resetFirefoxProcessHandlersForTest()
   })
 
   afterEach(() => {

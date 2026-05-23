@@ -6,22 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {Controller} from '../../chromium-types'
 import {CDPClient} from '../cdp-client'
 import * as messages from '../../../browsers-lib/messages'
-
-export async function enableUnifiedLoggingForAllTargets(
-  controller: Controller
-) {
-  await controller.enableUnifiedLogging({})
-}
-
-export async function enableRuntimeForAttachedTarget(
-  controller: {enableRuntimeForSession: (sessionId: string) => Promise<void>},
-  sessionId: string
-) {
-  await controller.enableRuntimeForSession(sessionId)
-}
 
 // Auto-enable Runtime/Log domains for attached
 // extension sessions, and emit unified CDP log lines.

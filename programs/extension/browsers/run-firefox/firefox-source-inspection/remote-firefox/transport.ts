@@ -16,10 +16,26 @@ type Deferred = {
   reject: (r?: unknown) => void
 }
 
+type ActiveEntry = {
+  deferred: Deferred
+  timer?: ReturnType<typeof setTimeout>
+}
+
+// Per-request safety timeout. Firefox occasionally never replies to an RDP
+// request; without a timeout that actor's deferred (and every queued request to
+// it) would hang forever. Generous default so only true hangs trip it
+function rdpRequestTimeoutMs(): number {
+  const raw = parseInt(
+    String(process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS || ''),
+    10
+  )
+  return Number.isFinite(raw) && raw > 0 ? raw : 30000
+}
+
 export class RdpTransport extends EventEmitter {
   private conn?: net.Socket
   private incoming: Buffer = Buffer.alloc(0)
-  private active = new Map<string, Deferred>()
+  private active = new Map<string, ActiveEntry>()
   private pending: Array<{to: string; payload: any; deferred: Deferred}> = []
 
   async connect(port: number, host: string = '127.0.0.1'): Promise<void> {
@@ -51,7 +67,10 @@ export class RdpTransport extends EventEmitter {
   }
 
   private rejectAll(error: Error): void {
-    for (const d of this.active.values()) d.reject(error)
+    for (const entry of this.active.values()) {
+      if (entry.timer) clearTimeout(entry.timer)
+      entry.deferred.reject(error)
+    }
     this.active.clear()
     for (const {deferred} of this.pending) deferred.reject(error)
     this.pending = []
@@ -69,7 +88,12 @@ export class RdpTransport extends EventEmitter {
   private flush(): void {
     this.pending = this.pending.filter(({to, payload, deferred}) => {
       if (this.active.has(to)) return true
-      if (!this.conn) throw new Error(messages.connectionClosedError('firefox'))
+      if (!this.conn) {
+        // Reject and drop rather than throwing out of the filter callback,
+        // which would abort iteration and leave `pending` in a corrupt state.
+        deferred.reject(new Error(messages.connectionClosedError('firefox')))
+        return false
+      }
       try {
         this.conn.write(buildRdpFrame(payload))
         this.expectReply(to, deferred)
@@ -84,7 +108,19 @@ export class RdpTransport extends EventEmitter {
     if (this.active.has(to)) {
       throw new Error(messages.targetActorHasActiveRequestError('firefox', to))
     }
-    this.active.set(to, deferred)
+    const timeoutMs = rdpRequestTimeoutMs()
+    const timer = setTimeout(() => {
+      const entry = this.active.get(to)
+      if (!entry) return
+      this.active.delete(to)
+      entry.deferred.reject(
+        new Error(`RDP request to "${to}" timed out after ${timeoutMs}ms`)
+      )
+      // Unblock any requests queued behind this actor.
+      this.flush()
+    }, timeoutMs)
+    timer.unref?.()
+    this.active.set(to, {deferred, timer})
   }
 
   private onData(buf: Buffer): void {
@@ -125,11 +161,12 @@ export class RdpTransport extends EventEmitter {
       )
       return
     }
-    const deferred = this.active.get(message.from)
-    if (deferred) {
+    const entry = this.active.get(message.from)
+    if (entry) {
       this.active.delete(message.from)
-      if (message.error) deferred.reject(message)
-      else deferred.resolve(message)
+      if (entry.timer) clearTimeout(entry.timer)
+      if (message.error) entry.deferred.reject(message)
+      else entry.deferred.resolve(message)
       this.flush()
       return
     }
@@ -137,6 +174,11 @@ export class RdpTransport extends EventEmitter {
   }
 
   private onEnd(): void {
+    // A closed socket can never deliver replies for in-flight/queued requests.
+    // Reject them so callers stop hanging — the reconnect path replaces this
+    // transport without calling disconnect(), so this is the only rejection
+    // point on a peer-initiated close.
+    this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
     this.emit('end')
   }
 
