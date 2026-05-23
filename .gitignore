@@ -29,6 +29,10 @@ dist/
 # misc
 .DS_Store
 
+# editor scratch / agent state
+Untitled-*
+.claude/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
