@@ -166,48 +166,27 @@ export function installingFromTemplateError(
   )}`
 }
 
+export function templateFetchTimedOut(templateName: string, ms: number) {
+  return (
+    `${colors.red('Error')} Timed out after ` +
+    `${colors.yellow(`${Math.round(ms / 1000)}s`)} ` +
+    `fetching template ${colors.yellow(templateName)}.\n` +
+    `${colors.red('Next step: check your network, or set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
+  )
+}
+
 export function initializingGitForRepository(projectName: string) {
   return `${statusPrefix} Initializing git repository for ${colors.blue(
     projectName
   )}...`
 }
 
-export function initializingGitForRepositoryFailed(
-  gitCommand: string,
-  gitArgs: string[],
-  code: number | null
-) {
-  return `${colors.red('Error')} Command ${colors.yellow(
-    gitCommand
-  )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
-    `Exit code: ${colors.yellow(String(code))}`
-  )}\n${colors.red('Next step: run the command manually to inspect the error.')}`
-}
-
-export function initializingGitForRepositoryProcessError(
-  projectName: string,
-  error: any
-) {
-  return `${colors.red(
-    'Error'
-  )} Child process failed while initializing ${colors.yellow('git')} for ${colors.blue(
+export function initializingGitSkipped(projectName: string, reason: string) {
+  return `${statusPrefix} Skipped git init for ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error?.message || error))}\n${colors.red(
-    'Next step: retry initialization or create the repository manually.'
-  )}`
-}
-
-export function initializingGitForRepositoryError(
-  projectName: string,
-  error: any
-) {
-  return `${colors.red('Error')} Couldn't initialize ${colors.yellow(
-    'git'
-  )} for ${colors.blue(projectName)}.\n${colors.red(
-    String(error?.message || error)
-  )}\n${colors.red(
-    'Next step: retry initialization or create the repository manually.'
-  )}`
+  )} (${colors.yellow(reason)}). Run ${colors.yellow(
+    'git init'
+  )} yourself if you want version control.`
 }
 
 export function installingDependencies() {
