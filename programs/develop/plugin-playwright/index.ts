@@ -211,11 +211,10 @@ export class PlaywrightPlugin {
           (stats?.compilation?.startTime || 0)
       )
       const hasErrors = Boolean(stats?.hasErrors?.())
-      const errorsCount = Number(
-        Array.isArray(stats?.toJson?.({all: false, errors: true})?.errors)
-          ? stats.toJson({all: false, errors: true}).errors.length
-          : 0
-      )
+      const errorsJson = stats?.toJson?.({all: false, errors: true})
+      const errorsCount = Array.isArray(errorsJson?.errors)
+        ? errorsJson.errors.length
+        : 0
 
       if (hasErrors) {
         this.writer.appendEvent({

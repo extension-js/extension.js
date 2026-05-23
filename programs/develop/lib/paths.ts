@@ -19,6 +19,8 @@ export type BrowserInput =
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
+  | 'safari'
+  | 'webkit-based'
   | undefined
 
 export type NormalizedBrowser =
@@ -28,6 +30,8 @@ export type NormalizedBrowser =
   | 'firefox'
   | 'chromium-based'
   | 'gecko-based'
+  | 'safari'
+  | 'webkit-based'
 
 export function asAbsolute(p: string): AbsolutePath {
   return (path.isAbsolute(p) ? p : path.resolve(p)) as AbsolutePath
@@ -95,7 +99,8 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
 export function normalizeBrowser(
   browser: BrowserInput,
   chromiumBinary?: string,
-  geckoBinary?: string
+  geckoBinary?: string,
+  safariBinary?: string
 ): NormalizedBrowser {
   const requested = String(browser || '')
 
@@ -116,6 +121,11 @@ export function normalizeBrowser(
     if (requested === 'firefox') return 'firefox'
   }
 
+  if (safariBinary) {
+    if (!requested || requested === 'webkit-based') return 'webkit-based'
+    if (requested === 'safari') return 'safari'
+  }
+
   switch (requested) {
     case 'chrome':
       return 'chrome'
@@ -130,8 +140,15 @@ export function normalizeBrowser(
     case 'gecko-based':
     case 'firefox-based':
       return 'gecko-based'
+    case 'safari':
+      return 'safari'
+    case 'webkit-based':
+      return 'webkit-based'
     default:
-      return (browser as NormalizedBrowser) || 'chrome'
+      // Unrecognized input falls back to the documented default rather than
+      // passing an invalid string through as a NormalizedBrowser. The CLI
+      // validates browser names upstream; this is defense-in-depth.
+      return 'chrome'
   }
 }
 

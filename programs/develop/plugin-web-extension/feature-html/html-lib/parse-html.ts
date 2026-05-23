@@ -64,6 +64,26 @@ export function parseHtml(
   } else if (node.nodeName === 'link') {
     const href = node.attrs?.find((attr) => attr.name === 'href')?.value
     const rel = node.attrs?.find((attr) => attr.name === 'rel')?.value
+    const imagesrcset = node.attrs?.find(
+      (attr) => attr.name === 'imagesrcset'
+    )?.value
+
+    if (imagesrcset) {
+      for (const candidate of imagesrcset.split(',')) {
+        const url = candidate.trim().split(/\s+/)[0]
+
+        if (!url) continue
+
+        const {cleanPath} = cleanAssetUrl(url)
+        if (cleanPath && !isUrl(cleanPath)) {
+          onResourceFound({
+            filePath: cleanPath,
+            childNode: node,
+            assetType: 'staticHref'
+          })
+        }
+      }
+    }
 
     // Some links have no href
     if (!href) return
@@ -149,27 +169,6 @@ export function parseHtml(
             filePath: cleanPath,
             childNode: node,
             assetType: 'staticSrc'
-          })
-        }
-      }
-    }
-  } else if (node.nodeName === 'link') {
-    // Already handled above for href + rel, but also account for imagesrcset
-    const imagesrcset = node.attrs?.find(
-      (attr) => attr.name === 'imagesrcset'
-    )?.value
-    if (imagesrcset) {
-      const candidates = imagesrcset.split(',')
-      for (const candidate of candidates) {
-        const parts = candidate.trim().split(/\s+/)
-        const url = parts[0]
-        if (!url) continue
-        const {cleanPath} = cleanAssetUrl(url)
-        if (cleanPath && !isUrl(cleanPath)) {
-          onResourceFound({
-            filePath: cleanPath,
-            childNode: node,
-            assetType: 'staticHref'
           })
         }
       }

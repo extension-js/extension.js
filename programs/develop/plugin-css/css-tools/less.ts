@@ -6,11 +6,9 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../lib/has-dependency'
-import {isContentScriptEntry} from '../css-lib/is-content-script'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 
 let userMessageDelivered = false
@@ -32,56 +30,17 @@ export function isUsingLess(projectPath: string): boolean {
   return false
 }
 
-type Loader = Record<string, any>
+/**
+ * Resolve (and install if missing) the less-loader contract. The actual loader
+ * rules are emitted by the content-script/HTML CSS loaders — this only ensures
+ * the optional dependency is present before that chain runs.
+ */
+export async function maybeUseLess(projectPath: string): Promise<void> {
+  if (!isUsingLess(projectPath)) return
 
-export async function maybeUseLess(
-  projectPath: string,
-  manifestPath: string
-): Promise<Loader[]> {
-  const resolvedManifestPath =
-    manifestPath || path.join(projectPath, 'manifest.json')
-
-  if (!isUsingLess(projectPath)) return []
-
-  const lessLoaderPath = await ensureOptionalContractPackageResolved({
+  await ensureOptionalContractPackageResolved({
     contractId: 'less',
     projectPath,
     dependencyId: 'less-loader'
   })
-
-  return [
-    // Regular .less files
-    {
-      test: /\.less$/,
-      exclude: /\.module\.less$/,
-      use: [
-        {
-          loader: lessLoaderPath,
-          options: {
-            sourceMap: true
-          }
-        }
-      ]
-    },
-    // Module .less files
-    {
-      test: /\.module\.less$/,
-      use: [
-        {
-          loader: lessLoaderPath,
-          options: {
-            sourceMap: true
-          }
-        }
-      ]
-    },
-    {
-      test: /\.less$/,
-      exclude: /\.module\.less$/,
-      type: 'asset/resource',
-      generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
-      issuer: (issuer: string) =>
-        isContentScriptEntry(issuer, resolvedManifestPath, projectPath)
-    }
-  ]
 }

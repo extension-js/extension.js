@@ -8,8 +8,7 @@
 
 import {createRequire} from 'module'
 import rspack, {Compiler} from '@rspack/core'
-import * as compatMessages from './compatibility-lib/messages'
-import * as compatDevMessages from './compatibility-lib/messages'
+import * as messages from './compatibility-lib/messages'
 import type {PluginInterface, DevOptions} from '../types'
 
 const cjsRequire = createRequire(import.meta.url)
@@ -61,14 +60,11 @@ export class PolyfillPlugin {
 
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(
-          compatDevMessages.compatibilityPolyfillEnabled(
-            this.browser,
-            polyfillPath
-          )
+          messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
         )
       }
     } catch (error) {
-      console.warn(compatMessages.webextensionPolyfillNotFound())
+      console.warn(messages.webextensionPolyfillNotFound())
     }
   }
 }

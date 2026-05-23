@@ -1,5 +1,8 @@
-import {Compilation, type Compiler, sources} from '@rspack/core'
-import {stripDevServerStartupFromContentScript} from './remove-content-script-dev-server-runtime'
+import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
+import {
+  stripDevServerStartupFromContentScript,
+  contentScriptRetainsDevServerRuntime
+} from './remove-content-script-dev-server-runtime'
 
 const CONTENT_SCRIPT_ASSET =
   /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.js$/i
@@ -22,12 +25,26 @@ export class StripContentScriptDevServerRuntime {
               const strippedSource =
                 stripDevServerStartupFromContentScript(originalSource)
 
-              if (strippedSource === originalSource) continue
+              if (strippedSource !== originalSource) {
+                compilation.updateAsset(
+                  asset.name,
+                  new sources.RawSource(strippedSource)
+                )
+              }
 
-              compilation.updateAsset(
-                asset.name,
-                new sources.RawSource(strippedSource)
-              )
+              if (contentScriptRetainsDevServerRuntime(strippedSource)) {
+                const warning = new WebpackError(
+                  `Could not strip the dev-server runtime from ${asset.name}. ` +
+                    `This usually means the bundler's output format changed and ` +
+                    `Extension.js needs an update. The content script may try to ` +
+                    `open a dev-server connection on the host page. Please report ` +
+                    `this at https://github.com/extension-js/extension.js/issues.`
+                ) as Error & {file?: string; name?: string}
+                warning.name = 'ContentScriptDevServerRuntimeWarning'
+                warning.file = asset.name
+                compilation.warnings ||= []
+                compilation.warnings.push(warning)
+              }
             }
           }
         )

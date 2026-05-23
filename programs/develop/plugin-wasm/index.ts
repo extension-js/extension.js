@@ -36,45 +36,21 @@ export class WasmPlugin {
 
   private buildAssetAliases(projectRoot: string) {
     const aliases: Record<string, string> = {}
-    const addAlias = (request: string, relativePath: string) => {
-      const resolved = this.resolveAssetPath(projectRoot, relativePath)
+    const addAlias = (request: string) => {
+      const resolved = this.resolveAssetPath(projectRoot, request)
       if (resolved) {
         aliases[request] = resolved
       }
     }
 
-    addAlias(
-      '@ffmpeg/core/dist/esm/ffmpeg-core.js',
-      '@ffmpeg/core/dist/esm/ffmpeg-core.js'
-    )
-    addAlias(
-      '@ffmpeg/core/dist/esm/ffmpeg-core.wasm',
-      '@ffmpeg/core/dist/esm/ffmpeg-core.wasm'
-    )
-    addAlias(
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.js',
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.js'
-    )
-    addAlias(
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.wasm',
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.wasm'
-    )
-    addAlias(
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.worker.js',
-      '@ffmpeg/core-mt/dist/esm/ffmpeg-core.worker.js'
-    )
-    addAlias(
-      '@imagemagick/magick-wasm/magick.wasm',
-      '@imagemagick/magick-wasm/magick.wasm'
-    )
-    addAlias(
-      'tesseract-wasm/dist/tesseract-worker.js',
-      'tesseract-wasm/dist/tesseract-worker.js'
-    )
-    addAlias(
-      'tesseract-wasm/dist/tesseract-core.wasm',
-      'tesseract-wasm/dist/tesseract-core.wasm'
-    )
+    addAlias('@ffmpeg/core/dist/esm/ffmpeg-core.js')
+    addAlias('@ffmpeg/core/dist/esm/ffmpeg-core.wasm')
+    addAlias('@ffmpeg/core-mt/dist/esm/ffmpeg-core.js')
+    addAlias('@ffmpeg/core-mt/dist/esm/ffmpeg-core.wasm')
+    addAlias('@ffmpeg/core-mt/dist/esm/ffmpeg-core.worker.js')
+    addAlias('@imagemagick/magick-wasm/magick.wasm')
+    addAlias('tesseract-wasm/dist/tesseract-worker.js')
+    addAlias('tesseract-wasm/dist/tesseract-core.wasm')
 
     return aliases
   }

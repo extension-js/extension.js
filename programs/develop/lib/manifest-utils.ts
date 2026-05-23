@@ -17,7 +17,12 @@ export function filterKeysForThisBrowser(
 
   const isChromiumTarget =
     CHROMIUM_BASED_BROWSERS.includes(browser as any) ||
-    String(browser).includes('chromium')
+    String(browser).includes('chromium') ||
+    // Safari ships an MV3, chromium-shaped bundle (see the safari build
+    // target), so it should pick up chromium/chrome-prefixed manifest keys.
+    browser === 'safari' ||
+    browser === 'webkit-based' ||
+    String(browser).includes('webkit')
   const isGeckoTarget =
     GECKO_BASED_BROWSERS.includes(browser as any) ||
     String(browser).includes('gecko')

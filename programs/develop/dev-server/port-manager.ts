@@ -8,7 +8,6 @@
 
 import * as crypto from 'crypto'
 import * as net from 'net'
-import type {DevOptions} from '../types'
 
 async function findAvailablePortNear(
   startPort: number,
@@ -53,18 +52,14 @@ async function findAvailablePortNear(
 
 export interface PortAllocation {
   port: number
-  webSocketPort: number
   instanceId: string
 }
 
-// Enhanced port manager for Extension.js development server
-// Supports multiple instances with unique port allocation
-// Minimal local representation; no global registry
+// Minimal local representation; no global registry. The dev server multiplexes
+// the HMR websocket onto the HTTP port (path `/ws`), so a single port suffices.
 interface LocalInstanceInfo {
   instanceId: string
   port: number
-  webSocketPort: number
-  extensionId?: string
 }
 
 function resolveInstanceIdOverride(): string | undefined {
@@ -84,83 +79,30 @@ export class PortManager {
   private readonly basePort: number
   private currentInstance: LocalInstanceInfo | null = null
 
-  constructor(
-    _browser: DevOptions['browser'],
-    _projectPath: string,
-    basePort: number = 8080
-  ) {
+  constructor(basePort: number = 8080) {
     this.basePort = basePort
   }
 
-  async allocatePorts(
-    _browser: DevOptions['browser'],
-    _projectPath: string,
-    requestedPort?: number
-  ): Promise<PortAllocation> {
-    try {
-      const isValidRequested =
-        typeof requestedPort === 'number' &&
-        requestedPort >= 0 &&
-        requestedPort < 65536
-      const base = isValidRequested ? requestedPort : this.basePort
-      const port = await findAvailablePortNear(base)
-      const webSocketPort = await findAvailablePortNear(port + 1)
-      const instanceId =
-        resolveInstanceIdOverride() || crypto.randomBytes(8).toString('hex')
+  async allocatePorts(requestedPort?: number): Promise<PortAllocation> {
+    const isValidRequested =
+      typeof requestedPort === 'number' &&
+      requestedPort >= 0 &&
+      requestedPort < 65536
+    const base = isValidRequested ? requestedPort : this.basePort
+    const port = await findAvailablePortNear(base)
+    const instanceId =
+      resolveInstanceIdOverride() || crypto.randomBytes(8).toString('hex')
 
-      this.currentInstance = {instanceId, port, webSocketPort}
+    this.currentInstance = {instanceId, port}
 
-      return {port, webSocketPort, instanceId}
-    } catch (error) {
-      throw error
-    }
+    return {port, instanceId}
   }
 
   getCurrentInstance(): LocalInstanceInfo | null {
     return this.currentInstance
   }
 
-  async updateExtensionId(extensionId: string): Promise<void> {
-    if (this.currentInstance) {
-      this.currentInstance.extensionId = extensionId
-    }
-  }
-
   async terminateCurrentInstance(): Promise<void> {
     this.currentInstance = null
-  }
-
-  getPortInfo(allocation: PortAllocation): string {
-    return `Port: ${allocation.port}, WebSocket: ${allocation.webSocketPort}, Instance: ${allocation.instanceId.slice(0, 8)}`
-  }
-
-  async isPortInUse(port: number): Promise<boolean> {
-    // Try binding to the port; if it fails, it's in use
-    return new Promise((resolve) => {
-      const server = net.createServer()
-      server.once('error', () => resolve(true))
-      server.once('listening', () => {
-        server.close(() => resolve(false))
-      })
-      server.listen(port, '127.0.0.1')
-    })
-  }
-
-  async getRunningInstances(): Promise<LocalInstanceInfo[]> {
-    return this.currentInstance ? [this.currentInstance] : []
-  }
-
-  async getStats(): Promise<{
-    total: number
-    running: number
-    terminated: number
-    error: number
-  }> {
-    return {
-      total: this.currentInstance ? 1 : 0,
-      running: this.currentInstance ? 1 : 0,
-      terminated: 0,
-      error: 0
-    }
   }
 }
