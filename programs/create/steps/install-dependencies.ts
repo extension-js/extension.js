@@ -12,7 +12,11 @@ import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
 
-function getInstallArgs() {
+function getInstallArgs(packageManager: string) {
+  if (packageManager === 'bun') {
+    return ['install']
+  }
+
   return ['install', '--silent']
 }
 
@@ -116,7 +120,7 @@ export async function installDependencies(
   }
 
   const command = await utils.getInstallCommand()
-  const dependenciesArgs = getInstallArgs()
+  const dependenciesArgs = getInstallArgs(command)
 
   const installMessage = messages.installingDependencies()
   logger.log(installMessage)

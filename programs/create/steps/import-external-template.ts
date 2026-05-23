@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
-import {fileURLToPath} from 'url'
 import * as fs from 'fs/promises'
+import {existsSync} from 'fs'
 import * as os from 'os'
 import axios from 'axios'
 import AdmZip from 'adm-zip'
@@ -16,7 +16,43 @@ import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
+const NETWORK_TIMEOUT_MS = (() => {
+  const raw = parseInt(
+    String(process.env.EXTENSION_CREATE_TIMEOUT_MS || ''),
+    10
+  )
+  return Number.isFinite(raw) && raw > 0 ? raw : 60_000
+})()
+
+function isAuthorOrDevMode(): boolean {
+  return (
+    process.env.EXTENSION_ENV === 'development' ||
+    process.env.EXTENSION_AUTHOR_MODE === 'true'
+  )
+}
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  ms: number,
+  onTimeout: () => Error
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(onTimeout()), ms)
+  })
+
+  try {
+    return await Promise.race([task, timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
+  // Keep the underlying tool's output in dev/author mode — silencing it there
+  // hides the very diagnostics we want while working on the CLI.
+  if (isAuthorOrDevMode()) return task()
+
   const originalStdoutWrite = process.stdout.write.bind(process.stdout)
   const originalStderrWrite = process.stderr.write.bind(process.stderr)
 
@@ -29,6 +65,10 @@ async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
     process.stdout.write = originalStdoutWrite
     process.stderr.write = originalStderrWrite
   }
+}
+
+function bundledTemplateDir(templateName: string): string {
+  return path.join(__dirname, '..', 'templates', templateName)
 }
 
 function getArchiveBaseName(url: string): string {
@@ -76,9 +116,24 @@ export async function importExternalTemplate(
   const resolvedTemplateName =
     templateName === 'init' ? 'javascript' : templateName
   const templateUrl = `${examplesUrl}/${resolvedTemplate}`
+
+  const isHttp = /^https?:\/\//i.test(template)
+  const isGithub = /^https?:\/\/github\.com\//i.test(template)
+
   try {
     // Ensure the project path exists
     await fs.mkdir(projectPath, {recursive: true})
+
+    if (!isHttp && !isGithub && resolvedTemplate === 'javascript') {
+      const localTemplate = bundledTemplateDir('javascript')
+
+      if (existsSync(localTemplate)) {
+        await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
+        return
+      }
+      // Bundled copy missing (unexpected): fall through to the network fetch
+    }
+
     // Create a temporary directory for fetching remote templates
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'extension-js-create-')
@@ -86,16 +141,20 @@ export async function importExternalTemplate(
     const tempPath = path.join(tempRoot, projectName + '-temp')
     await fs.mkdir(tempPath, {recursive: true})
 
-    const isHttp = /^https?:\/\//i.test(template)
-    const isGithub = /^https?:\/\/github.com\//i.test(template)
-
     const runGoGitIt = async (templatePath: string, destination: string) => {
-      await withSuppressedOutput(async () =>
-        goGitIt(
-          templatePath,
-          destination,
-          messages.installingFromTemplate(projectName, templateName)
-        )
+      await withTimeout(
+        withSuppressedOutput(async () =>
+          goGitIt(
+            templatePath,
+            destination,
+            messages.installingFromTemplate(projectName, templateName)
+          )
+        ),
+        NETWORK_TIMEOUT_MS,
+        () =>
+          new Error(
+            messages.templateFetchTimedOut(templateName, NETWORK_TIMEOUT_MS)
+          )
       )
     }
 
@@ -112,7 +171,8 @@ export async function importExternalTemplate(
       // Download zip and extract
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
-        maxRedirects: 5
+        maxRedirects: 5,
+        timeout: NETWORK_TIMEOUT_MS
       })
       const contentType = String(headers?.['content-type'] || '')
       const looksZip =
