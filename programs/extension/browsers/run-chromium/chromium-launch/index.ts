@@ -746,17 +746,30 @@ export class ChromiumLaunchPlugin {
         )
       }
 
+      let disposeSignalHandlers: (() => void) | undefined
+
       child.on('close', (code: number | null) => {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
+        disposeSignalHandlers?.()
+
+        const userDataDir = launchArgs
+          .find((arg) => arg.startsWith('--user-data-dir='))
+          ?.slice('--user-data-dir='.length)
+          .replace(/^"|"$/g, '')
+        utils.removeManagedEphemeralProfile(userDataDir)
       })
 
       child.on('error', (error) => {
         this.logger.error(messages.chromeProcessError(error))
       })
 
-      setupProcessSignalHandlers(this.options?.browser, child, () => {})
+      disposeSignalHandlers = setupProcessSignalHandlers(
+        this.options?.browser,
+        child,
+        () => {}
+      )
 
       return child
     } catch (error) {

@@ -101,9 +101,14 @@ export function managedBrowserCacheEnv(
     | 'chromium-based'
     | 'gecko-based'
     | 'firefox-based'
+    | 'safari'
+    | 'webkit-based'
 ): Record<string, string> {
   const root = String(cacheRoot || '').trim()
   if (!root) return {}
+
+  // Safari is built locally via Xcode, not downloaded into a managed cache.
+  if (browser === 'safari' || browser === 'webkit-based') return {}
 
   // Managed installs are stored as:
   // - Chrome:   <root>/chrome/chrome/<platformOrVersion>/...
@@ -171,11 +176,9 @@ export function resolveFromBinaries(
     }
   }
 
-  let matched = false
   for (const candidate of candidateFiles) {
     try {
       if (candidate && fs.existsSync(candidate)) {
-        matched = true
         return candidate
       }
     } catch {
@@ -183,14 +186,16 @@ export function resolveFromBinaries(
     }
   }
 
-  // If no candidate paths matched, do a shallow recursive search up to depth 6
-  if (!matched) {
-    const names = executableNamesFor(browser)
-    for (const root of scanRoots) {
-      const found = findExecutableUnder(root, names, 6)
-      if (found) return found
-    }
+  // No candidate path matched: do a shallow recursive search up to depth 6.
+  // (Reaching here means the loop above returned nothing, so the previous
+  // `matched` flag was always false at this point — removed as dead state.)
+  const names = executableNamesFor(browser)
+  for (const root of scanRoots) {
+    const found = findExecutableUnder(root, names, 6)
+
+    if (found) return found
   }
+
   return null
 }
 

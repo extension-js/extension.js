@@ -12,8 +12,6 @@ import type {CDPClient} from './cdp-client'
 
 const CONTENT_ROOT_SELECTOR =
   '#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'
-const NON_DEVTOOLS_CONTENT_ROOT_SELECTOR =
-  '#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'
 
 /** Serialized snapshot of extension content roots / reinject markers (same shape as ChromiumSourceInspectionPlugin root meta). */
 export type ExtensionRootMetaPayload = {
@@ -138,7 +136,7 @@ const EXTENSION_ROOT_META_EXPRESSION = `(() => {
           const generations = roots
             .concat(markers)
             .map((entry) => entry.generation)
-            .concat(typeof page.generation === 'number' ? [page.generation] : [])
+            .concat(page && typeof page.generation === 'number' ? [page.generation] : [])
             .concat(
               registries
                 .map((entry) => entry.generation)
@@ -451,7 +449,7 @@ export async function getPageHTML(
     `(() => {
       try {
         return !!document.querySelector(${JSON.stringify(
-          NON_DEVTOOLS_CONTENT_ROOT_SELECTOR
+          CONTENT_ROOT_SELECTOR
         )})
       } catch {
         return false
@@ -472,7 +470,7 @@ export async function getPageHTML(
       sessionId,
       `(() => { try { 
         var cloned = document.documentElement.cloneNode(true); 
-        var selector = ${JSON.stringify(NON_DEVTOOLS_CONTENT_ROOT_SELECTOR)};
+        var selector = ${JSON.stringify(CONTENT_ROOT_SELECTOR)};
         var s = new XMLSerializer(); 
         try { 
           var liveHosts = Array.from(document.querySelectorAll(selector));

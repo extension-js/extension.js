@@ -315,7 +315,9 @@ export function browserConfig(
   // Added useful flags for tooling:
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
   const baseFlags = [
-    `--load-extension=${extensionsToLoad.join()}`,
+    ...(extensionsToLoad.length
+      ? [`--load-extension=${extensionsToLoad.join()}`]
+      : []),
     ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
     ...linuxContainerSandboxFlags,
     ...aiOptimizedFlags,
