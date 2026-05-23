@@ -30,7 +30,6 @@ vi.mock('../../lib/messages', () => ({
 import {isUsingSass, maybeUseSass} from '../css-tools/sass'
 import {isUsingLess, maybeUseLess} from '../css-tools/less'
 import {isUsingPostCss, maybeUsePostCss} from '../css-tools/postcss'
-import {isUsingStylelint, getStylelintConfigFile} from '../css-tools/stylelint'
 import {isUsingTailwind, getTailwindConfigFile} from '../css-tools/tailwind'
 
 const originalRequireResolve = (require as any).resolve
@@ -48,11 +47,6 @@ describe('css tools detection', () => {
     ;(require as any).resolve = originalRequireResolve
   })
 
-  it('stylelint config discovery returns undefined when files are missing', () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    expect(getStylelintConfigFile('/p')).toBeUndefined()
-  })
-
   it('tailwind config discovery returns first existing file', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('tailwind.config.js')
@@ -60,11 +54,6 @@ describe('css tools detection', () => {
     expect(getTailwindConfigFile('/p')?.endsWith('tailwind.config.js')).toBe(
       true
     )
-  })
-
-  it('isUsingStylelint returns false without package.json', () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    expect(isUsingStylelint('/p')).toBe(false)
   })
 
   it('maybeUsePostCss returns empty object when not in use', async () => {

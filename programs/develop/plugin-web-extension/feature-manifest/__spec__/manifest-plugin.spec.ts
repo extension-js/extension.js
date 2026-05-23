@@ -10,13 +10,6 @@ vi.mock('../steps/emit-manifest', () => ({
   }
 }))
 
-vi.mock('../steps/check-manifest-files', () => ({
-  CheckManifestFiles: class {
-    constructor(_opts: any) {}
-    apply = applySpy
-  }
-}))
-
 vi.mock('../steps/update-manifest', () => ({
   UpdateManifest: class {
     constructor(_opts: any) {}

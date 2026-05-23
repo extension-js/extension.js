@@ -14,8 +14,8 @@ describe('PortManager instance ids', () => {
       EXTENSION_INSTANCE_ID: 'firefox-suite:content-react/attempt-1'
     }
 
-    const manager = new PortManager('firefox', '/tmp/project', 48080)
-    const allocation = await manager.allocatePorts('firefox', '/tmp/project')
+    const manager = new PortManager(48080)
+    const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toBe('firefox-suite-content-react-attempt-1')
   })
@@ -26,36 +26,32 @@ describe('PortManager instance ids', () => {
     delete process.env.EXTENSION_DEV_INSTANCE_ID
     delete process.env.EXTJS_INSTANCE_ID
 
-    const manager = new PortManager('firefox', '/tmp/project', 48180)
-    const allocation = await manager.allocatePorts('firefox', '/tmp/project')
+    const manager = new PortManager(48180)
+    const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toMatch(/^[a-f0-9]{16}$/)
   })
 })
 
 describe('PortManager port 0 (OS-assigned)', () => {
-  it('allocates real ports when requestedPort is 0', async () => {
-    const manager = new PortManager('chrome', '/tmp/project')
-    const allocation = await manager.allocatePorts('chrome', '/tmp/project', 0)
+  it('allocates a real port when requestedPort is 0', async () => {
+    const manager = new PortManager()
+    const allocation = await manager.allocatePorts(0)
 
     expect(allocation.port).toBeGreaterThan(0)
     expect(allocation.port).toBeLessThan(65536)
-    expect(allocation.webSocketPort).toBeGreaterThan(0)
-    expect(allocation.webSocketPort).toBeLessThan(65536)
-    expect(allocation.webSocketPort).not.toBe(allocation.port)
   })
 
   it('does not return port 0 as the allocated port', async () => {
-    const manager = new PortManager('chrome', '/tmp/project')
-    const allocation = await manager.allocatePorts('chrome', '/tmp/project', 0)
+    const manager = new PortManager()
+    const allocation = await manager.allocatePorts(0)
 
     expect(allocation.port).not.toBe(0)
-    expect(allocation.webSocketPort).not.toBe(0)
   })
 
   it('falls back to basePort when requestedPort is undefined', async () => {
-    const manager = new PortManager('chrome', '/tmp/project', 49100)
-    const allocation = await manager.allocatePorts('chrome', '/tmp/project')
+    const manager = new PortManager(49100)
+    const allocation = await manager.allocatePorts()
 
     // Should start searching from basePort 49100
     expect(allocation.port).toBeGreaterThanOrEqual(49100)

@@ -79,21 +79,29 @@ describe('PerfBudgetsPlugin', () => {
     mode: 'production' | 'development',
     assets: Record<string, number>
   ) {
-    const compilation = fakeCompilation(assets)
-    let cb: (compilation: any) => void = () => {}
+    const compilation: any = fakeCompilation(assets)
+    let processAssetsCb: () => void = () => {}
+    compilation.hooks = {
+      processAssets: {
+        tap: (_opts: unknown, fn: () => void) => {
+          processAssetsCb = fn
+        }
+      }
+    }
     const compiler: any = {
       options: {mode},
       hooks: {
-        afterCompile: {
-          tap: (_name: string, fn: (c: any) => void) => {
-            cb = fn
-          }
+        thisCompilation: {
+          tap: (_name: string, fn: (c: any) => void) => fn(compilation)
         }
       },
-      rspack: {WebpackError: class extends Error {}}
+      rspack: {
+        WebpackError: class extends Error {},
+        Compilation: {PROCESS_ASSETS_STAGE_REPORT: 5000}
+      }
     }
     plugin.apply(compiler)
-    cb(compilation)
+    processAssetsCb()
     return compilation
   }
 
