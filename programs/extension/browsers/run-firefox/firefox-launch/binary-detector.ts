@@ -6,11 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {promisify} from 'util'
-import {execFile as execFileCb} from 'child_process'
-
-const execFile = promisify(execFileCb)
-
 export function parseFlatpakBinary(binary: string): {appId: string} | null {
   if (!binary || !binary.startsWith('flatpak:')) return null
   const appId = binary.substring(8).trim()
@@ -54,18 +49,5 @@ export class FirefoxBinaryDetector {
     ]
 
     return {binary: binaryPath, args}
-  }
-
-  static async validateFirefoxBinary(
-    binaryPath: string
-  ): Promise<{version: string; path: string}> {
-    try {
-      const {stdout} = await execFile(binaryPath, ['--version'])
-      const version = stdout.trim()
-
-      return {version, path: binaryPath}
-    } catch (error) {
-      throw new Error(`Failed to validate Firefox binary: ${error}`)
-    }
   }
 }

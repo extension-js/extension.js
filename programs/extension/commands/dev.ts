@@ -13,8 +13,13 @@ import {commandDescriptions} from '../helpers/messages'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import {launchBrowser} from '../browsers'
 import {
+  packageSafariExtension,
+  safariPreflightError
+} from '../browsers/run-safari/safari-launch'
+import {
   vendors,
   validateVendorsOrExit,
+  isSafariVendor,
   type Browser,
   parseOptionalBoolean
 } from '../helpers/vendors'
@@ -84,8 +89,8 @@ export function registerDevCommand(program: Command) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '-b, --browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
-      'specify a browser/engine to run. Defaults to `chromium`'
+      '-b, --browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | safari | webkit-based>',
+      'specify a browser/engine to run. Defaults to `chromium`. `safari` builds and opens a Safari app via Xcode (macOS only; no live reload)'
     )
     .option(
       '--chromium-binary <path-to-binary>',
@@ -97,7 +102,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `false`'
+      'whether or not to apply the cross-browser polyfill. Defaults to `true`'
     )
     .option(
       '--no-open',
@@ -233,6 +238,19 @@ export function registerDevCommand(program: Command) {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
+
+      // Safari: fail fast on a missing toolchain *before* the bundle, so the
+      // user isn't surprised after a build. (dev rides the watch compiler and
+      // repackages the Safari app on each rebuild)
+      if (list.some(isSafariVendor)) {
+        const issue = safariPreflightError()
+
+        if (issue) {
+          // eslint-disable-next-line no-console
+          console.error(issue)
+          process.exit(1)
+        }
+      }
 
       if (devOptions.wait) {
         const waitResult = await runWaitMode({
@@ -379,7 +397,22 @@ export function registerDevCommand(program: Command) {
           logTab: devOptions.logTab,
           // Inject the browser launcher — develop's BrowsersPlugin calls it
           // on first compile; browser lifecycle is managed by the plugin.
-          launcher: noBrowser ? undefined : launchBrowser
+          launcher: noBrowser ? undefined : launchBrowser,
+          // Inject the Safari packager — SafariDevPlugin calls it on each
+          // rebuild (full first, then incremental resync).
+          safariPackager: async (distPath: string, mode: 'full' | 'resync') => {
+            await packageSafariExtension(
+              {
+                extension: [distPath],
+                browser: vendor as Browser,
+                noOpen: devOptions.open === false,
+                dryRun: false
+              },
+              distPath,
+              undefined,
+              mode
+            )
+          }
         }
 
         // extensionDev returns a BuildEmitter from the BrowsersPlugin.

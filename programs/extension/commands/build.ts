@@ -14,9 +14,14 @@ import {parseExtensionsList} from '../helpers/normalize-options'
 import {
   vendors,
   validateVendorsOrExit,
+  isSafariVendor,
   type Browser,
   parseOptionalBoolean
 } from '../helpers/vendors'
+import {
+  packageSafariExtension,
+  safariPreflightError
+} from '../browsers/run-safari/safari-launch'
 
 type BuildOptions = {
   browser?: Browser | 'all'
@@ -37,8 +42,8 @@ export function registerBuildCommand(program: Command) {
     .usage('build [path-to-remote-extension] [options]')
     .description(commandDescriptions.build)
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
-      'specify a browser/engine to run. Defaults to `chromium`'
+      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | safari | webkit-based>',
+      'specify a browser/engine to run. Defaults to `chromium`. `safari` builds a Safari app via Xcode (macOS only)'
     )
     .option(
       '--polyfill [boolean]',
@@ -110,6 +115,16 @@ export function registerBuildCommand(program: Command) {
         }
       }
 
+      if (list.some(isSafariVendor)) {
+        const issue = safariPreflightError()
+
+        if (issue) {
+          // eslint-disable-next-line no-console
+          console.error(issue)
+          process.exit(1)
+        }
+      }
+
       const {extensionBuild}: {extensionBuild: any} =
         await loadExtensionDevelopModule()
 
@@ -123,7 +138,23 @@ export function registerBuildCommand(program: Command) {
           silent: buildOptions.silent,
           install: buildOptions.install,
           extensions: parseExtensionsList((buildOptions as any).extensions),
-          mode
+          mode,
+          safariPackager: async (
+            distPath: string,
+            packagerMode: 'full' | 'resync'
+          ) => {
+            await packageSafariExtension(
+              {
+                extension: [distPath],
+                browser: vendor as Browser,
+                noOpen: !!buildOptions.silent,
+                dryRun: false
+              },
+              distPath,
+              undefined,
+              packagerMode
+            )
+          }
         })
       }
     })

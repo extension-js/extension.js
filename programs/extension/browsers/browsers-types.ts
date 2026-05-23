@@ -16,6 +16,8 @@ export type BrowserType =
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
+  | 'safari'
+  | 'webkit-based'
 
 /**
  * Lightweight stand-in for rspack's Compilation used by browser-launching code.

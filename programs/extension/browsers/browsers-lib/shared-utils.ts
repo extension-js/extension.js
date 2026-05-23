@@ -189,6 +189,22 @@ export function markManagedEphemeralProfile(profilePath: string) {
   }
 }
 
+export function removeManagedEphemeralProfile(
+  profilePath: string | undefined | null
+) {
+  try {
+    if (!profilePath) return
+    if (path.basename(profilePath) === 'dev') return
+
+    const markerPath = path.join(profilePath, MANAGED_EPHEMERAL_PROFILE_MARKER)
+    if (!fs.existsSync(markerPath)) return
+
+    fs.rmSync(profilePath, {recursive: true, force: true})
+  } catch {
+    // best-effort; the 12h sweep on the next launch is the fallback
+  }
+}
+
 // Remove old managed ephemeral profile directories while preserving the active
 // profile and the stable persistent profile directory (`dev`).
 export function cleanupOldTempProfiles(

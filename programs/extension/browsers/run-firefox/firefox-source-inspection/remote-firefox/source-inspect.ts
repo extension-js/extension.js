@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {MessagingClient} from './messaging-client'
+import {GET_PAGE_HTML_WITH_SHADOW_EXPRESSION} from './evaluate'
 
 function normalizeInspectableUrl(rawUrl?: string): string {
   try {
@@ -165,7 +166,7 @@ export async function getPageHTML(
   try {
     const mergedResp = await client.evaluateRaw(
       descriptorActor,
-      `(() => { try { var selector = '#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'; var serializeShadowRoot = function(shadowRoot, serializer) { if (!shadowRoot) return ''; var stylesheetCss = Array.from(shadowRoot.styleSheets || []).map(function(sheet) { try { return Array.from(sheet.cssRules || []).map(function(rule) { return String(rule.cssText || ''); }).join('\\n'); } catch (e) { return ''; } }).filter(Boolean).join('\\n'); var adoptedCss = Array.from(shadowRoot.adoptedStyleSheets || []).map(function(sheet) { try { return Array.from(sheet.cssRules || []).map(function(rule) { return String(rule.cssText || ''); }).join('\\n'); } catch (e) { return ''; } }).filter(Boolean).join('\\n'); var stylesheetMarkup = stylesheetCss ? '<style>' + stylesheetCss + '</style>' : ''; var adoptedMarkup = adoptedCss ? '<style>' + adoptedCss + '</style>' : ''; var childMarkup = Array.from(shadowRoot.childNodes || []).map(function(node) { try { if (node && node.nodeType === 1 && String(node.nodeName || '').toLowerCase() === 'style') { return '<style>' + String(node.textContent || '') + '</style>'; } return serializer.serializeToString(node); } catch (e) { return ''; } }).join(''); return stylesheetMarkup + adoptedMarkup + childMarkup; }; var cloned = document.documentElement.cloneNode(true); var clonedHosts = Array.from(cloned.querySelectorAll(selector)); var liveHosts = Array.from(document.querySelectorAll(selector)); if (!clonedHosts.length) { var body = cloned.querySelector('body') || cloned; var newRoot = document.createElement('div'); newRoot.id='extension-root'; body.appendChild(newRoot); clonedHosts = [newRoot]; } var s = new XMLSerializer(); for (var i = 0; i < clonedHosts.length; i++) { var host = clonedHosts[i]; var live = liveHosts[i]; var shadow = ''; try { if (live && live.shadowRoot) { shadow = serializeShadowRoot(live.shadowRoot, s); } } catch (e) {} try { host.innerHTML = shadow; } catch (e) {} } return String('<!DOCTYPE html>' + (cloned.outerHTML || document.documentElement.outerHTML)); } catch(e) { try { return String(document.documentElement.outerHTML); } catch(_) { return '' } } })()`
+      GET_PAGE_HTML_WITH_SHADOW_EXPRESSION
     )
     const mergedHtml = await (client as any).coerceResponseToString?.(
       descriptorActor,

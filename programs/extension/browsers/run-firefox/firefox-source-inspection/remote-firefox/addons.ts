@@ -13,7 +13,14 @@ export function resolveAddonDirectory(
   baseDir: string,
   inputPath: string
 ): string {
-  let candidate = inputPath.replace(/\"/g, '')
+  let candidate = inputPath.trim()
+
+  if (
+    (candidate.startsWith('"') && candidate.endsWith('"')) ||
+    (candidate.startsWith("'") && candidate.endsWith("'"))
+  ) {
+    candidate = candidate.slice(1, -1)
+  }
 
   if (!path.isAbsolute(candidate)) {
     candidate = path.resolve(baseDir, candidate)

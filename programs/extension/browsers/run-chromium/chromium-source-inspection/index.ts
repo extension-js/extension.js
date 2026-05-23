@@ -268,6 +268,26 @@ export class ChromiumSourceInspectionPlugin {
     return undefined
   }
 
+  private readBuildSignature(
+    rootMeta?: Awaited<
+      ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+    >
+  ): string {
+    const builds = [
+      rootMeta?.page?.build,
+      ...(rootMeta?.roots || []).map((entry) => entry?.build),
+      ...(rootMeta?.markers || []).map((entry) => entry?.build),
+      ...(rootMeta?.registries || []).map((entry) => entry?.build)
+    ]
+      .filter(
+        (value): value is string =>
+          typeof value === 'string' && value.length > 0
+      )
+      .sort()
+
+    return JSON.stringify(builds)
+  }
+
   private async getExtensionRootMeta(): Promise<
     | {
         rootCount: number
@@ -1108,31 +1128,12 @@ export class ChromiumSourceInspectionPlugin {
     sessionId: string
   ): Promise<void> {
     if (!this.cdpClient) return
-    const readBuildSignature = (
-      rootMeta?: Awaited<
-        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
-      >
-    ): string => {
-      const builds = [
-        rootMeta?.page?.build,
-        ...(rootMeta?.roots || []).map((entry) => entry?.build),
-        ...(rootMeta?.markers || []).map((entry) => entry?.build),
-        ...(rootMeta?.registries || []).map((entry) => entry?.build)
-      ]
-        .filter(
-          (value): value is string =>
-            typeof value === 'string' && value.length > 0
-        )
-        .sort()
-
-      return JSON.stringify(builds)
-    }
 
     const previousOutputHash = this.lastOutputHash
     const previousRootMeta = await this.getExtensionRootMeta().catch(
       () => undefined
     )
-    const previousBuildSignature = readBuildSignature(previousRootMeta)
+    const previousBuildSignature = this.readBuildSignature(previousRootMeta)
 
     try {
       await this.waitForContentScriptStyles(sessionId)
@@ -1173,7 +1174,7 @@ export class ChromiumSourceInspectionPlugin {
       const currentRootMeta = await this.getExtensionRootMeta().catch(
         () => undefined
       )
-      const currentBuildSignature = readBuildSignature(currentRootMeta)
+      const currentBuildSignature = this.readBuildSignature(currentRootMeta)
       const htmlChanged =
         !previousOutputHash ||
         hashStringFNV1a(html || '') !== previousOutputHash
@@ -1284,35 +1285,15 @@ export class ChromiumSourceInspectionPlugin {
   ): Promise<void> {
     if (!this.cdpClient) return
 
-    const readBuildSignature = (
-      rootMeta?: Awaited<
-        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
-      >
-    ): string => {
-      const builds = [
-        rootMeta?.page?.build,
-        ...(rootMeta?.roots || []).map((entry) => entry?.build),
-        ...(rootMeta?.markers || []).map((entry) => entry?.build),
-        ...(rootMeta?.registries || []).map((entry) => entry?.build)
-      ]
-        .filter(
-          (value): value is string =>
-            typeof value === 'string' && value.length > 0
-        )
-        .sort()
-
-      return JSON.stringify(builds)
-    }
-
     const previousGeneration = Number(previousRootMeta?.latestGeneration || 0)
-    const previousBuildSignature = readBuildSignature(previousRootMeta)
+    const previousBuildSignature = this.readBuildSignature(previousRootMeta)
 
     const deadline = Date.now() + 20000
     while (Date.now() < deadline) {
       try {
         const rootMeta = await this.getExtensionRootMeta()
         if (rootMeta) {
-          const nextBuildSignature = readBuildSignature(rootMeta)
+          const nextBuildSignature = this.readBuildSignature(rootMeta)
           const generationAdvanced =
             Number(rootMeta.latestGeneration || 0) > previousGeneration
           const buildAdvanced =
@@ -1346,26 +1327,6 @@ export class ChromiumSourceInspectionPlugin {
       ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
     >
   ): Promise<void> {
-    const readBuildSignature = (
-      rootMeta?: Awaited<
-        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
-      >
-    ): string => {
-      const builds = [
-        rootMeta?.page?.build,
-        ...(rootMeta?.roots || []).map((entry) => entry?.build),
-        ...(rootMeta?.markers || []).map((entry) => entry?.build),
-        ...(rootMeta?.registries || []).map((entry) => entry?.build)
-      ]
-        .filter(
-          (value): value is string =>
-            typeof value === 'string' && value.length > 0
-        )
-        .sort()
-
-      return JSON.stringify(builds)
-    }
-
     await this.waitForContentScriptReinjection(sessionId, previousRootMeta)
     try {
       await this.waitForContentScriptStyles(sessionId)
@@ -1379,7 +1340,7 @@ export class ChromiumSourceInspectionPlugin {
     }
 
     const previousOutputHash = this.lastOutputHash
-    const previousBuildSignature = readBuildSignature(previousRootMeta)
+    const previousBuildSignature = this.readBuildSignature(previousRootMeta)
     let html = ''
     const outputConfig = this.getOutputConfig()
     const deadline = Date.now() + 5000
@@ -1408,7 +1369,7 @@ export class ChromiumSourceInspectionPlugin {
       const currentRootMeta = await this.getExtensionRootMeta().catch(
         () => undefined
       )
-      const currentBuildSignature = readBuildSignature(currentRootMeta)
+      const currentBuildSignature = this.readBuildSignature(currentRootMeta)
       const htmlChanged =
         !previousOutputHash ||
         hashStringFNV1a(html || '') !== previousOutputHash

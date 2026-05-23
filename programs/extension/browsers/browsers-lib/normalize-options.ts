@@ -30,12 +30,17 @@ export function normalizePluginOptions(
   // Normalize user-provided binary paths: expand ~ and strip surrounding quotes
   const normalizePath = (filePath?: string) => {
     if (!filePath) return filePath
+
+    // Operate on a single working value throughout. The previous version
+    // stripped quotes off `filePath` but returned `normalizedPath` (snapshotted
+    // before stripping), so quotes were never actually removed and `~`
+    // expansion ran on the still-quoted string
     let normalizedPath = String(filePath).trim()
     if (
-      (filePath.startsWith('"') && filePath.endsWith('"')) ||
-      (filePath.startsWith("'") && filePath.endsWith("'"))
+      (normalizedPath.startsWith('"') && normalizedPath.endsWith('"')) ||
+      (normalizedPath.startsWith("'") && normalizedPath.endsWith("'"))
     ) {
-      filePath = filePath.slice(1, -1)
+      normalizedPath = normalizedPath.slice(1, -1)
     }
     if (normalizedPath.startsWith('~')) {
       normalizedPath = path.join(os.homedir(), normalizedPath.slice(1))
