@@ -149,7 +149,7 @@ export async function overridePackageJson(
     logger.log(messages.writingPackageJsonMetadata())
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
-      JSON.stringify(packageMetadata, null, 2)
+      JSON.stringify(packageMetadata, null, 2) + '\n'
     )
   } catch (error: any) {
     logger.error(messages.writingPackageJsonMetadataError(projectName, error))

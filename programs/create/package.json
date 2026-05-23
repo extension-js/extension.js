@@ -21,7 +21,8 @@
   "main": "./dist/module.cjs",
   "types": "./dist/module.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "templates"
   ],
   "name": "extension-create",
   "version": "3.17.0",
