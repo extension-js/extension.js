@@ -4,20 +4,18 @@ import * as os from 'os'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
-// The built-in template download now uses go-git-it against the remote examples repo.
+// The default `javascript` template (and its `init` alias) now ships with the
+// package and is copied locally — no network. go-git-it is mocked to fail so
+// the test proves the bundled path is used and never falls back to the wire.
 vi.mock('go-git-it', () => ({
-  default: vi.fn(async (_source: string, destination: string) => {
-    const templateRoot = path.join(destination, 'javascript')
-    await fsp.mkdir(templateRoot, {recursive: true})
-    await fsp.writeFile(
-      path.join(templateRoot, 'manifest.json'),
-      JSON.stringify({name: 'x', version: '0.0.1', manifest_version: 3})
-    )
+  default: vi.fn(async () => {
+    throw new Error('go-git-it should not be called for the bundled template')
   })
 }))
 
 vi.mock('axios', () => ({default: {get: vi.fn()}}))
 
+import goGitIt from 'go-git-it'
 import {importExternalTemplate} from '../import-external-template'
 
 describe('importExternalTemplate', () => {
@@ -31,15 +29,20 @@ describe('importExternalTemplate', () => {
     process.env.EXTENSION_ENV = prevEnv
   })
 
-  it('treats "init" as an alias for "javascript" when fetching built-in examples', async () => {
+  it('treats "init" as an alias for the bundled "javascript" template, offline', async () => {
     const tmpRoot = await fsp.mkdtemp(
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
 
     try {
-      await importExternalTemplate(projectPath, 'my-ext', 'init')
-      expect(fs.existsSync(path.join(projectPath, 'manifest.json'))).toBe(true)
+      // The bundled template carries its manifest under src/, distinguishing a
+      // local copy from any network fetch.
+      expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(true)
+      expect(
+        fs.existsSync(path.join(projectPath, 'src', 'manifest.json'))
+      ).toBe(true)
+      expect(goGitIt).not.toHaveBeenCalled()
     } finally {
       try {
         await fsp.rm(tmpRoot, {recursive: true, force: true})

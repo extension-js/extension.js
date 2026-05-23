@@ -19,40 +19,33 @@ export async function initializeGitRepository(
 
   logger.log(messages.initializingGitForRepository(projectName))
 
-  try {
-    const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(gitCommand, gitArgs, {
-      stdio,
-      cwd: projectPath
-    })
+  const stdio =
+    process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+  const child = spawn(gitCommand, gitArgs, {
+    stdio,
+    cwd: projectPath
+  })
 
-    await new Promise<void>((resolve, reject) => {
-      child.on('close', (code) => {
-        if (code !== 0) {
-          reject(
-            new Error(
-              messages.initializingGitForRepositoryFailed(
-                gitCommand,
-                gitArgs,
-                code
-              )
-            )
+  await new Promise<void>((resolve) => {
+    child.on('close', (code) => {
+      if (code !== 0) {
+        logger.log(
+          messages.initializingGitSkipped(
+            projectName,
+            `git exited with ${code}`
           )
-        } else {
-          resolve()
-        }
-      })
-
-      child.on('error', (error) => {
-        logger.error(
-          messages.initializingGitForRepositoryProcessError(projectName, error)
         )
-        reject(error)
-      })
+      }
+      resolve()
     })
-  } catch (error: any) {
-    logger.error(messages.initializingGitForRepositoryError(projectName, error))
-    throw error
-  }
+
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      const reason =
+        error?.code === 'ENOENT'
+          ? 'git not found'
+          : String(error?.message || error)
+      logger.log(messages.initializingGitSkipped(projectName, reason))
+      resolve()
+    })
+  })
 }
