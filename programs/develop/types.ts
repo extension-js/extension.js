@@ -90,6 +90,8 @@ export type BrowserType =
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
+  | 'safari'
+  | 'webkit-based'
 
 export interface BrowserOptionsBase {
   noOpen?: boolean
@@ -113,13 +115,22 @@ export interface GeckoOptions extends BrowserOptionsBase {
   geckoBinary?: string
 }
 
+export interface SafariOptions extends BrowserOptionsBase {
+  browser: 'webkit-based'
+  safariBinary?: string
+}
+
 export interface NonBinaryOptions extends BrowserOptionsBase {
-  browser: Exclude<BrowserType, 'chromium-based' | 'gecko-based'>
+  browser: Exclude<
+    BrowserType,
+    'chromium-based' | 'gecko-based' | 'webkit-based'
+  >
 }
 
 export type ExtendedBrowserOptions =
   | ChromiumOptions
   | GeckoOptions
+  | SafariOptions
   | NonBinaryOptions
 
 export interface DevOptions extends BrowserOptionsBase {
@@ -149,6 +160,7 @@ export interface DevOptions extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  safariBinary?: SafariOptions['safariBinary']
   // Packaging options (used when mode === 'production')
   zip?: boolean
   zipSource?: boolean
@@ -184,6 +196,7 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
+  safariPackager?: (distPath: string, mode: 'full' | 'resync') => Promise<void>
 }
 
 export interface BuildOptions {
@@ -191,6 +204,7 @@ export interface BuildOptions {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  safariBinary?: SafariOptions['safariBinary']
   /**
    * Companion extensions (load-only) for this command.
    */
@@ -217,6 +231,7 @@ export interface BuildOptions {
   // When false, extensionBuild rejects on error instead of exiting the process.
   // Defaults to true for CLI usage.
   exitOnError?: boolean
+  safariPackager?: (distPath: string, mode: 'full' | 'resync') => Promise<void>
 }
 
 export interface PreviewOptions extends BrowserOptionsBase {
@@ -374,6 +389,9 @@ export interface CommonWebpackOptions {
    * Useful for monorepos where package exports point to TS/TSX files.
    */
   transpilePackages?: string[]
+  perfBudgets?: Partial<
+    Record<import('./plugin-perf-budgets').AssetCategory, number>
+  >
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
    * containing a manifest.json. These are loaded alongside the user extension in
@@ -404,6 +422,9 @@ export type WebpackConfigOptions = CommonWebpackOptions &
   > & {
     browser: BrowserType
     mode: 'development' | 'production' | 'none'
+    // Injected by command-dev: the browser-runner plugin (Chromium/Firefox
+    // launcher or the Safari packager). Both implement RunnerPlugin.
+    browsersPlugin?: import('./plugin-browsers').RunnerPlugin
   }
 
 export interface FileConfig {

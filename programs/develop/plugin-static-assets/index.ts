@@ -18,7 +18,7 @@ export class StaticAssetsPlugin {
     this.mode = options.mode
   }
 
-  public async apply(compiler: Compiler) {
+  public apply(compiler: Compiler) {
     // Defensive defaults in case consumers did not initialize module/rules
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []

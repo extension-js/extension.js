@@ -75,6 +75,27 @@ export function resolvedWorkspaceManifest(
   )} ${colors.brightBlue(display)}`
 }
 
+export function remoteFetchTimedOut(target: string, ms: number) {
+  return (
+    `${getLoggingPrefix('error')} Timed out after ${colors.yellow(
+      `${Math.round(ms / 1000)}s`
+    )} fetching ${colors.underline(target)}.\n` +
+    `${colors.red(
+      'Check your network, or set EXTENSION_FETCH_TIMEOUT_MS to allow more time.'
+    )}`
+  )
+}
+
+export function manifestInvalidJson(manifestPath: string, error: unknown) {
+  const detail = error instanceof Error ? error.message : String(error)
+  return (
+    `${getLoggingPrefix('error')} Could not parse manifest.json — it is not valid JSON.\n` +
+    `${colors.red('Fix the syntax error and try again.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
+    `${colors.red(detail)}`
+  )
+}
+
 export function manifestNotFoundError(
   manifestPath: string,
   candidates: string[] = []

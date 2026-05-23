@@ -63,47 +63,54 @@ function hasTypeScriptSourceFiles(projectPath: string): boolean {
 
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 
-export function isUsingTypeScript(projectPath: string): boolean {
+function hasTypeScriptDependency(projectPath: string): boolean {
   const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
+  if (!packageJsonDirectory) return false
+
+  const packageJson = parseJsonSafe(
+    fs.readFileSync(path.join(packageJsonDirectory, 'package.json'), 'utf8')
+  )
+
+  return !!(
+    packageJson?.devDependencies?.typescript ||
+    packageJson?.dependencies?.typescript
+  )
+}
+
+export function isUsingTypeScript(projectPath: string): boolean {
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
+  if (!tsConfigFilePath) return false
+  return (
+    hasTypeScriptDependency(projectPath) ||
+    hasTypeScriptSourceFiles(projectPath)
+  )
+}
 
-  const packageJson = packageJsonDirectory
-    ? parseJsonSafe(
-        fs.readFileSync(path.join(packageJsonDirectory, 'package.json'), 'utf8')
-      )
-    : undefined
+export function ensureTypeScriptConfig(projectPath: string): void {
+  if (hasShownUserMessage) return
 
-  const TypeScriptAsDevDep = packageJson?.devDependencies?.typescript
-  const TypeScriptAsDep = packageJson?.dependencies?.typescript
+  const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
+  const hasDep = hasTypeScriptDependency(projectPath)
   const hasTsFiles = hasTypeScriptSourceFiles(projectPath)
 
-  if (!hasShownUserMessage) {
-    if (TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles) {
-      if (tsConfigFilePath) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-          console.log(
-            `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('TypeScript')}`
-          )
-        }
-      } else {
-        if (hasTsFiles) {
-          const errorMessage =
-            '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
-          throw new Error(errorMessage)
-        } else {
-          console.log(messages.creatingTSConfig())
-          writeTsConfig(projectPath)
-        }
+  if (hasDep || hasTsFiles) {
+    if (tsConfigFilePath) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('TypeScript')}`
+        )
       }
+    } else if (hasTsFiles) {
+      throw new Error(
+        '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
+      )
+    } else {
+      console.log(messages.creatingTSConfig())
+      writeTsConfig(projectPath)
     }
-
-    hasShownUserMessage = true
   }
 
-  return (
-    !!tsConfigFilePath &&
-    !!(TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles)
-  )
+  hasShownUserMessage = true
 }
 
 export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {

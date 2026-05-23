@@ -49,10 +49,17 @@ function flattenValues(
 }
 
 function diffArray(prev: string[], next: string[]): CategoryChange | null {
-  if (prev.join(',') === next.join(',')) return null
+  if (
+    prev.length === next.length &&
+    prev.every((value, i) => value === next[i])
+  ) {
+    return null
+  }
+
   const maxLen = Math.max(prev.length, next.length)
   let pathBefore: string | undefined
   let pathAfter: string | undefined
+
   for (let i = 0; i < maxLen; i++) {
     if (prev[i] !== next[i]) {
       pathBefore = prev[i]
@@ -60,6 +67,7 @@ function diffArray(prev: string[], next: string[]): CategoryChange | null {
       break
     }
   }
+
   return {hasChange: true, pathBefore, pathAfter}
 }
 

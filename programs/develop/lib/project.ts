@@ -27,6 +27,30 @@ const isUrl = (url: string) => {
   }
 }
 
+const REMOTE_FETCH_TIMEOUT_MS = (() => {
+  const raw = parseInt(String(process.env.EXTENSION_FETCH_TIMEOUT_MS || ''), 10)
+  return Number.isFinite(raw) && raw > 0 ? raw : 60_000
+})()
+
+function withTimeout<T>(
+  task: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(messages.remoteFetchTimedOut(label, ms))),
+      ms
+    )
+  })
+
+  return Promise.race([task, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  }) as Promise<T>
+}
+
 async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
@@ -91,7 +115,11 @@ async function importUrlSourceFromGithub(
 
   async function tryGitClone() {
     const {default: goGitIt} = await import('go-git-it')
-    await goGitIt(pathOrRemoteUrl, cwd, text)
+    await withTimeout(
+      goGitIt(pathOrRemoteUrl, cwd, text),
+      REMOTE_FETCH_TIMEOUT_MS,
+      pathOrRemoteUrl
+    )
   }
 
   async function tryZipFallback() {
@@ -180,7 +208,11 @@ async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
   // Extract directly into the current working directory so users can edit it
   const cwd = process.cwd()
   const {downloadAndExtractZip} = await import('./zip')
-  const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, cwd)
+  const extractedPath = await withTimeout(
+    downloadAndExtractZip(pathOrRemoteUrl, cwd),
+    REMOTE_FETCH_TIMEOUT_MS,
+    pathOrRemoteUrl
+  )
   return extractedPath
 }
 
@@ -321,9 +353,17 @@ export async function getProjectStructure(
         )
       }
     } else {
-      // Web-only mode: Try to find manifest.json in subdirectories
-      const findManifest = (dir: string): string | null => {
-        const files = fs.readdirSync(dir, {withFileTypes: true})
+      const MAX_DEPTH = 5
+
+      const findManifest = (dir: string, depth: number): string | null => {
+        if (depth > MAX_DEPTH) return null
+
+        let files: fs.Dirent[]
+        try {
+          files = fs.readdirSync(dir, {withFileTypes: true})
+        } catch {
+          return null
+        }
 
         for (const file of files) {
           if (file.isFile() && file.name === 'manifest.json') {
@@ -337,14 +377,14 @@ export async function getProjectStructure(
             file.name !== 'dist' &&
             file.name !== 'public'
           ) {
-            const found = findManifest(path.join(dir, file.name))
+            const found = findManifest(path.join(dir, file.name), depth + 1)
             if (found) return found
           }
         }
         return null
       }
 
-      const foundManifest = findManifest(projectPath)
+      const foundManifest = findManifest(projectPath, 0)
       if (foundManifest) {
         manifestPath = foundManifest
       } else {

@@ -25,7 +25,8 @@
   "main": "./dist/module.mjs",
   "types": "./dist/module.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "runtime"
   ],
   "name": "extension-develop",
   "version": "3.17.0",

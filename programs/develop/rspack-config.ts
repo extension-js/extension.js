@@ -16,7 +16,7 @@ import {asAbsolute, getDirs} from './lib/paths'
 import * as messages from './lib/messages'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
-import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/companion-extensions'
+import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 
 // Plugins
@@ -26,7 +26,6 @@ import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
-import {BrowsersPlugin} from './plugin-browsers'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
@@ -41,8 +40,14 @@ export default function webpackConfig(
   const {manifestPath} = projectStructure
   const {packageJsonDir} = getDirs(projectStructure)
 
+  let rawManifest: unknown
+  try {
+    rawManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+  } catch (error) {
+    throw new Error(messages.manifestInvalidJson(manifestPath, error))
+  }
   const manifest = filterKeysForThisBrowser(
-    JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
+    rawManifest as any,
     devOptions.browser
   )
   // Absolute directory where the user's extension build will be written.
@@ -139,7 +144,7 @@ export default function webpackConfig(
     // for content scripts vs. service workers vs. cold UI pages). Replaces
     // rspack's stock single-threshold `performance.hints` — see the
     // `performance` block below where hints are disabled.
-    new PerfBudgetsPlugin()
+    new PerfBudgetsPlugin({budgets: devOptions.perfBudgets})
   ]
 
   if (devOptions.noBrowser) {
@@ -159,8 +164,8 @@ export default function webpackConfig(
   // BrowsersPlugin wraps the browser API (programs/extension/browsers/)
   // behind rspack hooks — launching on first compile, reloading on
   // subsequent compiles, and emitting events for CLI telemetry.
-  if ((devOptions as any).browsersPlugin) {
-    const browsersPlugin: BrowsersPlugin = (devOptions as any).browsersPlugin
+  if (devOptions.browsersPlugin) {
+    const browsersPlugin = devOptions.browsersPlugin
     browsersPlugin.extensionsToLoad = unpackedExtensionDirsToLoad
     plugins.push(browsersPlugin)
   }
@@ -184,7 +189,7 @@ export default function webpackConfig(
       publicPath: '/',
       filename:
         (devOptions.mode || 'development') === ('development' as any) &&
-        (devOptions as any).hashContentScripts !== false
+        devOptions.hashContentScripts !== false
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
               if (
@@ -212,7 +217,14 @@ export default function webpackConfig(
         transpilePackageDirs.length > 0
           ? /dist|extension-js\/profiles/
           : /node_modules|dist|extension-js\/profiles/,
-      poll: 1000,
+      ...(process.env.EXTENSION_WATCH_POLL === 'true'
+        ? {
+            poll: parseInt(
+              String(process.env.EXTENSION_WATCH_POLL_INTERVAL || '1000'),
+              10
+            )
+          }
+        : {}),
       aggregateTimeout: 200
     },
     resolve: {

@@ -12,10 +12,6 @@ import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 
-// ---------------------------------------------------------------------------
-// Build event types
-// ---------------------------------------------------------------------------
-
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
 export interface ReloadInstruction {
@@ -54,10 +50,6 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
     this.on('error', () => {})
   }
 }
-
-// ---------------------------------------------------------------------------
-// Browser launcher contract (dependency-injected by the CLI)
-// ---------------------------------------------------------------------------
 
 export interface BrowserLaunchOptions {
   browser: string
@@ -118,9 +110,11 @@ export type BrowserLauncherFn = (
   opts: BrowserLaunchOptions
 ) => Promise<BrowserController>
 
-// ---------------------------------------------------------------------------
-// Plugin configuration
-// ---------------------------------------------------------------------------
+export interface RunnerPlugin {
+  readonly emitter: BuildEmitter
+  extensionsToLoad: string[]
+  apply(compiler: Compiler): void
+}
 
 export interface BrowsersPluginOptions {
   /** Injected browser launcher — provided by the CLI from programs/extension/browsers/ */
@@ -131,10 +125,6 @@ export interface BrowsersPluginOptions {
     'outputPath' | 'contextDir' | 'extensionsToLoad'
   >
 }
-
-// ---------------------------------------------------------------------------
-// BrowsersPlugin — rspack plugin that wraps the browser API
-// ---------------------------------------------------------------------------
 
 /**
  * BrowsersPlugin
@@ -148,7 +138,7 @@ export interface BrowsersPluginOptions {
  * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
  * coupling to rspack.
  */
-export class BrowsersPlugin {
+export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
 
   /** EventEmitter for build lifecycle events (compiled, error, close). */
@@ -170,7 +160,6 @@ export class BrowsersPlugin {
     let pendingReloadReason: ReloadType | undefined
     let pendingChangedSources: string[] = []
 
-    // ---- watchRun: classify changed files ----
     compiler.hooks.watchRun.tap(BrowsersPlugin.name, () => {
       pendingReloadReason = undefined
       pendingChangedSources = []
@@ -190,7 +179,6 @@ export class BrowsersPlugin {
       }
     })
 
-    // ---- done: launch / reload browser, emit events ----
     compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats: any) => {
       const compilation = stats.compilation
       const hasErrors = compilation.errors && compilation.errors.length > 0
@@ -275,7 +263,6 @@ export class BrowsersPlugin {
         }
       }
 
-      // --- Browser lifecycle ---
       const wasFirstCompile = this.isFirstCompile
       this.isFirstCompile = false
 
@@ -321,7 +308,6 @@ export class BrowsersPlugin {
         }
       }
 
-      // --- Emit event for external consumers (telemetry, wait-mode) ---
       this.emitter.emit('compiled', {
         outputPath,
         contextDir,

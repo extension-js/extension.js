@@ -6,6 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
+import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
 
 export type IssueType = 'error' | 'warning'
@@ -32,9 +34,6 @@ export function reportToCompilation(
   compilation[bucket] ||= []
   compilation[bucket].push(issue)
 }
-
-import * as fs from 'fs'
-import * as path from 'path'
 
 export function getScriptEntries(scriptPath: string | string[] | undefined) {
   const scriptEntries = Array.isArray(scriptPath)

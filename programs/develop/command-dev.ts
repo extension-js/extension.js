@@ -20,18 +20,21 @@ import {
 import {
   BrowsersPlugin,
   BuildEmitter,
-  type BrowserLauncherFn
+  type BrowserLauncherFn,
+  type RunnerPlugin
 } from './plugin-browsers'
+import {SafariDevPlugin} from './plugin-browsers/safari-dev-plugin'
 import type {BrowserConfig, DevOptions} from './types'
-
-// TODO cezaraugusto: move this out
-import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'
+import {
+  isUsingTypeScript,
+  ensureTypeScriptConfig
+} from './plugin-js-frameworks/js-tools/typescript'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions & {launcher?: BrowserLauncherFn}
 ): Promise<BuildEmitter> {
-  let browsersPlugin: BrowsersPlugin | undefined
+  let browsersPlugin: RunnerPlugin | undefined
   let emitter: BuildEmitter = new BuildEmitter()
 
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
@@ -46,6 +49,9 @@ export async function extensionDev(
       await ensureUserProjectDependencies(packageJsonDir)
     }
 
+    // Create/validate tsconfig (and surface the "missing tsconfig" error)
+    // before deciding whether to generate extension type defs.
+    ensureTypeScriptConfig(manifestDir)
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
     }
@@ -83,10 +89,14 @@ export async function extensionDev(
       ...sanitize(devOptions as Record<string, any>)
     } as DevOptions & BrowserConfig
 
-    // When a launcher is provided, create the BrowsersPlugin that wraps the
-    // browser API behind rspack hooks. Otherwise fall back to a plain emitter
-    // for no-browser / dry-run modes
-    if (devOptions.launcher && !devOptions.noBrowser) {
+    if (
+      (browser === 'safari' || browser === 'webkit-based') &&
+      !devOptions.noBrowser &&
+      devOptions.safariPackager
+    ) {
+      browsersPlugin = new SafariDevPlugin(devOptions.safariPackager)
+      emitter = browsersPlugin.emitter
+    } else if (devOptions.launcher && !devOptions.noBrowser) {
       browsersPlugin = new BrowsersPlugin({
         launcher: devOptions.launcher,
         browserOptions: {
