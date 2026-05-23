@@ -34,14 +34,13 @@ export function trackJsonDependencies(
         const abs = path.isAbsolute(thisResource)
           ? thisResource
           : path.join(manifestDir, thisResource)
-        const fileDependencies = new Set(compilation.fileDependencies)
 
-        if (fs.existsSync(abs)) {
-          if (!fileDependencies.has(abs)) {
-            fileDependencies.add(abs)
-            compilation.fileDependencies.add(abs)
-            added++
-          }
+        // Check the live set directly. The previous `new Set(compilation
+        // .fileDependencies)` copied the entire dependency set on every
+        // resource iteration just to call `.has` on the copy
+        if (fs.existsSync(abs) && !compilation.fileDependencies.has(abs)) {
+          compilation.fileDependencies.add(abs)
+          added++
         }
       }
     }

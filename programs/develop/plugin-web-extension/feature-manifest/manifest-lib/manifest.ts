@@ -107,7 +107,13 @@ export function getManifestContent(
     const text = fs.readFileSync(manifestPath, 'utf8')
     return parseJsonSafe(text)
   } catch {
-    // Fallback to require when available
+    try {
+      const resolved = cjsRequire.resolve(manifestPath)
+      delete cjsRequire.cache[resolved]
+    } catch {
+      // resolve() can throw for unusual paths; fall through to a plain require
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return cjsRequire(manifestPath)
   }

@@ -20,6 +20,7 @@ import * as messages from './js-frameworks-lib/messages'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {
   isUsingTypeScript,
+  ensureTypeScriptConfig,
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
@@ -144,6 +145,11 @@ export class JsFrameworksPlugin {
     const mode = compiler.options.mode || 'development'
     const projectPath = compiler.options.context as string
     const manifestDir = path.dirname(this.manifestPath)
+
+    // Detection (isUsingTypeScript) is now pure, so the one-time tsconfig
+    // setup/throw must be triggered explicitly at this build chokepoint
+    ensureTypeScriptConfig(projectPath)
+
     const swcIncludeDirs = Array.from(
       new Set([
         projectPath,
@@ -449,12 +455,22 @@ export class JsFrameworksPlugin {
   public async apply(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     if (mode === 'production') {
-      compiler.hooks.beforeRun.tapPromise(
-        JsFrameworksPlugin.name,
-        async () => await this.configureOptions(compiler)
+      // build runs via compiler.run(), which awaits beforeRun before reading rules.
+      compiler.hooks.beforeRun.tapPromise(JsFrameworksPlugin.name, () =>
+        this.configureOptions(compiler)
       )
       return
     }
-    await this.configureOptions(compiler)
+    // dev/watch: beforeRun never fires, so begin configuring eagerly and also
+    // gate the first compilation on the same promise via watchRun. This closes
+    // the race where the compiler could read module.rules / resolve.alias before
+    // the (async) framework-contract resolution finished mutating them
+    const configuring = this.configureOptions(compiler)
+    compiler.hooks.watchRun.tapPromise(
+      JsFrameworksPlugin.name,
+      () => configuring
+    )
+
+    await configuring
   }
 }

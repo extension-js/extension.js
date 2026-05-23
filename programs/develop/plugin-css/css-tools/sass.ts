@@ -35,8 +35,6 @@ export function isUsingSass(projectPath: string): boolean {
   return false
 }
 
-type Loader = Record<string, any>
-
 /**
  * Resolve the Sass implementation from the user's project first, then fall back
  * to the Extension.js cache/runtime. This mirrors the PostCSS/Tailwind
@@ -112,36 +110,12 @@ export function createSassLoaderOptions(
   return base
 }
 
-export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
-  if (!isUsingSass(projectPath)) return []
+export async function maybeUseSass(projectPath: string): Promise<void> {
+  if (!isUsingSass(projectPath)) return
 
-  const sassLoaderPath = await ensureOptionalContractPackageResolved({
+  await ensureOptionalContractPackageResolved({
     contractId: 'sass',
     projectPath,
     dependencyId: 'sass-loader'
   })
-
-  return [
-    // Regular .sass/.scss files
-    {
-      test: /\.(sass|scss)$/,
-      exclude: /\.module\.(sass|scss)$/,
-      use: [
-        {
-          loader: sassLoaderPath,
-          options: createSassLoaderOptions(projectPath, 'development')
-        }
-      ]
-    },
-    // Module .sass/.scss files
-    {
-      test: /\.module\.(sass|scss)$/,
-      use: [
-        {
-          loader: sassLoaderPath,
-          options: createSassLoaderOptions(projectPath, 'development')
-        }
-      ]
-    }
-  ]
 }

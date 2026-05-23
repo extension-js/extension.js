@@ -30,16 +30,8 @@ export class AddDependencies {
             const alreadyPresent =
               typeof deps?.has === 'function' ? deps.has(dependency) : false
 
-            if (!alreadyPresent) {
-              if (typeof deps?.add === 'function') deps.add(dependency)
-
-              // Fallback for implementations that expect mutation via original reference
-              if (
-                deps !== compilation.fileDependencies &&
-                typeof compilation.fileDependencies?.add === 'function'
-              ) {
-                compilation.fileDependencies.add(dependency)
-              }
+            if (!alreadyPresent && typeof deps?.add === 'function') {
+              deps.add(dependency)
             }
           })
         }

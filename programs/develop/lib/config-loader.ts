@@ -116,8 +116,29 @@ function preloadEnvFiles(projectDir: string) {
   return local
 }
 
+const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+
 async function loadConfigFile(configPath: string): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
+
+  const cached = loadedConfigCache.get(absolutePath)
+  if (cached) return cached
+
+  const loading = loadConfigFileUncached(absolutePath)
+  loadedConfigCache.set(absolutePath, loading)
+
+  try {
+    return await loading
+  } catch (error) {
+    // Don't poison the cache with a transient failure.
+    loadedConfigCache.delete(absolutePath)
+    throw error
+  }
+}
+
+async function loadConfigFileUncached(
+  absolutePath: string
+): Promise<FileConfig> {
   const projectDir = path.dirname(absolutePath)
 
   // Preload env so extension.config.js can read process.env.*
@@ -134,15 +155,18 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
     // Try to load as ESM module first
     // If the file references import.meta.env, create a temporary shimmed copy
     let esmImportPath = absolutePath
+    // Tracks a temp dir holding the env-shimmed copy so we can delete it right
+    // after import — the serialized environment must not linger on disk.
+    let shimTmpDir: string | undefined
 
     try {
       const originalContent = fs.readFileSync(absolutePath, 'utf-8')
 
       if (originalContent.includes('import.meta.env')) {
-        const tmpDir = fs.mkdtempSync(
+        shimTmpDir = fs.mkdtempSync(
           path.join(os.tmpdir(), 'extension-config-esm-')
         )
-        const tmpPath = path.join(tmpDir, path.basename(absolutePath))
+        const tmpPath = path.join(shimTmpDir, path.basename(absolutePath))
 
         const envObjectLiteral = JSON.stringify(
           Object.fromEntries(
@@ -163,8 +187,18 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
       // best-effort shim; if reading fails, proceed without it
     }
 
-    const module = await import(pathToFileURL(esmImportPath).href)
-    return module.default || module
+    try {
+      const module = await import(pathToFileURL(esmImportPath).href)
+      return module.default || module
+    } finally {
+      if (shimTmpDir) {
+        try {
+          fs.rmSync(shimTmpDir, {recursive: true, force: true})
+        } catch {
+          // best-effort cleanup
+        }
+      }
+    }
   } catch (err: unknown) {
     const error = err as Error
     // If ESM import fails, attempt CommonJS require for non-.mjs files
@@ -198,12 +232,21 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
               const tmpDir = fs.mkdtempSync(
                 path.join(os.tmpdir(), 'extension-config-')
               )
-              const tmpCjsPath = path.join(
-                tmpDir,
-                path.basename(absolutePath, path.extname(absolutePath)) + '.cjs'
-              )
-              fs.copyFileSync(absolutePath, tmpCjsPath)
-              required = requireFn(tmpCjsPath)
+              try {
+                const tmpCjsPath = path.join(
+                  tmpDir,
+                  path.basename(absolutePath, path.extname(absolutePath)) +
+                    '.cjs'
+                )
+                fs.copyFileSync(absolutePath, tmpCjsPath)
+                required = requireFn(tmpCjsPath)
+              } finally {
+                try {
+                  fs.rmSync(tmpDir, {recursive: true, force: true})
+                } catch {
+                  // best-effort cleanup
+                }
+              }
             }
           } else {
             throw requireErr
@@ -221,7 +264,7 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
       return JSON.parse(content)
     } catch (jsonErr: unknown) {
       throw new Error(
-        `Failed to load config file: ${configPath}\nError: ${error.message || error}`
+        `Failed to load config file: ${absolutePath}\nError: ${error.message || error}`
       )
     }
   }
@@ -286,6 +329,12 @@ export async function loadCommandConfig(
           userConfig && Array.isArray((userConfig as any).transpilePackages)
             ? {transpilePackages: (userConfig as any).transpilePackages}
             : {}
+        const basePerfBudgets =
+          userConfig &&
+          (userConfig as any).perfBudgets &&
+          typeof (userConfig as any).perfBudgets === 'object'
+            ? {perfBudgets: (userConfig as any).perfBudgets}
+            : {}
         const perCommand =
           userConfig && userConfig.commands && userConfig.commands[command]
             ? userConfig.commands[command]
@@ -293,6 +342,7 @@ export async function loadCommandConfig(
         return {
           ...baseExtensions,
           ...baseTranspilePackages,
+          ...basePerfBudgets,
           ...perCommand
         }
       } catch (err: unknown) {

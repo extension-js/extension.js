@@ -8,11 +8,26 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
+import {
+  Compiler,
+  Compilation,
+  DefinePlugin,
+  ProvidePlugin,
+  sources
+} from '@rspack/core'
 import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../types'
 import * as messages from './compilation-lib/messages'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+
+function resolveProcessShim(): string | undefined {
+  const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
+  try {
+    return fs.existsSync(candidate) ? candidate : undefined
+  } catch {
+    return undefined
+  }
+}
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.isAbsolute(startDir)
@@ -81,14 +96,15 @@ export class EnvPlugin {
       (this.manifestPath ? path.dirname(this.manifestPath) : '')
     const mode = compiler.options.mode || 'development'
 
-    // Collect .env files based on browser and mode
+    // Collect .env files based on browser and mode. Note: `.env.example` is
+    // intentionally NOT included — it holds placeholder/documentation values
+    // and must not be treated as a real value source for the build
     const envFiles = [
       `.env.${this.browser}.${mode}`, // .env.chrome.development
       `.env.${this.browser}`, // .env.chrome
       `.env.${mode}`, // .env.development
       '.env.local', // .env.local
-      '.env', // .env
-      '.env.example' // .env.example as fallback
+      '.env' // .env
     ]
 
     const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
@@ -124,18 +140,6 @@ export class EnvPlugin {
         },
         {} as Record<string, string>
       )
-
-    // Ensure `process` exists in browser contexts.
-    //
-    // Some ecosystems (notably Bun) do not provide a global `process` in the browser,
-    // and users often read `process.env.*` from React/Vue/etc. While DefinePlugin
-    // replaces known `process.env.X` occurrences, any direct `process` / `process.env`
-    // access would otherwise throw at runtime.
-    //
-    // We keep this intentionally minimal: a stub `process` with an `env` object.
-    filteredEnvVars['process.env'] = JSON.stringify({})
-    // Wrap in parentheses so property access stays valid after replacement.
-    filteredEnvVars['process'] = '({env: {}})'
 
     // Ensure default environment variables are always available:
     // - EXTENSION_PUBLIC_BROWSER (legacy)
@@ -176,8 +180,28 @@ export class EnvPlugin {
       console.log(messages.envInjectedPublicVars(injectedCount))
     }
 
+    // Provide a real, complete browser `process` so any `process.*` access in
+    // user code or dependencies resolves to a safe object instead of throwing
+    // (browsers/extension runtimes have no global `process`). Specific
+    // `process.env.EXTENSION_PUBLIC_*` reads are still statically inlined by the
+    // DefinePlugin above, so they stay tree-shakeable; ProvidePlugin only fills
+    // in the remaining free `process` references.
+    const processShim = resolveProcessShim()
+
+    if (!processShim) {
+      // Fallback (shim missing from the install): merge a minimal-but-complete
+      // stub into the single DefinePlugin so bundled `process` access is safe.
+      filteredEnvVars['process.env'] = '{}'
+      filteredEnvVars['process'] =
+        '({env:{},argv:[],platform:"browser",browser:true,versions:{},nextTick:function(cb){Promise.resolve().then(function(){cb()})}})'
+    }
+
     // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
+
+    if (processShim) {
+      new ProvidePlugin({process: processShim}).apply(compiler)
+    }
 
     // Process all .json and .html files in the output directory
     compiler.hooks.thisCompilation.tap(

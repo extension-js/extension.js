@@ -61,12 +61,9 @@ export class EmitHtmlFile {
               continue
             }
             const rawHtml = fs.readFileSync(resolved, 'utf8')
-
-            if (true) {
-              const rawSource = new sources.RawSource(rawHtml)
-              const filepath = getFilePath(featureName, '.html', false)
-              compilation.emitAsset(filepath, rawSource)
-            }
+            const rawSource = new sources.RawSource(rawHtml)
+            const filepath = getFilePath(featureName, '.html', false)
+            compilation.emitAsset(filepath, rawSource)
           }
         }
       }
