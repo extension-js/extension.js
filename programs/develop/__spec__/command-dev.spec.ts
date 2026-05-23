@@ -38,7 +38,8 @@ vi.mock('../lib/ensure-develop-artifacts', () => ({
 }))
 
 vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
-  isUsingTypeScript: vi.fn(() => true)
+  isUsingTypeScript: vi.fn(() => true),
+  ensureTypeScriptConfig: vi.fn()
 }))
 
 vi.mock('../lib/config-loader', () => ({
