@@ -63,46 +63,42 @@ export async function extensionCreate(
 
   const projectName = path.basename(projectPath)
 
-  try {
-    await createDirectory(projectPath, projectName, logger)
-    await importExternalTemplate(projectPath, projectName, template, logger)
-    await overridePackageJson(
-      projectPath,
-      projectName,
-      {template, cliVersion},
-      logger
-    )
+  await createDirectory(projectPath, projectName, logger)
+  await importExternalTemplate(projectPath, projectName, template, logger)
+  await overridePackageJson(
+    projectPath,
+    projectName,
+    {template, cliVersion},
+    logger
+  )
 
-    if (install) {
-      await installDependencies(projectPath, projectName, logger)
-      await installInternalDependencies(projectPath, logger)
-    }
+  if (install) {
+    await installDependencies(projectPath, projectName, logger)
+    await installInternalDependencies(projectPath, logger)
+  }
 
-    await writeReadmeFile(projectPath, projectName, logger)
-    await writeManifestJson(projectPath, projectName, logger)
-    await initializeGitRepository(projectPath, projectName, logger)
-    await writeGitignore(projectPath, logger)
-    await setupBuiltInTests(projectPath, projectName, logger)
+  await writeReadmeFile(projectPath, projectName, logger)
+  await writeManifestJson(projectPath, projectName, logger)
+  await initializeGitRepository(projectPath, projectName, logger)
+  await writeGitignore(projectPath, logger)
+  await setupBuiltInTests(projectPath, projectName, logger)
 
-    if (utils.isTypeScriptTemplate(template)) {
-      await generateExtensionTypes(projectPath, projectName, logger)
-    }
+  if (utils.isTypeScriptTemplate(template)) {
+    await generateExtensionTypes(projectPath, projectName, logger)
+  }
 
-    const successfulInstall = await messages.successfullInstall(
-      projectPath,
-      projectName,
-      Boolean(install)
-    )
+  const successfulInstall = await messages.successfullInstall(
+    projectPath,
+    projectName,
+    Boolean(install)
+  )
 
-    logger.log(successfulInstall)
+  logger.log(successfulInstall)
 
-    return {
-      projectPath,
-      projectName,
-      template,
-      depsInstalled: install
-    }
-  } catch (error) {
-    throw error
+  return {
+    projectPath,
+    projectName,
+    template,
+    depsInstalled: install
   }
 }
