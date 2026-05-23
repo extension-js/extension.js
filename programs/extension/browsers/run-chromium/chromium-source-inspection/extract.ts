@@ -56,24 +56,21 @@ export async function extractPageHtml(
   }
 
   if (!html || !CONTENT_HTML_HINT_RE.test(html)) {
-    for (let i = 0; i < 1; i++) {
-      await new Promise((r) => setTimeout(r, 250))
+    await new Promise((r) => setTimeout(r, 250))
 
-      try {
-        const againHtml = await cdpClient.getPageHTML(sessionId, includeShadow)
+    try {
+      const againHtml = await cdpClient.getPageHTML(sessionId, includeShadow)
 
-        if (logSamples) {
-          const sample3 = (againHtml || '').slice(0, 200).replace(/\n/g, ' ')
-          console.log(messages.devHtmlSampleLate(sample3))
-        }
-
-        if (againHtml && CONTENT_HTML_HINT_RE.test(againHtml)) {
-          html = againHtml
-          break
-        }
-      } catch {
-        // ignore
+      if (logSamples) {
+        const sample3 = (againHtml || '').slice(0, 200).replace(/\n/g, ' ')
+        console.log(messages.devHtmlSampleLate(sample3))
       }
+
+      if (againHtml && CONTENT_HTML_HINT_RE.test(againHtml)) {
+        html = againHtml
+      }
+    } catch {
+      // ignore
     }
   }
 

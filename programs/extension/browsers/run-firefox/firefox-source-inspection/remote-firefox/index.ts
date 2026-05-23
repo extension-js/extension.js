@@ -851,7 +851,6 @@ export class RemoteFirefox {
       await attachConsoleListeners(client)
 
       // Prepare logging options (mirrors previous inline variables)
-      const levelMap = ['trace', 'debug', 'log', 'info', 'warn', 'error']
       const wantLevel = String(opts.level || 'info').toLowerCase()
       const wantContexts = Array.isArray(opts.contexts)
         ? opts.contexts.map((s) => String(s))

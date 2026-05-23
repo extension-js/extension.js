@@ -21,7 +21,8 @@ import {
 } from '../../browsers-lib/output-binaries-resolver'
 import {
   deriveDebugPortWithInstance,
-  findAvailablePortNear
+  findAvailablePortNear,
+  removeManagedEphemeralProfile
 } from '../../browsers-lib/shared-utils'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
@@ -328,13 +329,6 @@ export class FirefoxLaunchPlugin {
       } catch {
         // best-effort only; banner will fall back to generic browser label
       }
-
-      // Optional: validate binary to obtain version (diagnostics)
-      try {
-        await FirefoxBinaryDetector.validateFirefoxBinary(binaryPath)
-      } catch {
-        // ignore
-      }
     }
 
     // Prepare extension(s)
@@ -401,6 +395,11 @@ export class FirefoxLaunchPlugin {
         firefoxArgs
       )
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+      // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
+      // a persistent ('dev') or user-provided profile is never removed
+      this.child.on('close', () => {
+        removeManagedEphemeralProfile(profilePath)
+      })
       this.wireChildLifecycle()
 
       // Connect to RDP
@@ -491,6 +490,10 @@ export class FirefoxLaunchPlugin {
       }
     })
 
+    // Captured below from setupFirefoxProcessHandlers and called once the child
+    // exits, so this instance is unregistered from the global cleanup registry.
+    let disposeProcessHandlers: (() => void) | undefined
+
     child.on('close', (_code) => {
       if (this.watchTimeout) {
         clearTimeout(this.watchTimeout)
@@ -508,11 +511,12 @@ export class FirefoxLaunchPlugin {
           )
         }
       })
+      disposeProcessHandlers?.()
     })
 
     this.pipeChildOutput(child)
 
-    setupFirefoxProcessHandlers(
+    disposeProcessHandlers = setupFirefoxProcessHandlers(
       this.host.browser as any,
       () => this.child,
       () => this.cleanupInstance()
@@ -525,11 +529,13 @@ export class FirefoxLaunchPlugin {
         try {
           this.child.kill('SIGTERM')
         } catch {}
-        setTimeout(() => {
+        const killTimer = setTimeout(() => {
           try {
             if (this.child && !this.child.killed) this.child.kill('SIGKILL')
           } catch {}
         }, 2000)
+        // Don't let the SIGKILL fallback keep the event loop alive.
+        killTimer.unref?.()
       }
     } catch {}
   }

@@ -18,6 +18,7 @@ import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {
   vendors,
   validateVendorsOrExit,
+  isSafariVendor,
   type Browser,
   parseOptionalBoolean
 } from '../helpers/vendors'
@@ -33,6 +34,7 @@ type StartOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
+  host?: string
   polyfill?: boolean | string
   install?: boolean
   // Internal maintainer flags
@@ -154,6 +156,11 @@ export function registerStartCommand(program: Command) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
+      if (list.some(isSafariVendor)) {
+        console.error(messages.safariCommandNotSupported('start'))
+        process.exit(1)
+      }
+
       if (startOptions.wait) {
         const waitResult = await runWaitMode({
           command: 'start',
@@ -191,7 +198,7 @@ export function registerStartCommand(program: Command) {
         const logLevel = logsOption || startOptions.logLevel || 'off'
 
         // Phase 1: Build the extension in production mode
-        const buildResult = await extensionBuild(pathOrRemoteUrl, {
+        await extensionBuild(pathOrRemoteUrl, {
           browser: vendor as StartOptions['browser'],
           polyfill: startOptions.polyfill?.toString() !== 'false',
           install: startOptions.install,
@@ -221,6 +228,7 @@ export function registerStartCommand(program: Command) {
             geckoBinary: startOptions.geckoBinary,
             startingUrl: startOptions.startingUrl,
             port: startOptions.port,
+            host: startOptions.host,
             noBrowser: false,
             extensions: parseExtensionsList(startOptions.extensions),
             metadataCommand: 'start',

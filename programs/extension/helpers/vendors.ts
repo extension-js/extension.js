@@ -14,6 +14,12 @@ export type Browser =
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
+  | 'safari'
+  | 'webkit-based'
+
+export function isSafariVendor(value: string): boolean {
+  return value === 'safari' || value === 'webkit-based'
+}
 
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
@@ -39,7 +45,9 @@ export function validateVendorsOrExit(
     'chromium',
     'chromium-based',
     'gecko-based',
-    'firefox-based'
+    'firefox-based',
+    'safari',
+    'webkit-based'
   ]
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
