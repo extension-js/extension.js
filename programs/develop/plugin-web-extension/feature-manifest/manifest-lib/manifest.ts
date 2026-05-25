@@ -136,35 +136,50 @@ export function filterKeysForThisBrowser(
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
 
-  const patchedManifest = JSON.parse(
-    JSON.stringify(manifest),
-    function reviver(this: any, key: string, value: any) {
-      const indexOfColon = key.indexOf(':')
+  const prefixMatchesTarget = (prefix: string): boolean =>
+    // exact browser match (e.g., 'firefox')
+    prefix === browser ||
+    // chromium family
+    (isChromiumTarget && chromiumPrefixes.has(prefix)) ||
+    // gecko/firefox family
+    (isGeckoTarget && geckoPrefixes.has(prefix))
 
-      // Retain plain keys.
-      if (indexOfColon === -1) {
-        return value
-      }
-
-      // Replace browser:key keys.
-      const prefix = key.substring(0, indexOfColon)
-
-      if (
-        // exact browser match (e.g., 'firefox')
-        prefix === browser ||
-        // chromium family
-        (isChromiumTarget && chromiumPrefixes.has(prefix)) ||
-        // gecko/firefox family
-        (isGeckoTarget && geckoPrefixes.has(prefix))
-      ) {
-        this[key.substring(indexOfColon + 1)] = value
-      }
-
-      // Implicitly delete the key otherwise.
+  const resolve = (node: any): any => {
+    if (Array.isArray(node)) {
+      return node.map((item) => resolve(item))
     }
-  )
 
-  return patchedManifest
+    if (node && typeof node === 'object') {
+      const result: Record<string, any> = {}
+      const prefixedMatches: Record<string, any> = {}
+
+      for (const [key, value] of Object.entries(node)) {
+        const indexOfColon = key.indexOf(':')
+
+        // Retain plain keys.
+        if (indexOfColon === -1) {
+          result[key] = resolve(value)
+          continue
+        }
+
+        // Apply matching browser:key overrides last; drop non-matching ones.
+        const prefix = key.substring(0, indexOfColon)
+        if (prefixMatchesTarget(prefix)) {
+          prefixedMatches[key.substring(indexOfColon + 1)] = resolve(value)
+        }
+      }
+
+      for (const [strippedKey, value] of Object.entries(prefixedMatches)) {
+        result[strippedKey] = value
+      }
+
+      return result
+    }
+
+    return node
+  }
+
+  return resolve(manifest)
 }
 
 export function buildCanonicalManifest(

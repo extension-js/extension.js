@@ -107,6 +107,54 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     expect(out.background?.scripts).toBeUndefined()
   })
 
+  it('prefers a matching prefixed key over a plain key (prefixed-after-plain)', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        key: 'plain-key',
+        'chromium:key': 'chromium-only-key'
+      }
+    })
+
+    expect(out.key).toBe('chromium-only-key')
+  })
+
+  it('prefers a matching prefixed key over a plain key (prefixed-before-plain)', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        'chromium:key': 'chromium-only-key',
+        key: 'plain-key'
+      }
+    })
+
+    expect(out.key).toBe('chromium-only-key')
+  })
+
+  it('drops a non-matching prefixed key and keeps the plain key', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        key: 'plain-key',
+        'firefox:key': 'firefox-only-key'
+      }
+    })
+
+    expect(out.key).toBe('plain-key')
+  })
+
   it('resolves MV3 side_panel.default_path to canonical output path', () => {
     const out = runUpdateManifest({
       mode: 'production',
