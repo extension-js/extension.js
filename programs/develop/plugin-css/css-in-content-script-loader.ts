@@ -9,7 +9,7 @@
 import type {RuleSetRule} from '@rspack/core'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {buildCssRules, type PreprocessorUsage} from './css-lib/build-css-rules'
-import type {DevOptions} from './types'
+import type {DevOptions} from '../types'
 
 export async function cssInContentScriptLoader(
   projectPath: string,
