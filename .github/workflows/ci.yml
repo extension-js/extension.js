@@ -29,6 +29,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    name: Lint + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Static gates run against source — no `pnpm compile` needed. Both were
+      # previously unenforced in CI: biome lint had no workflow, and there was
+      # no `typecheck` script at all. Adding the typecheck gate immediately
+      # caught two `import type {DevOptions} from './types'` paths in
+      # plugin-css that resolved to a nonexistent module (the bundler erases
+      # type-only imports, so the build survived while the type silently
+      # degraded to `any`).
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
   tests:
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest

@@ -6,6 +6,13 @@ TEMPLATES_DIR="$ROOT_DIR/templates"
 SCRIPTS_DIR="$ROOT_DIR/scripts"
 REPO_URL="https://github.com/extension-js/examples"
 
+# Pin the examples ref so a readiness verdict maps to a known examples commit.
+# Default stays `main` (prior behavior); set EXAMPLES_REF=<sha|tag|branch> in CI
+# to make the acceptance/stability suites reproducible against a fixed point.
+# The resolved SHA is written to templates/.examples-commit for the readiness
+# document's `meta.examplesCommit` field.
+EXAMPLES_REF="${EXAMPLES_REF:-main}"
+
 has_required_templates() {
   local required=("typescript" "react" "svelte" "vue")
   for name in "${required[@]}"; do
@@ -30,12 +37,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Hydrating templates from extension-js/examples"
-git clone --depth 1 "$REPO_URL" "$TMP_DIR/examples"
+echo "Hydrating templates from extension-js/examples @ ${EXAMPLES_REF}"
+# Shallow-clone the requested ref. A branch/tag clones directly; a full SHA
+# (not a named ref) is fetched explicitly since `git clone --branch` rejects
+# raw commit hashes.
+if git clone --depth 1 --branch "$EXAMPLES_REF" "$REPO_URL" "$TMP_DIR/examples" 2>/dev/null; then
+  :
+else
+  git clone "$REPO_URL" "$TMP_DIR/examples"
+  git -C "$TMP_DIR/examples" checkout "$EXAMPLES_REF"
+fi
 
 mkdir -p "$TEMPLATES_DIR" "$SCRIPTS_DIR"
 cp -R "$TMP_DIR/examples/examples/." "$TEMPLATES_DIR/"
 cp "$TMP_DIR/examples/ci-scripts/build-with-manifest.mjs" "$SCRIPTS_DIR/build-with-manifest.mjs" 2>/dev/null || true
+
+# Record the resolved examples commit so CI can stamp the readiness document.
+git -C "$TMP_DIR/examples" rev-parse HEAD > "$TEMPLATES_DIR/.examples-commit"
+echo "Pinned examples commit: $(cat "$TEMPLATES_DIR/.examples-commit")"
 
 # Generate a minimal package.json at templates/ root so spec helpers
 # living one level above per-template folders (e.g. `templates/template.

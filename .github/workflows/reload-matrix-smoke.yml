@@ -1,0 +1,81 @@
+name: CI – Reload Matrix Smoke
+
+# EXPERIMENTAL / MANUAL. The reload-matrix harness measures ground-truth
+# service-worker-restart and page-navigation counts for `extension dev` against
+# real Chrome via CDP — the most user-visible correctness signal we have. It
+# lives in the separate extension-js/examples repo and, in `local` mode, is
+# hardcoded to resolve the CLI from `<monorepo>/programs/extension/dist/cli.cjs`
+# and its fixtures from `<monorepo>/_FUTURE/examples/examples`, both relative to
+# its own location at `_FUTURE/examples/scripts/reload-matrix/`. `_FUTURE/` is
+# gitignored, so CI must reconstruct that path by cloning the examples repo into
+# it at a pinned ref, then compile the CLI.
+#
+# This is workflow_dispatch-only on purpose: it spawns a headed browser under
+# xvfb and has not yet had a green run in CI. Once it passes reliably, promote
+# it to a PR gate by adding a `pull_request` trigger and a fast filter
+# (RELOAD_MATRIX_FILTER). Do not gate merges on it before that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      examples_ref:
+        description: 'extension-js/examples ref to pin (sha/tag/branch)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+
+jobs:
+  reload-matrix-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      EXTENSION_AUTHOR_MODE: development
+    steps:
+      - name: Checkout CLI
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+
+      - name: Compile CLI
+        # Produces programs/extension/dist/cli.cjs, which the harness runs in
+        # local mode.
+        run: pnpm compile
+
+      - name: Clone examples into _FUTURE/examples (pinned)
+        # Reconstruct the gitignored vendored path the harness expects. Try the
+        # ref as a branch/tag first, then fall back to a full clone + checkout
+        # for a raw commit SHA.
+        run: |
+          REF="${{ github.event.inputs.examples_ref }}"
+          mkdir -p _FUTURE
+          if git clone --depth 1 --branch "$REF" https://github.com/extension-js/examples _FUTURE/examples 2>/dev/null; then
+            :
+          else
+            git clone https://github.com/extension-js/examples _FUTURE/examples
+            git -C _FUTURE/examples checkout "$REF"
+          fi
+          echo "examples_commit=$(git -C _FUTURE/examples rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        id: examples
+
+      - name: Install examples workspace deps
+        working-directory: _FUTURE/examples
+        run: pnpm install --prefer-offline
+
+      - name: Install Playwright Chromium
+        working-directory: _FUTURE/examples
+        run: npx playwright install --with-deps chromium
+
+      - name: Run reload-matrix smoke (headed under xvfb)
+        working-directory: _FUTURE/examples
+        # Single most reproducible scenario (action-locales single edit). Prints
+        # the per-origin SW/nav table; exits non-zero if no user-extension
+        # events are captured or the dev process fails.
+        run: xvfb-run -a pnpm test:reload-matrix:smoke
+
+      - name: Note pinned commit
+        if: ${{ !cancelled() }}
+        run: echo "Ran against examples@${{ steps.examples.outputs.examples_commit }}"
