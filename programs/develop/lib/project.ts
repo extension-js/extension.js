@@ -216,6 +216,13 @@ async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
   return extractedPath
 }
 
+async function importLocalSourceFromZip(zipFilePath: string) {
+  const cwd = process.cwd()
+  const {extractLocalZip} = await import('./zip')
+
+  return await extractLocalZip(zipFilePath, cwd)
+}
+
 export async function getProjectPath(
   pathOrRemoteUrl: string | undefined
 ): Promise<string> {
@@ -260,7 +267,19 @@ export async function getProjectPath(
     }
   }
 
-  return path.resolve(process.cwd(), pathOrRemoteUrl)
+  const resolvedPath = path.resolve(process.cwd(), pathOrRemoteUrl)
+
+  // A local `.zip` file is auto-extracted so `preview ./extension.zip` works
+  // without a manual unzip step. Folders fall through unchanged.
+  if (
+    path.extname(resolvedPath).toLowerCase() === '.zip' &&
+    fs.existsSync(resolvedPath) &&
+    fs.statSync(resolvedPath).isFile()
+  ) {
+    return await importLocalSourceFromZip(resolvedPath)
+  }
+
+  return resolvedPath
 }
 
 function collectManifestCandidates(

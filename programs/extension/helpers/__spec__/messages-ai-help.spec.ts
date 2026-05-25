@@ -1,5 +1,9 @@
 import {describe, it, expect} from 'vitest'
-import {programAIHelp, programAIHelpJSON} from '../messages'
+import {
+  programAIHelp,
+  programAIHelpJSON,
+  commandDescriptions
+} from '../messages'
 
 describe('programAIHelp', () => {
   it('includes Managed Dependencies guidance', () => {
@@ -34,6 +38,36 @@ describe('programAIHelp', () => {
       'pretty',
       'json',
       'ndjson'
+    ])
+  })
+
+  it('does not drift from the registered command descriptions', () => {
+    const help = programAIHelpJSON('3.5.0')
+    const helpCommands = help.commands.map((command) => command.name).sort()
+    const describedCommands = Object.keys(commandDescriptions).sort()
+
+    // Adding/removing a CLI command without updating the AI-help JSON would
+    // hand consumers an inaccurate manifest. Keep these in lockstep.
+    expect(helpCommands).toEqual(describedCommands)
+  })
+
+  it('exposes the ready/events machine contracts', () => {
+    const {readyContract} = programAIHelpJSON('3.5.0').capabilities
+
+    expect(readyContract.readyPath).toBe(
+      'dist/extension-js/<browser>/ready.json'
+    )
+    expect(readyContract.eventsPath).toBe(
+      'dist/extension-js/<browser>/events.ndjson'
+    )
+    expect(readyContract.statuses).toEqual(['starting', 'ready', 'error'])
+    expect(readyContract.readyFields).toContain('pid')
+    expect(readyContract.readyFields).toContain('compiledAt')
+    expect(readyContract.eventTypes).toEqual([
+      'compile_start',
+      'compile_success',
+      'compile_error',
+      'shutdown'
     ])
   })
 })

@@ -11,6 +11,16 @@ import * as path from 'path'
 import * as messages from './messages'
 import programPackageJson from '../package.json'
 
+function isReferencedAsModuleSpecifier(
+  configSource: string,
+  dep: string
+): boolean {
+  const escaped = dep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Quote, exact package name, optional `/subpath`, matching quote.
+  const specifierRe = new RegExp(`['"\`]${escaped}(?:/[^'"\`]*)?['"\`]`)
+  return specifierRe.test(configSource)
+}
+
 // Ensures the user's project does not declare packages that are
 // managed by Extension.js itself. Managed packages live in the
 // develop program's package.json (dependencies/optionalDependencies).
@@ -57,7 +67,7 @@ export function assertNoManagedDependencyConflicts(
 
     const duplicates = userDeps
       .filter((d) => managedDeps.has(d))
-      .filter((d) => configSource.includes(d))
+      .filter((d) => isReferencedAsModuleSpecifier(configSource, d))
       .sort()
 
     if (duplicates.length > 0) {
