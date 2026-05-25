@@ -415,6 +415,9 @@ importers:
       vue-style-loader:
         specifier: 4.1.3
         version: 4.1.3
+      webpack:
+        specifier: ^5.104.1
+        version: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)
 
   programs/extension:
     dependencies:
