@@ -7,8 +7,46 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
+import * as fs from 'fs'
 import AdmZip from 'adm-zip'
 import * as messages from './messages'
+
+function isZipBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false
+  if (buffer[0] !== 0x50 || buffer[1] !== 0x4b) return false
+
+  const third = buffer[2]
+  const fourth = buffer[3]
+
+  return (
+    (third === 0x03 && fourth === 0x04) ||
+    (third === 0x05 && fourth === 0x06) ||
+    (third === 0x07 && fourth === 0x08)
+  )
+}
+
+function extractBuffer(zipBuffer: Buffer, destinationPath: string): void {
+  console.log(messages.unpackagingExtension(destinationPath))
+
+  const zip = new AdmZip(zipBuffer)
+  zip.extractAllTo(destinationPath, true)
+
+  console.log(messages.unpackagedSuccessfully())
+}
+
+function asZipError(error: any): Error {
+  console.error(messages.failedToDownloadOrExtractZIPFileError(error))
+
+  // Ensure non-zip error yields a non-zero exit code when invoked via CLI
+  // by propagating an error instance with a clear message
+  const err = new Error(
+    `${messages.failedToDownloadOrExtractZIPFileError(error)}`
+  )
+
+  // @ts-expect-error - Error type does not have a code property
+  err.code = 'EZIP'
+  return err
+}
 
 export async function downloadAndExtractZip(
   url: string,
@@ -40,28 +78,48 @@ export async function downloadAndExtractZip(
     const basename = path.basename(urlNoSearchParams, extname)
     const destinationPath = path.join(targetPath, basename)
 
-    console.log(messages.unpackagingExtension(destinationPath))
-
     // Accumulate into a buffer
     const arrayBuffer = await res.arrayBuffer()
     const zipBuffer = Buffer.from(arrayBuffer)
 
-    // Step 2: Extract the ZIP file from the buffer
-    const zip = new AdmZip(zipBuffer)
+    if (!isZipBuffer(zipBuffer)) {
+      throw new Error(
+        `${messages.notAZipArchive(urlNoSearchParams, contentType)}`
+      )
+    }
 
-    zip.extractAllTo(destinationPath, true)
-    console.log(messages.unpackagedSuccessfully())
+    // Step 2: Extract the ZIP file from the buffer
+    extractBuffer(zipBuffer, destinationPath)
 
     return destinationPath
   } catch (error: any) {
-    console.error(messages.failedToDownloadOrExtractZIPFileError(error))
-    // Ensure non-zip error yields a non-zero exit code when invoked via CLI
-    // by propagating an error instance with a clear message
-    const err = new Error(
-      `${messages.failedToDownloadOrExtractZIPFileError(error)}`
-    )
-    // @ts-expect-error - Error type does not have a code property
-    err.code = 'EZIP'
-    throw err
+    throw asZipError(error)
+  }
+}
+
+export async function extractLocalZip(
+  zipFilePath: string,
+  targetPath: string
+): Promise<string> {
+  try {
+    if (!fs.existsSync(zipFilePath) || !fs.statSync(zipFilePath).isFile()) {
+      throw new Error(`${messages.localZipNotFound(zipFilePath)}`)
+    }
+
+    const extname = path.extname(zipFilePath)
+    const basename = path.basename(zipFilePath, extname)
+    const destinationPath = path.join(targetPath, basename)
+
+    const zipBuffer = fs.readFileSync(zipFilePath)
+
+    if (!isZipBuffer(zipBuffer)) {
+      throw new Error(`${messages.notAZipArchive(zipFilePath)}`)
+    }
+
+    extractBuffer(zipBuffer, destinationPath)
+
+    return destinationPath
+  } catch (error: any) {
+    throw asZipError(error)
   }
 }

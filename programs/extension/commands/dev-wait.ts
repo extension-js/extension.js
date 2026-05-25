@@ -3,6 +3,7 @@ import * as path from 'node:path'
 
 export type WaitFormat = 'pretty' | 'json'
 export type WaitCommand = 'dev' | 'start'
+export const READY_CONTRACT_FRESHNESS_MS = 60_000
 
 export type ReadyContractPayload = {
   status?: string
@@ -76,16 +77,13 @@ function isProcessLikelyAlive(pid: unknown): boolean {
   }
 }
 
-function isFreshContractPayload(
-  payload: ReadyContractPayload,
-  maxAgeMs: number
-): boolean {
+export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
   const candidates = [payload.ts, payload.compiledAt, payload.startedAt]
   for (const candidate of candidates) {
     if (!candidate) continue
     const stamp = Date.parse(candidate)
     if (!Number.isFinite(stamp)) continue
-    return Date.now() - stamp <= maxAgeMs
+    return Date.now() - stamp <= READY_CONTRACT_FRESHNESS_MS
   }
   return false
 }
@@ -111,7 +109,7 @@ async function waitForReadyContract(options: {
           fs.readFileSync(readyPath, 'utf8')
         ) as ReadyContractPayload
         const isLive = isProcessLikelyAlive(payload.pid)
-        const isFresh = isFreshContractPayload(payload, options.timeoutMs)
+        const isFresh = isFreshContractPayload(payload)
         if (payload.command !== options.command) {
           await new Promise((resolve) => setTimeout(resolve, 250))
           continue
