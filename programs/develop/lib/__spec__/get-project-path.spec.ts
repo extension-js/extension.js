@@ -59,6 +59,34 @@ describe('get-project-path', () => {
     }
   })
 
+  it('auto-extracts a local .zip and resolves its manifest', async () => {
+    const root = makeTempDir('extjs-local-zip-')
+    const AdmZip = (await import('adm-zip')).default
+    const zip = new AdmZip()
+    zip.addFile('manifest.json', Buffer.from('{"name":"local-zip"}'))
+    const zipPath = path.join(root, 'packed-extension.zip')
+    zip.writeZip(zipPath)
+
+    const cwd = process.cwd()
+    try {
+      process.chdir(root)
+      const extracted = await getProjectPath(zipPath)
+      expect(fs.realpathSync(extracted)).toBe(
+        fs.realpathSync(path.join(root, 'packed-extension'))
+      )
+
+      const structure = await getProjectStructure(zipPath)
+      expect(path.basename(structure.manifestPath)).toBe('manifest.json')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  it('leaves a local folder path untouched (no .zip handling)', async () => {
+    const tmp = makeTempDir('extjs-folder-passthrough-')
+    expect(await getProjectPath(tmp)).toBe(path.resolve(tmp))
+  })
+
   it('getProjectStructure finds manifest recursively and optional package.json', async () => {
     const root = makeTempDir('extjs-gps-')
     const nested = path.join(root, 'nested', 'deeper')
