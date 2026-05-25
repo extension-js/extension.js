@@ -1,0 +1,201 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] = `
+{
+  "capabilities": {
+    "dockerAndContainers": {
+      "hostFlag": "--host 0.0.0.0 binds the dev server to all interfaces",
+      "notes": [
+        "Use --no-browser inside the container and load dist/<browser>/ in the host browser",
+        "File watching uses polling (1s interval) for bind-mount compatibility",
+        "--no-sandbox is added automatically when a container environment is detected",
+      ],
+      "sandboxDetection": [
+        "/.dockerenv",
+        "/run/.containerenv",
+        "REMOTE_CONTAINERS=true",
+        "CODESPACES=true",
+        "container env var",
+      ],
+    },
+    "logger": {
+      "formats": [
+        "pretty",
+        "json",
+        "ndjson",
+      ],
+      "levels": [
+        "off",
+        "error",
+        "warn",
+        "info",
+        "debug",
+        "trace",
+        "all",
+      ],
+      "notes": [
+        "centralized logger streams logs from multiple extension contexts",
+        "--logs defaults to off unless explicitly enabled",
+      ],
+    },
+    "managedDependencies": {
+      "action": "print an error and abort",
+      "enforcement": "guarded",
+      "trigger": "when managed packages are declared in package.json and imported as a module specifier in extension.config",
+    },
+    "readyContract": {
+      "eventTypes": [
+        "compile_start",
+        "compile_success",
+        "compile_error",
+        "shutdown",
+      ],
+      "eventsPath": "dist/extension-js/<browser>/events.ndjson",
+      "notes": [
+        "ready.json is written atomically by the build (dev/start) on each compile",
+        "events.ndjson is an append-only build timeline with durationMs and errorCount per entry",
+        "--wait requires a local project path (remote URLs are not supported)",
+        "consumers should verify pid liveness and recency before trusting a contract",
+      ],
+      "readyFields": [
+        "status",
+        "command",
+        "browser",
+        "runId",
+        "startedAt",
+        "distPath",
+        "manifestPath",
+        "port",
+        "pid",
+        "ts",
+        "compiledAt",
+        "errors",
+      ],
+      "readyPath": "dist/extension-js/<browser>/ready.json",
+      "statuses": [
+        "starting",
+        "ready",
+        "error",
+      ],
+      "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits; pair with --wait-format=json for machine output",
+    },
+    "sourceInspection": {
+      "notes": [
+        "--source supports URL fallback to --starting-url or https://example.com",
+        "run-only preview mode does not perform source inspection",
+      ],
+      "supportedIn": [
+        "dev",
+      ],
+      "unsupportedIn": [
+        "start",
+        "preview",
+        "build",
+        "create",
+        "install",
+        "uninstall",
+      ],
+    },
+  },
+  "commands": [
+    {
+      "name": "create",
+      "summary": "Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "dev",
+      "summary": "Starts the development server with hot reloading",
+      "supportsSourceInspection": true,
+    },
+    {
+      "name": "start",
+      "summary": "Builds and starts the extension in production mode",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "preview",
+      "summary": "Previews the extension in production mode without building",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "build",
+      "summary": "Builds the extension for packaging/distribution",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "install",
+      "summary": "Installs a managed browser binary into Extension.js cache",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "uninstall",
+      "summary": "Removes managed browser binaries from Extension.js cache",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "telemetry",
+      "summary": "Manage anonymous telemetry consent (enable, disable, or show status)",
+      "supportsSourceInspection": false,
+    },
+  ],
+  "examples": [
+    "extension --ai-help",
+    "extension --ai-help --format json",
+    "extension dev ./my-ext --source https://example.com --source-format json",
+    "extension dev ./my-ext --logs=info --log-format=json",
+    "extension dev ./my-ext --host 0.0.0.0 --no-browser",
+    "extension dev ./my-ext --wait --browser=chromium --wait-format=json",
+    "extension start ./my-ext --wait --browser=chromium --wait-format=json",
+    "extension dev ./my-ext --gecko-binary flatpak:org.mozilla.firefox",
+    "extension install chromium",
+    "extension install --where",
+    "extension uninstall --where",
+    "extension uninstall --all",
+  ],
+  "globalOptions": [
+    {
+      "description": "Show AI-assistant oriented help and tips",
+      "name": "--ai-help",
+    },
+    {
+      "default": "pretty",
+      "description": "Output format for --ai-help",
+      "name": "--format",
+      "values": [
+        "pretty",
+        "json",
+      ],
+    },
+    {
+      "description": "Disable anonymous telemetry for this run. Persistent toggle: \`extension telemetry disable\`. Hard override: \`EXTENSION_TELEMETRY=0\`.",
+      "name": "--no-telemetry",
+    },
+    {
+      "default": "chromium",
+      "description": "Target browser/engine",
+      "name": "--browser",
+      "values": [
+        "chrome",
+        "edge",
+        "firefox",
+        "chromium",
+        "chromium-based",
+        "gecko-based",
+        "firefox-based",
+      ],
+    },
+    {
+      "default": "8080",
+      "description": "Development server port (use 0 for OS-assigned available port)",
+      "name": "--port",
+    },
+    {
+      "default": "127.0.0.1",
+      "description": "Dev server host address (use 0.0.0.0 for Docker/devcontainers)",
+      "name": "--host",
+    },
+  ],
+  "version": "0.0.0-snapshot",
+}
+`;

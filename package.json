@@ -28,6 +28,7 @@
     "watch": "node scripts/run-watch.mjs",
     "format": "node scripts/format-wrapper.cjs",
     "lint": "biome lint . --files-max-size=262144",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node scripts/run-test.mjs",
     "test:cli": "node scripts/run-test.mjs cli",
     "test:build": "node scripts/run-test.mjs develop",
