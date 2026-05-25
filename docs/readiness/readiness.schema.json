@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://extension.js.org/schemas/readiness-1.0.json",
+  "title": "Extension.js CLI Readiness Document",
+  "description": "Single machine-readable verdict for a CLI build, aggregating Tier-1 (unit), Tier-2 (acceptance e2e) and Tier-3 (stability gates) results. One document per (cliCommit x environment) CI run; the website renders the latest per branch/tag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "meta", "environment", "results", "verdict"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0",
+      "description": "Bump on breaking changes to this contract."
+    },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cliCommit", "generatedAt", "ciRun"],
+      "description": "Identity of the build under judgment. cliCommit + examplesCommit together fix the loose coupling between the two repos.",
+      "properties": {
+        "cliCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full SHA in extension-js/extension.js that produced the CLI under test."
+        },
+        "cliVersion": {
+          "type": "string",
+          "description": "Resolved version of the `extension` package (e.g. 2.4.0, 2.5.0-canary.3)."
+        },
+        "cliChannel": {
+          "enum": ["local", "canary", "next", "latest"],
+          "description": "local = built from the monorepo; the rest = published npm dist-tag (remote/publish-gate runs)."
+        },
+        "examplesCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full SHA in extension-js/examples used for Tier-2/3. PIN THIS — it is the missing link today (nightly clones @main unpinned)."
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ciRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url"],
+          "properties": {
+            "url": {"type": "string", "format": "uri"},
+            "workflow": {"type": "string"},
+            "trigger": {"enum": ["pull_request", "push", "schedule", "workflow_dispatch", "publish"]}
+          }
+        }
+      }
+    },
+
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "node", "display"],
+      "description": "What the verdict is conditional on. 'display' is load-bearing: content/newtab batches are known to fail headless (see TESTING_RESULTS.md).",
+      "properties": {
+        "os": {"enum": ["ubuntu", "windows", "macos", "wsl"]},
+        "osVersion": {"type": "string"},
+        "node": {"type": "string", "description": "e.g. 20.x"},
+        "packageManager": {"enum": ["pnpm", "npm", "yarn", "bun"]},
+        "display": {"enum": ["headed", "headless", "xvfb"]},
+        "browsers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"enum": ["chromium", "chrome", "edge", "firefox", "safari"]},
+              "version": {"type": "string"},
+              "source": {"enum": ["playwright-cdn", "system", "channel"]}
+            }
+          }
+        }
+      }
+    },
+
+    "capabilityMatrix": {
+      "type": "array",
+      "description": "Join target from extension-js/examples templates-meta.json. Lets the site render template x capability without re-deriving it. Optional: present it when the run was matrix-wide.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["template"],
+        "properties": {
+          "template": {"type": "string", "description": "e.g. content-react, sidebar-shadcn"},
+          "uiContexts": {
+            "type": "array",
+            "items": {"enum": ["content", "action", "sidebar", "newTab", "devtools", "options", "background"]}
+          },
+          "uiFramework": {"enum": ["react", "preact", "vue", "svelte", "none"]},
+          "cssTech": {"enum": ["css", "sass", "less", "css-modules", "sass-modules", "less-modules", "tailwind", "none"]},
+          "manifestVersion": {"enum": [2, 3]}
+        }
+      }
+    },
+
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every signal as a normalized row. A 'cell' is uniquely identified by (tier, dimension, template?, browser?, surface?).",
+      "items": {"$ref": "#/$defs/result"}
+    },
+
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready", "computedFrom", "byDimension"],
+      "description": "ready is derived from gatingPolicy applied to results — never hand-set.",
+      "properties": {
+        "ready": {
+          "type": "boolean",
+          "description": "True iff every result whose dimension is in gatingPolicy.required passed (ignoring rows classified infra-flake per gatingPolicy.flakeHandling)."
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Optional weighted pass ratio for the badge gradient."
+        },
+        "computedFrom": {
+          "type": "string",
+          "description": "Reference to the gatingPolicy version used, e.g. 'gating-policy@1'."
+        },
+        "byDimension": {
+          "type": "object",
+          "description": "Rollup status per dimension key (e.g. reload.full, install.modes).",
+          "additionalProperties": {"$ref": "#/$defs/status"}
+        },
+        "blockers": {
+          "type": "array",
+          "description": "Human-facing reasons ready=false. Each points at a failing result cell.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dimension", "summary"],
+            "properties": {
+              "dimension": {"type": "string"},
+              "cell": {"type": "string", "description": "e.g. 'content-react/firefox/content'"},
+              "summary": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+
+    "gatingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Declarative policy that turns results into a verdict. Versioned so the meaning of 'ready' is auditable over time.",
+      "required": ["version", "required"],
+      "properties": {
+        "version": {"type": "string"},
+        "required": {
+          "type": "array",
+          "description": "Dimensions that MUST pass for ready=true.",
+          "items": {"type": "string"}
+        },
+        "advisory": {
+          "type": "array",
+          "description": "Dimensions surfaced but not gating.",
+          "items": {"type": "string"}
+        },
+        "flakeHandling": {
+          "enum": ["infra-flake-ignored", "any-flake-ignored", "strict"],
+          "default": "infra-flake-ignored",
+          "description": "infra-flake-ignored: rows classified 'infra-flake' don't block ready. strict: any non-pass blocks."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "status": {
+      "enum": ["pass", "fail", "flake", "skipped", "not-run"],
+      "description": "flake = passed only on retry. Pair with classification to decide gating."
+    },
+
+    "tier": {
+      "enum": ["unit", "acceptance", "stability"],
+      "description": "Tier-1 unit (this repo), Tier-2 acceptance e2e (examples repo), Tier-3 stability gates (examples repo)."
+    },
+
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "dimension", "status", "source"],
+      "properties": {
+        "tier": {"$ref": "#/$defs/tier"},
+        "dimension": {
+          "type": "string",
+          "description": "Stable key, e.g. unit.develop, reload.full, install.modes, build.oneRun, create.devWorkflowAll, dev.monorepo, runtime.resolution. See README mapping table."
+        },
+        "status": {"$ref": "#/$defs/status"},
+        "classification": {
+          "enum": ["code-red", "infra-flake", "flake", "n/a"],
+          "default": "n/a",
+          "description": "For non-pass rows: is the code wrong (code-red) or did infra misbehave (infra-flake, e.g. headless content-script injection per TESTING_RESULTS.md)?"
+        },
+        "template": {"type": "string", "description": "Tier-2/3 cells: the example template, if scoped."},
+        "browser": {"enum": ["chromium", "chrome", "edge", "firefox", "safari"]},
+        "surface": {
+          "enum": ["content", "action", "sidebar", "newtab", "special-folders", "background", "mixed", "create", "assets", "multi-browser", "n/a"],
+          "description": "Maps to the examples Playwright project batches."
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "id"],
+          "description": "Provenance — which existing job/script produced this row.",
+          "properties": {
+            "kind": {"enum": ["vitest", "playwright-project", "assert-script", "verify-script", "reload-matrix"]},
+            "id": {"type": "string", "description": "e.g. 'ci:test:develop', 'project=dev-live', 'assert-stable-install-modes.mjs', scenario 'locales-single-edit-popup-open'."}
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Quantitative payload. reload-matrix populates sw/nav; suites populate counts.",
+          "properties": {
+            "tests": {"type": "integer", "minimum": 0},
+            "passed": {"type": "integer", "minimum": 0},
+            "failed": {"type": "integer", "minimum": 0},
+            "skipped": {"type": "integer", "minimum": 0},
+            "retries": {"type": "integer", "minimum": 0},
+            "durationMs": {"type": "integer", "minimum": 0},
+            "serviceWorkerRestarts": {"type": "integer", "minimum": 0},
+            "extensionPageNavigations": {"type": "integer", "minimum": 0},
+            "expected": {"type": "string", "description": "For reload-matrix: the expected sw/nav, e.g. 'sw=1 nav=0'."}
+          }
+        },
+        "detail": {"type": "string", "description": "Failure message or note."}
+      }
+    }
+  }
+}
