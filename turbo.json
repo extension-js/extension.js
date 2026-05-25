@@ -13,7 +13,9 @@
       "outputs": ["dist/**"],
       "dependsOn": ["^compile"]
     },
-    "test": {},
+    "test": {
+      "dependsOn": ["^compile"]
+    },
 
     "test:build": {},
     "test:cli": {},

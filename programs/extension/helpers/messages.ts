@@ -340,7 +340,7 @@ ${'Webpack/Rspack Configuration'}
 
 ${'Managed Dependencies (Important)'}
 - ${colors.green('Do not add')} packages that ${colors.blue('Extension.js')} already ships in its own toolchain.
-- The guard only triggers when a managed package is declared in your ${code('package.json')} ${colors.gray('and')} is referenced in your ${colors.underline(code('extension.config.js'))}.
+- The guard only triggers when a managed package is declared in your ${code('package.json')} ${colors.gray('and')} is imported (as a module specifier) in your ${colors.underline(code('extension.config.js'))}.
 - In that case, the program will ${colors.red('print an error and abort')} to avoid version conflicts.
 - Remove the duplicate from your project ${code('package.json')} or avoid referencing it in ${colors.underline(code('extension.config.js'))} and rely on the built-in version instead.
 - If you truly need a different version, open an issue so we can evaluate a safe upgrade.
@@ -461,6 +461,15 @@ export type ProgramAIHelpJSON = {
       enforcement: string
       trigger: string
       action: string
+    }
+    readyContract: {
+      readyPath: string
+      eventsPath: string
+      waitFlag: string
+      statuses: string[]
+      readyFields: string[]
+      eventTypes: string[]
+      notes: string[]
     }
     dockerAndContainers: {
       hostFlag: string
@@ -586,8 +595,41 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       managedDependencies: {
         enforcement: 'guarded',
         trigger:
-          'when managed packages are declared in package.json and referenced in extension.config',
+          'when managed packages are declared in package.json and imported as a module specifier in extension.config',
         action: 'print an error and abort'
+      },
+      readyContract: {
+        readyPath: 'dist/extension-js/<browser>/ready.json',
+        eventsPath: 'dist/extension-js/<browser>/events.ndjson',
+        waitFlag:
+          '--wait blocks until ready.json reports ready (or error) then exits; pair with --wait-format=json for machine output',
+        statuses: ['starting', 'ready', 'error'],
+        readyFields: [
+          'status',
+          'command',
+          'browser',
+          'runId',
+          'startedAt',
+          'distPath',
+          'manifestPath',
+          'port',
+          'pid',
+          'ts',
+          'compiledAt',
+          'errors'
+        ],
+        eventTypes: [
+          'compile_start',
+          'compile_success',
+          'compile_error',
+          'shutdown'
+        ],
+        notes: [
+          'ready.json is written atomically by the build (dev/start) on each compile',
+          'events.ndjson is an append-only build timeline with durationMs and errorCount per entry',
+          '--wait requires a local project path (remote URLs are not supported)',
+          'consumers should verify pid liveness and recency before trusting a contract'
+        ]
       },
       dockerAndContainers: {
         hostFlag: '--host 0.0.0.0 binds the dev server to all interfaces',
