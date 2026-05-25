@@ -13,8 +13,14 @@ describe('install runner mapping', () => {
     process.env = {...prevEnv}
   })
 
-  it('maps chromium-family browsers to puppeteer installer args', () => {
+  function clearPackageManagerEnv() {
     delete process.env.npm_config_user_agent
+    delete process.env.npm_execpath
+    delete process.env.NPM_EXEC_PATH
+  }
+
+  it('maps chromium-family browsers to puppeteer installer args', () => {
+    clearPackageManagerEnv()
 
     const chromiumArgs = browserInstallArgs('chromium', '/tmp/x')
     expect(chromiumArgs).toEqual([
@@ -38,7 +44,7 @@ describe('install runner mapping', () => {
   })
 
   it('maps edge to playwright installer args + env', () => {
-    delete process.env.npm_config_user_agent
+    clearPackageManagerEnv()
 
     expect(browserInstallArgs('edge', '/tmp/edge')).toEqual([
       '-y',
@@ -52,7 +58,7 @@ describe('install runner mapping', () => {
   })
 
   it('returns package runner command variant by platform', () => {
-    delete process.env.npm_config_user_agent
+    clearPackageManagerEnv()
 
     const cmd = browserInstallCommand('firefox')
     expect(cmd === 'npx' || cmd === 'npx.cmd').toBe(true)
