@@ -567,6 +567,29 @@ export function invalidRemoteZip(url: string, contentType: string) {
   )
 }
 
+export function notAZipArchive(source: string, contentType?: string) {
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `The downloaded content is not a ZIP archive.\n` +
+    `${colors.gray('SOURCE')} ${colors.underline(source)}\n` +
+    (contentType
+      ? `${colors.gray('Content-Type')} ${colors.underline(contentType)}\n`
+      : '') +
+    `This usually means the URL requires authentication (for example a ` +
+    `Slack, Google Drive, or Dropbox file page) and returned an HTML login ` +
+    `page instead of the file. Download the ZIP through the browser and pass ` +
+    `the local path instead, or use a direct-download URL.`
+  )
+}
+
+export function localZipNotFound(zipFilePath: string) {
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `ZIP file not found.\n` +
+    `${colors.gray('PATH')} ${colors.underline(zipFilePath)}`
+  )
+}
+
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   const b = String(browser || '')
   const cap = b.charAt(0).toUpperCase() + b.slice(1)
