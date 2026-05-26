@@ -20,6 +20,11 @@
       "types": "./dist/preview.d.ts",
       "import": "./dist/preview.mjs"
     },
+    "./bridge": {
+      "development": "./bridge-entry.ts",
+      "types": "./dist/bridge.d.ts",
+      "import": "./dist/bridge.mjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/module.mjs",
