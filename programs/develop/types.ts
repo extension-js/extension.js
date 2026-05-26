@@ -402,6 +402,14 @@ export interface CommonWebpackOptions {
    * Internal auto-generated instance ID, not user-configurable
    */
   instanceId?: string
+  /**
+   * Agent-bridge control channel (Slice 1). Injected by dev-server so the
+   * PlaywrightPlugin can advertise them in ready.json (docs/agent-bridge).
+   * Not user-configurable.
+   */
+  controlPort?: number | null
+  controlPath?: string
+  logsPath?: string
 }
 
 /**
