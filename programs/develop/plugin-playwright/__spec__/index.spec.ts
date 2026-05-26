@@ -50,6 +50,68 @@ describe('plugin-playwright metadata writer', () => {
     expect(ready.compiledAt).toBe('2026-03-04T00:00:00.000Z')
   })
 
+  it('emits schemaVersion 2 and agent-bridge discovery fields', () => {
+    const projectRoot = createTempProject()
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: projectRoot,
+      browser: 'chrome',
+      command: 'dev',
+      distPath: path.join(projectRoot, 'dist', 'chrome'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: 8080,
+      instanceId: 'inst-xyz',
+      controlPort: 8147,
+      controlPath: '/extjs-control',
+      logsPath: 'dist/extension-js/chrome/logs.ndjson'
+    })
+
+    writer.writeReady('2026-03-04T00:00:00.000Z')
+
+    const ready = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          getPlaywrightMetadataDir(projectRoot, 'chrome'),
+          'ready.json'
+        ),
+        'utf8'
+      )
+    )
+    expect(ready.schemaVersion).toBe(2)
+    expect(ready.instanceId).toBe('inst-xyz')
+    expect(ready.controlPort).toBe(8147)
+    expect(ready.controlPath).toBe('/extjs-control')
+    expect(ready.logsPath).toBe('dist/extension-js/chrome/logs.ndjson')
+  })
+
+  it('still emits schemaVersion 2 with control fields omitted when unset', () => {
+    const projectRoot = createTempProject()
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: projectRoot,
+      browser: 'chromium',
+      command: 'dev',
+      distPath: path.join(projectRoot, 'dist', 'chromium'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: 8080
+    })
+
+    writer.writeReady('2026-03-04T00:00:00.000Z')
+
+    const ready = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          getPlaywrightMetadataDir(projectRoot, 'chromium'),
+          'ready.json'
+        ),
+        'utf8'
+      )
+    )
+    expect(ready.schemaVersion).toBe(2)
+    // unset string fields are omitted (not serialized as undefined)
+    expect('instanceId' in ready).toBe(false)
+    // controlPort normalizes to null when unset
+    expect(ready.controlPort).toBeNull()
+  })
+
   it('appends events as ndjson', () => {
     const projectRoot = createTempProject()
     const writer = createPlaywrightMetadataWriter({
