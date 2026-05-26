@@ -60,6 +60,7 @@ export const commandDescriptions = {
   start: 'Builds and starts the extension in production mode',
   preview: 'Previews the extension in production mode without building',
   build: 'Builds the extension for packaging/distribution',
+  logs: 'Prints or streams logs from every context of a running dev session',
   install: 'Installs a managed browser binary into Extension.js cache',
   uninstall: 'Removes managed browser binaries from Extension.js cache',
   telemetry:
@@ -140,6 +141,9 @@ ${'Available Commands'}
 
 - ${code('extension build ' + arg('[project-path|remote-url]'))}
   ${commandDescriptions.build}
+
+- ${code('extension logs ' + arg('[project-path]'))}
+  ${commandDescriptions.logs}
 
 - ${code('extension install ' + arg('<chrome|chromium|edge|firefox>'))}
   ${commandDescriptions.install}
@@ -434,6 +438,7 @@ export type ProgramAIHelpJSON = {
       | 'start'
       | 'preview'
       | 'build'
+      | 'logs'
       | 'install'
       | 'uninstall'
       | 'telemetry'
@@ -507,6 +512,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       {
         name: 'build',
         summary: commandDescriptions.build,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'logs',
+        summary: commandDescriptions.logs,
         supportsSourceInspection: false
       },
       {

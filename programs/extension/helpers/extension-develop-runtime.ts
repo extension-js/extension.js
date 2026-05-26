@@ -184,3 +184,31 @@ export async function loadExtensionDevelopPreviewModule<T = any>(
 
   return (await import('extension-develop/preview')) as T
 }
+
+/**
+ * Load only the lightweight agent-bridge entry (BridgeConsumer / readReadyContract)
+ * for the `extension logs` command. Avoids pulling in rspack like preview does.
+ */
+export async function loadExtensionDevelopBridgeModule<T = any>(
+  startDir: string = __dirname
+): Promise<T> {
+  const root = resolveExtensionDevelopRoot(startDir)
+  const {source} = resolvePreferredDevelopRoot(startDir)
+  const bridgeEntry = resolveDevelopDistEntry(root, 'bridge')
+
+  if (bridgeEntry) {
+    return importModule<T>(bridgeEntry)
+  }
+
+  if (source === 'workspace') {
+    throw new Error(
+      `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
+        'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
+    )
+  }
+
+  // Non-literal specifier: resolved at runtime via the workspace symlink /
+  // installed package. Published type defs may predate this subpath.
+  const bridgeSpecifier: string = 'extension-develop/bridge'
+  return (await import(bridgeSpecifier)) as T
+}

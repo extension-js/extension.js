@@ -124,6 +124,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "supportsSourceInspection": false,
     },
     {
+      "name": "logs",
+      "summary": "Prints or streams logs from every context of a running dev session",
+      "supportsSourceInspection": false,
+    },
+    {
       "name": "install",
       "summary": "Installs a managed browser binary into Extension.js cache",
       "supportsSourceInspection": false,
