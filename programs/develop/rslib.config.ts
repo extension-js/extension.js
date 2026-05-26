@@ -74,6 +74,7 @@ const browserEntries = {
 const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
+  bridge: path.resolve(__dirname, './bridge-entry.ts'),
   'resolve-paths-loader': path.resolve(
     __dirname,
     './plugin-web-extension/feature-resolve/loader/index.ts'
