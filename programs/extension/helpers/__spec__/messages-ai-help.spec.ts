@@ -26,6 +26,7 @@ describe('programAIHelp', () => {
       'start',
       'preview',
       'build',
+      'logs',
       'install',
       'uninstall',
       'telemetry'
