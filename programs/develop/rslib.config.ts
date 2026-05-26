@@ -29,7 +29,10 @@ const externals = [
   'sass-loader',
   'less-loader',
   'postcss-loader',
-  'postcss-preset-env'
+  'postcss-preset-env',
+
+  // Agent-bridge control WS (Node-side, required at runtime)
+  'ws'
 ]
 
 // Browser-side runtime files: HMR shims and minimum placeholder scripts.
