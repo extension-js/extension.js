@@ -12,6 +12,7 @@ import {AddScripts} from './steps/add-scripts'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 import {InjectScriptsReplayShim} from './steps/setup-reload-strategy/inject-scripts-replay-shim'
+import {InjectBridgeProducer} from './steps/setup-reload-strategy/inject-bridge-producer'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import type {FilepathList, PluginInterface, DevOptions} from '../../types'
@@ -81,6 +82,11 @@ export class ScriptsPlugin {
       // after a user edits a file in /scripts/* — bringing programmatic
       // injection HMR closer to parity with declarative content_scripts.
       new InjectScriptsReplayShim().apply(compiler)
+
+      // Inject the agent-bridge producer so the background SW forwards its
+      // console output to the dev-server control WS (docs/agent-bridge).
+      // No-ops when the control bridge is unavailable.
+      new InjectBridgeProducer().apply(compiler)
     }
   }
 }
