@@ -9,6 +9,7 @@ import {registerDevCommand} from '../../commands/dev'
 import {registerStartCommand} from '../../commands/start'
 import {registerPreviewCommand} from '../../commands/preview'
 import {registerBuildCommand} from '../../commands/build'
+import {registerLogsCommand} from '../../commands/logs'
 import {registerInstallCommand} from '../../commands/install'
 import {registerTelemetryCommand} from '../../commands/telemetry'
 
@@ -34,6 +35,7 @@ function buildProgramForInspection() {
   registerStartCommand(program)
   registerPreviewCommand(program)
   registerBuildCommand(program)
+  registerLogsCommand(program)
   registerInstallCommand(program)
   registerTelemetryCommand(program)
 
@@ -70,6 +72,7 @@ describe('CLI help parity contract', () => {
       'create',
       'dev',
       'install',
+      'logs',
       'preview',
       'start',
       'telemetry',
