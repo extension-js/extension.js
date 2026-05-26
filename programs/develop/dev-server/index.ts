@@ -31,6 +31,11 @@ import {
 } from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
+import {LogRingBuffer} from './control-bridge/ring-buffer'
+import {LogsFileWriter} from './control-bridge/logs-file'
+import {BridgeBroker} from './control-bridge/broker'
+import {startControlServer} from './control-bridge/ws-control-server'
+import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
 
@@ -300,6 +305,54 @@ export async function devServer(
   process.env.EXTENSION_DEV_SERVER_PORT = String(port)
   process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
 
+  // --- Agent bridge (Slice 1): dedicated control WS + logs.ndjson ---
+  // Best-effort and local-only. Runs alongside (never blocks) the dev server.
+  const browserName = String(devOptions.browser || 'chromium')
+  const bridgeLogsRelPath = path.join(
+    'dist',
+    'extension-js',
+    browserName,
+    'logs.ndjson'
+  )
+  const bridgeLogFile = new LogsFileWriter({
+    filePath: path.join(packageJsonDir, bridgeLogsRelPath),
+    runId: currentInstance.instanceId
+  })
+  const bridgeBroker = new BridgeBroker({
+    instanceId: currentInstance.instanceId,
+    runId: currentInstance.instanceId,
+    engine:
+      browserName.includes('firefox') || browserName.includes('gecko')
+        ? 'firefox'
+        : 'chromium',
+    ring: new LogRingBuffer(),
+    file: bridgeLogFile
+  })
+  let bridgeControlPort: number | null = null
+  try {
+    bridgeLogFile.start()
+    const controlServer = await startControlServer({
+      broker: bridgeBroker,
+      host: devServerHost
+    })
+    bridgeControlPort = controlServer.port
+  } catch {
+    // Control port could not bind; the dev server still runs without the bridge.
+    try {
+      bridgeLogFile.close()
+    } catch {
+      // ignore
+    }
+  }
+  // Flush buffered logs on process exit (interval flush handles the steady state).
+  process.once('exit', () => {
+    try {
+      bridgeLogFile.close()
+    } catch {
+      // ignore
+    }
+  })
+
   // Get the user defined args and merge with the Extension.js base webpack config
   // Avoid overriding file-config values with undefined from CLI args
   const safeBrowserConfig = sanitize(browserConfig)
@@ -326,6 +379,9 @@ export async function devServer(
     browser: devOptions.browser,
     mode: 'development' as any,
     instanceId: currentInstance.instanceId,
+    controlPort: bridgeControlPort,
+    controlPath: CONTROL_WS_PATH,
+    logsPath: bridgeLogsRelPath,
     port: portAllocation.port,
     output: {
       clean: false,
@@ -362,7 +418,11 @@ export async function devServer(
       String(devOptions.browser || 'chromium')
     ),
     manifestPath,
-    port
+    port,
+    instanceId: currentInstance.instanceId,
+    controlPort: bridgeControlPort,
+    controlPath: CONTROL_WS_PATH,
+    logsPath: bridgeLogsRelPath
   })
 
   // Surface invalidation/fatal startup diagnostics during startup.

@@ -15,6 +15,7 @@ export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview'
 export type ReadyStatus = 'starting' | 'ready' | 'error'
 
 export type ReadyMetadata = {
+  schemaVersion: 2
   status: ReadyStatus
   command: PlaywrightAutomationCommand
   browser: string
@@ -29,6 +30,11 @@ export type ReadyMetadata = {
   errors: string[]
   code?: string
   message?: string
+  // v2: agent-bridge control-channel discovery (docs/agent-bridge/ready-contract.schema.json)
+  instanceId?: string
+  controlPort?: number | null
+  controlPath?: string
+  logsPath?: string
 }
 
 export type PlaywrightAutomationEvent = {
@@ -47,6 +53,10 @@ type WriterOptions = {
   distPath: string
   manifestPath: string
   port?: number | string | null
+  instanceId?: string
+  controlPort?: number | string | null
+  controlPath?: string
+  logsPath?: string
 }
 
 type PluginOptions = {
@@ -57,6 +67,10 @@ type PluginOptions = {
   manifestPath: string
   port?: number | string | null
   command?: PlaywrightAutomationCommand
+  instanceId?: string
+  controlPort?: number | string | null
+  controlPath?: string
+  logsPath?: string
 }
 
 function nowISO() {
@@ -100,23 +114,28 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   const readyPath = asAbsolute(path.join(metadataDir, 'ready.json'))
   const eventsPath = asAbsolute(path.join(metadataDir, 'events.ndjson'))
 
+  const toPort = (value: number | string | null | undefined): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    return null
+  }
+
   const base = {
+    schemaVersion: 2 as const,
     command: options.command,
     browser: options.browser,
     runId: createRunId(),
     startedAt: nowISO(),
     distPath: options.distPath,
     manifestPath: options.manifestPath,
-    port: (() => {
-      if (typeof options.port === 'number' && Number.isFinite(options.port)) {
-        return options.port
-      }
-      if (typeof options.port === 'string') {
-        const parsed = parseInt(options.port, 10)
-        return Number.isFinite(parsed) ? parsed : null
-      }
-      return null
-    })()
+    port: toPort(options.port),
+    instanceId: options.instanceId,
+    controlPort: toPort(options.controlPort),
+    controlPath: options.controlPath,
+    logsPath: options.logsPath
   }
 
   function writeReady(
@@ -189,7 +208,11 @@ export class PlaywrightPlugin {
       command: this.command,
       distPath: options.outputPath,
       manifestPath: options.manifestPath,
-      port: options.port
+      port: options.port,
+      instanceId: options.instanceId,
+      controlPort: options.controlPort,
+      controlPath: options.controlPath,
+      logsPath: options.logsPath
     })
   }
 
