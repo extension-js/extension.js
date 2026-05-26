@@ -344,6 +344,12 @@ export async function devServer(
       // ignore
     }
   }
+  // Expose control-channel coordinates to the compiler (same process) so the
+  // bridge-producer injector can bake them into the background SW.
+  process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
+  process.env.EXTENSION_CONTROL_PORT =
+    bridgeControlPort != null ? String(bridgeControlPort) : ''
+
   // Flush buffered logs on process exit (interval flush handles the steady state).
   process.once('exit', () => {
     try {
