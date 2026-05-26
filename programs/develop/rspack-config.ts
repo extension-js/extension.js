@@ -155,7 +155,11 @@ export default function webpackConfig(
         mode: devOptions.mode,
         outputPath: primaryExtensionOutputDir,
         manifestPath,
-        port: devOptions.port
+        port: devOptions.port,
+        instanceId: devOptions.instanceId,
+        controlPort: devOptions.controlPort,
+        controlPath: devOptions.controlPath,
+        logsPath: devOptions.logsPath
       })
     )
   }
