@@ -66,6 +66,7 @@ export const commandDescriptions = {
   reload: 'Reloads a running extension or tab (requires --allow-control)',
   open: 'Opens an extension surface — popup, options, or sidebar (requires --allow-control)',
   inspect: 'Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)',
+  publish: 'Publishes to extension.dev and prints a shareable URL (requires EXTENSION_DEV_TOKEN)',
   install: 'Installs a managed browser binary into Extension.js cache',
   uninstall: 'Removes managed browser binaries from Extension.js cache',
   telemetry:
@@ -164,6 +165,9 @@ ${'Available Commands'}
 
 - ${code('extension inspect ' + arg('[project-path] --tab <id>'))}
   ${commandDescriptions.inspect}
+
+- ${code('extension publish ' + arg('[project-path]'))}
+  ${commandDescriptions.publish}
 
 - ${code('extension install ' + arg('<chrome|chromium|edge|firefox>'))}
   ${commandDescriptions.install}
@@ -464,6 +468,7 @@ export type ProgramAIHelpJSON = {
       | 'reload'
       | 'open'
       | 'inspect'
+      | 'publish'
       | 'install'
       | 'uninstall'
       | 'telemetry'
@@ -568,6 +573,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         name: 'inspect',
         summary: commandDescriptions.inspect,
         supportsSourceInspection: true
+      },
+      {
+        name: 'publish',
+        summary: commandDescriptions.publish,
+        supportsSourceInspection: false
       },
       {
         name: 'install',

@@ -114,11 +114,15 @@ Live-verified against a headed Chrome session (CLI → broker → in-bundle SW e
 ### Distribution (platform — auth-gated/possibly premium)
 | Capability | CLI | MCP tool | Output |
 |---|---|---|---|
-| Publish artifact → shareable URL | `extension publish` 🔨 | `extension_publish` 🔨 (auth-gated) | URL linking the real `.xpi`/`.zip`/`.crx` |
+| Publish project → shareable URL | `extension publish` ✅ (Bearer token) | `extension_publish` ✅ (auth-gated) | shareable `https://<ws>.extension.dev/<project>` URL |
 | Store submission | `@extension.dev/deploy` CLI ✅ | `extension_deploy_store` 🔨 (auth-gated) | store submission ids |
 
 > These are platform wrappers, not bridge tools. They require an extension.dev
-> account; they do NOT observe or act on a running browser.
+> account; they do NOT observe or act on a running browser. **Publish wiring:**
+> CLI `extension publish` + MCP `extension_publish` POST to **`POST /api/cli/publish`**
+> (www.extension.dev) with `EXTENSION_DEV_TOKEN` (Bearer) — the token-authed
+> counterpart to the dashboard-only `…/share` route. CLI↔endpoint verified against
+> a mock; full end-to-end needs a local/real platform + a minted token + a project.
 
 ## The three lockstep invariants (CI-enforceable)
 
