@@ -75,22 +75,38 @@ Legend: ✅ exists · 🔨 to build · — N/A by design
 ### Logs / observability
 | Capability | CLI | MCP tool | File |
 |---|---|---|---|
-| Level / context / url / tab filters | `--logs`, `--log-context`, `--log-url`, `--log-tab` ✅ | `extension_logs({level,context,url,tab})` 🔨 | — |
-| Tail past + live | `extension logs --follow` 🔨 | `extension_logs({since,follow})` 🔨 | `logs.ndjson` (default-on, rotated) 🔨 |
-| Diagnostics only | `extension logs --signals-only` 🔨 | `extension_logs({signalsOnly:true})` 🔨 | filter on `eventType=dx.signal` |
+| Level / context / url / tab filters | `extension logs --level/--context/--url/--tab` ✅ | `extension_logs({level,context,url,tab})` ✅ | — |
+| Tail past + live | `extension logs --follow` ✅ | `extension_logs({since,follow})` ✅ | `logs.ndjson` (default-on, rotated) ✅ |
+| Diagnostics only | `extension logs --signals-only` ✅ | `extension_logs({signalsOnly:true})` ✅ | filter on `eventType=dx.signal` |
 
 ### Source / DOM inspection
 | Capability | CLI | MCP tool | File |
 |---|---|---|---|
-| Inspect surface/page | `--source [url]`, `--watch-source` ✅ | `extension_source_inspect` ✅ (CDP → sidecar 🔨) | — |
-| Closed-shadow pierce | `--deep-dom` 🔨 (Chromium only) | `extension_source_inspect({deepDom:true})` 🔨 | — |
+| Inspect content/page DOM (sidecar/CDP-free) | `extension inspect --tab <id>` ✅ | `extension_dom_inspect` ✅ | `actions.ndjson` ✅ |
+| DOM + recent console in one call | `extension inspect --with-console[=N]` ✅ | `extension_dom_inspect({withConsole})` ✅ | reads `logs.ndjson` |
+| Inspect surface/page (CDP) | `--source [url]`, `--watch-source` ✅ | `extension_source_inspect` ✅ | — |
+| Closed-shadow pierce | `--deep-dom` 🔨 (dev --source; separate extractor) | `extension_source_inspect({deepDom:true})` ✅ (Chromium/CDP) | — |
+| Inspect extension surfaces (popup/options/sidebar) | 🔨 (via sidecar) | 🔨 | — |
+| Firefox DOM inspect (RDP) | 🔨 | 🔨 | — |
+
+> The CDP-free **sidecar/control-channel** path is live-verified: `extension inspect --tab <id>` runs the `inspect` op in the page (via `chrome.scripting`), returning a structured snapshot (counts, extension roots, **open** shadow roots, capped HTML) audited to `actions.ndjson`. The background SW correctly reports `Unsupported` (no DOM). `--with-console` merges recent `logs.ndjson` lines for the target into the result (DOM + console in one call).
+>
+> **Console forwarding — every context (live-verified):** background, **content scripts**, and **surface pages** (popup/options/sidebar/devtools) all reach the bridge. Non-SW contexts can't open `ws://127.0.0.1` (page CSP), so a relay (injected into `content_scripts/*` and the `action`/`options`/`sidebar`/`devtools` entry bundles) forwards `console.*` to the SW via `chrome.runtime.sendMessage`; the SW stamps the real `tabId`/`url` and ships it over the WS. The SW itself runs the producer (never the relay) — no double-patch/loop. Verified: `logs --context content`, `extension open options` → `options`-context logs, and `inspect --with-console`. Remaining Slice-3 frontier: closed-shadow pierce (`--deep-dom`, CDP), **DOM** of surfaces via the sidecar, and Firefox RDP.
 
 ### Act
+Live-verified against a headed Chrome session (CLI → broker → in-bundle SW executor → real `chrome.*` → result → `actions.ndjson`).
+
 | Capability | CLI | MCP tool | File |
 |---|---|---|---|
-| Eval in context | `extension eval --context <c>` 🔨 | `extension_eval` 🔨 | `actions.ndjson` 🔨 |
-| Storage get/set | `extension storage <get\|set>` 🔨 | `extension_storage` 🔨 | `actions.ndjson` |
-| Reload / open surface | `extension reload`, `extension open <s>` 🔨 | `extension_reload`, `extension_open` 🔨 | `actions.ndjson` / `events.ndjson` |
+| Eval in context | `extension eval --context <c>` ✅* | `extension_eval` ✅* | `actions.ndjson` ✅ |
+| Storage get/set | `extension storage <get\|set>` ✅ | `extension_storage` ✅ | `actions.ndjson` ✅ |
+| Reload / open surface | `extension reload`, `extension open <s>` ✅ | `extension_reload`, `extension_open` ✅ | `actions.ndjson` ✅ |
+
+> Verified live: `storage set`/`get` round-trips through the real CLI against `chrome.storage`; `tabs.query` returns real tabs; every command is audited to `actions.ndjson` (eval source stored as `exprHash`, never raw). Implemented + unit-tested: broker routing/auth/timeouts, `BridgeController`, the 4 CLI verbs, the 4 `extension_*` MCP tools (shell out to the CLI), and the executor (in `producer-runtime.ts`, structured-clone + byte-cap).
+>
+> **\* `eval` caveat (by design):** MV3 forbids `eval` of strings in the service worker, and Chrome rejects `'unsafe-eval'` in MV3 `extension_pages`, so SW eval returns a structured `Unsupported` with remediation. `eval` works in **content/page** context (routed via `chrome.scripting` into the page's MAIN world) and in **MV2/Firefox** background. `open` needs an active browser window.
+>
+> Fix landed alongside: `ready.json` (the control-channel discovery contract) is now written in **all** dev modes, not just `--no-browser` — headed `extension dev` previously left `logs --follow` and the act verbs unable to find the control port.
 
 ### Distribution (platform — auth-gated/possibly premium)
 | Capability | CLI | MCP tool | Output |

@@ -33,8 +33,13 @@ import {setupCleanupHandlers} from './cleanup'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import {LogRingBuffer} from './control-bridge/ring-buffer'
 import {LogsFileWriter} from './control-bridge/logs-file'
+import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
+import {
+  writeControlToken,
+  clearControlToken
+} from './control-bridge/session-token'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
@@ -318,6 +323,28 @@ export async function devServer(
     filePath: path.join(packageJsonDir, bridgeLogsRelPath),
     runId: currentInstance.instanceId
   })
+  // Slice 2 (act): gated by --allow-control (bounded ops) and --allow-eval (eval).
+  const allowControl = Boolean((devOptions as any).allowControl)
+  const allowEval = Boolean((devOptions as any).allowEval)
+  const authorMode =
+    Boolean((devOptions as any).authorMode) ||
+    process.env.EXTENSION_AUTHOR_MODE === 'development'
+  const bridgeActionsFile = allowControl
+    ? new ActionsFileWriter({
+        filePath: path.join(
+          packageJsonDir,
+          'dist',
+          'extension-js',
+          browserName,
+          'actions.ndjson'
+        )
+      })
+    : undefined
+  // The eval token is written 0600 OUTSIDE dist/ only when eval is enabled.
+  const bridgeControlToken =
+    allowControl && allowEval
+      ? writeControlToken(packageJsonDir)
+      : undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: currentInstance.instanceId,
@@ -326,11 +353,17 @@ export async function devServer(
         ? 'firefox'
         : 'chromium',
     ring: new LogRingBuffer(),
-    file: bridgeLogFile
+    file: bridgeLogFile,
+    allowControl,
+    allowEval,
+    controlToken: bridgeControlToken,
+    actions: bridgeActionsFile,
+    authorMode
   })
   let bridgeControlPort: number | null = null
   try {
     bridgeLogFile.start()
+    bridgeActionsFile?.start()
     const controlServer = await startControlServer({
       broker: bridgeBroker,
       host: devServerHost
@@ -356,6 +389,15 @@ export async function devServer(
       bridgeLogFile.close()
     } catch {
       // ignore
+    }
+    try {
+      bridgeActionsFile?.close()
+    } catch {
+      // ignore
+    }
+    // Never leave a usable eval token behind after the session ends.
+    if (bridgeControlToken) {
+      clearControlToken(packageJsonDir)
     }
   })
 

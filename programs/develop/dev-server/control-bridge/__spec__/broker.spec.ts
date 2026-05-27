@@ -43,8 +43,8 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     expect(b.consumerCount).toBe(0)
   })
 
-  it('refuses the controller role until Slice 2', () => {
-    const b = new BridgeBroker(opts)
+  it('refuses the controller role when control is not enabled', () => {
+    const b = new BridgeBroker(opts) // no allowControl
     const c = new FakeConn('c')
     b.onFrame(c, {type: 'hello', v: 1, role: 'controller', instanceId: 'inst-1'})
     expect(c.closed?.code).toBe(CLOSE_CONTROL_UNAVAILABLE)
