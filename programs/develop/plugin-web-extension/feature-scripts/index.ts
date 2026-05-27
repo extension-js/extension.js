@@ -85,7 +85,7 @@ export class ScriptsPlugin {
       new InjectScriptsReplayShim().apply(compiler)
 
       // Inject the agent-bridge producer so the background SW forwards its
-      // console output to the dev-server control WS (docs/agent-bridge).
+      // console output to the dev-server control WS (agent bridge).
       // No-ops when the control bridge is unavailable.
       new InjectBridgeProducer().apply(compiler)
 
