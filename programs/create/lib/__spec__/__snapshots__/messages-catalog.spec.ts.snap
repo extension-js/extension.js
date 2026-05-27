@@ -1,0 +1,40 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`create message catalogs > matches the exported message surface 1`] = `
+{
+  "messages.ts": [
+    "cantInstallDependencies: function(2)",
+    "cantSetupBuiltInTests: function(2)",
+    "checkingIfPathIsWriteable: function(0)",
+    "createDirectoryError: function(2)",
+    "destinationNotWriteable: function(1)",
+    "directoryHasConflicts: function(2)",
+    "folderExists: function(1)",
+    "foundSpecializedDependencies: function(1)",
+    "initializingGitForRepository: function(1)",
+    "initializingGitSkipped: function(2)",
+    "installingDependencies: function(0)",
+    "installingDependenciesFailed: function(3)",
+    "installingDependenciesProcessError: function(2)",
+    "installingFromTemplate: function(2)",
+    "installingFromTemplateError: function(3)",
+    "installingProjectIntegrations: function(1)",
+    "noProjectName: function(0)",
+    "noUrlAllowed: function(0)",
+    "scanningPossiblyConflictingFiles: function(0)",
+    "startingNewExtension: function(1)",
+    "successfullInstall: function(3)",
+    "templateFetchTimedOut: function(2)",
+    "writingDirectoryError: function(1)",
+    "writingGitIgnore: function(0)",
+    "writingManifestJsonMetadata: function(0)",
+    "writingManifestJsonMetadataError: function(2)",
+    "writingPackageJsonMetadata: function(0)",
+    "writingPackageJsonMetadataError: function(2)",
+    "writingReadmeMetaData: function(0)",
+    "writingReadmeMetaDataEError: function(2)",
+    "writingTypeDefinitions: function(1)",
+    "writingTypeDefinitionsError: function(1)",
+  ],
+}
+`;
