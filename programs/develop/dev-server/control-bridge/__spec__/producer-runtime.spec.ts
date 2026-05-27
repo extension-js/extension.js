@@ -51,8 +51,12 @@ function run(src: string, fakeGlobal: Record<string, unknown>) {
 
 describe('bridge producer runtime', () => {
   it('returns empty source when the control bridge is unavailable', () => {
-    expect(buildBridgeProducerSource({controlPort: null, instanceId: 'x'})).toBe('')
-    expect(buildBridgeProducerSource({controlPort: 0, instanceId: 'x'})).toBe('')
+    expect(
+      buildBridgeProducerSource({controlPort: null, instanceId: 'x'})
+    ).toBe('')
+    expect(buildBridgeProducerSource({controlPort: 0, instanceId: 'x'})).toBe(
+      ''
+    )
   })
 
   it('bakes port, instanceId, and context with no placeholders left', () => {
@@ -86,7 +90,12 @@ describe('bridge producer runtime', () => {
     ws.triggerOpen()
 
     const frames = ws.sent.map((s) => JSON.parse(s))
-    expect(frames[0]).toMatchObject({type: 'hello', v: 1, role: 'producer', instanceId: 'inst-T'})
+    expect(frames[0]).toMatchObject({
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-T'
+    })
     const log = frames.find((f) => f.type === 'log')
     expect(log.event).toMatchObject({
       v: 1,
@@ -98,7 +107,10 @@ describe('bridge producer runtime', () => {
     expect(typeof log.event.id).toBe('string')
 
     // Original console must still fire (passthrough).
-    expect(originalCalls).toContainEqual({level: 'error', args: ['boom', {a: 1}]})
+    expect(originalCalls).toContainEqual({
+      level: 'error',
+      args: ['boom', {a: 1}]
+    })
   })
 
   it('installs only once per global', () => {
@@ -195,7 +207,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     })
     await Promise.resolve()
     await Promise.resolve()
-    expect(results(ws).find((f) => f.cmdId === 'e1')).toMatchObject({ok: true, value: 3})
+    expect(results(ws).find((f) => f.cmdId === 'e1')).toMatchObject({
+      ok: true,
+      value: 3
+    })
   })
 
   it('reload acks immediately then calls chrome.runtime.reload', async () => {
@@ -215,6 +230,55 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(reloaded).toBe(false)
     await new Promise((r) => setTimeout(r, 80))
     expect(reloaded).toBe(true)
+  })
+
+  it('the relay answers a surface inspect request for its own context', () => {
+    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const fakeDoc = {
+      title: 'Popup',
+      documentElement: {outerHTML: '<html><body><p>popup</p></body></html>'},
+      body: {children: {length: 1}},
+      querySelectorAll: () => [] as any[]
+    }
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      document: fakeDoc,
+      location: {href: 'chrome-extension://abc/popup.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+    expect(listeners.length).toBe(1)
+
+    // Non-matching context → no response.
+    let responded: any = 'NONE'
+    listeners[0](
+      {__extjsInspectRequest: true, target: {context: 'options'}},
+      {},
+      (r: any) => (responded = r)
+    )
+    expect(responded).toBe('NONE')
+
+    // Matching context → DOM snapshot.
+    listeners[0](
+      {
+        __extjsInspectRequest: true,
+        target: {context: 'popup'},
+        args: {include: ['summary']}
+      },
+      {},
+      (r: any) => (responded = r)
+    )
+    expect(responded).toMatchObject({
+      ok: true,
+      value: {context: 'popup', title: 'Popup'}
+    })
+    expect(responded.value.summary.bodyChildCount).toBe(1)
   })
 
   it('the relay (content) forwards console via chrome.runtime.sendMessage', () => {
@@ -239,18 +303,34 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       context: 'content',
       url: 'https://shop.example/checkout'
     })
-    expect(sent[0].__extjsBridgeLog.messageParts).toEqual(['hello from content', '{"a":1}'])
+    expect(sent[0].__extjsBridgeLog.messageParts).toEqual([
+      'hello from content',
+      '{"a":1}'
+    ])
   })
 
   it('replies BadRequest for an unknown op', () => {
     const ws = setup({})
-    ws.triggerMessage({type: 'command', cmdId: 'x1', op: 'frob', target: {context: 'background'}})
-    expect(results(ws).find((f) => f.cmdId === 'x1')).toMatchObject({ok: false, error: {name: 'BadRequest'}})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'x1',
+      op: 'frob',
+      target: {context: 'background'}
+    })
+    expect(results(ws).find((f) => f.cmdId === 'x1')).toMatchObject({
+      ok: false,
+      error: {name: 'BadRequest'}
+    })
   })
 
   it('inspect of the background SW is Unsupported (no DOM)', () => {
     const ws = setup({scripting: {}})
-    ws.triggerMessage({type: 'command', cmdId: 'i0', op: 'inspect', target: {context: 'background'}})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'i0',
+      op: 'inspect',
+      target: {context: 'background'}
+    })
     expect(results(ws).find((f) => f.cmdId === 'i0')).toMatchObject({
       ok: false,
       error: {name: 'Unsupported'}
@@ -265,7 +345,14 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(listeners.length).toBe(1)
     // Simulate a content script forwarding console via sendMessage.
     listeners[0](
-      {__extjsBridgeLog: {level: 'warn', context: 'content', messageParts: ['from content'], url: 'https://x.test/'}},
+      {
+        __extjsBridgeLog: {
+          level: 'warn',
+          context: 'content',
+          messageParts: ['from content'],
+          url: 'https://x.test/'
+        }
+      },
       {tab: {id: 42}, frameId: 0, url: 'https://x.test/'}
     )
     const log = ws.sent.map((s) => JSON.parse(s)).find((f) => f.type === 'log')
@@ -284,7 +371,13 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
         executeScript: (opts: any) =>
           // Simulate the injected extractor returning a snapshot.
           Promise.resolve([
-            {result: {url: 'https://x.test/', title: 'X', summary: {extensionRootCount: 1, openShadowRoots: 0}}}
+            {
+              result: {
+                url: 'https://x.test/',
+                title: 'X',
+                summary: {extensionRootCount: 1, openShadowRoots: 0}
+              }
+            }
           ])
       }
     })
