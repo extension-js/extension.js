@@ -86,8 +86,10 @@ Legend: ✅ exists · 🔨 to build · — N/A by design
 | DOM + recent console in one call | `extension inspect --with-console[=N]` ✅ | `extension_dom_inspect({withConsole})` ✅ | reads `logs.ndjson` |
 | Inspect surface/page (CDP) | `--source [url]`, `--watch-source` ✅ | `extension_source_inspect` ✅ | — |
 | Closed-shadow pierce | `dev --source --source-include-shadow=all` ✅ (Chromium/CDP) | `extension_source_inspect({deepDom:true})` ✅ (Chromium/CDP) | — |
-| Inspect extension surfaces (popup/options/sidebar) | 🔨 (via sidecar) | 🔨 | — |
+| Inspect extension surfaces (popup/options/sidebar/devtools) | `extension inspect --context <surface>` ✅ | `extension_dom_inspect({context})` ✅ | — |
 | Firefox DOM inspect (RDP) | 🔨 | 🔨 | — |
+
+> **Surface DOM** is read by the user extension's **own in-bundle relay** running in that page — NOT the sidecar (a separate extension can't reach another's surface DOM; cross-extension isolation). The SW broadcasts the inspect; only the open, matching-context surface responds with its snapshot. A closed surface returns `Unsupported: not open` (open it first via `extension open <surface>`). Live-verified on the options page.
 
 > The CDP-free **sidecar/control-channel** path is live-verified: `extension inspect --tab <id>` runs the `inspect` op in the page (via `chrome.scripting`), returning a structured snapshot (counts, extension roots, **open** shadow roots, capped HTML) audited to `actions.ndjson`. The background SW correctly reports `Unsupported` (no DOM). `--with-console` merges recent `logs.ndjson` lines for the target into the result (DOM + console in one call).
 >

@@ -310,7 +310,7 @@ export function registerActCommands(program: Command): void {
       .description(
         'Inspect a page/content DOM via the agent bridge (CDP-free; requires --allow-control). For closed shadow roots use dev --source --deep-dom.'
       )
-      .option('--context <content|page>', 'isolated content world or page MAIN world (default content)')
+      .option('--context <content|page|popup|options|sidebar|devtools>', 'what to inspect: content/page (needs --tab) or an open surface (default content)')
       .option('--tab <id>', 'tab id to inspect (required for content/page)')
       .option('--include <list>', 'comma-separated: html,summary (default summary)')
       .option('--max-bytes <n>', 'cap on returned HTML bytes (default 262144)')

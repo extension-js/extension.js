@@ -217,6 +217,40 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(reloaded).toBe(true)
   })
 
+  it('the relay answers a surface inspect request for its own context', () => {
+    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const fakeDoc = {
+      title: 'Popup',
+      documentElement: {outerHTML: '<html><body><p>popup</p></body></html>'},
+      body: {children: {length: 1}},
+      querySelectorAll: () => [] as any[]
+    }
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      document: fakeDoc,
+      location: {href: 'chrome-extension://abc/popup.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+    expect(listeners.length).toBe(1)
+
+    // Non-matching context → no response.
+    let responded: any = 'NONE'
+    listeners[0]({__extjsInspectRequest: true, target: {context: 'options'}}, {}, (r: any) => (responded = r))
+    expect(responded).toBe('NONE')
+
+    // Matching context → DOM snapshot.
+    listeners[0]({__extjsInspectRequest: true, target: {context: 'popup'}, args: {include: ['summary']}}, {}, (r: any) => (responded = r))
+    expect(responded).toMatchObject({ok: true, value: {context: 'popup', title: 'Popup'}})
+    expect(responded.value.summary.bodyChildCount).toBe(1)
+  })
+
   it('the relay (content) forwards console via chrome.runtime.sendMessage', () => {
     const sent: any[] = []
     const fakeGlobal: Record<string, unknown> = {
