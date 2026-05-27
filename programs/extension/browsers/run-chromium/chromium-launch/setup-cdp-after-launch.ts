@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
+import * as path from 'path'
 import type {Readable, Writable} from 'stream'
 import type {CompilationLike} from '../../browsers-types'
 import * as messages from '../../browsers-lib/messages'
@@ -91,8 +93,31 @@ export async function setupCdpAfterLaunch(
   // connectToChromeCdp already performs bounded startup retries internally.
   // Avoid layering another retry loop here, which can make startup feel hung.
   await cdpExtensionController.connect()
+
   if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
+  }
+
+  try {
+    if (extensionOutputPath && Number.isFinite(chromeRemoteDebugPort)) {
+      const readyPath = path.join(
+        path.dirname(extensionOutputPath),
+        'extension-js',
+        path.basename(extensionOutputPath),
+        'ready.json'
+      )
+
+      if (fs.existsSync(readyPath)) {
+        const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+        if (ready.cdpPort !== chromeRemoteDebugPort) {
+          ready.cdpPort = chromeRemoteDebugPort
+          fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+        }
+      }
+    }
+  } catch {
+    // best-effort; never block launch on this
   }
 
   const mode = (compilation?.options?.mode || 'development') as string
