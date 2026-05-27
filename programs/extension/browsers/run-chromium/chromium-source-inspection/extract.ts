@@ -74,7 +74,6 @@ export async function extractPageHtml(
     }
   }
 
-  // Last-resort: directly evaluate document.documentElement.outerHTML with retries
   if (!html || html.trim().length === 0) {
     for (let i = 0; i < 2; i++) {
       try {
@@ -98,6 +97,28 @@ export async function extractPageHtml(
         // ignore
       }
       await new Promise((r) => setTimeout(r, 200))
+    }
+  }
+
+  if (includeShadow === 'all') {
+    try {
+      const closed = await cdpClient.getClosedShadowRoots(sessionId)
+      if (closed.length) {
+        const blocks = closed
+          .map(
+            (r) =>
+              `<!-- extjs:closed-shadow-root host="${r.host}"${
+                r.truncated ? ' truncated="true"' : ''
+              } -->\n${r.html}`
+          )
+          .join('\n')
+        html =
+          (html || '') +
+          `\n<!-- extjs:closed-shadow-roots count="${closed.length}" -->\n` +
+          blocks
+      }
+    } catch {
+      // best-effort; closed-shadow piercing must never fail the extraction
     }
   }
 
