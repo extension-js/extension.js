@@ -22,6 +22,7 @@ import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
 import {registerLogsCommand} from './commands/logs'
 import {registerActCommands} from './commands/act'
+import {registerPublishCommand} from './commands/publish'
 import {registerInstallCommand} from './commands/install'
 import {registerTelemetryCommand} from './commands/telemetry'
 
@@ -208,6 +209,7 @@ registerPreviewCommand(extensionJs)
 registerBuildCommand(extensionJs)
 registerLogsCommand(extensionJs)
 registerActCommands(extensionJs)
+registerPublishCommand(extensionJs)
 registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 
