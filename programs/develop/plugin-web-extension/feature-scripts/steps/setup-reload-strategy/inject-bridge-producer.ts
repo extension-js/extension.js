@@ -14,7 +14,7 @@ const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
 /**
  * Prepends the agent-bridge producer to the compiled background SW so the
  * user extension forwards its console output to the dev-server control WS
- * (docs/agent-bridge). The control port + instanceId are read from process.env
+ * (agent bridge). The control port + instanceId are read from process.env
  * (set by dev-server/index.ts); when the bridge is unavailable the builder
  * returns '' and nothing is injected.
  *
@@ -33,6 +33,7 @@ export class InjectBridgeProducer {
       instanceId,
       context: 'background'
     })
+
     if (!source) return // bridge unavailable — nothing to inject
 
     compiler.hooks.thisCompilation.tap(
@@ -46,10 +47,12 @@ export class InjectBridgeProducer {
           () => {
             for (const asset of compilation.getAssets()) {
               if (!BACKGROUND_ASSET.test(asset.name)) continue
+
               const original = asset.source.source().toString()
               if (original.indexOf('__extjsBridgeProducerInstalled') !== -1) {
                 continue
               }
+
               const next = source + '\n' + original
               compilation.updateAsset(asset.name, new sources.RawSource(next))
             }
