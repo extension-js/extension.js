@@ -91,10 +91,13 @@ Status reflects branch `qa/readiness-gates`.
 1. ✅ **`readiness.schema.json`** (this folder) — the one machine-readable
    document, keyed to `cliCommit` + `examplesCommit`. Validates against the
    repo's `ajv`. `verdict` is computed from a declared `gatingPolicy`.
-2. ✅ **Pin the coupling (mechanism)** — `hydrate-templates-from-examples.sh`
-   now honors `EXAMPLES_REF` (default `main`, backward-compatible) and writes
-   the resolved SHA to `templates/.examples-commit` for `meta.examplesCommit`.
-   *Remaining:* set `EXAMPLES_REF` in the nightly/e2e workflows to a pinned ref.
+2. ✅ **Pin the coupling** — `hydrate-templates-from-examples.sh` honors
+   `EXAMPLES_REF` (default `main`, backward-compatible) and writes the resolved
+   SHA to `templates/.examples-commit` for `meta.examplesCommit`. *Decision:*
+   the nightly/e2e workflows intentionally stay on `examples@main` so they keep
+   catching drift; reproducibility comes from the stamped `.examples-commit`,
+   and a fixed `EXAMPLES_REF` is supplied only when generating a readiness
+   verdict for a release — not baked into the scheduled runs.
 3. ⏳ **Promote a fast subset to the CLI PR gate** — `reload-matrix:smoke` + one
    chromium acceptance batch. *Deferred:* needs hydration + browser install at
    PR time; design a minimal opt-in workflow before enabling (heaviest item).
@@ -108,7 +111,12 @@ Status reflects branch `qa/readiness-gates`.
      `content-script-contracts.ts`, `instance-registry.ts` now covered by
      `programs/extension/browsers/__spec__/readiness-producers.unit.spec.ts`
      (13 tests, green).
-   - ⏳ **snapshot the 21 `messages.ts` catalogs** — not yet; next cheap net.
+   - ✅ **snapshot the 21 `messages.ts` catalogs** — per-package
+     `messages-catalog.spec.ts` specs (develop/extension/create/install) pin
+     each catalog's export surface (message name + arity/kind) via
+     `import.meta.glob`, so an unintended add/remove/rename/signature change of
+     any user-facing message fails loudly in review. Glob-based discovery means
+     new catalogs join automatically. All 21 covered; green.
 
 ### Confirmed orphaned (manual-only, in no examples workflow)
 
