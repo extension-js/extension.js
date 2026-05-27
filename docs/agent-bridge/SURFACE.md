@@ -87,7 +87,8 @@ Legend: ✅ exists · 🔨 to build · — N/A by design
 | Inspect surface/page (CDP) | `--source [url]`, `--watch-source` ✅ | `extension_source_inspect` ✅ | — |
 | Closed-shadow pierce | `dev --source --source-include-shadow=all` ✅ (Chromium/CDP) | `extension_source_inspect({deepDom:true})` ✅ (Chromium/CDP) | — |
 | Inspect extension surfaces (popup/options/sidebar/devtools) | `extension inspect --context <surface>` ✅ | `extension_dom_inspect({context})` ✅ | — |
-| Firefox DOM inspect (RDP) | 🔨 | 🔨 | — |
+| Firefox content/page + open-shadow DOM (RDP) | `dev --source` ✅ (existing RDP path) | — (CDP-only tool; bridge relay is engine-agnostic) | — |
+| Firefox closed-shadow pierce | — Chromium-only (no RDP pierce primitive) | — Chromium-only | — |
 
 > **Surface DOM** is read by the user extension's **own in-bundle relay** running in that page — NOT the sidecar (a separate extension can't reach another's surface DOM; cross-extension isolation). The SW broadcasts the inspect; only the open, matching-context surface responds with its snapshot. A closed surface returns `Unsupported: not open` (open it first via `extension open <surface>`). Live-verified on the options page.
 
