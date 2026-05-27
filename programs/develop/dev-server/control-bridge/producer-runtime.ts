@@ -1,26 +1,3 @@
-/**
- * Browser-side agent-bridge PRODUCER (Slice 1).
- *
- * A self-contained dev-only IIFE prepended to the user extension's background
- * service worker (the CSP-free context that can open a localhost WebSocket).
- * It patches `console.*`, connects to the dev-server control WS, and forwards
- * each call as a LogEvent (docs/agent-bridge/log-event.schema.json). The broker
- * stamps `seq`; the producer never sets it.
- *
- * Injection bakes the control port + instanceId via `buildBridgeProducerSource`.
- * When the control bridge is unavailable (no port), the builder returns '' so
- * nothing is injected.
- *
- * Slice 2 (act): this same SW socket is ALSO the in-bundle EXECUTOR. After the
- * producer hello, the broker routes `command` frames here (the SW is a producer
- * connection and has the user extension's full chrome.* with no CSP relay). We
- * run eval/storage/reload/open/tabs in the SW context and reply with a
- * structured, byte-capped `result`. Auth is enforced upstream by the broker
- * (instanceId + --allow-control; eval additionally needs --allow-eval + token),
- * so a command that reaches here is already authorized. Surfaces other than the
- * SW (content/page) are reached via chrome.scripting when a tabId is given.
- */
-
 export const BRIDGE_PRODUCER_SOURCE = `;(function () {
   try {
     var g = (typeof globalThis === "object" && globalThis) ? globalThis : this;
@@ -466,7 +443,10 @@ export interface BuildRelayOptions {
 
 /** Bake the context into the relay source (content/page/popup/options/...). */
 export function buildBridgeRelaySource(opts: BuildRelayOptions): string {
-  return BRIDGE_RELAY_SOURCE.replace(/__EXTJS_CONTEXT__/g, String(opts.context || 'content'))
+  return BRIDGE_RELAY_SOURCE.replace(
+    /__EXTJS_CONTEXT__/g,
+    String(opts.context || 'content')
+  )
 }
 
 export interface BuildProducerOptions {
