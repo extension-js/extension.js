@@ -30,7 +30,7 @@ export type ReadyMetadata = {
   errors: string[]
   code?: string
   message?: string
-  // v2: agent-bridge control-channel discovery (docs/agent-bridge/ready-contract.schema.json)
+  // v2: agent-bridge control-channel discovery (ready.json v2)
   instanceId?: string
   controlPort?: number | null
   controlPath?: string
