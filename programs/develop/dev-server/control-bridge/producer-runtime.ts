@@ -203,10 +203,25 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               args: [includeHtml, maxBytes]
             }).then(function (res) { replyOk(cmdId, res && res[0] ? res[0].result : undefined); },
                     function (e) { replyErr(cmdId, "InspectError", e); });
+          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools") {
+            // The SW can't read a surface page's DOM; ask the surface's own
+            // in-bundle relay (only the open, matching-context page responds).
+            chrome.runtime.sendMessage(
+              {__extjsInspectRequest: true, target: target, args: args},
+              function (resp) {
+                if (chrome.runtime.lastError || !resp) {
+                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")");
+                } else if (resp.ok) {
+                  replyOk(cmdId, resp.value);
+                } else {
+                  replyErr(cmdId, (resp.error && resp.error.name) || "InspectError", (resp.error && resp.error.message) || "inspect failed");
+                }
+              }
+            );
           } else if (ctx === "background") {
-            replyErr(cmdId, "Unsupported", "the service worker has no DOM; inspect a content/page (with --tab) or an extension surface");
+            replyErr(cmdId, "Unsupported", "the service worker has no DOM; inspect a content/page (with --tab) or an open surface");
           } else {
-            replyErr(cmdId, "Unsupported", "inspect of " + ctx + " requires a tabId (content/page); extension surfaces use the sidecar path (pending). For closed shadow roots use --deep-dom.");
+            replyErr(cmdId, "Unsupported", "inspect of " + ctx + " requires a tabId (content/page) or an open surface");
           }
           return;
         }
@@ -393,6 +408,54 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
         return orig.apply(consoleRef, arguments);
       };
     });
+
+    // Surface DOM inspection: the SW executor can't reach popup/options/sidebar
+    // DOM (separate extension pages), and the sidecar can't either (cross-extension
+    // isolation). So THIS page — the user extension's own surface — answers an
+    // inspect request for its own context. The SW broadcasts the request; only the
+    // matching-context surface responds with its DOM snapshot.
+    try {
+      if (chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+          if (!msg || !msg.__extjsInspectRequest) return;
+          if (!msg.target || msg.target.context !== CONTEXT) return; // not for me
+          try {
+            var args = msg.args || {};
+            var wantHtml = !args.include || args.include.indexOf("html") !== -1;
+            var cap = args.maxBytes || 262144;
+            function countShadow(root) {
+              var n = 0, els = root.querySelectorAll("*");
+              for (var i = 0; i < els.length; i++) { if (els[i].shadowRoot) { n++; n += countShadow(els[i].shadowRoot); } }
+              return n;
+            }
+            var doc = g.document;
+            var roots = doc.querySelectorAll('#extension-root,[data-extension-root]');
+            var snap = {
+              context: CONTEXT,
+              url: here(),
+              title: doc.title,
+              summary: {
+                htmlLength: doc.documentElement.outerHTML.length,
+                scriptCount: doc.querySelectorAll("script").length,
+                styleCount: doc.querySelectorAll("style,link[rel=stylesheet]").length,
+                extensionRootCount: roots.length,
+                openShadowRoots: countShadow(doc),
+                bodyChildCount: doc.body ? doc.body.children.length : 0
+              }
+            };
+            if (wantHtml) {
+              var html = doc.documentElement.outerHTML;
+              if (cap > 0 && html.length > cap) { snap.html = html.slice(0, cap); snap.htmlTruncated = true; }
+              else { snap.html = html; }
+            }
+            sendResponse({ok: true, value: snap});
+          } catch (e) {
+            sendResponse({ok: false, error: {name: "InspectError", message: String(e)}});
+          }
+          return true; // responded
+        });
+      }
+    } catch (e) {}
   } catch (e) {}
 })();
 `
