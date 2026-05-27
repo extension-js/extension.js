@@ -1,12 +1,8 @@
 /**
- * Agent-bridge wire contracts (TypeScript mirror of the JSON Schemas in
- * docs/agent-bridge/). Hand-written for now; a schema→type generation step
- * will replace this later so the schema stays the single source of truth.
- *
- * - LogEvent           ← docs/agent-bridge/log-event.schema.json (v1)
- * - Control envelope   ← docs/agent-bridge/control-envelope.schema.json (v1)
- *
- * Change these only alongside a schema version bump.
+ * Agent-bridge wire contracts — the source of truth for the LogEvent (v1) and
+ * the control envelope (v1: hello/ready/log/gap/command/result). Producers and
+ * consumers share these exact shapes on the wire, in logs.ndjson, and in the
+ * sidebar. Change a shape only alongside a version bump.
  */
 
 export const LOG_EVENT_VERSION = 1 as const

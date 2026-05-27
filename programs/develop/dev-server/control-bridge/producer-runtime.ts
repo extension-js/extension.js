@@ -4,7 +4,7 @@
  * A self-contained dev-only IIFE prepended to the user extension's background
  * service worker (the CSP-free context that can open a localhost WebSocket).
  * It patches `console.*`, connects to the dev-server control WS, and forwards
- * each call as a LogEvent (docs/agent-bridge/log-event.schema.json). The broker
+ * each call as a LogEvent (the log-event wire contract). The broker
  * stamps `seq`; the producer never sets it.
  *
  * Injection bakes the control port + instanceId via `buildBridgeProducerSource`.

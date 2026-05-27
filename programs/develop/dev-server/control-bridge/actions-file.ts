@@ -3,7 +3,7 @@
  * (SURFACE.md Slice 2 — the act audit).
  *
  * One line per command issued over the control channel, conformant with
- * docs/agent-bridge/actions.schema.json (v1). Satisfies the lockstep invariant
+ * the action-record contract (v1). Satisfies the lockstep invariant
  * "anything an agent DOES is also a file": a no-MCP human gets a trustable
  * record of every act performed on their extension.
  *

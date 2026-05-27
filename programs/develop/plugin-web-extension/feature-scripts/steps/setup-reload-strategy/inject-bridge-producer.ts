@@ -14,7 +14,7 @@ const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
 /**
  * Prepends the agent-bridge producer to the compiled background SW so the
  * user extension forwards its console output to the dev-server control WS
- * (docs/agent-bridge). The control port + instanceId are read from process.env
+ * (agent bridge). The control port + instanceId are read from process.env
  * (set by dev-server/index.ts); when the bridge is unavailable the builder
  * returns '' and nothing is injected.
  *
