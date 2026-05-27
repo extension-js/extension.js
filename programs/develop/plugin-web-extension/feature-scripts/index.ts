@@ -13,6 +13,7 @@ import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 import {InjectScriptsReplayShim} from './steps/setup-reload-strategy/inject-scripts-replay-shim'
 import {InjectBridgeProducer} from './steps/setup-reload-strategy/inject-bridge-producer'
+import {InjectBridgeRelay} from './steps/setup-reload-strategy/inject-bridge-relay'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import type {FilepathList, PluginInterface, DevOptions} from '../../types'
@@ -87,6 +88,10 @@ export class ScriptsPlugin {
       // console output to the dev-server control WS (docs/agent-bridge).
       // No-ops when the control bridge is unavailable.
       new InjectBridgeProducer().apply(compiler)
+
+      // Forward content-script console to the SW relay (multi-context logs).
+      // No-ops when the control bridge is unavailable.
+      new InjectBridgeRelay().apply(compiler)
     }
   }
 }
