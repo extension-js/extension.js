@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`install message catalogs > matches the exported message surface 1`] = `
+{
+  "lib/messages.ts": [
+    "edgeInstallNeedsInteractivePrivilegedSession: function(0)",
+    "edgeInstallUsingSystemBinary: function(1)",
+    "installFailed: function(5)",
+    "installSucceeded: function(2)",
+    "installingBrowser: function(2)",
+    "uninstallNoop: function(2)",
+    "uninstallRequiresTarget: function(0)",
+    "uninstallSucceeded: function(2)",
+    "uninstallingBrowsers: function(2)",
+  ],
+}
+`;
