@@ -101,6 +101,32 @@ export async function extractPageHtml(
     }
   }
 
+  // --source-include-shadow=all → also pierce CLOSED shadow roots via CDP (the
+  // JS-based getPageHTML above only reaches OPEN roots, since host.shadowRoot is
+  // null for closed ones). Append the recovered content under a clear marker so
+  // the single-string output still surfaces it.
+  if (includeShadow === 'all') {
+    try {
+      const closed = await cdpClient.getClosedShadowRoots(sessionId)
+      if (closed.length) {
+        const blocks = closed
+          .map(
+            (r) =>
+              `<!-- extjs:closed-shadow-root host="${r.host}"${
+                r.truncated ? ' truncated="true"' : ''
+              } -->\n${r.html}`
+          )
+          .join('\n')
+        html =
+          (html || '') +
+          `\n<!-- extjs:closed-shadow-roots count="${closed.length}" -->\n` +
+          blocks
+      }
+    } catch {
+      // best-effort; closed-shadow piercing must never fail the extraction
+    }
+  }
+
   if (logSamples) {
     console.log(messages.sourceInspectorHTMLExtractionComplete())
   }

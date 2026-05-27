@@ -85,7 +85,7 @@ Legend: ✅ exists · 🔨 to build · — N/A by design
 | Inspect content/page DOM (sidecar/CDP-free) | `extension inspect --tab <id>` ✅ | `extension_dom_inspect` ✅ | `actions.ndjson` ✅ |
 | DOM + recent console in one call | `extension inspect --with-console[=N]` ✅ | `extension_dom_inspect({withConsole})` ✅ | reads `logs.ndjson` |
 | Inspect surface/page (CDP) | `--source [url]`, `--watch-source` ✅ | `extension_source_inspect` ✅ | — |
-| Closed-shadow pierce | `--deep-dom` 🔨 (dev --source; separate extractor) | `extension_source_inspect({deepDom:true})` ✅ (Chromium/CDP) | — |
+| Closed-shadow pierce | `dev --source --source-include-shadow=all` ✅ (Chromium/CDP) | `extension_source_inspect({deepDom:true})` ✅ (Chromium/CDP) | — |
 | Inspect extension surfaces (popup/options/sidebar) | 🔨 (via sidecar) | 🔨 | — |
 | Firefox DOM inspect (RDP) | 🔨 | 🔨 | — |
 

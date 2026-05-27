@@ -497,6 +497,72 @@ export class CDPClient {
     return getPageHTML(this, sessionId, includeShadow)
   }
 
+  // Closed-shadow pierce (--deep-dom / --source-include-shadow=all). getPageHTML
+  // reads shadow via JS `host.shadowRoot`, which is null for CLOSED roots; the
+  // CDP DOM domain with pierce:true returns the full tree including closed roots,
+  // and getOuterHTML extracts each. Mirrors the MCP CDPClient.getClosedShadowRoots.
+  async getClosedShadowRoots(
+    sessionId: string,
+    maxBytes = 65536
+  ): Promise<
+    Array<{host: string; type: string; html: string; truncated?: boolean}>
+  > {
+    await this.sendCommand('DOM.enable', {}, sessionId)
+    const doc = (await this.sendCommand(
+      'DOM.getDocument',
+      {depth: -1, pierce: true},
+      sessionId
+    )) as {root?: unknown}
+
+    const found: Array<{nodeId: number; host: string}> = []
+    const walk = (node: any, hostName: string): void => {
+      if (!node || typeof node !== 'object') return
+      const name = node.localName || node.nodeName || hostName
+      if (Array.isArray(node.shadowRoots)) {
+        for (const sr of node.shadowRoots) {
+          if (
+            sr &&
+            sr.shadowRootType === 'closed' &&
+            typeof sr.nodeId === 'number'
+          ) {
+            found.push({nodeId: sr.nodeId, host: String(name)})
+          }
+          walk(sr, name)
+        }
+      }
+      if (Array.isArray(node.children))
+        for (const c of node.children) walk(c, name)
+      if (node.contentDocument) walk(node.contentDocument, name)
+    }
+    walk((doc as any).root, 'html')
+
+    const out: Array<{
+      host: string
+      type: string
+      html: string
+      truncated?: boolean
+    }> = []
+    for (const f of found) {
+      try {
+        const oh = (await this.sendCommand(
+          'DOM.getOuterHTML',
+          {nodeId: f.nodeId},
+          sessionId
+        )) as {outerHTML?: string}
+        let html = String(oh?.outerHTML ?? '')
+        let truncated = false
+        if (maxBytes > 0 && html.length > maxBytes) {
+          html = html.slice(0, maxBytes)
+          truncated = true
+        }
+        out.push({host: f.host, type: 'closed', html, ...(truncated ? {truncated} : {})})
+      } catch {
+        out.push({host: f.host, type: 'closed', html: ''})
+      }
+    }
+    return out
+  }
+
   // Close a target (tab)
   async closeTarget(targetId: string) {
     await this.sendCommand('Target.closeTarget', {targetId})
