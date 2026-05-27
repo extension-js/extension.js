@@ -404,7 +404,7 @@ export interface CommonWebpackOptions {
   instanceId?: string
   /**
    * Agent-bridge control channel (Slice 1). Injected by dev-server so the
-   * PlaywrightPlugin can advertise them in ready.json (docs/agent-bridge).
+   * PlaywrightPlugin can advertise them in ready.json (agent bridge).
    * Not user-configurable.
    */
   controlPort?: number | null
