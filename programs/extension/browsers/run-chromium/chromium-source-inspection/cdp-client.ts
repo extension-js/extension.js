@@ -92,6 +92,7 @@ export class CDPClient {
           (reason) => {
             // Guard against double-rejection (error + close fire in sequence)
             if (pendingRejected) return
+
             pendingRejected = true
             // Reject any pending requests to avoid hangs
             this.pendingRequests.forEach(({reject, timeout}, id) => {
@@ -105,6 +106,7 @@ export class CDPClient {
                   )
                 }
               }
+
               if (timeout) clearTimeout(timeout)
               this.pendingRequests.delete(id)
             })
@@ -149,11 +151,13 @@ export class CDPClient {
       if (this.isDev()) {
         console.error(`[CDP] Pipe read error: ${error.message}`)
       }
+
       this.rejectAllPending('CDP pipe read error')
     })
 
     input.on('close', () => {
       if (this.isDev()) console.log('[CDP] Pipe closed')
+
       this.rejectAllPending('CDP pipe closed')
       this.pipeIn = null
     })
@@ -172,6 +176,7 @@ export class CDPClient {
       } catch {
         // ignore
       }
+
       if (timeout) clearTimeout(timeout)
       this.pendingRequests.delete(id)
     })
@@ -179,6 +184,7 @@ export class CDPClient {
 
   disconnect() {
     this.stopHeartbeat()
+
     if (this.transport === 'pipe') {
       try {
         this.pipeIn?.removeAllListeners()
@@ -189,6 +195,7 @@ export class CDPClient {
       this.pipeIn = null
       this.pipeOut = null
     }
+
     if (this.ws) {
       try {
         this.ws.close()
@@ -206,6 +213,7 @@ export class CDPClient {
         this.stopHeartbeat()
         return
       }
+
       try {
         await this.getBrowserVersion()
       } catch {
@@ -216,6 +224,7 @@ export class CDPClient {
         this.disconnect()
       }
     }, CDP_HEARTBEAT_INTERVAL_MS)
+
     if (typeof this.heartbeatTimer.unref === 'function') {
       this.heartbeatTimer.unref()
     }
@@ -237,11 +246,13 @@ export class CDPClient {
         !this.pipeOut.destroyed
       )
     }
+
     return !!this.ws && this.ws.readyState === WebSocket.OPEN
   }
 
   onProtocolEvent(handler: (message: Record<string, unknown>) => void) {
     this.eventCallbacks.add(handler)
+
     return () => {
       this.eventCallbacks.delete(handler)
     }
@@ -267,6 +278,7 @@ export class CDPClient {
             pending.resolve(message.result)
           }
         }
+
         return
       }
 
@@ -495,6 +507,73 @@ export class CDPClient {
     includeShadow: 'off' | 'open-only' | 'all' = 'open-only'
   ) {
     return getPageHTML(this, sessionId, includeShadow)
+  }
+
+  async getClosedShadowRoots(
+    sessionId: string,
+    maxBytes = 65536
+  ): Promise<
+    Array<{host: string; type: string; html: string; truncated?: boolean}>
+  > {
+    await this.sendCommand('DOM.enable', {}, sessionId)
+    const doc = (await this.sendCommand(
+      'DOM.getDocument',
+      {depth: -1, pierce: true},
+      sessionId
+    )) as {root?: unknown}
+
+    const found: Array<{nodeId: number; host: string}> = []
+    const walk = (node: any, hostName: string): void => {
+      if (!node || typeof node !== 'object') return
+      const name = node.localName || node.nodeName || hostName
+      if (Array.isArray(node.shadowRoots)) {
+        for (const sr of node.shadowRoots) {
+          if (
+            sr &&
+            sr.shadowRootType === 'closed' &&
+            typeof sr.nodeId === 'number'
+          ) {
+            found.push({nodeId: sr.nodeId, host: String(name)})
+          }
+          walk(sr, name)
+        }
+      }
+      if (Array.isArray(node.children))
+        for (const c of node.children) walk(c, name)
+      if (node.contentDocument) walk(node.contentDocument, name)
+    }
+    walk((doc as any).root, 'html')
+
+    const out: Array<{
+      host: string
+      type: string
+      html: string
+      truncated?: boolean
+    }> = []
+    for (const f of found) {
+      try {
+        const oh = (await this.sendCommand(
+          'DOM.getOuterHTML',
+          {nodeId: f.nodeId},
+          sessionId
+        )) as {outerHTML?: string}
+        let html = String(oh?.outerHTML ?? '')
+        let truncated = false
+        if (maxBytes > 0 && html.length > maxBytes) {
+          html = html.slice(0, maxBytes)
+          truncated = true
+        }
+        out.push({
+          host: f.host,
+          type: 'closed',
+          html,
+          ...(truncated ? {truncated} : {})
+        })
+      } catch {
+        out.push({host: f.host, type: 'closed', html: ''})
+      }
+    }
+    return out
   }
 
   // Close a target (tab)
