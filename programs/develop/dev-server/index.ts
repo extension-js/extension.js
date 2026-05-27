@@ -17,27 +17,32 @@ import * as messages from './messages'
 import {PortManager} from './port-manager'
 import {isUsingJSFramework} from './frameworks'
 import {type ProjectStructure} from '../lib/project'
-import {
-  loadBrowserConfig,
-  loadCommandConfig,
-  loadCustomConfig
-} from '../lib/config-loader'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from '../plugin-special-folders/get-data'
 import {sanitize} from '../lib/sanitize'
-import {
-  setupCompilerLifecycleHooks,
-  setupNoBrowserBannerOnFirstDone
-} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import {LogRingBuffer} from './control-bridge/ring-buffer'
 import {LogsFileWriter} from './control-bridge/logs-file'
+import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
+import {
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadCustomConfig
+} from '../lib/config-loader'
+import {
+  setupCompilerLifecycleHooks,
+  setupNoBrowserBannerOnFirstDone
+} from './compiler-hooks'
+import {
+  writeControlToken,
+  clearControlToken
+} from './control-bridge/session-token'
 
 function shouldWriteAssetToDisk(filePath: string) {
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
@@ -69,6 +74,7 @@ function createDiscardWriteStream() {
 
   return stream as Writable & {path?: string}
 }
+
 const guardedManifestDiskWritePaths = new Set<string>()
 let isManifestDiskWriteGuardInstalled = false
 
@@ -88,8 +94,9 @@ function suppressManifestOutputWrites(
   manifestOutputPath: string
 ) {
   const outputFileSystem = compiler?.outputFileSystem as any
-  if (!outputFileSystem || outputFileSystem.__extensionjsManifestWriteGuard)
+  if (!outputFileSystem || outputFileSystem.__extensionjsManifestWriteGuard) {
     return
+  }
 
   const isManifestPath = (filePath: unknown) =>
     typeof filePath === 'string' && isSamePath(filePath, manifestOutputPath)
@@ -99,7 +106,9 @@ function suppressManifestOutputWrites(
     outputFileSystem.writeFile = (filePath: string, ...args: any[]) => {
       if (isManifestPath(filePath)) {
         const callback = args[args.length - 1]
+
         if (typeof callback === 'function') callback(null)
+
         return
       }
 
@@ -112,6 +121,7 @@ function suppressManifestOutputWrites(
       outputFileSystem.writeFileSync.bind(outputFileSystem)
     outputFileSystem.writeFileSync = (filePath: string, ...args: any[]) => {
       if (isManifestPath(filePath)) return
+
       return originalWriteFileSync(filePath, ...args)
     }
   }
@@ -123,6 +133,7 @@ function suppressManifestOutputWrites(
       if (isManifestPath(filePath)) {
         const stream = createDiscardWriteStream()
         stream.path = filePath
+
         return stream
       }
 
@@ -139,6 +150,7 @@ function suppressManifestOutputWrites(
       ...args: any[]
     ) => {
       if (isManifestPath(filePath)) return
+
       return originalPromiseWriteFile(filePath, ...args)
     }
   }
@@ -268,7 +280,6 @@ export async function devServer(
     : '1'
 
   const {manifestPath, packageJsonPath} = projectStructure
-  const manifestDir = path.dirname(manifestPath)
   const packageJsonDir = path.dirname(packageJsonPath!)
 
   // Get command defaults from extension.config.js (located at project root)
@@ -318,6 +329,27 @@ export async function devServer(
     filePath: path.join(packageJsonDir, bridgeLogsRelPath),
     runId: currentInstance.instanceId
   })
+
+  const allowControl = Boolean((devOptions as any).allowControl)
+  const allowEval = Boolean((devOptions as any).allowEval)
+  const authorMode =
+    Boolean((devOptions as any).authorMode) ||
+    process.env.EXTENSION_AUTHOR_MODE === 'development'
+  const bridgeActionsFile = allowControl
+    ? new ActionsFileWriter({
+        filePath: path.join(
+          packageJsonDir,
+          'dist',
+          'extension-js',
+          browserName,
+          'actions.ndjson'
+        )
+      })
+    : undefined
+
+  // The eval token is written 0600 OUTSIDE dist/ only when eval is enabled.
+  const bridgeControlToken =
+    allowControl && allowEval ? writeControlToken(packageJsonDir) : undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: currentInstance.instanceId,
@@ -326,11 +358,20 @@ export async function devServer(
         ? 'firefox'
         : 'chromium',
     ring: new LogRingBuffer(),
-    file: bridgeLogFile
+    file: bridgeLogFile,
+    allowControl,
+    allowEval,
+    controlToken: bridgeControlToken,
+    actions: bridgeActionsFile,
+    authorMode
   })
+
   let bridgeControlPort: number | null = null
+
   try {
     bridgeLogFile.start()
+    bridgeActionsFile?.start()
+
     const controlServer = await startControlServer({
       broker: bridgeBroker,
       host: devServerHost
@@ -344,8 +385,9 @@ export async function devServer(
       // ignore
     }
   }
+
   // Expose control-channel coordinates to the compiler (same process) so the
-  // bridge-producer injector can bake them into the background SW.
+  // bridge-producer injector can bake them into the background SW
   process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
   process.env.EXTENSION_CONTROL_PORT =
     bridgeControlPort != null ? String(bridgeControlPort) : ''
@@ -356,6 +398,15 @@ export async function devServer(
       bridgeLogFile.close()
     } catch {
       // ignore
+    }
+    try {
+      bridgeActionsFile?.close()
+    } catch {
+      // ignore
+    }
+    // Never leave a usable eval token behind after the session ends.
+    if (bridgeControlToken) {
+      clearControlToken(packageJsonDir)
     }
   })
 

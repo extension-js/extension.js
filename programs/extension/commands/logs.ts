@@ -18,6 +18,8 @@ type LogsOptions = {
   level?: string
   signalsOnly?: boolean
   since?: string
+  url?: string
+  tab?: string
   output?: 'pretty' | 'json' | 'ndjson'
 }
 
@@ -30,6 +32,31 @@ function levelRank(level: string): number {
   return i === -1 ? LEVEL_ORDER.length : i
 }
 
+// `--url` accepts a glob (`*` = any run of chars) or a plain substring (no `*`).
+// Matched against the event's url, then hostname. Shared verbatim with the MCP
+// extension_logs tool — keep the two in lockstep.
+function makeUrlMatcher(pattern: string): (event: any) => boolean {
+  const hasGlob = pattern.includes('*')
+  let re: RegExp | null = null
+
+  if (hasGlob) {
+    const escaped = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+    re = new RegExp(escaped)
+  }
+
+  return (event: any): boolean => {
+    const candidates = [event.url, event.hostname].filter(
+      (v) => typeof v === 'string'
+    ) as string[]
+
+    if (candidates.length === 0) return false
+
+    return candidates.some((c) => (re ? re.test(c) : c.includes(pattern)))
+  }
+}
+
 function makeFilter(opts: LogsOptions) {
   const minLevel = String(opts.level || 'all').toLowerCase()
   const contexts =
@@ -37,15 +64,21 @@ function makeFilter(opts: LogsOptions) {
       ? new Set(opts.context.split(',').map((c) => c.trim()))
       : null
   const sinceSeq = opts.since != null ? Number(opts.since) : null
+  const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
+  const tabId = opts.tab != null && opts.tab !== '' ? Number(opts.tab) : null
 
   return (event: any): boolean => {
     if (!event || typeof event !== 'object') return false
     if (event.type === 'header') return false
+
     if (opts.signalsOnly && event.eventType !== 'dx.signal') return false
+
     if (contexts && !contexts.has(event.context)) return false
+
     if (minLevel !== 'all' && minLevel !== 'off') {
       if (levelRank(event.level) > levelRank(minLevel)) return false
     }
+
     if (
       sinceSeq != null &&
       Number.isFinite(sinceSeq) &&
@@ -54,12 +87,20 @@ function makeFilter(opts: LogsOptions) {
     ) {
       return false
     }
+
+    if (urlMatches && !urlMatches(event)) return false
+
+    if (tabId != null && Number.isFinite(tabId) && event.tabId !== tabId) {
+      return false
+    }
+
     return true
   }
 }
 
 function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
   if (opts.output) return opts.output
+
   return process.stdout.isTTY ? 'pretty' : 'ndjson'
 }
 
@@ -69,11 +110,13 @@ function printEvent(event: any, format: 'pretty' | 'json' | 'ndjson') {
     console.log(JSON.stringify(event))
     return
   }
+
   if (format === 'json') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(event, null, 2))
     return
   }
+
   const parts = Array.isArray(event.messageParts)
     ? event.messageParts
         .map((p: unknown) => (typeof p === 'string' ? p : JSON.stringify(p)))
@@ -110,7 +153,10 @@ export function registerLogsCommand(program: Command) {
       '--browser <chrome | chromium | edge | firefox>',
       'which dist/extension-js/<browser> to read. Defaults to `chromium`'
     )
-    .option('--follow', 'stream live via the control channel instead of printing and exiting')
+    .option(
+      '--follow',
+      'stream live via the control channel instead of printing and exiting'
+    )
     .option(
       '--context <list>',
       'comma-separated contexts (background, content, popup, options, sidebar, devtools, page)'
@@ -121,6 +167,11 @@ export function registerLogsCommand(program: Command) {
     )
     .option('--signals-only', 'show only structured dx.signal diagnostics')
     .option('--since <seq|iso>', 'only show events after this sequence number')
+    .option(
+      '--url <glob|substring>',
+      'only events whose url/hostname matches (glob with * or plain substring)'
+    )
+    .option('--tab <id>', 'only events from this tab id')
     .option(
       '--output <pretty|json|ndjson>',
       'output format. Defaults to pretty on a TTY, ndjson when piped'

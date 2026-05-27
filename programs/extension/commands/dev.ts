@@ -72,6 +72,8 @@ type DevOptions = {
   wait?: boolean
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
+  allowControl?: boolean
+  allowEval?: boolean
 }
 
 export function registerDevCommand(program: Command) {
@@ -222,6 +224,14 @@ export function registerDevCommand(program: Command) {
     .option(
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    )
+    .option(
+      '--allow-control',
+      'enable the agent-bridge control channel for bounded act (storage/reload/open): see `extension reload|storage|open`'
+    )
+    .option(
+      '--allow-eval',
+      'additionally enable `extension eval` (runs arbitrary code in a context; writes a 0600 session token)'
     )
     .action(async function (
       pathOrRemoteUrl: string,
