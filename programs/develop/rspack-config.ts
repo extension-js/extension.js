@@ -147,22 +147,24 @@ export default function webpackConfig(
     new PerfBudgetsPlugin({budgets: devOptions.perfBudgets})
   ]
 
-  if (devOptions.noBrowser) {
-    plugins.push(
-      new PlaywrightPlugin({
-        packageJsonDir,
-        browser: devOptions.browser,
-        mode: devOptions.mode,
-        outputPath: primaryExtensionOutputDir,
-        manifestPath,
-        port: devOptions.port,
-        instanceId: devOptions.instanceId,
-        controlPort: devOptions.controlPort,
-        controlPath: devOptions.controlPath,
-        logsPath: devOptions.logsPath
-      })
-    )
-  }
+  // The session/readiness contract (ready.json + events.ndjson) is written in
+  // ALL dev modes, not just --no-browser. Headed sessions need it too: the agent
+  // bridge's `extension logs --follow` and the act verbs (eval/storage/reload/
+  // open) discover the control channel (controlPort/instanceId) from ready.json.
+  plugins.push(
+    new PlaywrightPlugin({
+      packageJsonDir,
+      browser: devOptions.browser,
+      mode: devOptions.mode,
+      outputPath: primaryExtensionOutputDir,
+      manifestPath,
+      port: devOptions.port,
+      instanceId: devOptions.instanceId,
+      controlPort: devOptions.controlPort,
+      controlPath: devOptions.controlPath,
+      logsPath: devOptions.logsPath
+    })
+  )
 
   // Wire the browser lifecycle plugin when a launcher is provided.
   // BrowsersPlugin wraps the browser API (programs/extension/browsers/)

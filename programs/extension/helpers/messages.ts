@@ -61,6 +61,11 @@ export const commandDescriptions = {
   preview: 'Previews the extension in production mode without building',
   build: 'Builds the extension for packaging/distribution',
   logs: 'Prints or streams logs from every context of a running dev session',
+  eval: 'Evaluates an expression in a running extension context (requires --allow-eval)',
+  storage: 'Reads or writes chrome.storage in a running extension (requires --allow-control)',
+  reload: 'Reloads a running extension or tab (requires --allow-control)',
+  open: 'Opens an extension surface — popup, options, or sidebar (requires --allow-control)',
+  inspect: 'Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)',
   install: 'Installs a managed browser binary into Extension.js cache',
   uninstall: 'Removes managed browser binaries from Extension.js cache',
   telemetry:
@@ -144,6 +149,21 @@ ${'Available Commands'}
 
 - ${code('extension logs ' + arg('[project-path]'))}
   ${commandDescriptions.logs}
+
+- ${code('extension eval ' + arg('<expression> [project-path]'))}
+  ${commandDescriptions.eval}
+
+- ${code('extension storage ' + arg('<get|set> [key] [value] [project-path]'))}
+  ${commandDescriptions.storage}
+
+- ${code('extension reload ' + arg('[project-path]'))}
+  ${commandDescriptions.reload}
+
+- ${code('extension open ' + arg('<popup|options|sidebar> [project-path]'))}
+  ${commandDescriptions.open}
+
+- ${code('extension inspect ' + arg('[project-path] --tab <id>'))}
+  ${commandDescriptions.inspect}
 
 - ${code('extension install ' + arg('<chrome|chromium|edge|firefox>'))}
   ${commandDescriptions.install}
@@ -439,6 +459,11 @@ export type ProgramAIHelpJSON = {
       | 'preview'
       | 'build'
       | 'logs'
+      | 'eval'
+      | 'storage'
+      | 'reload'
+      | 'open'
+      | 'inspect'
       | 'install'
       | 'uninstall'
       | 'telemetry'
@@ -518,6 +543,31 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         name: 'logs',
         summary: commandDescriptions.logs,
         supportsSourceInspection: false
+      },
+      {
+        name: 'eval',
+        summary: commandDescriptions.eval,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'storage',
+        summary: commandDescriptions.storage,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'reload',
+        summary: commandDescriptions.reload,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'open',
+        summary: commandDescriptions.open,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'inspect',
+        summary: commandDescriptions.inspect,
+        supportsSourceInspection: true
       },
       {
         name: 'install',
