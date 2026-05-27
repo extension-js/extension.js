@@ -1,14 +1,3 @@
-/**
- * Agent-bridge wire contracts (TypeScript mirror of the JSON Schemas in
- * docs/agent-bridge/). Hand-written for now; a schema→type generation step
- * will replace this later so the schema stays the single source of truth.
- *
- * - LogEvent           ← docs/agent-bridge/log-event.schema.json (v1)
- * - Control envelope   ← docs/agent-bridge/control-envelope.schema.json (v1)
- *
- * Change these only alongside a schema version bump.
- */
-
 export const LOG_EVENT_VERSION = 1 as const
 export const CONTROL_ENVELOPE_VERSION = 1 as const
 
@@ -26,14 +15,10 @@ export type LogContext =
 export type LogEventType = 'log' | 'dx.signal'
 export type DxSignalStatus = 'ok' | 'warn' | 'fail'
 
-/** One log line — identical on the wire, in logs.ndjson, and in the sidebar. */
 export interface LogEvent {
-  /** Schema version. Always first, never reordered. */
   v: typeof LOG_EVENT_VERSION
   id: string
-  /** Monotonic per-session counter assigned by the broker at ingest. */
   seq: number
-  /** Producer-side epoch milliseconds (display only; order by `seq`). */
   timestamp: number
   level: LogLevel
   context: LogContext
@@ -53,21 +38,14 @@ export interface LogEvent {
   errorName?: string
   sourceExtensionId?: string
   incognito?: boolean
-  /** Ties the event to a session in ready-contract.json. */
   runId: string
-  /** Set only when the broker coalesced N identical consecutive events. */
   repeat?: number
 }
 
-/**
- * An event as produced before the broker assigns `seq` (the producer does not
- * own ordering). The broker stamps `seq` on ingest.
- */
 export type IncomingLogEvent = Omit<LogEvent, 'seq'> & {seq?: number}
 
 export type BridgeRole = 'producer' | 'consumer' | 'controller'
 
-/** Context-addressing model shared by commands and source inspection. */
 export interface BridgeTarget {
   context:
     | 'background'
@@ -77,9 +55,7 @@ export interface BridgeTarget {
     | 'devtools'
     | 'content'
     | 'page'
-  /** For context=content|page: glob/substring matching the document(s). */
   url?: string
-  /** For context=content|page: a specific tab. */
   tabId?: number
 }
 
@@ -103,7 +79,6 @@ export interface HelloFrame {
   v: typeof CONTROL_ENVELOPE_VERSION
   role: BridgeRole
   instanceId: string
-  /** Required for controller role issuing `eval`. */
   token?: string
 }
 
