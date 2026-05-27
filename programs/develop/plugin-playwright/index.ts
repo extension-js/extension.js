@@ -35,6 +35,9 @@ export type ReadyMetadata = {
   controlPort?: number | null
   controlPath?: string
   logsPath?: string
+  // The browser's real CDP --remote-debugging-port, filled in post-launch by the
+  // chromium launcher (read by the MCP source-inspect / --deep-dom tools).
+  cdpPort?: number
 }
 
 export type PlaywrightAutomationEvent = {
@@ -158,6 +161,17 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
+    // Preserve a cdpPort the chromium launcher wrote post-launch: ready.json is
+    // first written before the browser binds its debug port, so a recompile here
+    // must not clobber the real CDP port (read by the MCP source-inspect tool).
+    try {
+      if (fs.existsSync(readyPath)) {
+        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+        if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
+      }
+    } catch {
+      // ignore
+    }
     writeJsonAtomic(readyPath, payload)
   }
 
