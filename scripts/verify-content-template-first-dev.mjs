@@ -346,6 +346,38 @@ function inspectReactOptionalDeps(cacheBaseDir, extensionVersion) {
   }
 }
 
+// Pin known-broken transitive versions so the first-dev test can run against
+// the currently published `extension@latest` tree even when an upstream patch
+// release ships a corrupted tarball. Each entry below is annotated with the
+// upstream issue / date so we can drop it once the broken version is yanked
+// or the next published `extension-develop` already encodes the same pin.
+const SCAFFOLD_OVERRIDES = {
+  // @rspack/dev-server@2.0.2 (2026-05-28) shipped an empty tarball — only
+  // LICENSE/README/package.json, no dist/. `extension-develop@3.17.0`
+  // declares ^2.0.1, so a fresh npm install resolves to 2.0.2 and `node dev`
+  // hits ERR_MODULE_NOT_FOUND on @rspack/dev-server/dist/index.js. Force
+  // 2.0.1 until upstream republishes.
+  '@rspack/dev-server': '2.0.1'
+}
+
+async function injectScaffoldOverrides(projectDir) {
+  const pkgPath = path.join(projectDir, 'package.json')
+  let raw
+  try {
+    raw = await fs.readFile(pkgPath, 'utf8')
+  } catch {
+    return
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return
+  }
+  parsed.overrides = {...(parsed.overrides || {}), ...SCAFFOLD_OVERRIDES}
+  await fs.writeFile(pkgPath, `${JSON.stringify(parsed, null, 2)}\n`)
+}
+
 async function verifyTemplate(template) {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), `extjs-first-dev-${template}-`)
@@ -376,6 +408,7 @@ async function verifyTemplate(template) {
       root,
       env
     )
+    await injectScaffoldOverrides(projectDir)
     await runCommand('npm', ['i', '--no-audit', '--no-fund'], projectDir, env)
 
     try {
