@@ -27,10 +27,15 @@ interface PerfBudgetsPluginOptions {
  * per-asset-category budget tuned to how browser extensions actually
  * load code:
  *
- *   content_scripts/*    → 256 KiB  (injected on every navigation)
- *   background / SW      → 200 KiB  (wakes from cold each session)
- *   pages / sidebar / …  → 500 KiB  (opened on demand)
+ *   content_scripts/*    → 512 KiB  (injected on every navigation)
+ *   background / SW      → 512 KiB  (wakes from cold each session)
+ *   pages / sidebar / …  → 1 MiB    (opened on demand)
  *   images, fonts, etc.  → silenced (not a code-splitting concern)
+ *
+ * Numbers are sized to clear realistic framework templates (React/Vue/
+ * Preact/Svelte + a design system) and still flag genuine outliers
+ * (multi-MiB AI sidebars, heavyweight WASM service workers). Override
+ * per-category via `perfBudgets` in `extension.config.{js,ts}`.
  *
  * Set `compiler.options.performance.hints = false` when this plugin is
  * registered to avoid double-warnings.
