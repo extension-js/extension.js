@@ -87,7 +87,7 @@
     "@rspack/core": "^2.0.1",
     "@rspack/dev-server": "2.0.1",
     "@rspack/plugin-preact-refresh": "1.1.5",
-    "@rspack/plugin-react-refresh": "1.6.2",
+    "@rspack/plugin-react-refresh": "2.0.1",
     "@swc/core": "^1.15.8",
     "@swc/helpers": "^0.5.18",
     "@vue/compiler-sfc": "3.5.26",
