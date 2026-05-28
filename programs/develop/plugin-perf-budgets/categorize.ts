@@ -12,9 +12,16 @@
 // Hand-optimized extensions (uBlock Origin, Bitwarden, 1Password) keep
 // content scripts well under 100 KiB, but framework-based templates
 // (Vue, React, Preact, Svelte) ship a runtime that's ~150–225 KiB
-// minified before any user code. Setting the budget at 256 KiB keeps the
-// warning useful for hand-written content scripts while not crying wolf
-// on every framework template scaffolded by `extension create`.
+// minified before any user code, and a real UI on top easily lands
+// in the 300–500 KiB range. Shipping framework extensions in the wild
+// (Bitwarden ~500–700 KiB SW, MetaMask multi-MiB UI pages, Grammarly
+// 2–3 MiB content scripts) sit well above the old 256/200/500 KiB
+// numbers. We set the budgets to 512/512/1024 KiB so the warning still
+// fires on real outliers (multi-MiB AI sidebars, heavyweight WASM SWs)
+// without crying wolf on every framework template scaffolded by
+// `extension create`. Projects that legitimately need a tighter or
+// looser budget can override per-category via `perfBudgets` in
+// `extension.config.{js,ts}`.
 
 export type AssetCategory =
   | 'content-script'
@@ -67,8 +74,8 @@ export function categorizeAsset(rawName: string): AssetCategory {
 }
 
 export const BUDGET_BYTES: Record<AssetCategory, number> = {
-  'content-script': 256 * 1024,
-  'service-worker': 200 * 1024,
-  page: 500 * 1024,
+  'content-script': 512 * 1024,
+  'service-worker': 512 * 1024,
+  page: 1024 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }
