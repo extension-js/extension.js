@@ -19,8 +19,13 @@ import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
+import {generateExtensionTypes} from './lib/generate-extension-types'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
+import {
+  isUsingTypeScript,
+  ensureTypeScriptConfig
+} from './plugin-js-frameworks/js-tools/typescript'
 
 import type {BuildOptions} from './types'
 
@@ -44,6 +49,12 @@ export async function extensionBuild(
     await ensureDevelopArtifacts()
     if (buildOptions?.install !== false) {
       await ensureUserProjectDependencies(packageJsonDir)
+    }
+
+    ensureTypeScriptConfig(manifestDir)
+
+    if (isUsingTypeScript(manifestDir)) {
+      await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
