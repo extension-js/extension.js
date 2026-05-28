@@ -8,6 +8,18 @@
 
 import type {Command} from 'commander'
 
+// THIN WRAPPER — keep it that way.
+//
+// `publish` is the one place the OSS CLI touches the hosted extension.dev
+// platform. It exists here as a deliberately minimal funnel: build a request,
+// POST it, print the share URL. The CANONICAL/maintained publish implementation
+// lives in `@extension.dev/mcp` (extension-dev/packages/extensiondev-mcp/
+// src/tools/publish.ts), which is self-contained and does not shell out to this
+// command. The small POST duplication between the two is intentional.
+//
+// Do NOT grow platform features here (pack/sign/visibility/descriptors, a login
+// flow, etc.) — those belong to the platform/MCP scope. See
+// extension-dev/packages/extensiondev-mcp/docs/login-command-todo.md.
 const DEFAULT_API = 'https://www.extension.dev'
 
 export interface PublishRequest {
