@@ -129,6 +129,36 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "supportsSourceInspection": false,
     },
     {
+      "name": "eval",
+      "summary": "Evaluates an expression in a running extension context (requires --allow-eval)",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "storage",
+      "summary": "Reads or writes chrome.storage in a running extension (requires --allow-control)",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "reload",
+      "summary": "Reloads a running extension or tab (requires --allow-control)",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "open",
+      "summary": "Opens an extension surface — popup, options, or sidebar (requires --allow-control)",
+      "supportsSourceInspection": false,
+    },
+    {
+      "name": "inspect",
+      "summary": "Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)",
+      "supportsSourceInspection": true,
+    },
+    {
+      "name": "publish",
+      "summary": "Publishes to extension.dev and prints a shareable URL (requires EXTENSION_DEV_TOKEN)",
+      "supportsSourceInspection": false,
+    },
+    {
       "name": "install",
       "summary": "Installs a managed browser binary into Extension.js cache",
       "supportsSourceInspection": false,
