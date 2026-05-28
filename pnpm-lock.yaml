@@ -259,7 +259,7 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1(@swc/helpers@0.5.18)
       '@rspack/dev-server':
-        specifier: ^2.0.1
+        specifier: 2.0.1
         version: 2.0.1(@rspack/core@2.0.1(@swc/helpers@0.5.18))
       '@rspack/plugin-preact-refresh':
         specifier: 1.1.5
