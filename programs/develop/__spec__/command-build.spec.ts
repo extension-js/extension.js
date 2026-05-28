@@ -52,6 +52,17 @@ vi.mock('../lib/ensure-develop-artifacts', () => ({
   ensureUserProjectDependencies: vi.fn(async () => {})
 }))
 
+vi.mock('../lib/generate-extension-types', () => ({
+  generateExtensionTypes: vi.fn(async () => {})
+}))
+
+// Default to "no TS" so the existing JS-focused suites don't have to
+// thread a tsconfig through their fs stubs. Individual tests can override.
+vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
+  isUsingTypeScript: vi.fn(() => false),
+  ensureTypeScriptConfig: vi.fn()
+}))
+
 vi.mock('../lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
@@ -92,6 +103,8 @@ import * as configLoaderMod from '../lib/config-loader'
 import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
 import * as messages from '../lib/messages'
 import webpackConfig from '../rspack-config'
+import * as genTypesMod from '../lib/generate-extension-types'
+import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
 
 describe('webpack/command-build', () => {
   // fs is mocked; configure per-test behavior below
@@ -110,6 +123,10 @@ describe('webpack/command-build', () => {
     process.env.EXTENSION_VERBOSE = undefined
     ;(fs.existsSync as any)?.mockReset?.()
     ;(fs.readdirSync as any)?.mockReset?.()
+    ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
+    ;(tsToolsMod as any).isUsingTypeScript?.mockReset?.()
+    ;(tsToolsMod as any).ensureTypeScriptConfig?.mockReset?.()
+    ;(tsToolsMod as any).isUsingTypeScript?.mockReturnValue?.(false)
   })
 
   afterEach(() => {
@@ -453,6 +470,47 @@ describe('webpack/command-build', () => {
     )
     expect(process.env.NODE_ENV).toBe('development')
     process.env.NODE_ENV = previousNodeEnv
+  })
+
+  it('regenerates extension-env.d.ts for TS projects so CI tsc --noEmit stays clean', async () => {
+    // Symmetric with command-dev: `extension build` must publish the
+    // `/// <reference types="extension/types" />` shim so a fresh-clone CI run
+    // that never invoked `extension dev` still sees the ambient types
+    // (asset modules, ImportMetaEnv, global `browser`).
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    ;(tsToolsMod as any).isUsingTypeScript.mockReturnValue(true)
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith('/proj/src')
+    expect(genTypesMod.generateExtensionTypes).toHaveBeenCalledWith(
+      '/proj/src',
+      '/proj'
+    )
+  })
+
+  it('skips extension-env.d.ts regeneration on JS-only projects', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    ;(tsToolsMod as any).isUsingTypeScript.mockReturnValue(false)
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    // `ensureTypeScriptConfig` still runs (it gates the "TS files w/o tsconfig"
+    // error), but no shim is written when the project isn't using TS.
+    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith('/proj/src')
+    expect(genTypesMod.generateExtensionTypes).not.toHaveBeenCalled()
   })
 
   it('rejects when compiler returns missing stats (prevents silent success)', async () => {
