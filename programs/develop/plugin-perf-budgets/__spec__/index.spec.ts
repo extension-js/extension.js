@@ -54,10 +54,10 @@ describe('BUDGET_BYTES', () => {
     expect(BUDGET_BYTES.ignored).toBe(Number.POSITIVE_INFINITY)
   })
 
-  it('matches the documented 256/200/500 KiB targets', () => {
-    expect(BUDGET_BYTES['content-script']).toBe(256 * 1024)
-    expect(BUDGET_BYTES['service-worker']).toBe(200 * 1024)
-    expect(BUDGET_BYTES.page).toBe(500 * 1024)
+  it('matches the documented 512/512/1024 KiB targets', () => {
+    expect(BUDGET_BYTES['content-script']).toBe(512 * 1024)
+    expect(BUDGET_BYTES['service-worker']).toBe(512 * 1024)
+    expect(BUDGET_BYTES.page).toBe(1024 * 1024)
   })
 })
 
@@ -105,9 +105,9 @@ describe('PerfBudgetsPlugin', () => {
     return compilation
   }
 
-  it('warns when a content-script bundle exceeds 256 KiB', () => {
+  it('warns when a content-script bundle exceeds 512 KiB', () => {
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
-      'content_scripts/content-0.abc12345.js': 300 * 1024
+      'content_scripts/content-0.abc12345.js': 600 * 1024
     })
     expect(compilation.warnings).toHaveLength(1)
     expect(compilation.warnings[0].name).toBe('PerfBudgetWarning')
@@ -135,27 +135,30 @@ describe('PerfBudgetsPlugin', () => {
     const compilation = applyAndRun(
       new PerfBudgetsPlugin({enabled: true}),
       'development',
-      {'sidebar/index.js': 1024 * 1024}
+      {'sidebar/index.js': 2 * 1024 * 1024}
     )
     expect(compilation.warnings).toHaveLength(1)
   })
 
   it('honors per-category budget overrides', () => {
+    // Asset is over the default 512 KiB content-script budget, but the
+    // override raises the budget to 2 MiB — so it must NOT warn.
     const compilation = applyAndRun(
       new PerfBudgetsPlugin({
-        budgets: {'content-script': 1024 * 1024}
+        budgets: {'content-script': 2 * 1024 * 1024}
       }),
       'production',
-      {'content_scripts/content-0.js': 200 * 1024}
+      {'content_scripts/content-0.js': 600 * 1024}
     )
     expect(compilation.warnings).toHaveLength(0)
   })
 
   it('reports multiple oversized assets sorted by size desc', () => {
+    // All three exceed their respective budgets (512/512/1024 KiB).
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
-      'content_scripts/content-0.js': 300 * 1024,
-      'sidebar/index.js': 800 * 1024,
-      'background/service_worker.js': 250 * 1024
+      'content_scripts/content-0.js': 700 * 1024,
+      'sidebar/index.js': 1500 * 1024,
+      'background/service_worker.js': 600 * 1024
     })
     expect(compilation.warnings).toHaveLength(1)
     const msg = String(compilation.warnings[0].message)
@@ -165,7 +168,7 @@ describe('PerfBudgetsPlugin', () => {
     expect(sidebarIdx).toBeGreaterThan(-1)
     expect(swIdx).toBeGreaterThan(-1)
     expect(csIdx).toBeGreaterThan(-1)
-    // Sidebar (800 KiB) > CS (300 KiB) > SW (250 KiB)
+    // Sidebar (1500 KiB) > CS (700 KiB) > SW (600 KiB)
     expect(sidebarIdx).toBeLessThan(csIdx)
     expect(csIdx).toBeLessThan(swIdx)
   })
