@@ -61,6 +61,10 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Release-notes generator is pure Node + git; no build needed.
+      - name: Test release-notes generator
+        run: pnpm test:scripts
+
   tests:
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest

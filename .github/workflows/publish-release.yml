@@ -12,6 +12,11 @@ on:
         description: "Exact version. Use -next.* only with channel=next, plain semver only with stable. Leave empty for auto canary version."
         type: string
         required: false
+      draft:
+        description: "Create the GitHub Release as a draft for manual review before it goes public (stable/next only)."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -115,22 +120,33 @@ jobs:
           echo "should_tag=$SHOULD_TAG" >> $GITHUB_OUTPUT
           echo "Resolved publish target: channel=$CHANNEL version=$VERSION npm_tag=$( [ \"$CHANNEL\" = \"next\" ] && echo next || ( [ \"$CHANNEL\" = \"canary\" ] && echo canary || echo latest ) )"
 
-      - name: Generate release notes from git history
+      # Notes are anchored on the on-branch release commit (not a git tag), so a
+      # rewritten history can't explode the range. Highlights are read from
+      # RELEASE_HIGHLIGHTS.md. We emit three renderings: full markdown (GitHub
+      # Release + CHANGELOG), a condensed Discord body, and a tweet.
+      - name: Generate release notes
         if: ${{ inputs.channel != 'canary' }}
         id: changelog
         env:
           CURRENT_VERSION: ${{ steps.validate.outputs.version }}
+          NOTES_URL: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.validate.outputs.version }}
         run: |
           set -euo pipefail
-          last_tag=$(git tag --list 'v*' --sort=-v:refname | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | grep -Ev "^v${CURRENT_VERSION}$" | head -n 1 || true)
-          notes=$(node scripts/generate-release-notes.mjs --current-version "$CURRENT_VERSION")
+          notes=$(node scripts/generate-release-notes.mjs --current-version "$CURRENT_VERSION" --format markdown)
+          discord=$(node scripts/generate-release-notes.mjs --current-version "$CURRENT_VERSION" --format discord --notes-url "$NOTES_URL")
+          tweet=$(node scripts/generate-release-notes.mjs --current-version "$CURRENT_VERSION" --format tweet --notes-url "$NOTES_URL")
 
           {
-            echo "notes<<EOF"
+            echo "notes<<NOTES_EOF"
             echo "$notes"
-            echo "EOF"
+            echo "NOTES_EOF"
+            echo "discord<<DISCORD_EOF"
+            echo "$discord"
+            echo "DISCORD_EOF"
+            echo "tweet<<TWEET_EOF"
+            echo "$tweet"
+            echo "TWEET_EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "from_tag=$last_tag" >> "$GITHUB_OUTPUT"
 
       - name: Configure git user
         if: ${{ steps.validate.outputs.should_tag == 'true' }}
@@ -162,6 +178,7 @@ jobs:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
+          DRAFT: ${{ inputs.draft }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -179,7 +196,7 @@ jobs:
               tag_name: `v${version}`,
               name: `${version} (${date})`,
               body,
-              draft: false,
+              draft: process.env.DRAFT === 'true',
               prerelease: process.env.CHANNEL === 'next'
             });
             core.setOutput('url', release.data.html_url);
@@ -200,7 +217,7 @@ jobs:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
           RELEASE_TITLE: ${{ steps.validate.outputs.version }}
           RELEASE_URL: ${{ steps.create_release.outputs.url }}
-          RELEASE_BODY: ${{ steps.changelog.outputs.notes }}
+          RELEASE_BODY: ${{ steps.changelog.outputs.discord }}
           AVATAR_URL: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
         run: |
           python - <<'PY'
@@ -247,6 +264,78 @@ jobs:
             raise
           PY
 
+      # Posts the release tweet via the X API v2 (OAuth 1.0a user context, signed
+      # with the standard library). Dormant until the four X_* secrets are set;
+      # if any is missing the step no-ops so releases never block on it.
+      - name: Announce on X (Twitter)
+        if: ${{ inputs.channel == 'stable' }}
+        env:
+          TWEET: ${{ steps.changelog.outputs.tweet }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import hmac
+          import json
+          import os
+          import secrets
+          import time
+          import urllib.parse
+          import urllib.request
+
+          required = ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"]
+          if any(not os.environ.get(name) for name in required):
+            print("X_* secrets not configured; skipping tweet.")
+            raise SystemExit(0)
+
+          text = (os.environ.get("TWEET") or "").strip()
+          if not text:
+            print("Empty tweet body; skipping.")
+            raise SystemExit(0)
+
+          url = "https://api.twitter.com/2/tweets"
+          # RFC 3986 percent-encoding (urllib quotes the unreserved set we want).
+          def q(value):
+            return urllib.parse.quote(str(value), safe="-._~")
+
+          oauth = {
+            "oauth_consumer_key": os.environ["X_API_KEY"],
+            "oauth_token": os.environ["X_ACCESS_TOKEN"],
+            "oauth_signature_method": "HMAC-SHA1",
+            "oauth_timestamp": str(int(time.time())),
+            "oauth_nonce": secrets.token_hex(16),
+            "oauth_version": "1.0",
+          }
+          # JSON bodies are excluded from the OAuth signature base string.
+          base_params = "&".join(
+            f"{q(k)}={q(v)}" for k, v in sorted(oauth.items())
+          )
+          base = "&".join(["POST", q(url), q(base_params)])
+          signing_key = f'{q(os.environ["X_API_SECRET"])}&{q(os.environ["X_ACCESS_SECRET"])}'
+          oauth["oauth_signature"] = base64.b64encode(
+            hmac.new(signing_key.encode(), base.encode(), hashlib.sha1).digest()
+          ).decode()
+
+          header = "OAuth " + ", ".join(
+            f'{q(k)}="{q(v)}"' for k, v in sorted(oauth.items())
+          )
+          req = urllib.request.Request(
+            url,
+            data=json.dumps({"text": text}).encode("utf-8"),
+            headers={
+              "Authorization": header,
+              "Content-Type": "application/json",
+              "User-Agent": "Extension.js Release Notifier",
+            },
+          )
+          with urllib.request.urlopen(req) as resp:
+            print(f"Tweet posted: {resp.status}")
+          PY
+
       - name: Update changelog for stable release
         if: ${{ inputs.channel == 'stable' }}
         env:
@@ -284,7 +373,10 @@ jobs:
             ].join('');
             fs.writeFileSync(path, updated);
           "
-          git add CHANGELOG.md
+          # The highlights that shipped in this release are now baked into the
+          # changelog/GitHub Release/Discord, so reset the file for the next cycle.
+          cp scripts/release-highlights.template.md RELEASE_HIGHLIGHTS.md
+          git add CHANGELOG.md RELEASE_HIGHLIGHTS.md
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): move changelog to v${{ steps.validate.outputs.version }}"
             git push

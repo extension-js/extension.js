@@ -94,11 +94,14 @@ export function checkUpdates(
   packageJson: Record<string, any>,
   update: {latest: string}
 ) {
-  const suffix = colors.gray(`(version ${String(update.latest)} is available!)`)
+  const latest = String(update.latest)
+  const releaseNotesUrl = `https://github.com/extension-js/extension.js/releases/tag/v${latest}`
+  const suffix = colors.gray(`(version ${latest} is available!)`)
   const message =
     `${getLoggingPrefix('info')} 🧩 ${colors.blue('Extension.js')} update available.\n\n` +
     `You are currently using version ${colors.red(String(packageJson.version))}. ` +
-    `Latest stable is ${colors.green(String(update.latest))}.\n` +
+    `Latest stable is ${colors.green(latest)}.\n` +
+    `See what's new: ${colors.underline(releaseNotesUrl)}\n` +
     `Update to the latest stable to get fixes and new features.`
 
   return {suffix, message}
