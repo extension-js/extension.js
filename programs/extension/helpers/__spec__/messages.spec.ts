@@ -15,6 +15,10 @@ describe('messages helpers', () => {
     expect(msg.message).toMatch(/2.0.0/)
     expect(msg.message).toMatch(/2.1.0/)
     expect(msg.suffix).toMatch(/2.1.0/)
+    // Surfaces the release notes for the new version so "what's new" is one click away.
+    expect(msg.message).toContain(
+      'https://github.com/extension-js/extension.js/releases/tag/v2.1.0'
+    )
   })
 
   it('suggests start when URL passed to create', () => {

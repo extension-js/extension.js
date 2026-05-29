@@ -1,8 +1,11 @@
 name: Extension.js – Discord Release Notification
 
+# Manual fallback only. The primary Discord announcement is sent inline by
+# `publish-release.yml` (stable channel), which has the curated highlights and
+# condensed body. This workflow stays around to re-announce an existing release
+# by hand (e.g. if the inline notification failed) and intentionally does NOT
+# trigger on `release: published` — that would double-post every stable release.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,23 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Send Release Notification
-        if: github.event_name == 'release' && !github.event.release.prerelease
-        uses: SethCohen/github-releases-to-discord@v1.13.1
-        with:
-          webhook_url: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
-          color: "2105893"
-          username: "Extension.js"
-          avatar_url: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
-          content: "||@everyone||"
-          footer_title: "Changelog"
-          footer_icon_url: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
-          footer_timestamp: true
-
-      - name: Resolve release (manual)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Resolve release
         id: release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -51,8 +40,8 @@ jobs:
             core.setOutput('body', release.data.body || '');
             core.setOutput('prerelease', String(Boolean(release.data.prerelease)));
 
-      - name: Send Release Notification (manual)
-        if: github.event_name == 'workflow_dispatch' && steps.release.outputs.prerelease != 'true'
+      - name: Send Release Notification
+        if: steps.release.outputs.prerelease != 'true'
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
           RELEASE_TITLE: ${{ steps.release.outputs.title }}
@@ -63,6 +52,8 @@ jobs:
           python - <<'PY'
           import json, os, datetime, urllib.request, urllib.error
           body = os.environ.get("RELEASE_BODY", "").strip()
+          if len(body) > 4000:
+            body = body[:3997].rstrip() + "..."
           payload = {
             "content": "||@everyone||",
             "username": "Extension.js",
