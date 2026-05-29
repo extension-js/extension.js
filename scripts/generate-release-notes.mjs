@@ -1,6 +1,33 @@
 #!/usr/bin/env node
 
+/**
+ * Generate release notes for a release.
+ *
+ * Two layers feed every announcement surface:
+ *
+ *   1. Highlights — a short, curated, user-facing summary authored by a human in
+ *      RELEASE_HIGHLIGHTS.md ("what you can now do"). Optional but encouraged.
+ *   2. Detail — the auto-generated commit list, categorized into Features / Fixes /
+ *      Other so the real changes are skimmable instead of a flat git-log dump.
+ *
+ * The commit range is anchored on the most recent *on-branch* release commit
+ * (`release(stable): vX` / `chore(release): move changelog to vX`) reachable from
+ * the target ref — NOT on a git tag. Tags get orphaned whenever `main` history is
+ * rewritten, which used to make the range explode to the entire backlog. Release
+ * commits travel with the branch, so the anchor stays correct across rebases.
+ *
+ * Usage:
+ *   node scripts/generate-release-notes.mjs --current-version 3.19.0
+ *   node scripts/generate-release-notes.mjs --current-version 3.19.0 --format discord --notes-url <url>
+ *   node scripts/generate-release-notes.mjs --from <ref> --to <ref> --format json
+ */
+
 import {execFileSync} from 'child_process'
+import {existsSync, readFileSync} from 'fs'
+import {pathToFileURL} from 'url'
+
+const DEFAULT_REPO_URL = 'https://github.com/extension-js/extension.js'
+const DEFAULT_HIGHLIGHTS_FILE = 'RELEASE_HIGHLIGHTS.md'
 
 function getArg(flag) {
   const index = process.argv.indexOf(flag)
@@ -12,42 +39,59 @@ function git(args) {
   return execFileSync('git', args, {encoding: 'utf8'}).trim()
 }
 
-function getLastStableTag(currentVersion, toRef = 'HEAD') {
-  const tags = git(['tag', '--list', 'v*', '--sort=-v:refname'])
-    .split('\n')
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-    .filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))
-    .filter((tag) => tag !== `v${currentVersion}`)
-
-  if (tags.length === 0) return ''
-
-  const bestTag = tags[0]
-
-  // Check if the tag is an actual ancestor of the target ref.
-  // When history has been rebased after tagging, the tag points to an
-  // orphaned commit and the range "tag..ref" explodes to the full diff
-  // between two divergent lineages. In that case, find the matching
-  // release commit in the current lineage by its commit message instead.
+function gitOrEmpty(args) {
   try {
-    git(['merge-base', '--is-ancestor', bestTag, toRef])
-    return bestTag
+    return git(args)
   } catch {
-    const version = bestTag.replace(/^v/, '')
-    const sha = git([
-      'log',
-      toRef,
-      '--format=%H',
-      '--grep',
-      `release(stable): v${version}`,
-      '-1'
-    ])
-    return sha || bestTag
+    return ''
   }
 }
 
+// ── Range anchor ────────────────────────────────────────────────────────────
+
+// A release boundary is the previous release's bookkeeping commit. We match both
+// the version-bump commit and the changelog-move commit and take whichever is
+// most recent, excluding the version currently being released.
+const RELEASE_BOUNDARY_GREP = [
+  '--grep=^release\\((stable|next)\\): v[0-9]',
+  '--grep=^chore\\(release\\): move changelog to v[0-9]'
+]
+
+function findAnchor(toRef, currentVersion) {
+  const log = gitOrEmpty([
+    'log',
+    toRef,
+    '-E',
+    ...RELEASE_BOUNDARY_GREP,
+    '--format=%H%x09%s',
+    '-n',
+    '50'
+  ])
+  if (!log) return ''
+
+  const currentTag = currentVersion ? `v${currentVersion}` : ''
+  for (const line of log.split('\n')) {
+    const [sha, subject = ''] = line.split('\t')
+    if (!sha) continue
+    // Skip the boundary for the version we're releasing right now (relevant when
+    // --to points at an existing release commit, e.g. during backfill).
+    if (currentTag && subject.includes(`${currentTag} `)) continue
+    if (currentTag && subject.endsWith(currentTag)) continue
+    return sha
+  }
+  return ''
+}
+
+function resolveRange(currentVersion, fromRef, toRef) {
+  if (fromRef) return `${fromRef}..${toRef}`
+  const anchor = findAnchor(toRef, currentVersion)
+  return anchor ? `${anchor}..${toRef}` : toRef
+}
+
+// ── Commit collection ─────────────────────────────────────────────────────────
+
 function getCommits(range) {
-  const output = git([
+  const output = gitOrEmpty([
     'log',
     range,
     '--no-merges',
@@ -63,11 +107,7 @@ function getCommits(range) {
     .split('\n')
     .map((line) => {
       const [full, short, ...subjectParts] = line.split('\t')
-      return {
-        full,
-        short,
-        subject: subjectParts.join('\t').trim()
-      }
+      return {full, short, subject: subjectParts.join('\t').trim()}
     })
     .filter((commit) => commit.short && commit.subject)
 }
@@ -76,103 +116,275 @@ function matchesAny(subject, patterns) {
   return patterns.some((pattern) => pattern.test(subject))
 }
 
-function formatRefs(commits) {
-  return `(${commits.map((commit) => commit.short).join(', ')})`
-}
-
+// Noise that should never reach an announcement: dependency bumps, lockfile
+// churn, internal package restructuring, CI plumbing, version bumps.
 const IGNORED_PATTERNS = [
-  // ── Release / publish pipeline ────────────────────────────────────────
-  /^Fix publish workflow/i,
-  /^Fix release pipeline/i,
-  /^Fix next\/canary publish workflows$/i,
-  /^Resolve release notes range/i,
-  /^Exclude chore\(release\)\/release\(\) from changelog/i,
-
-  // ── CI / Actions infrastructure ───────────────────────────────────────
-  /^Use pnpm\/action-setup v\d+/i,
+  /^Bump .+ from .+ to /i, // Dependabot range bumps
+  /^Bump Extension\.js$/i,
+  /^Update pnpm[- ]lock/i,
+  /^Refresh pnpm-lock/i,
+  /^Remove build-dependencies\.json/i,
+  /^Use pnpm\/action-setup/i,
   /^Add privacy-safe workflow telemetry/i,
-  /^Optimize .+ workflows/i,
-  /^Add .+ CI .+ sandbox/i,
-  /^Fix stale .+ path in .+ (smoke|script)/i,
-
-  // ── Build-time type-declaration fixes (no runtime impact) ─────────────
   /^Add missing @types\//i,
-
-  // ── Test-only additions ───────────────────────────────────────────────
-  /^Add .+ spec tests/i,
-
-  // ── Internal package restructuring (public package names unchanged) ───
   /^Combine CLI \+ browser/i,
   /^Extract programs\//i,
-  /^Rename programs\//i,
-
-  // ── Dependency bumps (Dependabot, manual audit) ───────────────────────
-  /^Bump .+ from .+ to /i,
-
-  // ── Lockfile / infrastructure-only maintenance ────────────────────────
-  /^Update pnpm lockfile$/i,
-  /^Remove build-dependencies\.json/i
+  /^Rename programs\//i
 ]
 
-const GROUPS = [
+// Order matters: a commit lands in the first category whose patterns match.
+const CATEGORIES = [
   {
-    summary:
-      'Improve browser launch, reload, and teardown reliability across Chromium and Firefox.',
+    key: 'features',
+    title: '🚀 Features',
     patterns: [
-      /Harden browser CDP\/RDP reliability/i,
-      /Fix CDP race condition/i,
-      /fix signal race/i
+      /^Add\b/i,
+      /^Introduce\b/i,
+      /^Support\b/i,
+      /^Implement\b/i,
+      /^Enable\b/i,
+      /^Bundle\b/i,
+      /^Expose\b/i,
+      /^Allow\b/i,
+      /^Surface\b/i,
+      /^Forward\b/i,
+      /^Inspect\b/i,
+      /^Enhance\b/i
     ]
   },
   {
-    summary:
-      'Restructure the `start` command to run build then preview for faster iteration.',
+    key: 'fixes',
+    title: '🐛 Fixes',
     patterns: [
-      /Remove extensionStart from develop/i,
-      /Orchestrate start command/i,
-      /Add lightweight preview entry/i
+      /^Fix\b/i,
+      /^Resolve\b/i,
+      /^Patch\b/i,
+      /^Restore\b/i,
+      /^Repair\b/i,
+      /^Correct\b/i,
+      /^Prevent\b/i,
+      /^Guard\b/i,
+      /^Avoid\b/i,
+      /^Stop\b/i,
+      /^Harden\b/i,
+      /^Ensure\b/i,
+      /^Sweep\b/i,
+      /^Gate\b/i,
+      /to patch GHSA/i,
+      /to clear .*advisor/i
     ]
-  },
-  {
-    summary:
-      'Make `extension-create` and `extension-develop` programmatically accessible with injectable loggers, structured results, and a BuildEmitter event API.',
-    patterns: [/Make extensionCreate API/i, /Add BuildEmitter event API/i]
   }
 ]
 
-function generateNotes(commits) {
-  const used = new Set()
-  const lines = []
+const OTHER_TITLE = '🧹 Other changes'
 
-  for (const group of GROUPS) {
-    const matched = commits.filter((commit) => {
-      if (used.has(commit.full)) return false
-      return matchesAny(commit.subject, group.patterns)
-    })
-
-    if (matched.length === 0) continue
-
-    matched.forEach((commit) => used.add(commit.full))
-    lines.push(`- ${group.summary} ${formatRefs(matched)}`)
+function categorize(commits) {
+  const buckets = {features: [], fixes: [], other: []}
+  for (const commit of commits) {
+    if (matchesAny(commit.subject, IGNORED_PATTERNS)) continue
+    const category = CATEGORIES.find((group) =>
+      matchesAny(commit.subject, group.patterns)
+    )
+    buckets[category ? category.key : 'other'].push(commit)
   }
-
-  const leftovers = commits.filter((commit) => {
-    if (used.has(commit.full)) return false
-    return !matchesAny(commit.subject, IGNORED_PATTERNS)
-  })
-
-  leftovers.forEach((commit) => {
-    lines.push(`- ${commit.subject} (${commit.short})`)
-  })
-
-  return lines.length > 0 ? lines.join('\n') : '- No changes listed.'
+  return buckets
 }
 
-const currentVersion = getArg('--current-version') || ''
-const fromTag = getArg('--from')
-const toRef = getArg('--to') || 'HEAD'
-const lastTag = fromTag || getLastStableTag(currentVersion, toRef)
-const range = lastTag ? `${lastTag}..${toRef}` : toRef
-const commits = getCommits(range)
+// ── Highlights (curated) ───────────────────────────────────────────────────────
 
-process.stdout.write(generateNotes(commits))
+// Extract bullet lines under the first `## Highlights` heading, ignoring HTML
+// comments (the template instructions). Returns an array of raw bullet strings
+// (without the leading "- ").
+function readHighlights(file) {
+  if (!file || !existsSync(file)) return []
+  const raw = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  const lines = raw.split('\n')
+  const start = lines.findIndex((line) => /^##\s+Highlights\s*$/i.test(line))
+  if (start === -1) return []
+  const highlights = []
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (/^##\s+/.test(line)) break
+    const match = line.match(/^\s*[-*]\s+(.*\S)\s*$/)
+    if (match) highlights.push(match[1].trim())
+  }
+  return highlights
+}
+
+// ── Formatting ─────────────────────────────────────────────────────────────────
+
+function bullet(commit, repoUrl) {
+  const link = repoUrl
+    ? `([${commit.short}](${repoUrl}/commit/${commit.full}))`
+    : `(${commit.short})`
+  return `- ${commit.subject} ${link}`
+}
+
+function formatMarkdown({highlights, buckets, repoUrl}) {
+  const sections = []
+
+  if (highlights.length > 0) {
+    sections.push(highlights.map((h) => `- ${h}`).join('\n'))
+  }
+
+  for (const group of CATEGORIES) {
+    const commits = buckets[group.key]
+    if (commits.length === 0) continue
+    sections.push(
+      `### ${group.title}\n\n` +
+        commits.map((commit) => bullet(commit, repoUrl)).join('\n')
+    )
+  }
+
+  if (buckets.other.length > 0) {
+    const body = buckets.other
+      .map((commit) => bullet(commit, repoUrl))
+      .join('\n')
+    sections.push(
+      `<details>\n<summary>${OTHER_TITLE} (${buckets.other.length})</summary>\n\n${body}\n</details>`
+    )
+  }
+
+  return sections.length > 0 ? sections.join('\n\n') : '- No changes listed.'
+}
+
+function formatDiscord({highlights, buckets, notesUrl}) {
+  const parts = []
+
+  if (highlights.length > 0) {
+    parts.push(highlights.map((h) => `- ${h}`).join('\n'))
+  } else {
+    // No curated highlights: lead with up to 3 features so the ping still says
+    // something concrete instead of just counts.
+    const lead = buckets.features.slice(0, 3)
+    if (lead.length > 0) {
+      parts.push(lead.map((commit) => `- ${commit.subject}`).join('\n'))
+    }
+  }
+
+  const summary = [
+    buckets.features.length ? `🚀 ${buckets.features.length} features` : '',
+    buckets.fixes.length ? `🐛 ${buckets.fixes.length} fixes` : '',
+    buckets.other.length ? `🧹 ${buckets.other.length} other` : ''
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  if (summary) parts.push(summary)
+
+  if (notesUrl) parts.push(`📖 [Full release notes](${notesUrl})`)
+
+  return parts.length > 0 ? parts.join('\n\n') : 'No changes listed.'
+}
+
+function buildTweet({version, highlights, buckets, notesUrl}) {
+  const headline =
+    highlights[0] ||
+    (buckets.features[0] && buckets.features[0].subject) ||
+    (buckets.fixes[0] && buckets.fixes[0].subject) ||
+    'New release'
+  // Strip markdown emphasis/links for plain-text platforms.
+  const plain = headline
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[`*_]/g, '')
+    .trim()
+  const lead = `🧩 Extension.js v${version} is out!`
+  const body = plain.length > 180 ? `${plain.slice(0, 177)}...` : plain
+  const url = notesUrl ? `\n\n${notesUrl}` : ''
+  return `${lead}\n\n${body}${url}`
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+export function generate({
+  currentVersion = '',
+  fromRef,
+  toRef = 'HEAD',
+  format = 'markdown',
+  repoUrl = DEFAULT_REPO_URL,
+  notesUrl,
+  highlightsFile
+} = {}) {
+  const resolvedNotesUrl =
+    notesUrl ||
+    (currentVersion ? `${repoUrl}/releases/tag/v${currentVersion}` : '')
+  const range = resolveRange(currentVersion, fromRef, toRef)
+  const commits = getCommits(range)
+  const buckets = categorize(commits)
+  const highlights = readHighlights(highlightsFile)
+
+  if (format === 'json') {
+    return JSON.stringify(
+      {
+        version: currentVersion || null,
+        range,
+        notesUrl: resolvedNotesUrl || null,
+        highlights,
+        features: buckets.features.map((c) => c.subject),
+        fixes: buckets.fixes.map((c) => c.subject),
+        other: buckets.other.map((c) => c.subject),
+        counts: {
+          features: buckets.features.length,
+          fixes: buckets.fixes.length,
+          other: buckets.other.length
+        },
+        tweet: buildTweet({
+          version: currentVersion,
+          highlights,
+          buckets,
+          notesUrl: resolvedNotesUrl
+        })
+      },
+      null,
+      2
+    )
+  }
+  if (format === 'discord') {
+    return formatDiscord({highlights, buckets, notesUrl: resolvedNotesUrl})
+  }
+  if (format === 'tweet') {
+    return buildTweet({
+      version: currentVersion,
+      highlights,
+      buckets,
+      notesUrl: resolvedNotesUrl
+    })
+  }
+  return formatMarkdown({highlights, buckets, repoUrl})
+}
+
+function main() {
+  const currentVersion = getArg('--current-version') || ''
+  const highlightsFile =
+    getArg('--highlights') ||
+    (existsSync(DEFAULT_HIGHLIGHTS_FILE) ? DEFAULT_HIGHLIGHTS_FILE : undefined)
+  process.stdout.write(
+    generate({
+      currentVersion,
+      fromRef: getArg('--from'),
+      toRef: getArg('--to') || 'HEAD',
+      format: getArg('--format') || 'markdown',
+      repoUrl: getArg('--repo-url') || DEFAULT_REPO_URL,
+      notesUrl: getArg('--notes-url'),
+      highlightsFile
+    })
+  )
+}
+
+// Pure helpers are exported for tests; CLI behavior runs only when invoked
+// directly (so importing the module never shells out to git).
+export {
+  findAnchor,
+  resolveRange,
+  getCommits,
+  categorize,
+  readHighlights,
+  formatMarkdown,
+  formatDiscord,
+  buildTweet,
+  IGNORED_PATTERNS,
+  CATEGORIES
+}
+
+const invokedDirectly =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (invokedDirectly) main()
