@@ -3,9 +3,8 @@
 ## Unreleased
 
 <details>
-<summary>🧹 Other changes (2)</summary>
+<summary>🧹 Other changes (1)</summary>
 
-- Rebuild release announcements and fix the v3.14.0 telemetry blackout ([0524ddb5](https://github.com/extension-js/extension.js/commit/0524ddb5b4ada458ecadd7f1e2996be79de9ce62))
 - Document publish as a thin wrapper ([32098310](https://github.com/extension-js/extension.js/commit/32098310b746569db07fc6460c2220fd4922191f))
 </details>
 
