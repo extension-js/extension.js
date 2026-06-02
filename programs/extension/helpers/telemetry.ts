@@ -51,12 +51,7 @@ const DEFAULT_DEBOUNCE_MS = Number(
 const DEFAULT_TIMEOUT_MS = Number(
   process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 300
 )
-// PostHog project keys (phc_*) are public, write-only ingestion keys meant to
-// ship in client code — this is the project's key and must stay baked in as a
-// fallback. Without it, published builds have no key (nothing sets POSTHOG_KEY
-// at build time), `track()` bails on the empty-key guard, and the CLI goes dark
-// in analytics. Dropping this fallback is exactly what silenced all telemetry
-// from v3.14.0 onward. Do not remove.
+
 export const DEFAULT_POSTHOG_KEY =
   process.env.POSTHOG_KEY || 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
 const DEFAULT_POSTHOG_HOST =
