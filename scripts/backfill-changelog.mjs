@@ -1,25 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Rebuild CHANGELOG.md so every stable release above the last hand-written
- * section gets its own `## X.Y.Z (date)` block, generated from the on-branch
- * `release(stable): vX` commits.
- *
- * Why this exists: the old publish step anchored release-notes on git tags, which
- * get orphaned whenever `main` history is rewritten. The range then exploded to
- * the whole backlog and the "move changelog" step kept rewriting `## Unreleased`
- * in place — so no per-version sections were ever cut for 3.9 → 3.18. This script
- * reconstructs them from the release commits (which travel with the branch) and
- * resets `## Unreleased` to the genuine delta since the latest release.
- *
- * Usage:
- *   node scripts/backfill-changelog.mjs            # dry run, prints to stdout
- *   node scripts/backfill-changelog.mjs --write    # rewrite CHANGELOG.md
- *
- * Idempotent: it always rebuilds the sections above the `--floor` version
- * (default 3.8.2), so re-running produces the same file.
- */
-
 import {execFileSync} from 'child_process'
 import {readFileSync, writeFileSync} from 'fs'
 
@@ -60,8 +40,6 @@ function formatDate(iso) {
   }).format(new Date(iso))
 }
 
-// Most-recent-first list of stable release commits reachable from HEAD,
-// de-duplicated by version (history rewrites can leave duplicate commits).
 function getStableReleases() {
   const log = git([
     'log',
@@ -88,10 +66,6 @@ function main() {
     throw new Error('No release(stable) commits found on HEAD.')
   }
 
-  // Sections to (re)build: every stable version strictly above the floor,
-  // ordered newest-first by semver for readability. The commit range for each
-  // version is resolved by findAnchor (nearest ancestor release boundary), so a
-  // tangled/rewritten history can never re-explode the range.
   const toBuild = releases
     .filter((r) => semverGt(r.version, FLOOR_VERSION))
     .sort((a, b) => (semverGt(a.version, b.version) ? -1 : 1))
