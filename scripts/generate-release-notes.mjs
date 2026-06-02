@@ -47,11 +47,6 @@ function gitOrEmpty(args) {
   }
 }
 
-// ── Range anchor ────────────────────────────────────────────────────────────
-
-// A release boundary is the previous release's bookkeeping commit. We match both
-// the version-bump commit and the changelog-move commit and take whichever is
-// most recent, excluding the version currently being released.
 const RELEASE_BOUNDARY_GREP = [
   '--grep=^release\\((stable|next)\\): v[0-9]',
   '--grep=^chore\\(release\\): move changelog to v[0-9]'
@@ -73,12 +68,12 @@ function findAnchor(toRef, currentVersion) {
   for (const line of log.split('\n')) {
     const [sha, subject = ''] = line.split('\t')
     if (!sha) continue
-    // Skip the boundary for the version we're releasing right now (relevant when
-    // --to points at an existing release commit, e.g. during backfill).
     if (currentTag && subject.includes(`${currentTag} `)) continue
     if (currentTag && subject.endsWith(currentTag)) continue
+ 
     return sha
   }
+ 
   return ''
 }
 
@@ -116,8 +111,6 @@ function matchesAny(subject, patterns) {
   return patterns.some((pattern) => pattern.test(subject))
 }
 
-// Noise that should never reach an announcement: dependency bumps, lockfile
-// churn, internal package restructuring, CI plumbing, version bumps.
 const IGNORED_PATTERNS = [
   /^Bump .+ from .+ to /i, // Dependabot range bumps
   /^Bump Extension\.js$/i,
@@ -190,28 +183,27 @@ function categorize(commits) {
   return buckets
 }
 
-// ── Highlights (curated) ───────────────────────────────────────────────────────
-
-// Extract bullet lines under the first `## Highlights` heading, ignoring HTML
-// comments (the template instructions). Returns an array of raw bullet strings
-// (without the leading "- ").
 function readHighlights(file) {
   if (!file || !existsSync(file)) return []
+
   const raw = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
   const lines = raw.split('\n')
   const start = lines.findIndex((line) => /^##\s+Highlights\s*$/i.test(line))
+
   if (start === -1) return []
+
   const highlights = []
+
   for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i]
     if (/^##\s+/.test(line)) break
+
     const match = line.match(/^\s*[-*]\s+(.*\S)\s*$/)
     if (match) highlights.push(match[1].trim())
   }
+
   return highlights
 }
-
-// ── Formatting ─────────────────────────────────────────────────────────────────
 
 function bullet(commit, repoUrl) {
   const link = repoUrl
@@ -293,8 +285,6 @@ function buildTweet({version, highlights, buckets, notesUrl}) {
   return `${lead}\n\n${body}${url}`
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-
 export function generate({
   currentVersion = '',
   fromRef,
@@ -370,8 +360,6 @@ function main() {
   )
 }
 
-// Pure helpers are exported for tests; CLI behavior runs only when invoked
-// directly (so importing the module never shells out to git).
 export {
   findAnchor,
   resolveRange,
