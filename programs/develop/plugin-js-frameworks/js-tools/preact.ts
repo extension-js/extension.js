@@ -57,8 +57,17 @@ export async function maybeUsePreact(
       contractId: 'preact-refresh',
       projectPath,
       dependencyId: '@rspack/plugin-preact-refresh',
+      // Export shape differs across majors:
+      //   v1.x  → `module.exports = PreactRefreshPlugin` (the ctor itself)
+      //   v2.x  → named export `{ PreactRefreshRspackPlugin }`, no default
+      // Pick the ctor across both (and CJS/ESM interop default wrapping)
+      // so a major bump doesn't throw "PreactRefreshPlugin is not a
+      // constructor" at config time.
       moduleAdapter: (mod: any) =>
-        ((mod && mod.default) || mod) as PreactRefreshPluginCtor
+        (mod?.PreactRefreshRspackPlugin ??
+          mod?.default?.PreactRefreshRspackPlugin ??
+          mod?.default ??
+          mod) as PreactRefreshPluginCtor
     })
 
   const requireFromProject = createRequire(
