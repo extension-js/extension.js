@@ -18,7 +18,7 @@ Related workspaces:
 
 ## Prerequisites
 
-- Node.js 18+ (Node 20 is recommended; CI typically runs on 20).
+- Node.js 22.12+ (CI runs on Node 22; required by `commander@15`).
 - PNPM 10.x (workspace uses `packageManager: pnpm@10.28.0`).
 - macOS, Linux, or Windows.
 - Optional for E2E: browsers used by Playwright (Chrome/Chromium is enough for most).
