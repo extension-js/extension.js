@@ -26,7 +26,7 @@ jobs:
             nightly-chromium-${{ runner.os }}-20-
       - uses: ./.github/actions/setup
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Compile
         run: pnpm compile
       - name: Hydrate templates from examples repo
@@ -63,7 +63,7 @@ jobs:
             nightly-edge-${{ runner.os }}-20-
       - uses: ./.github/actions/setup
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Compile
         run: pnpm compile
       - name: Hydrate templates from examples repo
@@ -107,7 +107,7 @@ jobs:
             nightly-firefox-${{ runner.os }}-20-
       - uses: ./.github/actions/setup
         with:
-          node-version: '22'
+          node-version: '20'
       - name: Compile
         run: pnpm compile
       - name: Hydrate templates from examples repo
