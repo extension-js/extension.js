@@ -118,4 +118,42 @@ describe('preact tools', () => {
       preactPath: '/project/node_modules/preact'
     })
   })
+
+  it('resolves the ctor from the v2 named export (PreactRefreshRspackPlugin, no default)', async () => {
+    // Regression: @rspack/plugin-preact-refresh@2.x dropped the default
+    // export and exposes `{ PreactRefreshRspackPlugin }`. The old adapter
+    // `(mod.default || mod)` then handed rspack the namespace object and
+    // `new PreactRefreshPlugin()` threw "is not a constructor" at config time.
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'preact'
+    )
+
+    let constructed = false
+    const PreactRefreshRspackPlugin = function (this: any) {
+      constructed = true
+      this.apply = vi.fn()
+    } as any
+    vi.doMock('module', () => ({
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === '@rspack/plugin-preact-refresh') {
+            // v2 shape: named export only, no `default`.
+            return {PreactRefreshRspackPlugin}
+          }
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
+    }))
+
+    const {maybeUsePreact} = await import('../../js-tools/preact')
+    const result = await maybeUsePreact('/p')
+
+    expect(constructed).toBe(true)
+    expect(result?.plugins?.length).toBeGreaterThan(0)
+  })
 })
