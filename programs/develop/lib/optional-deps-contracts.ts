@@ -47,12 +47,13 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
     installPackages: [
       '@prefresh/core@1.5.9',
       '@prefresh/utils@1.2.1',
-      // 1.1.5 is required for rspack 2.x: 1.1.4 only checks
-      // `runtimeModule.constructorName`, which is `undefined` in rspack 2.x.
-      // Without the v1.1.5 fallback to `runtimeModule.constructor?.name`,
-      // the HMR runtime intercept is never appended and `$RefreshReg$` is
-      // undefined when the user's bundle evaluates.
-      '@rspack/plugin-preact-refresh@1.1.5',
+      // 2.0.1 is the rspack-2.x-native major: it declares `@rspack/core`
+      // ^2.0.0 as a peer and keeps the `runtimeModule.constructor?.name`
+      // fallback that 1.1.5 introduced. (Earlier 1.1.4 only checked
+      // `runtimeModule.constructorName`, which is `undefined` in rspack 2.x,
+      // so the HMR runtime intercept was never appended and `$RefreshReg$`
+      // stayed undefined when the user's bundle evaluated.)
+      '@rspack/plugin-preact-refresh@2.0.1',
       'preact@10.27.2'
     ],
     verificationRules: [

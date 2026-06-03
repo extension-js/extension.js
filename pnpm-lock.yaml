@@ -195,8 +195,8 @@ importers:
         specifier: ^0.5.16
         version: 0.5.16
       axios:
-        specifier: ^1.15.2
-        version: 1.15.2
+        specifier: ^1.16.0
+        version: 1.16.0
       cross-spawn:
         specifier: ^7.0.6
         version: 7.0.6
@@ -262,8 +262,8 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(@rspack/core@2.0.1(@swc/helpers@0.5.18))
       '@rspack/plugin-preact-refresh':
-        specifier: 1.1.5
-        version: 1.1.5(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)
+        specifier: 2.0.1
+        version: 2.0.1(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)(@rspack/core@2.0.1(@swc/helpers@0.5.18))
       '@rspack/plugin-react-refresh':
         specifier: 1.6.2
         version: 1.6.2(react-refresh@0.18.0)
@@ -2403,6 +2403,16 @@ packages:
       '@prefresh/core': ^1.5.0
       '@prefresh/utils': ^1.2.0
 
+  '@rspack/plugin-preact-refresh@2.0.1':
+    resolution: {integrity: sha512-tQ3WRBVaJ5JVy4jQHaYpYqeQrPStc7WrIJlVMrY/2mJMe5D1Ma4EO6K7J0v4Zx3HZMoJ1xeaqfCI9E8UHFE9yQ==}
+    peerDependencies:
+      '@prefresh/core': ^1.5.0
+      '@prefresh/utils': ^1.2.0
+      '@rspack/core': ^2.0.0
+    peerDependenciesMeta:
+      '@rspack/core':
+        optional: true
+
   '@rspack/plugin-react-refresh@1.6.2':
     resolution: {integrity: sha512-k+/VrfTNgo+KirjI6V+8CWRj6y+DH9jOUWv8JorYY4vKf/9xfnZ8xHzuB4iqCwTtoZl9YnxOaOuoyjJipc2tiQ==}
     peerDependencies:
@@ -2960,8 +2970,8 @@ packages:
     peerDependencies:
       postcss: ^8.1.0
 
-  axios@1.15.2:
-    resolution: {integrity: sha512-wLrXxPtcrPTsNlJmKjkPnNPK2Ihe0hn0wGSaTEiHRPxwjvJwT3hKmXF4dpqxmPO9SoNb2FsYXj/xEo0gHN+D5A==}
+  axios@1.16.0:
+    resolution: {integrity: sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -6794,6 +6804,13 @@ snapshots:
       '@prefresh/core': 1.5.9(preact@10.27.3)
       '@prefresh/utils': 1.2.1
 
+  '@rspack/plugin-preact-refresh@2.0.1(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)(@rspack/core@2.0.1(@swc/helpers@0.5.18))':
+    dependencies:
+      '@prefresh/core': 1.5.9(preact@10.27.3)
+      '@prefresh/utils': 1.2.1
+    optionalDependencies:
+      '@rspack/core': 2.0.1(@swc/helpers@0.5.18)
+
   '@rspack/plugin-react-refresh@1.6.2(react-refresh@0.18.0)':
     dependencies:
       error-stack-parser: 2.1.4
@@ -7399,7 +7416,7 @@ snapshots:
       postcss: 8.5.10
       postcss-value-parser: 4.2.0
 
-  axios@1.15.2:
+  axios@1.16.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.5
@@ -7761,7 +7778,7 @@ snapshots:
   extension-create@3.16.0-canary.306.5d12061:
     dependencies:
       adm-zip: 0.5.16
-      axios: 1.15.2
+      axios: 1.16.0
       cross-spawn: 7.0.6
       go-git-it: 5.1.5
       pintor: 0.3.0
