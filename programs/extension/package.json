@@ -7,7 +7,7 @@
     "directory": "programs/extension"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=18"
   },
   "exports": {
     ".": {
@@ -103,7 +103,7 @@
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
     "extension-install": "workspace:*",
-    "commander": "^15.0.0",
+    "commander": "^14.0.3",
     "pintor": "0.3.0",
     "semver": "^7.7.3",
     "unique-names-generator": "^4.7.1",
