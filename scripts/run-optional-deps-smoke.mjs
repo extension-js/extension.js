@@ -54,7 +54,7 @@ const baseEnv = {
   HUSKY: '0'
 }
 
-function shouldUseRegistryExtensionForSmoke(pm) {
+function shouldUsePackedExtensionForSmoke(pm) {
   return pm === 'bun' || pm === 'yarn'
 }
 
@@ -256,6 +256,48 @@ async function assertLocalWorkspacePackagesExist(
       )}\nUpdate getLocalWorkspacePackagePaths() in scripts/run-optional-deps-smoke.mjs after renaming or removing programs/* packages.`
     )
   }
+}
+
+const PACKED_TARBALL_DIR = '.smoke-tarballs'
+
+function readPackageIdentity(pkgDir) {
+  const pkg = JSON.parse(
+    fsSync.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')
+  )
+  return {name: pkg.name, version: pkg.version}
+}
+
+async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
+  if (!shouldUsePackedExtensionForSmoke(pm)) {
+    return null
+  }
+
+  const paths = getLocalWorkspacePackagePaths()
+  const vendorDir = path.join(workdir, PACKED_TARBALL_DIR)
+  await fs.mkdir(vendorDir, {recursive: true})
+
+  const specifiers = {}
+  for (const pkgDir of Object.values(paths)) {
+    const {name, version} = readPackageIdentity(pkgDir)
+
+    run(
+      'pnpm',
+      ['--dir', pkgDir, 'pack', '--pack-destination', vendorDir],
+      ROOT_DIR
+    )
+    const tarballName = `${name}-${version}.tgz`
+    const tarballPath = path.join(vendorDir, tarballName)
+
+    if (!fsSync.existsSync(tarballPath)) {
+      throw new Error(
+        `pnpm pack did not produce the expected tarball for ${name}: ${tarballPath}`
+      )
+    }
+
+    specifiers[name] = `file:./${PACKED_TARBALL_DIR}/${tarballName}`
+  }
+
+  return specifiers
 }
 
 function localCliPath() {
@@ -602,7 +644,7 @@ async function resolveConsumerSourceDir(tempRoot) {
   return {sourceDir: fallbackFixture, sourceName: 'generated fallback fixture'}
 }
 
-async function rewriteConsumerPackageJson(workdir, pm) {
+async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
   const packageJsonPath = path.join(workdir, 'package.json')
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 
@@ -614,14 +656,29 @@ async function rewriteConsumerPackageJson(workdir, pm) {
   } = getLocalWorkspacePackagePaths()
 
   packageJson.devDependencies ||= {}
-  const useRegistryExtension = shouldUseRegistryExtensionForSmoke(pm)
+  const usePackedExtension = shouldUsePackedExtensionForSmoke(pm)
 
-  if (useRegistryExtension) {
-    // Bun and Yarn classic do not resolve workspace:* dependency ranges inside
-    // a file-linked CLI package in this isolated fixture setup. Use a registry
-    // tag so these lanes still verify install/build behavior.
-    packageJson.devDependencies.extension =
-      process.env.EXTJS_SMOKE_REGISTRY_EXTENSION_VERSION || 'canary'
+  if (usePackedExtension) {
+    // Bun and Yarn classic cannot resolve workspace:* ranges inside a
+    // file-linked CLI package, so install every local package from its freshly
+    // packed tarball. The tarballs carry concrete versions for the sibling
+    // `extension-*` packages, so listing all four as top-level file: deps
+    // satisfies extension's transitive requirements with no workspace context
+    // and no dependency on a floating, separately-published `canary` tag.
+    if (!packedTarballs) {
+      throw new Error(
+        `Packed workspace tarballs are required for the ${pm} smoke lane but were not provided. ` +
+          'Call packLocalWorkspacePackagesForSmoke() before rewriteConsumerPackageJson().'
+      )
+    }
+    for (const depName of [
+      'extension',
+      'extension-create',
+      'extension-develop',
+      'extension-install'
+    ]) {
+      packageJson.devDependencies[depName] = packedTarballs[depName]
+    }
     if (packageJson.pnpm?.overrides) {
       delete packageJson.pnpm.overrides.extension
       delete packageJson.pnpm.overrides['extension-create']
@@ -635,7 +692,7 @@ async function rewriteConsumerPackageJson(workdir, pm) {
     )
   }
 
-  if (!useRegistryExtension) {
+  if (!usePackedExtension) {
     packageJson.pnpm ||= {}
     packageJson.pnpm.overrides ||= {}
     packageJson.pnpm.overrides.extension = fileSpecifier(extensionPath, workdir)
@@ -893,7 +950,11 @@ async function main() {
     )
 
     await fs.cp(sourceDir, workdir, {recursive: true})
-    await rewriteConsumerPackageJson(workdir, packageManager)
+    const packedTarballs = await packLocalWorkspacePackagesForSmoke(
+      workdir,
+      packageManager
+    )
+    await rewriteConsumerPackageJson(workdir, packageManager, packedTarballs)
     installAndBuild(workdir, packageManager)
 
     // The React content-script dev smoke is the part of the build graph that
@@ -958,7 +1019,7 @@ export {
   getLocalWorkspacePackagePaths,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
-  shouldUseRegistryExtensionForSmoke,
+  shouldUsePackedExtensionForSmoke,
   shouldRetryCleanupError,
   terminateChildProcess,
   waitForChildExit
