@@ -18,7 +18,7 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Get Playwright version
         id: pw-version
