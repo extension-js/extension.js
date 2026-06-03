@@ -9,7 +9,7 @@ import {
   getLocalWorkspacePackagePaths,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
-  shouldUseRegistryExtensionForSmoke,
+  shouldUsePackedExtensionForSmoke,
   shouldRetryCleanupError
 } from '../run-optional-deps-smoke.mjs'
 
@@ -73,11 +73,13 @@ test('removeDirectoryWithRetries surfaces non-retriable cleanup failures', async
   assert.equal(attempts, 1)
 })
 
-test('shouldUseRegistryExtensionForSmoke keeps pnpm aligned with source-under-test', () => {
-  assert.equal(shouldUseRegistryExtensionForSmoke('pnpm'), false)
-  assert.equal(shouldUseRegistryExtensionForSmoke('npm'), false)
-  assert.equal(shouldUseRegistryExtensionForSmoke('yarn'), true)
-  assert.equal(shouldUseRegistryExtensionForSmoke('bun'), true)
+test('shouldUsePackedExtensionForSmoke packs yarn/bun from the source under test', () => {
+  // pnpm/npm file-link the source directly; yarn/bun cannot resolve workspace:*
+  // there, so they install freshly packed tarballs of the same commit instead.
+  assert.equal(shouldUsePackedExtensionForSmoke('pnpm'), false)
+  assert.equal(shouldUsePackedExtensionForSmoke('npm'), false)
+  assert.equal(shouldUsePackedExtensionForSmoke('yarn'), true)
+  assert.equal(shouldUsePackedExtensionForSmoke('bun'), true)
 })
 
 test('fileSpecifier keeps same-drive Windows paths relative', () => {
