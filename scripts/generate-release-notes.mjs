@@ -1,27 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Generate release notes for a release.
- *
- * Two layers feed every announcement surface:
- *
- *   1. Highlights — a short, curated, user-facing summary authored by a human in
- *      RELEASE_HIGHLIGHTS.md ("what you can now do"). Optional but encouraged.
- *   2. Detail — the auto-generated commit list, categorized into Features / Fixes /
- *      Other so the real changes are skimmable instead of a flat git-log dump.
- *
- * The commit range is anchored on the most recent *on-branch* release commit
- * (`release(stable): vX` / `chore(release): move changelog to vX`) reachable from
- * the target ref — NOT on a git tag. Tags get orphaned whenever `main` history is
- * rewritten, which used to make the range explode to the entire backlog. Release
- * commits travel with the branch, so the anchor stays correct across rebases.
- *
- * Usage:
- *   node scripts/generate-release-notes.mjs --current-version 3.19.0
- *   node scripts/generate-release-notes.mjs --current-version 3.19.0 --format discord --notes-url <url>
- *   node scripts/generate-release-notes.mjs --from <ref> --to <ref> --format json
- */
-
 import {execFileSync} from 'child_process'
 import {existsSync, readFileSync} from 'fs'
 import {pathToFileURL} from 'url'
@@ -70,10 +48,10 @@ function findAnchor(toRef, currentVersion) {
     if (!sha) continue
     if (currentTag && subject.includes(`${currentTag} `)) continue
     if (currentTag && subject.endsWith(currentTag)) continue
- 
+
     return sha
   }
- 
+
   return ''
 }
 
