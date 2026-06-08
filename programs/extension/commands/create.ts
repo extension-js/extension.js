@@ -33,6 +33,10 @@ export function registerCreateCommand(program: Command) {
       parseOptionalBoolean,
       false
     )
+    .option(
+      '--source <source>',
+      'attribution tag for where this create was initiated (e.g. cli, templates); recorded in anonymous telemetry only'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {template, install}: CreateOptions
