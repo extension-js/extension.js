@@ -17,6 +17,15 @@ export type TelemetryProps = {
   command: string
   success: boolean
   version: string
+  template?: string
+  source?: string
+}
+
+function sanitizeTag(value: string): string {
+  return String(value)
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 64)
 }
 
 export type TelemetrySource = 'env' | 'flag' | 'config' | 'default'
@@ -300,6 +309,8 @@ export class Telemetry {
         success: Boolean(props.success),
         version: String(props.version ?? this.version).slice(0, 32)
       }
+      if (props.template) enforcedProps.template = sanitizeTag(props.template)
+      if (props.source) enforcedProps.source = sanitizeTag(props.source)
 
       const payload = {
         event,
@@ -314,7 +325,11 @@ export class Telemetry {
 
       this.writeAudit(payload)
 
-      if (event === 'command_executed' && Math.random() > this.sampleRate) {
+      if (
+        event === 'command_executed' &&
+        props.command !== 'create' &&
+        Math.random() > this.sampleRate
+      ) {
         return
       }
 
