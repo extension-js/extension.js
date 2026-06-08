@@ -49,6 +49,33 @@ export function detectInvokedCommand(argv: string[]): KnownCommand {
   return 'unknown'
 }
 
+function readArgValue(argv: string[], names: string[]): string | undefined {
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (!arg) continue
+
+    for (const name of names) {
+      if (arg === name) {
+        const next = argv[i + 1]
+        return next && !next.startsWith('-') ? next : undefined
+      }
+
+      if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1)
+    }
+  }
+
+  return undefined
+}
+
+function commandContext(command: string): {template?: string; source?: string} {
+  if (command !== 'create') return {}
+
+  return {
+    template: readArgValue(process.argv, ['--template', '-t']),
+    source: readArgValue(process.argv, ['--source']) || 'cli'
+  }
+}
+
 const consent = resolveTelemetryConsent(process.argv)
 const invoked = detectInvokedCommand(process.argv)
 const version = getCliPackageJson().version
@@ -88,7 +115,8 @@ export function markCommandSuccess(command = invoked): void {
   telemetry.track('command_executed', {
     command,
     success: true,
-    version
+    version,
+    ...commandContext(command)
   })
 }
 
@@ -97,7 +125,8 @@ export function markCommandFailure(command = invoked): void {
   telemetry.track('command_failed', {
     command,
     success: false,
-    version
+    version,
+    ...commandContext(command)
   })
 }
 
