@@ -3,13 +3,9 @@
 ## Unreleased
 
 <details>
-<summary>🧹 Other changes (5)</summary>
+<summary>🧹 Other changes (1)</summary>
 
-- Pack local workspace tarballs for yarn/bun smoke instead of canary tag ([96dcf441](https://github.com/extension-js/extension.js/commit/96dcf441b31e9b24a0393384ee2cda07c126104f))
-- Revert commander 14 to 15 bump and its coupled Node floor raise ([cf68d66c](https://github.com/extension-js/extension.js/commit/cf68d66c8fd8be18568865f1e145d09df8c40a24))
-- Raise Node floor to 22.12 to match commander@15 ([5f4e15f9](https://github.com/extension-js/extension.js/commit/5f4e15f9c8ab94afee988e4dd7b559fdc2611e27))
-- Bump @rspack/plugin-preact-refresh to 2.0.1 and axios to 1.16.0 ([5b8465f8](https://github.com/extension-js/extension.js/commit/5b8465f8b95784d8c40db3153fb67b005104ebc2))
-- Rebuild release announcements and fix the v3.14.0 telemetry blackout ([97666e1d](https://github.com/extension-js/extension.js/commit/97666e1d496316902b1acfba5c39fba956267975))
+- Attribute create telemetry with template and source ([0be0be38](https://github.com/extension-js/extension.js/commit/0be0be381fe1aa6c99c77f908c18d766f992b621))
 </details>
 
 ## 3.18.0 (May 28, 2026)
