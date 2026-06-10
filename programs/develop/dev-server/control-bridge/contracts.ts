@@ -91,7 +91,7 @@ export interface ReadyFrame {
     eval?: boolean
     storage?: boolean
     reload?: boolean
-    open?: Array<'popup' | 'options' | 'sidebar'>
+    open?: Array<'popup' | 'options' | 'sidebar' | 'action' | 'command'>
     deepDom?: boolean
   }
 }
