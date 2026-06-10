@@ -17,6 +17,7 @@ import {
 import {PluginInterface, Manifest, DevOptions} from '../../../types'
 import * as messages from '../messages'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
+import {patchGeckoBackground} from './patch-gecko-background'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -64,6 +65,14 @@ export class UpdateManifest {
               manifest,
               this.browser
             ) as Manifest
+
+            // Firefox can't load background.service_worker — translate it to a
+            // background.scripts event page pointing at the same emitted bundle.
+            patchedManifest = patchGeckoBackground(
+              patchedManifest,
+              this.browser
+            )
+
             const overrides = getManifestOverrides(this.manifestPath, manifest)
 
             if (compiler.options.mode === 'development') {

@@ -14,6 +14,44 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var consoleRef = g.console || {};
     g.__extjsBridgeProducerInstalled = true;
 
+    // Capture extension event listeners at install time. The producer is
+    // prepended to the background bundle, so these wraps run BEFORE user code
+    // registers its listeners — letting the bridge replay them on demand. The
+    // platform exposes no API to dispatch these events, and CDP attaches too
+    // late to wrap addListener, so this is the only path. Replay invokes the
+    // handler WITHOUT a user gesture, so the gesture-derived activeTab grant
+    // does NOT apply (callers are told gesture:false). This is engine-agnostic:
+    // it works on Chromium and Gecko because it only touches addListener.
+    //
+    // captureEvent transparently wraps addListener/removeListener (delegating to
+    // the originals) and records callbacks into the sink array.
+    function captureEvent(event, sink) {
+      try {
+        if (!event || typeof event.addListener !== "function") return;
+        var origAdd = event.addListener.bind(event);
+        event.addListener = function (cb) {
+          if (typeof cb === "function" && sink.indexOf(cb) === -1) sink.push(cb);
+          return origAdd(cb);
+        };
+        if (typeof event.removeListener === "function") {
+          var origRemove = event.removeListener.bind(event);
+          event.removeListener = function (cb) {
+            var i = sink.indexOf(cb);
+            if (i !== -1) sink.splice(i, 1);
+            return origRemove(cb);
+          };
+        }
+      } catch (e) { /* non-fatal: trigger falls back to its no-listener reply */ }
+    }
+
+    // Use g.chrome (not the hoisted chrome var below) — this runs first.
+    var actionClickedListeners = [];
+    var commandListeners = [];
+    if (g.chrome) {
+      captureEvent(g.chrome.action && g.chrome.action.onClicked, actionClickedListeners);
+      captureEvent(g.chrome.commands && g.chrome.commands.onCommand, commandListeners);
+    }
+
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
     var socket = null;
     var open = false;
@@ -118,6 +156,42 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
         if (op === "open") {
           var surface = args.surface || ctx;
+          // getPopup is promise-style on Gecko and (MV3) Chromium; fall back to
+          // callback-style for older Chromium. Always resolves to a string.
+          var getActionPopup = function (cb) {
+            try {
+              var r = chrome.action && chrome.action.getPopup && chrome.action.getPopup({});
+              if (r && typeof r.then === "function") {
+                r.then(function (p) { cb(p || ""); }, function () { cb(""); });
+                return;
+              }
+            } catch (e) {}
+            try { chrome.action.getPopup({}, function (p) { cb(p || ""); }); }
+            catch (e) { cb(""); }
+          };
+          // Resolve the tab a replayed event should carry: an explicit args.tabId,
+          // else the active tab of the focused window.
+          var resolveActiveTab = function (a, cb) {
+            if (a && typeof a.tabId === "number") {
+              try { chrome.tabs.get(a.tabId, function (t) { cb(t || {id: a.tabId}); }); return; }
+              catch (e) {}
+            }
+            try { chrome.tabs.query({active: true, lastFocusedWindow: true}, function (tabs) { cb((tabs && tabs[0]) || undefined); }); }
+            catch (e) { cb(undefined); }
+          };
+          // Replaying a listener carries no user gesture, so activeTab is never
+          // granted. Warn when the manifest declares it (handler will diverge
+          // from a real click).
+          var activeTabWarning = function () {
+            try {
+              var m = chrome.runtime.getManifest();
+              var perms = (m && m.permissions) || [];
+              if (perms.indexOf("activeTab") !== -1) {
+                return "replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it (scripting on the active tab, captureVisibleTab) behave differently than a real click";
+              }
+            } catch (e) {}
+            return null;
+          };
           if (surface === "popup") {
             if (chrome.action && chrome.action.openPopup) {
               chrome.action.openPopup().then(function () { replyOk(cmdId, {opened: "popup"}); }, function (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); });
@@ -131,6 +205,47 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 chrome.sidePanel.open({windowId: w.id}).then(function () { replyOk(cmdId, {opened: "sidebar"}); }, function (e) { replyErr(cmdId, "Unsupported", "sidePanel.open: " + e); });
               });
             } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")"); }
+          } else if (surface === "action") {
+            // Trigger the toolbar action. With a default_popup, clicking the icon
+            // opens it (reuse openPopup). Without a popup, clicking fires
+            // chrome.action.onClicked — we replay the listeners captured at install.
+            if (chrome.action) {
+              getActionPopup(function (popup) {
+                if (popup) {
+                  try {
+                    chrome.action.openPopup().then(function () { replyOk(cmdId, {triggered: "popup"}); }, function (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); });
+                  } catch (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); }
+                } else if (actionClickedListeners.length) {
+                  resolveActiveTab(args, function (tab) {
+                    var fired = 0;
+                    for (var i = 0; i < actionClickedListeners.length; i++) {
+                      try { actionClickedListeners[i](tab); fired++; } catch (e) {}
+                    }
+                    var reply = {triggered: "onClicked", listeners: fired, gesture: false};
+                    var warning = activeTabWarning();
+                    if (warning) reply.warning = warning;
+                    replyOk(cmdId, reply);
+                  });
+                } else {
+                  replyErr(cmdId, "Unsupported", "action has no popup and no onClicked listener registered");
+                }
+              });
+            } else { replyErr(cmdId, "Unsupported", "chrome.action not available (engine: " + engineName() + ")"); }
+          } else if (surface === "command") {
+            // Replay a captured chrome.commands.onCommand listener (keyboard
+            // shortcut). Same no-gesture caveat as onClicked.
+            var commandName = (args && args.name) || undefined;
+            if (!commandListeners.length) {
+              replyErr(cmdId, "Unsupported", "no chrome.commands.onCommand listener registered");
+            } else {
+              resolveActiveTab(args, function (tab) {
+                var fired = 0;
+                for (var i = 0; i < commandListeners.length; i++) {
+                  try { commandListeners[i](commandName, tab); fired++; } catch (e) {}
+                }
+                replyOk(cmdId, {triggered: "command", command: commandName || null, listeners: fired, gesture: false});
+              });
+            }
           } else { replyErr(cmdId, "BadRequest", "unknown surface: " + surface); }
           return;
         }

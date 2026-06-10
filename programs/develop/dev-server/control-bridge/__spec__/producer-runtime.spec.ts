@@ -232,6 +232,172 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(reloaded).toBe(true)
   })
 
+  it('open action: opens the popup when the action has a default_popup', async () => {
+    let opened = false
+    const ws = setup({
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('popup.html'),
+        openPopup: () => {
+          opened = true
+          return Promise.resolve()
+        },
+        onClicked: {addListener() {}}
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act1',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(opened).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 'act1')).toMatchObject({
+      ok: true,
+      value: {triggered: 'popup'}
+    })
+  })
+
+  it('open action: fires captured onClicked listeners when there is no popup', async () => {
+    const fired: unknown[] = []
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 7, active: true}])
+      }
+    }
+    const ws = setup(chromeApi)
+    // User code registers its handler AFTER the producer wrapped addListener
+    // (the producer is prepended, so it always wraps first in real builds).
+    chromeApi.action.onClicked.addListener((tab: unknown) => fired.push(tab))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act2',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fired).toEqual([{id: 7, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act2')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1, gesture: false}
+    })
+  })
+
+  it('open action: warns when the manifest declares activeTab (no gesture grant)', async () => {
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 1, active: true}])
+      },
+      runtime: {getManifest: () => ({permissions: ['activeTab', 'storage']})}
+    }
+    const ws = setup(chromeApi)
+    chromeApi.action.onClicked.addListener(() => {})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-warn',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    const r = results(ws).find((f) => f.cmdId === 'act-warn')
+    expect(r).toMatchObject({ok: true, value: {gesture: false}})
+    expect(typeof r.value.warning).toBe('string')
+    expect(r.value.warning).toMatch(/activeTab/)
+  })
+
+  it('open command: replays a captured chrome.commands.onCommand listener', async () => {
+    const got: Array<[unknown, unknown]> = []
+    const chromeApi: Record<string, any> = {
+      commands: {onCommand: {addListener() {}}},
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 9, active: true}])
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.commands.onCommand.addListener((name: unknown, tab: unknown) =>
+      got.push([name, tab])
+    )
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'cmd1',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'command', name: 'do-thing'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(got).toEqual([['do-thing', {id: 9, active: true}]])
+    expect(results(ws).find((f) => f.cmdId === 'cmd1')).toMatchObject({
+      ok: true,
+      value: {
+        triggered: 'command',
+        command: 'do-thing',
+        listeners: 1,
+        gesture: false
+      }
+    })
+  })
+
+  it('open command: Unsupported when no onCommand listener is registered', async () => {
+    const ws = setup({commands: {onCommand: {addListener() {}}}})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'cmd2',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'command', name: 'noop'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(results(ws).find((f) => f.cmdId === 'cmd2')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported'}
+    })
+  })
+
+  it('open action: Unsupported when the action has neither popup nor listener', async () => {
+    const ws = setup({
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act3',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(results(ws).find((f) => f.cmdId === 'act3')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported'}
+    })
+  })
+
   it('the relay answers a surface inspect request for its own context', () => {
     const listeners: Array<(m: any, s: any, r: any) => void> = []
     const fakeDoc = {

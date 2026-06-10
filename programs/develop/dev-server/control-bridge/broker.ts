@@ -247,8 +247,8 @@ export class BridgeBroker {
         reload: this.allowControl,
         open: this.allowControl
           ? isFirefox
-            ? ['popup', 'options']
-            : ['popup', 'options', 'sidebar']
+            ? ['popup', 'options', 'action', 'command']
+            : ['popup', 'options', 'sidebar', 'action', 'command']
           : [],
         deepDom: this.engine === 'chromium'
       }

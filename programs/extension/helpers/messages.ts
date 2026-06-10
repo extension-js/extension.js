@@ -65,7 +65,7 @@ export const commandDescriptions = {
   storage:
     'Reads or writes chrome.storage in a running extension (requires --allow-control)',
   reload: 'Reloads a running extension or tab (requires --allow-control)',
-  open: 'Opens an extension surface — popup, options, or sidebar (requires --allow-control)',
+  open: 'Opens an extension surface — popup, options, sidebar, action, or command (requires --allow-control)',
   inspect:
     'Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)',
   publish:
