@@ -149,6 +149,14 @@ export class RemoteFirefox {
         const client = new MessagingClient()
         await client.connect(port)
         this.client = client
+        // A new RDP connection invalidates actor IDs from any prior connection
+        // (Firefox namespaces them per connection, e.g. server1.conn0.addonsActor2).
+        // Clear connection-scoped caches so we re-resolve them on THIS connection
+        // — otherwise a retry/reconnect installs against a dead actor and fails
+        // with "noSuchActor". Also re-clear if the transport transparently
+        // reconnects mid-session.
+        this.invalidateConnectionScopedCaches()
+        client.on('reconnected', () => this.invalidateConnectionScopedCaches())
         return client
       } catch (error: unknown) {
         if (isErrorWithCode('ECONNREFUSED', error)) {
@@ -169,6 +177,16 @@ export class RemoteFirefox {
 
     console.error(messages.errorConnectingToBrowser(this.options.browser))
     throw lastError
+  }
+
+  /**
+   * Drop caches that are only valid for the current RDP connection. Actor IDs
+   * (addonsActor and its probed capability) belong to a specific Firefox
+   * connection; once we reconnect they must be re-resolved via getRoot.
+   */
+  private invalidateConnectionScopedCaches(): void {
+    this.cachedAddonsActor = undefined
+    this.cachedSupportsReload = null
   }
 
   public async installAddons(compilation: CompilationLike) {

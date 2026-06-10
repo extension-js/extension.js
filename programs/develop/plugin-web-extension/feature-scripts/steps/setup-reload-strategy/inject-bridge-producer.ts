@@ -9,7 +9,10 @@
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {buildBridgeProducerSource} from '../../../../dev-server/control-bridge/producer-runtime'
 
-const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
+// Matches the compiled background entry across engines: Chromium emits
+// background/service_worker.js; Firefox (background.scripts) emits
+// background/scripts.js. `scripts?` covers both the singular and plural forms.
+const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|scripts?)\.js$/i
 
 /**
  * Prepends the agent-bridge producer to the compiled background SW so the

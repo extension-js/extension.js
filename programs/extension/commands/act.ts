@@ -400,22 +400,36 @@ export function registerActCommands(program: Command): void {
       .command('open')
       .arguments('<surface> [project-path]')
       .description(
-        'Open an extension surface — popup, options, or sidebar (requires --allow-control)'
+        'Open an extension surface — popup, options, sidebar, action, or command (requires --allow-control)'
+      )
+      .option(
+        '--name <command>',
+        'with `open command`: the chrome.commands name to trigger'
       )
   ).action(async function (
     surface: string,
     projectPathArg: string,
-    opts: CommonActOptions
+    opts: CommonActOptions & {name?: string}
   ) {
-    const allowed = ['popup', 'options', 'sidebar']
+    const allowed = ['popup', 'options', 'sidebar', 'action', 'command']
     if (!allowed.includes(surface)) {
-      fail(`unknown surface: ${surface} (use popup, options, or sidebar)`)
+      fail(
+        `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`
+      )
     }
+    // 'action' and 'command' replay a captured event in the service worker, so
+    // they route to the background context (UI surfaces map 1:1 to a context).
+    const inBackground = surface === 'action' || surface === 'command'
+    const context: ActContext = inBackground
+      ? 'background'
+      : (surface as ActContext)
+    const args: Record<string, unknown> = {surface}
+    if (surface === 'command' && opts.name) args.name = opts.name
     await runCommand({
       projectPathArg,
       op: 'open',
-      target: {context: surface as ActContext},
-      args: {surface},
+      target: {context},
+      args,
       opts
     })
   })
