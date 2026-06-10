@@ -87,7 +87,13 @@ describe('BridgeBroker (Slice 2: act)', () => {
     })
     // eval not enabled by default even with allow-control.
     expect(ready.capabilities.eval).toBe(false)
-    expect(ready.capabilities.open).toEqual(['popup', 'options', 'sidebar'])
+    expect(ready.capabilities.open).toEqual([
+      'popup',
+      'options',
+      'sidebar',
+      'action',
+      'command'
+    ])
   })
 
   it('firefox capabilities drop sidebar and deepDom', () => {
@@ -95,7 +101,12 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const c = new FakeConn('ctl')
     helloController(b, c)
     const ready = c.sent[0] as any
-    expect(ready.capabilities.open).toEqual(['popup', 'options'])
+    expect(ready.capabilities.open).toEqual([
+      'popup',
+      'options',
+      'action',
+      'command'
+    ])
     expect(ready.capabilities.deepDom).toBe(false)
   })
 
@@ -149,6 +160,52 @@ describe('BridgeBroker (Slice 2: act)', () => {
       op: 'reload',
       ok: true,
       durationMs: 12,
+      principal: 'controller'
+    })
+  })
+
+  it('routes an `open action` command (background context, action surface)', () => {
+    const actions = new FakeActions()
+    const b = new BridgeBroker(base({actions, now: () => 1000}))
+    const exec = new FakeConn('exec')
+    const ctl = new FakeConn('ctl')
+    helloProducer(b, exec)
+    helloController(b, ctl)
+    ctl.sent = [] // drop ready
+
+    b.onFrame(ctl, {
+      type: 'command',
+      cmdId: 'cmd-act',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    const fwd = exec.sent.find((f) => f.type === 'command') as any
+    expect(fwd).toMatchObject({
+      type: 'command',
+      cmdId: 'cmd-act',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    b.onFrame(exec, {
+      type: 'result',
+      cmdId: 'cmd-act',
+      ok: true,
+      value: {triggered: 'popup'},
+      durationMs: 8
+    })
+    expect(ctl.sent.at(-1)).toMatchObject({
+      type: 'result',
+      cmdId: 'cmd-act',
+      ok: true
+    })
+    expect(actions.records.at(-1)).toMatchObject({
+      cmdId: 'cmd-act',
+      op: 'open',
+      ok: true,
       principal: 'controller'
     })
   })
