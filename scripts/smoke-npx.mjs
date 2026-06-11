@@ -1,4 +1,10 @@
-import {mkdtempSync, rmSync} from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync
+} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {spawnSync} from 'node:child_process'
@@ -33,29 +39,61 @@ function run(cmd, args, opts = {}) {
 
 const root = resolve(process.cwd())
 const cliDir = resolve(root, 'programs/extension')
-const devDir = resolve(root, 'programs/develop')
-const templatesReact = resolve(root, 'templates/react')
+// Only the `javascript` template ships inside the extension-create tarball;
+// it is the one template guaranteed buildable without any network fetch.
+const templateJavascript = resolve(root, 'programs/create/templates/javascript')
 
-console.log('Compiling CLI and Develop...')
+// All four workspace packages are packed together: pnpm pack rewrites the
+// CLI's workspace:* specifiers to concrete versions (npm pack does not and
+// produces an uninstallable tarball), and installing the sibling tarballs as
+// top-level file: deps satisfies those requirements without falling back to
+// the registry's published versions — so the smoke exercises LOCAL code.
+const workspacePackages = [
+  'programs/extension',
+  'programs/create',
+  'programs/develop',
+  'programs/install'
+]
+
+console.log('Compiling CLI...')
 run('pnpm', ['-C', cliDir, 'run', 'compile'])
-// Develop has prebuilt dist in repo; skip compile to avoid heavy native deps during smoke
-// run('pnpm', ['-C', devDir, 'run', 'compile'])
 
-console.log('Packing tarballs...')
-const cliPack = run('npm', ['pack', '--silent'], {cwd: cliDir})
-const cliTgz = cliPack.stdout.toString().trim()
-const devPack = run('npm', ['pack', '--silent'], {cwd: devDir})
-const devTgz = devPack.stdout.toString().trim()
-console.log(`CLI tgz: ${cliTgz}`)
-console.log(`DEV tgz: ${devTgz}`)
+console.log('Packing workspace tarballs...')
+const packDest = mkdtempSync(join(tmpdir(), 'extjs-smoke-tarballs-'))
+const tarballs = []
 
-// Scenario A: install CLI only, ensure help works (no develop import)
+for (const pkgRel of workspacePackages) {
+  const pkgDir = resolve(root, pkgRel)
+  const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'))
+
+  // dist/ is gitignored, so fresh checkouts (CI) have no prebuilt output.
+  // Local runs keep their existing dist to stay fast.
+  if (pkgRel !== 'programs/extension' && !existsSync(join(pkgDir, 'dist'))) {
+    console.log(`compiling ${pkg.name} (no dist found)...`)
+    run('pnpm', ['-C', pkgDir, 'run', 'compile'])
+  }
+
+  run('pnpm', ['--dir', pkgDir, 'pack', '--pack-destination', packDest])
+
+  const tgz = join(packDest, `${pkg.name}-${pkg.version}.tgz`)
+  if (!existsSync(tgz)) {
+    throw new Error(`pnpm pack did not produce expected tarball: ${tgz}`)
+  }
+  tarballs.push(tgz)
+  console.log(`packed: ${pkg.name}-${pkg.version}.tgz`)
+}
+
+function installTarballs(cwd) {
+  run('npm', ['init', '-y'], {cwd})
+  run('npm', ['i', '--no-audit', '--no-fund', ...tarballs], {cwd})
+}
+
+// Scenario A: install packed tarballs, ensure help works
 {
   const tmp = mkdtempSync(join(tmpdir(), 'extjs-smoke-a-'))
 
   try {
-    run('npm', ['init', '-y'], {cwd: tmp})
-    run('npm', ['i', join(cliDir, cliTgz)], {cwd: tmp})
+    installTarballs(tmp)
 
     const out = run('npx', ['extension', '--help'], {cwd: tmp}).stdout
     const text = out.toString()
@@ -64,19 +102,21 @@ console.log(`DEV tgz: ${devTgz}`)
       throw new Error('Help output missing Usage: extension')
     }
 
-    console.log('Scenario A ok: extension --help works with CLI tarball only')
+    console.log('Scenario A ok: extension --help works from packed tarballs')
   } finally {
     rmSync(tmp, {recursive: true, force: true})
   }
 }
 
-// Scenario B: install CLI + Develop and run a build
+// Scenario B: build the bundled javascript template from packed tarballs
 {
   const tmp = mkdtempSync(join(tmpdir(), 'extjs-smoke-b-'))
 
   try {
-    run('npm', ['init', '-y'], {cwd: tmp})
-    run('npm', ['i', join(cliDir, cliTgz), join(devDir, devTgz)], {cwd: tmp})
+    const projectDir = join(tmp, 'project')
+    cpSync(templateJavascript, projectDir, {recursive: true})
+
+    installTarballs(tmp)
 
     const env = {
       ...childEnv,
@@ -88,7 +128,7 @@ console.log(`DEV tgz: ${devTgz}`)
       [
         'extension',
         'build',
-        templatesReact,
+        projectDir,
         '--browser=chromium',
         '--silent',
         'true'
@@ -96,10 +136,16 @@ console.log(`DEV tgz: ${devTgz}`)
       {cwd: tmp, env}
     )
 
-    console.log('Scenario B ok: build runs with CLI + Develop tarballs')
+    const distManifest = join(projectDir, 'dist', 'chromium', 'manifest.json')
+    if (!existsSync(distManifest)) {
+      throw new Error(`Build produced no dist manifest at ${distManifest}`)
+    }
+
+    console.log('Scenario B ok: build runs from packed tarballs')
   } finally {
     rmSync(tmp, {recursive: true, force: true})
   }
 }
 
+rmSync(packDest, {recursive: true, force: true})
 console.log('Smoke tests passed.')
