@@ -9,7 +9,8 @@
 import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
-import {parseSync} from '@swc/core'
+// The pure-JS build parses synchronously with no wasm init step
+import {parse as parseModuleSyntax} from 'es-module-lexer/js'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName
@@ -107,12 +108,6 @@ function hasDefaultExport(
   compilation: any
 ): boolean {
   try {
-    const ext = path.extname(resourcePath).toLowerCase()
-    const isTS =
-      ext === '.ts' || ext === '.tsx' || ext === '.mts' || ext === '.mtsx'
-    const isJSX =
-      ext === '.jsx' || ext === '.tsx' || ext === '.mjsx' || ext === '.mtsx'
-
     const abs = path.normalize(resourcePath)
     const sig = getSourceSignature(source)
     if (compilation) {
@@ -122,66 +117,15 @@ function hasDefaultExport(
       if (typeof cached === 'boolean') return cached
     }
 
-    // The SWC parser config is a discriminated union on `syntax`; a computed
-    // syntax value can't be expressed cleanly, so cast just this options object
-    const ast = parseSync(source, {
-      syntax: isTS ? 'typescript' : 'ecmascript',
-      tsx: isTS && isJSX,
-      jsx: !isTS && isJSX,
-      decorators: true,
-      dynamicImport: true,
-      importAssertions: true,
-      topLevelAwait: true
-    } as Parameters<typeof parseSync>[1])
+    // The lexer only scans import/export statements, so it tolerates TS/TSX
+    // sources without needing per-syntax parser configuration. It covers
+    // `export default ...`, `export {x as default}`, and re-exports of
+    // `default`; anything it can't lex throws into the regex fallback below.
+    const [, moduleExports] = parseModuleSyntax(source)
+    const result = moduleExports.some((entry) => entry.n === 'default')
 
-    // SWC AST nodes are traversed dynamically by `type`; keep them loose
-    const body: any[] = Array.isArray(ast?.body) ? ast.body : []
-    for (const item of body) {
-      if (!item || typeof item !== 'object') continue
-      if (
-        item.type === 'ExportDefaultDeclaration' ||
-        item.type === 'ExportDefaultExpression'
-      ) {
-        compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, true)
-        return true
-      }
-      if (
-        item.type === 'ExportNamedDeclaration' &&
-        Array.isArray(item.specifiers)
-      ) {
-        for (const specifier of item.specifiers) {
-          if (!specifier || typeof specifier !== 'object') continue
-          if (specifier.type === 'ExportDefaultSpecifier') {
-            compilation?.__extjsHasDefaultExportCache?.set(
-              `${abs}|${sig}`,
-              true
-            )
-            return true
-          }
-
-          if (specifier.type === 'ExportSpecifier') {
-            const exported = specifier.exported
-            if (
-              exported &&
-              typeof exported === 'object' &&
-              ((exported.type === 'Identifier' &&
-                exported.value === 'default') ||
-                (exported.type === 'Ident' && exported.value === 'default') ||
-                (exported.type === 'Str' && exported.value === 'default'))
-            ) {
-              compilation?.__extjsHasDefaultExportCache?.set(
-                `${abs}|${sig}`,
-                true
-              )
-              return true
-            }
-          }
-        }
-      }
-    }
-
-    compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, false)
-    return false
+    compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, result)
+    return result
   } catch {
     const fallback = source.includes('export default')
     try {
