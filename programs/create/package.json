@@ -25,7 +25,7 @@
     "templates"
   ],
   "name": "extension-create",
-  "version": "3.18.3",
+  "version": "3.18.4",
   "description": "The standalone extension creation engine for Extension.js",
   "author": {
     "name": "Cezar Augusto",
