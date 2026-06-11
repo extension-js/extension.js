@@ -38,7 +38,6 @@ const WEB_ENTRIES = [
 const NODE_ENTRIES = [
   'module',
   'preview',
-  'resolve-paths-loader',
   'ensure-hmr-for-scripts',
   'feature-scripts-content-script-wrapper'
 ] as const

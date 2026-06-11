@@ -67,18 +67,14 @@ const browserEntries = {
 }
 
 // Node-side: the main library entry, the preview entry, plus rspack loaders
-// (resolve-paths-loader, ensure-hmr-for-scripts, feature-scripts-content-
-// script-wrapper). Loaders execute inside rspack's loader runner at build
-// time, so they live on Node and need the CJS-shim banner so bundled bare
-// `require()` / `require.resolve()` sites keep working in pure ESM.
+// (ensure-hmr-for-scripts, feature-scripts-content-script-wrapper). Loaders
+// execute inside rspack's loader runner at build time, so they live on Node
+// and need the CJS-shim banner so bundled bare `require()` /
+// `require.resolve()` sites keep working in pure ESM.
 const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
   bridge: path.resolve(__dirname, './bridge-entry.ts'),
-  'resolve-paths-loader': path.resolve(
-    __dirname,
-    './plugin-web-extension/feature-resolve/loader/index.ts'
-  ),
   'ensure-hmr-for-scripts': path.resolve(
     __dirname,
     './plugin-web-extension/feature-html/steps/ensure-hmr-for-scripts.ts'

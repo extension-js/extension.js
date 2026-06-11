@@ -12,8 +12,7 @@ const stems = [
   'feature-scripts-content-script-wrapper',
   'main-world-bridge',
   'minimum-chromium-file',
-  'minimum-firefox-file',
-  'resolve-paths-loader'
+  'minimum-firefox-file'
 ]
 
 // Windows + antivirus + multi-lib rslib output can briefly delay the moment a
