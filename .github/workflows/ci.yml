@@ -124,6 +124,33 @@ jobs:
       - name: Run ${{ matrix.suite }}
         run: pnpm run ${{ matrix.suite }}
 
+  smoke-npx:
+    name: Packed-tarball smoke (npx)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Installs the freshly packed extension/create/develop/install tarballs
+      # into a clean temp project and runs --help + a template build. This is
+      # the only lane that exercises the PUBLISHED-package context: a missing
+      # runtime dependency keeps every workspace suite green and only fails
+      # here.
+      - name: Run packed-tarball smoke
+        run: pnpm smoke:npx
+
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
