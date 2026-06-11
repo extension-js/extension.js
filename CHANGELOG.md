@@ -2,10 +2,20 @@
 
 ## Unreleased
 
-<details>
-<summary>🧹 Other changes (1)</summary>
+### 🚀 Features
 
-- Attribute create telemetry with template and source ([0be0be38](https://github.com/extension-js/extension.js/commit/0be0be381fe1aa6c99c77f908c18d766f992b621))
+- Add open action/command bridge triggers and fix Firefox extension loading (RDP addons actor cache, background producer injection, service_worker→scripts) ([a3c0b8aa](https://github.com/extension-js/extension.js/commit/a3c0b8aa15268405c968ff05bd268e4a27dc282f))
+
+### 🐛 Fixes
+
+- Fix smoke:npx for workspace specifiers and wire it into CI as a packed-tarball guardrail ([0a8a0963](https://github.com/extension-js/extension.js/commit/0a8a096342da3d0caf4e7966e8f7248a152a6213))
+
+<details>
+<summary>🧹 Other changes (3)</summary>
+
+- Delete dormant feature-resolve and drop @swc/core and magic-string ([2fe00f58](https://github.com/extension-js/extension.js/commit/2fe00f589ed95b05834b323028976e45ad706ab3))
+- Use es-module-lexer instead of @swc/core for content-script default-export detection ([1142eb11](https://github.com/extension-js/extension.js/commit/1142eb113d28a717bf6cba269e684adae903be21))
+- Remove dead dependencies from extension-develop (cross-spawn, unique-names-generator, loader-utils, @swc/helpers) ([4514eae6](https://github.com/extension-js/extension.js/commit/4514eae6ef6fb64996d1824d963c8741587a02cc))
 </details>
 
 ## 3.18.0 (May 28, 2026)
