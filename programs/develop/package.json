@@ -95,6 +95,7 @@
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "dotenv": "^17.2.3",
+    "es-module-lexer": "^1.7.0",
     "extension-from-store": "^0.1.1",
     "go-git-it": "^5.1.5",
     "ignore": "^7.0.5",
