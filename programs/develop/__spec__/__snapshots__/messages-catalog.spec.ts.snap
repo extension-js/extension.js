@@ -183,12 +183,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestValidationScanSummary: function(2)",
     "serverRestartRequiredFromManifestError: function(2)",
   ],
-  "plugin-web-extension/feature-resolve/messages.ts": [
-    "resolveAttachSummary: function(3)",
-    "resolveFileSkip: function(2)",
-    "resolveFileTransformSummary: function(1)",
-    "resolveSwcLoad: function(1)",
-  ],
   "plugin-web-extension/feature-scripts/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
     "reservedScriptsFolder: function(2)",

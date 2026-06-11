@@ -18,7 +18,6 @@ import {JsonPlugin} from './feature-json'
 import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
-// import {ResolvePlugin} from './feature-resolve'
 
 // Business logic modules
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
@@ -116,11 +115,5 @@ export class WebExtensionPlugin {
       manifestPath,
       browser: this.browser
     }).apply(compiler)
-
-    // TODO: cezaraugusto enable this after v3
-    // new ResolvePlugin({
-    //   manifestPath,
-    //   browser: this.browser
-    // }).apply(compiler)
   }
 }
