@@ -6,13 +6,13 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, sources, WebpackError} from '@rspack/core'
+import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
-import * as crypto from 'crypto'
-import {Compilation, sources, WebpackError} from '@rspack/core'
+import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
-import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 
 function isPublicRootLike(possiblePath: string) {
   const normalizedPath = unixify(possiblePath || '')
@@ -67,6 +67,26 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   return unixify(outName)
 }
 
+// The manifest override rewrites source extensions to output extensions
+// before resolution runs, so a missing `src/x.js` may really be `src/x.ts`
+// on disk. Find that original so the warning can explain what happened.
+function findSourceSibling(absOutputPath: string): string | undefined {
+  const candidatesByExt: Record<string, string[]> = {
+    '.js': ['.ts', '.tsx', '.jsx', '.vue', '.svelte'],
+    '.css': ['.scss', '.sass', '.less'],
+    '.html': ['.njk', '.nunjucks']
+  }
+  const ext = path.extname(absOutputPath)
+  const sourceExts = candidatesByExt[ext]
+  if (!sourceExts) return undefined
+
+  for (const sourceExt of sourceExts) {
+    const candidate = absOutputPath.slice(0, -ext.length) + sourceExt
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return undefined
+}
+
 function isFirefox(browser?: string) {
   return !!browser && browser.toLowerCase().includes('firefox')
 }
@@ -118,7 +138,11 @@ export function resolveUserDeclaredWAR(
   browser?: string
 ) {
   const v2 = new Set<string>()
-  const v3: Array<{matches: string[]; resources: Set<string>}> = []
+  const v3: Array<{
+    matches: string[]
+    resources: Set<string>
+    extra?: Record<string, unknown>
+  }> = []
 
   const manifestObj = manifest as {
     manifest_version?: number
@@ -126,18 +150,24 @@ export function resolveUserDeclaredWAR(
     content_scripts?: unknown
   }
   const war = manifestObj.web_accessible_resources as
-    | string[]
-    | Array<{resources: string[]; matches?: string[]}>
+    | Array<string | {resources?: string[]; matches?: string[]}>
     | undefined
 
   if (!war) return {v2, v3}
 
-  const isV2 = Array.isArray(war) && typeof war[0] === 'string'
+  // String entries are the MV2 format. In an MV3 manifest they are invalid
+  // (Chrome rejects the manifest at load time), so they become a build error
+  // below instead of shipping. Detection is per entry, not via war[0].
+  const isMv2 = manifestObj.manifest_version !== 3
   const manifestDir = path.dirname(manifestPath)
   const projectPath = (compilation.options?.context as string) || manifestDir
 
-  const pushResource = (matches: string[] | undefined, resource: string) => {
-    if (manifestObj.manifest_version === 2 || isV2) {
+  const pushResource = (
+    matches: string[] | undefined,
+    resource: string,
+    extra?: Record<string, unknown>
+  ) => {
+    if (isMv2) {
       v2.add(resource)
       return
     }
@@ -146,14 +176,20 @@ export function resolveUserDeclaredWAR(
     let group = v3.find((g) => g.matches.join(',') === key)
 
     if (!group) {
-      group = {matches: matches || [], resources: new Set()}
+      group = {matches: matches || [], resources: new Set(), extra}
       v3.push(group)
+    } else if (extra && !group.extra) {
+      group.extra = extra
     }
 
     group.resources.add(resource)
   }
 
-  const handleOne = (matches: string[] | undefined, res: string) => {
+  const handleOne = (
+    matches: string[] | undefined,
+    res: string,
+    extra?: Record<string, unknown>
+  ) => {
     compilation.errors = compilation.errors || []
     compilation.warnings = compilation.warnings || []
 
@@ -164,7 +200,7 @@ export function resolveUserDeclaredWAR(
     const normalizedOutput = normalizeManifestOutputPath(res)
     const publicCandidate = path.join(projectPath, 'public', normalizedOutput)
     if (fs.existsSync(publicCandidate)) {
-      pushResource(matches, normalizedOutput)
+      pushResource(matches, normalizedOutput, extra)
       return
     }
 
@@ -176,7 +212,7 @@ export function resolveUserDeclaredWAR(
         )
 
     if (/[*?\[\]{}]/.test(res)) {
-      pushResource(matches, res)
+      pushResource(matches, res, extra)
       return
     }
 
@@ -240,7 +276,7 @@ export function resolveUserDeclaredWAR(
         compilation.warnings!.push(err)
       }
 
-      pushResource(matches, output)
+      pushResource(matches, output, extra)
       return
     }
 
@@ -265,13 +301,25 @@ export function resolveUserDeclaredWAR(
         // Resource exists either under public/ or in the emitted output; treat
         // it as valid and normalize to the public-root style in the manifest.
         const output = toPublicOutput('/' + res)
-        pushResource(matches, output)
+        pushResource(matches, output, extra)
         return
       }
 
+      // The manifest path was already rewritten to its output extension
+      // (e.g. src/injected.ts became src/injected.js). If the original
+      // source file exists, say so: WAR entries are copied, not compiled.
+      const sourceSibling = findSourceSibling(abs)
+
       // Warn about missing relative path using standardized message only when
-      // it does not exist in public/ and was not emitted to the output.
-      const msg = warMessages.warFieldError(abs, {relativeRef: res})
+      // it does not exist in public/ and was not emitted to the output. The
+      // entry is dropped from the emitted manifest: keeping a path that no
+      // file will ever exist at just moves the failure to runtime.
+      const msg = warMessages.warFieldError(abs, {
+        relativeRef: res,
+        sourceSibling: sourceSibling
+          ? path.relative(manifestDir, sourceSibling)
+          : undefined
+      })
       const warn = new WebpackError(msg) as Error & {
         file?: string
         name?: string
@@ -279,31 +327,45 @@ export function resolveUserDeclaredWAR(
       warn.file = 'manifest.json'
       warn.name = 'WARRelativeAssetMissing'
       compilation.warnings!.push(warn)
-
-      pushResource(matches, res)
       return
     }
 
     const emitted = emitFileAsAsset(compilation, abs)
-    pushResource(matches, emitted)
+    pushResource(matches, emitted, extra)
   }
 
-  if (isV2) {
-    war.forEach((res) => handleOne(undefined, res as string))
-  } else {
-    war.forEach((group) => {
-      // @ts-expect-error - group is an object
-      const matches = group.matches || []
+  war.forEach((entry) => {
+    if (typeof entry === 'string') {
+      if (isMv2) {
+        handleOne(undefined, entry)
+        return
+      }
 
-      validateMatchesOrReport(compilation, matches, browser)
+      const msg = warMessages.warStringEntryInMv3(entry)
+      const err = new WebpackError(msg) as Error & {
+        file?: string
+        name?: string
+      }
+      err.file = 'manifest.json'
+      err.name = 'WARStringEntryInMv3'
+      compilation.errors = compilation.errors || []
+      compilation.errors.push(err)
+      return
+    }
 
-      // @ts-expect-error - group is an object
-      if (!Array.isArray(group.resources)) return
+    if (!entry || typeof entry !== 'object') return
 
-      // @ts-expect-error - group is an object
-      group.resources.forEach((res) => handleOne(matches, res))
-    })
-  }
+    const matches = entry.matches || []
+
+    validateMatchesOrReport(compilation, matches, browser)
+
+    if (!Array.isArray(entry.resources)) return
+
+    const {resources: _resources, matches: _matches, ...extra} = entry
+    const extraFields = Object.keys(extra).length > 0 ? extra : undefined
+
+    entry.resources.forEach((res) => handleOne(matches, res, extraFields))
+  })
 
   return {v2, v3}
 }

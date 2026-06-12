@@ -6,12 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {StatsAsset} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import type {StatsAsset} from '@rspack/core'
 import colors from 'pintor'
-import type {Manifest, DevOptions} from '../types'
 import packageJson from '../package.json'
+import type {DevOptions, Manifest} from '../types'
 
 // Pretty-format helpers for human-readable, Vercel-like tone
 export const fmt = {
@@ -202,7 +202,7 @@ export function buildWebpack(
   const statsJson = stats?.toJson({
     all: false,
     assets: true,
-    time: true
+    timings: true
   })
   const outputPath =
     typeof stats?.compilation?.outputOptions?.path === 'string'

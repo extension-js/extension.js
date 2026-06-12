@@ -17,7 +17,7 @@ export function getFilename(feature: string, filePath: string) {
 
   let fileOutputpath = feature
 
-  if (['.js', '.jsx', '.tsx', '.ts'].includes(entryExt)) {
+  if (['.js', '.jsx', '.tsx', '.ts', '.vue', '.svelte'].includes(entryExt)) {
     fileOutputpath = fileOutputpath.replace(entryExt, '.js')
   }
 

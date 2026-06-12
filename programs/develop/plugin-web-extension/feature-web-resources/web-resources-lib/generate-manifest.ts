@@ -6,17 +6,17 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compilation, sources} from '@rspack/core'
+import type {Manifest} from '../../../types'
 import {
   getManifestContent,
   setCurrentManifestContent
 } from '../../feature-manifest/manifest-lib/manifest'
-import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
-import type {Manifest} from '../../../types'
 import {warPatchedSummary} from './messages'
+import {resolveUserDeclaredWAR} from './resolve-war'
 
 type AssetSource =
   | string
@@ -89,7 +89,13 @@ function isCoveredByExistingGlobs(
   return false
 }
 
-type WarV3Group = {resources: string[]; matches: string[]}
+// Groups carry user-declared fields like use_dynamic_url and extension_ids
+// through to the final write untouched.
+type WarV3Group = {
+  resources: string[]
+  matches: string[]
+  [key: string]: unknown
+}
 
 export function mergeIntoV3Group(
   groups: WarV3Group[],
@@ -133,6 +139,8 @@ export function mergeIntoV3Group(
   }
 }
 
+const assetScanCache = new WeakMap<object, string[]>()
+
 function isCanonicalContentScriptCss(resource: string) {
   return /^content_scripts\/content-\d+\.css$/.test(resource)
 }
@@ -161,6 +169,7 @@ export function generateManifestPatches(
   const webAccessibleResourcesV3: WarV3Group[] =
     canonicalManifest.manifest_version === 3
       ? resolved.v3.map((g) => ({
+          ...(g.extra || {}),
           matches: g.matches,
           resources: Array.from(g.resources)
         }))
@@ -181,17 +190,35 @@ export function generateManifestPatches(
         : []
 
       for (const jsFile of jsFiles) {
-        const source = getAssetSource(compilation, jsFile)
+        // Watch-mode rebuilds reuse the same Source instance for unchanged
+        // assets, so cache the scan per instance instead of re-materializing
+        // and re-scanning megabytes of bundle text on every compilation.
+        const assetForCache =
+          typeof compilation.getAsset === 'function'
+            ? compilation.getAsset(jsFile)
+            : undefined
+        const cacheKey =
+          assetForCache && typeof assetForCache.source === 'object'
+            ? (assetForCache.source as object)
+            : undefined
 
-        if (!source) continue
+        let filtered = cacheKey ? assetScanCache.get(cacheKey) : undefined
 
-        const re = /assets\/[A-Za-z0-9._-]+/g
-        const found = source.match(re) || []
-        const filtered = Array.from(
-          new Set(
-            found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))
-          )
-        ).sort()
+        if (!filtered) {
+          const source = getAssetSource(compilation, jsFile)
+
+          if (!source) continue
+
+          const re = /assets\/[A-Za-z0-9._-]+/g
+          const found = source.match(re) || []
+          filtered = Array.from(
+            new Set(
+              found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))
+            )
+          ).sort()
+
+          if (cacheKey) assetScanCache.set(cacheKey, filtered)
+        }
 
         if (filtered.length === 0) continue
 
@@ -327,8 +354,13 @@ export function generateManifestPatches(
   // disk so those stragglers stay reachable in their lifetime
   const onDiskCssUnderContentScripts: string[] = []
   const outputPath = compilation.options.output?.path
+  // The leftover-chunk problem this scan covers only exists in dev, where
+  // output.clean is false; production cleans dist before compiling, so the
+  // directory read is skipped there.
+  const isDevModeBuild =
+    (compilation.options?.mode || 'development') !== 'production'
 
-  if (outputPath) {
+  if (outputPath && isDevModeBuild) {
     try {
       const csDir = path.join(outputPath, 'content_scripts')
 
@@ -397,6 +429,7 @@ export function generateManifestPatches(
     if (webAccessibleResourcesV3.length > 0) {
       canonicalManifest.web_accessible_resources = webAccessibleResourcesV3
         .map((entry) => ({
+          ...entry,
           resources: Array.from(new Set(entry.resources)).sort(),
           matches: Array.from(new Set(entry.matches)).sort()
         }))
