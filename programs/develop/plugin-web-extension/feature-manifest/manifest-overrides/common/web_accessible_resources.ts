@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {type FilepathList, type Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {type Manifest, type FilepathList} from '../../../../types'
 
 function normalizeOutputPath(originalPath: string) {
   if (!originalPath) return originalPath
@@ -43,37 +43,42 @@ export function webAccessibleResources(manifest: Manifest) {
     return undefined
   }
 
-  // Support MV2 string[] and MV3 object[] formats
-  if (
-    Array.isArray(manifest.web_accessible_resources) &&
-    typeof manifest.web_accessible_resources[0] === 'string'
-  ) {
-    return {
-      web_accessible_resources: (
-        manifest.web_accessible_resources as string[]
-      ).map((resource: string) =>
-        getFilename(normalizeOutputPath(resource), resource)
-      )
-    }
-  }
+  const mapResource = (resource: string) =>
+    getFilename(normalizeOutputPath(resource), resource)
 
-  const v3 = (
-    manifest.web_accessible_resources as Array<{
-      resources?: string[]
-      matches?: string[]
-      extension_ids?: string[]
-      use_dynamic_url?: boolean
-    }>
+  // Handle each entry by its own shape rather than keying off the first
+  // element: arrays mixing MV2 strings and MV3 objects must not crash here.
+  // String entries in an MV3 manifest are rejected later (resolve-war) with
+  // a proper compilation error; object entries without a resources array are
+  // dropped as malformed.
+  const entries = (
+    manifest.web_accessible_resources as Array<
+      | string
+      | {
+          resources?: string[]
+          matches?: string[]
+          extension_ids?: string[]
+          use_dynamic_url?: boolean
+        }
+    >
   )
-    .filter((entry) => Array.isArray(entry.resources))
-    .map((entry) => ({
-      ...entry,
-      resources: (entry.resources || []).map((res) =>
-        getFilename(normalizeOutputPath(res), res)
-      )
-    }))
+    .map((entry) => {
+      if (typeof entry === 'string') {
+        return mapResource(entry)
+      }
+      if (!entry || !Array.isArray(entry.resources)) {
+        return undefined
+      }
+      return {
+        ...entry,
+        resources: entry.resources.map(mapResource)
+      }
+    })
+    .filter((entry) => entry !== undefined)
 
-  if (v3.length === 0) return undefined
+  if (entries.length === 0) return undefined
 
-  return {web_accessible_resources: v3}
+  return {
+    web_accessible_resources: entries as Manifest['web_accessible_resources']
+  }
 }

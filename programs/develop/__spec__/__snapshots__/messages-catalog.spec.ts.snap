@@ -195,6 +195,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "warFieldError: function(2)",
     "warInvalidMatchPattern: function(1)",
     "warPatchedSummary: function(3)",
+    "warStringEntryInMv3: function(1)",
   ],
 }
 `;
