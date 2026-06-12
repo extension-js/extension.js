@@ -14,6 +14,7 @@ export function warFieldError(
     overrideNotFoundPath?: string
     publicRootHint?: boolean
     relativeRef?: string
+    sourceSibling?: string
   }
 ) {
   const displayPath = opts?.overrideNotFoundPath || filePath
@@ -43,6 +44,14 @@ export function warFieldError(
     lines.push(
       `Fix: Add the file to ${colors.yellow('public/')} or update the path to the correct '/...' location.`
     )
+  } else if (opts?.sourceSibling) {
+    lines.push(
+      `Found ${colors.yellow(opts.sourceSibling)}, but web_accessible_resources entries are copied as-is, not compiled.`
+    )
+    lines.push('')
+    lines.push(
+      `Fix: Import the file from a script so it gets bundled, or move a prebuilt copy to ${colors.yellow('public/')} and reference it with a leading '/'.`
+    )
   } else {
     lines.push(
       `Relative paths must point to a real source file so the build can emit it.`
@@ -61,6 +70,23 @@ export function warFieldError(
   // Final missing path
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(displayPath)}`)
+  return lines.join('\n')
+}
+
+export function warStringEntryInMv3(entry: string) {
+  const lines: string[] = []
+  lines.push(
+    `Check the ${colors.yellow('web_accessible_resources')} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(
+    `Manifest V3 requires object entries with ${colors.yellow('resources')} and ${colors.yellow('matches')} (or ${colors.yellow('extension_ids')}). Plain string entries are the Manifest V2 format and Chrome rejects them at load time.`
+  )
+  lines.push('')
+  lines.push(
+    `Fix: Wrap it like ${colors.yellow(`{"resources": ["${entry}"], "matches": ["<all_urls>"]}`)} with the matches your pages need.`
+  )
+  lines.push('')
+  lines.push(`${colors.red('INVALID MV3 ENTRY')} ${colors.underline(entry)}`)
   return lines.join('\n')
 }
 

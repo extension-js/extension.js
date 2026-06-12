@@ -1,8 +1,8 @@
 import {Asset, Compilation} from '@rspack/core'
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {WebResourcesPlugin} from '..'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
@@ -344,6 +344,11 @@ describe('generateManifestPatches', () => {
   })
 
   it('should correctly merge existing web_accessible_resources', () => {
+    // User-declared resources must resolve to something real: missing paths
+    // are now warned about and dropped instead of shipped broken.
+    fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
+    fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing_resource.svg'), 'x')
+
     expect(
       runWith(
         {
@@ -784,6 +789,11 @@ describe('generateManifestPatches', () => {
   })
 
   it('should merge only when matches sets are equal (mv3) and sort deterministically', () => {
+    // See above: declared resources have to exist to stay in the manifest.
+    fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
+    fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing.svg'), 'x')
+    fs.writeFileSync(path.join(tmpRoot, 'dist', 'x.svg'), 'x')
+
     const result = runWith(
       {
         'content_scripts/content-0': [
