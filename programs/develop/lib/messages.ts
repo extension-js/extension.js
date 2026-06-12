@@ -208,12 +208,23 @@ export function buildWebpack(
     typeof stats?.compilation?.outputOptions?.path === 'string'
       ? stats.compilation.outputOptions.path
       : ''
-  const manifestPath = outputPath
+  // Failed builds may not emit manifest.json. Fall back to the project
+  // manifest so this summary never throws inside the compiler.run callback:
+  // an exception there leaves the build promise pending and the process
+  // exits 0 without ever reaching the error handling.
+  const distManifestPath = outputPath
     ? path.join(outputPath, 'manifest.json')
-    : path.join(projectDir, 'manifest.json')
-  const manifest: Record<string, string> = JSON.parse(
-    fs.readFileSync(manifestPath, 'utf8')
-  )
+    : ''
+  const manifestPath =
+    distManifestPath && fs.existsSync(distManifestPath)
+      ? distManifestPath
+      : path.join(projectDir, 'manifest.json')
+  let manifest: Record<string, string> = {}
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  } catch {
+    manifest = {name: path.basename(projectDir), version: ''}
+  }
   const assets: any[] = statsJson?.assets
   const heading = `${getLoggingPrefix('info')} Building ${colors.blue(
     manifest.name
@@ -603,7 +614,7 @@ function getFileSize(fileSizeInBytes: number): string {
 function getAssetsSize(assets: {size: number}[] | undefined) {
   let totalSize = 0
   assets?.forEach((asset) => {
-    totalSize += asset.size
+    totalSize += asset?.size || 0
   })
 
   return getFileSize(totalSize)
@@ -634,6 +645,9 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
   const assetTree: Record<string, {size: number}> = {}
 
   assets?.forEach((asset) => {
+    // Failed builds can report asset stubs without a name; skip them
+    // instead of throwing inside the compiler.run callback.
+    if (typeof asset?.name !== 'string') return
     const paths = asset.name.split('/')
     let currentLevel: any = assetTree
 

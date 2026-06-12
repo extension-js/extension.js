@@ -6,26 +6,25 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as fs from 'fs'
-import {getBuildSummary, type BuildSummary} from './lib/build-summary'
 import type {Configuration} from '@rspack/core'
-import {getProjectStructure} from './lib/project'
-import * as messages from './lib/messages'
-import {loadCustomConfig} from './lib/config-loader'
-import {loadCommandConfig} from './lib/config-loader'
-import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
-import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
+import * as fs from 'fs'
+import {type BuildSummary, getBuildSummary} from './lib/build-summary'
+import {loadCommandConfig, loadCustomConfig} from './lib/config-loader'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
+import * as messages from './lib/messages'
+import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
+import {getProjectStructure} from './lib/project'
+import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
+import {
+  ensureTypeScriptConfig,
+  isUsingTypeScript
+} from './plugin-js-frameworks/js-tools/typescript'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
-import {
-  isUsingTypeScript,
-  ensureTypeScriptConfig
-} from './plugin-js-frameworks/js-tools/typescript'
 
 import type {BuildOptions} from './types'
 
@@ -183,7 +182,14 @@ export async function extensionBuild(
         }
 
         if (!buildOptions?.silent && stats) {
-          console.log(messages.buildWebpack(manifestDir, stats, browser))
+          // The summary is informational; a throw here would leave this
+          // promise pending and the process would exit 0 without ever
+          // reaching the error handling below.
+          try {
+            console.log(messages.buildWebpack(manifestDir, stats, browser))
+          } catch {
+            // Ignore summary failures; error reporting happens below.
+          }
         }
 
         if (!stats.hasErrors()) {
