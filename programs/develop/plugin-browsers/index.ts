@@ -61,6 +61,8 @@ export interface BrowserLaunchOptions {
   noOpen?: boolean
   profile?: string | false
   persistProfile?: boolean
+  keepProfileChanges?: boolean
+  copyFromProfile?: string
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
