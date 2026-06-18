@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {
-  type RspackPluginInstance,
-  type LoaderContext as RspackLoaderContext
+  type LoaderContext as RspackLoaderContext,
+  type RspackPluginInstance
 } from '@rspack/core'
 
 /**
@@ -108,6 +108,12 @@ export type BrowserType =
   | 'edge'
   | 'firefox'
   | 'chromium'
+  | 'brave'
+  | 'opera'
+  | 'vivaldi'
+  | 'yandex'
+  | 'waterfox'
+  | 'librewolf'
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
