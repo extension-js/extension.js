@@ -9,17 +9,9 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import type {CompilationLike} from '../../browsers-types'
-import {
-  uniqueNamesGenerator,
-  adjectives,
-  colors as ucColors,
-  animals
-} from 'unique-names-generator'
 import * as messages from '../../browsers-lib/messages'
-import {
-  cleanupOldTempProfiles,
-  markManagedEphemeralProfile
-} from '../../browsers-lib/shared-utils'
+import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {getPreferences} from './master-preferences'
 import type {BrowserType, BrowserConfig} from '../../browsers-types'
 
@@ -76,12 +68,7 @@ export async function browserConfig(
       .toLowerCase()
       .trim() === 'true'
 
-  let profilePath: string | ''
-
   const contextDir = compilation?.options?.context || process.cwd()
-  const hasExplicitProfile =
-    typeof profile === 'string' && profile.trim().length > 0
-  const isManagedProfile = !useSystemProfile && !hasExplicitProfile
 
   const shownPath = (p: string) => {
     try {
@@ -92,69 +79,55 @@ export async function browserConfig(
     }
   }
 
-  if (typeof profile === 'string' && profile.trim().length > 0) {
+  const managedBaseDir = path.resolve(
+    distRoot,
+    'extension-js',
+    'profiles',
+    `${browser}-profile`
+  )
+
+  // One shared decision about what profile this run gets (system / explicit /
+  // managed), including copyFromProfile seeding and keepProfileChanges
+  // persistence. The launcher only expresses the result as a Firefox --profile.
+  const resolved = resolveProfileConfig({
+    rawProfile: profile,
+    managedBaseDir,
+    useSystemProfile,
+    persistProfile: (configOptions as any).persistProfile,
+    keepProfileChanges: configOptions.keepProfileChanges,
+    copyFromProfile: configOptions.copyFromProfile,
     // Resolve relative profile paths against the rspack compilation context
     // (the project root that owns extension.config.js), not process.cwd().
     // Otherwise running examples sequentially from a parent dir collapses
-    // every example to the same shared profile
-    const trimmedProfile = profile.trim()
-    profilePath = path.isAbsolute(trimmedProfile)
-      ? trimmedProfile
-      : path.resolve(contextDir, trimmedProfile)
-  } else if (!useSystemProfile) {
-    const base = path.resolve(
-      distRoot,
-      'extension-js',
-      'profiles',
-      `${browser}-profile`
-    )
-    const persist = Boolean((configOptions as any).persistProfile)
+    // every example to the same shared profile.
+    resolveExplicit: (trimmedProfile) =>
+      path.isAbsolute(trimmedProfile)
+        ? trimmedProfile
+        : path.resolve(contextDir, trimmedProfile)
+  })
 
-    if (persist) {
-      const stable = path.join(base, 'dev')
+  const profilePath: string = resolved.profilePath
 
-      // Visual hint while creating persistent dev profile
-      // eslint-disable-next-line no-console
-      console.log(
-        messages.creatingUserProfile(
-          hasExplicitProfile ? stable : shownPath(stable)
+  if (resolved.kind === 'managed') {
+    // Visual hint while creating managed (persistent or ephemeral) profile
+    // eslint-disable-next-line no-console
+    console.log(messages.creatingUserProfile(shownPath(profilePath)))
+
+    if (!resolved.persisted) {
+      try {
+        const maxAgeHours = parseInt(
+          String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
+          10
         )
-      )
-      fs.mkdirSync(stable, {recursive: true})
-      profilePath = stable
-    } else {
-      const human = uniqueNamesGenerator({
-        dictionaries: [adjectives, ucColors, animals],
-        separator: '-',
-        length: 3
-      })
-      const tmp = path.join(base, human)
-
-      // Visual hint while creating ephemeral temp profile
-      // eslint-disable-next-line no-console
-      console.log(
-        messages.creatingUserProfile(hasExplicitProfile ? tmp : shownPath(tmp))
-      )
-      fs.mkdirSync(tmp, {recursive: true})
-      markManagedEphemeralProfile(tmp)
-      profilePath = tmp
+        cleanupOldTempProfiles(
+          managedBaseDir,
+          path.basename(profilePath),
+          Number.isFinite(maxAgeHours) ? maxAgeHours : 12
+        )
+      } catch {
+        // ignore
+      }
     }
-
-    try {
-      const maxAgeHours = parseInt(
-        String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
-        10
-      )
-      cleanupOldTempProfiles(
-        base,
-        path.basename(profilePath),
-        Number.isFinite(maxAgeHours) ? maxAgeHours : 12
-      )
-    } catch {
-      // ignore
-    }
-  } else {
-    profilePath = ''
   }
 
   // Ensure profile directory exists for explicit/managed profiles.

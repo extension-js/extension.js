@@ -16,22 +16,16 @@ import {
 import {
   filterBrowserFlags,
   deriveDebugPortWithInstance,
-  markManagedEphemeralProfile,
   prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
 import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
 import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import * as messages from '../../browsers-lib/messages'
 import {
   chromeMasterPreferences,
   edgeMasterPreferences
 } from './master-preferences'
-import {
-  uniqueNamesGenerator,
-  adjectives,
-  colors as ucColors,
-  animals
-} from 'unique-names-generator'
 
 // Define the default flags as a constant for maintainability and type checking
 // Removed redundant and outdated flags for better performance
@@ -151,8 +145,6 @@ export function browserConfig(
   const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
   const devWantsCDP = compilation?.options?.mode === 'development'
   const rawProfile = configOptions.profile
-  const hasExplicitProfile =
-    typeof rawProfile === 'string' && rawProfile.trim().length > 0
   const useSystemProfile =
     String(
       process.env.EXTENSION_USE_SYSTEM_PROFILE ||
@@ -161,8 +153,6 @@ export function browserConfig(
     )
       .toLowerCase()
       .trim() === 'true'
-
-  let userProfilePath: string
 
   const contextDir = compilation?.options?.context || process.cwd()
 
@@ -175,60 +165,46 @@ export function browserConfig(
     }
   }
 
-  if (hasExplicitProfile) {
+  const outPath =
+    compilation?.options?.output?.path ||
+    path.resolve(process.cwd(), 'dist/chrome')
+  const distRoot = path.dirname(outPath)
+  const managedBaseDir = path.resolve(
+    distRoot,
+    'extension-js',
+    'profiles',
+    `${configOptions.browser}-profile`
+  )
+
+  // One shared decision about what profile this run gets (system / explicit /
+  // managed), including copyFromProfile seeding and keepProfileChanges
+  // persistence. The launcher only expresses the result as Chromium launch args.
+  const resolved = resolveProfileConfig({
+    rawProfile,
+    managedBaseDir,
+    useSystemProfile,
+    persistProfile: configOptions.persistProfile,
+    keepProfileChanges: configOptions.keepProfileChanges,
+    copyFromProfile: configOptions.copyFromProfile,
     // Resolve relative profile paths against the rspack compilation context
     // (the project root that owns extension.config.js), not process.cwd().
     // Otherwise running examples sequentially from a parent dir collapses
     // every example to the same shared profile, and Chrome carries the
-    // previous example's --load-extension path into the next session
-    const trimmedProfile = rawProfile.trim()
-    userProfilePath = path.isAbsolute(trimmedProfile)
-      ? trimmedProfile
-      : path.resolve(contextDir, trimmedProfile)
-  } else if (!useSystemProfile) {
-    const outPath =
-      compilation?.options?.output?.path ||
-      path.resolve(process.cwd(), 'dist/chrome')
-    const distRoot = path.dirname(outPath)
-    const base = path.resolve(
-      distRoot,
-      'extension-js',
-      'profiles',
-      `${configOptions.browser}-profile`
-    )
-    const persist = Boolean(configOptions.persistProfile)
+    // previous example's --load-extension path into the next session.
+    resolveExplicit: (trimmedProfile) =>
+      path.isAbsolute(trimmedProfile)
+        ? trimmedProfile
+        : path.resolve(contextDir, trimmedProfile)
+  })
 
-    if (persist) {
-      const stableDir = path.join(base, 'dev')
+  const userProfilePath = resolved.profilePath
 
-      // Visual hint while creating persistent dev profile
-      // eslint-disable-next-line no-console
-      console.log(
-        messages.creatingUserProfile(
-          hasExplicitProfile ? stableDir : shownPath(stableDir)
-        )
-      )
-      fs.mkdirSync(stableDir, {recursive: true})
-      userProfilePath = stableDir
-    } else {
-      const human = uniqueNamesGenerator({
-        dictionaries: [adjectives, ucColors, animals],
-        separator: '-',
-        length: 3
-      })
-      const ephemDir = path.join(base, human)
+  if (resolved.kind === 'managed') {
+    // Visual hint while creating managed (persistent or ephemeral) profile
+    // eslint-disable-next-line no-console
+    console.log(messages.creatingUserProfile(shownPath(userProfilePath)))
 
-      // Visual hint while creating ephemeral temp profile
-      // eslint-disable-next-line no-console
-      console.log(
-        messages.creatingUserProfile(
-          hasExplicitProfile ? ephemDir : shownPath(ephemDir)
-        )
-      )
-      fs.mkdirSync(ephemDir, {recursive: true})
-      markManagedEphemeralProfile(ephemDir)
-      userProfilePath = ephemDir
-
+    if (!resolved.persisted) {
       // Best-effort cleanup of old managed temp profiles; exclude current basename
       try {
         const maxAgeHours = parseInt(
@@ -236,16 +212,14 @@ export function browserConfig(
           10
         )
         cleanupOldTempProfiles(
-          base,
-          path.basename(ephemDir),
+          managedBaseDir,
+          path.basename(userProfilePath),
           Number.isFinite(maxAgeHours) ? maxAgeHours : 12
         )
       } catch {
         // ignore
       }
     }
-  } else {
-    userProfilePath = ''
   }
 
   // Seed Chromium profile preferences once for managed/explicit profile paths.
