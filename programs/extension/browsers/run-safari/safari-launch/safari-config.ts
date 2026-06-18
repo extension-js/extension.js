@@ -135,3 +135,124 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     'build'
   ]
 }
+
+// ---------------------------------------------------------------------------
+// Manifest fingerprinting — detect when the generated Xcode project is stale
+// ---------------------------------------------------------------------------
+
+export function manifestFingerprintPath(config: SafariBuildConfig): string {
+  return path.join(config.projectLocation, '.manifest-fingerprint')
+}
+
+function stableStringify(obj: unknown): string {
+  if (obj === null || obj === undefined) return JSON.stringify(obj)
+  if (typeof obj !== 'object') return JSON.stringify(obj)
+  if (Array.isArray(obj)) {
+    return `[${obj.map(stableStringify).join(',')}]`
+  }
+  const keys = Object.keys(obj as Record<string, unknown>).sort()
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((obj as Record<string, unknown>)[k])}`).join(',')}}`
+}
+
+function readManifestRaw(extensionDir: string): string {
+  try {
+    return fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function normalizeManifest(raw: string): string {
+  try {
+    return stableStringify(JSON.parse(raw))
+  } catch {
+    return raw
+  }
+}
+
+export function saveManifestFingerprint(config: SafariBuildConfig): void {
+  const raw = readManifestRaw(config.extensionDir)
+  fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {recursive: true})
+  fs.writeFileSync(manifestFingerprintPath(config), normalizeManifest(raw), 'utf8')
+}
+
+export function isProjectStale(config: SafariBuildConfig): boolean {
+  const fpPath = manifestFingerprintPath(config)
+  if (!fs.existsSync(fpPath)) return true
+  const stored = fs.readFileSync(fpPath, 'utf8')
+  const current = normalizeManifest(readManifestRaw(config.extensionDir))
+  return stored !== current
+}
+
+// ---------------------------------------------------------------------------
+// Xcode user-settings preservation across project regeneration
+// ---------------------------------------------------------------------------
+
+const PRESERVED_SETTINGS = [
+  'DEVELOPMENT_TEAM',
+  'CODE_SIGN_STYLE',
+  'PROVISIONING_PROFILE_SPECIFIER'
+] as const
+
+export function pbxprojPath(config: SafariBuildConfig): string {
+  return path.join(xcodeProjectPath(config), 'project.pbxproj')
+}
+
+export function extractXcodeUserSettings(
+  pbxprojContent: string
+): Record<string, string> {
+  const found: Record<string, string> = {}
+  for (const key of PRESERVED_SETTINGS) {
+    const m = new RegExp(`\\b${key}\\s*=\\s*([^;]+);`).exec(pbxprojContent)
+    if (m) {
+      const val = m[1].trim()
+      // Only preserve if the value looks intentionally set (not empty or placeholder)
+      if (val && val !== '""' && val !== "''") {
+        found[key] = val
+      }
+    }
+  }
+  return found
+}
+
+export function applyXcodeUserSettings(
+  pbxprojContent: string,
+  settings: Record<string, string>
+): string {
+  let result = pbxprojContent
+  for (const [key, value] of Object.entries(settings)) {
+    const existing = new RegExp(`\\b${key}\\s*=\\s*[^;]+;`, 'g')
+    if (existing.test(result)) {
+      // Replace all occurrences with the preserved value.
+      result = result.replace(existing, `${key} = ${value};`)
+    } else {
+      // Inject into every buildSettings block.
+      result = result.replace(
+        /buildSettings\s*=\s*\{/g,
+        `buildSettings = {\n\t\t\t\t${key} = ${value};`
+      )
+    }
+  }
+  return result
+}
+
+export function backupAndRestoreXcodeSettings(
+  config: SafariBuildConfig
+): {saved: Record<string, string>; restore: () => void} {
+  const projFile = pbxprojPath(config)
+  let saved: Record<string, string> = {}
+
+  if (fs.existsSync(projFile)) {
+    saved = extractXcodeUserSettings(fs.readFileSync(projFile, 'utf8'))
+  }
+
+  return {
+    saved,
+    restore() {
+      if (Object.keys(saved).length === 0) return
+      if (!fs.existsSync(projFile)) return
+      const content = fs.readFileSync(projFile, 'utf8')
+      fs.writeFileSync(projFile, applyXcodeUserSettings(content, saved), 'utf8')
+    }
+  }
+}
