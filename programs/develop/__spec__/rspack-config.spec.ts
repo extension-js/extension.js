@@ -324,4 +324,61 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(run('./icon.png')).toEqual([undefined, undefined])
     expect(run('https://example.com/x.png')).toEqual([undefined, undefined])
   })
+
+  it('passes a missing relative CSS url() asset through verbatim, but bundles an existing one', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-asset-'))
+    fs.writeFileSync(path.join(dir, 'present.png'), 'x')
+
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'production',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const externalFn = (config.externals as any[])[0] as (
+      data: {request?: string; dependencyType?: string; context?: string},
+      cb: (err?: null, result?: string, type?: string) => void
+    ) => void
+
+    const run = (request: string, dependencyType?: string) => {
+      let captured: [string | undefined, string | undefined] = [
+        undefined,
+        undefined
+      ]
+      externalFn(
+        {request, dependencyType, context: dir},
+        (_e, result, type) => {
+          captured = [result, type]
+        }
+      )
+      return captured
+    }
+
+    // Missing relative url() asset → left verbatim as `asset` (browser tolerates).
+    expect(run('images/missing.png', 'url')).toEqual([
+      'images/missing.png',
+      'asset'
+    ])
+    // Query/hash suffixes (fonts) are ignored when checking existence.
+    expect(run('fonts/missing.woff?v=2', 'url')).toEqual([
+      'fonts/missing.woff?v=2',
+      'asset'
+    ])
+    // An existing file resolves/bundles normally — NOT externalized.
+    expect(run('present.png', 'url')).toEqual([undefined, undefined])
+    // Non-url dependency types are never treated as CSS assets.
+    expect(run('images/missing.png', 'esm')).toEqual([undefined, undefined])
+  })
 })
