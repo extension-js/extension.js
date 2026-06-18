@@ -13,26 +13,20 @@ import {type Manifest} from '../../../../types'
 const getBasename = (filepath: string) => path.basename(filepath)
 
 export function omnibox(manifest: Manifest) {
+  const omnibox = manifest.omnibox
   return (
-    (manifest as any).omnibox && {
+    omnibox && {
       omnibox: {
-        ...(manifest as any).omnibox,
-        ...(((manifest as any).omnibox as any).default_icon && {
+        ...omnibox,
+        ...(omnibox.default_icon && {
           default_icon:
-            typeof ((manifest as any).omnibox as any).default_icon === 'string'
+            typeof omnibox.default_icon === 'string'
               ? getFilename(
-                  `icons/${getBasename(
-                    ((manifest as any).omnibox as any).default_icon as string
-                  )}`,
-                  ((manifest as any).omnibox as any).default_icon as string
+                  `icons/${getBasename(omnibox.default_icon)}`,
+                  omnibox.default_icon
                 )
               : Object.fromEntries(
-                  Object.entries(
-                    ((manifest as any).omnibox as any).default_icon as Record<
-                      string,
-                      string
-                    >
-                  ).map(([size, icon]) => {
+                  Object.entries(omnibox.default_icon).map(([size, icon]) => {
                     return [
                       size,
                       getFilename(`icons/${getBasename(icon)}`, icon)

@@ -14,15 +14,15 @@ const getBasename = (filepath: string) => path.basename(filepath)
 
 // Firefox-only: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
 export function themeExperiment(manifest: Manifest) {
-  const te: any = (manifest as any).theme_experiment
+  const te = manifest.theme_experiment
   return (
     te && {
       theme_experiment: {
         ...te,
-        ...(te.stylesheet && {
+        ...(typeof te.stylesheet === 'string' && {
           stylesheet: getFilename(
-            `theme_experiment/${getBasename(te.stylesheet as string)}`,
-            te.stylesheet as string
+            `theme_experiment/${getBasename(te.stylesheet)}`,
+            te.stylesheet
           )
         }),
         ...(Array.isArray(te.stylesheets) && {
