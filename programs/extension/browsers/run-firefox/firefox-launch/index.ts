@@ -6,46 +6,52 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as fs from 'fs'
 import {ChildProcess} from 'child_process'
-import type {CompilationLike, BrowserLogger} from '../../browsers-types'
 import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
   getFirefoxVersion
 } from 'firefox-location2'
+import * as fs from 'fs'
+import locateLibreWolf from 'librewolf-location'
+import locateWaterfox from 'waterfox-location'
+import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
   managedBrowserCacheEnv,
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
-import {
-  deriveDebugPortWithInstance,
-  findAvailablePortNear,
-  removeManagedEphemeralProfile
-} from '../../browsers-lib/shared-utils'
-import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   buildBrowserLaunchRequest,
   publishUserExtensionRoot,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
+import {
+  deriveDebugPortWithInstance,
+  findAvailablePortNear,
+  removeManagedEphemeralProfile
+} from '../../browsers-lib/shared-utils'
+import type {
+  BrowserConfig,
+  BrowserLogger,
+  BrowserType,
+  CompilationLike
+} from '../../browsers-types'
+import type {FirefoxContext} from '../firefox-context'
+import type {FirefoxPluginRuntime} from '../firefox-types'
+import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
+import {browserConfig} from './browser-config'
+import {logFirefoxDryRun} from './dry-run'
 import {setupFirefoxProcessHandlers} from './process-handlers'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
-import {logFirefoxDryRun} from './dry-run'
-import {browserConfig} from './browser-config'
-import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
 import {
   isWslEnv,
-  resolveWslLinuxBinary as resolveWslLinuxFirefox,
   normalizeBinaryPathForWsl,
+  resolveWslLinuxBinary as resolveWslLinuxFirefox,
   resolveWslWindowsBinary,
   spawnFirefoxProcess
 } from './wsl-support'
-import type {FirefoxContext} from '../firefox-context'
-import type {BrowserType, BrowserConfig} from '../../browsers-types'
-import type {FirefoxPluginRuntime} from '../firefox-types'
 
 type LaunchOptions = {
   browser: BrowserType
@@ -267,6 +273,19 @@ export class FirefoxLaunchPlugin {
       } else if (!skipDetection) {
         if (engineBased) {
           failGeckoBinaryRequirement()
+        } else if (this.host.browser === 'waterfox') {
+          // Gecko fork located from the user's system, not a managed download.
+          const located = locateWaterfox(true, {env: process.env})
+          const normalized = normalizePath(located)
+          if (normalized) {
+            browserBinaryLocation = normalized
+          }
+        } else if (this.host.browser === 'librewolf') {
+          const located = locateLibreWolf(true, {env: process.env})
+          const normalized = normalizePath(located)
+          if (normalized) {
+            browserBinaryLocation = normalized
+          }
         } else {
           const cacheRoot = computeBinariesBaseDir(compilation)
           const env = {

@@ -421,6 +421,9 @@ importers:
       '@types/webextension-polyfill':
         specifier: 0.12.4
         version: 0.12.4
+      brave-location:
+        specifier: 3.0.6
+        version: 3.0.6
       chrome-location2:
         specifier: 4.0.0
         version: 4.0.0
@@ -448,6 +451,12 @@ importers:
       firefox-location2:
         specifier: 3.0.0
         version: 3.0.0
+      librewolf-location:
+        specifier: 1.1.2
+        version: 1.1.2
+      opera-location2:
+        specifier: 2.0.2
+        version: 2.0.2
       pintor:
         specifier: 0.3.0
         version: 0.3.0
@@ -460,9 +469,18 @@ importers:
       update-check:
         specifier: ^1.5.4
         version: 1.5.4
+      vivaldi-location2:
+        specifier: 2.0.2
+        version: 2.0.2
+      waterfox-location:
+        specifier: 2.0.2
+        version: 2.0.2
       ws:
         specifier: ^8.20.1
         version: 8.21.0
+      yandex-location:
+        specifier: 2.0.2
+        version: 2.0.2
     devDependencies:
       '@rslib/core':
         specifier: ^0.21.3
@@ -2974,6 +2992,11 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
+  brave-location@3.0.6:
+    resolution: {integrity: sha512-P8xyMgj1uZVPFxTLnDtRgHiL8KSuapJmq32o3hGFaDzX5t0ScLs6eoIacnNhKiR+eaaEaxNrExaamc/m6oAnzw==}
+    engines: {node: '>=16'}
+    hasBin: true
+
   browser-extension-manifest-fields@2.2.5:
     resolution: {integrity: sha512-7p2owiXVwiwHRdzBm9cCevOTM5HdtdDWxNt1LuxMFvidRhhzt6iv0iAnAUGfTHcSwku3xC/LXEhnMPoeO3BKAA==}
     engines: {node: '>=18'}
@@ -3619,6 +3642,10 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  isexe@4.0.0:
+    resolution: {integrity: sha512-FFUtZMpoZ8RqHS3XeXEmHWLA4thH+ZxCv2lOiPIn1Xc7CxrqhWzNSDzD+/chS/zbYezmiwWLdQC09JdQKmthOw==}
+    engines: {node: '>=20'}
+
   isobject@3.0.1:
     resolution: {integrity: sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==}
     engines: {node: '>=0.10.0'}
@@ -3699,6 +3726,11 @@ packages:
   less@4.5.1:
     resolution: {integrity: sha512-UKgI3/KON4u6ngSsnDADsUERqhZknsVZbnuzlRZXLQCmfC/MDld42fTydUE9B+Mla1AL6SJ/Pp6SlEFi/AVGfw==}
     engines: {node: '>=14'}
+    hasBin: true
+
+  librewolf-location@1.1.2:
+    resolution: {integrity: sha512-P1FYVVKVWO+ouveg+Q4Tyu5g74FvGZktfONVu55bofiOSwM+YD9RowesqZwkUBI4mIyIaMtLwNUwbXK45su/dQ==}
+    engines: {node: '>=18'}
     hasBin: true
 
   lightningcss-android-arm64@1.30.2:
@@ -3999,6 +4031,11 @@ packages:
   onetime@7.0.0:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
+
+  opera-location2@2.0.2:
+    resolution: {integrity: sha512-GuEl3/D2d1c2xKc61r1eo6EmkdT7z5yI4o7uCRfH1ud9GtePcG7VsKgjjHNl/GqprofpLNvocXwwsQlv1/BUGA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   outdent@0.5.0:
     resolution: {integrity: sha512-/jHxFIzoMXdqPzTaCpFzAAWhpkSjZPF4Vsn6jAfNpmbH/ymsmd7Qc6VE9BGn0L6YMj6uwpQLxCECpus4ukKS9Q==}
@@ -4965,6 +5002,11 @@ packages:
       jsdom:
         optional: true
 
+  vivaldi-location2@2.0.2:
+    resolution: {integrity: sha512-N9abrdA1IZMeUWpUZ64p6Ew5anL3DScmIhPIrz7GZmznr5eoeIc1o6HO9STisBKoM/ShUsccrk4JpV748eZe1Q==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   vue-loader@17.4.2:
     resolution: {integrity: sha512-yTKOA4R/VN4jqjw4y5HrynFL8AK0Z3/Jt7eOJXEitsm0GMRHDBjCfCiuTiLP7OESvsZYo2pATCWhDqxC5ZrM6w==}
     peerDependencies:
@@ -4991,6 +5033,11 @@ packages:
   watchpack@2.5.1:
     resolution: {integrity: sha512-Zn5uXdcFNIA1+1Ei5McRd+iRzfhENPCe7LeABkJtNulSxjma+l7ltNx55BWZkRlwRnpOgHqxnjyaDgJnNXnqzg==}
     engines: {node: '>=10.13.0'}
+
+  waterfox-location@2.0.2:
+    resolution: {integrity: sha512-HghHKvdgMeuSLRIQWLs0GNioz47LqYiqUzjHZNwfXHK/cdg1C+gpNh62QzEyVWomujOWlGRpjv7CU4Aukvn/PQ==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   webextension-polyfill@0.12.0:
     resolution: {integrity: sha512-97TBmpoWJEE+3nFBQ4VocyCdLKfw54rFaJ6EVQYLBCXqCIpLSZkwGgASpv4oPt9gdKCJ80RJlcmNzNn008Ag6Q==}
@@ -5022,6 +5069,11 @@ packages:
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
     engines: {node: '>= 8'}
+    hasBin: true
+
+  which@7.0.0:
+    resolution: {integrity: sha512-RancgH2dmbLdHl6LRhEqvklWMgl/Hdnun0Y90KhBOLkMefg8Qa7/Zel8Sm+8HEcP6DEjzsWzpkuBQEZok58isA==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     hasBin: true
 
   why-is-node-running@2.3.0:
@@ -5058,6 +5110,11 @@ packages:
   yaml@2.8.4:
     resolution: {integrity: sha512-ml/JPOj9fOQK8RNnWojA67GbZ0ApXAUlN2UQclwv2eVgTgn7O9gg9o7paZWKMp4g0H3nTLtS9LVzhkpOFIKzog==}
     engines: {node: '>= 14.6'}
+    hasBin: true
+
+  yandex-location@2.0.2:
+    resolution: {integrity: sha512-maltyLUfDhXtfINVBI//4Bu1ahEMXIRVvLeFArmAbnHGXAw/9wse0FkO/XeR2+nl6tX4Ri/rt7tztPvZdGysNA==}
+    engines: {node: '>=18'}
     hasBin: true
 
   yauzl@3.2.1:
@@ -7383,6 +7440,10 @@ snapshots:
     dependencies:
       fill-range: 7.1.1
 
+  brave-location@3.0.6:
+    dependencies:
+      which: 7.0.0
+
   browser-extension-manifest-fields@2.2.5: {}
 
   browserslist@4.28.1:
@@ -8053,6 +8114,8 @@ snapshots:
 
   isexe@2.0.0: {}
 
+  isexe@4.0.0: {}
+
   isobject@3.0.1: {}
 
   istanbul-lib-coverage@3.2.2: {}
@@ -8134,6 +8197,10 @@ snapshots:
       mime: 1.6.0
       needle: 3.5.0
       source-map: 0.6.1
+
+  librewolf-location@1.1.2:
+    dependencies:
+      which: 7.0.0
 
   lightningcss-android-arm64@1.30.2:
     optional: true
@@ -8383,6 +8450,10 @@ snapshots:
   onetime@7.0.0:
     dependencies:
       mimic-function: 5.0.1
+
+  opera-location2@2.0.2:
+    dependencies:
+      which: 7.0.0
 
   outdent@0.5.0: {}
 
@@ -9419,6 +9490,10 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
+  vivaldi-location2@2.0.2:
+    dependencies:
+      which: 7.0.0
+
   vue-loader@17.4.2(@vue/compiler-sfc@3.5.26)(vue@3.5.26(typescript@5.9.3))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.21))(esbuild@0.27.2)):
     dependencies:
       chalk: 4.1.2
@@ -9458,6 +9533,10 @@ snapshots:
     dependencies:
       glob-to-regexp: 0.4.1
       graceful-fs: 4.2.11
+
+  waterfox-location@2.0.2:
+    dependencies:
+      which: 7.0.0
 
   webextension-polyfill@0.12.0: {}
 
@@ -9545,6 +9624,10 @@ snapshots:
     dependencies:
       isexe: 2.0.0
 
+  which@7.0.0:
+    dependencies:
+      isexe: 4.0.0
+
   why-is-node-running@2.3.0:
     dependencies:
       siginfo: 2.0.0
@@ -9570,6 +9653,10 @@ snapshots:
 
   yaml@2.8.4:
     optional: true
+
+  yandex-location@2.0.2:
+    dependencies:
+      which: 7.0.0
 
   yauzl@3.2.1:
     dependencies:
