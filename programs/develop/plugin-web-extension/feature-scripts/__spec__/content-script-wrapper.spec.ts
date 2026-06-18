@@ -199,6 +199,64 @@ describe('content-script-wrapper loader', () => {
     )
   })
 
+  it('passes vendored *.min.js in scripts/ through untouched', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const scriptsDir = path.join(projectDir, 'scripts')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(scriptsDir, 'browser-polyfill.min.js')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    const vendored = '!function(e){"use strict";var t={}}(this);\n'
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath) as any,
+      vendored
+    )
+
+    // The vendored library must not be wrapped: no mount/reload runtime is
+    // prepended and no reinject epilogue is appended to a third-party file.
+    expect(wrapped).toBe(vendored)
+    expect(wrapped).not.toContain('__EXTJS_WRAPPER_KIND')
+    expect(wrapped).not.toContain('__EXTENSIONJS_REINJECT_GENERATION')
+  })
+
+  it('still wraps a *.min.js that is an explicitly declared content_scripts entry', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(contentDir, 'inject.min.js')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {matches: ['<all_urls>'], js: ['content/inject.min.js']}
+        ]
+      }),
+      'utf8'
+    )
+
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath) as any,
+      "console.log('declared min entry')"
+    )
+
+    expect(wrapped).toContain('var __EXTJS_WRAPPER_KIND="FS3_INLINE";')
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+  })
+
   it('keeps non-default-export files in executed mode', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')

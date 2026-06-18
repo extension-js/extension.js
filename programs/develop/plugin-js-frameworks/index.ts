@@ -380,6 +380,15 @@ export class JsFrameworksPlugin {
       {
         ...swcRuleBase,
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        // Page scripts (popup/options/sidebar/newtab/devtools) and module
+        // background scripts are loaded as ES modules in the browser
+        // (`<script type="module">` / `"type": "module"` service workers), so
+        // legal top-level await must parse. swc already treats these as modules
+        // (`isModule: true`); mark the Rspack module type ESM to match, otherwise
+        // Rspack re-classifies any first-party script without import/export as a
+        // non-module and rejects top-level await. Content scripts are excluded
+        // above — they are injected as classic scripts and must stay non-ESM.
+        type: 'javascript/esm',
         exclude: [
           ...swcRuleBase.exclude,
           (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
