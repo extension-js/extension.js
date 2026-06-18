@@ -48,7 +48,7 @@ describe('CDPExtensionController CDP-first loading', () => {
       sendCommand: vi.fn(async () => ({extensionId: 'cdp-loaded-id'}))
     }
     controller.enableLogging = vi.fn(async () => {})
-    controller.extensionIdBelongsToOutPath = vi.fn(() => true)
+    controller.classifyOwnership = vi.fn(() => 'mine')
 
     // deriveExtensionIdFromTargets should NOT be called if loadUnpacked succeeds
     controller.deriveExtensionIdFromTargets = vi.fn(async () => 'fallback-id')
@@ -92,7 +92,7 @@ describe('CDPExtensionController CDP-first loading', () => {
       })
     }
     controller.enableLogging = vi.fn(async () => {})
-    controller.extensionIdBelongsToOutPath = vi.fn(() => true)
+    controller.classifyOwnership = vi.fn(() => 'mine')
     controller.deriveExtensionIdFromTargets = vi
       .fn()
       .mockResolvedValue('target-derived-id')
@@ -137,7 +137,7 @@ describe('CDPExtensionController CDP-first loading', () => {
         extensionInfo: {name: 'Cached Extension', version: '1.0.0'}
       }))
     }
-    controller.extensionIdBelongsToOutPath = vi.fn(() => true)
+    controller.classifyOwnership = vi.fn(() => 'mine')
 
     const loadUnpackedSpy = vi.spyOn(ensureModule, 'loadUnpackedIfNeeded')
 
