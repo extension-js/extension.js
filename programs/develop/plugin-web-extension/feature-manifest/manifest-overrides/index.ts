@@ -18,10 +18,22 @@ export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
     manifest || JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
   // Helper to omit a top-level key from a shallow object
-  const omit = (obj: Record<string, any> | undefined, key: string) => {
+  const omit = (obj: Record<string, unknown> | undefined, key: string) => {
     if (!obj) return {}
     const {[key]: _ignored, ...rest} = obj
     return rest
+  }
+
+  // Each manifest-overrides aggregator returns a plain object whose `background`
+  // contribution is either absent or a `{background: {...}}` object. This reads
+  // that contribution as a shallow record without an `as any` escape.
+  const pickBackground = (
+    obj: Record<string, unknown>
+  ): Record<string, unknown> => {
+    const value = obj.background
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : {}
   }
 
   const common = manifestCommon(manifestContent, manifestPath)
@@ -32,16 +44,16 @@ export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
   // contributions accumulate rather than overwrite each other.
   const backgroundMerged = {
     ...(manifestContent.background || {}),
-    ...((common as any).background || {}),
-    ...((mv2 as any).background || {}),
-    ...((mv3 as any).background || {})
+    ...pickBackground(common),
+    ...pickBackground(mv2),
+    ...pickBackground(mv3)
   }
 
   const merged: Record<string, any> = {
     ...manifestContent,
-    ...omit(common as any, 'background'),
-    ...omit(mv2 as any, 'background'),
-    ...omit(mv3 as any, 'background')
+    ...omit(common, 'background'),
+    ...omit(mv2, 'background'),
+    ...omit(mv3, 'background')
   }
 
   if (Object.keys(backgroundMerged).length) {

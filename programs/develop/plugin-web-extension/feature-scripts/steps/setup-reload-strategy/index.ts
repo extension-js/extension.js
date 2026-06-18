@@ -65,8 +65,8 @@ export class SetupReloadStrategy {
 
     const contentScriptsMeta: Record<string, any> = {}
     try {
-      const csList: any[] = Array.isArray(patchedManifest.content_scripts)
-        ? (patchedManifest.content_scripts as any[])
+      const csList = Array.isArray(patchedManifest.content_scripts)
+        ? patchedManifest.content_scripts
         : []
       const originalCount = csList.length
       let bridgeOrdinal = 0

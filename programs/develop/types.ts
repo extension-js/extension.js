@@ -11,11 +11,32 @@ import {
   type LoaderContext as RspackLoaderContext
 } from '@rspack/core'
 
+/**
+ * Firefox-only `theme_experiment` manifest key.
+ * Not present in `@types/chrome`; declared here so the manifest pipeline can
+ * read it type-safely instead of casting `manifest as any`.
+ * @see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
+ */
+export interface ThemeExperiment {
+  stylesheet?: string
+  stylesheets?: string[]
+  // Firefox also allows colors/images/properties maps; kept open for forward-compat.
+  [key: string]: unknown
+}
+
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
     browser_action?: {
       theme_icons?: ThemeIcon[]
     }
+    // Extension.js augments the standard omnibox shape with a `default_icon`
+    // (string path or per-size record), which `@types/chrome` does not model.
+    omnibox?: {
+      keyword?: string
+      default_icon?: string | Record<string, string>
+    }
+    // Firefox-only theming key (absent from `@types/chrome`).
+    theme_experiment?: ThemeExperiment
   }
 
 export type Manifest = ChromeManifest
