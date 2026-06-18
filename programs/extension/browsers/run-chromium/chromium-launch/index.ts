@@ -6,39 +6,50 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as fs from 'fs'
-import type {CompilationLike, BrowserLogger} from '../../browsers-types'
+import locateBrave from 'brave-location'
 import locateChrome, {
-  getChromeVersion,
-  getInstallGuidance as getChromeInstallGuidance
+  getInstallGuidance as getChromeInstallGuidance,
+  getChromeVersion
 } from 'chrome-location2'
 import locateChromium, {
-  getChromiumVersion,
-  getInstallGuidance as getChromiumInstallGuidance
+  getInstallGuidance as getChromiumInstallGuidance,
+  getChromiumVersion
 } from 'chromium-location'
 import locateEdge, {
-  getEdgeVersion,
-  getInstallGuidance as getEdgeInstallGuidance
+  getInstallGuidance as getEdgeInstallGuidance,
+  getEdgeVersion
 } from 'edge-location'
-import * as messages from '../../browsers-lib/messages'
-import * as instanceRegistry from '../../browsers-lib/instance-registry'
-import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
-import * as utils from '../../browsers-lib/shared-utils'
+import * as fs from 'fs'
+import locateOpera from 'opera-location2'
+import locateVivaldi from 'vivaldi-location2'
+import locateYandex from 'yandex-location'
 import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import * as instanceRegistry from '../../browsers-lib/instance-registry'
+import * as messages from '../../browsers-lib/messages'
+import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
+import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   pickSharedBrowserRuntimeOptions,
   publishUserExtensionRoot,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
-import {ready as devServerReady} from '../../browsers-lib/ready-message'
+import * as utils from '../../browsers-lib/shared-utils'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
+import type {ChromiumContext} from '../chromium-context'
+import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+import {checkChromeRemoteDebugging} from '../chromium-source-inspection/discovery'
+import type {
+  ChromiumLaunchOptions,
+  ChromiumPluginRuntime
+} from '../chromium-types'
+import {waitForStableManifest} from '../manifest-readiness'
 import {browserConfig} from './browser-config'
-import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
-import {waitForStableManifest} from '../manifest-readiness'
+import {setupProcessSignalHandlers} from './process-handlers'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
@@ -47,13 +58,6 @@ import {
   resolveWslWindowsBinary,
   spawnChromiumProcess
 } from './wsl-support'
-import type {ChromiumContext} from '../chromium-context'
-import type {
-  ChromiumLaunchOptions,
-  ChromiumPluginRuntime
-} from '../chromium-types'
-import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
-import {checkChromeRemoteDebugging} from '../chromium-source-inspection/discovery'
 
 async function maybePrintDevBanner(args: {
   compilation: CompilationLike
@@ -361,6 +365,41 @@ export class ChromiumLaunchPlugin {
 
         if (!skipDetection) {
           browserBinaryLocation = resolveChromeLikeBinary()
+        }
+        break
+      }
+
+      // Chromium forks located from the user's system (not managed
+      // downloads). Each maps to its dedicated `*-location` resolver; the
+      // shared not-found block below prints install guidance on miss.
+      case 'brave':
+      case 'opera':
+      case 'vivaldi':
+      case 'yandex': {
+        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
+
+        if (!skipDetection) {
+          try {
+            const locate =
+              browser === 'brave'
+                ? locateBrave
+                : browser === 'opera'
+                  ? locateOpera
+                  : browser === 'vivaldi'
+                    ? locateVivaldi
+                    : locateYandex
+            const located = locate(true, {env: process.env})
+            const normalized = normalizePath(located || null)
+            if (normalized && fs.existsSync(normalized)) {
+              browserBinaryLocation = normalized
+            }
+          } catch {
+            // ignore; the shared not-found block below handles guidance
+          }
+        }
+
+        if (!browserBinaryLocation) {
+          browserBinaryLocation = resolveWslFallback()
         }
         break
       }

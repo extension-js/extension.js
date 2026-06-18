@@ -6,20 +6,20 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {printDevBannerOnce, printProdBannerOnce} from './browsers-lib/banner'
+import {
+  type ContentScriptTargetRule,
+  readContentScriptRules,
+  selectContentScriptRules
+} from './browsers-lib/content-script-targets'
+import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
+import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
   BrowserType,
   CompilationLike,
-  PluginInterface,
-  Controller
+  Controller,
+  PluginInterface
 } from './browsers-types'
-import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
-import {printDevBannerOnce, printProdBannerOnce} from './browsers-lib/banner'
-import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
-import {
-  readContentScriptRules,
-  selectContentScriptRules,
-  type ContentScriptTargetRule
-} from './browsers-lib/content-script-targets'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
@@ -149,6 +149,10 @@ function isChromiumBrowser(browser: BrowserType): boolean {
     browser === 'chrome' ||
     browser === 'edge' ||
     browser === 'chromium' ||
+    browser === 'brave' ||
+    browser === 'opera' ||
+    browser === 'vivaldi' ||
+    browser === 'yandex' ||
     browser === 'chromium-based'
   )
 }
@@ -156,6 +160,8 @@ function isChromiumBrowser(browser: BrowserType): boolean {
 function isFirefoxBrowser(browser: BrowserType): boolean {
   return (
     browser === 'firefox' ||
+    browser === 'waterfox' ||
+    browser === 'librewolf' ||
     browser === 'gecko-based' ||
     browser === 'firefox-based'
   )
