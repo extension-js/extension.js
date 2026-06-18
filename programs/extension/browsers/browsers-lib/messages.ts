@@ -734,6 +734,21 @@ export function safariRebuilt(appName: string) {
   return `${getLoggingPrefix('success')} Rebuilt ${colors.brightBlue(appName)} — reload the page (or toggle the extension) in Safari to see changes.`
 }
 
+export function safariProjectStale() {
+  return `${getLoggingPrefix('info')} manifest.json changed since the Xcode project was generated — regenerating project.`
+}
+
+export function safariSettingsPreserved(keys: string[]) {
+  return (
+    `${getLoggingPrefix('info')} Preserved Xcode build settings across regeneration: ${colors.yellow(keys.join(', '))}.\n` +
+    `If any other project-level tweaks were lost, reconfigure them in Xcode.`
+  )
+}
+
+export function safariSkippingConversion() {
+  return `${getLoggingPrefix('info')} Xcode project is up to date with manifest.json — skipping conversion.`
+}
+
 export function sourceInspectorInitialized() {
   return `${getLoggingPrefix('info')} Chrome source inspector initialized successfully`
 }

@@ -14,11 +14,14 @@ import type {SafariPluginLike} from '../safari-types'
 import {detectSafariToolchain} from './toolchain'
 import {logSafariDryRun} from './dry-run'
 import {
+  backupAndRestoreXcodeSettings,
   builtAppPath,
   composeConverterArgs,
   composeXcodebuildArgs,
+  isProjectStale,
   macOsSchemeName,
   resolveSafariBuildConfig,
+  saveManifestFingerprint,
   xcodeProjectPath
 } from './safari-config'
 
@@ -142,8 +145,18 @@ async function runSafariPipeline(
   }
 
   const projectExists = fs.existsSync(xcodeProjectPath(config))
+  const needsConversion =
+    !projectExists || host.forceRegenerate || isProjectStale(config)
 
-  if (!projectExists || host.forceRegenerate) {
+  if (needsConversion) {
+    if (projectExists) {
+      logger.info?.(messages.safariProjectStale())
+    }
+
+    // Preserve user-configured Xcode build settings (signing team, etc.)
+    // so they survive the regeneration.
+    const {saved, restore} = backupAndRestoreXcodeSettings(config)
+
     logger.info?.(messages.safariConverting(config.extensionDir))
 
     if (!(await runTool('xcrun', converterArgs))) {
@@ -156,7 +169,17 @@ async function runSafariPipeline(
       return
     }
 
+    restore()
+
+    const preservedKeys = Object.keys(saved)
+    if (preservedKeys.length > 0) {
+      logger.info?.(messages.safariSettingsPreserved(preservedKeys))
+    }
+
+    saveManifestFingerprint(config)
     logger.info?.(messages.safariConverted(config.projectLocation))
+  } else {
+    logger.info?.(messages.safariSkippingConversion())
   }
 
   if (mode === 'full')
