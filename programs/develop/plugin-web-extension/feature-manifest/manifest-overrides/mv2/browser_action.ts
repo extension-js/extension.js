@@ -27,7 +27,9 @@ export function browserAction(manifest: Manifest) {
             typeof manifest.browser_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.browser_action.default_icon)
-                  const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                  const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                    raw
+                  )
                   const target = isPublic
                     ? normalizeManifestOutputPath(raw)
                     : `icons/${path.basename(raw)}`
@@ -38,7 +40,9 @@ export function browserAction(manifest: Manifest) {
                     manifest.browser_action.default_icon as string
                   ).map(([size, icon]) => {
                     const raw = String(icon)
-                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                      raw
+                    )
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `icons/${path.basename(raw)}`
@@ -54,7 +58,9 @@ export function browserAction(manifest: Manifest) {
                 ...(themeIcon.light && {
                   light: (() => {
                     const raw = String(themeIcon.light)
-                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                      raw
+                    )
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `browser_action/${path.basename(raw)}`
@@ -64,7 +70,9 @@ export function browserAction(manifest: Manifest) {
                 ...(themeIcon.dark && {
                   dark: (() => {
                     const raw = String(themeIcon.dark)
-                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                      raw
+                    )
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `browser_action/${path.basename(raw)}`
