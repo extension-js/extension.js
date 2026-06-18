@@ -107,6 +107,7 @@
     "postcss-preset-env": "11.1.1",
     "postcss-scss": "4.0.9",
     "preact": "10.27.3",
+    "prefers-yarn": "2.0.1",
     "react-refresh": "0.18.0",
     "sass-loader": "16.0.7",
     "schema-utils": "^4.3.3",
