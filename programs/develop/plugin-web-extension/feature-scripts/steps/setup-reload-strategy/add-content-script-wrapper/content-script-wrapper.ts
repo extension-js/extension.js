@@ -251,6 +251,19 @@ export default function contentScriptWrapper(
     }
   }
 
+  // A vendored, pre-minified library (e.g. Mozilla's browser-polyfill.min.js)
+  // dropped into scripts/ is not a first-party content-script entrypoint: it
+  // ships its own runtime and must be passed through untouched. Wrapping it
+  // would prepend the mount/reload runtime and append the
+  // __EXTENSIONJS_REINJECT_GENERATION epilogue to a third-party file, shifting
+  // its line numbers and corrupting any parse diagnostics. Only skip files
+  // caught by the scripts/ heuristic — an explicitly declared content_scripts
+  // entry stays wrapped even if it happens to be named *.min.js.
+  const isVendoredMinifiedScript = /\.min\.[cm]?js$/i.test(resourceAbsPath)
+  if (isVendoredMinifiedScript && !declaredEntry) {
+    return rewrittenSource
+  }
+
   const isContentScriptLike = Boolean(declaredEntry || isScriptsFolderScript)
 
   if (!isContentScriptLike) {

@@ -162,6 +162,36 @@ describe('EmitFile step', () => {
     expect(calls).toEqual(['browser_action/a.png', 'browser_action/b.png'])
   })
 
+  it('emits theme/images entries to the theme/images folder', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    FS.existsSync.mockImplementation(
+      (p: string) =>
+        p === '/abs/assets/weta.png' || p === '/abs/assets/weta-left.png'
+    )
+
+    // Keys arrive as `theme/images/<basename>` from the manifest-fields theme
+    // group (one per image, including additional_backgrounds array entries).
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        'theme/images/weta.png': '/abs/assets/weta.png',
+        'theme/images/weta-left.png': '/abs/assets/weta-left.png'
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toEqual([
+      'theme/images/weta.png',
+      'theme/images/weta-left.png'
+    ])
+  })
+
   it('resolves leading "/" and relative paths from manifest directory (skips public-root)', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
