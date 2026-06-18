@@ -90,10 +90,17 @@ export class WebExtensionPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // Grab all icon assets from manifest including popup icons
+    // Grab all icon assets from manifest including popup icons.
+    // Theme images (`theme.images.*`, incl. the `additional_backgrounds`
+    // array) ride the same emit path so their files are copied to
+    // `theme/images/<basename>` — matching the paths the theme manifest
+    // override writes into the output manifest.
     new IconsPlugin({
       manifestPath,
-      includeList: manifestFieldsData.icons as FilepathList,
+      includeList: {
+        ...(manifestFieldsData.icons as FilepathList),
+        ...(manifestFieldsData.theme as FilepathList)
+      },
       browser: this.browser
     }).apply(compiler)
 
