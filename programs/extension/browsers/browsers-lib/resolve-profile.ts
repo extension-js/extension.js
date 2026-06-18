@@ -125,7 +125,6 @@ export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfil
   let profilePath: string
   if (persisted) {
     profilePath = path.join(managedBaseDir, 'dev')
-    fs.mkdirSync(profilePath, {recursive: true})
   } else {
     const human = uniqueNamesGenerator({
       dictionaries: [adjectives, ucColors, animals],
@@ -133,7 +132,19 @@ export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfil
       length: 3
     })
     profilePath = path.join(managedBaseDir, human)
-    fs.mkdirSync(profilePath, {recursive: true})
+  }
+
+  // Capture freshness BEFORE creating the directory. A target is "fresh" when it
+  // does not exist yet or is empty. `copyFromProfile` seeds only a fresh target,
+  // so the seed is copy-once: an ephemeral profile (always a new dir) is seeded
+  // every run, while a persisted/kept `dev` profile is seeded once on creation
+  // and the user's later changes survive subsequent runs instead of being
+  // clobbered by a re-seed every launch.
+  const isFreshTarget =
+    !fs.existsSync(profilePath) || fs.readdirSync(profilePath).length === 0
+
+  fs.mkdirSync(profilePath, {recursive: true})
+  if (!persisted) {
     // Only ephemeral, non-kept profiles are reclaimed on browser exit. The
     // marker is what `removeManagedEphemeralProfile` keys off of, so a persisted
     // or kept profile (no marker) survives — that is how `keepProfileChanges`
@@ -142,7 +153,7 @@ export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfil
   }
 
   let seededFrom: string | undefined
-  if (hasCopyFrom(copyFromProfile)) {
+  if (hasCopyFrom(copyFromProfile) && isFreshTarget) {
     const source = copyFromProfile.trim()
     seedProfileFrom(source, profilePath)
     seededFrom = source
