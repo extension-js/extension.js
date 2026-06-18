@@ -1,11 +1,17 @@
-import * as fs from 'fs'
-import * as path from 'path'
 import {
   execFileSync,
   spawn,
   spawnSync as spawnSyncImported
 } from 'child_process'
+import * as fs from 'fs'
 import {createRequire} from 'module'
+import * as path from 'path'
+import {buildExecEnv, detectPackageManagerFromLockfile} from 'prefers-yarn'
+
+// `buildExecEnv` and lockfile sniffing are shared, behavior-identical helpers
+// from the standalone `prefers-yarn` package. The resolver below stays local
+// because it honors Extension.js-specific overrides (EXTENSION_JS_*).
+export {buildExecEnv}
 
 const require = createRequire(import.meta.url)
 
@@ -199,17 +205,6 @@ function canRunCorepack(): boolean {
   }
 }
 
-function detectByLockfile(cwd?: string): PackageManagerName | undefined {
-  if (!cwd) return undefined
-  const hasPnpmLock = fs.existsSync(path.join(cwd, 'pnpm-lock.yaml'))
-  const hasYarnLock = fs.existsSync(path.join(cwd, 'yarn.lock'))
-  const hasNpmLock = fs.existsSync(path.join(cwd, 'package-lock.json'))
-  if (hasPnpmLock) return 'pnpm'
-  if (hasYarnLock) return 'yarn'
-  if (hasNpmLock) return 'npm'
-  return undefined
-}
-
 function hydrateResolvedPackageManager(
   name: PackageManagerName
 ): PackageManagerResolution | undefined {
@@ -236,7 +231,7 @@ function hydrateResolvedPackageManager(
 export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
-  const lockPm = detectByLockfile(opts?.cwd)
+  const lockPm = detectPackageManagerFromLockfile(opts?.cwd)
   if (lockPm) {
     const hydrated = hydrateResolvedPackageManager(lockPm)
     if (hydrated) return hydrated
@@ -276,22 +271,6 @@ export function resolvePackageManager(opts?: {
   }
 
   return {name: 'npm'}
-}
-
-export function buildExecEnv(): NodeJS.ProcessEnv | undefined {
-  if (process.platform !== 'win32') return undefined
-
-  const nodeDir = path.dirname(process.execPath)
-  const pathSep = path.delimiter
-  const existing = process.env.PATH || process.env.Path || ''
-
-  if (existing.includes(nodeDir)) return undefined
-
-  return {
-    ...process.env,
-    PATH: `${nodeDir}${pathSep}${existing}`.trim(),
-    Path: `${nodeDir}${pathSep}${existing}`.trim()
-  }
 }
 
 export function buildInstallCommand(
