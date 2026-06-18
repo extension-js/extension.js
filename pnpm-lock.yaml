@@ -206,6 +206,9 @@ importers:
       pintor:
         specifier: 0.3.0
         version: 0.3.0
+      prefers-yarn:
+        specifier: 2.0.1
+        version: 2.0.1
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.2.4
@@ -4346,6 +4349,10 @@ packages:
 
   preact@10.27.3:
     resolution: {integrity: sha512-ZieIP3zQHiQsNF3BA+SNVS8dcuRIg/nsxlkFbCMBLS2L1Ww4Bkxd9n6Md2A1crfTZsEbQPADV0neYmh/EElgeQ==}
+
+  prefers-yarn@2.0.1:
+    resolution: {integrity: sha512-laDDLNlUaBMG6ae/MxsbAuRPiDilHL6Cs8jHFWL2AC1wnSug6Y3MvgJB98nzr+yAfYOhZjIPnsSfH8eQGgMsAQ==}
+    engines: {node: '>=18'}
 
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
@@ -8817,6 +8824,8 @@ snapshots:
       source-map-js: 1.2.1
 
   preact@10.27.3: {}
+
+  prefers-yarn@2.0.1: {}
 
   prettier@2.8.8: {}
 
