@@ -281,4 +281,78 @@ describe('profile-options contract (both launchers)', () => {
       'survives'
     )
   })
+
+  // ── copyFromProfile is copy-once when the profile is kept ────────────────────
+
+  it('chromium: copyFromProfile + keepProfileChanges seeds once and does not clobber kept edits', () => {
+    const out = distFor('chrome')
+    const source = fs.mkdtempSync(path.join(SCRATCH, 'src-once-chrome-'))
+    fs.writeFileSync(path.join(source, 'seeded.txt'), 'v1-from-source')
+
+    const run1 = chromiumConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'chrome',
+      keepProfileChanges: true,
+      copyFromProfile: source
+    } as any)
+    const dir1 = String(chromiumUserDataDir(run1))
+    // first run seeds from the source
+    expect(fs.readFileSync(path.join(dir1, 'seeded.txt'), 'utf8')).toBe(
+      'v1-from-source'
+    )
+
+    // user edits the seeded file and adds a profile-only file
+    fs.writeFileSync(path.join(dir1, 'seeded.txt'), 'user-edited')
+    fs.writeFileSync(path.join(dir1, 'user-only.txt'), 'keep')
+
+    const run2 = chromiumConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'chrome',
+      keepProfileChanges: true,
+      copyFromProfile: source
+    } as any)
+    const dir2 = String(chromiumUserDataDir(run2))
+
+    expect(dir2).toBe(dir1)
+    // copy-once: the second run must NOT re-seed, so the edited seeded file and
+    // the profile-only file both survive.
+    expect(fs.readFileSync(path.join(dir2, 'seeded.txt'), 'utf8')).toBe(
+      'user-edited'
+    )
+    expect(fs.readFileSync(path.join(dir2, 'user-only.txt'), 'utf8')).toBe(
+      'keep'
+    )
+  })
+
+  it('firefox: copyFromProfile + keepProfileChanges seeds once and does not clobber kept edits', async () => {
+    const out = distFor('firefox')
+    const source = fs.mkdtempSync(path.join(SCRATCH, 'src-once-fx-'))
+    fs.writeFileSync(path.join(source, 'seeded.txt'), 'v1-from-source')
+
+    const run1 = await firefoxConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'firefox',
+      keepProfileChanges: true,
+      copyFromProfile: source
+    } as any)
+    const dir1 = String(firefoxProfileDir(run1))
+    expect(fs.readFileSync(path.join(dir1, 'seeded.txt'), 'utf8')).toBe(
+      'v1-from-source'
+    )
+
+    fs.writeFileSync(path.join(dir1, 'seeded.txt'), 'user-edited')
+
+    const run2 = await firefoxConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'firefox',
+      keepProfileChanges: true,
+      copyFromProfile: source
+    } as any)
+    const dir2 = String(firefoxProfileDir(run2))
+
+    expect(dir2).toBe(dir1)
+    expect(fs.readFileSync(path.join(dir2, 'seeded.txt'), 'utf8')).toBe(
+      'user-edited'
+    )
+  })
 })
