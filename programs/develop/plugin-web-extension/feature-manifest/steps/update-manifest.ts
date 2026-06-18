@@ -15,6 +15,10 @@ import {
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {PluginInterface, Manifest, DevOptions} from '../../../types'
+
+// A single `content_scripts` entry as carried by the canonical `Manifest`
+// type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
+type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 import * as messages from '../messages'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
@@ -25,21 +29,21 @@ export class UpdateManifest {
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.browser = (options as any).browser || 'chrome'
+    this.browser = options.browser || 'chrome'
   }
 
-  private applyDevOverrides(overrides: Record<string, any>) {
-    if (!overrides.content_scripts) return {}
+  private applyDevOverrides(manifest: Manifest) {
+    if (!manifest.content_scripts) return []
 
-    return overrides.content_scripts.map(
-      (contentObj: {js: string[]; css: string[]}, index: number) => {
-        if (contentObj.css.length && !contentObj.js.length) {
-          contentObj.js = [getFilename(`content_scripts-${index}`, 'dev.js')]
-        }
-
-        return contentObj
+    return manifest.content_scripts.map((contentObj, index) => {
+      const css = contentObj.css ?? []
+      const js = contentObj.js ?? []
+      if (css.length && !js.length) {
+        contentObj.js = [getFilename(`content_scripts-${index}`, 'dev.js')]
       }
-    )
+
+      return contentObj
+    })
   }
 
   apply(compiler: Compiler) {
@@ -102,15 +106,11 @@ export class UpdateManifest {
                   compiler.options.mode === 'development' &&
                   Array.isArray(patchedManifest.content_scripts)
                 ) {
-                  for (const cs of patchedManifest.content_scripts) {
+                  for (const cs of patchedManifest.content_scripts as ContentScriptEntry[]) {
                     try {
-                      const hasCss =
-                        Array.isArray((cs as any).css) &&
-                        (cs as any).css.length > 0
-                      const hasJs =
-                        Array.isArray((cs as any).js) &&
-                        (cs as any).js.length > 0
-                      if (hasCss && hasJs && (cs as any).js.length === 1) {
+                      const hasCss = Array.isArray(cs.css) && cs.css.length > 0
+                      const hasJs = Array.isArray(cs.js) && cs.js.length > 0
+                      if (hasCss && hasJs && cs.js?.length === 1) {
                         devCssStubsAdded++
                       }
                     } catch {

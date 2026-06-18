@@ -45,7 +45,7 @@ function isAlreadyBundledContentScripts(contentScripts: any[]) {
 export function contentScripts(manifest: Manifest, manifestPath?: string) {
   if (!manifest.content_scripts) return undefined
 
-  const original = manifest.content_scripts as any[]
+  const original = manifest.content_scripts
 
   // Idempotency guard: later manifest writers may re-read a manifest asset that
   // already contains emitted `content_scripts/content-*.js` entries. Reapplying
@@ -82,7 +82,7 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
         js: _ignoredJs,
         css: _ignoredCss,
         ...rest
-      } = contentObj as any
+      } = contentObj
 
       result.push({
         ...rest,
