@@ -273,4 +273,55 @@ describe('webpack-config transpile packages watch behavior', () => {
     )
     expect(resolve?.byDependency?.esm?.conditionNames).toContain('import')
   })
+
+  it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const externalFn = (config.externals as any[])[0] as (
+      data: {request?: string},
+      cb: (err?: null, result?: string, type?: string) => void
+    ) => void
+    expect(typeof externalFn).toBe('function')
+
+    const run = (request: string): [string | undefined, string | undefined] => {
+      let captured: [string | undefined, string | undefined] = [
+        undefined,
+        undefined
+      ]
+      externalFn({request}, (_e, result, type) => {
+        captured = [result, type]
+      })
+      return captured
+    }
+
+    // chrome-extension:// and moz-extension:// pass through verbatim as `asset`
+    // so the URL string (incl. the __MSG_@@extension_id__ placeholder) survives.
+    expect(run('chrome-extension://__MSG_@@extension_id__/dino.png')).toEqual([
+      'chrome-extension://__MSG_@@extension_id__/dino.png',
+      'asset'
+    ])
+    expect(run('moz-extension://abc/icon.png')).toEqual([
+      'moz-extension://abc/icon.png',
+      'asset'
+    ])
+    // Ordinary requests are not externalized (callback invoked with no args).
+    expect(run('./icon.png')).toEqual([undefined, undefined])
+    expect(run('https://example.com/x.png')).toEqual([undefined, undefined])
+  })
 })
