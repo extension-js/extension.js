@@ -327,6 +327,9 @@ importers:
       preact:
         specifier: 10.27.3
         version: 10.27.3
+      prefers-yarn:
+        specifier: 2.0.1
+        version: 2.0.1
       react-refresh:
         specifier: 0.18.0
         version: 0.18.0
