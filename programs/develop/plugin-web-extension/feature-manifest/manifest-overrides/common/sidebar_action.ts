@@ -28,7 +28,9 @@ export function sidebarAction(manifest: Manifest) {
             typeof manifest.sidebar_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.sidebar_action.default_icon)
-                  const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                  const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                    raw
+                  )
                   const target = isPublic
                     ? normalizeManifestOutputPath(raw)
                     : `icons/${path.basename(raw)}`
@@ -42,7 +44,9 @@ export function sidebarAction(manifest: Manifest) {
                     >
                   ).map(([size, icon]) => {
                     const raw = String(icon)
-                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
+                      raw
+                    )
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `icons/${path.basename(raw)}`
