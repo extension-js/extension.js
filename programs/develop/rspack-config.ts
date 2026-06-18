@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {type Configuration} from '@rspack/core'
+import {type Compiler, type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
@@ -99,6 +99,14 @@ export default function webpackConfig(
     }
   }
 
+  // CSS `url()` references to relative assets that don't exist on disk are
+  // collected here (by the `externals` resolver below) and surfaced as build
+  // warnings — rather than hard-failing the build the way an unresolved module
+  // normally would. A browser tolerates a missing background image/font (it
+  // 404s it and still loads the extension), so vendored/third-party CSS that
+  // ships without every referenced asset should not block the build.
+  const missingCssAssets = new Set<string>()
+
   const plugins: NonNullable<Configuration['plugins']> = [
     new CompilationPlugin({
       manifestPath,
@@ -144,7 +152,32 @@ export default function webpackConfig(
     // for content scripts vs. service workers vs. cold UI pages). Replaces
     // rspack's stock single-threshold `performance.hints` — see the
     // `performance` block below where hints are disabled.
-    new PerfBudgetsPlugin({budgets: devOptions.perfBudgets})
+    new PerfBudgetsPlugin({budgets: devOptions.perfBudgets}),
+    // Warn (don't fail) for CSS url() assets that were left unresolved because
+    // the file is missing on disk. The url() is preserved verbatim in the
+    // emitted CSS via the `externals` resolver below.
+    {
+      apply(compiler: any) {
+        compiler.hooks.afterCompile.tap(
+          'warn-missing-css-assets',
+          (compilation: any) => {
+            if (missingCssAssets.size === 0) return
+            const ErrorCtor = compiler.rspack?.WebpackError || Error
+            for (const request of missingCssAssets) {
+              const warning = new ErrorCtor(
+                `CSS asset "${request}" was not found on disk; the url() is left ` +
+                  `unresolved. The browser requests it at runtime and loads the ` +
+                  `extension regardless. Fix the path if it's a typo, or add the ` +
+                  `asset if it should ship.`
+              )
+              warning.name = 'MissingCssAssetWarning'
+              compilation.warnings.push(warning)
+            }
+            missingCssAssets.clear()
+          }
+        )
+      }
+    } as unknown as NonNullable<Configuration['plugins']>[number]
   ]
 
   // The session/readiness contract (ready.json + events.ndjson) is written in
@@ -189,17 +222,44 @@ export default function webpackConfig(
     // i18n placeholder is preserved untouched.
     externals: [
       (
-        {request}: {request?: string},
+        {
+          request,
+          dependencyType,
+          context
+        }: {request?: string; dependencyType?: string; context?: string},
         callback: (err?: null, result?: string, type?: string) => void
       ) => {
-        if (
-          typeof request === 'string' &&
-          /^(chrome|moz)-extension:/i.test(request)
-        ) {
+        if (typeof request !== 'string') return callback()
+
+        if (/^(chrome|moz)-extension:/i.test(request)) {
           // `asset` external type emits the request verbatim as a URL string,
           // which is what both CSS `url()` and JS consumers expect.
           return callback(null, request, 'asset')
         }
+
+        // A CSS url() (or new URL()) that points at a relative asset which is
+        // not on disk: leave it verbatim instead of failing the build. Only
+        // scheme-less, relative requests qualify, and only when the target file
+        // genuinely doesn't exist — existing assets still resolve and bundle
+        // normally. The missing path is recorded so it surfaces as a warning.
+        if (
+          dependencyType === 'url' &&
+          context &&
+          !/^[a-z][\w+.-]*:/i.test(request) && // no scheme (data:, http:, …)
+          !/^[/#]/.test(request) && // not root-absolute or a bare fragment
+          !request.startsWith('//')
+        ) {
+          const assetPath = request.split(/[?#]/)[0]
+          try {
+            if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
+              missingCssAssets.add(request)
+              return callback(null, request, 'asset')
+            }
+          } catch {
+            // Fall through to default resolution on any fs error.
+          }
+        }
+
         callback()
       }
     ] as any,
