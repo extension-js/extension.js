@@ -267,6 +267,34 @@ describe('JsFrameworksPlugin', () => {
     expect(excludeFn('/project/node_modules/other-lib/index.js')).toBe(true)
   })
 
+  it('marks non-content-script first-party JS as ESM so top-level await parses', async () => {
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const nonContentRule = compiler.options.module.rules.find(
+      (rule: any) => rule?.issuerLayer?.not === 'extensionjs-content-script'
+    )
+    // Page/background scripts run as ES modules in the browser; the module
+    // type must be esm or Rspack rejects top-level await on a script with no
+    // import/export.
+    expect(nonContentRule?.type).toBe('javascript/esm')
+
+    // Content-script rules must NOT be forced esm — they are injected as
+    // classic scripts.
+    const contentRules = compiler.options.module.rules.filter(
+      (rule: any) => rule?.layer === 'extensionjs-content-script'
+    )
+    expect(contentRules.length).toBeGreaterThan(0)
+    for (const rule of contentRules) {
+      expect((rule as any).type).toBeUndefined()
+    }
+  })
+
   it('auto-transpiles workspace packages even without explicit transpilePackages config', async () => {
     transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
       '/project/node_modules/@workspace/ui'
