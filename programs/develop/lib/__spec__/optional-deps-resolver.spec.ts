@@ -391,6 +391,201 @@ describe('optional-deps-resolver', () => {
     expect(failures).toEqual([dependencyId])
   })
 
+  // Drive the package-manager detector through a lockfile fixture in the
+  // project root (its first detection signal) so the suite resolves a manager
+  // deterministically without spawning a real install.
+  function writeLockfile(
+    rootDir: string,
+    pm: 'pnpm' | 'yarn' | 'npm' | 'bun'
+  ) {
+    const lockfileByPm: Record<string, string> = {
+      pnpm: 'pnpm-lock.yaml',
+      yarn: 'yarn.lock',
+      npm: 'package-lock.json'
+    }
+    // bun has no dedicated lockfile branch in the detector; it falls through
+    // to env/PATH detection. Force it explicitly via the documented override.
+    if (pm === 'bun') {
+      process.env.EXTENSION_JS_PACKAGE_MANAGER = 'bun'
+      return
+    }
+    fs.writeFileSync(path.join(rootDir, lockfileByPm[pm]), '', 'utf8')
+  }
+
+  afterEach(() => {
+    delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    delete process.env.EXTENSION_VERBOSE
+  })
+
+  it('default-mode error is a single human-readable line carrying a pnpm install hint', async () => {
+    delete process.env.EXTENSION_VERBOSE
+    writeLockfile(projectPath, 'pnpm')
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    let message = ''
+    try {
+      await ensureOptionalPackageResolved({
+        integration: 'SASS',
+        projectPath,
+        dependencyId: '@extjs-test/missing-sass'
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    // One actionable line, not a multi-line JSON dump.
+    expect(message.split('\n')).toHaveLength(1)
+    expect(message).not.toContain('{')
+    // Carries the integration name, the missing package id, and a pnpm hint.
+    expect(message).toContain('[SASS]')
+    expect(message).toContain('@extjs-test/missing-sass')
+    expect(message).toContain('pnpm add -D @extjs-test/missing-sass')
+  })
+
+  it('install hint adapts to the detected package manager (pnpm vs npm)', async () => {
+    delete process.env.EXTENSION_VERBOSE
+
+    const captureMessage = async () => {
+      const {ensureOptionalPackageResolved} = await import(
+        '../optional-deps-resolver'
+      )
+      try {
+        await ensureOptionalPackageResolved({
+          integration: 'SASS',
+          projectPath,
+          dependencyId: '@extjs-test/missing-sass'
+        })
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      }
+      return ''
+    }
+
+    writeLockfile(projectPath, 'pnpm')
+    const pnpmMessage = await captureMessage()
+    expect(pnpmMessage).toContain('pnpm add -D @extjs-test/missing-sass')
+
+    // Switch the project's package manager and re-resolve.
+    fs.rmSync(path.join(projectPath, 'pnpm-lock.yaml'), {force: true})
+    vi.resetModules()
+    writeLockfile(projectPath, 'npm')
+    const npmMessage = await captureMessage()
+    // npm uses `install -D`, not `add -D`.
+    expect(npmMessage).toContain('npm install -D @extjs-test/missing-sass')
+    expect(npmMessage).not.toContain('add -D')
+  })
+
+  it('verbose-mode error still carries the structured payload that round-trips through JSON.parse', async () => {
+    process.env.EXTENSION_VERBOSE = '1'
+    writeLockfile(projectPath, 'pnpm')
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    let message = ''
+    try {
+      await ensureOptionalPackageResolved({
+        integration: 'SASS',
+        projectPath,
+        dependencyId: '@extjs-test/missing-sass'
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    // First line is still the readable hint; the JSON body follows.
+    const newlineIndex = message.indexOf('\n')
+    expect(newlineIndex).toBeGreaterThan(0)
+    const jsonBody = message.slice(newlineIndex + 1)
+    const parsed = JSON.parse(jsonBody)
+
+    // Same top-level diagnostic keys the resolver produces today.
+    expect(Object.keys(parsed).sort()).toEqual(
+      [
+        'contractId',
+        'dependencyId',
+        'installDependencies',
+        'integration',
+        'missing',
+        'projectPath',
+        'resolutionBases',
+        'verifyPackageIds'
+      ].sort()
+    )
+    expect(parsed.dependencyId).toBe('@extjs-test/missing-sass')
+  })
+
+  it('routes the without-install load path through the same dual-mode hint', async () => {
+    delete process.env.EXTENSION_VERBOSE
+    writeLockfile(projectPath, 'yarn')
+
+    const {resolveOptionalPackageWithoutInstall} = await import(
+      '../optional-deps-resolver'
+    )
+
+    let message = ''
+    try {
+      resolveOptionalPackageWithoutInstall({
+        integration: 'SASS',
+        projectPath,
+        dependencyId: '@extjs-test/missing-sass'
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    // yarn uses `add -D` like pnpm/bun.
+    expect(message.split('\n')).toHaveLength(1)
+    expect(message).toContain('yarn add -D')
+  })
+
+  it('install hint matches each detectable package manager (pnpm/yarn/npm/bun)', async () => {
+    delete process.env.EXTENSION_VERBOSE
+
+    const expectations: Array<{
+      pm: 'pnpm' | 'yarn' | 'npm' | 'bun'
+      hint: string
+    }> = [
+      {pm: 'pnpm', hint: 'pnpm add -D @extjs-test/missing-sass'},
+      {pm: 'yarn', hint: 'yarn add -D @extjs-test/missing-sass'},
+      {pm: 'npm', hint: 'npm install -D @extjs-test/missing-sass'},
+      {pm: 'bun', hint: 'bun add -D @extjs-test/missing-sass'}
+    ]
+
+    for (const {pm, hint} of expectations) {
+      // Fresh project root per package manager so lockfiles never collide.
+      const pmProjectPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'tmp-extjs-pm-')
+      )
+      auxPaths.push(pmProjectPath)
+      writeJson(path.join(pmProjectPath, 'package.json'), {name: 'pm-project'})
+      writeLockfile(pmProjectPath, pm)
+      vi.resetModules()
+
+      const {ensureOptionalPackageResolved} = await import(
+        '../optional-deps-resolver'
+      )
+
+      let message = ''
+      try {
+        await ensureOptionalPackageResolved({
+          integration: 'SASS',
+          projectPath: pmProjectPath,
+          dependencyId: '@extjs-test/missing-sass'
+        })
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+
+      expect(message, `hint for ${pm}`).toContain(hint)
+      delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    }
+  })
+
   it('loads optional module with adapter after deterministic resolution', async () => {
     const dependencyId = '@extjs-test/plugin-react-refresh'
     createPackage(
