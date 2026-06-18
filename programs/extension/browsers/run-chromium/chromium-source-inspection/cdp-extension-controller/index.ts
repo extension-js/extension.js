@@ -18,6 +18,7 @@ import {
 import {getCanonicalContentScriptEntryName} from '../../../browsers-lib/content-script-contracts'
 import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
+import {classifyExtensionOwnership} from './ownership'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {readManifestInfo} from './ensure'
 import {registerAutoEnableLogging} from './logging'
@@ -140,11 +141,34 @@ export class CDPExtensionController {
     }
 
     if (this.extensionId) {
-      const belongsToOutPath = this.extensionIdBelongsToOutPath(
-        this.extensionId
-      )
-      if (belongsToOutPath === false) {
+      const ownership = this.classifyOwnership(this.extensionId)
+      if (ownership === 'not_mine') {
+        // Verifiably another extension — never adopt it.
         this.extensionId = null
+      } else if (ownership === 'unknown' && this.profilePath) {
+        // The profile cannot confirm ownership yet (a freshly created profile
+        // has not flushed its Preferences). 'unknown' is not a yes: instead of
+        // adopting the derived id on trust, re-derive and re-check the shared
+        // decision until the profile converges. We accept the id only once it
+        // verifies as ours, and drop it the moment it verifies as another's; a
+        // still-unconfirmed id is left for the longer-wait derivation below
+        // rather than silently reported as mine.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await new Promise((r) => setTimeout(r, 200))
+          const candidate =
+            this.extensionId ||
+            (await this.deriveExtensionIdFromTargets(4, 150))
+          if (!candidate) continue
+          const verdict = this.classifyOwnership(candidate)
+          if (verdict === 'mine') {
+            this.extensionId = candidate
+            break
+          }
+          if (verdict === 'not_mine') {
+            this.extensionId = null
+            break
+          }
+        }
       }
     }
 
@@ -245,51 +269,12 @@ export class CDPExtensionController {
     )
   }
 
-  private normalizePath(input: string): string {
-    try {
-      return fs.realpathSync(path.resolve(input))
-    } catch {
-      return path.resolve(input)
-    }
-  }
-
-  private extensionIdBelongsToOutPath(extensionId: string): boolean | null {
-    if (!this.profilePath || !extensionId) return null
-
-    const prefCandidates: string[] = []
-    const addPrefCandidate = (dir: string) => {
-      const prefPath = path.join(dir, 'Preferences')
-      if (fs.existsSync(prefPath)) prefCandidates.push(prefPath)
-    }
-
-    try {
-      addPrefCandidate(this.profilePath)
-      addPrefCandidate(path.join(this.profilePath, 'Default'))
-      for (const entry of fs.readdirSync(this.profilePath)) {
-        if (!/^Profile\s+\d+$/i.test(entry)) continue
-        addPrefCandidate(path.join(this.profilePath, entry))
-      }
-    } catch {
-      // Ignore profile listing errors.
-    }
-
-    if (prefCandidates.length === 0) return null
-
-    const normalizedOutPath = this.normalizePath(this.outPath)
-    for (const prefPath of prefCandidates) {
-      try {
-        const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
-        const settings = prefs?.extensions?.settings
-        const info = settings?.[extensionId]
-        const storedPath = String(info?.path || '')
-        if (!storedPath) continue
-        return this.normalizePath(storedPath) === normalizedOutPath
-      } catch {
-        // Ignore malformed preference files.
-      }
-    }
-
-    return null
+  // Ask the one ownership question. Every site that needs to know whether an
+  // id belongs to the dev extension resolves through this shared decision, so
+  // the tri-state ('mine' | 'not_mine' | 'unknown') is never re-interpreted
+  // per call site. 'unknown' is not a yes — see `ownership.ts`.
+  private classifyOwnership(extensionId: string) {
+    return classifyExtensionOwnership(this.profilePath, this.outPath, extensionId)
   }
 
   getDeveloperModeStatus(): ChromiumDeveloperModeStatus {
@@ -1187,11 +1172,18 @@ export class CDPExtensionController {
       }
 
       if (this.extensionId) {
-        const belongsToOutPath = this.extensionIdBelongsToOutPath(
-          this.extensionId
-        )
-        if (belongsToOutPath === false) {
+        const ownership = this.classifyOwnership(this.extensionId)
+        if (ownership === 'not_mine') {
           this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
+        } else if (ownership === 'unknown' && this.profilePath) {
+          // Best-effort: the id is not confirmed as ours, so re-derive rather
+          // than report a possibly-foreign extension's name/version. Adopt the
+          // result only if it is not verifiably someone else's; otherwise keep
+          // the existing id (still unconfirmed, never asserted as mine).
+          const rederived = await this.deriveExtensionIdFromTargets(6, 150)
+          if (rederived && this.classifyOwnership(rederived) !== 'not_mine') {
+            this.extensionId = rederived
+          }
         }
       }
 
