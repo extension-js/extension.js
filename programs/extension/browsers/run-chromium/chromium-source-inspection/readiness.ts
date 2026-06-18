@@ -6,10 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {
-  getInstancePorts,
-  getLastCDPPort
-} from '../../browsers-lib/instance-registry'
+import {resolvePortForInstance} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {checkChromeRemoteDebugging} from './discovery'
 
@@ -17,10 +14,11 @@ export async function waitForChromeRemoteDebugging(
   port: number,
   instanceId?: string
 ): Promise<void> {
-  // First attempt: override with any registered CDP port
+  // First attempt: prefer this instance's registered CDP port, but never another
+  // instance's. `port` is the caller's own per-instance derived default, so it is
+  // a safe fallback when this instance hasn't registered yet or the id is absent.
   try {
-    const fromRegistry =
-      (instanceId && getInstancePorts(instanceId)?.cdpPort) || getLastCDPPort()
+    const fromRegistry = resolvePortForInstance(instanceId, 'cdp', port)
 
     if (typeof fromRegistry === 'number' && fromRegistry > 0) {
       port = fromRegistry
@@ -41,9 +39,7 @@ export async function waitForChromeRemoteDebugging(
     // On each retry, re-check the registry in case the
     // launcher registered a port after we started waiting
     try {
-      const dyn =
-        (instanceId && getInstancePorts(instanceId)?.cdpPort) ||
-        getLastCDPPort()
+      const dyn = resolvePortForInstance(instanceId, 'cdp', port)
       if (typeof dyn === 'number' && dyn > 0 && dyn !== port) {
         port = dyn
       }

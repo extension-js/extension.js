@@ -37,10 +37,7 @@ import {
   type AddonRuntimeTarget,
   type ReinjectionReport
 } from './runtime-reinject'
-import {
-  getInstancePorts,
-  getLastRDPPort
-} from '../../../browsers-lib/instance-registry'
+import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
 import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
@@ -132,12 +129,14 @@ export class RemoteFirefox {
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
     const basePort = (normalizedOptionPort as number) || devPort
+    // `desired` is a deterministic, per-instance derived port (the instance id
+    // is folded into the offset), so it is a safe fallback that stays faithful
+    // to this instance. The process-wide last-launched RDP port is never used —
+    // that was the cross-talk source when chrome + edge ran from one command.
     const desired = deriveDebugPortWithInstance(basePort, instanceId)
-    const fromInstance = instanceId
-      ? getInstancePorts(instanceId)?.rdpPort
-      : undefined
 
-    return fromInstance || getLastRDPPort() || desired
+    const resolved = resolvePortForInstance(instanceId, 'rdp', desired)
+    return typeof resolved === 'number' && resolved > 0 ? resolved : desired
   }
 
   private async connectClient(port: number) {
