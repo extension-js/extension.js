@@ -484,6 +484,9 @@ importers:
       ws:
         specifier: ^8.20.1
         version: 8.21.0
+      wsl-support:
+        specifier: 0.1.0
+        version: 0.1.0
       yandex-location:
         specifier: 2.0.2
         version: 2.0.2
@@ -5117,6 +5120,10 @@ packages:
       utf-8-validate:
         optional: true
 
+  wsl-support@0.1.0:
+    resolution: {integrity: sha512-gx7o5kHovG/4yeDVJZSPMArSz3rEARgwfgxF7JKvY3EI3p3wKBy+B0BMTwH5hHUl+ovCOVvktpYbYSJGHKtayw==}
+    engines: {node: '>=18'}
+
   yaml@2.8.4:
     resolution: {integrity: sha512-ml/JPOj9fOQK8RNnWojA67GbZ0ApXAUlN2UQclwv2eVgTgn7O9gg9o7paZWKMp4g0H3nTLtS9LVzhkpOFIKzog==}
     engines: {node: '>= 14.6'}
@@ -9662,6 +9669,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.21.0: {}
+
+  wsl-support@0.1.0: {}
 
   yaml@2.8.4:
     optional: true

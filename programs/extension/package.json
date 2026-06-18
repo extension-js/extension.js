@@ -114,7 +114,8 @@
     "semver": "^7.7.3",
     "unique-names-generator": "^4.7.1",
     "ws": "^8.20.1",
-    "update-check": "^1.5.4"
+    "update-check": "^1.5.4",
+    "wsl-support": "0.1.0"
   },
   "devDependencies": {
     "@rslib/core": "^0.21.3",
