@@ -16,6 +16,9 @@ export const sharedBrowserRuntimeOptionKeys = [
   'browserFlags',
   'excludeBrowserFlags',
   'profile',
+  'persistProfile',
+  'keepProfileChanges',
+  'copyFromProfile',
   'preferences',
   'startingUrl',
   'instanceId',
@@ -63,6 +66,9 @@ export type BrowserLaunchRequestSource = Pick<
   | 'browserFlags'
   | 'excludeBrowserFlags'
   | 'profile'
+  | 'persistProfile'
+  | 'keepProfileChanges'
+  | 'copyFromProfile'
   | 'preferences'
   | 'startingUrl'
   | 'port'
@@ -74,6 +80,9 @@ export type BrowserLaunchRequest = Pick<
   | 'browserFlags'
   | 'excludeBrowserFlags'
   | 'profile'
+  | 'persistProfile'
+  | 'keepProfileChanges'
+  | 'copyFromProfile'
   | 'preferences'
   | 'startingUrl'
   | 'port'
@@ -91,6 +100,9 @@ export function buildBrowserLaunchRequest<T extends object = {}>(
     browserFlags: options.browserFlags || [],
     excludeBrowserFlags: options.excludeBrowserFlags || [],
     profile: options.profile,
+    persistProfile: options.persistProfile,
+    keepProfileChanges: options.keepProfileChanges,
+    copyFromProfile: options.copyFromProfile,
     preferences: options.preferences || {},
     startingUrl: options.startingUrl,
     port: options.port,
