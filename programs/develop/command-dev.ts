@@ -106,6 +106,8 @@ export async function extensionDev(
           noOpen: merged.noOpen,
           profile: merged.profile,
           persistProfile: merged.persistProfile,
+          keepProfileChanges: merged.keepProfileChanges,
+          copyFromProfile: merged.copyFromProfile,
           preferences: merged.preferences,
           browserFlags: merged.browserFlags,
           excludeBrowserFlags: merged.excludeBrowserFlags,
