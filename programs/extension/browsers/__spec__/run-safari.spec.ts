@@ -8,7 +8,14 @@ import {
   composeXcodebuildArgs,
   macOsSchemeName,
   xcodeProjectPath,
-  builtAppPath
+  builtAppPath,
+  manifestFingerprintPath,
+  saveManifestFingerprint,
+  isProjectStale,
+  pbxprojPath,
+  extractXcodeUserSettings,
+  applyXcodeUserSettings,
+  backupAndRestoreXcodeSettings
 } from '../run-safari/safari-launch/safari-config'
 import {
   detectSafariToolchain,
@@ -213,5 +220,406 @@ describe('launchBrowser safari boundary', () => {
         })
       ).rejects.toThrow(/Unsupported browser/)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Manifest fingerprinting — staleness detection
+// ---------------------------------------------------------------------------
+
+describe('manifest fingerprinting', () => {
+  let distDir: string
+
+  beforeEach(() => {
+    distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-fp-'))
+  })
+  afterEach(() => {
+    try {
+      fs.rmSync(distDir, {recursive: true, force: true})
+      fs.rmSync(`${distDir}-xcode`, {recursive: true, force: true})
+    } catch {}
+  })
+
+  function configFor(dir: string) {
+    return resolveSafariBuildConfig(makeCompilation(dir), {
+      extension: [dir],
+      browser: 'safari'
+    } as any)
+  }
+
+  it('reports stale when no fingerprint has been saved yet', () => {
+    writeManifest(distDir, {name: 'Fresh', manifest_version: 3})
+    const config = configFor(distDir)
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports NOT stale after fingerprint is saved with unchanged manifest', () => {
+    writeManifest(distDir, {name: 'Stable', permissions: ['storage']})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  it('reports stale when permissions change', () => {
+    writeManifest(distDir, {name: 'Evolving', permissions: ['storage']})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    // Simulate a manifest edit — add a new permission
+    writeManifest(distDir, {
+      name: 'Evolving',
+      permissions: ['storage', 'tabs']
+    })
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when icons change', () => {
+    writeManifest(distDir, {name: 'Icons', icons: {'48': 'icon48.png'}})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {
+      name: 'Icons',
+      icons: {'48': 'icon48.png', '128': 'icon128.png'}
+    })
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('ignores whitespace-only manifest formatting differences', () => {
+    const manifest = {name: 'Whitespace', permissions: ['activeTab']}
+    fs.mkdirSync(distDir, {recursive: true})
+    // Write with compact formatting
+    fs.writeFileSync(
+      path.join(distDir, 'manifest.json'),
+      JSON.stringify(manifest)
+    )
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    // Rewrite with pretty formatting — same content, different whitespace
+    fs.writeFileSync(
+      path.join(distDir, 'manifest.json'),
+      JSON.stringify(manifest, null, 2)
+    )
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  it('is not confused by key reordering in the manifest', () => {
+    fs.mkdirSync(distDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(distDir, 'manifest.json'),
+      JSON.stringify({name: 'Order', permissions: ['storage']})
+    )
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    fs.writeFileSync(
+      path.join(distDir, 'manifest.json'),
+      JSON.stringify({permissions: ['storage'], name: 'Order'})
+    )
+    expect(isProjectStale(config)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Xcode user-settings preservation
+// ---------------------------------------------------------------------------
+
+describe('xcode user-settings preservation', () => {
+  const SAMPLE_PBXPROJ = [
+    '/* Begin XCBuildConfiguration section */',
+    '  AAA /* Debug */ = {',
+    '    isa = XCBuildConfiguration;',
+    '    buildSettings = {',
+    '      PRODUCT_NAME = "$(TARGET_NAME)";',
+    '      DEVELOPMENT_TEAM = ABCDE12345;',
+    '      CODE_SIGN_STYLE = Automatic;',
+    '    };',
+    '    name = Debug;',
+    '  };',
+    '  BBB /* Release */ = {',
+    '    isa = XCBuildConfiguration;',
+    '    buildSettings = {',
+    '      PRODUCT_NAME = "$(TARGET_NAME)";',
+    '      DEVELOPMENT_TEAM = ABCDE12345;',
+    '      CODE_SIGN_STYLE = Automatic;',
+    '    };',
+    '    name = Release;',
+    '  };',
+    '/* End XCBuildConfiguration section */'
+  ].join('\n')
+
+  it('extracts DEVELOPMENT_TEAM and CODE_SIGN_STYLE from a pbxproj', () => {
+    const settings = extractXcodeUserSettings(SAMPLE_PBXPROJ)
+    expect(settings.DEVELOPMENT_TEAM).toBe('ABCDE12345')
+    expect(settings.CODE_SIGN_STYLE).toBe('Automatic')
+  })
+
+  it('returns no settings when the pbxproj has none configured', () => {
+    const bare = [
+      'buildSettings = {',
+      '  PRODUCT_NAME = "$(TARGET_NAME)";',
+      '};'
+    ].join('\n')
+    const settings = extractXcodeUserSettings(bare)
+    expect(Object.keys(settings)).toHaveLength(0)
+  })
+
+  it('applies saved settings into a fresh pbxproj that lacks them', () => {
+    const fresh = [
+      '  buildSettings = {',
+      '    PRODUCT_NAME = "$(TARGET_NAME)";',
+      '  };'
+    ].join('\n')
+    const result = applyXcodeUserSettings(fresh, {
+      DEVELOPMENT_TEAM: 'TEAM99',
+      CODE_SIGN_STYLE: 'Manual'
+    })
+    expect(result).toContain('DEVELOPMENT_TEAM = TEAM99;')
+    expect(result).toContain('CODE_SIGN_STYLE = Manual;')
+  })
+
+  it('replaces existing settings with the preserved values', () => {
+    const existing = [
+      '  buildSettings = {',
+      '    DEVELOPMENT_TEAM = "";',
+      '    CODE_SIGN_STYLE = Manual;',
+      '  };'
+    ].join('\n')
+    const result = applyXcodeUserSettings(existing, {
+      DEVELOPMENT_TEAM: 'MYTEAM',
+      CODE_SIGN_STYLE: 'Automatic'
+    })
+    expect(result).toContain('DEVELOPMENT_TEAM = MYTEAM;')
+    expect(result).toContain('CODE_SIGN_STYLE = Automatic;')
+    // The old values should be gone
+    expect(result).not.toMatch(/DEVELOPMENT_TEAM = "";/)
+    expect(result).not.toMatch(/CODE_SIGN_STYLE = Manual;/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Full pipeline staleness integration (faked converter + xcodebuild)
+// ---------------------------------------------------------------------------
+
+describe('safari pipeline staleness integration', () => {
+  let distDir: string
+  let xcodeDir: string
+  let converterCalls: string[][]
+  let xcodebuildCalls: string[][]
+
+  function configFor(dir: string) {
+    return resolveSafariBuildConfig(makeCompilation(dir), {
+      extension: [dir],
+      browser: 'safari'
+    } as any)
+  }
+
+  // Simulates what the converter would produce: the .xcodeproj directory and
+  // a project.pbxproj inside it.
+  function fakeConvert(config: ReturnType<typeof configFor>) {
+    const projDir = xcodeProjectPath(config)
+    fs.mkdirSync(projDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(projDir, 'project.pbxproj'),
+      [
+        'buildSettings = {',
+        '  PRODUCT_NAME = "$(TARGET_NAME)";',
+        '};'
+      ].join('\n')
+    )
+  }
+
+  // Simulates what the converter produces when the user has already configured
+  // signing in Xcode (i.e. the pbxproj has DEVELOPMENT_TEAM).
+  function fakeConvertWithTeam(
+    config: ReturnType<typeof configFor>,
+    team: string
+  ) {
+    const projDir = xcodeProjectPath(config)
+    fs.mkdirSync(projDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(projDir, 'project.pbxproj'),
+      [
+        'buildSettings = {',
+        `  DEVELOPMENT_TEAM = ${team};`,
+        '  PRODUCT_NAME = "$(TARGET_NAME)";',
+        '};'
+      ].join('\n')
+    )
+  }
+
+  beforeEach(() => {
+    distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-pipe-'))
+    xcodeDir = `${distDir}-xcode`
+    converterCalls = []
+    xcodebuildCalls = []
+  })
+
+  afterEach(() => {
+    try {
+      fs.rmSync(distDir, {recursive: true, force: true})
+      fs.rmSync(xcodeDir, {recursive: true, force: true})
+    } catch {}
+  })
+
+  // A minimal pipeline runner that records tool invocations instead of
+  // shelling out to xcrun / xcodebuild, so the tests work on any OS.
+  async function runFakePipeline(
+    manifest: Record<string, unknown>,
+    opts?: {
+      existingTeam?: string
+      converterProduces?: (
+        config: ReturnType<typeof configFor>
+      ) => void
+    }
+  ): Promise<{logs: string[]}> {
+    writeManifest(distDir, manifest)
+    const config = configFor(distDir)
+    const logs: string[] = []
+    const logger = {
+      info: (m: string) => logs.push(m),
+      warn: (m: string) => logs.push(m),
+      error: (m: string) => logs.push(m),
+      debug: () => {}
+    }
+
+    const projectExists = fs.existsSync(xcodeProjectPath(config))
+    const needsConversion = !projectExists || isProjectStale(config)
+
+    if (needsConversion) {
+      if (projectExists) {
+        logs.push('[stale]')
+      }
+
+      const {saved, restore} = backupAndRestoreXcodeSettings(config)
+
+      // "Run" the converter (fake).
+      converterCalls.push(composeConverterArgs(config))
+
+      // Simulate the converter writing a fresh project.
+      const produceFn =
+        opts?.converterProduces || ((c: ReturnType<typeof configFor>) => fakeConvert(c))
+      produceFn(config)
+
+      restore()
+
+      const keys = Object.keys(saved)
+      if (keys.length > 0) {
+        logs.push(`[preserved:${keys.join(',')}]`)
+      }
+
+      saveManifestFingerprint(config)
+      logs.push('[converted]')
+    } else {
+      logs.push('[skipped-conversion]')
+    }
+
+    // Always "run" xcodebuild (fake).
+    xcodebuildCalls.push(composeXcodebuildArgs(config))
+    logs.push('[built]')
+
+    return {logs}
+  }
+
+  it('resource-only change: skips the converter, still runs xcodebuild', async () => {
+    // First build: full conversion
+    const manifest = {
+      name: 'MyExt',
+      permissions: ['storage'],
+      content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
+    }
+    const first = await runFakePipeline(manifest)
+    expect(first.logs).toContain('[converted]')
+    expect(first.logs).toContain('[built]')
+    expect(converterCalls).toHaveLength(1)
+
+    // Now simulate editing content.js (manifest unchanged).
+    // Just re-run the pipeline with the same manifest.
+    const second = await runFakePipeline(manifest)
+    expect(second.logs).toContain('[skipped-conversion]')
+    expect(second.logs).toContain('[built]')
+    // Converter was NOT called again
+    expect(converterCalls).toHaveLength(1)
+    // xcodebuild was called both times
+    expect(xcodebuildCalls).toHaveLength(2)
+  })
+
+  it('manifest change: triggers the converter', async () => {
+    // First build
+    await runFakePipeline({name: 'MyExt', permissions: ['storage']})
+    expect(converterCalls).toHaveLength(1)
+
+    // Second build with a permission added
+    const second = await runFakePipeline({
+      name: 'MyExt',
+      permissions: ['storage', 'tabs']
+    })
+    expect(second.logs).toContain('[stale]')
+    expect(second.logs).toContain('[converted]')
+    expect(converterCalls).toHaveLength(2)
+  })
+
+  it('user Xcode configuration survives regeneration', async () => {
+    // First build — creates the project
+    await runFakePipeline({name: 'SignedExt', permissions: ['storage']})
+
+    // Simulate the user configuring a signing team in Xcode by rewriting the
+    // pbxproj with DEVELOPMENT_TEAM set.
+    const config = configFor(distDir)
+    const projFile = pbxprojPath(config)
+    fs.writeFileSync(
+      projFile,
+      [
+        'buildSettings = {',
+        '  DEVELOPMENT_TEAM = USERTEAM42;',
+        '  CODE_SIGN_STYLE = Automatic;',
+        '  PRODUCT_NAME = "$(TARGET_NAME)";',
+        '};'
+      ].join('\n')
+    )
+
+    // Now change the manifest (triggers regeneration).
+    const result = await runFakePipeline({
+      name: 'SignedExt',
+      permissions: ['storage', 'activeTab']
+    })
+
+    expect(result.logs).toContain('[stale]')
+    expect(result.logs).toContain('[converted]')
+    expect(result.logs).toContain(
+      '[preserved:DEVELOPMENT_TEAM,CODE_SIGN_STYLE]'
+    )
+
+    // Verify the regenerated pbxproj has the user's team restored.
+    const regenerated = fs.readFileSync(projFile, 'utf8')
+    expect(regenerated).toContain('DEVELOPMENT_TEAM = USERTEAM42;')
+    expect(regenerated).toContain('CODE_SIGN_STYLE = Automatic;')
+  })
+
+  it('first build (no prior project) runs the converter without a stale warning', async () => {
+    const result = await runFakePipeline({
+      name: 'BrandNew',
+      permissions: []
+    })
+    expect(result.logs).toContain('[converted]')
+    expect(result.logs).not.toContain('[stale]')
+    expect(result.logs).toContain('[built]')
+  })
+
+  it('icon change in the manifest triggers regeneration', async () => {
+    await runFakePipeline({
+      name: 'Icons',
+      icons: {'48': 'icon48.png'}
+    })
+    expect(converterCalls).toHaveLength(1)
+
+    const second = await runFakePipeline({
+      name: 'Icons',
+      icons: {'48': 'icon48.png', '128': 'icon128.png'}
+    })
+    expect(second.logs).toContain('[stale]')
+    expect(second.logs).toContain('[converted]')
+    expect(converterCalls).toHaveLength(2)
   })
 })
