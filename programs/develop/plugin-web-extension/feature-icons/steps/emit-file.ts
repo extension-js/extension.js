@@ -266,6 +266,11 @@ export class EmitFile {
                   sub === 'theme_icons'
                 ) {
                   outputDir = 'browser_action'
+                } else if (group === 'theme' && sub === 'images') {
+                  // Theme image keys arrive as `theme/images/<basename>`, so the
+                  // file must land under `theme/images/` to match the path the
+                  // theme manifest override writes into the manifest.
+                  outputDir = 'theme/images'
                 }
 
                 const filename = `${outputDir}/${basename}`

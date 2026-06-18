@@ -180,6 +180,29 @@ export default function webpackConfig(
     mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
+    // `chrome-extension://` and `moz-extension://` URLs (commonly written as
+    // `chrome-extension://__MSG_@@extension_id__/…` in CSS `url()` / `cursor`)
+    // are runtime self-references resolved by the browser against the live
+    // extension origin — not build-time modules. Mark them external so the
+    // bundler leaves the string verbatim instead of trying to read the scheme
+    // (which fails with "Unhandled scheme"). The `__MSG_@@extension_id__`
+    // i18n placeholder is preserved untouched.
+    externals: [
+      (
+        {request}: {request?: string},
+        callback: (err?: null, result?: string, type?: string) => void
+      ) => {
+        if (
+          typeof request === 'string' &&
+          /^(chrome|moz)-extension:/i.test(request)
+        ) {
+          // `asset` external type emits the request verbatim as a URL string,
+          // which is what both CSS `url()` and JS consumers expect.
+          return callback(null, request, 'asset')
+        }
+        callback()
+      }
+    ] as any,
     context: packageJsonDir,
     cache: false,
     devtool:
