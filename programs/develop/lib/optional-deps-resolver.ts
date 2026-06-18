@@ -3,10 +3,58 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import {resolveDevelopInstallRoot} from './develop-context'
 import {getOptionalDependencyContract} from './optional-deps-contracts'
+import {resolvePackageManager} from './package-manager'
+import type {PackageManagerName} from './package-manager'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
 } from './optional-dependency-types'
+
+// Verbose-mode escape hatch shared with the rest of the develop pipeline
+// (rspack-config, stats-handler, dev-server hooks all read this same flag).
+// Default output stays a single human-readable install hint; opting in with
+// EXTENSION_VERBOSE=1 restores the full structured diagnostic payload that
+// upstream debug surfaces still consume.
+function isVerboseMode(): boolean {
+  return String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
+}
+
+// pnpm, yarn and bun all add a dev dependency with `add -D`; npm uses
+// `install -D`. The package manager is detected from the *user project's*
+// working directory (projectPath), never `process.cwd()` — the dev server's
+// cwd is extension-develop, not the project being built.
+function installVerbForPackageManager(name: PackageManagerName): string {
+  return name === 'npm' ? 'install -D' : 'add -D'
+}
+
+function formatInstallHint(projectPath: string, packageSpecs: string[]): string {
+  const {name} = resolvePackageManager({cwd: projectPath})
+  const verb = installVerbForPackageManager(name)
+  return `${name} ${verb} ${packageSpecs.join(' ')}`
+}
+
+// Single dual-mode formatter every throw site in this resolver routes
+// through. In default mode it returns a one-line, package-manager-aware
+// install hint a developer can act on without parsing JSON; in verbose mode
+// it appends the structured diagnostic payload (unchanged top-level shape)
+// that callers and debug tooling still read.
+function formatResolverError(args: {
+  integration: string
+  dependencyId: string
+  headline: string
+  installSpecs: string[]
+  projectPath: string
+  diagnostics: Record<string, unknown>
+}): string {
+  const hint = formatInstallHint(args.projectPath, args.installSpecs)
+  const readableLine = `[${args.integration}] ${args.headline} Install it with: ${hint}`
+
+  if (!isVerboseMode()) {
+    return readableLine
+  }
+
+  return `${readableLine}\n${JSON.stringify(args.diagnostics, null, 2)}`
+}
 
 type ResolutionResult = {
   resolvedPath: string
@@ -545,13 +593,22 @@ export async function ensureOptionalPackageResolved(
     verifyPackageIds: contract.installPackages
   })
 
+  const headline =
+    `${input.dependencyId} could not be resolved.` +
+    (missing.length > 0
+      ? ` Missing or invalid packages: ${missing.join(', ')}.`
+      : '')
+
   throw new Error(
-    `[${input.integration}] ${input.dependencyId} could not be resolved.` +
-      (missing.length > 0
-        ? ` Missing or invalid packages: ${missing.join(', ')}.`
-        : '') +
-      '\n' +
-      JSON.stringify({...diagnostics, missing}, null, 2)
+    formatResolverError({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      headline,
+      installSpecs:
+        missing.length > 0 ? missing : contract.installPackages,
+      projectPath: input.projectPath,
+      diagnostics: {...diagnostics, missing}
+    })
   )
 }
 
@@ -583,17 +640,20 @@ export function resolveOptionalPackageWithoutInstall(
   })
 
   throw new Error(
-    `[${input.integration}] ${input.dependencyId} could not be resolved from the project or extension-develop.\n` +
-      JSON.stringify(
-        {
-          ...diagnostics,
-          missingPeerDeps,
-          expectation:
-            'Run optional dependency preflight or reinstall extension-develop.'
-        },
-        null,
-        2
-      )
+    formatResolverError({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      headline: `${input.dependencyId} could not be resolved from the project or extension-develop.`,
+      installSpecs:
+        missingPeerDeps.length > 0 ? missingPeerDeps : contract.installPackages,
+      projectPath: input.projectPath,
+      diagnostics: {
+        ...diagnostics,
+        missingPeerDeps,
+        expectation:
+          'Run optional dependency preflight or reinstall extension-develop.'
+      }
+    })
   )
 }
 
@@ -648,8 +708,14 @@ export async function ensureOptionalModuleLoaded<T = any>(
     }
 
     throw new Error(
-      `[${input.integration}] ${input.dependencyId} could not be loaded after it resolved.\n` +
-        JSON.stringify(diagnostics, null, 2)
+      formatResolverError({
+        integration: input.integration,
+        dependencyId: input.dependencyId,
+        headline: `${input.dependencyId} could not be loaded after it resolved.`,
+        installSpecs: input.installDependencies || [input.dependencyId],
+        projectPath: input.projectPath,
+        diagnostics
+      })
     )
   }
 
@@ -694,18 +760,20 @@ export function loadOptionalModuleWithoutInstall<T = any>(
 
   if (!didLoad) {
     throw new Error(
-      `[${input.integration}] ${input.dependencyId} could not be loaded after resolving.\n` +
-        JSON.stringify(
-          {
-            resolvedPath,
-            loadError:
-              lastLoadError instanceof Error
-                ? lastLoadError.message
-                : String(lastLoadError)
-          },
-          null,
-          2
-        )
+      formatResolverError({
+        integration: input.integration,
+        dependencyId: input.dependencyId,
+        headline: `${input.dependencyId} could not be loaded after resolving.`,
+        installSpecs: input.installDependencies || [input.dependencyId],
+        projectPath: input.projectPath,
+        diagnostics: {
+          resolvedPath,
+          loadError:
+            lastLoadError instanceof Error
+              ? lastLoadError.message
+              : String(lastLoadError)
+        }
+      })
     )
   }
 
