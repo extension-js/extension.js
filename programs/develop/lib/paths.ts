@@ -16,6 +16,12 @@ export type BrowserInput =
   | 'edge'
   | 'chromium'
   | 'firefox'
+  | 'brave'
+  | 'opera'
+  | 'vivaldi'
+  | 'yandex'
+  | 'waterfox'
+  | 'librewolf'
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
@@ -28,6 +34,12 @@ export type NormalizedBrowser =
   | 'edge'
   | 'chromium'
   | 'firefox'
+  | 'brave'
+  | 'opera'
+  | 'vivaldi'
+  | 'yandex'
+  | 'waterfox'
+  | 'librewolf'
   | 'chromium-based'
   | 'gecko-based'
   | 'safari'
@@ -133,10 +145,22 @@ export function normalizeBrowser(
       return 'edge'
     case 'chromium':
       return 'chromium'
+    case 'brave':
+      return 'brave'
+    case 'opera':
+      return 'opera'
+    case 'vivaldi':
+      return 'vivaldi'
+    case 'yandex':
+      return 'yandex'
     case 'chromium-based':
       return 'chromium-based'
     case 'firefox':
       return 'firefox'
+    case 'waterfox':
+      return 'waterfox'
+    case 'librewolf':
+      return 'librewolf'
     case 'gecko-based':
     case 'firefox-based':
       return 'gecko-based'
@@ -198,9 +222,15 @@ export function devtoolsEngineFor(
       return 'edge'
     case 'chromium':
     case 'chromium-based':
+    case 'brave':
+    case 'opera':
+    case 'vivaldi':
+    case 'yandex':
       return 'chromium'
     case 'firefox':
     case 'gecko-based':
+    case 'waterfox':
+    case 'librewolf':
       return 'firefox'
     default:
       return 'chrome'

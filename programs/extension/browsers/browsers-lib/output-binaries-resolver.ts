@@ -98,6 +98,12 @@ export function managedBrowserCacheEnv(
     | 'chromium'
     | 'firefox'
     | 'edge'
+    | 'brave'
+    | 'opera'
+    | 'vivaldi'
+    | 'yandex'
+    | 'waterfox'
+    | 'librewolf'
     | 'chromium-based'
     | 'gecko-based'
     | 'firefox-based'
@@ -109,6 +115,19 @@ export function managedBrowserCacheEnv(
 
   // Safari is built locally via Xcode, not downloaded into a managed cache.
   if (browser === 'safari' || browser === 'webkit-based') return {}
+
+  // Chromium/Gecko forks are located from the user's system, never downloaded
+  // into a managed cache, so they have no managed cache directory.
+  if (
+    browser === 'brave' ||
+    browser === 'opera' ||
+    browser === 'vivaldi' ||
+    browser === 'yandex' ||
+    browser === 'waterfox' ||
+    browser === 'librewolf'
+  ) {
+    return {}
+  }
 
   // Managed installs are stored as:
   // - Chrome:   <root>/chrome/chrome/<platformOrVersion>/...
