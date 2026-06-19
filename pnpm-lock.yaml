@@ -15,6 +15,7 @@ overrides:
   follow-redirects: ^1.16.0
   uuid: ^14.0.0
   fast-uri: ^3.1.2
+  which: ^4.0.0
 
 importers:
 
@@ -3648,12 +3649,9 @@ packages:
     resolution: {integrity: sha512-eXK1UInq2bPmjyX6e3VHIzMLobc4J94i4AWn+Hpq3OU5KkrRC96OAcR3PRJ/pGu6m8TRnBHP9dkXQVsT/COVIA==}
     engines: {node: '>=0.10.0'}
 
-  isexe@2.0.0:
-    resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
-
-  isexe@4.0.0:
-    resolution: {integrity: sha512-FFUtZMpoZ8RqHS3XeXEmHWLA4thH+ZxCv2lOiPIn1Xc7CxrqhWzNSDzD+/chS/zbYezmiwWLdQC09JdQKmthOw==}
-    engines: {node: '>=20'}
+  isexe@3.1.5:
+    resolution: {integrity: sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w==}
+    engines: {node: '>=18'}
 
   isobject@3.0.1:
     resolution: {integrity: sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==}
@@ -5079,14 +5077,9 @@ packages:
       webpack-cli:
         optional: true
 
-  which@2.0.2:
-    resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
-    engines: {node: '>= 8'}
-    hasBin: true
-
-  which@7.0.0:
-    resolution: {integrity: sha512-RancgH2dmbLdHl6LRhEqvklWMgl/Hdnun0Y90KhBOLkMefg8Qa7/Zel8Sm+8HEcP6DEjzsWzpkuBQEZok58isA==}
-    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
+  which@4.0.0:
+    resolution: {integrity: sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==}
+    engines: {node: ^16.13.0 || >=18.0.0}
     hasBin: true
 
   why-is-node-running@2.3.0:
@@ -7459,7 +7452,7 @@ snapshots:
 
   brave-location@3.0.6:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   browser-extension-manifest-fields@2.2.5: {}
 
@@ -7510,14 +7503,14 @@ snapshots:
     dependencies:
       pintor: 0.3.0
       userhome: 1.0.1
-      which: 2.0.2
+      which: 4.0.0
 
   chrome-trace-event@1.0.4: {}
 
   chromium-location@2.0.0:
     dependencies:
       userhome: 1.0.1
-      which: 2.0.2
+      which: 4.0.0
 
   ci-info@3.9.0: {}
 
@@ -7603,7 +7596,7 @@ snapshots:
     dependencies:
       path-key: 3.1.1
       shebang-command: 2.0.0
-      which: 2.0.2
+      which: 4.0.0
 
   css-blank-pseudo@8.0.1(postcss@8.5.10):
     dependencies:
@@ -7670,7 +7663,7 @@ snapshots:
 
   edge-location@2.2.0:
     dependencies:
-      which: 2.0.2
+      which: 4.0.0
 
   electron-to-chromium@1.5.267: {}
 
@@ -7948,7 +7941,7 @@ snapshots:
   firefox-location2@3.0.0:
     dependencies:
       userhome: 1.0.1
-      which: 2.0.2
+      which: 4.0.0
 
   fix-dts-default-cjs-exports@1.0.1:
     dependencies:
@@ -8129,9 +8122,7 @@ snapshots:
 
   is-windows@1.0.2: {}
 
-  isexe@2.0.0: {}
-
-  isexe@4.0.0: {}
+  isexe@3.1.5: {}
 
   isobject@3.0.1: {}
 
@@ -8217,7 +8208,7 @@ snapshots:
 
   librewolf-location@1.1.2:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   lightningcss-android-arm64@1.30.2:
     optional: true
@@ -8470,7 +8461,7 @@ snapshots:
 
   opera-location2@2.0.2:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   outdent@0.5.0: {}
 
@@ -9511,7 +9502,7 @@ snapshots:
 
   vivaldi-location2@2.0.2:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   vue-loader@17.4.2(@vue/compiler-sfc@3.5.26)(vue@3.5.26(typescript@5.9.3))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.21))(esbuild@0.27.2)):
     dependencies:
@@ -9555,7 +9546,7 @@ snapshots:
 
   waterfox-location@2.0.2:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   webextension-polyfill@0.12.0: {}
 
@@ -9639,13 +9630,9 @@ snapshots:
       - esbuild
       - uglify-js
 
-  which@2.0.2:
+  which@4.0.0:
     dependencies:
-      isexe: 2.0.0
-
-  which@7.0.0:
-    dependencies:
-      isexe: 4.0.0
+      isexe: 3.1.5
 
   why-is-node-running@2.3.0:
     dependencies:
@@ -9677,7 +9664,7 @@ snapshots:
 
   yandex-location@2.0.2:
     dependencies:
-      which: 7.0.0
+      which: 4.0.0
 
   yauzl@3.2.1:
     dependencies:
