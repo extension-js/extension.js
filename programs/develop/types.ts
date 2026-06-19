@@ -128,6 +128,17 @@ export interface BrowserOptionsBase {
    * Defaults to false (ephemeral temp profiles are used).
    */
   persistProfile?: boolean
+  /**
+   * Keep the managed profile and its changes across runs (persistent `dev`
+   * profile, skipped by cleanup). Seeded once when combined with
+   * `copyFromProfile`.
+   */
+  keepProfileChanges?: boolean
+  /**
+   * Seed the managed profile as a copy of this profile directory on first
+   * creation.
+   */
+  copyFromProfile?: string
   startingUrl?: string
   browser: BrowserType
 }
