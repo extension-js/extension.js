@@ -109,7 +109,7 @@
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
     "extension-install": "workspace:*",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "pintor": "0.3.0",
     "semver": "^7.7.3",
     "unique-names-generator": "^4.7.1",
