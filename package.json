@@ -16,11 +16,14 @@
       "immutable": "^5.1.5",
       "undici": "^7.24.0",
       "yauzl": "^3.2.1",
-      "vite": "^8.0.5",
+      "vite": "^8.0.16",
       "follow-redirects": "^1.16.0",
       "uuid": "^14.0.0",
       "fast-uri": "^3.1.2",
-      "which": "^4.0.0"
+      "which": "^4.0.0",
+      "form-data": "^4.0.6",
+      "js-yaml": "^4.2.0",
+      "read-yaml-file": "^2.1.0"
     }
   },
   "scripts": {
