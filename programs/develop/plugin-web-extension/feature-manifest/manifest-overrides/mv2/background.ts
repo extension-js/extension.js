@@ -16,12 +16,14 @@ export function background(manifest: Manifest) {
       background: {
         ...manifest.background,
         ...(manifest.background.scripts && {
+          // All MV2 `background.scripts` are bundled into a single emitted file, so
+          // the output must reference it once — dedupe instead of repeating the same
+          // bundle path per source script.
           scripts: [
-            ...manifest.background.scripts.map((script) =>
-              (() => {
-                const raw = String(script)
-                return getFilename('background/scripts.js', raw)
-              })()
+            ...new Set(
+              manifest.background.scripts.map((script) =>
+                getFilename('background/scripts.js', String(script))
+              )
             )
           ]
         })
