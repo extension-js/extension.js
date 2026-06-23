@@ -24,12 +24,43 @@ function createSequentialEntryModule(
   feature: string,
   entryImports: string[]
 ): string {
-  const source = [
-    `/* extension.js sequential entry: ${feature} */`,
-    ...entryImports.map(
-      (entryImport) => `import ${JSON.stringify(String(entryImport))};`
-    )
-  ].join('\n')
+  const isCss = (p: string) => /\.css$/i.test(p)
+  const jsFiles = entryImports.filter((p) => !isCss(p))
+  const cssFiles = entryImports.filter(isCss)
+
+  // Classic content scripts split across multiple files share a single global
+  // scope: the browser injects `content_scripts[].js` in order into one world, so
+  // a top-level `class Base` in one file is visible to a sibling that extends it.
+  // ES-module sequencing (import "a"; import "b";) isolates each file and breaks
+  // those implicit cross-file globals. When every JS file in the group is classic
+  // (no top-level import/export), concatenate their sources into one module so they
+  // share a scope — matching browser semantics and making vanilla multi-file content
+  // scripts a true drop-in. CSS stays as module imports so rspack can extract it.
+  const isClassic = (p: string) => {
+    try {
+      const src = fs.readFileSync(p, 'utf8')
+      return (
+        !/^\s*import[\s{('"*]/m.test(src) && !/^\s*export[\s{*( ]/m.test(src)
+      )
+    } catch {
+      return false
+    }
+  }
+
+  const concatenateClassic = jsFiles.length > 1 && jsFiles.every(isClassic)
+
+  const source = concatenateClassic
+    ? [
+        `/* extension.js classic content-script concatenation: ${feature} */`,
+        ...cssFiles.map((c) => `import ${JSON.stringify(String(c))};`),
+        ...jsFiles.map((f) => `/* ${f} */\n${fs.readFileSync(f, 'utf8')}`)
+      ].join('\n;\n')
+    : [
+        `/* extension.js sequential entry: ${feature} */`,
+        ...entryImports.map(
+          (entryImport) => `import ${JSON.stringify(String(entryImport))};`
+        )
+      ].join('\n')
 
   return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`
 }
