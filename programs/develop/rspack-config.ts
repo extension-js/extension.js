@@ -177,6 +177,44 @@ export default function webpackConfig(
           }
         )
       }
+    } as unknown as NonNullable<Configuration['plugins']>[number],
+    // Warn (don't fail) when an MV2 source is built for a Chromium target. Chrome and
+    // Edge no longer load Manifest V2, so the emitted bundle would silently fail to
+    // install. Point the author at the realistic paths instead of shipping dead output.
+    {
+      apply(compiler: any) {
+        const target = String(devOptions.browser)
+        const isChromiumTarget =
+          ['chrome', 'edge'].includes(target) || target.includes('chromium')
+        if ((manifest as any)?.manifest_version !== 2 || !isChromiumTarget) return
+        compiler.hooks.thisCompilation.tap(
+          'warn-mv2-on-chromium',
+          (compilation: any) => {
+            const ErrorCtor = compiler.rspack?.WebpackError || Error
+            const usesBlockingWebRequest =
+              Array.isArray((manifest as any).permissions) &&
+              (manifest as any).permissions.includes('webRequestBlocking')
+            const warning = new ErrorCtor(
+              [
+                `This extension declares Manifest V2, which Chrome and Edge no longer load — `,
+                `the ${target} build will not install. Options:`,
+                ``,
+                `  • Build for Firefox (still supports MV2):  extension build --browser firefox`,
+                `  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)`,
+                `  • Or ship both from one source with browser-prefixed keys`,
+                `    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)`,
+                usesBlockingWebRequest
+                  ? `\n  Note: this extension uses webRequestBlocking, which MV3 replaces with\n  declarativeNetRequest — a code change, not just a manifest edit.`
+                  : ''
+              ]
+                .filter((line) => line !== '')
+                .join('\n')
+            )
+            warning.name = 'ManifestV2OnChromiumWarning'
+            compilation.warnings.push(warning)
+          }
+        )
+      }
     } as unknown as NonNullable<Configuration['plugins']>[number]
   ]
 
