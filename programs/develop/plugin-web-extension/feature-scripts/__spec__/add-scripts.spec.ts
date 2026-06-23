@@ -91,6 +91,54 @@ describe('AddScripts', () => {
     )
   })
 
+  it('concatenates classic multi-file content scripts so they share one scope', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    fs.mkdirSync(path.join(manifestDir, 'content'), {recursive: true})
+    fs.writeFileSync(
+      path.join(manifestDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content/base.js', 'content/child.js']
+          }
+        ]
+      }),
+      'utf8'
+    )
+
+    const basePath = path.join(manifestDir, 'content', 'base.js')
+    const childPath = path.join(manifestDir, 'content', 'child.js')
+    // classic scripts: no import/export, rely on a shared global scope
+    fs.writeFileSync(basePath, 'class BaseSite {}\n', 'utf8')
+    fs.writeFileSync(childPath, 'class Child extends BaseSite {}\n', 'utf8')
+
+    const compiler = createCompiler(projectDir)
+
+    new AddScripts({
+      manifestPath: path.join(manifestDir, 'manifest.json'),
+      includeList: {
+        'content_scripts/content-0': [basePath, childPath]
+      }
+    } as any).apply(compiler as any)
+
+    const entry = (compiler.options.entry as any)['content_scripts/content-0']
+    expect(entry.import).toHaveLength(1)
+
+    const source = decodeURIComponent(
+      String(entry.import[0]).replace('data:text/javascript;charset=utf-8,', '')
+    )
+    // sources are inlined in order (shared scope), not imported as isolated modules
+    expect(source).not.toContain(`import ${JSON.stringify(basePath)}`)
+    expect(source).toContain('class BaseSite {}')
+    expect(source).toContain('class Child extends BaseSite {}')
+    expect(source.indexOf('class BaseSite')).toBeLessThan(
+      source.indexOf('class Child')
+    )
+  })
+
   it('assigns the content-script layer to scripts folder entries without rewriting them', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
