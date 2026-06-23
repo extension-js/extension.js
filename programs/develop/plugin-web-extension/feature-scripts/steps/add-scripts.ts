@@ -19,6 +19,8 @@ const isContentScriptFeature = (feature: string) =>
   feature.startsWith('content_scripts/')
 const isScriptsFolderFeature = (feature: string) =>
   feature.startsWith('scripts/')
+const isBackgroundScriptsFeature = (feature: string) =>
+  feature === 'background/scripts'
 
 function createSequentialEntryModule(
   feature: string,
@@ -177,7 +179,9 @@ export class AddScripts {
       const cssImports = getCssEntries(resolvedEntries)
       const entryImports = [...new Set([...scriptImports, ...cssImports])]
       const shouldUseSequentialEntryModule =
-        isContentScriptFeature(feature) && scriptImports.length > 1
+        (isContentScriptFeature(feature) ||
+          isBackgroundScriptsFeature(feature)) &&
+        scriptImports.length > 1
       const finalEntryImports = shouldUseSequentialEntryModule
         ? [createSequentialEntryModule(feature, entryImports)]
         : entryImports
