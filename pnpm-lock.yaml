@@ -272,8 +272,8 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)(@rspack/core@2.0.1(@swc/helpers@0.5.21))
       '@rspack/plugin-react-refresh':
-        specifier: 1.6.2
-        version: 1.6.2(react-refresh@0.18.0)
+        specifier: 2.0.2
+        version: 2.0.2(@rspack/core@2.0.1(@swc/helpers@0.5.21))(react-refresh@0.18.0)
       '@vue/compiler-sfc':
         specifier: 3.5.26
         version: 3.5.26
@@ -2332,6 +2332,15 @@ packages:
       webpack-hot-middleware: 2.x
     peerDependenciesMeta:
       webpack-hot-middleware:
+        optional: true
+
+  '@rspack/plugin-react-refresh@2.0.2':
+    resolution: {integrity: sha512-dGNZiCxQxgAUI9sah7gd8u+O7OJZRCmqtEJNDOd8xW5RqcieC86F7p5qcShyw6onH5pKf57evpr2VjGbaFGkZg==}
+    peerDependencies:
+      '@rspack/core': ^2.0.0
+      react-refresh: '>=0.10.0 <1.0.0'
+    peerDependenciesMeta:
+      '@rspack/core':
         optional: true
 
   '@standard-schema/spec@1.1.0':
@@ -6612,6 +6621,12 @@ snapshots:
     dependencies:
       error-stack-parser: 2.1.4
       react-refresh: 0.18.0
+
+  '@rspack/plugin-react-refresh@2.0.2(@rspack/core@2.0.1(@swc/helpers@0.5.21))(react-refresh@0.18.0)':
+    dependencies:
+      react-refresh: 0.18.0
+    optionalDependencies:
+      '@rspack/core': 2.0.1(@swc/helpers@0.5.21)
 
   '@standard-schema/spec@1.1.0': {}
 

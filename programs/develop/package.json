@@ -87,7 +87,7 @@
     "@rspack/core": "^2.0.1",
     "@rspack/dev-server": "2.0.1",
     "@rspack/plugin-preact-refresh": "2.0.1",
-    "@rspack/plugin-react-refresh": "1.6.2",
+    "@rspack/plugin-react-refresh": "2.0.2",
     "@vue/compiler-sfc": "3.5.26",
     "adm-zip": "^0.5.16",
     "browser-extension-manifest-fields": "^2.2.5",
