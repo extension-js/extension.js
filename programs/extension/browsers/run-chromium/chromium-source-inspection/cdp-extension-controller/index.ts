@@ -17,6 +17,12 @@ import {
 } from '../../../browsers-lib/content-script-targets'
 import {getCanonicalContentScriptEntryName} from '../../../browsers-lib/content-script-contracts'
 import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import type {
+  CdpExecutionContextDescription,
+  CdpProtocolMessage,
+  CdpProtocolParams,
+  CdpTargetInfo
+} from '../../chromium-types'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {classifyExtensionOwnership} from './ownership'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
@@ -343,9 +349,9 @@ export class CDPExtensionController {
     const targets = await this.cdp.getTargets()
 
     for (const target of targets || []) {
-      const targetType = String((target as any)?.type || '')
-      const targetId = String((target as any)?.targetId || '')
-      const targetUrl = String((target as any)?.url || '')
+      const targetType = String(target?.type || '')
+      const targetId = String(target?.targetId || '')
+      const targetUrl = String(target?.url || '')
 
       if (targetType !== 'page' || !targetId || !targetUrl) continue
       const matchingRules = rules.filter((rule) =>
@@ -429,9 +435,9 @@ export class CDPExtensionController {
     try {
       const targets = await this.cdp.getTargets()
       for (const target of targets || []) {
-        if (String((target as any)?.type || '') !== 'page') continue
-        const targetId = String((target as any)?.targetId || '')
-        const url = String((target as any)?.url || '')
+        if (String(target?.type || '') !== 'page') continue
+        const targetId = String(target?.targetId || '')
+        const url = String(target?.url || '')
         if (!targetId || !url) continue
         if (!this.urlMatchesAnyActiveRule(url)) continue
         await this.ensureWatchedPageSession(targetId, url)
@@ -443,10 +449,10 @@ export class CDPExtensionController {
 
   private installContentScriptTargetListener(): void {
     if (!this.cdp) return
-    this.cdp.onProtocolEvent((raw: Record<string, unknown>) => {
-      const method = String((raw as {method?: string}).method || '')
-      const params = (raw as {params?: any}).params
-      const sessionId = String((raw as {sessionId?: string}).sessionId || '')
+    this.cdp.onProtocolEvent((message: CdpProtocolMessage) => {
+      const method = String(message.method || '')
+      const params = message.params
+      const sessionId = String(message.sessionId || '')
 
       if (
         method === 'Target.targetCreated' ||
@@ -550,11 +556,7 @@ export class CDPExtensionController {
   private async evaluateContentScriptOnNewContext(
     sessionId: string,
     session: {targetId: string; url: string},
-    context: {
-      id?: number
-      origin?: string
-      auxData?: {type?: string; isDefault?: boolean; frameId?: string}
-    }
+    context: CdpExecutionContextDescription
   ): Promise<void> {
     if (!this.cdp) return
     const contextId = context.id
@@ -619,8 +621,8 @@ export class CDPExtensionController {
     const matchingUrlsByRule = new Map<number, Set<string>>()
 
     for (const target of targets || []) {
-      const targetType = String((target as any)?.type || '')
-      const targetUrl = String((target as any)?.url || '')
+      const targetType = String(target?.type || '')
+      const targetUrl = String(target?.url || '')
       if (targetType !== 'page' || !targetUrl) continue
 
       for (const rule of rules) {
@@ -700,8 +702,8 @@ export class CDPExtensionController {
     if (!runtimeTarget) {
       const targetSummary = (targets || [])
         .map((target) => ({
-          type: String((target as any)?.type || ''),
-          url: String((target as any)?.url || '')
+          type: String(target?.type || ''),
+          url: String(target?.url || '')
         }))
         .filter((entry) => entry.type || entry.url)
       this.lastRuntimeReinjectionReport = {
@@ -812,7 +814,7 @@ export class CDPExtensionController {
 
     if (typeof result === 'number') return result
     if (result && typeof result === 'object') {
-      const reinjectedTabs = Number((result as any).reinjectedTabs)
+      const reinjectedTabs = Number((result as {reinjectedTabs?: unknown}).reinjectedTabs)
       return Number.isFinite(reinjectedTabs) ? reinjectedTabs : 0
     }
     return 0
@@ -895,7 +897,7 @@ export class CDPExtensionController {
       }
     }
     if (result && typeof result === 'object') {
-      const replayed = Number((result as any).replayed)
+      const replayed = Number((result as {replayed?: unknown}).replayed)
       return {replayed: Number.isFinite(replayed) ? replayed : 0}
     }
     return {replayed: 0}
@@ -947,8 +949,8 @@ export class CDPExtensionController {
     for (let attempt = 0; attempt < 20; attempt++) {
       const targets = await this.cdp.getTargets()
       const runtimeTargets = (targets || []).filter((target) => {
-        const targetType = String((target as any)?.type || '')
-        const targetId = String((target as any)?.targetId || '')
+        const targetType = String(target?.type || '')
+        const targetId = String(target?.targetId || '')
         return (
           (targetType === 'service_worker' ||
             targetType === 'background_page' ||
@@ -958,22 +960,22 @@ export class CDPExtensionController {
       })
       const runtimeTarget =
         runtimeTargets.find((target) =>
-          String((target as any)?.url || '').startsWith(extensionOrigin)
+          String(target?.url || '').startsWith(extensionOrigin)
         ) ||
         runtimeTargets.find((target) =>
-          String((target as any)?.url || '').startsWith('chrome-extension://')
+          String(target?.url || '').startsWith('chrome-extension://')
         )
 
       if (runtimeTarget) {
         try {
           const sessionId = await this.cdp.attachToTarget(
-            String((runtimeTarget as any).targetId)
+            String(runtimeTarget.targetId)
           )
           await this.cdp.sendCommand('Runtime.enable', {}, sessionId)
           return {
             sessionId,
-            targetType: String((runtimeTarget as any)?.type || ''),
-            targetUrl: String((runtimeTarget as any)?.url || '')
+            targetType: String(runtimeTarget?.type || ''),
+            targetUrl: String(runtimeTarget?.url || '')
           }
         } catch {
           // Retry on the next pass.
@@ -1048,19 +1050,11 @@ export class CDPExtensionController {
     }
   }
 
-  onProtocolEvent(
-    cb: (
-      evt: {method: string; params?: unknown} & Record<string, unknown>
-    ) => void
-  ) {
+  onProtocolEvent(cb: (evt: CdpProtocolMessage) => void) {
     if (!this.cdp) throw new Error('CDP not connected')
 
-    this.cdp.onProtocolEvent((raw: Record<string, unknown>) => {
-      const evt = raw as {method: string; params?: unknown} & Record<
-        string,
-        unknown
-      >
-      cb(evt)
+    this.cdp.onProtocolEvent((message: CdpProtocolMessage) => {
+      cb(message)
     })
   }
 
@@ -1118,17 +1112,17 @@ export class CDPExtensionController {
     if (!this.cdp) return
     try {
       const extId = this.extensionId
-      this.onProtocolEvent(async (message: Record<string, unknown>) => {
+      this.onProtocolEvent(async (message: CdpProtocolMessage) => {
         try {
           if (!message || !message.method) return
 
           if (message.method === 'Target.attachedToTarget') {
-            const params =
-              (message as {params?: Record<string, unknown>}).params || {}
-            const targetInfo = (
-              params as {targetInfo?: {url?: string; type?: string}}
-            ).targetInfo || {url: '', type: ''}
-            const sessionId = (params as {sessionId?: string}).sessionId
+            const params: CdpProtocolParams = message.params || {}
+            const targetInfo: CdpTargetInfo = params.targetInfo || {
+              url: '',
+              type: ''
+            }
+            const sessionId = params.sessionId
             const url: string = String(targetInfo.url || '')
             const type: string = String(targetInfo.type || '')
             const matchesExtension = !!(

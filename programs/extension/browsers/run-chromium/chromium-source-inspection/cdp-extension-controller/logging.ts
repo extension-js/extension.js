@@ -7,6 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {CDPClient} from '../cdp-client'
+import type {
+  CdpProtocolMessage,
+  CdpProtocolParams,
+  CdpTargetInfo
+} from '../../chromium-types'
 import * as messages from '../../../browsers-lib/messages'
 
 // Auto-enable Runtime/Log domains for attached
@@ -15,13 +20,13 @@ export function registerAutoEnableLogging(
   cdp: CDPClient,
   getExtensionId: () => string | null
 ) {
-  cdp.onProtocolEvent((message: Record<string, unknown>) => {
+  cdp.onProtocolEvent((message: CdpProtocolMessage) => {
     try {
-      if (!message || !(message as any).method) return
+      if (!message || !message.method) return
 
-      if ((message as any).method === 'Target.attachedToTarget') {
-        const params = (message as any).params || {}
-        const targetInfo = params.targetInfo || {}
+      if (message.method === 'Target.attachedToTarget') {
+        const params: CdpProtocolParams = message.params || {}
+        const targetInfo: CdpTargetInfo = params.targetInfo || {}
         const sessionId = params.sessionId
         const url: string = String(targetInfo.url || '')
         const type: string = String(targetInfo.type || '')
@@ -37,15 +42,13 @@ export function registerAutoEnableLogging(
           cdp.sendCommand('Log.enable', {}, sessionId).catch(() => {})
         }
       } else if (
-        (message as any).method === 'Runtime.consoleAPICalled' ||
-        (message as any).method === 'Log.entryAdded'
+        message.method === 'Runtime.consoleAPICalled' ||
+        message.method === 'Log.entryAdded'
       ) {
         // Only print unified CDP logs when user has enabled verbose output
         if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
           const ts = new Date().toISOString()
-          console.log(
-            messages.cdpUnifiedExtensionLog(ts, (message as any).params)
-          )
+          console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
         }
       }
     } catch (error: unknown) {
