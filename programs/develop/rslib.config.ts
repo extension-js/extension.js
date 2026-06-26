@@ -82,6 +82,10 @@ const nodeEntries = {
   'feature-scripts-content-script-wrapper': path.resolve(
     __dirname,
     './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
+  ),
+  'feature-scripts-classic-concat-loader': path.resolve(
+    __dirname,
+    './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/classic-concat-loader.ts'
   )
 }
 

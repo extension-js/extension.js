@@ -91,7 +91,7 @@ describe('AddScripts', () => {
     )
   })
 
-  it('concatenates classic multi-file content scripts so they share one scope', () => {
+  it('emits a concat-loader entry for classic multi-file content scripts', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
     fs.mkdirSync(path.join(manifestDir, 'content'), {recursive: true})
@@ -127,16 +127,21 @@ describe('AddScripts', () => {
     const entry = (compiler.options.entry as any)['content_scripts/content-0']
     expect(entry.import).toHaveLength(1)
 
-    const source = decodeURIComponent(
-      String(entry.import[0]).replace('data:text/javascript;charset=utf-8,', '')
+    // Classic multi-file entries now use the first JS file with a query
+    // parameter so the classic-concat-loader can read them at build time
+    // (enabling watch-mode rebuilds and source maps).
+    const entryPath = String(entry.import[0])
+    expect(entryPath).toContain(basePath)
+    expect(entryPath).toContain('__extensionjs_classic_concat__')
+
+    // Decode the query data and verify both files are listed in order
+    const match = entryPath.match(
+      /[?&]__extensionjs_classic_concat__=([^&]+)/
     )
-    // sources are inlined in order (shared scope), not imported as isolated modules
-    expect(source).not.toContain(`import ${JSON.stringify(basePath)}`)
-    expect(source).toContain('class BaseSite {}')
-    expect(source).toContain('class Child extends BaseSite {}')
-    expect(source.indexOf('class BaseSite')).toBeLessThan(
-      source.indexOf('class Child')
-    )
+    expect(match).toBeTruthy()
+    const data = JSON.parse(decodeURIComponent(match![1]))
+    expect(data.js).toEqual([basePath, childPath])
+    expect(data.feature).toBe('content_scripts/content-0')
   })
 
   it('assigns the content-script layer to scripts folder entries without rewriting them', () => {

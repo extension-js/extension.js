@@ -39,7 +39,8 @@ const NODE_ENTRIES = [
   'module',
   'preview',
   'ensure-hmr-for-scripts',
-  'feature-scripts-content-script-wrapper'
+  'feature-scripts-content-script-wrapper',
+  'feature-scripts-classic-concat-loader'
 ] as const
 
 // Tokens we do not want to see in a browser-runtime bundle. The banner

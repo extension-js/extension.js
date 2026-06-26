@@ -34,6 +34,10 @@ export class AddContentScriptWrapper {
     return resolveDevelopDistFile('feature-scripts-content-script-wrapper')
   }
 
+  private resolveConcatLoader(): string {
+    return resolveDevelopDistFile('feature-scripts-classic-concat-loader')
+  }
+
   public apply(compiler: Compiler) {
     const manifestDir = path.dirname(this.manifestPath)
     const packageJsonPath = findNearestPackageJsonSync(this.manifestPath)
@@ -44,6 +48,29 @@ export class AddContentScriptWrapper {
       packageJsonDir === manifestDir
         ? [manifestDir]
         : [manifestDir, packageJsonDir]
+
+    // Classic concat loader: runs on files that carry the
+    // __extensionjs_classic_concat__ query parameter. Must be registered
+    // before the content-script-wrapper so the wrapper receives the
+    // concatenated source + source map from the concat loader.
+    compiler.options.module.rules.push({
+      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      resourceQuery: /__extensionjs_classic_concat__/,
+      include: includeDirs,
+      exclude: [/([\\/])node_modules\1/],
+      use: [
+        {
+          loader: this.resolveLoader(),
+          options: {
+            manifestPath: this.manifestPath,
+            mode: compiler.options.mode
+          }
+        },
+        {
+          loader: this.resolveConcatLoader()
+        }
+      ]
+    })
 
     compiler.options.module.rules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,

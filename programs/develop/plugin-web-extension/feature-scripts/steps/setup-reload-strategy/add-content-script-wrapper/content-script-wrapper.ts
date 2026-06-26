@@ -22,7 +22,9 @@ interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
   _compilation?: any
   resourcePath: string
+  resourceQuery?: string
   emitWarning?(warning: Error): void
+  callback(err: Error | null, content?: string, sourceMap?: any): void
 }
 
 const schema = {
@@ -162,10 +164,29 @@ function readManifestCached(manifestPath: string): any {
   }
 }
 
+/**
+ * Shift source map mappings down by the number of lines in `prefix`.
+ * Prepends empty mapping lines so the original mappings align with the
+ * user source that now appears after the runtime prefix.
+ */
+function shiftSourceMap(map: any, prefix: string): any {
+  if (!map || typeof map !== 'object' || typeof map.mappings !== 'string') {
+    return map
+  }
+  const prefixLineCount = prefix.split('\n').length - 1
+  if (prefixLineCount <= 0) return map
+  const pad = new Array(prefixLineCount).fill('').join(';')
+  return {
+    ...map,
+    mappings: pad + ';' + map.mappings
+  }
+}
+
 export default function contentScriptWrapper(
   this: ContentScriptLoaderContext,
-  source: string
-): string {
+  source: string,
+  inputSourceMap?: any
+): string | void {
   const options = this.getOptions()
   validate(schema, options, {
     name: 'scripts:content-script-wrapper',
@@ -261,12 +282,20 @@ export default function contentScriptWrapper(
   // entry stays wrapped even if it happens to be named *.min.js.
   const isVendoredMinifiedScript = /\.min\.[cm]?js$/i.test(resourceAbsPath)
   if (isVendoredMinifiedScript && !declaredEntry) {
+    if (inputSourceMap) {
+      this.callback(null, rewrittenSource, inputSourceMap)
+      return
+    }
     return rewrittenSource
   }
 
   const isContentScriptLike = Boolean(declaredEntry || isScriptsFolderScript)
 
   if (!isContentScriptLike) {
+    if (inputSourceMap) {
+      this.callback(null, rewrittenSource, inputSourceMap)
+      return
+    }
     return rewrittenSource
   }
 
@@ -788,16 +817,21 @@ export default function contentScriptWrapper(
     '}\n'
 
   if (!hasDefaultExport(rewrittenSource, this.resourcePath, compilation)) {
-    return (
+    const prefix =
       `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
       `${bootstrap}` +
-      `${runtimeInline}` +
-      `${rewrittenSource}\n` +
+      `${runtimeInline}`
+    const suffix =
       `try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {}\n` +
       `try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {}\n` +
       `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {}\n` +
       `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {}\n`
-    )
+    const wrapped = prefix + `${rewrittenSource}\n` + suffix
+    if (inputSourceMap) {
+      this.callback(null, wrapped, shiftSourceMap(inputSourceMap, prefix))
+      return
+    }
+    return wrapped
   }
 
   const replaced = rewrittenSource.replace(
@@ -840,11 +874,11 @@ export default function contentScriptWrapper(
     }
   }
 
-  return (
+  const wrapPrefix =
     `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
     `${bootstrap}` +
-    `${runtimeInline}` +
-    `${cleaned}\n` +
+    `${runtimeInline}`
+  const wrapSuffix =
     `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
     `var __EXTENSIONJS_cleanup = function(){};\n` +
     `try { __EXTENSIONJS_cleanup = __EXTENSIONJS_mount(__EXTENSIONJS_default__, ${JSON.stringify(
@@ -852,5 +886,10 @@ export default function contentScriptWrapper(
     )}) } catch (error) {}\n` +
     `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {}\n` +
     `export default __EXTENSIONJS_default__\n`
-  )
+  const wrappedResult = wrapPrefix + `${cleaned}\n` + wrapSuffix
+  if (inputSourceMap) {
+    this.callback(null, wrappedResult, shiftSourceMap(inputSourceMap, wrapPrefix))
+    return
+  }
+  return wrappedResult
 }
