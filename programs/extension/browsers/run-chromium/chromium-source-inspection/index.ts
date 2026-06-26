@@ -937,8 +937,15 @@ export class ChromiumSourceInspectionPlugin {
           outputConfig.includeShadow
         )
         await this.emitSourceOutput(String(initialHtml || ''), 'pre_injection')
-      } catch {
-        // best-effort initial print
+      } catch (error) {
+        if (this.isAuthorMode()) {
+          console.log(
+            messages.sourceInspectorHtmlExtractionRetryFailed(
+              'pre-injection',
+              String((error as Error)?.message || error)
+            )
+          )
+        }
       }
 
       if (this.isAuthorMode()) {
@@ -1048,7 +1055,13 @@ export class ChromiumSourceInspectionPlugin {
           }
         }
       } catch (error) {
-        // Ignore parsing errors
+        if (this.isAuthorMode()) {
+          console.log(
+            messages.sourceInspectorWatchMessageParseError(
+              String((error as Error)?.message || error)
+            )
+          )
+        }
       }
     })
   }
@@ -1155,7 +1168,15 @@ export class ChromiumSourceInspectionPlugin {
           sessionId,
           outputConfig.includeShadow
         )
-      } catch {
+      } catch (error) {
+        if (this.isAuthorMode()) {
+          console.log(
+            messages.sourceInspectorHtmlExtractionRetryFailed(
+              'watch-snapshot',
+              String((error as Error)?.message || error)
+            )
+          )
+        }
         await new Promise((resolve) => setTimeout(resolve, 250))
         html = await this.cdpClient.getPageHTML(
           sessionId,
