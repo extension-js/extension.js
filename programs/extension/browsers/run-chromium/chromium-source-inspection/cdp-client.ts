@@ -8,6 +8,11 @@
 
 import type {Readable, Writable} from 'stream'
 import WebSocket from 'ws'
+import type {
+  CdpDomNode,
+  CdpProtocolMessage,
+  CdpTargetInfo
+} from '../chromium-types'
 import * as messages from '../../browsers-lib/messages'
 import {
   CDP_COMMAND_TIMEOUT_MS,
@@ -53,7 +58,7 @@ export class CDPClient {
   private pipeOut: Writable | null = null
   private pipeBuffer: Buffer = Buffer.alloc(0)
   private targetWebSocketUrl: string | null = null
-  private eventCallbacks = new Set<(message: Record<string, unknown>) => void>()
+  private eventCallbacks = new Set<(message: CdpProtocolMessage) => void>()
   private messageId = 0
   private pendingRequests = new Map<
     number,
@@ -250,7 +255,7 @@ export class CDPClient {
     return !!this.ws && this.ws.readyState === WebSocket.OPEN
   }
 
-  onProtocolEvent(handler: (message: Record<string, unknown>) => void) {
+  onProtocolEvent(handler: (message: CdpProtocolMessage) => void) {
     this.eventCallbacks.add(handler)
 
     return () => {
@@ -362,9 +367,9 @@ export class CDPClient {
   }
 
   // Target and Session Management
-  async getTargets() {
+  async getTargets(): Promise<CdpTargetInfo[]> {
     const response = (await this.sendCommand('Target.getTargets')) as
-      | {targetInfos?: Array<Record<string, unknown>>}
+      | {targetInfos?: CdpTargetInfo[]}
       | undefined
 
     return response?.targetInfos || []
@@ -520,10 +525,10 @@ export class CDPClient {
       'DOM.getDocument',
       {depth: -1, pierce: true},
       sessionId
-    )) as {root?: unknown}
+    )) as {root?: CdpDomNode}
 
     const found: Array<{nodeId: number; host: string}> = []
-    const walk = (node: any, hostName: string): void => {
+    const walk = (node: CdpDomNode | undefined, hostName: string): void => {
       if (!node || typeof node !== 'object') return
       const name = node.localName || node.nodeName || hostName
       if (Array.isArray(node.shadowRoots)) {
@@ -542,7 +547,7 @@ export class CDPClient {
         for (const c of node.children) walk(c, name)
       if (node.contentDocument) walk(node.contentDocument, name)
     }
-    walk((doc as any).root, 'html')
+    walk(doc.root, 'html')
 
     const out: Array<{
       host: string
@@ -632,20 +637,18 @@ export class CDPClient {
       ]
 
       for (const type of preferredOrder) {
-        const matchingTargets = (targets || []).filter(
-          (t: Record<string, unknown>) => {
-            const url: string = String((t as any)?.url || '')
-            const tt: string = String((t as any)?.type || '')
-            const inExtensionScope = url.startsWith(
-              `chrome-extension://${extensionId}/`
-            )
+        const matchingTargets = (targets || []).filter((t) => {
+          const url: string = String(t?.url || '')
+          const tt: string = String(t?.type || '')
+          const inExtensionScope = url.startsWith(
+            `chrome-extension://${extensionId}/`
+          )
 
-            return tt === type && inExtensionScope
-          }
-        )
+          return tt === type && inExtensionScope
+        })
 
         for (const target of matchingTargets) {
-          const targetId: string | undefined = (target as any)?.targetId
+          const targetId: string | undefined = target?.targetId
 
           if (!targetId) continue
 

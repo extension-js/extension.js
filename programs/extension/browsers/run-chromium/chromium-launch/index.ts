@@ -37,7 +37,11 @@ import {
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
-import type {BrowserLogger, CompilationLike} from '../../browsers-types'
+import type {
+  BrowserLogger,
+  BrowserType,
+  CompilationLike
+} from '../../browsers-types'
 import type {ChromiumContext} from '../chromium-context'
 import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 import {checkChromeRemoteDebugging} from '../chromium-source-inspection/discovery'
@@ -124,7 +128,7 @@ export class ChromiumLaunchPlugin {
         info: (...a: unknown[]) => console.log(...a),
         warn: (...a: unknown[]) => console.warn(...a),
         error: (...a: unknown[]) => console.error(...a),
-        debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+        debug: (...a: unknown[]) => console.debug?.(...a)
       } as BrowserLogger
     }
     await this.launchChromium(compilation, opts)
@@ -138,7 +142,7 @@ export class ChromiumLaunchPlugin {
             info: (...a: unknown[]) => console.log(...a),
             warn: (...a: unknown[]) => console.warn(...a),
             error: (...a: unknown[]) => console.error(...a),
-            debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+            debug: (...a: unknown[]) => console.debug?.(...a)
           } as BrowserLogger)
 
     compiler.hooks.done.tapPromise('chromium:launch', async (stats: any) => {
@@ -174,7 +178,7 @@ export class ChromiumLaunchPlugin {
         // with no feedback when the browser fails to launch (common in WSL/CI).
         try {
           this.logger.error(
-            messages.browserLaunchError(this.options.browser as any, error)
+            messages.browserLaunchError(this.options.browser, error)
           )
         } catch {
           // ignore
@@ -197,7 +201,7 @@ export class ChromiumLaunchPlugin {
       return
     }
 
-    const browser: string = this.options?.browser
+    const browser = this.options?.browser
 
     // Resolve binary (prefer output-resolved, then location helpers)
     let browserBinaryLocation: string | null = null
@@ -326,10 +330,7 @@ export class ChromiumLaunchPlugin {
           const normalized = normalizePath(located || null)
           if (isUsableBinary(normalized)) {
             if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-              printInstallGuidance(
-                getInstallGuidanceText('chrome'),
-                browser as any
-              )
+              printInstallGuidance(getInstallGuidanceText('chrome'), browser)
               return null
             }
             return normalized
@@ -341,10 +342,7 @@ export class ChromiumLaunchPlugin {
           const normalized = normalizePath(candidate || null)
           if (normalized) {
             if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-              printInstallGuidance(
-                getInstallGuidanceText('chrome'),
-                browser as any
-              )
+              printInstallGuidance(getInstallGuidanceText('chrome'), browser)
               candidate = null
             }
           }
@@ -354,7 +352,7 @@ export class ChromiumLaunchPlugin {
           return fallback
         }
       } catch (error) {
-        printInstallGuidance(String(error), browser as any)
+        printInstallGuidance(String(error), browser)
         return null
       }
     }
@@ -566,7 +564,7 @@ export class ChromiumLaunchPlugin {
         ) {
           this.logger.error(
             messages.browserNotInstalledError(
-              browser as any,
+              browser,
               browserBinaryLocation || ''
             )
           )
@@ -820,13 +818,13 @@ export class ChromiumLaunchPlugin {
   private printEnhancedPuppeteerInstallHint(
     compilation: CompilationLike,
     raw: string,
-    browserName?: string
+    browserName?: BrowserType
   ) {
     try {
       const displayCacheDir =
         binariesResolver.computeBinariesBaseDir(compilation)
       const pretty = messages.prettyPuppeteerInstallGuidance(
-        (browserName as any) || (this.options?.browser as any),
+        browserName || this.options.browser,
         raw,
         displayCacheDir
       )
@@ -834,7 +832,7 @@ export class ChromiumLaunchPlugin {
     } catch {
       try {
         const pretty = messages.prettyPuppeteerInstallGuidance(
-          (browserName as any) || (this.options?.browser as any),
+          browserName || this.options.browser,
           raw,
           ''
         )
