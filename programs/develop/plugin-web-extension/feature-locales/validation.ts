@@ -207,8 +207,14 @@ export function validateLocales(
             return false
           }
         }
-      } catch {
-        // If scanning fails, do not crash; other validators handle JSON structure
+      } catch (error) {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(
+            messages.localesValidationDetected(
+              `could not scan __MSG__ placeholders in _locales/${defaultLocale}/messages.json: ${String((error as Error)?.message || error)}`
+            )
+          )
+        }
       }
     } else if (hasLocalesRoot) {
       // _locales present but no default_locale in manifest: browsers reject the extension
@@ -229,8 +235,14 @@ export function validateLocales(
       )
       return false
     }
-  } catch {
-    // If manifest cannot be parsed, defer to manifest feature/other validators
+  } catch (error) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.localesValidationDetected(
+          `manifest.json could not be read for locale validation, deferring to manifest validation: ${String((error as Error)?.message || error)}`
+        )
+      )
+    }
   }
 
   // Validate all locale JSON files are syntactically valid
@@ -268,8 +280,14 @@ export function validateLocales(
         }
       }
     }
-  } catch {
-    // ignore
+  } catch (error) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.localesValidationDetected(
+          `could not scan _locales for JSON validity: ${String((error as Error)?.message || error)}`
+        )
+      )
+    }
   }
 
   return true
