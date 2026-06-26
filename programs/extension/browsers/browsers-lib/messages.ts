@@ -922,6 +922,17 @@ export function sourceInspectorHTMLUpdateFailed(error: string) {
   return `${getLoggingPrefix('error')} Failed to update Chrome HTML: ${colors.red(error)}`
 }
 
+export function sourceInspectorHtmlExtractionRetryFailed(
+  step: string,
+  error: string
+) {
+  return `${getLoggingPrefix('warn')} Chrome HTML extraction step ${colors.yellow(step)} failed, falling back: ${colors.red(error)}`
+}
+
+export function sourceInspectorWatchMessageParseError(error: string) {
+  return `${getLoggingPrefix('warn')} Chrome watch-mode message could not be parsed: ${colors.red(error)}`
+}
+
 export function sourceInspectorCleanupComplete() {
   return `${getLoggingPrefix('success')} Chrome source inspector cleaned up.`
 }
