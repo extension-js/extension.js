@@ -37,7 +37,7 @@ export async function browserConfig(
 ) {
   const {browser, profile, browserFlags = []} = configOptions
   const binaryArgs: string[] = []
-  const excludeFlags = (configOptions as any).excludeBrowserFlags || []
+  const excludeFlags = configOptions.excludeBrowserFlags || []
   const filteredFlags = (browserFlags || []).filter((flag) =>
     excludeFlags.every((ex: string) => !String(flag).startsWith(ex))
   )
@@ -93,7 +93,8 @@ export async function browserConfig(
     rawProfile: profile,
     managedBaseDir,
     useSystemProfile,
-    persistProfile: (configOptions as any).persistProfile,
+    persistProfile: (configOptions as {persistProfile?: boolean})
+      .persistProfile,
     keepProfileChanges: configOptions.keepProfileChanges,
     copyFromProfile: configOptions.copyFromProfile,
     // Resolve relative profile paths against the rspack compilation context
@@ -144,7 +145,7 @@ export async function browserConfig(
   // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons.
   if (profilePath) {
     try {
-      const prefs = getPreferences((configOptions as any)?.preferences || {})
+      const prefs = getPreferences(configOptions?.preferences || {})
 
       // Helper to serialize a single value for user.js
       function serializeValue(value: unknown): string {

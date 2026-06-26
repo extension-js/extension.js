@@ -33,6 +33,17 @@ import {
   resolveConsoleActorMethod,
   waitForContentScriptInjectionMethod
 } from './remote-firefox/source-inspect'
+import type {RdpMessage} from './remote-firefox/rdp-types'
+
+declare global {
+  // Bridge hooks the Firefox content-reload path installs on the global object.
+  // eslint-disable-next-line no-var
+  var __EXTJS_ON_FIREFOX_CONTENT_RELOADED__:
+    | (() => Promise<void> | void)
+    | undefined
+  // eslint-disable-next-line no-var
+  var __EXTJS_PENDING_FIREFOX_CONTENT_RELOAD__: unknown
+}
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500
@@ -321,16 +332,16 @@ export class FirefoxSourceInspectionPlugin {
   private setupConsoleCapture() {
     if (!this.client || this.consoleCaptureReady) return
     this.consoleCaptureReady = true
-    this.client.on('message', (message) => {
+    this.client.on('message', (message: RdpMessage) => {
       try {
-        const type = String((message as any)?.type || '')
+        const type = String(message?.type || '')
         if (!type) return
         let level = 'info'
         let text = ''
         let sourceUrl: string | undefined
 
         if (type === 'consoleAPICall' || type === 'logMessage') {
-          const a = (message as any)?.message || message
+          const a = message?.message || message
           level = String(a.level || a.category || 'log').toLowerCase()
           const arg = (a.arguments && a.arguments[0]) || a.message || a.text
           text = String(
@@ -339,11 +350,8 @@ export class FirefoxSourceInspectionPlugin {
           sourceUrl = a.filename || a.sourceName || undefined
         } else if (type === 'pageError') {
           level = 'error'
-          text = String(
-            (message as any)?.errorMessage || (message as any)?.cause || ''
-          )
-          sourceUrl =
-            (message as any)?.url || (message as any)?.sourceURL || undefined
+          text = String(message?.errorMessage || message?.cause || '')
+          sourceUrl = message?.url || message?.sourceURL || undefined
         } else {
           return
         }
@@ -360,7 +368,7 @@ export class FirefoxSourceInspectionPlugin {
       ? level
       : 'log'
     if (normalized in this.consoleCounts) {
-      ;(this.consoleCounts as any)[normalized] += 1
+      this.consoleCounts[normalized as keyof typeof this.consoleCounts] += 1
     }
     const hash = hashStringFNV1a(`${normalized}:${text}:${sourceUrl || ''}`)
     const existing = this.consoleTop.get(hash)
@@ -1665,7 +1673,7 @@ export class FirefoxSourceInspectionPlugin {
   }
 
   private registerContentReloadSnapshotHook() {
-    ;(globalThis as any).__EXTJS_ON_FIREFOX_CONTENT_RELOADED__ = async () => {
+    globalThis.__EXTJS_ON_FIREFOX_CONTENT_RELOADED__ = async () => {
       await this.handleFileChange()
     }
   }
@@ -1691,11 +1699,11 @@ export class FirefoxSourceInspectionPlugin {
           const urlToInspect = this.resolveUrlToInspect()
           this.lastUrlToInspect = urlToInspect
           const forceSourceReinspect = Boolean(
-            (this.host as any).__extjsForceSourceReinspect
+            this.host.__extjsForceSourceReinspect
           )
 
           if (forceSourceReinspect) {
-            ;(this.host as any).__extjsForceSourceReinspect = false
+            this.host.__extjsForceSourceReinspect = false
             this.currentConsoleActor = null
             this.currentTabActor = null
           }
@@ -1707,7 +1715,7 @@ export class FirefoxSourceInspectionPlugin {
             this.currentConsoleActor &&
             this.currentTabActor
           ) {
-            if ((globalThis as any).__EXTJS_PENDING_FIREFOX_CONTENT_RELOAD__) {
+            if (globalThis.__EXTJS_PENDING_FIREFOX_CONTENT_RELOAD__) {
               done()
               return
             }

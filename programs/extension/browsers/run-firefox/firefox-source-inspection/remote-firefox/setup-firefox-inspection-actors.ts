@@ -107,15 +107,7 @@ export async function selectActors(
   const normalizedUrlToInspect = normalizeInspectableUrl(urlToInspect)
 
   while (Date.now() < deadline) {
-    const allTargets =
-      ((await client.getTargets()) as unknown as Array<{
-        url?: string
-        type?: string
-        outerWindowId?: number
-        outerWindowID?: number
-        actor?: string
-        consoleActor?: string
-      }>) || []
+    const allTargets = (await client.getTargets()) || []
 
     // 1) Exact URL match.
     // Prefer the newest matching tab when duplicate URLs exist.

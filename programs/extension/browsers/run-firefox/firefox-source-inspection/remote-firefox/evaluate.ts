@@ -8,6 +8,7 @@
 
 import * as sourceMessages from '../../../browsers-lib/messages'
 import {RDP_EVAL_TIMEOUT_MS} from '../../../browsers-lib/constants'
+import type {RdpEvalResponse} from './rdp-types'
 
 interface RdpClientLike {
   request: (payload: unknown) => Promise<unknown>
@@ -206,7 +207,7 @@ export async function coerceResponseToString(
   response: unknown,
   opts: {fallbackToFullDocument?: boolean} = {fallbackToFullDocument: true}
 ): Promise<string> {
-  const r = (response as any) ?? {}
+  const r = (response ?? {}) as RdpEvalResponse
   const value = r.result ?? r.value ?? r
 
   if (typeof value === 'string') return value
@@ -224,15 +225,15 @@ export async function coerceResponseToString(
 
     if (actor && typeof length === 'number') {
       try {
-        const full = await client.request({
+        const full = (await client.request({
           to: actor,
           type: 'substring',
           start: 0,
           end: length
-        })
+        })) as RdpEvalResponse
 
-        if (full && typeof (full as any).substring === 'string') {
-          return (full as any).substring
+        if (full && typeof full.substring === 'string') {
+          return full.substring
         }
       } catch {
         // Ignore
