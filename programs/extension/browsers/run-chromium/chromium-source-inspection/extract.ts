@@ -50,8 +50,15 @@ export async function extractPageHtml(
 
         if (retryHtml) return retryHtml
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      if (logSamples) {
+        console.log(
+          messages.sourceInspectorHtmlExtractionRetryFailed(
+            'fallback-target',
+            String((error as Error)?.message || error)
+          )
+        )
+      }
     }
   }
 
@@ -69,8 +76,15 @@ export async function extractPageHtml(
       if (againHtml && CONTENT_HTML_HINT_RE.test(againHtml)) {
         html = againHtml
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      if (logSamples) {
+        console.log(
+          messages.sourceInspectorHtmlExtractionRetryFailed(
+            'late-retry',
+            String((error as Error)?.message || error)
+          )
+        )
+      }
     }
   }
 
@@ -93,8 +107,15 @@ export async function extractPageHtml(
           html = evaluatedHtml
           break
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        if (logSamples) {
+          console.log(
+            messages.sourceInspectorHtmlExtractionRetryFailed(
+              'evaluate-fallback',
+              String((error as Error)?.message || error)
+            )
+          )
+        }
       }
       await new Promise((r) => setTimeout(r, 200))
     }
