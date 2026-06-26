@@ -51,18 +51,26 @@ function createSequentialEntryModule(
 
   const concatenateClassic = jsFiles.length > 1 && jsFiles.every(isClassic)
 
-  const source = concatenateClassic
-    ? [
-        `/* extension.js classic content-script concatenation: ${feature} */`,
-        ...cssFiles.map((c) => `import ${JSON.stringify(String(c))};`),
-        ...jsFiles.map((f) => `/* ${f} */\n${fs.readFileSync(f, 'utf8')}`)
-      ].join('\n;\n')
-    : [
-        `/* extension.js sequential entry: ${feature} */`,
-        ...entryImports.map(
-          (entryImport) => `import ${JSON.stringify(String(entryImport))};`
-        )
-      ].join('\n')
+  if (concatenateClassic) {
+    // Instead of baking file contents into a data: URI (which rspack never
+    // watches and cannot source-map), emit a stub entry that the
+    // classic-concat-loader will process. The loader reads each file via
+    // addDependency (enabling watch-mode rebuilds) and generates a V3 source
+    // map (enabling real file/line error tracing).
+    const queryData = encodeURIComponent(
+      JSON.stringify({feature, js: jsFiles, css: cssFiles})
+    )
+    // Use the first JS file as the entry so rspack resolves a real file.
+    // The query parameter tells the concat loader which files to combine.
+    return `${jsFiles[0]}?__extensionjs_classic_concat__=${queryData}`
+  }
+
+  const source = [
+    `/* extension.js sequential entry: ${feature} */`,
+    ...entryImports.map(
+      (entryImport) => `import ${JSON.stringify(String(entryImport))};`
+    )
+  ].join('\n')
 
   return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`
 }
