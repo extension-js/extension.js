@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {RdpTransport} from './transport'
+import type {RdpTarget, RdpEvalResponse} from './rdp-types'
 
 const ASYNC_EVALUATION_TIMEOUT_MS = 8000
 const EVALUATION_TYPES = [
@@ -156,17 +157,12 @@ async function requestEvaluation(
   throw lastError || new Error('Failed to evaluate Firefox RDP expression')
 }
 
-export async function listTabs(transport: RdpTransport) {
+export async function listTabs(transport: RdpTransport): Promise<RdpTarget[]> {
   const response = (await transport.request({
     to: 'root',
     type: 'listTabs'
   })) as {
-    tabs?: Array<{
-      actor?: string
-      url?: string
-      consoleActor?: string
-      webConsoleActor?: string
-    }>
+    tabs?: RdpTarget[]
   }
   return response.tabs || []
 }
@@ -228,7 +224,7 @@ export async function waitForPageReady(
         transport,
         consoleActor,
         `JSON.stringify({href: String(location.href), ready: String(document.readyState)})`
-      )) as any
+      )) as RdpEvalResponse
 
       const raw = response?.result ?? response?.value ?? response
       const serialized =

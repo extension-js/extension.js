@@ -101,7 +101,9 @@ export class MessagingClient extends EventEmitter {
   }
 
   // Resolve a tab descriptor actor into an actual tab target actor and console actor
-  async getTargetFromDescriptor(descriptorId: string) {
+  async getTargetFromDescriptor(
+    descriptorId: string
+  ): Promise<{targetActor?: string; consoleActor?: string}> {
     try {
       const response = await api.getTargetFromDescriptor(
         this.transport,
@@ -154,7 +156,7 @@ export class MessagingClient extends EventEmitter {
     return evalRaw(this, tabId, expression)
   }
 
-  private async coerceResponseToString(
+  async coerceResponseToString(
     tabId: string,
     response: unknown,
     opts: {fallbackToFullDocument?: boolean} = {
@@ -171,15 +173,15 @@ export class MessagingClient extends EventEmitter {
     return resolveEvalActor(this, descriptorActor, consoleActorHint)
   }
 
-  private async serializeDocument(actorToUse: string): Promise<string> {
+  async serializeDocument(actorToUse: string): Promise<string> {
     return serializeDoc(this, actorToUse)
   }
 
-  private async extractShadowContent(actorToUse: string): Promise<string> {
+  async extractShadowContent(actorToUse: string): Promise<string> {
     return extractShadow(this, actorToUse)
   }
 
-  private mergeShadowIntoMain(mainHTML: string, shadowContent: string): string {
+  mergeShadowIntoMain(mainHTML: string, shadowContent: string): string {
     return mergeShadowIntoMain(mainHTML, shadowContent)
   }
 

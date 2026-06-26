@@ -21,9 +21,9 @@ export function requestErrorToMessage(error: unknown) {
 }
 
 export function isErrorWithCode(codeWanted: string | string[], error: unknown) {
-  const code = (error as any)?.code
+  const code = (error as {code?: string})?.code
 
-  if (Array.isArray(codeWanted)) return codeWanted.includes(code)
+  if (Array.isArray(codeWanted)) return codeWanted.includes(code as string)
 
   return code === codeWanted
 }

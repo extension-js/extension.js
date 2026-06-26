@@ -67,12 +67,7 @@ export class FirefoxRDPController {
     compilation: CompilationLike,
     changedAssets: string[]
   ): Promise<void> {
-    const rf = this.remote as unknown as {
-      hardReloadIfNeeded?: (
-        c: CompilationLike,
-        assets: string[]
-      ) => Promise<void>
-    }
+    const rf = this.remote
     if (typeof rf.hardReloadIfNeeded === 'function') {
       await rf.hardReloadIfNeeded(compilation, changedAssets)
     } else {
@@ -98,7 +93,7 @@ export class FirefoxRDPController {
 
   getLastRuntimeReinjectionReport(): Record<string, unknown> | null {
     const report = this.remote.getLastRuntimeReinjectionReport()
-    return report ? (report as unknown as Record<string, unknown>) : null
+    return report ? report : null
   }
 
   getRuntimeCapability(): {hasScripting: boolean; probedAt: number} | null {
