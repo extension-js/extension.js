@@ -24,6 +24,15 @@ import {
   truncateByBytes
 } from '../../browsers-lib/source-output'
 import {CDPClient} from './cdp-client'
+import type {
+  CdpFrameTreeResult,
+  CdpProtocolMessage,
+  CdpProtocolParams,
+  ConsoleCountKey,
+  ExtensionRootTreeResult,
+  PageMetaSnapshot,
+  SelectorProbeResult
+} from '../chromium-types'
 import {extractPageHtml} from './extract'
 import {waitForChromeRemoteDebugging} from './readiness'
 import {ensureTargetAndSession} from './targets'
@@ -75,7 +84,7 @@ export class ChromiumSourceInspectionPlugin {
   private lastByteLength?: number
   private lastSummary?: ReturnType<typeof buildHtmlSummary>
   private lastDomSnapshot?: DomSnapshot
-  private consoleCounts = {
+  private consoleCounts: Record<ConsoleCountKey, number> = {
     error: 0,
     warn: 0,
     info: 0,
@@ -170,7 +179,7 @@ export class ChromiumSourceInspectionPlugin {
         'Page.getFrameTree',
         {},
         this.currentSessionId
-      )) as any
+      )) as CdpFrameTreeResult
       const frame = tree?.frameTree?.frame || tree?.frame
       if (frame?.id) context.frameId = String(frame.id)
       if (frame?.url) context.frameUrl = String(frame.url)
@@ -182,7 +191,7 @@ export class ChromiumSourceInspectionPlugin {
         'Runtime.evaluate',
         {expression: '1', returnByValue: true},
         this.currentSessionId
-      )) as any
+      )) as {executionContextId?: number}
       if (typeof evalResp?.executionContextId === 'number') {
         context.executionContextId = evalResp.executionContextId
       }
@@ -359,11 +368,7 @@ export class ChromiumSourceInspectionPlugin {
     return this.cdpClient.hasVisibleShadowHostContent(sessionId)
   }
 
-  private async getPageMetaSnapshot(): Promise<{
-    readyState?: string
-    viewport?: {width: number; height: number; devicePixelRatio: number}
-    frameCount?: number
-  }> {
+  private async getPageMetaSnapshot(): Promise<PageMetaSnapshot> {
     if (!this.cdpClient || !this.currentSessionId) return {}
 
     try {
@@ -386,7 +391,7 @@ export class ChromiumSourceInspectionPlugin {
         })()`
       )
       if (snapshot && typeof snapshot === 'object') {
-        return snapshot as any
+        return snapshot as PageMetaSnapshot
       }
     } catch {
       // ignore
@@ -394,21 +399,9 @@ export class ChromiumSourceInspectionPlugin {
     return {}
   }
 
-  private async getSelectorProbes(selectors: string[]): Promise<
-    Array<{
-      selector: string
-      count: number
-      samples: Array<{
-        tag: string
-        id?: string
-        classes?: string
-        role?: string
-        ariaLabel?: string
-        textLength?: number
-        textSnippet?: string
-      }>
-    }>
-  > {
+  private async getSelectorProbes(
+    selectors: string[]
+  ): Promise<SelectorProbeResult[]> {
     if (!this.cdpClient || !this.currentSessionId) return []
     if (!selectors.length) return []
     try {
@@ -441,7 +434,7 @@ export class ChromiumSourceInspectionPlugin {
           });
         })()`
       )
-      if (Array.isArray(payload)) return payload as any
+      if (Array.isArray(payload)) return payload as SelectorProbeResult[]
     } catch {
       // ignore
     }
@@ -449,14 +442,7 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   private async getExtensionRootTree(): Promise<
-    | {
-        rootMode: 'shadow' | 'element'
-        depthLimit: number
-        nodeLimit: number
-        truncated: boolean
-        tree: any
-      }
-    | undefined
+    ExtensionRootTreeResult | undefined
   > {
     if (!this.cdpClient || !this.currentSessionId) return undefined
     const includeShadow = this.devOptions.sourceIncludeShadow !== 'off'
@@ -510,7 +496,9 @@ export class ChromiumSourceInspectionPlugin {
           };
         })()`
       )
-      if (payload && typeof payload === 'object') return payload as any
+      if (payload && typeof payload === 'object') {
+        return payload as ExtensionRootTreeResult
+      }
     } catch {
       // ignore
     }
@@ -520,15 +508,13 @@ export class ChromiumSourceInspectionPlugin {
   private setupConsoleCapture() {
     if (!this.cdpClient) return
 
-    const cdp = this.cdpClient as unknown as {
-      onProtocolEvent?: (cb: (message: Record<string, unknown>) => void) => void
-    }
+    const cdp = this.cdpClient
 
     if (typeof cdp.onProtocolEvent !== 'function') return
 
-    cdp.onProtocolEvent((message: Record<string, unknown>) => {
+    cdp.onProtocolEvent((message: CdpProtocolMessage) => {
       const method = String(message.method || '')
-      const params = (message as any).params || {}
+      const params: CdpProtocolParams = message.params || {}
 
       if (method === 'Log.entryAdded') {
         const entry = params.entry || {}
@@ -547,7 +533,7 @@ export class ChromiumSourceInspectionPlugin {
           : null
         const sourceUrl = frame && frame.url ? String(frame.url) : undefined
         const text = args
-          .map((arg: any) => {
+          .map((arg) => {
             if (typeof arg?.value !== 'undefined') return String(arg.value)
             if (typeof arg?.description !== 'undefined')
               return String(arg.description)
@@ -561,12 +547,12 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   private recordConsoleEvent(level: string, text: string, sourceUrl?: string) {
-    const normalized = ['error', 'warn', 'info', 'debug', 'log'].includes(level)
-      ? level
-      : 'log'
+    const normalized = (
+      ['error', 'warn', 'info', 'debug', 'log'].includes(level) ? level : 'log'
+    ) as ConsoleCountKey
 
     if (normalized in this.consoleCounts) {
-      ;(this.consoleCounts as any)[normalized] += 1
+      this.consoleCounts[normalized] += 1
     }
 
     const hash = hashStringFNV1a(`${normalized}:${text}:${sourceUrl || ''}`)
@@ -1080,7 +1066,7 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   private registerContentReloadSnapshotHook() {
-    ;(globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__ = async () => {
+    ;globalThis.__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__ = async () => {
       if (!this.currentSessionId || !this.hasInspectedSourceOnce) return
       if (this.isWatching) return
       // Dedup rapid content reloads — skip if flushed within the last 500ms
@@ -1594,7 +1580,7 @@ export class ChromiumSourceInspectionPlugin {
           }
 
           // Watch mode should inspect once, then let the live watcher own updates.
-          const webSocketServer = (compiler.options as any).webSocketServer
+          const webSocketServer = compiler.options.webSocketServer
           if (this.devOptions.watchSource && this.hasInspectedSourceOnce) {
             if (webSocketServer) {
               if (!this.isWatching) {
@@ -1603,9 +1589,7 @@ export class ChromiumSourceInspectionPlugin {
               return
             }
             if (this.currentSessionId) {
-              if (
-                (globalThis as any).__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__
-              ) {
+              if (globalThis.__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__) {
                 return
               }
               const previousRootMeta = await this.getExtensionRootMeta()

@@ -192,8 +192,8 @@ export async function deriveExtensionIdFromTargetsHelper(
       const versionFallbackIds: string[] = []
 
       for (const t of targets || []) {
-        const url: string = String((t as any)?.url || '')
-        const type: string = String((t as any)?.type || '')
+        const url: string = String(t?.url || '')
+        const type: string = String(t?.type || '')
 
         const typeOk = ['service_worker', 'background_page', 'worker'].includes(
           type
@@ -207,7 +207,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
         if (url && !url.startsWith('chrome-extension://')) continue
 
-        const targetId: string | undefined = (t as any)?.targetId
+        const targetId: string | undefined = t?.targetId
         if (!targetId) continue
 
         try {
