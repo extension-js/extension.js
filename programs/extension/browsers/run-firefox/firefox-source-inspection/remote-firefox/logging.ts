@@ -9,15 +9,11 @@
 import colors from 'pintor'
 import {printLogEventJson, printLogEventPretty} from './firefox-utils'
 import {MessagingClient} from './messaging-client'
+import type {RdpMessage} from './rdp-types'
 
 export async function attachConsoleListeners(client: MessagingClient) {
   try {
-    const targets = (await client.getTargets()) as Array<{
-      actor?: string
-      consoleActor?: string
-      webConsoleActor?: string
-      url?: string
-    }>
+    const targets = await client.getTargets()
 
     for (const t of targets || []) {
       try {
@@ -25,7 +21,7 @@ export async function attachConsoleListeners(client: MessagingClient) {
           String(t.actor || '')
         )
         const consoleActor =
-          (resolved as any)?.consoleActor || t.consoleActor || t.webConsoleActor
+          resolved?.consoleActor || t.consoleActor || t.webConsoleActor
         if (consoleActor) {
           try {
             await client.request({
@@ -76,7 +72,7 @@ export function subscribeUnifiedLogging(
     blue: (s: string) => (colors.blue ? colors.blue(s) : s)
   }
 
-  client.on('message', (message) => {
+  client.on('message', (message: RdpMessage) => {
     try {
       const type = String(message?.type || '')
       if (!type) return
@@ -95,7 +91,7 @@ export function subscribeUnifiedLogging(
       let tabId: number | undefined = undefined
 
       if (type === 'consoleAPICall' || type === 'logMessage') {
-        const a = (message as any)?.message || message
+        const a = message?.message || message
         level = String(a.level || a.category || 'log').toLowerCase()
         const arg = (a.arguments && a.arguments[0]) || a.message || a.text
         text = String(
@@ -104,14 +100,12 @@ export function subscribeUnifiedLogging(
         url = String(a.filename || a.sourceName || '')
       } else if (type === 'pageError' || type === 'networkEventUpdate') {
         level = type === 'pageError' ? 'error' : 'info'
-        text = String(
-          (message as any)?.errorMessage || (message as any)?.cause || ''
-        )
-        url = String((message as any)?.url || (message as any)?.sourceURL || '')
+        text = String(message?.errorMessage || message?.cause || '')
+        url = String(message?.url || message?.sourceURL || '')
       } else if (type === 'tabNavigated') {
         level = 'debug'
-        text = String((message as any)?.url || '')
-        url = String((message as any)?.url || '')
+        text = String(message?.url || '')
+        url = String(message?.url || '')
       } else {
         return
       }
@@ -134,7 +128,7 @@ export function subscribeUnifiedLogging(
 
       if (urlFilter && !String(url || '').includes(urlFilter)) return
 
-      const msgTab = String((message as any)?.from || '')
+      const msgTab = String(message?.from || '')
       if (tabFilter && msgTab && !msgTab.includes(tabFilter)) return
 
       const event = {

@@ -43,7 +43,10 @@ import type {FirefoxPluginRuntime} from '../firefox-types'
 import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
 import {browserConfig} from './browser-config'
 import {logFirefoxDryRun} from './dry-run'
-import {setupFirefoxProcessHandlers} from './process-handlers'
+import {
+  setupFirefoxProcessHandlers,
+  type FirefoxBrowserKind
+} from './process-handlers'
 import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
@@ -91,8 +94,8 @@ export class FirefoxLaunchPlugin {
         info: (...a: unknown[]) => console.log(...a),
         warn: (...a: unknown[]) => console.warn(...a),
         error: (...a: unknown[]) => console.error(...a),
-        debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
-      } as any
+        debug: (...a: unknown[]) => console?.debug?.(...a)
+      } as BrowserLogger
     }
 
     if (options.mode === 'development') {
@@ -110,7 +113,7 @@ export class FirefoxLaunchPlugin {
             info: (...a: unknown[]) => console.log(...a),
             warn: (...a: unknown[]) => console.warn(...a),
             error: (...a: unknown[]) => console.error(...a),
-            debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+            debug: (...a: unknown[]) => console?.debug?.(...a)
           } as BrowserLogger)
 
     compiler.hooks.done.tapAsync(
@@ -161,7 +164,7 @@ export class FirefoxLaunchPlugin {
         } catch (error) {
           this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
           if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-            done(error as any)
+            done(error)
             return
           } else {
             process.exit(1)
@@ -174,7 +177,8 @@ export class FirefoxLaunchPlugin {
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
     // Guard: never launch if compilation has errors
-    const compilationErrors: unknown[] = (compilation as any)?.errors || []
+    const compilationErrors: unknown[] = (compilation as {errors?: unknown[]})
+      ?.errors || []
     if (compilationErrors.length > 0) {
       this.ctx.logger?.info?.(
         messages.skippingBrowserLaunchDueToCompileErrors()
@@ -537,7 +541,7 @@ export class FirefoxLaunchPlugin {
     this.pipeChildOutput(child)
 
     disposeProcessHandlers = setupFirefoxProcessHandlers(
-      this.host.browser as any,
+      this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance()
     )
@@ -588,7 +592,7 @@ export class FirefoxLaunchPlugin {
     try {
       const displayCacheDir = computeBinariesBaseDir(compilation)
       const pretty = messages.prettyPuppeteerInstallGuidance(
-        (this.host.browser as any) || 'firefox',
+        this.host.browser || 'firefox',
         raw,
         displayCacheDir
       )

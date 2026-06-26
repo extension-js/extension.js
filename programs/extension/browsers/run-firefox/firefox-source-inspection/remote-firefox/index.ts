@@ -117,15 +117,11 @@ export class RemoteFirefox {
   }
 
   private resolveRdpPort(compilation?: CompilationLike): number {
-    const instanceId = (this.options as unknown as {instanceId?: string})
-      ?.instanceId
+    const instanceId = (this.options as {instanceId?: string})?.instanceId
     const devPort = (
-      compilation?.options as unknown as {devServer?: {port?: number}}
-    )?.devServer?.port as number | undefined
-    const optionPort = (this.options as unknown as {port?: number})?.port as
-      | number
-      | string
-      | undefined
+      compilation?.options as {devServer?: {port?: number}}
+    )?.devServer?.port
+    const optionPort = (this.options as {port?: number | string})?.port
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
     const basePort = (normalizedOptionPort as number) || devPort
@@ -498,11 +494,11 @@ export class RemoteFirefox {
       let reloadedTabs = 0
 
       for (const tab of tabs || []) {
-        const descriptorActor = String((tab as any)?.actor || '')
+        const descriptorActor = String(tab?.actor || '')
         const descriptorConsoleActor = String(
-          (tab as any)?.consoleActor || (tab as any)?.webConsoleActor || ''
+          tab?.consoleActor || tab?.webConsoleActor || ''
         )
-        const url = String((tab as any)?.url || '')
+        const url = String(tab?.url || '')
 
         if (!descriptorActor || !url) continue
         if (!urlMatchesAnyContentScriptRule(url, rules)) continue

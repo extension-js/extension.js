@@ -14,7 +14,11 @@ import {
   isBenignSocketTeardown
 } from '../../browsers-lib/process-teardown'
 
-type FirefoxBrowserKind = 'firefox' | 'chrome' | 'edge' | 'chromium-based'
+export type FirefoxBrowserKind =
+  | 'firefox'
+  | 'chrome'
+  | 'edge'
+  | 'chromium-based'
 
 interface FirefoxInstanceHandlers {
   browser: FirefoxBrowserKind

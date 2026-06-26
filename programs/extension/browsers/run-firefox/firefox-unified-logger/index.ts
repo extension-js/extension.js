@@ -42,7 +42,7 @@ export class FirefoxUnifiedLoggerPlugin {
 
     this.ctx.onControllerReady(async (controller) => {
       try {
-        await (controller as any).enableUnifiedLogging({
+        await controller.enableUnifiedLogging({
           level: this.options?.logLevel,
           contexts: this.options?.logContexts,
           urlFilter: this.options?.logUrl,

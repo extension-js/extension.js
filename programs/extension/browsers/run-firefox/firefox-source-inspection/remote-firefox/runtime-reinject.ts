@@ -14,6 +14,7 @@ import {
 } from '../../../browsers-lib/content-script-targets'
 import * as messages from '../../../browsers-lib/messages'
 import type {MessagingClient} from './messaging-client'
+import type {RdpEvalResponse} from './rdp-types'
 
 export type AddonRuntimeTarget = {
   consoleActor: string
@@ -529,10 +530,13 @@ export async function reinjectMatchingTabsViaAddonRuntime(
   function unwrapEvalString(response: unknown): string {
     if (typeof response === 'string') return response
     if (!response || typeof response !== 'object') return ''
-    const r = (response as any).result ?? (response as any).value ?? response
+    const r =
+      (response as RdpEvalResponse).result ??
+      (response as RdpEvalResponse).value ??
+      (response as RdpEvalResponse)
     if (typeof r === 'string') return r
-    if (r && typeof r === 'object' && typeof (r as any).value === 'string') {
-      return (r as any).value
+    if (r && typeof r === 'object' && typeof r.value === 'string') {
+      return r.value
     }
     return ''
   }
