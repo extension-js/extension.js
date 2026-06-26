@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {MessagingClient} from './messaging-client'
+import type {RdpSourceInspectionClient} from './rdp-types'
 import {GET_PAGE_HTML_WITH_SHADOW_EXPRESSION} from './evaluate'
 
 function normalizeInspectableUrl(rawUrl?: string): string {
@@ -28,15 +28,10 @@ function normalizeInspectableUrl(rawUrl?: string): string {
 }
 
 export async function ensureTabForUrl(
-  client: MessagingClient,
+  client: RdpSourceInspectionClient,
   urlToInspect?: string
 ): Promise<{actor: string; consoleActor?: string} | null> {
-  const targets = (await client.getTargets()) as Array<{
-    url?: string
-    actor?: string
-    outerWindowID?: unknown
-    consoleActor?: string
-  }>
+  const targets = await client.getTargets()
   const normalizedUrlToInspect = normalizeInspectableUrl(urlToInspect)
   let tab = (targets || []).find(
     (t) =>
@@ -55,7 +50,7 @@ export async function ensureTabForUrl(
 }
 
 export async function navigateTo(
-  client: MessagingClient,
+  client: RdpSourceInspectionClient,
   tabActor: string,
   consoleActorHint: string | undefined,
   url: string
@@ -64,9 +59,7 @@ export async function navigateTo(
   try {
     const detail = await client.getTargetFromDescriptor(tabActor)
     const consoleActor =
-      (detail as unknown as {consoleActor?: string}).consoleActor ||
-      consoleActorHint ||
-      tabActor
+      detail.consoleActor || consoleActorHint || tabActor
     const currentUrl = await client.evaluate(
       consoleActor,
       'String(location.href || "")'
@@ -77,11 +70,8 @@ export async function navigateTo(
 
     if (sameDocumentTarget) {
       let targetActor = tabActor
-      if ((detail as unknown as {targetActor?: string}).targetActor) {
-        targetActor = String(
-          (detail as unknown as {targetActor?: string}).targetActor ||
-            targetActor
-        )
+      if (detail.targetActor) {
+        targetActor = String(detail.targetActor || targetActor)
       }
       try {
         await client.attach(targetActor)
@@ -104,11 +94,8 @@ export async function navigateTo(
   let targetActor = tabActor
   try {
     const detail2 = await client.getTargetFromDescriptor(tabActor)
-    if ((detail2 as unknown as {targetActor?: string}).targetActor)
-      targetActor = String(
-        (detail2 as unknown as {targetActor?: string}).targetActor ||
-          targetActor
-      )
+    if (detail2.targetActor)
+      targetActor = String(detail2.targetActor || targetActor)
   } catch {
     // Ignore
   }
@@ -123,12 +110,12 @@ export async function navigateTo(
 
 // Extract full page HTML including shadow DOM
 export async function getPageHTML(
-  client: MessagingClient,
+  client: RdpSourceInspectionClient,
   descriptorActor: string,
   consoleActorHint?: string
 ) {
-  if (typeof (client as any).getPageHTML === 'function') {
-    return await (client as any).getPageHTML(descriptorActor, consoleActorHint)
+  if (typeof client.getPageHTML === 'function') {
+    return await client.getPageHTML(descriptorActor, consoleActorHint)
   }
 
   try {
@@ -136,31 +123,26 @@ export async function getPageHTML(
       descriptorActor,
       'String(document.title)'
     )
-    await (client as any).coerceResponseToString?.(descriptorActor, titleResp)
+    await client.coerceResponseToString?.(descriptorActor, titleResp)
   } catch {
     // Ignore
   }
 
-  let mainHTML = await (client as any).serializeDocument?.(descriptorActor)
+  let mainHTML = await client.serializeDocument?.(descriptorActor)
   if (!mainHTML) {
     const retry = await client.evaluateRaw(
       descriptorActor,
       'new XMLSerializer().serializeToString(document)'
     )
     try {
-      mainHTML = await (client as any).coerceResponseToString?.(
-        descriptorActor,
-        retry
-      )
+      mainHTML = await client.coerceResponseToString?.(descriptorActor, retry)
     } catch {
       mainHTML = ''
     }
     if (!mainHTML) return ''
   }
 
-  const shadowContent = await (client as any).extractShadowContent?.(
-    descriptorActor
-  )
+  const shadowContent = await client.extractShadowContent?.(descriptorActor)
   if (!shadowContent) return mainHTML
 
   try {
@@ -168,7 +150,7 @@ export async function getPageHTML(
       descriptorActor,
       GET_PAGE_HTML_WITH_SHADOW_EXPRESSION
     )
-    const mergedHtml = await (client as any).coerceResponseToString?.(
+    const mergedHtml = await client.coerceResponseToString?.(
       descriptorActor,
       mergedResp,
       {fallbackToFullDocument: false}
@@ -180,11 +162,11 @@ export async function getPageHTML(
     // Ignore
   }
 
-  return (client as any).mergeShadowIntoMain?.(mainHTML, shadowContent)
+  return client.mergeShadowIntoMain?.(mainHTML, shadowContent)
 }
 
 export async function resolveConsoleActorMethod(
-  client: MessagingClient,
+  client: RdpSourceInspectionClient,
   tabActor: string,
   urlToInspect: string
 ) {
@@ -192,7 +174,7 @@ export async function resolveConsoleActorMethod(
   const timeoutMs = 8000
   while (Date.now() - start < timeoutMs) {
     try {
-      const targets = (await client.getTargets()) as any[]
+      const targets = await client.getTargets()
       const byActor = targets.find((t) => t && t.actor === tabActor)
       const normalizedUrlToInspect = normalizeInspectableUrl(urlToInspect)
       const byUrl = targets.find(
@@ -222,7 +204,7 @@ export async function resolveConsoleActorMethod(
 }
 
 export async function waitForContentScriptInjectionMethod(
-  client: MessagingClient,
+  client: RdpSourceInspectionClient,
   consoleActor: string
 ) {
   const deadline = Date.now() + 12000
