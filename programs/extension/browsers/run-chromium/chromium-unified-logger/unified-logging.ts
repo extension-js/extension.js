@@ -65,7 +65,7 @@ export async function setupUnifiedLogging(
         const args = p.args || []
         const first = args[0]
         text = String(
-          (first && ((first as any).value || (first as any).description)) || ''
+          (first && (first.value || first.description)) || ''
         )
         const loc = p.stackTrace?.callFrames?.[0]
 
