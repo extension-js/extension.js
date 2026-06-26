@@ -6,8 +6,13 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {ChildProcess, spawn} from 'child_process'
+import {ChildProcess} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
+import {
+  gracefulTerminateChild,
+  forceKillChildOnExit,
+  isBenignSocketTeardown
+} from '../../browsers-lib/process-teardown'
 import type {BrowserType} from '../../browsers-types'
 
 interface ChromiumInstanceHandlers {
@@ -40,39 +45,7 @@ function cleanupOne(instance: ChromiumInstanceHandlers) {
       console.log(messages.enhancedProcessManagementCleanup(browser))
     }
 
-    if (child && !child.killed) {
-      // On Windows, ensure the entire process tree is terminated.
-      // Chromium spawns multiple processes; taskkill /T /F is most reliable.
-      if (process.platform === 'win32') {
-        try {
-          spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-            stdio: 'ignore',
-            windowsHide: true
-          }).on('error', () => {
-            // Ignore errors from taskkill
-          })
-        } catch {
-          // Ignore
-        }
-      }
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.enhancedProcessManagementTerminating(browser))
-      }
-
-      child.kill('SIGTERM')
-
-      const killTimer = setTimeout(() => {
-        if (child && !child.killed) {
-          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-            console.log(messages.enhancedProcessManagementForceKill(browser))
-          }
-          child.kill('SIGKILL')
-        }
-      }, 5000)
-      // The SIGKILL fallback must not keep the event loop alive on its own
-      killTimer.unref?.()
-    }
-
+    gracefulTerminateChild(child, browser)
     cleanupInstance()
   } catch (error) {
     console.error(
@@ -83,6 +56,12 @@ function cleanupOne(instance: ChromiumInstanceHandlers) {
 
 function cleanupAll() {
   for (const instance of activeInstances) cleanupOne(instance)
+}
+
+function forceKillAllOnExit() {
+  for (const instance of activeInstances) {
+    forceKillChildOnExit(instance.child, instance.browser)
+  }
 }
 
 function firstBrowserLabel(): BrowserType {
@@ -97,7 +76,7 @@ function installGlobalHandlersOnce() {
   process.on('SIGINT', cleanupAll)
   process.on('SIGTERM', cleanupAll)
   process.on('SIGHUP', cleanupAll)
-  process.on('exit', cleanupAll)
+  process.on('exit', forceKillAllOnExit)
 
   process.on('uncaughtException', (error) => {
     if (isBenignSocketTeardown(error)) {
@@ -152,20 +131,4 @@ export function setupProcessSignalHandlers(
   return () => {
     activeInstances.delete(instance)
   }
-}
-
-// Errors that come from a socket the browser is in the middle of closing.
-// They are not faults in the runner — they mean "the peer hung up while we
-// were reading". Treat as no-op so a graceful shutdown stays graceful.
-const BENIGN_SOCKET_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'EPIPE',
-  'ECONNABORTED',
-  'ENOTCONN'
-])
-
-function isBenignSocketTeardown(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false
-  const code = (value as {code?: unknown}).code
-  return typeof code === 'string' && BENIGN_SOCKET_ERROR_CODES.has(code)
 }
