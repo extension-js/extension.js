@@ -44,6 +44,7 @@ import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
 import {browserConfig} from './browser-config'
 import {logFirefoxDryRun} from './dry-run'
 import {setupFirefoxProcessHandlers} from './process-handlers'
+import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
   isWslEnv,
@@ -543,20 +544,10 @@ export class FirefoxLaunchPlugin {
   }
 
   private async cleanupInstance(): Promise<void> {
-    try {
-      if (this.child && !this.child.killed) {
-        try {
-          this.child.kill('SIGTERM')
-        } catch {}
-        const killTimer = setTimeout(() => {
-          try {
-            if (this.child && !this.child.killed) this.child.kill('SIGKILL')
-          } catch {}
-        }, 2000)
-        // Don't let the SIGKILL fallback keep the event loop alive.
-        killTimer.unref?.()
-      }
-    } catch {}
+    // The shared teardown owns the kill decision and is idempotent (child.killed
+    // guard), so a shutdown that already terminated the child here is a no-op —
+    // the browser is asked to terminate once per shutdown, not once per layer.
+    gracefulTerminateChild(this.child, this.host.browser as BrowserType)
   }
 
   private scheduleWatchTimeout() {

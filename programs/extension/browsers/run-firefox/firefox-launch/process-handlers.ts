@@ -6,8 +6,13 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {ChildProcess, spawn} from 'child_process'
+import {ChildProcess} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
+import {
+  gracefulTerminateChild,
+  forceKillChildOnExit,
+  isBenignSocketTeardown
+} from '../../browsers-lib/process-teardown'
 
 type FirefoxBrowserKind = 'firefox' | 'chrome' | 'edge' | 'chromium-based'
 
@@ -44,41 +49,7 @@ async function attemptCleanup(
       console.log(messages.enhancedProcessManagementCleanup(browser))
     }
 
-    const child = childRef()
-
-    if (child && !child.killed) {
-      // On Windows, ensure the entire process tree is terminated.
-      // Firefox can spawn multiple processes; taskkill /T /F is most reliable.
-      if (process.platform === 'win32') {
-        try {
-          spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-            stdio: 'ignore',
-            windowsHide: true
-          }).on('error', () => {
-            // Ignore errors from taskkill
-          })
-        } catch {
-          // Ignore
-        }
-      }
-
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.enhancedProcessManagementTerminating(browser))
-      }
-      child.kill('SIGTERM')
-
-      const killTimer = setTimeout(() => {
-        if (child && !child.killed) {
-          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-            console.log(messages.enhancedProcessManagementForceKill(browser))
-          }
-          child.kill('SIGKILL')
-        }
-      }, 5000)
-      // The SIGKILL fallback must not keep the event loop alive on its own
-      killTimer.unref?.()
-    }
-
+    gracefulTerminateChild(childRef(), browser)
     await cleanupInstance()
   } catch (error) {
     console.error(
@@ -93,6 +64,12 @@ function cleanupAllInstances(): void {
   }
 }
 
+function forceKillAllOnExit(): void {
+  for (const instance of activeInstances) {
+    forceKillChildOnExit(instance.childRef(), instance.browser)
+  }
+}
+
 function firstBrowserLabel(): FirefoxBrowserKind {
   for (const instance of activeInstances) return instance.browser
   return 'firefox'
@@ -102,7 +79,7 @@ function installGlobalHandlersOnce(): void {
   if (globalHandlersInstalled) return
   globalHandlersInstalled = true
 
-  process.on('exit', cleanupAllInstances)
+  process.on('exit', forceKillAllOnExit)
   process.on('SIGINT', cleanupAllInstances)
   process.on('SIGTERM', cleanupAllInstances)
   process.on('SIGHUP', cleanupAllInstances)
@@ -158,17 +135,4 @@ export function setupFirefoxProcessHandlers(
   return () => {
     activeInstances.delete(instance)
   }
-}
-
-const BENIGN_SOCKET_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'EPIPE',
-  'ECONNABORTED',
-  'ENOTCONN'
-])
-
-function isBenignSocketTeardown(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false
-  const code = (value as {code?: unknown}).code
-  return typeof code === 'string' && BENIGN_SOCKET_ERROR_CODES.has(code)
 }
