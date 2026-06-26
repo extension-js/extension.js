@@ -10,6 +10,7 @@ const stems = [
   'ensure-hmr-for-scripts',
   'minimum-script-file',
   'feature-scripts-content-script-wrapper',
+  'feature-scripts-classic-concat-loader',
   'main-world-bridge',
   'minimum-chromium-file',
   'minimum-firefox-file'
