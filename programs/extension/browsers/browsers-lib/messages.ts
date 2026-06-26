@@ -1121,6 +1121,36 @@ export function firefoxRdpClientFailedToGetMainHTML() {
   return `${getLoggingPrefix('error')} Failed to get Firefox main HTML`
 }
 
+export function firefoxRdpReinjectListAddonsFailed(error: string) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not list addons: ${colors.red(error)}`
+}
+
+export function firefoxRdpReinjectNoDescriptor(addonId: string, addons: string) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection found no descriptor for addon ${colors.gray(addonId)}; addons=${colors.gray(addons)}`
+}
+
+export function firefoxRdpReinjectWatcherUnavailable(
+  descriptorActor: string,
+  detail: string
+) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not resolve a watcher for ${colors.gray(descriptorActor)}: ${colors.red(detail)}`
+}
+
+export function firefoxRdpReinjectWatchTargetsFailed(
+  watcherActor: string,
+  error: string
+) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not watch targets on ${colors.gray(watcherActor)}: ${colors.red(error)}`
+}
+
+export function firefoxRdpReinjectListTabsFailed(error: string) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not list tabs, using an empty payload: ${colors.red(error)}`
+}
+
+export function firefoxRdpReinjectCallbackFailed(error: string) {
+  return `${getLoggingPrefix('warn')} Firefox runtime reinjection target-resolved callback failed: ${colors.red(error)}`
+}
+
 export function firefoxRdpClientFinalHTMLLength(length: number) {
   return `${getLoggingPrefix('info')} Firefox final HTML length: ${colors.gray(length.toString())}`
 }

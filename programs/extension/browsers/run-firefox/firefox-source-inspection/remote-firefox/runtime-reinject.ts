@@ -12,6 +12,7 @@ import {
   type ContentScriptTargetRule,
   resolveEmittedContentScriptFile
 } from '../../../browsers-lib/content-script-targets'
+import * as messages from '../../../browsers-lib/messages'
 import type {MessagingClient} from './messaging-client'
 
 export type AddonRuntimeTarget = {
@@ -97,11 +98,10 @@ export async function attachToAddonBackgroundConsole(
       typeof match?.actor === 'string' && match.actor ? match.actor : undefined
   } catch (error) {
     if (isAuthor) {
-      // eslint-disable-next-line no-console
       console.log(
-        `[firefox-rt-reinject] listAddons failed: ${String(
-          (error as Error)?.message || error
-        )}`
+        messages.firefoxRdpReinjectListAddonsFailed(
+          String((error as Error)?.message || error)
+        )
       )
     }
     return undefined
@@ -109,11 +109,11 @@ export async function attachToAddonBackgroundConsole(
 
   if (!descriptorActor) {
     if (isAuthor) {
-      // eslint-disable-next-line no-console
       console.log(
-        `[firefox-rt-reinject] no descriptor matched addonId=${addonId}; addons=${JSON.stringify(
-          listAddonsResponseSample
-        )}`
+        messages.firefoxRdpReinjectNoDescriptor(
+          addonId,
+          JSON.stringify(listAddonsResponseSample)
+        )
       )
     }
     return undefined
@@ -132,9 +132,11 @@ export async function attachToAddonBackgroundConsole(
     )) as {actor?: string}
     if (typeof watcherResponse?.actor !== 'string' || !watcherResponse.actor) {
       if (isAuthor) {
-        // eslint-disable-next-line no-console
         console.log(
-          `[firefox-rt-reinject] getWatcher(${descriptorActor}) returned no actor`
+          messages.firefoxRdpReinjectWatcherUnavailable(
+            descriptorActor,
+            'getWatcher returned no actor'
+          )
         )
       }
       return undefined
@@ -142,11 +144,11 @@ export async function attachToAddonBackgroundConsole(
     watcherActor = watcherResponse.actor
   } catch (error) {
     if (isAuthor) {
-      // eslint-disable-next-line no-console
       console.log(
-        `[firefox-rt-reinject] getWatcher(${descriptorActor}) failed: ${String(
-          (error as Error)?.message || error
-        )}`
+        messages.firefoxRdpReinjectWatcherUnavailable(
+          descriptorActor,
+          String((error as Error)?.message || error)
+        )
       )
     }
     return undefined
@@ -192,11 +194,11 @@ export async function attachToAddonBackgroundConsole(
     await new Promise((resolve) => setTimeout(resolve, 200))
   } catch (error) {
     if (isAuthor) {
-      // eslint-disable-next-line no-console
       console.log(
-        `[firefox-rt-reinject] watchTargets(${watcherActor}) failed: ${String(
-          (error as Error)?.message || error
-        )}`
+        messages.firefoxRdpReinjectWatchTargetsFailed(
+          watcherActor,
+          String((error as Error)?.message || error)
+        )
       )
     }
     client.removeListener('message', messageListener)
@@ -376,9 +378,14 @@ export async function reinjectMatchingTabsViaAddonRuntime(
         matchingUrlsByRule.set(rule.index, urls)
       }
     }
-  } catch {
-    // listTabs may fail if the RDP session was just torn down — fall through
-    // to an empty payload, which will be reported as a skip below.
+  } catch (error) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.firefoxRdpReinjectListTabsFailed(
+          String((error as Error)?.message || error)
+        )
+      )
+    }
   }
 
   const payload = buildPayload(outPath, rules, matchingUrlsByRule)
@@ -397,7 +404,15 @@ export async function reinjectMatchingTabsViaAddonRuntime(
     if (target && onTargetResolved) {
       try {
         onTargetResolved(target)
-      } catch {}
+      } catch (error) {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(
+            messages.firefoxRdpReinjectCallbackFailed(
+              String((error as Error)?.message || error)
+            )
+          )
+        }
+      }
     }
   }
   if (!target) {
