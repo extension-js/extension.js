@@ -38,7 +38,7 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Compile CLI
         # Produces programs/extension/dist/cli.cjs, which the harness runs in
