@@ -290,13 +290,19 @@ export async function devServer(
     devOptions.browser
   )
 
-  // Initialize port manager and allocate a port for this instance
+  // Initialize port manager and allocate a port for this instance. Probe on the
+  // same host the server binds, so a port free on localhost but taken on the
+  // configured host isn't picked (and vice versa).
   const portManager = new PortManager(8080)
   const desiredPort =
     typeof devOptions.port === 'string'
       ? parseInt(devOptions.port, 10)
       : devOptions.port
-  const portAllocation = await portManager.allocatePorts(desiredPort)
+  const devServerHost = devOptions.host || '127.0.0.1'
+  const portAllocation = await portManager.allocatePorts(
+    desiredPort,
+    devServerHost
+  )
 
   const currentInstance = portManager.getCurrentInstance()
 
@@ -305,7 +311,6 @@ export async function devServer(
   }
 
   const port = portAllocation.port
-  const devServerHost = devOptions.host || '127.0.0.1'
   const devServerWebSocketURL = {
     protocol: 'ws',
     hostname: devServerHost,
