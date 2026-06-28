@@ -47,15 +47,18 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `false`'
+      'whether or not to apply the cross-browser polyfill. Defaults to `false`',
+      parseOptionalBoolean
     )
     .option(
       '--zip [boolean]',
-      'whether or not to compress the extension into a ZIP file. Defaults to `false`'
+      'whether or not to compress the extension into a ZIP file. Defaults to `false`',
+      parseOptionalBoolean
     )
     .option(
       '--zip-source [boolean]',
-      'whether or not to include the source files in the ZIP file. Defaults to `false`'
+      'whether or not to include the source files in the ZIP file. Defaults to `false`',
+      parseOptionalBoolean
     )
     .option(
       '--zip-filename <string>',
@@ -63,7 +66,8 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--silent [boolean]',
-      'whether or not to open the browser automatically. Defaults to `false`'
+      'whether or not to open the browser automatically. Defaults to `false`',
+      parseOptionalBoolean
     )
     .option(
       '--install [boolean]',
