@@ -7,25 +7,20 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Manifest, DevOptions} from '../types'
+import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
 export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
-  const CHROMIUM_BASED_BROWSERS = ['chrome', 'edge']
-  const GECKO_BASED_BROWSERS = ['firefox']
-
   const isChromiumTarget =
-    CHROMIUM_BASED_BROWSERS.includes(browser as any) ||
-    String(browser).includes('chromium') ||
+    isChromiumBasedBrowser(String(browser)) ||
     // Safari ships an MV3, chromium-shaped bundle (see the safari build
     // target), so it should pick up chromium/chrome-prefixed manifest keys.
     browser === 'safari' ||
     browser === 'webkit-based' ||
     String(browser).includes('webkit')
-  const isGeckoTarget =
-    GECKO_BASED_BROWSERS.includes(browser as any) ||
-    String(browser).includes('gecko')
+  const isGeckoTarget = isGeckoBasedBrowser(String(browser))
 
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
