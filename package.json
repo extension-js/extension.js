@@ -62,7 +62,7 @@
     "@biomejs/biome": "^2.4.5",
     "@playwright/test": "^1.58.2",
     "@types/chrome": "^0.1.37",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "@types/webextension-polyfill": "0.12.5",
     "ajv": "8.18.0",
     "cross-env": "^10.1.0",
