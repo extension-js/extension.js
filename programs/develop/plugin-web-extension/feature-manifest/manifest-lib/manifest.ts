@@ -12,6 +12,10 @@ import {type Compilation} from '@rspack/core'
 import type {Manifest, DevOptions} from '../../../types'
 import {getManifestOverrides} from '../manifest-overrides'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser
+} from '../../../lib/constants'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -123,15 +127,8 @@ export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
-  const CHROMIUM_BASED_BROWSERS = ['chrome', 'edge']
-  const GECKO_BASED_BROWSERS = ['firefox']
-
-  const isChromiumTarget =
-    CHROMIUM_BASED_BROWSERS.includes(browser) ||
-    String(browser).includes('chromium')
-
-  const isGeckoTarget =
-    GECKO_BASED_BROWSERS.includes(browser) || String(browser).includes('gecko')
+  const isChromiumTarget = isChromiumBasedBrowser(String(browser))
+  const isGeckoTarget = isGeckoBasedBrowser(String(browser))
 
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
