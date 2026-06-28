@@ -73,7 +73,8 @@ export function registerStartCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true`'
+      'whether or not to apply the cross-browser polyfill. Defaults to `true`',
+      parseOptionalBoolean
     )
     .option(
       '--chromium-binary <path-to-binary>',
