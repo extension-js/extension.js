@@ -104,7 +104,8 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true`'
+      'whether or not to apply the cross-browser polyfill. Defaults to `true`',
+      parseOptionalBoolean
     )
     .option(
       '--no-open',
