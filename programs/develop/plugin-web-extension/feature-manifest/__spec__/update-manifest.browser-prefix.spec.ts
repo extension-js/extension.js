@@ -3,7 +3,7 @@ import {UpdateManifest} from '../steps/update-manifest'
 
 function runUpdateManifest(opts: {
   mode: 'development' | 'production'
-  browser: 'chrome' | 'firefox'
+  browser: string
   manifest: any
 }) {
   const assets: Record<string, any> = {
@@ -173,4 +173,42 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     expect(out.side_panel?.default_path).toBe('sidebar/index.html')
     expect(out.side_panel?.default_title).toBe('Panel')
   })
+
+  // Chromium forks (brave/opera/vivaldi/yandex) and gecko forks
+  // (waterfox/librewolf) must inherit their family's scoped keys.
+  for (const browser of ['brave', 'opera', 'vivaldi', 'yandex']) {
+    it(`maps chromium:/chrome: keys onto key for a ${browser} build`, () => {
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser,
+        manifest: {
+          manifest_version: 3,
+          name: 'x',
+          version: '1.0.0',
+          'chrome:key': 'chromium-only-key',
+          'firefox:key': 'firefox-only-key'
+        }
+      })
+
+      expect(out.key).toBe('chromium-only-key')
+    })
+  }
+
+  for (const browser of ['waterfox', 'librewolf']) {
+    it(`maps firefox: keys onto key for a ${browser} build`, () => {
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser,
+        manifest: {
+          manifest_version: 3,
+          name: 'x',
+          version: '1.0.0',
+          'chrome:key': 'chromium-only-key',
+          'firefox:key': 'firefox-only-key'
+        }
+      })
+
+      expect(out.key).toBe('firefox-only-key')
+    })
+  }
 })
