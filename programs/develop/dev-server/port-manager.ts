@@ -83,13 +83,16 @@ export class PortManager {
     this.basePort = basePort
   }
 
-  async allocatePorts(requestedPort?: number): Promise<PortAllocation> {
+  async allocatePorts(
+    requestedPort?: number,
+    host?: string
+  ): Promise<PortAllocation> {
     const isValidRequested =
       typeof requestedPort === 'number' &&
       requestedPort >= 0 &&
       requestedPort < 65536
     const base = isValidRequested ? requestedPort : this.basePort
-    const port = await findAvailablePortNear(base)
+    const port = await findAvailablePortNear(base, undefined, host)
     const instanceId =
       resolveInstanceIdOverride() || crypto.randomBytes(8).toString('hex')
 

@@ -1,3 +1,4 @@
+import * as net from 'net'
 import {afterEach, describe, expect, it} from 'vitest'
 import {PortManager} from '../port-manager'
 
@@ -56,5 +57,24 @@ describe('PortManager port 0 (OS-assigned)', () => {
     // Should start searching from basePort 49100
     expect(allocation.port).toBeGreaterThanOrEqual(49100)
     expect(allocation.port).toBeLessThan(49200)
+  })
+})
+
+describe('PortManager host-aware probing', () => {
+  it('probes the requested host, skipping a port taken there', async () => {
+    const host = '127.0.0.1'
+    const taken = 49533
+    const blocker = net.createServer()
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject)
+      blocker.listen(taken, host, resolve)
+    })
+
+    try {
+      const allocation = await new PortManager().allocatePorts(taken, host)
+      expect(allocation.port).toBeGreaterThan(taken)
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()))
+    }
   })
 })
