@@ -30,7 +30,7 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
     integration: 'React',
     installPackages: [
       'react-refresh@0.18.0',
-      '@rspack/plugin-react-refresh@1.6.0'
+      '@rspack/plugin-react-refresh@2.0.2'
     ],
     verificationRules: [
       ...installRootRules(['react-refresh', '@rspack/plugin-react-refresh']),
