@@ -23,7 +23,8 @@
       "which": "^4.0.0",
       "form-data": "^4.0.6",
       "js-yaml": "^4.2.0",
-      "read-yaml-file": "^2.1.0"
+      "read-yaml-file": "^2.1.0",
+      "@swc/helpers": "^0.5.23"
     }
   },
   "scripts": {
@@ -61,7 +62,7 @@
     "@biomejs/biome": "^2.4.5",
     "@playwright/test": "^1.58.2",
     "@types/chrome": "^0.1.37",
-    "@types/node": "^25.3.3",
+    "@types/node": "^22",
     "@types/webextension-polyfill": "0.12.5",
     "ajv": "8.18.0",
     "cross-env": "^10.1.0",
@@ -69,11 +70,11 @@
     "dotenv-cli": "^11.0.0",
     "extension": "3.16.0-canary.306.5d12061",
     "husky": "9.1.7",
-    "lint-staged": "17.0.0",
+    "lint-staged": "17.0.8",
     "serialize-javascript": "^7.0.5",
     "tsx": "^4.21.0",
     "turbo": "^2.9.14",
     "typescript": "6.0.2",
-    "vite": "^8.0.5"
+    "vite": "^8.1.0"
   }
 }
