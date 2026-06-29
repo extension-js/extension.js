@@ -183,4 +183,44 @@ describe('firefox RemoteFirefox.resolveRdpPort — faithful per-instance RDP res
   it('single-browser run is unchanged: the registered instance port is returned', () => {
     expect(callResolve('chrome-instance', 5000)).toBe(CHROME_RDP)
   })
+
+  // resolvedRdpPort carries the CONCRETE port the launcher actually started
+  // Firefox on (already through findAvailablePortNear). It must be used as-is —
+  // never re-derived. Regression for: launcher passed 9230 but the installer
+  // connected to 9330 (offset double-applied) -> ECONNREFUSED, add-on never
+  // installed, content-script reload silently never mounted.
+  const callResolvePinned = (
+    instanceId: string | undefined,
+    resolvedRdpPort: number,
+    port?: number
+  ): number => {
+    const inst = new RemoteFirefox({
+      browser: 'firefox',
+      instanceId,
+      port,
+      resolvedRdpPort,
+      extension: []
+    } as unknown as ConstructorParameters<typeof RemoteFirefox>[0])
+    return (
+      inst as unknown as {resolveRdpPort: () => number}
+    ).resolveRdpPort()
+  }
+
+  it('pinned: a concrete launched port with no instance id is used verbatim, NOT re-derived', () => {
+    // The exact defect shape: 9230 launched must resolve to 9230, never 9330.
+    expect(callResolvePinned(undefined, 9230)).toBe(9230)
+    expect(callResolvePinned(undefined, 9230)).not.toBe(
+      deriveDebugPortWithInstance(9230, undefined)
+    )
+  })
+
+  it('pinned: a concrete launched port is honored even when `port` is also a base value', () => {
+    // The launcher sets both; the resolved port must win over the base `port`.
+    expect(callResolvePinned(undefined, 9230, 5000)).toBe(9230)
+  })
+
+  it('pinned: a registered instance still overrides (per-instance faithfulness preserved)', () => {
+    // If the registry knows this instance, it stays authoritative.
+    expect(callResolvePinned('chrome-instance', 9230)).toBe(CHROME_RDP)
+  })
 })

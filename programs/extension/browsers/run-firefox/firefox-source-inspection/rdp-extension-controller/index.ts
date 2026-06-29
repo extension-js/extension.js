@@ -29,6 +29,8 @@ export class FirefoxRDPController {
   private readonly debugPort: number
 
   constructor(plugin: PluginLike, debugPort: number) {
+    const normalizedDebugPort =
+      typeof debugPort === 'string' ? parseInt(debugPort, 10) : debugPort
     this.remote = new RemoteFirefox({
       extension: plugin.extension,
       browser: plugin.browser,
@@ -40,12 +42,15 @@ export class FirefoxRDPController {
       geckoBinary: plugin.geckoBinary,
       instanceId: plugin.instanceId,
       port: debugPort,
+      // The launcher hands us the concrete port Firefox was actually started
+      // with (already passed through findAvailablePortNear). Pin it so the
+      // add-on install connects to THAT port instead of re-deriving it.
+      resolvedRdpPort: normalizedDebugPort,
       source: typeof plugin.source === 'string' ? plugin.source : undefined,
       watchSource: plugin.watchSource,
       browserVersionLine: plugin.browserVersionLine
     })
-    this.debugPort =
-      typeof debugPort === 'string' ? parseInt(debugPort, 10) : debugPort
+    this.debugPort = normalizedDebugPort
   }
 
   getRemoteFirefox(): RemoteFirefox {
