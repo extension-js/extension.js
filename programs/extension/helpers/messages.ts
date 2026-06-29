@@ -203,6 +203,7 @@ ${'Common Options'}
 - ${code('--help')}                                    Show help output
 - ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080; use 0 for OS-assigned)
 - ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1; use 0.0.0.0 for Docker/devcontainers)
+- ${code('--public-host')} ${arg('<address>')}        Connectable host the browser dials for HMR + reload bridge when it differs from ${code('--host')} (remote/devcontainer; default: the bind host, or 127.0.0.1 when bound to 0.0.0.0)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
@@ -642,6 +643,12 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         default: '127.0.0.1',
         description:
           'Dev server host address (use 0.0.0.0 for Docker/devcontainers)'
+      },
+      {
+        name: '--public-host',
+        default: 'bind host (127.0.0.1 when bound to 0.0.0.0)',
+        description:
+          'Connectable host the browser dials for HMR + the reload bridge when it differs from the bind host (remote/devcontainer)'
       }
     ],
     capabilities: {

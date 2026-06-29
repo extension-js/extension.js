@@ -13,7 +13,14 @@ afterEach(() => {
 })
 
 function createTempProject() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
+  // realpathSync mirrors rspack: it hands the loader a canonical (symlink-
+  // resolved) resourcePath, which the loader compares against the canonicalized
+  // manifest/package dirs. mkdtemp returns a symlinked path on macOS
+  // ($TMPDIR -> /var -> /private/var), so resolve it to keep the simulation
+  // faithful — otherwise declared-entry detection would mismatch on symlinks.
+  const dir = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
+  )
   tempDirs.push(dir)
   fs.writeFileSync(
     path.join(dir, 'package.json'),
