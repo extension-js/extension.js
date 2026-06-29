@@ -6,10 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {CompilationLike} from '../../../browsers-types'
+import type {BrowserType, CompilationLike} from '../../../browsers-types'
 import {RemoteFirefox} from '../remote-firefox'
-import type {BrowserType} from '../../../browsers-types'
-import type {ContentScriptTargetRule} from '../../../browsers-lib/content-script-targets'
 
 type PluginLike = {
   extension: string | string[]
@@ -63,37 +61,8 @@ export class FirefoxRDPController {
     await this.remote.installAddons(compilation)
   }
 
-  async hardReload(
-    compilation: CompilationLike,
-    changedAssets: string[]
-  ): Promise<void> {
-    const rf = this.remote
-    if (typeof rf.hardReloadIfNeeded === 'function') {
-      await rf.hardReloadIfNeeded(compilation, changedAssets)
-    } else {
-      await this.remote.installAddons(compilation)
-    }
-  }
-
-  async reloadMatchingTabsForContentScripts(
-    rules: ContentScriptTargetRule[]
-  ): Promise<number> {
-    return this.remote.reloadMatchingTabsForContentScripts(rules)
-  }
-
-  async registerContentScriptsForFutureNavigations(
-    rules: ContentScriptTargetRule[]
-  ): Promise<void> {
-    await this.remote.registerContentScriptsForFutureNavigations(rules)
-  }
-
   async probeRuntimeCapability(): Promise<{hasScripting: boolean} | null> {
     return this.remote.probeRuntimeCapability()
-  }
-
-  getLastRuntimeReinjectionReport(): Record<string, unknown> | null {
-    const report = this.remote.getLastRuntimeReinjectionReport()
-    return report ? report : null
   }
 
   getRuntimeCapability(): {hasScripting: boolean; probedAt: number} | null {

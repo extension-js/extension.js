@@ -113,7 +113,9 @@ export class ApplyDevDefaults {
               //     on save (chrome.scripting.executeScript).
               //   - tabs: chrome.tabs.query({url}) to find those tabs.
               //   - management: used by the bridge act verbs.
-              // MV2 (Firefox) gets only `tabs` (scripting/management are MV3).
+              // MV2 also needs the content-script host patterns IN `permissions`
+              // (MV2 has no host_permissions key), or chrome.scripting.executeScript
+              // fails with "Missing host permission for the tab" on Firefox.
               ...(canonicalManifest.manifest_version === 3
                 ? {
                     permissions: [
@@ -129,6 +131,7 @@ export class ApplyDevDefaults {
                     permissions: [
                       ...new Set([
                         'tabs',
+                        ...contentScriptMatches,
                         ...(canonicalManifest.permissions || [])
                       ])
                     ]

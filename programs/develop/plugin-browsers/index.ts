@@ -6,11 +6,25 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import * as fs from 'fs'
+import * as path from 'path'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
+import {
+  createChangedSourcesTracker,
+  dispatchReload,
+  type ReloadBroker
+} from './reload-dispatch'
+
+export {
+  type ChangedSourcesSnapshot,
+  type ChangedSourcesTracker,
+  createChangedSourcesTracker,
+  dispatchReload,
+  type ReloadBroker,
+  type ReloadExecutor
+} from './reload-dispatch'
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
@@ -144,7 +158,6 @@ export interface BrowserLaunchOptions {
 }
 
 export interface BrowserController {
-  reload(instruction?: ReloadInstruction): Promise<void>
   enableUnifiedLogging(opts: {
     level?: string
     contexts?: string[]
@@ -204,31 +217,21 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   private isFirstCompile = true
   private controller: BrowserController | undefined
+  private reloadBroker: ReloadBroker | undefined
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
+  /**
+   * Option B: the dev server injects the control-bridge broker so a launched
+   * Chromium reloads through the SW producer (the same path as `--no-browser`),
+   * not the CDP controller. Called once, before the first compile.
+   */
+  setReloadBroker(broker: ReloadBroker): void {
+    this.reloadBroker = broker
+  }
+
   apply(compiler: Compiler) {
-    let pendingReloadReason: ReloadType | undefined
-    let pendingChangedSources: string[] = []
-
-    compiler.hooks.watchRun.tap(BrowsersPlugin.name, () => {
-      pendingReloadReason = undefined
-      pendingChangedSources = []
-      const modifiedFiles = compiler.modifiedFiles
-      if (!modifiedFiles || modifiedFiles.size === 0) return
-
-      const contextDir = compiler.options.context || ''
-      for (const file of modifiedFiles) {
-        const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
-        pendingChangedSources.push(normalized)
-
-        if (normalized.includes('manifest.json')) {
-          pendingReloadReason = 'full'
-        } else if (normalized.includes('_locales/')) {
-          pendingReloadReason = 'full'
-        }
-      }
-    })
+    const changedSources = createChangedSourcesTracker(compiler)
 
     compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats: any) => {
       const compilation = stats.compilation
@@ -260,9 +263,10 @@ export class BrowsersPlugin implements RunnerPlugin {
       let reloadInstruction: ReloadInstruction | undefined
 
       if (!this.isFirstCompile) {
+        const {forcedFull, changedSources: sources} = changedSources.snapshot()
         reloadInstruction = classifyReloadFromSources({
-          changedSources: pendingChangedSources,
-          forcedFull: Boolean(pendingReloadReason),
+          changedSources: sources,
+          forcedFull,
           getContentScriptCount: () =>
             readContentScriptCount(compilation, outputPath)
         })
@@ -298,19 +302,14 @@ export class BrowsersPlugin implements RunnerPlugin {
             errors: [error instanceof Error ? error.message : String(error)]
           })
         }
-      } else if (this.controller && reloadInstruction) {
-        // EXTENSION_NO_RELOAD: skip the on-rebuild reload dispatch entirely.
-        // The bundler still emits the new dist; the user is responsible for
-        // a manual page or extension reload when they want to pick up
-        // changes. Mirrors the wrapper-skip in feature-scripts/index.ts so
-        // a clean dev-mode dist is produced without any reinjection runtime.
-        if (process.env.EXTENSION_NO_RELOAD !== 'true') {
-          try {
-            await this.controller.reload(reloadInstruction)
-          } catch {
-            // Reload failures are non-fatal — the browser may have been closed
-          }
-        }
+      } else if (this.reloadBroker) {
+        // Launched-browser reload through the shared dispatch seam: it routes to
+        // the SW producer over the control bridge — the SAME executor as
+        // `--no-browser`, for both Chromium and Firefox. The CDP/RDP controller
+        // is kept only for logging / source inspection. Honors EXTENSION_NO_RELOAD.
+        await dispatchReload(reloadInstruction, {
+          broker: this.reloadBroker
+        })
       }
 
       this.emitter.emit('compiled', {

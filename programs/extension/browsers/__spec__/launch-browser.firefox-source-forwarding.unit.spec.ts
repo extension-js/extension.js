@@ -1,7 +1,4 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Capture the host (FirefoxPluginRuntime) handed to FirefoxLaunchPlugin so we
 // can assert that source-inspection fields flow from launchBrowser() all the
@@ -26,8 +23,6 @@ vi.mock('../run-firefox/firefox-context', async () => {
   // Keep the real factory shape but expose a stable getController that
   // returns a spy-friendly controller we can wire to later.
   const rdpController = {
-    hardReload: vi.fn().mockResolvedValue(undefined),
-    reloadMatchingTabsForContentScripts: vi.fn().mockResolvedValue(0),
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
   }
 
@@ -131,7 +126,7 @@ describe('launchBrowser (firefox): source inspection option forwarding', () => {
     expect(host.logTab).toBe(42)
   })
 
-  it('returns a controller whose reload() and enableUnifiedLogging() delegate to the FirefoxRDPController', async () => {
+  it('returns a controller that exposes enableUnifiedLogging() (delegating to the FirefoxRDPController) but no reload()', async () => {
     const controller = await launchBrowser({
       browser: 'firefox',
       outputPath: '/tmp/x',
@@ -144,8 +139,9 @@ describe('launchBrowser (firefox): source inspection option forwarding', () => {
     const mod: any = await import('../run-firefox/firefox-context')
     const rdp = mod.__rdpController
 
-    await controller.reload({type: 'full'})
-    expect(rdp.hardReload).toHaveBeenCalledTimes(1)
+    // Reload is owned by the dev server's control-bridge SW producer (the same
+    // executor as `--no-browser`), not the RDP controller.
+    expect((controller as any).reload).toBeUndefined()
 
     await controller.enableUnifiedLogging({
       level: 'warn',
@@ -165,56 +161,5 @@ describe('launchBrowser (firefox): source inspection option forwarding', () => {
       urlFilter: 'foo',
       tabFilter: 7
     })
-  })
-
-  it('converts canonical content-script entry names into rules before delegating to the controller', async () => {
-    // Build a minimal extension root on disk so readContentScriptRules() can
-    // pick up the manifest via the disk-read fallback. This exercises the
-    // real entry→rule resolution path.
-    const extRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ffx-reload-'))
-    try {
-      fs.writeFileSync(
-        path.join(extRoot, 'manifest.json'),
-        JSON.stringify({
-          manifest_version: 3,
-          name: 'fx-reload-test',
-          version: '0.0.0',
-          content_scripts: [
-            {matches: ['https://example.com/*'], js: ['content.js']},
-            {matches: ['https://*.github.com/*'], js: ['gh.js']}
-          ]
-        }),
-        'utf8'
-      )
-
-      const controller = await launchBrowser({
-        browser: 'firefox',
-        outputPath: extRoot,
-        contextDir: extRoot,
-        extensionsToLoad: [extRoot],
-        mode: 'development',
-        dryRun: true
-      } as any)
-
-      const mod: any = await import('../run-firefox/firefox-context')
-      const rdp = mod.__rdpController
-      rdp.reloadMatchingTabsForContentScripts.mockClear()
-
-      await controller.reload({
-        type: 'content-scripts',
-        changedContentScriptEntries: ['content_scripts/content-0']
-      })
-
-      expect(rdp.reloadMatchingTabsForContentScripts).toHaveBeenCalledTimes(1)
-      const callArg = rdp.reloadMatchingTabsForContentScripts.mock.calls[0][0]
-      expect(Array.isArray(callArg)).toBe(true)
-      expect(callArg).toHaveLength(1)
-      expect(callArg[0]).toMatchObject({
-        index: 0,
-        matches: ['https://example.com/*']
-      })
-    } finally {
-      fs.rmSync(extRoot, {recursive: true, force: true})
-    }
   })
 })
