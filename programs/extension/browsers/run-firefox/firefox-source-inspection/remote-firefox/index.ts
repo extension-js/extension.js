@@ -39,6 +39,13 @@ const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
 export class RemoteFirefox {
   private readonly options: PluginInterface & {
     browserVersionLine?: string
+    // The concrete, already-resolved RDP debug port the browser was actually
+    // launched on. When set, it is used verbatim — NOT folded back through
+    // deriveDebugPortWithInstance. `port` (PluginInterface) is a *base* port to
+    // derive from; passing the launched port there would double-apply the
+    // offset (e.g. 9230 launched -> 9330 attempted -> ECONNREFUSED, add-on
+    // never installs). See resolveRdpPort.
+    resolvedRdpPort?: number
   }
   private needsReinstall = false
   private client: MessagingClient | null = null
@@ -86,6 +93,7 @@ export class RemoteFirefox {
   constructor(
     configOptions: PluginInterface & {
       browserVersionLine?: string
+      resolvedRdpPort?: number
     }
   ) {
     this.options = configOptions
@@ -93,6 +101,18 @@ export class RemoteFirefox {
 
   private resolveRdpPort(compilation?: CompilationLike): number {
     const instanceId = (this.options as {instanceId?: string})?.instanceId
+    // A concrete, already-resolved launch port wins outright — it is the actual
+    // port Firefox opened its debugger server on, so it must NOT be re-derived
+    // (deriving folds the per-instance offset in a SECOND time and we connect to
+    // a dead port). The instance registry can only override via instanceId; a
+    // plain single-browser `extension dev` run has no instanceId, so without
+    // this short-circuit we'd fall through to the doubly-derived `desired`.
+    const resolvedRdpPort = (this.options as {resolvedRdpPort?: number})
+      ?.resolvedRdpPort
+    if (typeof resolvedRdpPort === 'number' && resolvedRdpPort > 0) {
+      const pinned = resolvePortForInstance(instanceId, 'rdp', resolvedRdpPort)
+      return typeof pinned === 'number' && pinned > 0 ? pinned : resolvedRdpPort
+    }
     const devPort = (compilation?.options as {devServer?: {port?: number}})
       ?.devServer?.port
     const optionPort = (this.options as {port?: number | string})?.port
