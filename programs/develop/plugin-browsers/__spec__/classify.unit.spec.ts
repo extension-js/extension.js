@@ -7,14 +7,17 @@
 // `service-worker`, and content-script hot reload silently never ran.
 //
 // The spec drives the real `BrowsersPlugin` against a fake rspack `Compiler`
-// and captures the `ReloadInstruction` passed to the injected launcher's
-// `controller.reload()`. No browser, no timers — pure logic.
+// and captures the `ReloadInstruction` carried on the plugin's `compiled`
+// event. (Reload itself is dispatched through the control-bridge broker — the
+// same executor as `--no-browser` — but the classification under test is the
+// `reloadInstruction` regardless of how it is dispatched.) No browser, no
+// timers — pure logic.
 
-import {afterEach, describe, expect, it, vi} from 'vitest'
 import * as path from 'path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
-  BrowsersPlugin,
   type BrowserController,
+  BrowsersPlugin,
   type ReloadInstruction
 } from '../index'
 
@@ -32,7 +35,7 @@ interface Harness {
     manifest?: Record<string, unknown>
     errors?: any[]
   }): Promise<void>
-  /** The ReloadInstruction passed to the most recent `controller.reload(...)` call. */
+  /** The ReloadInstruction carried on the most recent `compiled` event. */
   lastReload(): ReloadInstruction | undefined
 }
 
@@ -40,9 +43,12 @@ const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/chromium'
 
 function createHarness(manifestContentScripts: number = 1): Harness {
-  const reload = vi.fn().mockResolvedValue(undefined)
+  // `reload` records the ReloadInstruction the plugin classified for each
+  // incremental compile. The plugin dispatches reload through the broker, so we
+  // observe the classification on the `compiled` event rather than on a
+  // controller.reload() call (the launched controller no longer reloads).
+  const reload = vi.fn()
   const controller: BrowserController = {
-    reload,
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined)
   }
@@ -55,6 +61,15 @@ function createHarness(manifestContentScripts: number = 1): Harness {
   // Swallow emitted `error` events — Node's EventEmitter throws on
   // unhandled `error`. Tests assert reload.mock, not emitter events.
   plugin.emitter.on('error', () => {})
+  // The plugin emits `compiled` after every compile; only incremental compiles
+  // that classified a reload carry a `reloadInstruction`. Record those so the
+  // tests can assert the classification.
+  plugin.emitter.on(
+    'compiled',
+    (ev: {reloadInstruction?: ReloadInstruction}) => {
+      if (ev.reloadInstruction) reload(ev.reloadInstruction)
+    }
+  )
 
   let watchRunCb: (() => void) | undefined
   let doneCb: ((stats: any) => Promise<void>) | undefined
@@ -190,9 +205,9 @@ describe('BrowsersPlugin classifier', () => {
   })
 
   it('forwards changedAssets on a "full" reload', async () => {
-    // Firefox's hardReloadIfNeeded inspects changedAssets to decide whether
-    // the change is critical. Without forwarding the list, manifest/locale
-    // edits silently no-op on Firefox (April 2026 regression).
+    // The reload instruction must carry changedAssets so downstream consumers
+    // can inspect which files changed. Without forwarding the list, manifest/
+    // locale edits silently no-op (April 2026 regression).
     const h = createHarness(1)
     await primeFirstCompile(h)
 

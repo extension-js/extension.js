@@ -6,41 +6,32 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {CompilationLike} from '../../../browsers-types'
-import {MessagingClient} from './messaging-client'
-import {isErrorWithCode, requestErrorToMessage} from './message-utils'
-import * as messages from '../../../browsers-lib/messages'
 import {
   RDP_MAX_RETRIES,
   RDP_RETRY_INTERVAL_MS
 } from '../../../browsers-lib/constants'
+import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
+import * as messages from '../../../browsers-lib/messages'
+import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
+import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
+import type {CompilationLike} from '../../../browsers-types'
+import {type PluginInterface} from '../../../browsers-types'
+import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
+import {
+  computeCandidateAddonPaths,
+  getAddonsActorWithRetry,
+  installTemporaryAddon,
+  waitForManagerWelcome
+} from './addons-install'
 import {
   printRunningInDevelopmentSummary,
   printSourceInspection
 } from './firefox-utils'
-import {
-  getAddonsActorWithRetry,
-  computeCandidateAddonPaths,
-  waitForManagerWelcome,
-  installTemporaryAddon
-} from './addons-install'
-import {deriveMozExtensionId} from './moz-id'
 import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
-import {ensureTabForUrl, navigateTo, getPageHTML} from './source-inspect'
-import {type PluginInterface} from '../../../browsers-types'
-import {
-  type ContentScriptTargetRule,
-  urlMatchesAnyContentScriptRule
-} from '../../../browsers-lib/content-script-targets'
-import {
-  reinjectMatchingTabsViaAddonRuntime,
-  type AddonRuntimeTarget,
-  type ReinjectionReport
-} from './runtime-reinject'
-import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
-import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
-import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
-import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
+import {isErrorWithCode, requestErrorToMessage} from './message-utils'
+import {MessagingClient} from './messaging-client'
+import {deriveMozExtensionId} from './moz-id'
+import {ensureTabForUrl, getPageHTML, navigateTo} from './source-inspect'
 
 const MAX_RETRIES = RDP_MAX_RETRIES
 const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
@@ -56,16 +47,6 @@ export class RemoteFirefox {
   private cachedSupportsReload: boolean | null = null
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
-  private lastRuntimeReinjectionReport: ReinjectionReport | null = null
-
-  // Phase F2 — future-navigation parity (mirrors Chromium's
-  // registerContentScriptsForFutureNavigations). Tracks the latest rules and
-  // a single subscription to tabNavigated/tabListChanged on the RDP transport,
-  // so that fresh tabs and same-tab navigations between rebuilds get the
-  // current bundle without waiting for the next file edit.
-  private activeContentScriptRules: ContentScriptTargetRule[] = []
-  private contentScriptListenerInstalled = false
-  private futureNavReinjectScheduled = false
 
   // Phase F3 — capability cache. Probed once per session against the addon
   // background to short-circuit runtime reinjection when browser.scripting
@@ -74,12 +55,6 @@ export class RemoteFirefox {
     hasScripting: boolean
     probedAt: number
   } | null = null
-
-  private runtimePathPermanentlyUnavailable = false
-
-  public getLastRuntimeReinjectionReport(): ReinjectionReport | null {
-    return this.lastRuntimeReinjectionReport
-  }
 
   public getRuntimeCapability(): {
     hasScripting: boolean
@@ -118,9 +93,8 @@ export class RemoteFirefox {
 
   private resolveRdpPort(compilation?: CompilationLike): number {
     const instanceId = (this.options as {instanceId?: string})?.instanceId
-    const devPort = (
-      compilation?.options as {devServer?: {port?: number}}
-    )?.devServer?.port
+    const devPort = (compilation?.options as {devServer?: {port?: number}})
+      ?.devServer?.port
     const optionPort = (this.options as {port?: number | string})?.port
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
@@ -337,416 +311,6 @@ export class RemoteFirefox {
 
   public markNeedsReinstall() {
     this.needsReinstall = true
-  }
-
-  // Capability probing: check if reloadAddon is supported by addonsActor
-  private async ensureCapabilities(client: MessagingClient): Promise<void> {
-    if (this.cachedSupportsReload !== null) return
-    const toActor = this.cachedAddonsActor
-    try {
-      if (!toActor) return
-      const desc = (await client.request({
-        to: toActor,
-        type: 'requestTypes'
-      })) as {
-        types?: string[]
-      }
-      const types = Array.isArray(desc?.types) ? desc.types : []
-      this.cachedSupportsReload =
-        types.includes('reloadAddon') || types.includes('reloadTemporaryAddon')
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        try {
-          console.log(
-            messages.firefoxRdpReloadCapabilitySummary(
-              this.cachedSupportsReload ? 'native' : 'reinstall'
-            )
-          )
-        } catch {}
-      }
-    } catch {
-      this.cachedSupportsReload = false
-    }
-  }
-
-  private async reloadAddonOrReinstall(client: MessagingClient): Promise<void> {
-    const toActor = this.cachedAddonsActor
-    if (!toActor || !this.lastInstalledAddonPath) return
-
-    await this.ensureCapabilities(client)
-    if (this.cachedSupportsReload) {
-      try {
-        // Try modern name first, then alias
-        try {
-          await client.request({to: toActor, type: 'reloadAddon'})
-        } catch {
-          await client.request({to: toActor, type: 'reloadTemporaryAddon'})
-        }
-        return
-      } catch {
-        // fall back to reinstall below
-      }
-    }
-
-    try {
-      await client.request({
-        to: toActor,
-        type: 'installTemporaryAddon',
-        addonPath: this.lastInstalledAddonPath,
-        openDevTools: false
-      })
-    } catch {
-      // ignore best-effort
-    }
-  }
-
-  public async hardReloadIfNeeded(
-    compilation: CompilationLike,
-    changedAssets: string[]
-  ): Promise<void> {
-    try {
-      const rdpPort = this.resolveRdpPort(compilation)
-      const client = this.client || (await this.connectClient(rdpPort))
-
-      const normalized = (changedAssets || [])
-        .map((n) => String(n || ''))
-        .map((n) => n.replace(/\\/g, '/'))
-
-      const isManifestChanged = normalized.some(
-        (n) => n === 'manifest.json' || n.endsWith('/manifest.json')
-      )
-      const isLocalesChanged = normalized.some((n) =>
-        /(^|\/)__?locales\/.+\.json$/i.test(n)
-      )
-      const isContentScriptChanged = normalized.some((n) =>
-        /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.(js|css)$/i.test(n)
-      )
-
-      // Consider service worker changes as critical as well
-      let isServiceWorkerChanged = false
-      try {
-        const manifestAsset = compilation.getAsset?.('manifest.json')
-        const manifestDataSource = manifestAsset?.source?.source
-          ? String(manifestAsset.source.source())
-          : manifestAsset?.source
-            ? String(manifestAsset?.source?.toString())
-            : ''
-
-        if (manifestDataSource) {
-          const parsed = JSON.parse(manifestDataSource)
-          const sw: unknown = parsed?.background?.service_worker
-
-          if (typeof sw === 'string' && sw) {
-            const swUnix = (sw as string).replace(/\\/g, '/')
-            isServiceWorkerChanged = normalized.some(
-              (n) => n === swUnix || n.endsWith('/' + swUnix)
-            )
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      const critical =
-        isManifestChanged ||
-        isLocalesChanged ||
-        isServiceWorkerChanged ||
-        isContentScriptChanged
-
-      if (!critical) return
-
-      await this.reloadAddonOrReinstall(client)
-    } catch {
-      // Ignore
-    }
-  }
-
-  public async reloadMatchingTabsForContentScripts(
-    rules: ContentScriptTargetRule[]
-  ): Promise<number> {
-    if (rules.length === 0) return 0
-
-    try {
-      const rdpPort = this.resolveRdpPort()
-      const client = this.client || (await this.connectClient(rdpPort))
-
-      // Mirror Chromium's reinjectMatchingTabsViaExtensionRuntime: try to
-      // re-execute the latest content-script bundle from the addon's own
-      // background context first. This preserves background/popup/sidebar
-      // state — the legacy reinstall+navigate path tears it all down on
-      // every content-script edit.
-      const runtimeAttempt = await this.tryRuntimeReinjection(client, rules)
-
-      if (runtimeAttempt.reinjectedTabs > 0) {
-        return runtimeAttempt.reinjectedTabs
-      }
-
-      // Fallback: full addon reload + per-tab navigate. Same behavior as
-      // before this change. Required when the addon background isn't
-      // reachable (event-page asleep, listAddons missing, scripting API
-      // unavailable on older Firefox), or when zero tabs were touched
-      // because the runtime path matched nothing
-      await this.reloadAddonOrReinstall(client)
-
-      // Brief settle after reinstall so Firefox updates internal tab state.
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const tabs = await client.getTargets()
-      let reloadedTabs = 0
-
-      for (const tab of tabs || []) {
-        const descriptorActor = String(tab?.actor || '')
-        const descriptorConsoleActor = String(
-          tab?.consoleActor || tab?.webConsoleActor || ''
-        )
-        const url = String(tab?.url || '')
-
-        if (!descriptorActor || !url) continue
-        if (!urlMatchesAnyContentScriptRule(url, rules)) continue
-
-        // Resolve the tab descriptor into a frame-level target actor, the
-        // same way source-inspection navigation does it. Descriptor-level
-        // actors don't support navigateTo on modern Firefox.
-        let targetActor = descriptorActor
-        let consoleActor = descriptorConsoleActor
-        try {
-          const detail = await client.getTargetFromDescriptor(descriptorActor)
-          if (detail.targetActor) targetActor = detail.targetActor
-          if (detail.consoleActor) consoleActor = detail.consoleActor
-        } catch {
-          // Fall through with descriptor-level actors.
-        }
-
-        try {
-          try {
-            await client.attach(targetActor)
-          } catch {
-            // Already attached or not required — continue.
-          }
-          await client.navigate(targetActor, url)
-          await client.waitForLoadEvent(targetActor)
-          reloadedTabs += 1
-        } catch {
-          if (!consoleActor) continue
-          try {
-            await client.navigateViaScript(consoleActor, url)
-            reloadedTabs += 1
-          } catch {
-            // Ignore individual tab failures and continue with the remaining matches.
-          }
-        }
-      }
-
-      return reloadedTabs
-    } catch {
-      return 0
-    }
-  }
-
-  private async tryRuntimeReinjection(
-    _persistentClient: MessagingClient,
-    rules: ContentScriptTargetRule[]
-  ): Promise<{reinjectedTabs: number}> {
-    const addonsActor = this.cachedAddonsActor
-    const addonId = this.derivedExtensionId
-    const outPath = this.lastInstalledAddonPath
-
-    if (!addonsActor || !addonId || !outPath) {
-      this.lastRuntimeReinjectionReport = {
-        phase: 'skipped',
-        reason: 'missing_actor_or_addon_id_or_path',
-        addonId
-      }
-      return {reinjectedTabs: 0}
-    }
-
-    if (this.runtimePathPermanentlyUnavailable) {
-      this.lastRuntimeReinjectionReport = {
-        phase: 'skipped',
-        reason: 'runtime_path_marked_unavailable',
-        addonId
-      }
-      return {reinjectedTabs: 0}
-    }
-
-    // Firefox WatcherActor.target-available-form events fire only when a
-    // target first becomes available on a connection. After the initial
-    // capture the same connection's watcher will not re-emit, so caching
-    // the resolved actors and retrying breaks down when the addon's MV3
-    // event-page background restarts mid-session — the cached consoleActor
-    // becomes "No such actor" and re-discovery returns nothing. Open a
-    // fresh RDP socket per reinject; each connection's watcher is a fresh
-    // subscription that emits the *current* addon background target.
-    let scopedClient: MessagingClient | null = null
-    try {
-      scopedClient = new MessagingClient()
-      await scopedClient.connect(this.resolveRdpPort())
-      // Firefox writes the root-actor welcome packet ({from:'root', ...})
-      // immediately after a client connects. The transport routes
-      // packets by `from` to the matching pending request, so if our
-      // first request (listTabs to root) reaches the wire before the
-      // welcome lands in our read buffer, the welcome ends up resolving
-      // the listTabs deferred — and listTabs sees `{tabs: undefined}`,
-      // producing a phantom no_payload skip per reinject. Wait briefly
-      // for the welcome to flow through transport.handleMessage with no
-      // active deferred (it falls through to a 'message' emit we don't
-      // listen to) before we send the first request.
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      const {reinjectedTabs, report} =
-        await reinjectMatchingTabsViaAddonRuntime(scopedClient, {
-          outPath,
-          rules,
-          addonsActor,
-          addonId,
-          matchUrl: (url, rule) => urlMatchesAnyContentScriptRule(url, [rule])
-        })
-      this.lastRuntimeReinjectionReport = report
-      if (
-        report.phase === 'evaluated' &&
-        typeof report.hasScripting === 'boolean'
-      ) {
-        this.cachedRuntimeCapability = {
-          hasScripting: report.hasScripting,
-          probedAt: Date.now()
-        }
-      }
-      // Mark the runtime path as permanently unavailable on signals that
-      // imply Firefox can't expose the addon background to us via RDP at
-      // all (no descriptor matched, getWatcher hangs, scripting API not
-      // reachable). Subsequent reinjects skip F1 and go straight to the
-      // legacy reinstall+navigate fallback — preventing the cascade where
-      // each fallback's tabListChanged retriggers F1, hangs, and reloads
-      // again indefinitely.
-      if (report.phase === 'unavailable') {
-        const reason = String(report.reason || '')
-        if (
-          reason === 'no_runtime_target' ||
-          reason === 'no_runtime_target_after_stale' ||
-          reason === 'no_browser_scripting_in_runtime' ||
-          /timeout/i.test(reason)
-        ) {
-          this.runtimePathPermanentlyUnavailable = true
-        }
-      }
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        try {
-          console.log(
-            messages.firefoxRdpRuntimeReinjectionResult(JSON.stringify(report))
-          )
-        } catch {
-          // Do nothing
-        }
-      }
-      return {reinjectedTabs}
-    } catch (error) {
-      this.lastRuntimeReinjectionReport = {
-        phase: 'unavailable',
-        reason: `unhandled: ${String((error as Error)?.message || error)}`,
-        addonId
-      }
-      return {reinjectedTabs: 0}
-    } finally {
-      try {
-        scopedClient?.disconnect()
-      } catch {
-        // best-effort socket teardown
-      }
-    }
-  }
-
-  public async registerContentScriptsForFutureNavigations(
-    rules: ContentScriptTargetRule[]
-  ): Promise<void> {
-    this.activeContentScriptRules = [...rules]
-    if (rules.length === 0) return
-
-    let client: MessagingClient | null = this.client
-    if (!client) {
-      try {
-        const port = this.resolveRdpPort()
-        client = await this.connectClient(port)
-      } catch {
-        return
-      }
-    }
-
-    if (this.contentScriptListenerInstalled) return
-    this.contentScriptListenerInstalled = true
-    this.installContentScriptTabListener(client)
-  }
-
-  private installContentScriptTabListener(client: MessagingClient): void {
-    client.on('message', (raw: unknown) => {
-      if (!raw || typeof raw !== 'object') return
-
-      const message = raw as {
-        type?: string
-        from?: string
-        url?: string
-        state?: string
-      }
-      if (
-        process.env.EXTENSION_AUTHOR_MODE === 'true' &&
-        process.env.EXTJS_F2_TRACE === '1' &&
-        (message.type || message.from)
-      ) {
-        try {
-          // eslint-disable-next-line no-console
-          console.log(
-            `[f2-trace] type=${message.type} from=${message.from} state=${message.state} url=${(message.url || '').slice(0, 80)}`
-          )
-        } catch {}
-      }
-      // Two complementary signals on the connection:
-      //   tabListChanged — root-actor broadcast when any tab opens/closes,
-      //                    fired on every connection regardless of attach
-      //   tabNavigated  — per-tab actor emits state=stop on attached tabs
-      // tabListChanged catches fresh tabs the dev connection hasn't
-      // attached to yet; tabNavigated catches navigations on already-known
-      // tabs. The runtime reinject inside scheduleFutureNavReinject queries
-      // browser.tabs.query, so it doesn't matter which tab triggered the
-      // event — the addon picks up every matching tab on the next pass.
-      if (message.type === 'tabListChanged' && message.from === 'root') {
-        this.scheduleFutureNavReinject()
-        return
-      }
-      if (message.type !== 'tabNavigated') return
-      if (message.state !== 'stop') return
-
-      const url = String(message.url || '')
-
-      if (!url) return
-      if (!this.urlMatchesAnyActiveRule(url)) return
-
-      this.scheduleFutureNavReinject()
-    })
-  }
-
-  private urlMatchesAnyActiveRule(url: string): boolean {
-    if (!url || this.activeContentScriptRules.length === 0) return false
-
-    return this.activeContentScriptRules.some((rule) =>
-      urlMatchesAnyContentScriptRule(url, [rule])
-    )
-  }
-
-  private scheduleFutureNavReinject(): void {
-    if (this.futureNavReinjectScheduled) return
-    this.futureNavReinjectScheduled = true
-
-    // Coalesce bursts of tabNavigated events (multi-frame loads, redirect
-    // chains) into a single runtime reinject pass. The runtime path is
-    // idempotent — re-running on tabs that already received the latest
-    // generation is a no-op via __EXTENSIONJS_DEV_REINJECT__.
-    setTimeout(() => {
-      this.futureNavReinjectScheduled = false
-      const rules = this.activeContentScriptRules
-      const client = this.client
-
-      if (!client || rules.length === 0) return
-      this.tryRuntimeReinjection(client, rules).catch(() => {
-        // Best-effort; the next rebuild will retry.
-      })
-    }, 100)
   }
 
   public async probeRuntimeCapability(
