@@ -212,6 +212,23 @@ describe('ApplyDevDefaults', () => {
     expect(out.host_permissions).toBeUndefined()
   })
 
+  it('injects content-script host patterns into MV2 `permissions` (Firefox executeScript host access)', () => {
+    // Confirmed on real Firefox: without this, chrome.scripting.executeScript
+    // fails with "Missing host permission for the tab" (MV2 has no
+    // host_permissions key — host access lives in `permissions`).
+    const out = runDevDefaults({
+      manifest_version: 2,
+      name: 'x',
+      content_scripts: [
+        {matches: ['https://a.test/*'], js: ['c.js']},
+        {matches: ['<all_urls>'], js: ['c.js']}
+      ]
+    })
+    expect(out.permissions).toEqual(
+      expect.arrayContaining(['tabs', 'https://a.test/*', '<all_urls>'])
+    )
+  })
+
   it('patches dev defaults without re-canonicalizing manifest paths', () => {
     const canonicalManifest = {
       manifest_version: 3,

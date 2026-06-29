@@ -30,7 +30,9 @@ import {startControlServer} from './control-bridge/ws-control-server'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import {
   classifyReloadFromSources,
-  readContentScriptCount
+  readContentScriptCount,
+  createChangedSourcesTracker,
+  dispatchReload
 } from '../plugin-browsers'
 import {resolveConnectableHost} from './connectable-host'
 import webpackConfig from '../rspack-config'
@@ -389,6 +391,14 @@ export async function devServer(
     authorMode
   })
 
+  // Option B: hand the broker to a launched runner plugin so Chromium reloads
+  // through the SW producer (the same executor as `--no-browser`). No-op for the
+  // Safari plugin / Firefox (which has no setReloadBroker / keeps RDP).
+  const launchedPlugin = (devOptions as any).browsersPlugin
+  if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
+    launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
   let bridgeControlPort: number | null = null
 
   try {
@@ -499,60 +509,36 @@ export async function devServer(
   // not a browser was launched. Gated on the absence of a runner plugin so the
   // launched (and Safari) paths never double-reload.
   if (!(devOptions as any).browsersPlugin && compiler?.hooks?.watchRun) {
-    let pendingForcedFull = false
-    let pendingChangedSources: string[] = []
+    const changedSources = createChangedSourcesTracker(compiler)
     let isFirstBridgeCompile = true
 
-    compiler.hooks.watchRun.tap('extjs-no-browser-reload', () => {
-      pendingForcedFull = false
-      pendingChangedSources = []
-      const modifiedFiles = (compiler as any).modifiedFiles as
-        | Set<string>
-        | undefined
-      if (!modifiedFiles || modifiedFiles.size === 0) return
+    compiler.hooks.done.tapPromise(
+      'extjs-no-browser-reload',
+      async (stats: any) => {
+        const compilation = stats.compilation
+        if (compilation.errors && compilation.errors.length > 0) return
 
-      const contextDir = compiler.options.context || ''
-      for (const file of modifiedFiles) {
-        const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
-        pendingChangedSources.push(normalized)
-        if (
-          normalized.includes('manifest.json') ||
-          normalized.includes('_locales/')
-        ) {
-          pendingForcedFull = true
+        // Skip the first compile: it's the initial build, not a change, and the
+        // SW producer hasn't connected yet anyway.
+        if (isFirstBridgeCompile) {
+          isFirstBridgeCompile = false
+          return
         }
+
+        const outputPath = String(compilation.options?.output?.path || '')
+        const {forcedFull, changedSources: sources} = changedSources.snapshot()
+        const instruction = classifyReloadFromSources({
+          changedSources: sources,
+          forcedFull,
+          getContentScriptCount: () =>
+            readContentScriptCount(compilation, outputPath)
+        })
+
+        // Same shared dispatch seam as the launched path — here with the broker
+        // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
+        await dispatchReload(instruction, {broker: bridgeBroker})
       }
-    })
-
-    compiler.hooks.done.tap('extjs-no-browser-reload', (stats: any) => {
-      const compilation = stats.compilation
-      if (compilation.errors && compilation.errors.length > 0) return
-
-      // Skip the first compile: it's the initial build, not a change, and the
-      // SW producer hasn't connected yet anyway.
-      if (isFirstBridgeCompile) {
-        isFirstBridgeCompile = false
-        return
-      }
-
-      // EXTENSION_NO_RELOAD mirrors the launched path's opt-out: emit the new
-      // dist but leave the reload to the developer.
-      if (process.env.EXTENSION_NO_RELOAD === 'true') return
-
-      const outputPath = String(compilation.options?.output?.path || '')
-      const instruction = classifyReloadFromSources({
-        changedSources: pendingChangedSources,
-        forcedFull: pendingForcedFull,
-        getContentScriptCount: () =>
-          readContentScriptCount(compilation, outputPath)
-      })
-      if (!instruction) return
-
-      bridgeBroker.broadcastReload({
-        type: instruction.type,
-        changedContentScriptEntries: instruction.changedContentScriptEntries
-      })
-    })
+    )
   }
 
   const metadata = createPlaywrightMetadataWriter({
