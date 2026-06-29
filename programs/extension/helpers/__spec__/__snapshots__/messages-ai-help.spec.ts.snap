@@ -230,6 +230,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "description": "Dev server host address (use 0.0.0.0 for Docker/devcontainers)",
       "name": "--host",
     },
+    {
+      "default": "bind host (127.0.0.1 when bound to 0.0.0.0)",
+      "description": "Connectable host the browser dials for HMR + the reload bridge when it differs from the bind host (remote/devcontainer)",
+      "name": "--public-host",
+    },
   ],
   "version": "0.0.0-snapshot",
 }

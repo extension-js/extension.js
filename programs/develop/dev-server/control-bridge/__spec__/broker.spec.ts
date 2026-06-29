@@ -163,3 +163,63 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     expect(b.consumerCount).toBe(0)
   })
 })
+
+describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
+  function hello(
+    b: BridgeBroker,
+    conn: FakeConn,
+    role: 'producer' | 'consumer'
+  ) {
+    b.onFrame(conn, {type: 'hello', v: 1, role, instanceId: 'inst-1'})
+  }
+
+  it('pushes a typed reload frame to every producer and returns the count', () => {
+    const b = new BridgeBroker(opts)
+    const p1 = new FakeConn('p1')
+    const p2 = new FakeConn('p2')
+    hello(b, p1, 'producer')
+    hello(b, p2, 'producer')
+
+    const notified = b.broadcastReload({
+      type: 'content-scripts',
+      changedContentScriptEntries: ['content_scripts/content-0']
+    })
+
+    expect(notified).toBe(2)
+    for (const p of [p1, p2]) {
+      expect(p.sent).toHaveLength(1)
+      expect(p.sent[0]).toMatchObject({
+        type: 'reload',
+        reloadType: 'content-scripts',
+        changedContentScriptEntries: ['content_scripts/content-0']
+      })
+    }
+  })
+
+  it('never delivers a reload to consumers (it is a producer-only signal)', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    const cons = new FakeConn('c')
+    hello(b, prod, 'producer')
+    hello(b, cons, 'consumer')
+    cons.sent = [] // drop the ready frame
+
+    const notified = b.broadcastReload({type: 'full'})
+
+    expect(notified).toBe(1)
+    expect(cons.sent).toHaveLength(0)
+    expect(prod.sent[0]).toMatchObject({type: 'reload', reloadType: 'full'})
+  })
+
+  it('is not gated on allowControl — the dev loop reloads without --allow-control', () => {
+    const b = new BridgeBroker(opts) // allowControl defaults to false
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+    expect(b.broadcastReload({type: 'service-worker'})).toBe(1)
+  })
+
+  it('returns 0 when no producer has connected yet', () => {
+    const b = new BridgeBroker(opts)
+    expect(b.broadcastReload({type: 'full'})).toBe(0)
+  })
+})

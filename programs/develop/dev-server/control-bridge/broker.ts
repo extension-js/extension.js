@@ -11,6 +11,8 @@ import {
   type HelloFrame,
   type IncomingLogEvent,
   type ReadyFrame,
+  type ReloadFrame,
+  type ReloadType,
   type ResultFrame,
   type ServerFrame
 } from './contracts'
@@ -156,6 +158,45 @@ export class BridgeBroker {
         this.pending.delete(cmdId)
       }
     }
+  }
+
+  /**
+   * Dev-loop reload broadcast for the controller-less path. On a compile under
+   * `--no-browser` (no CDP controller to drive granular reinjection), the dev
+   * server calls this to push a typed {@link ReloadFrame} to every connected
+   * producer (the service worker), which performs the actual reload.
+   *
+   * NOT gated on `allowControl`: this is the dev loop reloading the developer's
+   * own extension on save, not an arbitrary controller-issued command. The
+   * launched-browser path never calls this — the controller owns reload there —
+   * so the two paths converge on one decision without double-reloading.
+   *
+   * Returns the number of producers notified (0 when the SW hasn't connected
+   * yet, e.g. before the first compile finishes writing the background bundle).
+   */
+  broadcastReload(instruction: {
+    type: ReloadType
+    changedContentScriptEntries?: string[]
+  }): number {
+    const frame: ReloadFrame = {
+      type: 'reload',
+      reloadType: instruction.type,
+      changedContentScriptEntries: instruction.changedContentScriptEntries
+    }
+
+    let notified = 0
+    for (const [conn, role] of this.roles) {
+      if (role !== 'producer') continue
+      try {
+        conn.send(frame)
+        notified++
+      } catch {
+        // A failing producer socket must not break the broadcast; the adapter
+        // tears down dead sockets on error/close.
+      }
+    }
+
+    return notified
   }
 
   ingestLog(incoming: IncomingLogEvent): void {

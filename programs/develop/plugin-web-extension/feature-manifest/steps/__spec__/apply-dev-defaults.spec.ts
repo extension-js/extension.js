@@ -109,6 +109,109 @@ describe('ApplyDevDefaults', () => {
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
 
+  // Under --no-browser the SW re-injects a changed content script into open tabs
+  // via chrome.scripting.executeScript, finding them with chrome.tabs.query. Dev
+  // defaults inject `scripting`/`tabs` (MV3; `tabs` on MV2) and grant
+  // host_permissions covering the content scripts' match patterns so executeScript
+  // is allowed on those tabs even when the source declares no host_permissions.
+  function runDevDefaults(manifest: Record<string, unknown>) {
+    let updated: string | undefined
+    const compilation = {
+      errors: [],
+      getAsset: (name: string) =>
+        name === 'manifest.json'
+          ? {source: () => JSON.stringify(manifest)}
+          : undefined,
+      assets: {'manifest.json': {source: () => JSON.stringify(manifest)}},
+      updateAsset: (name: string, rawSource: {source: () => string}) => {
+        if (name === 'manifest.json') updated = rawSource.source()
+      },
+      hooks: {processAssets: {tap: (_o: unknown, fn: () => void) => fn()}}
+    } as unknown as Compilation
+    const compiler = {
+      options: {mode: 'development'},
+      hooks: {
+        thisCompilation: {
+          tap: (_n: string, fn: (c: Compilation) => void) => fn(compilation)
+        }
+      }
+    } as any
+    new ApplyDevDefaults({
+      manifestPath: '/m/manifest.json',
+      browser: 'chrome'
+    }).apply(compiler)
+    return JSON.parse(updated!)
+  }
+
+  it('injects scripting + tabs (+ management) in dev for MV3', () => {
+    const out = runDevDefaults({manifest_version: 3, name: 'x'})
+    expect(out.permissions).toEqual(
+      expect.arrayContaining(['scripting', 'tabs', 'management'])
+    )
+  })
+
+  it('injects the `tabs` permission in dev for MV2 (Firefox), preserving existing permissions', () => {
+    const out = runDevDefaults({
+      manifest_version: 2,
+      name: 'x',
+      permissions: ['storage']
+    })
+    expect(out.permissions).toEqual(expect.arrayContaining(['tabs', 'storage']))
+    // MV3-only permissions must NOT leak into an MV2 manifest.
+    expect(out.permissions).not.toContain('scripting')
+    // No duplicates when `tabs` is already declared.
+    const deduped = runDevDefaults({
+      manifest_version: 2,
+      name: 'x',
+      permissions: ['tabs']
+    })
+    expect(
+      deduped.permissions.filter((p: string) => p === 'tabs')
+    ).toHaveLength(1)
+  })
+
+  it('grants host_permissions covering content-script matches in dev (MV3, even when none declared)', () => {
+    const out = runDevDefaults({
+      manifest_version: 3,
+      name: 'x',
+      content_scripts: [
+        {matches: ['https://a.test/*'], js: ['c.js']},
+        {matches: ['https://b.test/*'], js: ['c.js']}
+      ]
+    })
+    expect(out.host_permissions).toEqual(
+      expect.arrayContaining(['https://a.test/*', 'https://b.test/*'])
+    )
+  })
+
+  it('unions injected host_permissions with declared ones (deduped)', () => {
+    const out = runDevDefaults({
+      manifest_version: 3,
+      name: 'x',
+      host_permissions: ['https://a.test/*'],
+      content_scripts: [
+        {matches: ['https://a.test/*', '<all_urls>'], js: ['c.js']}
+      ]
+    })
+    expect(out.host_permissions.sort()).toEqual(
+      ['<all_urls>', 'https://a.test/*'].sort()
+    )
+  })
+
+  it('does NOT add host_permissions when there are no content scripts (MV3)', () => {
+    const out = runDevDefaults({manifest_version: 3, name: 'x'})
+    expect(out.host_permissions).toBeUndefined()
+  })
+
+  it('does NOT inject host_permissions on MV2 (MV2 uses permissions for hosts)', () => {
+    const out = runDevDefaults({
+      manifest_version: 2,
+      name: 'x',
+      content_scripts: [{matches: ['https://a.test/*'], js: ['c.js']}]
+    })
+    expect(out.host_permissions).toBeUndefined()
+  })
+
   it('patches dev defaults without re-canonicalizing manifest paths', () => {
     const canonicalManifest = {
       manifest_version: 3,

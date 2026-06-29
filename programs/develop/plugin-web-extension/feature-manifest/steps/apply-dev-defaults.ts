@@ -71,6 +71,36 @@ export class ApplyDevDefaults {
               this.manifestPath
             )
 
+            // Match patterns of every declared content script. Used below to
+            // grant host access for the dev open-tab re-injection.
+            const contentScriptMatches: string[] = Array.isArray(
+              canonicalManifest.content_scripts
+            )
+              ? (canonicalManifest.content_scripts as any[]).flatMap(
+                  (cs: any) => (Array.isArray(cs?.matches) ? cs.matches : [])
+                )
+              : []
+
+            // MV3 only, and only when there are content scripts: ensure the
+            // extension has host access to the pages its content scripts run on,
+            // so the SW can chrome.scripting.executeScript the fresh script into
+            // already-open tabs on save (the controller-less content-script
+            // reload under --no-browser). Union with any declared host
+            // permissions; never written to the production manifest.
+            const hostPermissionsPatch =
+              canonicalManifest.manifest_version === 3 &&
+              contentScriptMatches.length > 0
+                ? {
+                    host_permissions: [
+                      ...new Set([
+                        ...((canonicalManifest.host_permissions as string[]) ||
+                          []),
+                        ...contentScriptMatches
+                      ])
+                    ]
+                  }
+                : {}
+
             const patchedManifest = {
               ...canonicalManifest,
               content_security_policy:
@@ -78,20 +108,32 @@ export class ApplyDevDefaults {
                   ? patchV3CSP(canonicalManifest)
                   : patchV2CSP(canonicalManifest),
 
+              // Dev-only permissions for the control bridge + reload loop:
+              //   - scripting: re-inject the fresh content script into open tabs
+              //     on save (chrome.scripting.executeScript).
+              //   - tabs: chrome.tabs.query({url}) to find those tabs.
+              //   - management: used by the bridge act verbs.
+              // MV2 (Firefox) gets only `tabs` (scripting/management are MV3).
               ...(canonicalManifest.manifest_version === 3
-                ? canonicalManifest.permissions
-                  ? {
-                      permissions: [
-                        ...new Set([
-                          'scripting',
-                          'tabs',
-                          'management',
-                          ...(canonicalManifest.permissions || [])
-                        ])
-                      ]
-                    }
-                  : {permissions: ['scripting', 'tabs', 'management']}
-                : {}),
+                ? {
+                    permissions: [
+                      ...new Set([
+                        'scripting',
+                        'tabs',
+                        'management',
+                        ...(canonicalManifest.permissions || [])
+                      ])
+                    ]
+                  }
+                : {
+                    permissions: [
+                      ...new Set([
+                        'tabs',
+                        ...(canonicalManifest.permissions || [])
+                      ])
+                    ]
+                  }),
+              ...hostPermissionsPatch,
 
               ...patchBackground(canonicalManifest, this.browser),
               ...patchExternallyConnectable(canonicalManifest),

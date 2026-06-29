@@ -31,10 +31,16 @@ export class InjectBridgeProducer {
       10
     )
     const instanceId = String(process.env.EXTENSION_INSTANCE_ID || '')
+    // Connectable host of the control WS (loopback locally; the public host for
+    // remote/devcontainer). Resolved once by dev-server/index.ts.
+    const host =
+      String(process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '').trim() ||
+      '127.0.0.1'
     const source = buildBridgeProducerSource({
       controlPort: Number.isFinite(controlPort) ? controlPort : null,
       instanceId,
-      context: 'background'
+      context: 'background',
+      host
     })
 
     if (!source) return // bridge unavailable — nothing to inject

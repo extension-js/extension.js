@@ -24,6 +24,7 @@ export type ReadyMetadata = {
   distPath: string
   manifestPath: string
   port: number | null
+  host?: string
   pid: number
   ts: string
   compiledAt: string | null
@@ -53,6 +54,7 @@ type WriterOptions = {
   distPath: string
   manifestPath: string
   port?: number | string | null
+  host?: string
   instanceId?: string
   controlPort?: number | string | null
   controlPath?: string
@@ -66,6 +68,7 @@ type PluginOptions = {
   outputPath: string
   manifestPath: string
   port?: number | string | null
+  host?: string
   command?: PlaywrightAutomationCommand
   instanceId?: string
   controlPort?: number | string | null
@@ -132,6 +135,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     distPath: options.distPath,
     manifestPath: options.manifestPath,
     port: toPort(options.port),
+    host: options.host,
     instanceId: options.instanceId,
     controlPort: toPort(options.controlPort),
     controlPath: options.controlPath,
@@ -220,6 +224,7 @@ export class PlaywrightPlugin {
       distPath: options.outputPath,
       manifestPath: options.manifestPath,
       port: options.port,
+      host: options.host,
       instanceId: options.instanceId,
       controlPort: options.controlPort,
       controlPath: options.controlPath,
