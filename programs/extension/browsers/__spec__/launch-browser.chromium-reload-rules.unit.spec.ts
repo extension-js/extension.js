@@ -1,12 +1,11 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// This spec guards the invariant that launchBrowser()'s Chromium reload path
-// converts canonical content-script entry names into ContentScriptTargetRule[]
-// before delegating to the CDP controller. Passing raw entry strings through
-// caused silent HMR failures because the controller expects the rule shape.
+// This spec guards the launched-Chromium controller contract: reload is owned
+// by the dev server's control-bridge SW producer (the same executor as
+// `--no-browser`), NOT the launcher's CDP controller. So launchBrowser()'s
+// returned controller exposes logging only — no reload(), no close(). The
+// reload routing itself is covered by the develop-side dispatchReload / broker
+// tests.
 const constructorCalls: Array<{host: any; ctx: any}> = []
 
 vi.mock('../run-chromium/chromium-launch', () => {
@@ -24,8 +23,6 @@ vi.mock('../run-chromium/chromium-launch', () => {
 
 vi.mock('../run-chromium/chromium-context', async () => {
   const cdpController = {
-    hardReload: vi.fn().mockResolvedValue(undefined),
-    reloadMatchingTabsForContentScripts: vi.fn().mockResolvedValue(0),
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
   }
 
@@ -52,7 +49,7 @@ vi.mock('../run-chromium/chromium-context', async () => {
 
 import {launchBrowser} from '../index'
 
-describe('launchBrowser (chromium): reload entry→rule conversion', () => {
+describe('launchBrowser (chromium): controller exposes logging only', () => {
   beforeEach(() => {
     constructorCalls.length = 0
   })
@@ -61,51 +58,17 @@ describe('launchBrowser (chromium): reload entry→rule conversion', () => {
     vi.clearAllMocks()
   })
 
-  it('converts canonical content-script entry names into rules before delegating to the CDP controller', async () => {
-    const extRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cdp-reload-'))
-    try {
-      fs.writeFileSync(
-        path.join(extRoot, 'manifest.json'),
-        JSON.stringify({
-          manifest_version: 3,
-          name: 'cdp-reload-test',
-          version: '0.0.0',
-          content_scripts: [
-            {matches: ['https://example.com/*'], js: ['content.js']},
-            {matches: ['https://*.github.com/*'], js: ['gh.js']}
-          ]
-        }),
-        'utf8'
-      )
+  it('does not expose a reload() method (reload is owned by the SW producer)', async () => {
+    const controller = await launchBrowser({
+      browser: 'chrome',
+      outputPath: '/tmp/x',
+      contextDir: '/tmp/x',
+      extensionsToLoad: ['/tmp/ext'],
+      mode: 'development',
+      dryRun: true
+    } as any)
 
-      const controller = await launchBrowser({
-        browser: 'chrome',
-        outputPath: extRoot,
-        contextDir: extRoot,
-        extensionsToLoad: [extRoot],
-        mode: 'development',
-        dryRun: true
-      } as any)
-
-      const mod: any = await import('../run-chromium/chromium-context')
-      const cdp = mod.__cdpController
-
-      await controller.reload({
-        type: 'content-scripts',
-        changedContentScriptEntries: ['content_scripts/content-1']
-      })
-
-      expect(cdp.reloadMatchingTabsForContentScripts).toHaveBeenCalledTimes(1)
-      const callArg = cdp.reloadMatchingTabsForContentScripts.mock.calls[0][0]
-      expect(Array.isArray(callArg)).toBe(true)
-      expect(callArg).toHaveLength(1)
-      expect(callArg[0]).toMatchObject({
-        index: 1,
-        matches: ['https://*.github.com/*']
-      })
-    } finally {
-      fs.rmSync(extRoot, {recursive: true, force: true})
-    }
+    expect((controller as any).reload).toBeUndefined()
   })
 
   it('does not expose a close() method on the returned controller', async () => {

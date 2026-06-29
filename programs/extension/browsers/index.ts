@@ -7,11 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {printDevBannerOnce, printProdBannerOnce} from './browsers-lib/banner'
-import {
-  type ContentScriptTargetRule,
-  readContentScriptRules,
-  selectContentScriptRules
-} from './browsers-lib/content-script-targets'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
@@ -78,18 +73,17 @@ export interface BrowserLaunchOptions {
 }
 
 /**
- * Handle returned by `launchBrowser` — provides reload and logging control.
+ * Handle returned by `launchBrowser` — provides logging control.
+ *
+ * Reload is owned by the dev server's control-bridge SW producer (the same
+ * executor for launched + `--no-browser`), not this controller; the CDP/RDP
+ * controller is kept only for logging / source inspection.
  *
  * Browser process cleanup is owned by signal handlers installed during launch
  * (`setupFirefoxProcessHandlers` / Chromium equivalents). The controller is
  * deliberately not responsible for teardown, so there is no `close()`.
  */
 export interface BrowserController {
-  reload(instruction?: {
-    type: 'full' | 'service-worker' | 'content-scripts'
-    changedContentScriptEntries?: string[]
-    changedAssets?: string[]
-  }): Promise<void>
   enableUnifiedLogging(opts: {
     level?: string
     contexts?: string[]
@@ -110,38 +104,6 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
     },
     outputOptions: {path: opts.outputPath}
   }
-}
-
-/**
- * Convert canonical content-script entry names (e.g. `content_scripts/content-0`)
- * into the ContentScriptTargetRule[] shape that the browser controllers expect.
- *
- * `develop/plugin-browsers` only has raw entry paths at reload time; the
- * manifest (and therefore the match patterns those entries correspond to)
- * lives on the compilation. Resolving it here keeps the controller APIs
- * strongly typed and prevents silent HMR failures where rules/entries were
- * passed interchangeably.
- */
-function resolveContentScriptRulesForReload(
-  compilationLike: CompilationLike,
-  extensionsToLoad: string[],
-  entries: string[] | undefined
-): ContentScriptTargetRule[] {
-  if (!entries || entries.length === 0) return []
-
-  // The user's extension is the one the reload is for. When dev loads
-  // companion extensions (extension-js-devtools, extension-js-theme, etc.), they
-  // appear first in `extensionsToLoad` — using `extensionsToLoad[0]` here
-  // reads the companion's manifest, which declares a single narrow content
-  // script, and every rule for the user's extension is silently dropped.
-  // Prefer the actual output path (the user's dist) and fall back only if it
-  // isn't known
-  const outputPath = (compilationLike as any)?.options?.output?.path as
-    | string
-    | undefined
-  const extensionRoot = outputPath || extensionsToLoad?.[0]
-  const rules = readContentScriptRules(compilationLike, extensionRoot)
-  return selectContentScriptRules(rules, entries)
 }
 
 function isChromiumBrowser(browser: BrowserType): boolean {
@@ -251,64 +213,9 @@ async function launchChromium(
   }
 
   return {
-    async reload(instruction) {
-      if (!cdpController) return
-      // For content-scripts, resolve entries → rules and use targeted reload.
-      // For everything else, fall through to a full hard reload.
-      if (instruction?.type === 'content-scripts') {
-        const ctrl = cdpController as any
-        if (typeof ctrl.reloadMatchingTabsForContentScripts === 'function') {
-          const rules = resolveContentScriptRulesForReload(
-            compilationLike,
-            opts.extensionsToLoad,
-            instruction.changedContentScriptEntries
-          )
-          // 1. In-place reinject into tabs that already have the content
-          //    script running (Surface A' — preserves DOM/React state).
-          await ctrl.reloadMatchingTabsForContentScripts(rules)
-          // 2. Register a persistent CDP hook so fresh tabs, page reloads,
-          //    and cross-URL navigations get the latest bundle evaluated in
-          //    the extension's isolated world the moment it's created
-          //    (Surfaces B + C). Preserves SW state + open extension pages.
-          if (
-            typeof ctrl.registerContentScriptsForFutureNavigations ===
-            'function'
-          ) {
-            try {
-              await ctrl.registerContentScriptsForFutureNavigations(rules)
-            } catch {
-              // Best-effort: open-tab reinjection already happened above.
-            }
-          }
-          // 3. Re-execute any programmatic `chrome.scripting.executeScript`
-          //    calls that referenced a changed `/scripts/<name>.js` file.
-          //    Declarative content_scripts handle their own HMR via the
-          //    reinject above; this brings programmatic injection closer to
-          //    parity. No-op when no /scripts/* file changed or when the
-          //    user's SW never called executeScript.
-          const changedScripts = (instruction.changedAssets || []).filter(
-            (asset) =>
-              /(^|\/)scripts\//i.test(String(asset || '')) &&
-              /\.[cm]?[jt]sx?$/i.test(String(asset || ''))
-          )
-          if (
-            changedScripts.length > 0 &&
-            typeof ctrl.replayProgrammaticScripts === 'function'
-          ) {
-            try {
-              await ctrl.replayProgrammaticScripts(changedScripts)
-            } catch {
-              // Best-effort; the dist-on-disk is already fresh.
-            }
-          }
-          return
-        }
-      }
-      const ctrl = cdpController as any
-      if (typeof ctrl.hardReload === 'function') {
-        await ctrl.hardReload(instruction?.changedAssets)
-      }
-    },
+    // Reload is owned by the dev server's control-bridge SW producer (the same
+    // executor for launched + `--no-browser`); the CDP controller is kept only
+    // for logging / source inspection.
     async enableUnifiedLogging(logOpts) {
       if (cdpController?.enableUnifiedLogging) {
         await cdpController.enableUnifiedLogging({
@@ -419,48 +326,9 @@ async function launchFirefox(
   }
 
   return {
-    async reload(instruction) {
-      if (!rdpController) return
-      if (instruction?.type === 'content-scripts') {
-        const rules = resolveContentScriptRulesForReload(
-          compilationLike,
-          opts.extensionsToLoad,
-          instruction.changedContentScriptEntries
-        )
-        try {
-          await (rdpController as any).reloadMatchingTabsForContentScripts(
-            rules
-          )
-          // F2 — after the in-place reinject, register a tabNavigated hook
-          // so fresh tabs and same-tab navigations between rebuilds get the
-          // current bundle without waiting for the next file edit. Mirrors
-          // the Chromium launcher path at line 263.
-          if (
-            typeof (rdpController as any)
-              .registerContentScriptsForFutureNavigations === 'function'
-          ) {
-            try {
-              await (
-                rdpController as any
-              ).registerContentScriptsForFutureNavigations(rules)
-            } catch {
-              // Best-effort: open-tab reinjection already happened above.
-            }
-          }
-          return
-        } catch {
-          // Fall through to hard reload
-        }
-      }
-      try {
-        await rdpController.hardReload(
-          compilationLike,
-          instruction?.changedAssets || []
-        )
-      } catch {
-        // best-effort
-      }
-    },
+    // Reload is owned by the dev server's control-bridge SW producer (the same
+    // executor for launched + `--no-browser`); the RDP controller is kept only
+    // for logging / source inspection.
     async enableUnifiedLogging(logOpts) {
       if (!rdpController?.enableUnifiedLogging) return
       await rdpController.enableUnifiedLogging({
