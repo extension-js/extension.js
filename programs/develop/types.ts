@@ -181,6 +181,12 @@ export interface DevOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
+  publicHost?: string
   install?: boolean
   /**
    * Companion extensions (load-only) for this command.
@@ -306,6 +312,12 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
+  publicHost?: string
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
@@ -364,6 +376,12 @@ export interface StartOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
+  publicHost?: string
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
@@ -519,6 +537,7 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
+      | 'publicHost'
       | 'source'
       | 'watchSource'
       | 'logLevel'
@@ -546,6 +565,7 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
+      | 'publicHost'
       | 'source'
       | 'watchSource'
       | 'logLevel'

@@ -186,7 +186,8 @@ export default function webpackConfig(
         const target = String(devOptions.browser)
         const isChromiumTarget =
           ['chrome', 'edge'].includes(target) || target.includes('chromium')
-        if ((manifest as any)?.manifest_version !== 2 || !isChromiumTarget) return
+        if ((manifest as any)?.manifest_version !== 2 || !isChromiumTarget)
+          return
         compiler.hooks.thisCompilation.tap(
           'warn-mv2-on-chromium',
           (compilation: any) => {
@@ -230,6 +231,11 @@ export default function webpackConfig(
       outputPath: primaryExtensionOutputDir,
       manifestPath,
       port: devOptions.port,
+      // Connectable host clients dial (HMR + control bridge). Resolved once by
+      // dev-server/index.ts and exported via env; falls back to the bind host.
+      host:
+        process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
+        (devOptions as any).host,
       instanceId: devOptions.instanceId,
       controlPort: devOptions.controlPort,
       controlPath: devOptions.controlPath,

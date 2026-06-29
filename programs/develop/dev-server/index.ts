@@ -28,6 +28,11 @@ import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
+import {
+  classifyReloadFromSources,
+  readContentScriptCount
+} from '../plugin-browsers'
+import {resolveConnectableHost} from './connectable-host'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
 import {
@@ -311,13 +316,26 @@ export async function devServer(
   }
 
   const port = portAllocation.port
+
+  // `devServerHost` is the BIND host (e.g. 0.0.0.0 in a devcontainer). Clients
+  // — the in-page HMR ws and the SW control-bridge producer — must dial a
+  // CONNECTABLE host instead: a wildcard bind address is not a valid client
+  // target. Derive it once here and propagate it to the HMR client URL,
+  // ready.json, and the baked producer (see resolveConnectableHost).
+  const connectableHost = resolveConnectableHost(
+    devServerHost,
+    (devOptions as any).publicHost
+  )
+
   const devServerWebSocketURL = {
     protocol: 'ws',
-    hostname: devServerHost,
+    hostname: connectableHost,
     port
   }
   process.env.EXTENSION_DEV_SERVER_PROTOCOL = devServerWebSocketURL.protocol
   process.env.EXTENSION_DEV_SERVER_HOST = devServerHost
+  // Connectable host for in-browser clients (HMR ws + control-bridge producer).
+  process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = connectableHost
   process.env.EXTENSION_DEV_SERVER_PORT = String(port)
   process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
 
@@ -470,6 +488,73 @@ export async function devServer(
   installManifestDiskWriteGuard(manifestOutputPath)
   suppressManifestOutputWrites(compiler, manifestOutputPath)
 
+  // --- Controller-less reload-on-change (--no-browser / headless / remote) ---
+  // When a CDP controller is present (launched browser) it owns reload, driving
+  // granular content-script reinjection from the BrowsersPlugin `done` hook. The
+  // `browsersPlugin` is absent under `--no-browser`, so nothing would otherwise
+  // reload the extension on save. Here we tap the same compile lifecycle and
+  // broadcast the SAME typed reload decision over the control bridge; the SW
+  // producer self-reloads. The two paths converge on one classifier
+  // (classifyReloadFromSources) so a given change reloads identically whether or
+  // not a browser was launched. Gated on the absence of a runner plugin so the
+  // launched (and Safari) paths never double-reload.
+  if (!(devOptions as any).browsersPlugin && compiler?.hooks?.watchRun) {
+    let pendingForcedFull = false
+    let pendingChangedSources: string[] = []
+    let isFirstBridgeCompile = true
+
+    compiler.hooks.watchRun.tap('extjs-no-browser-reload', () => {
+      pendingForcedFull = false
+      pendingChangedSources = []
+      const modifiedFiles = (compiler as any).modifiedFiles as
+        | Set<string>
+        | undefined
+      if (!modifiedFiles || modifiedFiles.size === 0) return
+
+      const contextDir = compiler.options.context || ''
+      for (const file of modifiedFiles) {
+        const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
+        pendingChangedSources.push(normalized)
+        if (
+          normalized.includes('manifest.json') ||
+          normalized.includes('_locales/')
+        ) {
+          pendingForcedFull = true
+        }
+      }
+    })
+
+    compiler.hooks.done.tap('extjs-no-browser-reload', (stats: any) => {
+      const compilation = stats.compilation
+      if (compilation.errors && compilation.errors.length > 0) return
+
+      // Skip the first compile: it's the initial build, not a change, and the
+      // SW producer hasn't connected yet anyway.
+      if (isFirstBridgeCompile) {
+        isFirstBridgeCompile = false
+        return
+      }
+
+      // EXTENSION_NO_RELOAD mirrors the launched path's opt-out: emit the new
+      // dist but leave the reload to the developer.
+      if (process.env.EXTENSION_NO_RELOAD === 'true') return
+
+      const outputPath = String(compilation.options?.output?.path || '')
+      const instruction = classifyReloadFromSources({
+        changedSources: pendingChangedSources,
+        forcedFull: pendingForcedFull,
+        getContentScriptCount: () =>
+          readContentScriptCount(compilation, outputPath)
+      })
+      if (!instruction) return
+
+      bridgeBroker.broadcastReload({
+        type: instruction.type,
+        changedContentScriptEntries: instruction.changedContentScriptEntries
+      })
+    })
+  }
+
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(devOptions.browser || 'chromium'),
@@ -481,6 +566,7 @@ export async function devServer(
     ),
     manifestPath,
     port,
+    host: connectableHost,
     instanceId: currentInstance.instanceId,
     controlPort: bridgeControlPort,
     controlPath: CONTROL_WS_PATH,

@@ -20,6 +20,55 @@ export interface ReloadInstruction {
   changedAssets?: string[]
 }
 
+/**
+ * Pure reload classifier shared by the launched-browser path (BrowsersPlugin,
+ * below) and the controller-less path (the dev server's `--no-browser` reload
+ * broadcast). Centralizing the decision keeps both paths converged: the same
+ * change always resolves to the same {@link ReloadType}, whether it is handed
+ * to the CDP controller or broadcast over the control bridge.
+ *
+ * `getContentScriptCount` is a thunk so the (cheap) manifest read only happens
+ * when classification actually reaches the content-scripts branch.
+ *
+ * Returns `undefined` for page-only edits (popup/options/devtools/newtab HTML/
+ * CSS/JS) — those are delivered by rspack-dev-server's livereload broadcast, so
+ * firing an extension reload would race it and flash the open surface.
+ */
+export function classifyReloadFromSources(opts: {
+  changedSources: string[]
+  forcedFull?: boolean
+  getContentScriptCount: () => number
+}): ReloadInstruction | undefined {
+  const {changedSources, forcedFull, getContentScriptCount} = opts
+  if (changedSources.length === 0) return undefined
+
+  if (forcedFull) {
+    return {type: 'full', changedAssets: changedSources}
+  }
+
+  const isServiceWorkerSource = (rel: string) =>
+    /(^|\/)background(\.|\/)/i.test(rel) || /service[-_.]?worker/i.test(rel)
+
+  if (changedSources.some(isServiceWorkerSource)) {
+    return {type: 'service-worker', changedAssets: changedSources}
+  }
+
+  const contentScriptCount = getContentScriptCount()
+  if (contentScriptCount > 0) {
+    const entries: string[] = []
+    for (let i = 0; i < contentScriptCount; i++) {
+      entries.push(getCanonicalContentScriptEntryName(i))
+    }
+    return {
+      type: 'content-scripts',
+      changedContentScriptEntries: entries,
+      changedAssets: changedSources
+    }
+  }
+
+  return undefined
+}
+
 export interface CompiledEvent {
   outputPath: string
   contextDir: string
@@ -202,67 +251,21 @@ export class BrowsersPlugin implements RunnerPlugin {
       // asset on each compile (including a persistent background/service_worker.js),
       // which made every classification resolve to 'service-worker' even when
       // only a content script changed.
+      //
+      // Page-only edits (popup/options/devtools/newtab HTML/CSS/JS) classify to
+      // `undefined`: rspack-dev-server's livereload broadcast already refreshes
+      // those open surfaces, so firing chrome.runtime.reload() would race it and
+      // flash the surface. See scripts/reload-matrix/scenarios.mjs scenario
+      // "popup-html-edit-popup-open" for the ground-truth assertion.
       let reloadInstruction: ReloadInstruction | undefined
 
-      if (!this.isFirstCompile && pendingReloadReason) {
-        reloadInstruction = {
-          type: pendingReloadReason,
-          changedAssets: pendingChangedSources
-        }
-      } else if (!this.isFirstCompile && pendingChangedSources.length > 0) {
-        const isServiceWorkerSource = (rel: string) =>
-          /(^|\/)background(\.|\/)/i.test(rel) ||
-          /service[-_.]?worker/i.test(rel)
-
-        const hasServiceWorkerChange = pendingChangedSources.some(
-          isServiceWorkerSource
-        )
-
-        if (hasServiceWorkerChange) {
-          reloadInstruction = {
-            type: 'service-worker',
-            changedAssets: pendingChangedSources
-          }
-        } else {
-          // Any other source change falls under 'content-scripts'. Pass every
-          // content-script entry name so the controller can URL-match against
-          // open tabs and reload only the ones that actually run the scripts.
-          const contentScriptCount = readContentScriptCount(
-            compilation,
-            outputPath
-          )
-          if (contentScriptCount > 0) {
-            const entries: string[] = []
-            for (let i = 0; i < contentScriptCount; i++) {
-              entries.push(getCanonicalContentScriptEntryName(i))
-            }
-            reloadInstruction = {
-              type: 'content-scripts',
-              changedContentScriptEntries: entries,
-              changedAssets: pendingChangedSources
-            }
-          } else {
-            // No content scripts declared and the SW source did not change.
-            // Page-only edits (popup HTML/JS/CSS, options page, devtools
-            // page, newtab) are already handled by rspack-dev-server's
-            // livereload broadcast — the HMR client injected into every
-            // extension HTML entry connects to ws://host:port/ws and
-            // refreshes the open page on its own when a build completes.
-            //
-            // Firing chrome.runtime.reload() here would race that broadcast,
-            // tear the popup down before livereload arrives, and surface as
-            // a disruptive flash for every popup HTML/CSS/JS save. The
-            // dist directory on disk stays current (rspack-dev-server's
-            // devMiddleware writes assets through to disk for non-manifest
-            // files), so any popup opened later still loads the fresh
-            // bundle without needing an extension restart.
-            //
-            // See scripts/reload-matrix/scenarios.mjs scenario
-            // "popup-html-edit-popup-open" for the ground-truth assertion
-            // that drove this change.
-            reloadInstruction = undefined
-          }
-        }
+      if (!this.isFirstCompile) {
+        reloadInstruction = classifyReloadFromSources({
+          changedSources: pendingChangedSources,
+          forcedFull: Boolean(pendingReloadReason),
+          getContentScriptCount: () =>
+            readContentScriptCount(compilation, outputPath)
+        })
       }
 
       const wasFirstCompile = this.isFirstCompile
@@ -321,7 +324,10 @@ export class BrowsersPlugin implements RunnerPlugin {
   }
 }
 
-function readContentScriptCount(compilation: any, outputPath: string): number {
+export function readContentScriptCount(
+  compilation: any,
+  outputPath: string
+): number {
   try {
     const asset = compilation.getAsset?.('manifest.json')
     if (asset?.source) {

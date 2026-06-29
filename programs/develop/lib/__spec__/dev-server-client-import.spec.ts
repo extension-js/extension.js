@@ -72,4 +72,38 @@ describe('dev-server-client-import', () => {
     expect(clientEntry).toContain('hot=true')
     expect(clientEntry).toContain('live-reload=false')
   })
+
+  it('rewrites a wildcard bind host to a connectable loopback host', () => {
+    const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+    delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+    try {
+      const fakeCompiler = {
+        options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
+      }
+      const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
+      // The browser cannot dial 0.0.0.0 — it must be rewritten to loopback.
+      expect(clientEntry).toContain('hostname=127.0.0.1')
+      expect(clientEntry).not.toContain('hostname=0.0.0.0')
+    } finally {
+      if (prev === undefined)
+        delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+      else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+    }
+  })
+
+  it('prefers the resolved connectable host env over the bind host', () => {
+    const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+    process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = 'devbox.example.com'
+    try {
+      const fakeCompiler = {
+        options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
+      }
+      const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
+      expect(clientEntry).toContain('hostname=devbox.example.com')
+    } finally {
+      if (prev === undefined)
+        delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+      else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+    }
+  })
 })

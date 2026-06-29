@@ -72,6 +72,38 @@ describe('bridge producer runtime', () => {
     expect(src).not.toContain('__EXTJS_CONTEXT__')
   })
 
+  it('bakes a connectable host into the control WS URL (defaults to loopback)', () => {
+    const local = buildBridgeProducerSource({
+      controlPort: 8147,
+      instanceId: 'inst-T'
+    })
+    expect(local).not.toContain('__EXTJS_CONTROL_HOST__')
+    expect(local).toContain('var HOST = "127.0.0.1"')
+
+    const remote = buildBridgeProducerSource({
+      controlPort: 8147,
+      instanceId: 'inst-T',
+      host: 'devbox.local'
+    })
+    expect(remote).toContain('var HOST = "devbox.local"')
+  })
+
+  it('connects to the baked host:port (not hardcoded 127.0.0.1)', () => {
+    FakeWebSocket.instances = []
+    const {fakeGlobal} = makeGlobal()
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9100,
+        instanceId: 'i',
+        host: '10.1.2.3'
+      }),
+      fakeGlobal
+    )
+    expect(FakeWebSocket.instances[0].url).toBe(
+      'ws://10.1.2.3:9100/extjs-control'
+    )
+  })
+
   it('sends a producer hello on open and forwards console as log frames', () => {
     FakeWebSocket.instances = []
     const {fakeGlobal, originalCalls} = makeGlobal()
@@ -136,7 +168,10 @@ describe('bridge producer runtime', () => {
 })
 
 describe('bridge producer runtime — executor (Slice 2)', () => {
-  function setup(chromeApi: Record<string, unknown>) {
+  function setup(
+    chromeApi: Record<string, unknown>,
+    extraGlobals: Record<string, unknown> = {}
+  ) {
     FakeWebSocket.instances = []
     const {fakeGlobal} = makeGlobal()
     fakeGlobal.chrome = chromeApi
@@ -145,6 +180,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       fn()
       return 0
     }
+    Object.assign(fakeGlobal, extraGlobals)
     const src = buildBridgeProducerSource({
       controlPort: 9999,
       instanceId: 'inst-E',
@@ -529,6 +565,172 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       url: 'https://x.test/',
       messageParts: ['from content']
     })
+  })
+
+  it('reload broadcast (content-scripts): re-injects the fresh script into open tabs in place (no extension restart)', async () => {
+    const injected: Array<{tabId?: number; files: string[]; world?: string}> =
+      []
+    let runtimeReloaded = false
+    // The on-disk manifest the SW fetches has the NEW (content-hashed) filename.
+    const diskManifest = {
+      content_scripts: [
+        {
+          matches: ['https://x.test/*'],
+          js: ['content_scripts/content-0.NEWHASH.js'],
+          css: []
+        }
+      ]
+    }
+    const ws = setup(
+      {
+        runtime: {
+          reload: () => {
+            runtimeReloaded = true
+          },
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          lastError: undefined
+        },
+        tabs: {
+          query: (_q: unknown, cb: (t: unknown[]) => void) =>
+            cb([
+              {id: 11, url: 'https://x.test/a'},
+              {id: 12, url: 'https://x.test/b'},
+              {id: 99, url: 'about:blank'} // not injectable — must be skipped
+            ])
+        },
+        scripting: {
+          executeScript: (
+            opts: {target: {tabId: number}; files: string[]; world?: string},
+            cb?: () => void
+          ) => {
+            injected.push({
+              tabId: opts.target.tabId,
+              files: opts.files,
+              world: opts.world
+            })
+            cb && cb()
+          }
+        }
+      },
+      {
+        fetch: (_url: string) =>
+          Promise.resolve({json: () => Promise.resolve(diskManifest)})
+      }
+    )
+
+    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+    // fetch().then().then() — let the microtasks settle.
+    await new Promise((r) => setTimeout(r, 20))
+
+    // Injected the NEW file into the two matching http tabs; skipped about:blank.
+    expect(injected.map((i) => i.tabId).sort()).toEqual([11, 12])
+    expect(injected[0].files).toEqual(['content_scripts/content-0.NEWHASH.js'])
+    expect(injected[0].world).toBe('ISOLATED')
+    // No extension restart and no command result frame.
+    expect(runtimeReloaded).toBe(false)
+    expect(results(ws)).toHaveLength(0)
+  })
+
+  it('reload broadcast (content-scripts): re-registers dynamic content scripts so NEW tabs get the fresh build', async () => {
+    const registered: any[] = []
+    const updated: any[] = []
+    let existing: Array<{id: string}> = []
+    const diskManifest = {
+      content_scripts: [
+        {
+          matches: ['https://x.test/*'],
+          js: ['content_scripts/content-0.NEWHASH.js'],
+          css: [],
+          run_at: 'document_idle'
+        }
+      ]
+    }
+    const ws = setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          lastError: undefined
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {
+          executeScript: (_o: unknown, cb?: () => void) => cb && cb(),
+          getRegisteredContentScripts: (cb: (s: unknown[]) => void) =>
+            cb(existing),
+          registerContentScripts: (s: any[], cb?: () => void) => {
+            registered.push(...s)
+            cb && cb()
+          },
+          updateContentScripts: (s: any[], cb?: () => void) => {
+            updated.push(...s)
+            cb && cb()
+          }
+        }
+      },
+      {
+        fetch: (_url: string) =>
+          Promise.resolve({json: () => Promise.resolve(diskManifest)})
+      }
+    )
+
+    // First change: nothing registered yet -> registerContentScripts.
+    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+    await new Promise((r) => setTimeout(r, 20))
+    expect(updated).toHaveLength(0)
+    expect(registered).toHaveLength(1)
+    expect(registered[0]).toMatchObject({
+      id: 'extjs-dev-cs-0',
+      matches: ['https://x.test/*'],
+      js: ['content_scripts/content-0.NEWHASH.js'],
+      world: 'ISOLATED',
+      runAt: 'document_idle'
+    })
+    // The id must not start with '_' (Chrome reserves that namespace).
+    expect(registered[0].id.startsWith('_')).toBe(false)
+
+    // Second change: the id now exists -> updateContentScripts.
+    existing = [{id: 'extjs-dev-cs-0'}]
+    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+    await new Promise((r) => setTimeout(r, 20))
+    expect(registered).toHaveLength(1) // unchanged
+    expect(updated).toHaveLength(1)
+    expect(updated[0].id).toBe('extjs-dev-cs-0')
+  })
+
+  it('reload broadcast (full): restarts the extension via chrome.runtime.reload', async () => {
+    let runtimeReloaded = false
+    const ws = setup({
+      runtime: {
+        reload: () => {
+          runtimeReloaded = true
+        }
+      }
+    })
+
+    ws.triggerMessage({type: 'reload', reloadType: 'full'})
+
+    // The reload is deferred (50ms) so any in-flight frame flushes first.
+    expect(runtimeReloaded).toBe(false)
+    await new Promise((r) => setTimeout(r, 80))
+    expect(runtimeReloaded).toBe(true)
+  })
+
+  it('reload broadcast (content-scripts): falls back to a full reload when chrome.scripting is unavailable', async () => {
+    let runtimeReloaded = false
+    // No chrome.scripting (e.g. an MV2/Firefox build) -> can't re-inject in
+    // place, so restart the extension instead.
+    const ws = setup({
+      runtime: {
+        reload: () => {
+          runtimeReloaded = true
+        }
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+
+    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+
+    await new Promise((r) => setTimeout(r, 80))
+    expect(runtimeReloaded).toBe(true)
   })
 
   it('inspect of a content tab extracts a DOM snapshot via chrome.scripting', async () => {

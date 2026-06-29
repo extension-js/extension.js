@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as path from 'path'
+import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
 import {resolveDevelopDistFile} from '../../../../../lib/develop-context'
@@ -16,6 +17,26 @@ import type {
   DevOptions,
   FilepathList
 } from '../../../../../types'
+
+// rspack matches a loader rule's `include` against the module's canonical
+// (symlink-resolved) resource path. When the project lives under a symlinked
+// path — macOS `$TMPDIR` (/var -> /private/var), some CI/devcontainer temp dirs
+// — the raw `path.dirname(manifestPath)` is NOT canonical, so `include` fails to
+// match the content-script entry, the wrapper loader never runs, and the content
+// script loses its `__EXTENSIONJS_mount` call (it stops self-mounting). Resolve
+// the include dirs to their real path so they match. Best-effort: fall back to
+// the raw path if realpath fails (e.g. the dir does not exist yet).
+function canonicalizeDir(dir: string): string {
+  try {
+    return fs.realpathSync.native(dir)
+  } catch {
+    try {
+      return fs.realpathSync(dir)
+    } catch {
+      return dir
+    }
+  }
+}
 
 export class AddContentScriptWrapper {
   public static getBridgeScripts(manifestPath: string): FilepathList {
@@ -39,11 +60,11 @@ export class AddContentScriptWrapper {
   }
 
   public apply(compiler: Compiler) {
-    const manifestDir = path.dirname(this.manifestPath)
+    const manifestDir = canonicalizeDir(path.dirname(this.manifestPath))
     const packageJsonPath = findNearestPackageJsonSync(this.manifestPath)
-    const packageJsonDir = packageJsonPath
-      ? path.dirname(packageJsonPath)
-      : manifestDir
+    const packageJsonDir = canonicalizeDir(
+      packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
+    )
     const includeDirs =
       packageJsonDir === manifestDir
         ? [manifestDir]

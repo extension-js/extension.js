@@ -18,6 +18,22 @@ import {
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
 import * as messages from '../../../messages'
 
+// Resolve a directory to its real (symlink-resolved) path so it matches the
+// loader's `this.resourcePath`, which rspack provides canonicalized. Best-effort
+// with a raw-path fallback. See the call site for why this is load-bearing under
+// symlinked project roots (macOS $TMPDIR, some CI/devcontainer temp dirs).
+function canonicalizeDir(dir: string): string {
+  try {
+    return fs.realpathSync.native(dir)
+  } catch {
+    try {
+      return fs.realpathSync(dir)
+    } catch {
+      return dir
+    }
+  }
+}
+
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
   _compilation?: any
@@ -195,11 +211,17 @@ export default function contentScriptWrapper(
 
   const compilation = this._compilation
   const manifestPath = options.manifestPath
-  const manifestDir = path.dirname(manifestPath)
+  // Canonicalize so these match `this.resourcePath`, which rspack hands us as
+  // the symlink-resolved real path. Under a symlinked project root (macOS
+  // $TMPDIR, some CI/devcontainer temp dirs) a non-canonical manifestDir would
+  // make `path.resolve(manifestDir, jsFile)` differ from the real resourcePath,
+  // so the file would not be recognized as a declared content script and would
+  // lose its `__EXTENSIONJS_mount` call.
+  const manifestDir = canonicalizeDir(path.dirname(manifestPath))
   const packageJsonPath = findNearestPackageJsonSync(manifestPath)
-  const packageJsonDir = packageJsonPath
-    ? path.dirname(packageJsonPath)
-    : manifestDir
+  const packageJsonDir = canonicalizeDir(
+    packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
+  )
   const manifest = readManifestCached(manifestPath)
   const isProd =
     String((options && options.mode) || '').toLowerCase() === 'production'
@@ -240,6 +262,9 @@ export default function contentScriptWrapper(
     }
   }
 
+  // rspack hands the loader a canonical (symlink-resolved) resourcePath, so it
+  // already matches the canonicalized manifestDir/packageJsonDir above. See
+  // canonicalizeDir for why that canonicalization is load-bearing.
   const resourceAbsPath = path.normalize(this.resourcePath)
   const declaredEntry = declaredContentJsAbsEntries.find(
     (entry) => resourceAbsPath === path.normalize(entry.abs)
@@ -888,7 +913,11 @@ export default function contentScriptWrapper(
     `export default __EXTENSIONJS_default__\n`
   const wrappedResult = wrapPrefix + `${cleaned}\n` + wrapSuffix
   if (inputSourceMap) {
-    this.callback(null, wrappedResult, shiftSourceMap(inputSourceMap, wrapPrefix))
+    this.callback(
+      null,
+      wrappedResult,
+      shiftSourceMap(inputSourceMap, wrapPrefix)
+    )
     return
   }
   return wrappedResult
