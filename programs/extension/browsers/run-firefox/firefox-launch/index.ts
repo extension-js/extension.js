@@ -21,6 +21,7 @@ import {
   managedBrowserCacheEnv,
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
+import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   buildBrowserLaunchRequest,
@@ -40,14 +41,17 @@ import type {
 } from '../../browsers-types'
 import type {FirefoxContext} from '../firefox-context'
 import type {FirefoxPluginRuntime} from '../firefox-types'
-import {FirefoxBinaryDetector, parseFlatpakBinary} from './binary-detector'
+import {
+  FirefoxBinaryDetector,
+  isFirefoxHeadlessRequested,
+  parseFlatpakBinary
+} from './binary-detector'
 import {browserConfig} from './browser-config'
 import {logFirefoxDryRun} from './dry-run'
 import {
-  setupFirefoxProcessHandlers,
-  type FirefoxBrowserKind
+  type FirefoxBrowserKind,
+  setupFirefoxProcessHandlers
 } from './process-handlers'
-import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
   isWslEnv,
@@ -177,8 +181,8 @@ export class FirefoxLaunchPlugin {
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
     // Guard: never launch if compilation has errors
-    const compilationErrors: unknown[] = (compilation as {errors?: unknown[]})
-      ?.errors || []
+    const compilationErrors: unknown[] =
+      (compilation as {errors?: unknown[]})?.errors || []
     if (compilationErrors.length > 0) {
       this.ctx.logger?.info?.(
         messages.skippingBrowserLaunchDueToCompileErrors()
@@ -416,7 +420,8 @@ export class FirefoxLaunchPlugin {
         binaryPath,
         profilePath,
         debugPort,
-        firefoxArgs
+        firefoxArgs,
+        isFirefoxHeadlessRequested()
       )
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
       // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
@@ -452,6 +457,7 @@ export class FirefoxLaunchPlugin {
         )
       }
       const args: string[] = [
+        ...(isFirefoxHeadlessRequested() ? ['-headless'] : []),
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
         ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
         '--foreground',
