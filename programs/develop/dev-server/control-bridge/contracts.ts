@@ -68,6 +68,14 @@ export type CommandOp =
   | 'tabs.query'
   | 'inspect'
 
+/**
+ * Granularity of a dev-loop reload. Mirrors `ReloadType` in
+ * plugin-browsers/index.ts: the launched-browser path feeds this decision to
+ * the CDP controller; the `--no-browser` path feeds the same decision to the
+ * broker, which broadcasts a {@link ReloadFrame} to the SW producer.
+ */
+export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
+
 export type GapReason =
   | 'ring_overflow'
   | 'rate_limit'
@@ -132,8 +140,26 @@ export interface ResultFrame {
   }
 }
 
+/**
+ * Dev-loop reload broadcast, server → producer. Sent by the broker on a compile
+ * that completed without a CDP controller (`--no-browser`, headless/CI, remote)
+ * so the service-worker producer can self-reload. Unlike a `reload` CommandFrame
+ * (a controller-issued, `--allow-control`-gated act verb that expects a result),
+ * this is a fire-and-forget dev-server signal — no cmdId, no result.
+ */
+export interface ReloadFrame {
+  type: 'reload'
+  reloadType: ReloadType
+  changedContentScriptEntries?: string[]
+}
+
 export type ClientFrame = HelloFrame | LogFrame | CommandFrame
-export type ServerFrame = ReadyFrame | LogFrame | GapFrame | ResultFrame
+export type ServerFrame =
+  | ReadyFrame
+  | LogFrame
+  | GapFrame
+  | ResultFrame
+  | ReloadFrame
 export type AnyFrame = ClientFrame | ServerFrame
 
 export const CONTROL_WS_PATH = '/extjs-control'

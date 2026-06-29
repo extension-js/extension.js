@@ -6,6 +6,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var PORT = parseInt("__EXTJS_CONTROL_PORT__", 10);
     var INSTANCE_ID = "__EXTJS_INSTANCE_ID__";
     var CONTEXT = "__EXTJS_CONTEXT__";
+    // Connectable host of the dev-server control WS. Baked from the resolved
+    // connectable host (loopback locally; the public host for remote/devcontainer).
+    var HOST = "__EXTJS_CONTROL_HOST__";
+    if (!HOST || HOST.indexOf("__EXTJS") === 0) HOST = "127.0.0.1";
     if (!PORT || PORT < 1) return;
 
     var WS = g.WebSocket;
@@ -323,6 +327,158 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    function noopLastError() { try { void g.chrome.runtime.lastError; } catch (e) {} }
+
+    // Only http(s)/file/ftp tabs can run a content script; skip chrome://, the
+    // extension's own pages, about:blank, etc.
+    function isInjectableUrl(url) {
+      return typeof url === "string" && /^(https?|file|ftp):/i.test(url);
+    }
+
+    // Re-inject a single declared content-script entry's fresh files into every
+    // open tab it matches, in place. The wrapper's reinject runtime tears down
+    // the previous mount (matched by data-extjs-reinject-owner + build hash) and
+    // mounts the new one — so this is the controller-less equivalent of the CDP
+    // controller's reinjection, just driven from inside the extension.
+    function reinjectContentScriptEntry(entry) {
+      var chrome = g.chrome;
+      var matches = (entry && entry.matches) || [];
+      if (!Array.isArray(matches) || !matches.length) return;
+      var jsFiles = ((entry && entry.js) || []).filter(function (f) { return typeof f === "string"; });
+      var cssFiles = ((entry && entry.css) || []).filter(function (f) { return typeof f === "string"; });
+      if (!jsFiles.length && !cssFiles.length) return;
+      var world = entry.world === "MAIN" ? "MAIN" : "ISOLATED";
+      var allFrames = !!entry.all_frames;
+      try {
+        chrome.tabs.query({url: matches}, function (tabs) {
+          var err = null;
+          try { err = chrome.runtime.lastError; } catch (e) {}
+          if (err || !tabs) return;
+          for (var i = 0; i < tabs.length; i++) {
+            (function (tab) {
+              if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
+              var target = {tabId: tab.id, allFrames: allFrames};
+              if (cssFiles.length && chrome.scripting.insertCSS) {
+                try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {}
+              }
+              if (jsFiles.length && chrome.scripting.executeScript) {
+                try {
+                  chrome.scripting.executeScript(
+                    {target: target, files: jsFiles, world: world, injectImmediately: true},
+                    noopLastError
+                  );
+                } catch (e) {}
+              }
+            })(tabs[i]);
+          }
+        });
+      } catch (e) {}
+    }
+
+    // Re-inject all content scripts into their open tabs. Reads the manifest
+    // FROM DISK (not chrome.runtime.getManifest(), which is frozen at extension-
+    // registration time) because dev content-script filenames are content-hashed
+    // and change on every edit — disk has the new js/css paths.
+    function reinjectContentScripts() {
+      var chrome = g.chrome;
+      try {
+        if (typeof g.fetch !== "function" || !chrome.scripting) return false;
+        g.fetch(chrome.runtime.getURL("manifest.json"), {cache: "no-store"})
+          .then(function (r) { return r.json(); })
+          .then(function (manifest) {
+            var entries = (manifest && manifest.content_scripts) || [];
+            for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i]);
+            reregisterForFutureNavigations(entries);
+          })
+          .catch(function () {});
+        return true;
+      } catch (e) { return false; }
+    }
+
+    function mapRunAt(runAt) {
+      if (runAt === "document_start") return "document_start";
+      if (runAt === "document_end") return "document_end";
+      return "document_idle";
+    }
+
+    // Re-register the content scripts dynamically (chrome.scripting) pointing at
+    // the fresh files, so tabs opened AFTER an edit also get the new build. The
+    // static manifest registration still points at the old content-hashed file
+    // (it only updates on an extension reload) and keeps firing on new
+    // navigations; the dynamic registration injects the new file alongside it,
+    // and the wrapper's reinject runtime converges the mount to the newest build.
+    // Idempotent: update an existing id, else register it.
+    function reregisterForFutureNavigations(entries) {
+      var chrome = g.chrome;
+      if (
+        !chrome.scripting ||
+        !chrome.scripting.registerContentScripts ||
+        !chrome.scripting.getRegisteredContentScripts
+      ) return;
+
+      var scripts = [];
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i] || {};
+        if (!Array.isArray(e.matches) || !e.matches.length) continue;
+        var js = (e.js || []).filter(function (f) { return typeof f === "string"; });
+        var css = (e.css || []).filter(function (f) { return typeof f === "string"; });
+        if (!js.length && !css.length) continue;
+        var s = {
+          id: "extjs-dev-cs-" + i,
+          matches: e.matches,
+          runAt: mapRunAt(e.run_at),
+          allFrames: !!e.all_frames,
+          world: e.world === "MAIN" ? "MAIN" : "ISOLATED"
+        };
+        if (js.length) s.js = js;
+        if (css.length) s.css = css;
+        scripts.push(s);
+      }
+      if (!scripts.length) return;
+
+      try {
+        chrome.scripting.getRegisteredContentScripts(function (existing) {
+          try { void chrome.runtime.lastError; } catch (e) {}
+          var have = {};
+          if (existing) for (var k = 0; k < existing.length; k++) have[existing[k].id] = true;
+          var toRegister = [], toUpdate = [];
+          for (var j = 0; j < scripts.length; j++) {
+            (have[scripts[j].id] ? toUpdate : toRegister).push(scripts[j]);
+          }
+          if (toRegister.length) {
+            try { chrome.scripting.registerContentScripts(toRegister, noopLastError); } catch (e) {}
+          }
+          if (toUpdate.length) {
+            try { chrome.scripting.updateContentScripts(toUpdate, noopLastError); } catch (e) {}
+          }
+        });
+      } catch (e) {}
+    }
+
+    // Perform a dev-loop reload without the CDP controller:
+    //   - content-scripts: re-inject the fresh script into open matching tabs in
+    //     place (no extension restart), the controller-less equivalent of CDP
+    //     reinjection. Needs the scripting permission + host access to the tab —
+    //     both injected in dev by ApplyDevDefaults. Falls back to a full reload
+    //     if scripting is unavailable.
+    //   - service-worker / full / manifest: restart the whole extension so it
+    //     re-registers from the fresh manifest.
+    function performDevReload(type) {
+      var chrome = g.chrome;
+      if (!chrome) return;
+
+      var fullReload = function () {
+        // Deferred so any in-flight result/log frame flushes before the SW dies.
+        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 50); } catch (e) {}
+      };
+
+      if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
+        if (reinjectContentScripts()) return;
+      }
+
+      fullReload();
+    }
+
     function sanitize(args) {
       var out = [];
       for (var i = 0; i < args.length; i++) {
@@ -361,7 +517,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     function connect() {
       try {
-        socket = new WS("ws://127.0.0.1:" + PORT + "/extjs-control");
+        socket = new WS("ws://" + HOST + ":" + PORT + "/extjs-control");
       } catch (e) {
         schedule();
         return;
@@ -380,6 +536,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         try { frame = JSON.parse(typeof ev.data === "string" ? ev.data : ""); } catch (e) { return; }
         if (frame && frame.type === "command") {
           try { executeCommand(frame); } catch (e) { replyErr(frame.cmdId, "ExecutorError", e); }
+        } else if (frame && frame.type === "reload") {
+          // Dev-loop reload broadcast (no CDP controller — see broker.broadcastReload).
+          // Fire-and-forget: no result frame is expected.
+          try { performDevReload(frame.reloadType || "full"); } catch (e) {}
         }
       };
       socket.onclose = function () {
@@ -568,10 +728,12 @@ export interface BuildProducerOptions {
   controlPort: number | null | undefined
   instanceId: string
   context?: string
+  /** Connectable host of the control WS. Defaults to 127.0.0.1 (local). */
+  host?: string
 }
 
 /**
- * Bake the control port / instanceId / context into the producer source.
+ * Bake the control port / instanceId / context / host into the producer source.
  * Returns '' when the control bridge is unavailable (no port) so callers can
  * safely skip injection.
  */
@@ -583,4 +745,5 @@ export function buildBridgeProducerSource(opts: BuildProducerOptions): string {
   )
     .replace(/__EXTJS_INSTANCE_ID__/g, String(opts.instanceId))
     .replace(/__EXTJS_CONTEXT__/g, String(opts.context || 'background'))
+    .replace(/__EXTJS_CONTROL_HOST__/g, String(opts.host || '127.0.0.1'))
 }
