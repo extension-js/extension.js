@@ -74,6 +74,7 @@ jobs:
         suite:
           - ci:test:develop
           - ci:test:cli
+          - ci:test:create
           - ci:test:plugin-extension
           - ci:test:browser
           - ci:test:plugin-compilation
