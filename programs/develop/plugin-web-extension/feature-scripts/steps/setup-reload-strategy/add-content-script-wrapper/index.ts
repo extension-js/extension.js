@@ -38,6 +38,38 @@ function canonicalizeDir(dir: string): string {
   }
 }
 
+// rspack matches a string `include` by prefix against the module's resource
+// path. That is fragile when the resource path and the include dirs were
+// canonicalized into different string forms — most visibly on Windows, where
+// `realpathSync.native` expands 8.3 short names and normalizes drive-letter
+// case while the path rspack hands the matcher may not. The mismatch makes
+// `include` fail, the wrapper loader never runs, and the content script loses
+// its `__EXTENSIONJS_mount` call. A function condition re-canonicalizes the
+// incoming resource through the same `canonicalizeDir` used for the include
+// dirs (the resource's directory always exists during a build), so both sides
+// share one form and containment holds cross-platform.
+function makeResourceUnderDirsMatcher(
+  dirs: string[]
+): (resource: string) => boolean {
+  return (resource: string): boolean => {
+    if (typeof resource !== 'string' || resource.length === 0) return false
+    let candidate = resource
+    try {
+      candidate = path.join(
+        canonicalizeDir(path.dirname(resource)),
+        path.basename(resource)
+      )
+    } catch {
+      // Fall back to the raw resource path.
+    }
+    return dirs.some((dir) => {
+      if (candidate === dir) return true
+      const rel = path.relative(dir, candidate)
+      return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel)
+    })
+  }
+}
+
 export class AddContentScriptWrapper {
   public static getBridgeScripts(manifestPath: string): FilepathList {
     return getMainWorldBridgeScripts(manifestPath)
@@ -69,6 +101,7 @@ export class AddContentScriptWrapper {
       packageJsonDir === manifestDir
         ? [manifestDir]
         : [manifestDir, packageJsonDir]
+    const includeMatcher = makeResourceUnderDirsMatcher(includeDirs)
 
     // Classic concat loader: runs on files that carry the
     // __extensionjs_classic_concat__ query parameter. Must be registered
@@ -77,7 +110,7 @@ export class AddContentScriptWrapper {
     compiler.options.module.rules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       resourceQuery: /__extensionjs_classic_concat__/,
-      include: includeDirs,
+      include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
       use: [
         {
@@ -95,7 +128,7 @@ export class AddContentScriptWrapper {
 
     compiler.options.module.rules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: includeDirs,
+      include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
       use: [
         {
