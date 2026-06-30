@@ -20,8 +20,3 @@
 -->
 
 ## Highlights
-
-- **Extension.js v4 — now on Node.js 22+.** Node 20 is no longer supported. There are no API changes: upgrade Node and your project keeps working.
-- **Multi-file content scripts just work in dev.** Split a content script across plain files (a base class in one, the rest in another) — saves now hot-reload without a restart, and a thrown error traces back to your real file and line instead of an inlined blob.
-- **Snappier Safari dev.** `extension dev --browser=safari` resyncs in the background instead of blocking on a full Xcode build every save, and a burst of saves collapses into a single rebuild.
-- **No leaked browsers.** A dev session that exits on its own now reliably shuts the browser down — no more Chrome or Firefox processes lingering after you're finished.
