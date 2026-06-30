@@ -295,4 +295,52 @@ describe('content-script-wrapper loader', () => {
     expect(wrapped).toContain('"executed"')
     expect(wrapped).not.toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
   })
+
+  // Regression guard for the Windows path-form divergence (see lib/resource-path):
+  // rspack may hand the loader a resourcePath whose form differs from the
+  // canonicalized manifest dir. Reproduced cross-platform by referencing the
+  // declared entry through a symlinked ancestor (a directory junction, which
+  // Windows can create without elevation). Before the fix the loader compared
+  // raw forms, failed the declared-entry match, and returned the source
+  // unwrapped — exactly the Windows-only CI failure.
+  it('wraps a declared entry referenced through a symlinked ancestor dir', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(manifestDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.ts']}]
+      }),
+      'utf8'
+    )
+    fs.writeFileSync(path.join(contentDir, 'scripts.ts'), 'x', 'utf8')
+
+    // A symlinked view of the project root: the loader is handed a resourcePath
+    // routed through the symlink, while the manifest path it resolves is real.
+    const linkedRoot = path.join(projectDir, '..', `${path.basename(projectDir)}-link`)
+    fs.symlinkSync(projectDir, linkedRoot, 'junction')
+    tempDirs.push(linkedRoot)
+    const linkedResource = path.join(
+      linkedRoot,
+      'src',
+      'content',
+      'scripts.ts'
+    )
+
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(
+        linkedResource,
+        path.join(manifestDir, 'manifest.json')
+      ) as any,
+      'export default function mount(){ return () => {} }\nmount()'
+    )
+
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+    expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
+  })
 })
