@@ -26,6 +26,22 @@ import {registerPublishCommand} from './commands/publish'
 import {registerInstallCommand} from './commands/install'
 import {registerTelemetryCommand} from './commands/telemetry'
 
+// Public type surface for `extension.config.js`. Re-exported from the root so
+// consumers can annotate their config with `import('extension').FileConfig`.
+// These are type-only re-exports (erased at runtime). They live in a
+// self-contained local module because `extension-develop` does not publish
+// declaration files. See `config-types.ts` for the sync note.
+// The `.js` extension is required: this package is ESM (`"type": "module"`),
+// so the emitted declaration's relative re-export must carry an explicit
+// extension to resolve under consumer `node16`/`nodenext` module resolution
+// (TS2834). Without it the type silently degrades to `any` under skipLibCheck.
+export type {
+  FileConfig,
+  BrowserConfig,
+  BrowserType,
+  CompanionExtensionsConfig
+} from './config-types.js'
+
 const cliPackageJson = getCliPackageJson()
 
 function developVersion() {
