@@ -71,6 +71,28 @@ function bundledTemplateDir(templateName: string): string {
   return path.join(__dirname, '..', 'templates', templateName)
 }
 
+// Files the extension-js/examples repo carries for its own gallery + E2E
+// tooling. They have no purpose in a scaffolded user project — `template.meta.json`
+// is the gallery "featured" flag, `template.spec.ts` is the examples E2E spec
+// (and trips `tsc --noEmit` in a fresh project), and the root `screenshot.png`
+// is the gallery thumbnail (the generated README embeds `public/screenshot.png`,
+// not this one). Strip them after copying any template. See issue #476.
+export const TEMPLATE_SCAFFOLDING_FILES = [
+  'template.meta.json',
+  'template.spec.ts',
+  'screenshot.png'
+]
+
+export async function removeTemplateScaffoldingFiles(
+  projectPath: string
+): Promise<void> {
+  await Promise.all(
+    TEMPLATE_SCAFFOLDING_FILES.map((name) =>
+      fs.rm(path.join(projectPath, name), {force: true})
+    )
+  )
+}
+
 function getArchiveBaseName(url: string): string {
   const withoutQuery = url.split('?')[0]
   const fileName = path.basename(withoutQuery)
@@ -129,6 +151,7 @@ export async function importExternalTemplate(
 
       if (existsSync(localTemplate)) {
         await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
+        await removeTemplateScaffoldingFiles(projectPath)
         return
       }
       // Bundled copy missing (unexpected): fall through to the network fetch
@@ -193,6 +216,9 @@ export async function importExternalTemplate(
       const srcPath = path.join(tempPath, resolvedTemplateName)
       await utils.moveDirectoryContents(srcPath, projectPath)
     }
+
+    // Strip examples-repo scaffolding that should never ship in a user project.
+    await removeTemplateScaffoldingFiles(projectPath)
 
     // Cleanup temp
     await fs.rm(tempRoot, {recursive: true, force: true})
