@@ -93,7 +93,7 @@
   ],
   "dependencies": {
     "@types/chrome": "^0.1.33",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "@types/webextension-polyfill": "0.12.4",
     "brave-location": "3.0.6",
     "chrome-location2": "4.0.0",
