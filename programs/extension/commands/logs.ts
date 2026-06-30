@@ -145,7 +145,7 @@ export function registerLogsCommand(program: Command) {
   program
     .command('logs')
     .arguments('[project-path]')
-    .usage('logs [project-path] [options]')
+    .usage('[project-path] [options]')
     .description(
       'Print or stream logs from every context of a running dev session (agent bridge)'
     )

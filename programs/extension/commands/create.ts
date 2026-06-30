@@ -21,7 +21,7 @@ export function registerCreateCommand(program: Command) {
   program
     .command('create')
     .arguments('<project-name|project-path>')
-    .usage('create <project-name|project-path> [options]')
+    .usage('<project-name|project-path> [options]')
     .description(commandDescriptions.create)
     .option(
       '-t, --template <template-name>',

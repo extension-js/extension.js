@@ -45,7 +45,7 @@ export function registerPreviewCommand(program: Command) {
   program
     .command('preview')
     .arguments('[project-name]')
-    .usage('preview [path-to-remote-extension] [options]')
+    .usage('[path-to-remote-extension] [options]')
     .description(commandDescriptions.preview)
     .addHelpText(
       'after',
