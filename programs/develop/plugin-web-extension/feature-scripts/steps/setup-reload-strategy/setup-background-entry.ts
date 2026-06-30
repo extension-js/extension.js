@@ -89,8 +89,28 @@ export class SetupBackgroundEntry {
       return
     }
 
-    // chromium / manifest v3 or v2
-    if (manifestVersion === 3) {
+    // chromium / safari / manifest v3 or v2.
+    //
+    // Safari is classified as neither a chromium- nor a gecko-based browser, so
+    // its prefixed manifest_version keys (chromium:/firefox:) do not resolve and
+    // `manifestVersion` is undefined here. `patch-background` injects a
+    // background.service_worker for every non-gecko manifest that is not
+    // explicitly MV2 (undefined included), so the default branch below must
+    // register the matching entry. Otherwise the patched manifest references
+    // background/service_worker.js that no chunk emits, and the persist-manifest
+    // gate fails the first build with a "files were not emitted to disk" error.
+    if (manifestVersion === 2) {
+      const bgScripts = manifestBg?.scripts
+
+      if (bgScripts && bgScripts.length > 0) {
+        const bgScriptPath = path.join(dirname, bgScripts[0])
+        const maybeError = this.getMissingBackgroundError(bgScriptPath)
+
+        if (maybeError) hookError(maybeError)
+      } else {
+        this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
+      }
+    } else {
       const serviceWorker = manifestBg?.service_worker
       if (serviceWorker) {
         const swPath = path.join(dirname, serviceWorker)
@@ -113,17 +133,6 @@ export class SetupBackgroundEntry {
           'background/service_worker',
           minimumBgScript
         )
-      }
-    } else if (manifestVersion === 2) {
-      const bgScripts = manifestBg?.scripts
-
-      if (bgScripts && bgScripts.length > 0) {
-        const bgScriptPath = path.join(dirname, bgScripts[0])
-        const maybeError = this.getMissingBackgroundError(bgScriptPath)
-
-        if (maybeError) hookError(maybeError)
-      } else {
-        this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     }
   }
