@@ -262,10 +262,22 @@ export default function contentScriptWrapper(
     }
   }
 
-  // rspack hands the loader a canonical (symlink-resolved) resourcePath, so it
-  // already matches the canonicalized manifestDir/packageJsonDir above. See
-  // canonicalizeDir for why that canonicalization is load-bearing.
-  const resourceAbsPath = path.normalize(this.resourcePath)
+  // Canonicalize the resource path through the SAME directory canonicalization
+  // used for manifestDir/packageJsonDir above. rspack hands us a real path, but
+  // its exact form can differ from how we canonicalized the manifest dir — most
+  // visibly on Windows, where `realpathSync.native` expands 8.3 short names and
+  // normalizes drive-letter case (e.g. `RUNNER~1` -> `runneradmin`) while a
+  // plain `path.normalize` leaves them as-is. That divergence made the resolved
+  // declared-entry abs paths string-unequal to the resourcePath, so every
+  // content script fell through unwrapped on Windows. Canonicalize the resource
+  // *directory* (it always exists, even when the resource file itself is
+  // virtual) so both sides share the same form and stay string-equal.
+  const resourceAbsPath = path.normalize(
+    path.join(
+      canonicalizeDir(path.dirname(this.resourcePath)),
+      path.basename(this.resourcePath)
+    )
+  )
   const declaredEntry = declaredContentJsAbsEntries.find(
     (entry) => resourceAbsPath === path.normalize(entry.abs)
   )
