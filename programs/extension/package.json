@@ -11,12 +11,12 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/cli.d.ts",
+      "types": "./dist/extension/index.d.ts",
       "import": "./dist/cli.cjs",
       "require": "./dist/cli.cjs"
     },
     "./browsers": {
-      "types": "./dist/browsers.d.ts",
+      "types": "./dist/extension/browsers/index.d.ts",
       "import": "./dist/browsers.cjs",
       "require": "./dist/browsers.cjs"
     },
@@ -28,7 +28,7 @@
     }
   },
   "main": "./dist/cli.cjs",
-  "types": "./dist/cli.d.ts",
+  "types": "./dist/extension/index.d.ts",
   "files": [
     "dist",
     "bin",
