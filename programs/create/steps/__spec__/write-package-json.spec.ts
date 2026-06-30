@@ -196,3 +196,92 @@ describe('overridePackageJson template-aware scripts', () => {
     })
   })
 })
+
+describe('overridePackageJson dependency build-script approval', () => {
+  it('suppresses the universal no-op `less` build script in plain scaffolds', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'seed', private: true})
+      )
+
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {cliVersion: '4.0.1'},
+        console
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
+      // No native ML deps declared → no build approvals, no bun trust list.
+      expect(pkg.pnpm.onlyBuiltDependencies).toBeUndefined()
+      expect(pkg.trustedDependencies).toBeUndefined()
+    })
+  })
+
+  it('approves native ML build scripts (pnpm + bun) when the transformers stack is present', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          dependencies: {'@huggingface/transformers': '3.7.1'}
+        })
+      )
+
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {cliVersion: '4.0.1'},
+        console
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      // pnpm: native deps allowed to build, no-op less still suppressed.
+      expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
+        expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])
+      )
+      expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
+      // bun: same native deps trusted to run their install scripts.
+      expect(pkg.trustedDependencies).toEqual(
+        expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])
+      )
+    })
+  })
+
+  it('merges with build-script config a template already declares', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          pnpm: {onlyBuiltDependencies: ['esbuild']}
+        })
+      )
+
+      await overridePackageJson(
+        projectPath,
+        'seed',
+        {cliVersion: '4.0.1'},
+        console
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      // Template's own approval is preserved; `less` suppression is added.
+      expect(pkg.pnpm.onlyBuiltDependencies).toContain('esbuild')
+      expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
+    })
+  })
+})
