@@ -99,6 +99,46 @@ describe('react tools', () => {
     )
   })
 
+  it('resolves the @rspack/plugin-react-refresh v2 named export (regression for #474)', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'react'
+    )
+
+    const optionalResolver = (await import(
+      '../../../lib/optional-deps-resolver'
+    )) as any
+    optionalResolver.loadOptionalContractModuleWithoutInstall.mockImplementationOnce(
+      (opts: any) => {
+        const namespaceWithNamedExportOnly = {
+          ReactRefreshRspackPlugin: ReactRefreshPluginCtor
+        }
+        return opts?.moduleAdapter
+          ? opts.moduleAdapter(namespaceWithNamedExportOnly)
+          : namespaceWithNamedExportOnly
+      }
+    )
+
+    vi.doMock('module', () => ({
+      createRequire: () => {
+        const req = ((id: string) => {
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
+    }))
+
+    const {maybeUseReact} = await import('../../js-tools/react')
+    const result = await maybeUseReact('/p', {})
+
+    // The plugin was constructed from the named export, not the namespace object.
+    expect(result?.plugins?.length).toBeGreaterThan(0)
+    expect(result?.plugins?.[0]).toBeInstanceOf(ReactRefreshPluginCtor)
+  })
+
   it('throws when optional react tooling cannot be resolved', async () => {
     const integrations = (await import(
       '../../frameworks-lib/integrations'
