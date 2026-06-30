@@ -2,20 +2,78 @@
 
 ## Unreleased
 
+- **Extension.js v4 — now on Node.js 22+.** Node 20 is no longer supported. There are no API changes: upgrade Node and your project keeps working.
+- **Multi-file content scripts just work in dev.** Split a content script across plain files (a base class in one, the rest in another) — saves now hot-reload without a restart, and a thrown error traces back to your real file and line instead of an inlined blob.
+- **Snappier Safari dev.** `extension dev --browser=safari` resyncs in the background instead of blocking on a full Xcode build every save, and a burst of saves collapses into a single rebuild.
+- **No leaked browsers.** A dev session that exits on its own now reliably shuts the browser down — no more Chrome or Firefox processes lingering after you're finished.
+
 ### 🚀 Features
 
-- Add open action/command bridge triggers and fix Firefox extension loading (RDP addons actor cache, background producer injection, service_worker→scripts) ([a3c0b8aa](https://github.com/extension-js/extension.js/commit/a3c0b8aa15268405c968ff05bd268e4a27dc282f))
+- Add regression test for @rspack/plugin-react-refresh named export resolution ([8a1b50e0](https://github.com/extension-js/extension.js/commit/8a1b50e07b2b59b22c9d6d0c10925c50404eae92))
+- Expose FileConfig type at package level for extension.config.js (#468) ([93577be9](https://github.com/extension-js/extension.js/commit/93577be97d1e135c700b363fcde3abf68ca8711e))
+- Support @rspack/plugin-react-refresh v2 export shape and align the contract to 2.0.2 ([3290e85b](https://github.com/extension-js/extension.js/commit/3290e85b43c354ac0ef18480e8013f4f28d41d9d))
+- Add v4 release highlights ([57c333d0](https://github.com/extension-js/extension.js/commit/57c333d0b381c5b6a619f4d7d5d50409aa03bddc))
+- Surface swallowed Chromium source-inspection failures through author-mode diagnostics ([e0f74b69](https://github.com/extension-js/extension.js/commit/e0f74b69b4c82f7822c504e4df86daaa80d66fb6))
+- Surface swallowed locale-validation failures through author-mode diagnostics ([3caf5029](https://github.com/extension-js/extension.js/commit/3caf5029ad9d69ed89a3d887b082a52afa815b12))
+- add Brave, Opera, Vivaldi, Yandex, Waterfox and LibreWolf as browser targets ([fdb3f2ed](https://github.com/extension-js/extension.js/commit/fdb3f2ed47563fb0be29b612b62ac0e6422396c4))
+- Forward profile keep/copy options through the firefox launch request ([2cbf9d8d](https://github.com/extension-js/extension.js/commit/2cbf9d8da165b1fce1e05bb954eafd0cc9adc030))
+- Forward copyFromProfile/keepProfileChanges from config through to the chromium and firefox launchers ([b214f23c](https://github.com/extension-js/extension.js/commit/b214f23c3be1fff50d2a53e88971df78feb84a97))
 
 ### 🐛 Fixes
 
-- Fix smoke:npx for workspace specifiers and wire it into CI as a packed-tarball guardrail ([0a8a0963](https://github.com/extension-js/extension.js/commit/0a8a096342da3d0caf4e7966e8f7248a152a6213))
+- Override js-yaml, form-data, vite and read-yaml-file to clear dependabot security advisories ([3930424e](https://github.com/extension-js/extension.js/commit/3930424e1c1c0892c5df34290cc1c70158963ccc))
+- Resolve CDP/RDP port per browser instance so a second instance cannot capture the first's port ([921fdc1f](https://github.com/extension-js/extension.js/commit/921fdc1fd0743f63531d4d721b443e82a4356dd6))
+- Fix theme additional_backgrounds array crash and chrome-extension:// CSS URLs ([ad86c34c](https://github.com/extension-js/extension.js/commit/ad86c34cda4b40ba7eaaabe7f483942ddbe84a1d))
+- Fix page-script top-level await and stop wrapping vendored *.min.js ([19189abb](https://github.com/extension-js/extension.js/commit/19189abb923f12212953e59aa9791239121d0bd0))
+- Fix WAR parity gaps w/ extension compiler ([851c47d1](https://github.com/extension-js/extension.js/commit/851c47d1805b71d26cccb868cbf39cf696bc7223))
 
 <details>
-<summary>🧹 Other changes (3)</summary>
+<summary>🧹 Other changes (44)</summary>
 
-- Delete dormant feature-resolve and drop @swc/core and magic-string ([2fe00f58](https://github.com/extension-js/extension.js/commit/2fe00f589ed95b05834b323028976e45ad706ab3))
-- Use es-module-lexer instead of @swc/core for content-script default-export detection ([1142eb11](https://github.com/extension-js/extension.js/commit/1142eb113d28a717bf6cba269e684adae903be21))
-- Remove dead dependencies from extension-develop (cross-spawn, unique-names-generator, loader-utils, @swc/helpers) ([4514eae6](https://github.com/extension-js/extension.js/commit/4514eae6ef6fb64996d1824d963c8741587a02cc))
+- Route isSubPath through the shared resource-path helper for cross-platform consistency ([900071dc](https://github.com/extension-js/extension.js/commit/900071dc24cb0618f9d4df05bf595dbb37947dbb))
+- Centralize resource-path canonicalization in a shared, cross-platform helper ([4b938754](https://github.com/extension-js/extension.js/commit/4b93875456d335e70c02661f970956ef2170bd83))
+- Match content-script loader include via canonicalized resource path for Windows ([9300fb30](https://github.com/extension-js/extension.js/commit/9300fb300d803cc79cbdaf5ae76776c9f3f0c56b))
+- Canonicalize content-script resourcePath so wrapping works on Windows ([e878bf64](https://github.com/extension-js/extension.js/commit/e878bf643afc72d0b58544bd0d63c15aa7e0b87e))
+- Emit prefixed manifest entries for engine-family browser targets ([b4fd0431](https://github.com/extension-js/extension.js/commit/b4fd0431f95fd25f59523e34307904a0f5f73321))
+- Drop the duplicated command name from CLI usage strings ([eba667e1](https://github.com/extension-js/extension.js/commit/eba667e1142ee98653a0b38fae8652770e6a0ba4))
+- Use the launched Firefox RDP port verbatim instead of re-deriving it ([4398fc80](https://github.com/extension-js/extension.js/commit/4398fc80440ccb1edcde88754a901e1c9205b30d))
+- Run launched Firefox headless when MOZ_HEADLESS is set ([e8fed0d4](https://github.com/extension-js/extension.js/commit/e8fed0d40257c8829064f963770f3f858e8c8240))
+- Unify reload through the extension service worker for launched and `--no-browser` browsers ([7a330aa7](https://github.com/extension-js/extension.js/commit/7a330aa7356388fafcc132e42ea0ad0159a710b3))
+- Reload content scripts under `extension dev --no-browser` and add a connectable host ([a55444f8](https://github.com/extension-js/extension.js/commit/a55444f896e245cc7513185371bbea1bf0db3802))
+- Probe the dev server port on the configured host ([0faa8342](https://github.com/extension-js/extension.js/commit/0faa834275e66464b9b1423bc8b3fcda571832fa))
+- Inherit chrome:/firefox: manifest keys for browser forks ([c9280248](https://github.com/extension-js/extension.js/commit/c9280248e099c5ca818af3fbbbab44a52ddd6806))
+- Parse optional-boolean CLI flags so --flag false disables them ([0b50bd3e](https://github.com/extension-js/extension.js/commit/0b50bd3e335c361708eb938f06fa0f20f7ca3124))
+- Update dependencies for Node 22 ([7a4a269c](https://github.com/extension-js/extension.js/commit/7a4a269c07fc05ac6483a1892689051b260fd091))
+- Drop Node 20: bump CI and engines.node to 22 so yarn installs resolve which@7 ([ea1c978b](https://github.com/extension-js/extension.js/commit/ea1c978b5b9c359c2ad1e401dbed43296a658852))
+- Update message-catalog snapshot for the new firefox-reinject and chromium source-inspection messages ([80a88df6](https://github.com/extension-js/extension.js/commit/80a88df692fecf5a25040dc82a288056d9538846))
+- Coalesce Safari dev packaging so saves resync in the background and bursts collapse to one rebuild ([34c11c8f](https://github.com/extension-js/extension.js/commit/34c11c8f132829bc164e6ca59334405ea1382559))
+- Type the Firefox RDP wire boundary and client so wrong shapes fail the compile ([4be1701f](https://github.com/extension-js/extension.js/commit/4be1701f119831a76c541139ec93363d8ba5f43e))
+- Type the Chromium runner's CDP wire boundary so wrong-shaped protocol data fails the compile ([0af6f5b1](https://github.com/extension-js/extension.js/commit/0af6f5b18023df78d5192c9b605d013181227b62))
+- Force-kill the browser synchronously on process exit via a shared teardown module ([66b79e08](https://github.com/extension-js/extension.js/commit/66b79e088efde5b43469e26019788dab9ab0524a))
+- Watch and source-map classic multi-file content scripts via a dedicated concat loader ([553d9dbd](https://github.com/extension-js/extension.js/commit/553d9dbdd74320f030252cf67ad6cb54334d3ca4))
+- Route Firefox runtime-reinjection failures through the messages convention with author-mode diagnostics ([fc852022](https://github.com/extension-js/extension.js/commit/fc852022f6d02e235607f24e1a71d60bc73244f0))
+- Exclude TypeScript declaration files from script entries ([e94bef25](https://github.com/extension-js/extension.js/commit/e94bef250d37b57a7c87311e8b5672183c74892f))
+- Warn when building a Manifest V2 extension for a Chromium target ([8df0d895](https://github.com/extension-js/extension.js/commit/8df0d895db8fd14b2603945e8b43bf5fce536239))
+- Concatenate and dedupe MV2 background.scripts output ([22b8a732](https://github.com/extension-js/extension.js/commit/22b8a73266e9ec222d6d958e330931104f3307d1))
+- Concatenate classic multi-file content scripts so they share one scope ([d8b15336](https://github.com/extension-js/extension.js/commit/d8b15336c00e8bb04335e85d2a1f7702de7c253a))
+- Pin which to ^4 so browser-location packages stay Node 20 compatible under yarn ([554e9161](https://github.com/extension-js/extension.js/commit/554e91612446eb84bc3501a44cac18fa9f7cc6a4))
+- Declare keepProfileChanges/copyFromProfile on BrowserConfig so the dev config typechecks ([90b97113](https://github.com/extension-js/extension.js/commit/90b971139d9291af88c8a13cf501e7adf51e9970))
+- reuse wsl-support package for generic WSL primitives ([0d5c4cf2](https://github.com/extension-js/extension.js/commit/0d5c4cf2e5a374a6d6a2faa82f47be639243ab73))
+- Warn (don't fail) on missing CSS url() assets and pass the url through ([8bf09fec](https://github.com/extension-js/extension.js/commit/8bf09fec610621898dd7252dbe48bd6d6579fe81))
+- reuse prefers-yarn helpers in develop package manager ([66477cdc](https://github.com/extension-js/extension.js/commit/66477cdcfd2ba7ee61fd1fa0a5f2a8e84b351509))
+- import Compiler type explicitly in rspack config ([216a71ed](https://github.com/extension-js/extension.js/commit/216a71ed6e6d2e2127033aeb18aad537472d479e))
+- reuse prefers-yarn for package manager detection in create ([dbb29ccb](https://github.com/extension-js/extension.js/commit/dbb29ccbc87e849b2dbedac413902753f3f54092))
+- Relocate leading-slash icon paths to icons/ so the manifest matches the emitted files ([b65a4af2](https://github.com/extension-js/extension.js/commit/b65a4af23386da0e6502da094f40a3f4d8afe0a6))
+- Seed copyFromProfile once so kept profiles are not clobbered on later runs ([6fb4375d](https://github.com/extension-js/extension.js/commit/6fb4375d4c822f6978f4c1f822e7d72ad1a929c1))
+- Update message-catalog snapshot for the new Safari resync messages ([bfe4f8cd](https://github.com/extension-js/extension.js/commit/bfe4f8cdcd49abf423666dfc0c2f02acf053ea31))
+- Type 41 manifest-shape casts to drop any so wrong-shaped manifests fail the compiler ([69c522e7](https://github.com/extension-js/extension.js/commit/69c522e714e0e47b488116d95de116cbcfef24d8))
+- Throw a readable PM-aware install hint for missing optional deps instead of a raw JSON blob ([c6c9a97b](https://github.com/extension-js/extension.js/commit/c6c9a97b745240b89ce8344d306f2975fa4db498))
+- Honor profile:false, copyFromProfile and keepProfileChanges via shared resolve-profile ([135349df](https://github.com/extension-js/extension.js/commit/135349df1d447db3e3372517558e27a355e7db5b))
+- Treat unknown chromium extension ownership as not-owned to avoid adopting foreign extensions ([65ab2dbd](https://github.com/extension-js/extension.js/commit/65ab2dbd6bca0b0c74cc7aef2218b26c8ec1209f))
+- Re-run Safari converter on manifest changes and preserve Xcode user settings on --force ([89510a40](https://github.com/extension-js/extension.js/commit/89510a40d71c5fe84cf9956e7bbeb8c273f63eac))
+- Bump browser-extension-manifest-fields to ^2.2.5 ([8c9ea9d8](https://github.com/extension-js/extension.js/commit/8c9ea9d8f4576fad0b20ba6b77d8e8f3a3ccd577))
+- Emit theme image files (theme/images/<basename>) ([d553ebf1](https://github.com/extension-js/extension.js/commit/d553ebf19510bdc7c81c9c824aef2ad768d79b12))
+- Exit non-zero when compilation errors prevent output ([ef662f9f](https://github.com/extension-js/extension.js/commit/ef662f9fbc59d13dd978f50d40cb8a1147c24e85))
 </details>
 
 ## 3.18.0 (May 28, 2026)
