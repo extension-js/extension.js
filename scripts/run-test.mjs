@@ -24,6 +24,8 @@ const getTurboFilters = (target) => {
       return ['--filter', './programs/extension']
     case 'install':
       return ['--filter', './programs/install']
+    case 'create':
+      return ['--filter', './programs/create']
     case 'develop':
     case 'build':
     case 'dev':
@@ -34,6 +36,8 @@ const getTurboFilters = (target) => {
         './programs/extension',
         '--filter',
         './programs/install',
+        '--filter',
+        './programs/create',
         '--filter',
         './programs/develop'
       ]
@@ -53,6 +57,9 @@ const runFallbackTests = async (target) => {
   if (target === 'install') {
     return runCommand('pnpm', ['-C', 'programs/install', 'test'])
   }
+  if (target === 'create') {
+    return runCommand('pnpm', ['-C', 'programs/create', 'test'])
+  }
   if (target === 'develop' || target === 'build' || target === 'dev') {
     return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
   }
@@ -69,6 +76,11 @@ const runFallbackTests = async (target) => {
   ])
   if (installCode !== 0) {
     return installCode
+  }
+
+  const createCode = await runCommand('pnpm', ['-C', 'programs/create', 'test'])
+  if (createCode !== 0) {
+    return createCode
   }
 
   return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
