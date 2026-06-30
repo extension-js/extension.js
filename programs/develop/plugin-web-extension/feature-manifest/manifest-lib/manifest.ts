@@ -12,10 +12,7 @@ import {type Compilation} from '@rspack/core'
 import type {Manifest, DevOptions} from '../../../types'
 import {getManifestOverrides} from '../manifest-overrides'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
-import {
-  isChromiumBasedBrowser,
-  isGeckoBasedBrowser
-} from '../../../lib/constants'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -123,61 +120,10 @@ export function getManifestContent(
   }
 }
 
-export function filterKeysForThisBrowser(
-  manifest: Manifest,
-  browser: DevOptions['browser']
-) {
-  const isChromiumTarget = isChromiumBasedBrowser(String(browser))
-  const isGeckoTarget = isGeckoBasedBrowser(String(browser))
-
-  const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
-  const geckoPrefixes = new Set(['gecko', 'firefox'])
-
-  const prefixMatchesTarget = (prefix: string): boolean =>
-    // exact browser match (e.g., 'firefox')
-    prefix === browser ||
-    // chromium family
-    (isChromiumTarget && chromiumPrefixes.has(prefix)) ||
-    // gecko/firefox family
-    (isGeckoTarget && geckoPrefixes.has(prefix))
-
-  const resolve = (node: any): any => {
-    if (Array.isArray(node)) {
-      return node.map((item) => resolve(item))
-    }
-
-    if (node && typeof node === 'object') {
-      const result: Record<string, any> = {}
-      const prefixedMatches: Record<string, any> = {}
-
-      for (const [key, value] of Object.entries(node)) {
-        const indexOfColon = key.indexOf(':')
-
-        // Retain plain keys.
-        if (indexOfColon === -1) {
-          result[key] = resolve(value)
-          continue
-        }
-
-        // Apply matching browser:key overrides last; drop non-matching ones.
-        const prefix = key.substring(0, indexOfColon)
-        if (prefixMatchesTarget(prefix)) {
-          prefixedMatches[key.substring(indexOfColon + 1)] = resolve(value)
-        }
-      }
-
-      for (const [strippedKey, value] of Object.entries(prefixedMatches)) {
-        result[strippedKey] = value
-      }
-
-      return result
-    }
-
-    return node
-  }
-
-  return resolve(manifest)
-}
+// Re-export the canonical resolver (imported above) so the emission path,
+// feature-scripts, and feature-html all share one implementation — including
+// Safari/webkit chromium-family resolution.
+export {filterKeysForThisBrowser}
 
 export function buildCanonicalManifest(
   manifestPath: string,
