@@ -80,7 +80,7 @@ export function registerDevCommand(program: Command) {
   program
     .command('dev')
     .arguments('[project-path|remote-url]')
-    .usage('dev [project-path|remote-url] [options]')
+    .usage('[project-path|remote-url] [options]')
     .description(commandDescriptions.dev)
     .addHelpText(
       'after',

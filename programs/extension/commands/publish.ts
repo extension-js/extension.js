@@ -72,7 +72,7 @@ export function registerPublishCommand(program: Command) {
   program
     .command('publish')
     .arguments('[project-path]')
-    .usage('publish [project-path] [options]')
+    .usage('[project-path] [options]')
     .description(
       'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)'
     )

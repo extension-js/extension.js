@@ -57,7 +57,7 @@ export function registerStartCommand(program: Command) {
   program
     .command('start')
     .arguments('[project-path|remote-url]')
-    .usage('start [project-path|remote-url] [options]')
+    .usage('[project-path|remote-url] [options]')
     .description(commandDescriptions.start)
     .addHelpText(
       'after',
