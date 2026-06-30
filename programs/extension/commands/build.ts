@@ -39,7 +39,7 @@ export function registerBuildCommand(program: Command) {
   program
     .command('build')
     .arguments('[project-name]')
-    .usage('build [path-to-remote-extension] [options]')
+    .usage('[path-to-remote-extension] [options]')
     .description(commandDescriptions.build)
     .option(
       '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | safari | webkit-based>',

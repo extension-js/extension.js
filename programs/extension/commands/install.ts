@@ -73,7 +73,7 @@ export function registerInstallCommand(program: Command) {
 
   program
     .command('uninstall')
-    .usage('uninstall <browser-name> | uninstall --all | uninstall --where')
+    .usage('<browser-name> | --all | --where')
     .description(commandDescriptions.uninstall)
     .option('--browser <browser-name>', 'browser to uninstall')
     .option('--all', 'remove all managed browser binaries')
