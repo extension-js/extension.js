@@ -112,7 +112,12 @@ export async function maybeUseReact(
       projectPath,
       dependencyId: '@rspack/plugin-react-refresh',
       moduleAdapter: (mod: any) =>
-        ((mod && mod.default) || mod) as ReactRefreshPluginCtor
+      (
+        mod?.default ??
+        mod?.ReactRefreshRspackPlugin ??
+        mod?.ReactRefreshPlugin ??
+        mod
+      ) as ReactRefreshPluginCtor
     })
 
   const reactPlugins: RspackPluginInstance[] = [
