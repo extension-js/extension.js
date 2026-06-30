@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {createRequire} from 'module'
+import {canonicalizeDir, isResourceUnderDirs} from './resource-path'
 
 function normalizePath(filePath: string): string {
   return filePath.replace(/\\/g, '/')
@@ -158,12 +159,14 @@ export function resolveTranspilePackageDirs(
   return Array.from(resolvedDirs)
 }
 
+// Containment check routed through the shared canonicalization helper so it is
+// robust to the same cross-platform path-form differences the content-script
+// wrapper hit (Windows 8.3 short names / drive-letter case, symlinked roots).
+// Both sides are canonicalized identically; non-existent/virtual paths fall
+// back to a plain normalized comparison. See lib/resource-path.
 export function isSubPath(
   resourcePath: string,
   directoryPath: string
 ): boolean {
-  const resource = normalizePath(resourcePath)
-  const dir = normalizePath(directoryPath).replace(/\/+$/, '')
-
-  return resource === dir || resource.startsWith(`${dir}/`)
+  return isResourceUnderDirs(resourcePath, [canonicalizeDir(directoryPath)])
 }
