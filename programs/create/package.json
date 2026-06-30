@@ -47,6 +47,7 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "pretest:create": "pnpm compile",
+    "pretest": "pnpm compile",
     "test": "vitest run",
     "test:create": "vitest run",
     "test:coverage": "vitest run --coverage"
