@@ -36,6 +36,11 @@ describe('importExternalTemplate', () => {
     const projectPath = path.join(tmpRoot, 'my-ext')
 
     try {
+      await importExternalTemplate(projectPath, 'my-ext', 'init', {
+        log: () => {},
+        error: () => {}
+      })
+
       // The bundled template carries its manifest under src/, distinguishing a
       // local copy from any network fetch.
       expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(true)
