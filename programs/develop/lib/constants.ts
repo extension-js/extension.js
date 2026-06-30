@@ -40,6 +40,9 @@ export function isChromiumBasedBrowser(browser: string): boolean {
 
 export function isGeckoBasedBrowser(browser: string): boolean {
   return (
-    GECKO_BASED_BROWSERS.includes(browser) || String(browser).includes('gecko')
+    GECKO_BASED_BROWSERS.includes(browser) ||
+    String(browser).includes('gecko') ||
+    // 'firefox-based' has no 'gecko' substring but is still a gecko target.
+    String(browser).includes('firefox')
   )
 }
