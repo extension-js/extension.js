@@ -95,6 +95,25 @@ describe('transpile-packages', () => {
     ).toBe(false)
   })
 
+  it('matches a resource reachable through a symlinked package dir', () => {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-subpath-'))
+    )
+    const realPkg = path.join(root, 'real-pkg', 'src')
+    fs.mkdirSync(realPkg, {recursive: true})
+    const resource = path.join(realPkg, 'index.ts')
+    fs.writeFileSync(resource, 'x')
+
+    // A symlinked view of the package root (junction works on Windows too).
+    const linkedPkgRoot = path.join(root, 'linked-pkg')
+    fs.symlinkSync(path.join(root, 'real-pkg'), linkedPkgRoot, 'junction')
+    const linkedResource = path.join(linkedPkgRoot, 'src', 'index.ts')
+
+    // Resource via the symlink is still recognized as under the real dir.
+    expect(isSubPath(linkedResource, path.join(root, 'real-pkg'))).toBe(true)
+    fs.rmSync(root, {recursive: true, force: true})
+  })
+
   it('resolves package root when package.json is not exported', () => {
     const projectRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-transpile-')
