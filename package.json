@@ -48,6 +48,7 @@
     "ci:test:core": "pnpm run test:dev",
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",
+    "ci:test:create": "node scripts/run-test.mjs create",
     "ci:test:browser": "pnpm run test:dev",
     "ci:test:plugin-css": "pnpm run test:dev",
     "ci:test:plugin-compatibility": "pnpm run test:dev",
