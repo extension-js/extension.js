@@ -90,7 +90,7 @@
     "@rspack/plugin-react-refresh": "2.0.2",
     "@vue/compiler-sfc": "3.5.26",
     "adm-zip": "^0.5.16",
-    "browser-extension-manifest-fields": "^2.2.5",
+    "browser-extension-manifest-fields": "^2.2.7",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "dotenv": "^17.2.3",
