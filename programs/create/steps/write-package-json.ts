@@ -79,6 +79,23 @@ interface OverridePackageJsonOptions {
   cliVersion?: string
 }
 
+// `less` rides in transitively via extension-develop (Less compilation support).
+// Its postinstall only installs Playwright inside less.js's own dev monorepo and
+// is a no-op when installed as a dependency — so pnpm's "Ignored build scripts"
+// warning is pure noise. Suppress it in every scaffold so `pnpm install` is clean.
+const BUILD_NOOP_DEPENDENCIES = ['less']
+
+// Native packages that MUST run their install script (download/build platform
+// binaries) or the extension breaks at runtime. They arrive via the
+// transformers ML stack. pnpm blocks build scripts by default and bun only runs
+// them for `trustedDependencies`, so without pre-approval the user has to run a
+// manual `approve-builds`/`--trust` middle step. npm/yarn run them by default.
+const ML_NATIVE_BUILD_DEPENDENCIES = ['onnxruntime-node', 'sharp', 'protobufjs']
+const ML_DEP_TRIGGERS = ['@huggingface/transformers', '@xenova/transformers']
+
+const uniq = (values: Array<string | undefined>): string[] =>
+  Array.from(new Set(values.filter(Boolean) as string[]))
+
 function resolveExtensionDevDependencyVersion(cliVersion?: string): string {
   if (!cliVersion) {
     return 'latest'
@@ -127,6 +144,35 @@ export async function overridePackageJson(
 
   const packageManagerSpec =
     packageJson.packageManager || getPackageManagerSpecFromEnv()
+
+  // Pre-approve dependency build scripts so a single install "just works" with
+  // no manual approve-builds step — across pnpm and bun (npm/yarn run scripts by
+  // default and ignore these keys). Native ML builds are only approved when the
+  // project actually pulls the transformers stack, keeping plain scaffolds clean.
+  const declaredDeps = {
+    ...(packageJson.dependencies || {}),
+    ...(packageJson.devDependencies || {})
+  }
+  const usesMlNativeDeps = ML_DEP_TRIGGERS.some((dep) => declaredDeps[dep])
+  const nativeBuildDeps = usesMlNativeDeps ? ML_NATIVE_BUILD_DEPENDENCIES : []
+
+  const existingPnpm =
+    packageJson.pnpm && typeof packageJson.pnpm === 'object'
+      ? packageJson.pnpm
+      : {}
+  const ignoredBuilt = uniq([
+    ...(existingPnpm.ignoredBuiltDependencies || []),
+    ...BUILD_NOOP_DEPENDENCIES
+  ])
+  const onlyBuilt = uniq([
+    ...(existingPnpm.onlyBuiltDependencies || []),
+    ...nativeBuildDeps
+  ])
+  const trustedDeps = uniq([
+    ...(packageJson.trustedDependencies || []),
+    ...nativeBuildDeps
+  ])
+
   const packageMetadata = {
     ...packageJson,
     name: path.basename(projectPath),
@@ -138,6 +184,12 @@ export async function overridePackageJson(
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
+    pnpm: {
+      ...existingPnpm,
+      ...(ignoredBuilt.length ? {ignoredBuiltDependencies: ignoredBuilt} : {}),
+      ...(onlyBuilt.length ? {onlyBuiltDependencies: onlyBuilt} : {})
+    },
+    ...(trustedDeps.length ? {trustedDependencies: trustedDeps} : {}),
     author: {
       name: 'Your Name',
       email: 'your@email.com',
