@@ -8,7 +8,6 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../../browsers-lib/messages'
 import {printDevBannerOnce} from '../../../browsers-lib/banner'
 
 async function waitForManifest(outPath: string, timeoutMs = 8000) {
@@ -89,13 +88,6 @@ export async function printRunningInDevelopmentSummary(
   } catch {
     return false
   }
-}
-
-export function printSourceInspection(html: string) {
-  console.log(messages.separatorLine())
-  console.log(messages.separatorLine())
-  console.log(html)
-  console.log(messages.separatorLine())
 }
 
 export function printLogEventPretty(

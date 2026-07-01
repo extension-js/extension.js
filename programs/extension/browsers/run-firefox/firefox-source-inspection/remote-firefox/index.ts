@@ -23,15 +23,11 @@ import {
   installTemporaryAddon,
   waitForManagerWelcome
 } from './addons-install'
-import {
-  printRunningInDevelopmentSummary,
-  printSourceInspection
-} from './firefox-utils'
+import {printRunningInDevelopmentSummary} from './firefox-utils'
 import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {MessagingClient} from './messaging-client'
 import {deriveMozExtensionId} from './moz-id'
-import {ensureTabForUrl, getPageHTML, navigateTo} from './source-inspect'
 
 const MAX_RETRIES = RDP_MAX_RETRIES
 const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
@@ -47,28 +43,12 @@ export class RemoteFirefox {
     // never installs). See resolveRdpPort.
     resolvedRdpPort?: number
   }
-  private needsReinstall = false
   private client: MessagingClient | null = null
   private loggingAttached = false
   private cachedAddonsActor: string | undefined
   private cachedSupportsReload: boolean | null = null
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
-
-  // Phase F3 — capability cache. Probed once per session against the addon
-  // background to short-circuit runtime reinjection when browser.scripting
-  // isn't reachable (older Firefox or sleeping event-page).
-  private cachedRuntimeCapability: {
-    hasScripting: boolean
-    probedAt: number
-  } | null = null
-
-  public getRuntimeCapability(): {
-    hasScripting: boolean
-    probedAt: number
-  } | null {
-    return this.cachedRuntimeCapability
-  }
 
   private selectPrimaryAddonPath(
     compilation: CompilationLike,
@@ -286,23 +266,6 @@ export class RemoteFirefox {
       this.derivedExtensionId = primaryUserAddonId
     }
 
-    // If flagged by reload pipeline, force reinstall of the first (user) add-on
-    try {
-      if (this.needsReinstall && primaryAddonPath) {
-        const toActor = addonsActor
-
-        if (toActor) {
-          await client.request({
-            to: toActor,
-            type: 'installTemporaryAddon',
-            addonPath: primaryAddonPath,
-            openDevTools: false
-          })
-        }
-        this.needsReinstall = false
-      }
-    } catch {}
-
     // Best-effort: if no explicit id yet, try to infer from any moz-extension URL target
     try {
       if (!this.derivedExtensionId) {
@@ -329,103 +292,6 @@ export class RemoteFirefox {
     }
   }
 
-  public markNeedsReinstall() {
-    this.needsReinstall = true
-  }
-
-  public async probeRuntimeCapability(
-    client?: MessagingClient
-  ): Promise<{hasScripting: boolean} | null> {
-    if (this.cachedRuntimeCapability) return this.cachedRuntimeCapability
-
-    const addonsActor = this.cachedAddonsActor
-    const addonId = this.derivedExtensionId
-
-    if (!addonsActor || !addonId) return null
-
-    const target = client || this.client
-    if (!target) return null
-
-    const {attachToAddonBackgroundConsole} = await import('./runtime-reinject')
-    const console_ = await attachToAddonBackgroundConsole(
-      target,
-      addonsActor,
-      addonId
-    )
-
-    if (!console_) return null
-
-    try {
-      const probe = (await target.evaluate(
-        console_.consoleActor,
-        `(() => {
-          const api = (typeof globalThis === 'object' && globalThis)
-            ? (globalThis.browser || globalThis.chrome || null)
-            : null;
-          return JSON.stringify({
-            hasScripting: !!(api && api.scripting && typeof api.scripting.executeScript === 'function')
-          });
-        })()`
-      )) as unknown
-      const raw =
-        typeof probe === 'string' ? probe : (probe as {value?: unknown})?.value
-      const text = typeof raw === 'string' ? raw : ''
-
-      if (!text) return null
-
-      const parsed = JSON.parse(text) as {hasScripting?: boolean}
-      const hasScripting = Boolean(parsed?.hasScripting)
-
-      this.cachedRuntimeCapability = {hasScripting, probedAt: Date.now()}
-
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        try {
-          console.log(
-            messages.firefoxRdpRuntimeCapabilitySummary(
-              hasScripting ? 'available' : 'unavailable'
-            )
-          )
-        } catch {
-          // Do nothing
-        }
-      }
-      return this.cachedRuntimeCapability
-    } catch {
-      return null
-    }
-  }
-
-  // RDP-based source inspection for Firefox
-  public async inspectSource(
-    compilation: CompilationLike,
-    opts: {startingUrl?: string; source?: string | boolean}
-  ): Promise<void> {
-    try {
-      const rdpPort = this.resolveRdpPort(compilation)
-      const client = this.client || (await this.connectClient(rdpPort))
-
-      const urlToInspect =
-        typeof opts.source === 'string' && opts.source !== 'true'
-          ? opts.source
-          : opts.startingUrl
-
-      const tab = await ensureTabForUrl(client, urlToInspect)
-      if (!tab) return
-
-      if (urlToInspect) {
-        await navigateTo(client, tab.actor, tab.consoleActor, urlToInspect)
-      }
-
-      const html =
-        (await getPageHTML(client, tab.actor, tab.consoleActor)) || ''
-      printSourceInspection(html)
-    } catch (error) {
-      const err = error as Error
-      console.warn(
-        messages.firefoxInspectSourceNonFatal(err?.message || String(err))
-      )
-    }
-  }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)
   // Emits LogEvent-like lines to stdout according to filters/format

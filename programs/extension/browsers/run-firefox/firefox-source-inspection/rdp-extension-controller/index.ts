@@ -51,25 +51,8 @@ export class FirefoxRDPController {
     this.debugPort = normalizedDebugPort
   }
 
-  getRemoteFirefox(): RemoteFirefox {
-    return this.remote
-  }
-
-  async connect(): Promise<void> {
-    // RemoteFirefox lazily connects on first operation.
-    // Nothing to do here intentionally
-  }
-
   async ensureLoaded(compilation: CompilationLike): Promise<void> {
     await this.remote.installAddons(compilation)
-  }
-
-  async probeRuntimeCapability(): Promise<{hasScripting: boolean} | null> {
-    return this.remote.probeRuntimeCapability()
-  }
-
-  getRuntimeCapability(): {hasScripting: boolean; probedAt: number} | null {
-    return this.remote.getRuntimeCapability()
   }
 
   async enableUnifiedLogging(opts: {
@@ -84,6 +67,3 @@ export class FirefoxRDPController {
     await this.remote.enableUnifiedLogging(opts)
   }
 }
-
-// Optional alias to match Chromium naming symmetry in types/imports
-export {FirefoxRDPController as RDPExtensionController}

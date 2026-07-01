@@ -28,8 +28,6 @@ interface ExtensionInfoResult {
   version?: string
 }
 
-export type ChromiumDeveloperModeStatus = 'enabled' | 'disabled' | 'unknown'
-
 const __fileReadCache = new Map<string, {key: string; text: string}>()
 
 function readTextFileCached(filePath: string): string {
@@ -248,54 +246,6 @@ export class CDPExtensionController {
     )
   }
 
-  getDeveloperModeStatus(): ChromiumDeveloperModeStatus {
-    if (!this.profilePath) return 'unknown'
-
-    const prefCandidates: string[] = []
-    const seen = new Set<string>()
-
-    const addPrefCandidate = (dir: string) => {
-      const prefPath = path.join(dir, 'Preferences')
-      if (!fs.existsSync(prefPath)) return
-      const dedupeKey = path.resolve(prefPath)
-      if (seen.has(dedupeKey)) return
-      seen.add(dedupeKey)
-      prefCandidates.push(prefPath)
-    }
-
-    try {
-      addPrefCandidate(this.profilePath)
-      addPrefCandidate(path.join(this.profilePath, 'Default'))
-
-      for (const entry of fs.readdirSync(this.profilePath)) {
-        if (!/^Profile\s+\d+$/i.test(entry)) continue
-        addPrefCandidate(path.join(this.profilePath, entry))
-      }
-    } catch {
-      // Ignore profile listing errors.
-    }
-
-    for (const prefPath of prefCandidates) {
-      try {
-        const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
-        const uiFlag = prefs?.extensions?.ui?.developer_mode
-
-        if (typeof uiFlag === 'boolean') {
-          return uiFlag ? 'enabled' : 'disabled'
-        }
-
-        const legacyFlag = prefs?.extensions?.developer_mode
-        if (typeof legacyFlag === 'boolean') {
-          return legacyFlag ? 'enabled' : 'disabled'
-        }
-      } catch {
-        // Ignore malformed preference files.
-      }
-    }
-
-    return 'unknown'
-  }
-
   private async connectFreshClient(): Promise<void> {
     // Prefer pipe transport (--remote-debugging-pipe) when available;
     // fall back to WebSocket via --remote-debugging-port.
@@ -339,10 +289,6 @@ export class CDPExtensionController {
     this.cdp.onProtocolEvent((message: CdpProtocolMessage) => {
       cb(message)
     })
-  }
-
-  clearProtocolEventHandler() {
-    if (!this.cdp) return
   }
 
   // Stream logs when requested: attach to page + extension targets and forward

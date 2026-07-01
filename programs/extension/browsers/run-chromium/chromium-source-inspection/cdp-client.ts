@@ -8,32 +8,14 @@
 
 import type {Readable, Writable} from 'stream'
 import WebSocket from 'ws'
-import type {
-  CdpDomNode,
-  CdpProtocolMessage,
-  CdpTargetInfo
-} from '../chromium-types'
+import type {CdpProtocolMessage, CdpTargetInfo} from '../chromium-types'
 import * as messages from '../../browsers-lib/messages'
 import {
   CDP_COMMAND_TIMEOUT_MS,
   CDP_HEARTBEAT_INTERVAL_MS
 } from '../../browsers-lib/constants'
 import {discoverWebSocketDebuggerUrl} from './discovery'
-import {
-  getExtensionInfo,
-  loadUnpackedExtension,
-  unloadExtension
-} from './extensions'
-import {
-  type ExtensionRootMetaPayload,
-  evaluateExtensionRootMeta,
-  evaluateShadowStyleSnapshot,
-  getPageHTML,
-  hasVisibleShadowHostContent,
-  pollForVisibleShadowHostContent,
-  waitForContentScriptInjection,
-  waitForLoadEvent
-} from './page'
+import {getExtensionInfo} from './extensions'
 import {establishBrowserConnection} from './ws'
 
 // Restrict browser-root auto-attach to extension-relevant target types.
@@ -409,60 +391,6 @@ export class CDPClient {
     }
   }
 
-  // Navigate to a URL in the specified session
-  async navigate(sessionId: string, url: string) {
-    await this.sendCommand('Page.navigate', {url}, sessionId)
-  }
-
-  // Create a new target (tab) at a given URL and return its targetId
-  async createTarget(url: string): Promise<string> {
-    const res = (await this.sendCommand('Target.createTarget', {
-      url
-    })) as {targetId?: string}
-    return String(res?.targetId || '')
-  }
-
-  // Activate/focus an existing target by id
-  async activateTarget(targetId: string): Promise<void> {
-    await this.sendCommand('Target.activateTarget', {targetId})
-  }
-
-  // Wait for the page to finish loading
-  async waitForLoadEvent(sessionId: string) {
-    return waitForLoadEvent(this, sessionId)
-  }
-
-  // Wait for content script injection with reasonable timeout
-  async waitForContentScriptInjection(sessionId: string) {
-    return waitForContentScriptInjection(this, sessionId)
-  }
-
-  /** Extension root / reinject markers — uses page + isolated content-script context (matches injection wait). */
-  async getExtensionRootMeta(
-    sessionId: string
-  ): Promise<ExtensionRootMetaPayload | undefined> {
-    return evaluateExtensionRootMeta(this, sessionId)
-  }
-
-  /** Shadow <style> nodes under non-devtools content roots — same dual-context evaluation as root meta. */
-  async getShadowStyleSnapshot(
-    sessionId: string
-  ): Promise<Record<string, unknown> | undefined> {
-    return evaluateShadowStyleSnapshot(this, sessionId)
-  }
-
-  /** Best-effort poll when injection wait fails (async shadow fill, context quirks). */
-  async pollForVisibleShadowHostContent(
-    sessionId: string,
-    deadlineMs?: number
-  ): Promise<void> {
-    return pollForVisibleShadowHostContent(this, sessionId, deadlineMs)
-  }
-
-  async hasVisibleShadowHostContent(sessionId: string): Promise<boolean> {
-    return hasVisibleShadowHostContent(this, sessionId)
-  }
-
   // Evaluate JavaScript in the page context
   async evaluate(
     sessionId: string,
@@ -484,135 +412,6 @@ export class CDPClient {
     return response.result?.value as unknown
   }
 
-  async evaluateInContext(
-    sessionId: string,
-    expression: string,
-    contextId: number,
-    options?: {
-      awaitPromise?: boolean
-    }
-  ): Promise<unknown> {
-    const response = (await this.sendCommand(
-      'Runtime.evaluate',
-      {
-        expression,
-        contextId,
-        returnByValue: true,
-        awaitPromise: options?.awaitPromise === true
-      },
-      sessionId
-    )) as {result?: {value?: unknown}}
-
-    return response.result?.value as unknown
-  }
-
-  // Get the full HTML of the page including Shadow DOM content
-  async getPageHTML(
-    sessionId: string,
-    includeShadow: 'off' | 'open-only' | 'all' = 'open-only'
-  ) {
-    return getPageHTML(this, sessionId, includeShadow)
-  }
-
-  async getClosedShadowRoots(
-    sessionId: string,
-    maxBytes = 65536
-  ): Promise<
-    Array<{host: string; type: string; html: string; truncated?: boolean}>
-  > {
-    await this.sendCommand('DOM.enable', {}, sessionId)
-    const doc = (await this.sendCommand(
-      'DOM.getDocument',
-      {depth: -1, pierce: true},
-      sessionId
-    )) as {root?: CdpDomNode}
-
-    const found: Array<{nodeId: number; host: string}> = []
-    const walk = (node: CdpDomNode | undefined, hostName: string): void => {
-      if (!node || typeof node !== 'object') return
-      const name = node.localName || node.nodeName || hostName
-      if (Array.isArray(node.shadowRoots)) {
-        for (const sr of node.shadowRoots) {
-          if (
-            sr &&
-            sr.shadowRootType === 'closed' &&
-            typeof sr.nodeId === 'number'
-          ) {
-            found.push({nodeId: sr.nodeId, host: String(name)})
-          }
-          walk(sr, name)
-        }
-      }
-      if (Array.isArray(node.children))
-        for (const c of node.children) walk(c, name)
-      if (node.contentDocument) walk(node.contentDocument, name)
-    }
-    walk(doc.root, 'html')
-
-    const out: Array<{
-      host: string
-      type: string
-      html: string
-      truncated?: boolean
-    }> = []
-    for (const f of found) {
-      try {
-        const oh = (await this.sendCommand(
-          'DOM.getOuterHTML',
-          {nodeId: f.nodeId},
-          sessionId
-        )) as {outerHTML?: string}
-        let html = String(oh?.outerHTML ?? '')
-        let truncated = false
-        if (maxBytes > 0 && html.length > maxBytes) {
-          html = html.slice(0, maxBytes)
-          truncated = true
-        }
-        out.push({
-          host: f.host,
-          type: 'closed',
-          html,
-          ...(truncated ? {truncated} : {})
-        })
-      } catch {
-        out.push({host: f.host, type: 'closed', html: ''})
-      }
-    }
-    return out
-  }
-
-  // Close a target (tab)
-  async closeTarget(targetId: string) {
-    await this.sendCommand('Target.closeTarget', {targetId})
-  }
-
-  // Extension Management Methods
-  async forceReloadExtension(extensionId: string) {
-    // Safety first: avoid Extensions.reload(forceReload), which can disable
-    // or relocate unpacked extensions in fresh Chromium profiles during
-    // automation. Keep reloads extension-owned via runtime.reload().
-    const attempts = 8
-    let lastError: unknown = null
-    for (let i = 0; i < attempts; i++) {
-      try {
-        const ok = await this.reloadExtensionViaTargetEval(extensionId)
-        if (ok) return true
-      } catch (error) {
-        lastError = error
-      }
-      const backoffMs = Math.min(1200, 150 * (i + 1))
-      await new Promise((r) => setTimeout(r, backoffMs))
-    }
-    console.warn(
-      messages.cdpClientExtensionReloadFailed(
-        extensionId,
-        (lastError as Error)?.message ||
-          String(lastError || 'runtime.reload failed')
-      )
-    )
-    return false
-  }
-
   async getExtensionInfo(extensionId: string) {
     try {
       return await getExtensionInfo(this, extensionId)
@@ -623,102 +422,6 @@ export class CDPClient {
           (error as Error).message
         )
       )
-    }
-  }
-
-  private async reloadExtensionViaTargetEval(extensionId: string) {
-    try {
-      const targets = await this.getTargets()
-      const preferredOrder = [
-        'service_worker',
-        'background_page',
-        'worker',
-        'page'
-      ]
-
-      for (const type of preferredOrder) {
-        const matchingTargets = (targets || []).filter((t) => {
-          const url: string = String(t?.url || '')
-          const tt: string = String(t?.type || '')
-          const inExtensionScope = url.startsWith(
-            `chrome-extension://${extensionId}/`
-          )
-
-          return tt === type && inExtensionScope
-        })
-
-        for (const target of matchingTargets) {
-          const targetId: string | undefined = target?.targetId
-
-          if (!targetId) continue
-
-          let sessionId: string
-          try {
-            sessionId = await this.attachToTarget(targetId)
-          } catch {
-            // ignore and try next target
-            continue
-          }
-
-          try {
-            await this.sendCommand('Runtime.enable', {}, sessionId)
-          } catch {
-            // Runtime.enable can race with SW termination; don't retry
-            // by re-attaching to a sibling target — that would dispatch a
-            // second chrome.runtime.reload() and the user would see the
-            // extension flash twice. Treat the reload as fired and let the
-            // outer hardReload caller wait on the SW restart event instead.
-            return true
-          }
-
-          // Fire chrome.runtime.reload() and DO NOT await the response.
-          // Awaiting races with SW termination: if the worker dies before
-          // CDP returns the evaluate result, the await throws, the catch
-          // walks to the next matching target, and we re-issue the reload
-          // there — the user sees the extension reload N times in a row
-          // (one flash per matching target). Send the command once and
-          // trust Chrome to honor it.
-          this.sendCommand(
-            'Runtime.evaluate',
-            {
-              expression:
-                '(function(){ try { if (!chrome || !chrome.runtime || !chrome.runtime.reload) return false; chrome.runtime.reload(); return true; } catch (error) { return false; } })()',
-              returnByValue: true
-            },
-            sessionId
-          ).catch(() => {
-            // SW likely terminated mid-response; expected, no follow-up.
-          })
-          return true
-        }
-      }
-      return false
-    } catch {
-      return false
-    }
-  }
-
-  async loadUnpackedExtension(path: string) {
-    try {
-      return await loadUnpackedExtension(this, path)
-    } catch (error) {
-      throw new Error(
-        messages.cdpClientExtensionLoadFailed(path, (error as Error).message)
-      )
-    }
-  }
-
-  async unloadExtension(extensionId: string) {
-    try {
-      return await unloadExtension(this, extensionId)
-    } catch (error) {
-      console.error(
-        messages.cdpClientExtensionUnloadFailed(
-          extensionId,
-          (error as Error).message
-        )
-      )
-      return false
     }
   }
 }
