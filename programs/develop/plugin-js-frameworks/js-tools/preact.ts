@@ -12,13 +12,6 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../types'
-import {RspackPluginInstance} from '@rspack/core'
-import {
-  ensureOptionalContractModuleLoaded,
-  ensureOptionalContractPackageResolved
-} from '../../lib/optional-deps-resolver'
-
-type PreactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
 
@@ -44,31 +37,29 @@ export async function maybeUsePreact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingPreact(projectPath)) return undefined
 
-  // Fast-refresh for Preact!
-  // https://github.com/preactjs/prefresh
-  await ensureOptionalContractPackageResolved({
-    contractId: 'preact-refresh',
-    projectPath,
-    dependencyId: '@rspack/plugin-preact-refresh'
-  })
-
-  const PreactRefreshPlugin =
-    await ensureOptionalContractModuleLoaded<PreactRefreshPluginCtor>({
-      contractId: 'preact-refresh',
-      projectPath,
-      dependencyId: '@rspack/plugin-preact-refresh',
-      // Export shape differs across majors:
-      //   v1.x  → `module.exports = PreactRefreshPlugin` (the ctor itself)
-      //   v2.x  → named export `{ PreactRefreshRspackPlugin }`, no default
-      // Pick the ctor across both (and CJS/ESM interop default wrapping)
-      // so a major bump doesn't throw "PreactRefreshPlugin is not a
-      // constructor" at config time.
-      moduleAdapter: (mod: any) =>
-        (mod?.PreactRefreshRspackPlugin ??
-          mod?.default?.PreactRefreshRspackPlugin ??
-          mod?.default ??
-          mod) as PreactRefreshPluginCtor
-    })
+  // Preact fast-refresh is intentionally disabled — Preact falls back to full
+  // live-reload in dev (the app still mounts and updates on change; it just
+  // doesn't preserve component state across edits).
+  //
+  // Why: @rspack/plugin-preact-refresh@2.0.1 (the only rspack-2.x-native
+  // release) vendors a @prefresh/webpack runtime module that references the
+  // bare CJS `module` symbol (`__prefresh_utils__.shouldBind(module)`). rspack
+  // 2.x's module-argument optimization decides that runtime module doesn't use
+  // `module` — the reference is loader-injected, so rspack's parser never sees
+  // it — and renames the factory parameter to
+  // `__unused_rspack___webpack_module__`. At eval the runtime hits
+  // `module is not defined`, which throws before the app (and the injected
+  // live-reload client) can run, so the Preact page never mounts in dev and
+  // never reloads. It is not fixable from our config: the renaming lives in
+  // rspack's native binding (no `optimization.*` toggle disables it) and
+  // reproduces on every rspack 2.x (verified 2.0.8 through 2.1.x). React is
+  // unaffected because @rspack/plugin-react-refresh isn't authored this way.
+  //
+  // To restore fast-refresh once upstream is fixed, re-add the
+  // PreactRefreshPlugin resolve/load/apply block (see git history for this
+  // file) and bump the bundled plugin/rspack. The `preact: dev html` e2e gate
+  // in extension-js/examples confirms when it's safe.
+  // Upstream: TODO — file against rspack / @rspack/plugin-preact-refresh.
 
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
@@ -88,21 +79,12 @@ export async function maybeUsePreact(
   const preactJsxRuntime = resolveFromProject('preact/jsx-runtime')
   const preactJsxDevRuntime = resolveFromProject('preact/jsx-dev-runtime')
 
-  // The plugin sets `compiler.options.resolve.alias.preact = options.preactPath`
-  // and stops resolving `preact` through Node when this is undefined. In pnpm
-  // strict layouts the plugin lives at .pnpm/@rspack+plugin-preact-refresh/.../
-  // which doesn't sibling-link `preact`, so without an explicit path the alias
-  // becomes `preact: undefined` and webpack falls back to a Node lookup that
-  // can't reach the user's preact symlink. Pass the project-resolved preact
-  // package directory (not the entry file — webpack alias treats values as
-  // prefixes for sub-paths like `preact/hooks`) so HMR works regardless of
-  // node-linker mode.
-  const preactPlugins: RspackPluginInstance[] = [
-    new PreactRefreshPlugin(preactDir ? {preactPath: preactDir} : {}) as any
-  ]
-
   const alias: Record<string, string> = {}
 
+  // Alias `preact` to the project-resolved package directory (not the entry
+  // file — webpack treats the value as a prefix for sub-paths like
+  // `preact/hooks`). Without this, pnpm strict layouts can leave `preact`
+  // unresolvable for `preact/compat` sub-imports.
   if (preactDir) {
     alias.preact = preactDir
   }
@@ -125,7 +107,9 @@ export async function maybeUsePreact(
   }
 
   return {
-    plugins: preactPlugins,
+    // No fast-refresh plugin (see the disabled-fast-refresh note above); Preact
+    // relies on live-reload plus the alias map below.
+    plugins: [],
     loaders: undefined,
     alias
   }
