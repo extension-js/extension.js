@@ -70,17 +70,6 @@ export type ResourceType =
   | 'staticHref'
   | 'empty'
 
-export type HtmlFilepathList = Record<
-  string,
-  | {
-      html: string
-      js: string[]
-      css: string[]
-      static: string[]
-    }
-  | undefined
->
-
 export interface LoaderContext {
   resourcePath: string
   emitFile: (name: string, content: string) => void
@@ -164,12 +153,6 @@ export interface NonBinaryOptions extends BrowserOptionsBase {
     'chromium-based' | 'gecko-based' | 'webkit-based'
   >
 }
-
-export type ExtendedBrowserOptions =
-  | ChromiumOptions
-  | GeckoOptions
-  | SafariOptions
-  | NonBinaryOptions
 
 export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
