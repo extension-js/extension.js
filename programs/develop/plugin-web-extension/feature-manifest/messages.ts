@@ -45,41 +45,6 @@ export function serverRestartRequiredFromManifestError(
   return lines.join('\n')
 }
 
-export function manifestFieldError(
-  manifestName: string,
-  manifestField: string,
-  filePath: string,
-  opts?: {publicRootHint?: boolean; overrideNotFoundPath?: string}
-) {
-  const manifestFieldName = manifestField.startsWith('content_scripts')
-    ? `content_scripts`
-    : manifestField.replace('/', '.')
-  const contentIndex = manifestField.split('-')[1]
-  const isPage = manifestField.startsWith('pages')
-  const isContentScripts = manifestField.startsWith('content_scripts')
-  const fieldLabel = isContentScripts
-    ? `content_scripts (index ${contentIndex})`
-    : manifestFieldName
-  const lines: string[] = []
-  lines.push(
-    isPage
-      ? `Check the ${colors.yellow('pages')} folder in your project root directory.`
-      : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
-  )
-  if (opts?.publicRootHint) {
-    lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
-    )
-  }
-  lines.push('')
-  lines.push(
-    `${colors.red('NOT FOUND')} ${colors.underline(
-      opts?.overrideNotFoundPath || filePath
-    )}`
-  )
-  return lines.join('\n')
-}
-
 export function legacyManifestPathWarning(legacyPath: string) {
   const lines: string[] = []
   lines.push(
@@ -119,27 +84,6 @@ export function manifestDepsTracked(addedCount: number) {
   return `Manifest file dependencies tracked: ${colors.gray(String(addedCount))}`
 }
 
-export function manifestValidationScanSummary(
-  fieldsChecked: number,
-  errorsFound: number
-) {
-  return `Manifest validation — fieldsChecked=${colors.gray(String(fieldsChecked))}, errors=${colors.gray(String(errorsFound))}`
-}
-
 export function manifestLegacyWarningsSummary(count: number) {
   return `Manifest legacy warnings — count=${colors.gray(String(count))}`
-}
-
-export function manifestRecompileDetected(
-  fileAdded?: string,
-  fileRemoved?: string
-) {
-  const parts = [
-    `Manifest entrypoints changed`,
-    fileRemoved
-      ? `${colors.gray('before')} ${colors.underline(fileRemoved)}`
-      : '',
-    fileAdded ? `${colors.gray('after')} ${colors.underline(fileAdded)}` : ''
-  ].filter(Boolean)
-  return parts.join(' — ')
 }

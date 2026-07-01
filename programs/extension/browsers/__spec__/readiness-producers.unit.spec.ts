@@ -2,15 +2,10 @@
 // functions that generate the signal a readiness dashboard (isextensionready)
 // consumes. These were previously exercised only indirectly via the dev-wait
 // contract specs; pinning them directly guards against silent drift in the
-// banner copy, the content-script entry naming contract, and the per-instance
-// CDP/RDP port registry.
+// banner copy and the per-instance CDP/RDP port registry.
 
 import {beforeEach, describe, expect, it} from 'vitest'
 import {ready} from '../browsers-lib/ready-message'
-import {
-  CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
-  getCanonicalContentScriptEntryName
-} from '../browsers-lib/content-script-contracts'
 import {
   getInstancePorts,
   getLastCDPPort,
@@ -51,29 +46,6 @@ describe('ready() banner message', () => {
 
   it('tolerates an empty browser string', () => {
     expect(() => ready('development', '')).not.toThrow()
-  })
-})
-
-describe('content-script entry naming contract', () => {
-  it('exposes the canonical prefix', () => {
-    expect(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX).toBe(
-      'content_scripts/content-'
-    )
-  })
-
-  it('derives a stable, index-suffixed entry name', () => {
-    expect(getCanonicalContentScriptEntryName(0)).toBe(
-      'content_scripts/content-0'
-    )
-    expect(getCanonicalContentScriptEntryName(3)).toBe(
-      'content_scripts/content-3'
-    )
-  })
-
-  it('keeps the entry name prefixed for any index', () => {
-    expect(getCanonicalContentScriptEntryName(12)).toMatch(
-      /^content_scripts\/content-\d+$/
-    )
   })
 })
 

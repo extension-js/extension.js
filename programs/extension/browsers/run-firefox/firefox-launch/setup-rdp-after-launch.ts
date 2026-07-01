@@ -59,6 +59,5 @@ export async function setupRdpAfterLaunch(
   }
 
   // Dev banner parity: print once after ensureLoaded
-  // Unified logging is now enabled by FirefoxUnifiedLoggerPlugin
   return controller
 }

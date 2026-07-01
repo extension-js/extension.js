@@ -132,14 +132,6 @@ export function manifestNotFoundError(
   return `${base}\n\n${colors.gray(hint)}\n${colors.brightBlue(suggestions)}`
 }
 
-export function packageJsonNotFoundError(manifestPath: string) {
-  return (
-    `${getLoggingPrefix('error')} No valid package.json found for manifest.\n` +
-    `${colors.red('Ensure there is a valid package.json file in the project or its parent directories.')}` +
-    `\n${colors.red('MANIFEST')}\n${colors.gray('PATH')} ${colors.underline(manifestPath)}`
-  )
-}
-
 export function building(browser: DevOptions['browser']): string {
   const extensionOutput = isGeckoBasedBrowser(String(browser))
     ? 'Add-on'
@@ -148,39 +140,6 @@ export function building(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('info')} Building ${capitalizedBrowserName(browser)} ` +
     `${extensionOutput} package...`
-  )
-}
-
-export function runningInProduction(
-  outputPath: string,
-  browserLabel?: string
-): string {
-  const manifestPath = path.join(outputPath, 'manifest.json')
-  const manifest: Record<string, any> = JSON.parse(
-    fs.readFileSync(manifestPath, 'utf-8')
-  )
-
-  const {name, version, hostPermissions, permissions} = manifest
-
-  const hasHost = hostPermissions && hostPermissions.length
-  const hasPermissions = permissions && permissions.length
-  const browserDisplay =
-    browserLabel && browserLabel.trim().length > 0
-      ? browserLabel.trim()
-      : 'Unknown'
-
-  return (
-    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${packageJson.version}`)}\n` +
-    `    Browser             ${colors.gray(browserDisplay)}\n` +
-    `    Extension           ${colors.gray(
-      version ? `${name} ${version}` : name
-    )}\n` +
-    `    Permissions         ${colors.gray(
-      hasPermissions ? permissions.join(', ') : 'Browser defaults'
-    )}\n` +
-    `    Host Permissions    ${colors.gray(
-      hasHost ? hostPermissions.join(', ') : 'Browser defaults'
-    )}`
   )
 }
 

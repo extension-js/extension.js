@@ -123,16 +123,3 @@ export function jsonIncludeSummary(
     `critical ${colors.gray(String(criticalCount))}`
   )
 }
-
-export function jsonManifestChangeDetected(
-  field: string,
-  before?: string,
-  after?: string
-) {
-  const parts = [
-    `Manifest JSON change detected in ${colors.yellow(field)}`,
-    before ? `${colors.gray('before')} ${colors.underline(before)}` : '',
-    after ? `${colors.gray('after')} ${colors.underline(after)}` : ''
-  ].filter(Boolean)
-  return parts.join(' — ')
-}

@@ -42,23 +42,6 @@ export function extensionJsRunnerError(error: unknown) {
   return `Extension.js Runner Error:\n${colors.red(String(error))}`
 }
 
-export function extensionJsRunnerCleanupError(error: unknown) {
-  return `Extension.js Runner Cleanup Error:\n${colors.red(String(error))}`
-}
-
-export function extensionJsRunnerUncaughtException(error: unknown) {
-  const err = error as any
-  const stack = (err && (err.stack || err.message)) || String(error)
-  return `Extension.js Runner Uncaught exception.\n${colors.red(String(stack))}`
-}
-
-export function extensionJsRunnerUnhandledRejection(
-  promise: Promise<any>,
-  reason: unknown
-) {
-  return `Extension.js Runner unhandled rejection at: ${colors.brightBlue(promise.toString())} reason: ${colors.red(String(reason))}`
-}
-
 export function cleanDistStarting(distPath: string) {
   return `${colors.gray('⏵⏵⏵')} Clean dist: ${colors.gray('starting')}\n${colors.gray('PATH')} ${colors.underline(distPath)}`
 }

@@ -171,18 +171,8 @@ export function creatingUserProfile(profilePath: string) {
   return `${getLoggingPrefix('info')} Creating a fresh user profile at ${colors.underline(profilePath)}...`
 }
 
-export function browserInstanceAlreadyRunning(browser: Browser) {
-  return `${getLoggingPrefix('success')} ${capitalizedBrowserName(browser)} instance already running.`
-}
-
 export function browserInstanceExited(browser: Browser) {
   return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} instance exited.`
-}
-
-export function stdoutData(browser: Browser, mode: Mode) {
-  const extensionOutput =
-    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
-  return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} ${extensionOutput} running in ${colors.green(mode || 'unknown')} mode.`
 }
 
 export function cdpClientAttachedToTarget(
@@ -208,31 +198,8 @@ export function cdpProtocolEventHandlerError(message: string) {
   return `[CDP] Protocol event handler error: ${message}`
 }
 
-export function cdpFallbackManifestReadFailed(message: string) {
-  return `[CDP] Fallback manifest read failed: ${message}`
-}
-
-export function bannerEventHandlerFailed(message: string) {
-  return `[browser] Banner event handler failed: ${message}`
-}
-
 export function bestEffortBannerPrintFailed(message: string) {
   return `[browser] Best-effort banner print failed: ${message}`
-}
-
-export function firefoxUnifiedLoggingFailed(message: string) {
-  return `[firefox] enableUnifiedLogging failed: ${message}`
-}
-
-export function firefoxRdpReloadCapabilitySummary(
-  mode: 'native' | 'reinstall'
-) {
-  const txt = mode === 'native' ? 'native reloadAddon' : 'reinstall fallback'
-  return `${getLoggingPrefix('info')} Firefox RDP reload: ${txt}`
-}
-
-export function firefoxRdpRuntimeReinjectionResult(reportJson: string) {
-  return `${getLoggingPrefix('info')} Firefox RDP runtime reinjection: ${reportJson}`
 }
 
 export function firefoxRdpRuntimeCapabilitySummary(
@@ -251,10 +218,6 @@ export function rdpAddTabFailed(message: string) {
 
 export function skippingBrowserLaunchDueToCompileErrors() {
   return `${getLoggingPrefix('warn')} Skipping browser launch due to compile errors`
-}
-
-export function manifestPreflightSummary(errorCount: number) {
-  return `${getLoggingPrefix('warn')} Preflight manifest/asset check found ${errorCount} error(s)`
 }
 
 export function browserNotInstalledError(
@@ -288,33 +251,6 @@ export function browserNotInstalledError(
   )
 }
 
-export function installDifferentBrowserHint() {
-  return (
-    `Either install the missing browser or choose a different one via ` +
-    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.`
-  )
-}
-
-export function injectingAddOnsError(browser: Browser, error: unknown) {
-  return (
-    `${getLoggingPrefix('error')} Can't inject extensions into ${capitalizedBrowserName(browser)} profile\n` +
-    `${colors.red(errorDetail(error))}`
-  )
-}
-
-export function firefoxServiceWorkerError(browser: Browser) {
-  return (
-    `${getLoggingPrefix('error')} No Service Worker Support for ${capitalizedBrowserName(browser)}\n` +
-    `Firefox does not support the ${colors.yellow(
-      'background.service_worker'
-    )} field yet.\n` +
-    `Update your ${colors.yellow('manifest.json')} file to use ${colors.yellow(
-      'background.scripts'
-    )} instead.\n` +
-    `Read more: ${colors.underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659')}.`
-  )
-}
-
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Error launching ${capitalizedBrowserName(browser)}:\n` +
@@ -323,10 +259,6 @@ export function browserLaunchError(browser: Browser, error: unknown) {
 }
 
 // Process Management messages
-export function enhancedProcessManagementStarting(browser: Browser) {
-  return `${getLoggingPrefix('info')} Process Management starting for ${capitalizedBrowserName(browser)}`
-}
-
 export function enhancedProcessManagementCleanup(browser: Browser) {
   return `${getLoggingPrefix('info')} Process Management cleanup for ${capitalizedBrowserName(browser)}`
 }
@@ -347,20 +279,6 @@ export function enhancedProcessManagementCleanupError(
     `${getLoggingPrefix('error')} Error during ${capitalizedBrowserName(browser)} cleanup:\n` +
     `${colors.red(errorDetail(error))}`
   )
-}
-
-export function enhancedProcessManagementInstanceCleanup(browser: Browser) {
-  return `${getLoggingPrefix('info')} Cleaning up ${capitalizedBrowserName(browser)} instance`
-}
-
-export function enhancedProcessManagementInstanceCleanupComplete(
-  browser: Browser
-) {
-  return `${getLoggingPrefix('success')} ${capitalizedBrowserName(browser)} instance cleanup completed`
-}
-
-export function enhancedProcessManagementSignalHandling(browser: Browser) {
-  return `${getLoggingPrefix('info')} Enhanced signal handling enabled for ${capitalizedBrowserName(browser)}`
 }
 
 export function enhancedProcessManagementUncaughtException(
@@ -401,24 +319,10 @@ export function addonInstallError(browser: Browser, message: string) {
   )
 }
 
-export function pathIsNotDirectoryError(browser: Browser, profilePath: string) {
-  return (
-    `${getLoggingPrefix('error')} Profile path for ${capitalizedBrowserName(browser)} is not a directory.\n` +
-    `${colors.gray('PATH')} ${colors.underline(profilePath)}`
-  )
-}
-
 // removed: parseMessageLengthError (replaced by shared rdp-wire helpers)
 
 export function messagingClientClosedError(browser: Browser) {
   return `${getLoggingPrefix('error')} Messaging client closed unexpectedly for ${capitalizedBrowserName(browser)}`
-}
-
-export function requestWithoutTargetActorError(
-  browser: Browser,
-  requestType: string
-) {
-  return `${getLoggingPrefix('error')} Request without target actor: ${colors.gray(requestType)} for ${capitalizedBrowserName(browser)}`
 }
 
 export function connectionClosedError(browser: Browser) {
@@ -453,45 +357,10 @@ export function messageWithoutSenderError(
   )
 }
 
-export function unexpectedMessageReceivedError(
-  browser: Browser,
-  message: string
-) {
-  return (
-    `${getLoggingPrefix('error')} Unexpected message received from ${capitalizedBrowserName(browser)}:\n` +
-    `${colors.red(message)}`
-  )
-}
-
 // Debug messages - only used in development mode
-export function isUsingStartingUrl(browser: Browser, value: unknown) {
-  return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} using starting URL: ${String(value)}`
-}
-
 // removed: isUsingBrowserBinary (unused)
 
 // removed: isUsingProfile (unused)
-
-export function profileFallbackWarning(browser: Browser, reason: string) {
-  return (
-    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} falling back to per-instance profile` +
-    (reason ? `: ${colors.gray(reason)}` : '')
-  )
-}
-
-export function pathPermissionError(browser: Browser, profilePath: string) {
-  return (
-    `${getLoggingPrefix('error')} Insufficient permissions for the profile path for ${capitalizedBrowserName(browser)}.\n` +
-    `${colors.gray('PATH')} ${colors.underline(profilePath)}`
-  )
-}
-
-export function profileCreationError(browser: Browser, error: unknown) {
-  return (
-    `${getLoggingPrefix('error')} Failed to create profile for ${capitalizedBrowserName(browser)}:\n` +
-    `${colors.red(String(error))}`
-  )
-}
 
 // Chrome/Chromium specific messages
 export function chromeProcessExited(code: number) {
@@ -510,14 +379,6 @@ export function chromeInitializingEnhancedReload() {
   return `${getLoggingPrefix('info')} Initializing enhanced reload service with direct spawn for Chrome`
 }
 
-export function wslDockerDesktopRunnerDisabled() {
-  return [
-    `${getLoggingPrefix('warn')} Browser runner already disabled (docker-desktop WSL detected).`,
-    `This environment can't launch Windows browser binaries or access /mnt/c.`,
-    `If you need the browser open, install a real WSL distro (Ubuntu/Debian) or run dev from Windows.`
-  ].join('\n')
-}
-
 // Dev/utility formatting helpers
 export function locatingBrowser(browser: Browser) {
   return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary...`
@@ -525,14 +386,6 @@ export function locatingBrowser(browser: Browser) {
 
 export function devChromeProfilePath(path: string) {
   return `${getLoggingPrefix('info')} Chrome profile: ${colors.underline(path)}`
-}
-
-export function usingChromiumRunner(browser: Browser) {
-  return `${getLoggingPrefix('info')} Using Chromium runner for ${capitalizedBrowserName(browser)}`
-}
-
-export function usingFirefoxRunner(browser: Browser) {
-  return `${getLoggingPrefix('info')} Using Firefox runner for ${capitalizedBrowserName(browser)}`
 }
 
 export function chromiumDryRunNotLaunching() {
@@ -597,20 +450,12 @@ export function firefoxLaunchCalled() {
   return `${getLoggingPrefix('info')} Firefox launch requested.`
 }
 
-export function firefoxDetectionFailed(error: unknown) {
-  return `${getLoggingPrefix('error')} Firefox detection failed:\n${colors.red(errorDetail(error))}`
-}
-
 export function firefoxBinaryArgsExtracted(args: string) {
   return `${getLoggingPrefix('info')} Firefox binary args extracted: ${colors.gray(args)}`
 }
 
 export function firefoxNoBinaryArgsFound() {
   return `${getLoggingPrefix('info')} No Firefox binary args found`
-}
-
-export function firefoxFailedToExtractProfilePath() {
-  return `${getLoggingPrefix('error')} Failed to extract profile path from Firefox config`
 }
 
 // removed: firefoxRunFirefoxPluginApplyArguments (no longer used)
@@ -842,10 +687,6 @@ export function sourceInspectorAttachedToTarget(sessionId: string) {
   return `${getLoggingPrefix('success')} Chrome is attached to the target with session ID: ${colors.gray(sessionId)}`
 }
 
-export function sourceInspectorExtractingHTML() {
-  return `${getLoggingPrefix('info')} Chrome is extracting page HTML...`
-}
-
 export function sourceInspectorHTMLExtractionComplete() {
   return `${getLoggingPrefix('success')} Chrome HTML extraction is complete.`
 }
@@ -1015,40 +856,8 @@ export function cdpClientConnectionClosed() {
   return `${getLoggingPrefix('warn')} Chrome CDP connection is closed`
 }
 
-export function cdpClientMessageParseError(error: string) {
-  return `${getLoggingPrefix('error')} Failed to parse Chrome CDP message: ${colors.red(error)}`
-}
-
-export function cdpClientPageLoadEventFired() {
-  return `${getLoggingPrefix('info')} Chrome page load event occurred`
-}
-
 export function cdpClientLoadEventTimeout() {
   return `${getLoggingPrefix('warn')} Chrome load event timed out; proceeding anyway...`
-}
-
-export function cdpClientTestingEvaluation() {
-  return `${getLoggingPrefix('info')} Chrome testing basic CDP evaluation...`
-}
-
-export function cdpClientShadowDOMContentFound(found: boolean) {
-  return `${getLoggingPrefix('info')} Chrome Shadow DOM content found: ${found ? colors.gray('yes') : colors.gray('no')}`
-}
-
-export function cdpClientShadowDOMContentLength(length: number) {
-  return `${getLoggingPrefix('info')} Chrome Shadow DOM content length: ${colors.gray(length.toString())}`
-}
-
-export function cdpClientProcessingShadowDOM() {
-  return `${getLoggingPrefix('info')} Chrome is processing Shadow DOM content...`
-}
-
-export function cdpClientFinalHTMLWithShadowDOMLength(length: number) {
-  return `${getLoggingPrefix('info')} Chrome final HTML with Shadow DOM length: ${colors.gray(length.toString())}`
-}
-
-export function cdpClientReturningMainHTML() {
-  return `${getLoggingPrefix('info')} Chrome is returning main HTML without Shadow DOM`
 }
 
 export function cdpClientExtensionReloadFailed(
@@ -1077,44 +886,12 @@ export function cdpClientExtensionLoadFailed(path: string, error: string) {
 }
 
 // Firefox RDP Client messages (browser-owned)
-export function firefoxRdpClientFoundTargets(count: number) {
-  return `${getLoggingPrefix('info')} Found ${colors.gray(count.toString())} Firefox targets`
-}
-
-export function firefoxRdpClientUsingTarget(title: string, url: string) {
-  return `${getLoggingPrefix('info')} is using Firefox target: ${colors.gray(title)} (${colors.underline(url)})`
-}
-
 export function firefoxRdpClientConnected(host: string, port: number) {
   return `${getLoggingPrefix('success')} Connected to Firefox Remote Debugging Protocol on ${colors.gray(host)}:${colors.gray(port.toString())}`
 }
 
-export function firefoxRdpClientConnectionError(error: string) {
-  return `${getLoggingPrefix('error')} Firefox RDP connection error.\n${colors.red(error)}`
-}
-
-export function firefoxRdpClientConnectionClosed() {
-  return `${getLoggingPrefix('warn')} Firefox RDP connection is closed`
-}
-
-export function firefoxRdpClientNoSuitableTargets() {
-  return `${getLoggingPrefix('error')} No suitable Firefox targets available`
-}
-
-export function firefoxRdpClientPageLoadEventFired() {
-  return `${getLoggingPrefix('info')} Firefox page load event occurred`
-}
-
-export function firefoxRdpClientLoadEventTimeout() {
-  return `${getLoggingPrefix('warn')} Firefox load event timed out; proceeding anyway...`
-}
-
 export function firefoxRdpClientTestingEvaluation() {
   return `${getLoggingPrefix('info')} Testing basic Firefox RDP evaluation...`
-}
-
-export function firefoxRdpClientDocumentTitle(title: string) {
-  return `${getLoggingPrefix('info')} Firefox document title: ${colors.gray(title)}`
 }
 
 export function firefoxRdpClientFailedToGetMainHTML() {
@@ -1141,18 +918,6 @@ export function firefoxRdpReinjectWatchTargetsFailed(
   error: string
 ) {
   return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not watch targets on ${colors.gray(watcherActor)}: ${colors.red(error)}`
-}
-
-export function firefoxRdpReinjectListTabsFailed(error: string) {
-  return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not list tabs, using an empty payload: ${colors.red(error)}`
-}
-
-export function firefoxRdpReinjectCallbackFailed(error: string) {
-  return `${getLoggingPrefix('warn')} Firefox runtime reinjection target-resolved callback failed: ${colors.red(error)}`
-}
-
-export function firefoxRdpClientFinalHTMLLength(length: number) {
-  return `${getLoggingPrefix('info')} Firefox final HTML length: ${colors.gray(length.toString())}`
 }
 
 // Dev summary and helpers (browser-owned)
@@ -1335,20 +1100,12 @@ export function devFirefoxProfilePath(profilePath: string) {
   return `${getLoggingPrefix('info')} Firefox profile: ${colors.underline(profilePath)}`
 }
 
-export function unifiedLogLine(head: string, message: string) {
-  return `${head} - ${message}`
-}
-
 export function devHtmlSampleRetry(sample: string) {
   return `${colors.gray('[Extension.js] HTML sample (retry):')} ${colors.gray(sample)}`
 }
 
 export function devHtmlSampleLate(sample: string) {
   return `${colors.gray('[Extension.js] HTML sample (late):')} ${colors.gray(sample)}`
-}
-
-export function devSvelteProbeDetected(probe: string) {
-  return `${colors.gray('[Extension.js] Svelte probe detected:')} ${colors.gray(probe)}`
 }
 
 export function cdpUnifiedExtensionLog(ts: string, payload: unknown) {
@@ -1364,25 +1121,6 @@ export function cdpUnifiedExtensionLog(ts: string, payload: unknown) {
 
 export function firefoxInspectSourceNonFatal(message: string) {
   return `${getLoggingPrefix('warn')} Firefox Inspect non-fatal error: ${colors.yellow(message)}`
-}
-
-export function browserPluginFailedToLoad(browser: string, error: unknown) {
-  return `ERROR Browser Plugin Failed: ${colors.brightBlue(browser)}\n${colors.red(String(error))}`
-}
-
-export function unsupportedBrowser(browser: string) {
-  const supported = ['chrome', 'edge', 'firefox'].join(', ')
-  const hintFlag = `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}`
-  const docsUrl = colors.underline(
-    'https://github.com/extension-js/extension.js'
-  )
-  return (
-    `${getLoggingPrefix('error')} Unsupported browser ${colors.yellow(`"${browser}"`)}\n\n` +
-    `We currently support: ${colors.green(supported)}.\n` +
-    `Try selecting a supported browser with ${hintFlag}.\n\n` +
-    `Need another engine? Open a discussion or PR:\n` +
-    `${docsUrl}`
-  )
 }
 
 // Browser Runner error wrapper (pretty heading)
@@ -1421,74 +1159,8 @@ export function invalidGeckoBinaryPath(p: string) {
   return browserRunnerError(body)
 }
 
-export function firefoxDetectedFlatpak() {
-  return `${colors.gray('⏵⏵⏵')} Firefox detected via Flatpak`
-}
-
-export function firefoxDetectedSnap() {
-  return `${colors.gray('⏵⏵⏵')} Firefox detected via Snap`
-}
-
-export function firefoxDetectedTraditional(path: string) {
-  return `${colors.gray('⏵⏵⏵')} Firefox detected at ${colors.underline(path)}`
-}
-
-export function firefoxDetectedCustom(path: string) {
-  return `${colors.gray('⏵⏵⏵')} Using custom Firefox binary at ${colors.underline(path)}`
-}
-
-export function firefoxUsingFlatpakWithSandbox() {
-  return `${colors.gray('⏵⏵⏵')} Using Flatpak launcher with sandbox arguments`
-}
-
-export function firefoxVersion(version: string) {
-  return `${colors.gray('⏵⏵⏵')} Firefox version ${colors.gray(version)}`
-}
-
 export function rdpInvalidRequestPayload() {
   return `${getLoggingPrefix('error')} Invalid RDP request payload`
 }
 
 // Chromium developer mode guidance (succinct, Vercel-like tone)
-export function chromiumDeveloperModeGuidance(browser?: BrowserType) {
-  let exts = ''
-  if (browser === 'edge') {
-    exts = colors.underline('edge://extensions')
-  } else if (
-    browser === 'chrome' ||
-    browser === 'chromium' ||
-    browser === 'chromium-based'
-  ) {
-    exts = colors.underline('chrome://extensions')
-  } else {
-    exts = colors.underline('chrome://extensions')
-  }
-
-  return (
-    `${getLoggingPrefix('warn')} Configuration required\n` +
-    `Enable ${colors.yellow('Developer mode')} in ${exts} for reliable reloads.\n` +
-    `Without it, hard reloads may disable your unpacked extension.`
-  )
-}
-
-export function chromiumHardReloadFailed(browser?: BrowserType) {
-  let exts = ''
-
-  if (browser === 'edge') {
-    exts = colors.underline('edge://extensions')
-  } else if (
-    browser === 'chrome' ||
-    browser === 'chromium' ||
-    browser === 'chromium-based'
-  ) {
-    exts = colors.underline('chrome://extensions')
-  } else {
-    exts = colors.underline('chrome://extensions')
-  }
-
-  return (
-    `${getLoggingPrefix('warn')} Reload failed\n` +
-    `Chromium could not reload your unpacked extension.\n` +
-    `If you are using an existing profile, verify ${colors.yellow('Developer mode')} is enabled in ${exts}.`
-  )
-}
