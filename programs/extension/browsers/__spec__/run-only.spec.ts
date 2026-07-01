@@ -104,4 +104,35 @@ describe('runOnlyPreviewBrowser', () => {
       readyPath: undefined
     })
   })
+
+  // Regression: preview/start (runOnlyPreviewBrowser) previously threw
+  // "Unsupported browser" for the fork targets because the dispatch listed only
+  // chrome/edge/chromium and firefox. Forks must route to their family launcher.
+  for (const browser of ['brave', 'opera', 'vivaldi', 'yandex'] as const) {
+    it(`routes the chromium fork ${browser} to the chromium launcher`, async () => {
+      await runOnlyPreviewBrowser({
+        browser,
+        outPath: '/tmp/ext',
+        contextDir: '/tmp',
+        extensionsToLoad: ['/tmp/ext']
+      })
+
+      expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+      expect(firefoxRunOnce).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const browser of ['waterfox', 'librewolf'] as const) {
+    it(`routes the gecko fork ${browser} to the firefox launcher`, async () => {
+      await runOnlyPreviewBrowser({
+        browser,
+        outPath: '/tmp/ext',
+        contextDir: '/tmp',
+        extensionsToLoad: ['/tmp/ext']
+      })
+
+      expect(firefoxRunOnce).toHaveBeenCalledTimes(1)
+      expect(chromiumRunOnce).not.toHaveBeenCalled()
+    })
+  }
 })

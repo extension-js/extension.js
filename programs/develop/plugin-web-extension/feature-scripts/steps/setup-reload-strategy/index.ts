@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
+import {isGeckoBasedBrowser} from '../../../../lib/constants'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {getCanonicalContentScriptJsAssetName} from '../../contracts'
 import type {Manifest, PluginInterface, DevOptions} from '../../../../types'
@@ -25,7 +26,7 @@ export class SetupReloadStrategy {
 
   private getEntryName(manifest: Manifest) {
     if (manifest.background) {
-      if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+      if (isGeckoBasedBrowser(String(this.browser))) {
         return {
           pageEntry: 'background/script',
           tryCatchWrapper: true,
