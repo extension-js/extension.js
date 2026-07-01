@@ -4,20 +4,26 @@
 
 ### 🚀 Features
 
-- Add ci:test:create job so create specs run in CI ([f677cd93](https://github.com/extension-js/extension.js/commit/f677cd93e492ccbe2bdf8c722b7fa4765d8f3284))
+- Support named browser forks via engine-family manifest keys and build/launch path ([d7c903f4](https://github.com/extension-js/extension.js/commit/d7c903f44d91e9b83006ca1a7eff7bf7bd7bde31))
 
 ### 🐛 Fixes
 
-- Resolve chromium manifest keys for Safari and unify the browser-key resolver ([76a43795](https://github.com/extension-js/extension.js/commit/76a43795b7d6a0a1f6f1c7cb7421bbf58a17157b))
+- Harden Firefox banner add-on id fallback to refuse ambiguous guesses ([d776e4d9](https://github.com/extension-js/extension.js/commit/d776e4d98200c42926747953bd1dac4632f47cb3))
+- Resolve bundled CSS preprocessor loaders via rspack resolveLoader.modules instead of manual path resolution ([8059fc62](https://github.com/extension-js/extension.js/commit/8059fc62fa016f4382220ae1e29adf6579174771))
 
 <details>
-<summary>🧹 Other changes (5)</summary>
+<summary>🧹 Other changes (10)</summary>
 
-- Explain where there other templates are hosted (#477) ([6eda9f84](https://github.com/extension-js/extension.js/commit/6eda9f8400fd0a6add237b9be7233bd138e15ffd))
-- Register a default background entry for Safari and version-less manifests ([a1f38e1c](https://github.com/extension-js/extension.js/commit/a1f38e1c0dc7541b1fb2e0425b253bf0acf09e0f))
-- Compile create before its tests and gate env-fragile install specs under CI ([f54baeda](https://github.com/extension-js/extension.js/commit/f54baeda6c11f2aa847da9fe4175663a0034e5cd))
-- Complete the init-alias create test so it actually imports the template ([a34fda8a](https://github.com/extension-js/extension.js/commit/a34fda8a643f8c4a84e2ff35794c34bba12fca64))
-- Strip examples-repo scaffolding files from scaffolded projects ([54f0f4f1](https://github.com/extension-js/extension.js/commit/54f0f4f1e7d78a54e9671562ad0dcd21d0e3a25e))
+- Drop four dead develop exports and rename the firefox follow-up to match its content ([ca49dd54](https://github.com/extension-js/extension.js/commit/ca49dd54403a679e716c7f28707dd9a9fed173e9))
+- Rename the source-inspection dirs to cdp/ and rdp/, upgrade the firefox id follow-up ([c3dabd31](https://github.com/extension-js/extension.js/commit/c3dabd31be17727ce404b4c36e047768703fff3e))
+- Remove dead controller methods left by source-inspection and pair up chromium/firefox ([53331d86](https://github.com/extension-js/extension.js/commit/53331d86bd72753fa609faa5f0c0410dbacaa623))
+- Remove the unwired source-inspection feature ([a2afe400](https://github.com/extension-js/extension.js/commit/a2afe400a320764693cfd4f5967c9b881186271e))
+- Remove dead code across create, develop, and extension ([6b8c47dc](https://github.com/extension-js/extension.js/commit/6b8c47dcf85d3c0ddfffb4b802e1b9671cf77e65))
+- Single-source optional-dependency install hints from bundled versions and drop dead signature helper ([4e6da9a7](https://github.com/extension-js/extension.js/commit/4e6da9a751c5d76eb504e4f5c6c9a2a38b815f4c))
+- Make the not-emitted manifest guard version-aware instead of blaming incremental builds ([df9c51d3](https://github.com/extension-js/extension.js/commit/df9c51d38fcbe8450ee11a28a0498858c4750c38))
+- Bump bundled less to 4.6.7 to drop the errant 4.5.1 postinstall that trips build-script warnings ([f4cc754a](https://github.com/extension-js/extension.js/commit/f4cc754a575196fd5f5438b0300a6dd6aaf44a44))
+- Detect the Deno runtime so scaffolds suggest deno install and deno task commands ([fd9f869b](https://github.com/extension-js/extension.js/commit/fd9f869b4c4ee3fc45d5c95a761e03160e66b4c7))
+- Pre-approve dependency build scripts in scaffolds so install-once just works ([7218b099](https://github.com/extension-js/extension.js/commit/7218b099691aeaefca320c11524ae33c86666958))
 </details>
 
 ## 3.18.0 (May 28, 2026)
