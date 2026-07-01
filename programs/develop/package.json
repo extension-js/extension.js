@@ -98,7 +98,7 @@
     "extension-from-store": "^0.1.1",
     "go-git-it": "^5.1.5",
     "ignore": "^7.0.5",
-    "less": "4.5.1",
+    "less": "4.6.7",
     "less-loader": "13.0.0",
     "parse5-utilities": "^1.0.0",
     "pintor": "0.3.0",
