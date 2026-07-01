@@ -7,10 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {type Manifest, type DevOptions} from '../../../types'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 
 function isGeckoBrowser(browser: DevOptions['browser']): boolean {
-  const b = String(browser)
-  return b === 'firefox' || b.includes('firefox') || b.includes('gecko')
+  // Canonical classification covers firefox + forks (waterfox, librewolf) and
+  // the gecko-based/firefox-based aliases. The previous substring check missed
+  // waterfox/librewolf (neither contains a "firefox"/"gecko" substring).
+  return isGeckoBasedBrowser(String(browser))
 }
 
 /**

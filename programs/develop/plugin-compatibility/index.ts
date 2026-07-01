@@ -9,6 +9,7 @@
 import {type Compiler} from '@rspack/core'
 import {PolyfillPlugin} from './feature-polyfill'
 import type {PluginInterface, DevOptions} from '../types'
+import {isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from './compatibility-lib/messages'
 
 export class CompatibilityPlugin {
@@ -25,10 +26,9 @@ export class CompatibilityPlugin {
   }
 
   public apply(compiler: Compiler) {
-    const isGeckoFamily =
-      this.browser === 'firefox' ||
-      this.browser === 'gecko-based' ||
-      this.browser === 'firefox-based'
+    // Includes firefox + forks (waterfox, librewolf) and the
+    // gecko-based/firefox-based aliases.
+    const isGeckoFamily = isGeckoBasedBrowser(String(this.browser))
 
     // Allow browser polyfill as needed
     if (this.polyfill) {
