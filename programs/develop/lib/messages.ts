@@ -12,6 +12,7 @@ import * as path from 'path'
 import colors from 'pintor'
 import packageJson from '../package.json'
 import type {DevOptions, Manifest} from '../types'
+import {isGeckoBasedBrowser} from './constants'
 
 // Pretty-format helpers for human-readable, Vercel-like tone
 export const fmt = {
@@ -140,8 +141,9 @@ export function packageJsonNotFoundError(manifestPath: string) {
 }
 
 export function building(browser: DevOptions['browser']): string {
-  const extensionOutput =
-    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
+  const extensionOutput = isGeckoBasedBrowser(String(browser))
+    ? 'Add-on'
+    : 'Extension'
 
   return (
     `${getLoggingPrefix('info')} Building ${capitalizedBrowserName(browser)} ` +

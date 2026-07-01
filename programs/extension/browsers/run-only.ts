@@ -12,6 +12,7 @@ import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {printProdBannerOnce} from './browsers-lib/banner'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {PluginInterface} from './browsers-types'
+import {isChromiumBrowser, isFirefoxBrowser} from './browsers-lib/browser-family'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
@@ -164,13 +165,9 @@ export async function runOnlyPreviewBrowser(
   // This matches the behavior expected by the chromium launcher guidance printer.
   computeBinariesBaseDir(compilationLike)
 
-  if (
-    opts.browser === 'chrome' ||
-    opts.browser === 'edge' ||
-    opts.browser === 'chromium' ||
-    opts.browser === 'chromium-based'
-  ) {
+  if (isChromiumBrowser(opts.browser)) {
     // Run Chromium launch without CDP post-launch wiring (keeps `ws` optional).
+    // Chromium forks (brave/opera/vivaldi/yandex) route here too.
     const ctx = createChromiumContext()
     const launcher = new ChromiumLaunchPlugin(
       buildPreviewChromiumOptions(opts),
@@ -181,11 +178,8 @@ export async function runOnlyPreviewBrowser(
     return
   }
 
-  if (
-    opts.browser === 'firefox' ||
-    opts.browser === 'gecko-based' ||
-    opts.browser === 'firefox-based'
-  ) {
+  if (isFirefoxBrowser(opts.browser)) {
+    // Gecko forks (waterfox/librewolf) route here too.
     const ctx = createFirefoxContext()
     const launcher = new FirefoxLaunchPlugin(
       buildPreviewFirefoxOptions(opts),

@@ -282,8 +282,8 @@ importers:
         specifier: ^0.5.16
         version: 0.5.16
       browser-extension-manifest-fields:
-        specifier: ^2.2.7
-        version: 2.2.7
+        specifier: ^2.2.8
+        version: 2.2.8
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -2944,8 +2944,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  browser-extension-manifest-fields@2.2.7:
-    resolution: {integrity: sha512-XC2po4Y8s0fCXeFdDIaRf24o0deOLqbDih9/is4a9biwHPHD3kP0ccAwd33M+bb14F6aT++vOvSv5RyoV0TNhg==}
+  browser-extension-manifest-fields@2.2.8:
+    resolution: {integrity: sha512-rGmKGFXC7OTEnkmXkx4x4kbgTH3EbtQAr5aW/venL182W5zXP+eMO++A/Md8Qz0heniVQ6tuM/+ftAe0TUjvQg==}
     engines: {node: '>=18'}
 
   browserslist@4.28.1:
@@ -7323,7 +7323,7 @@ snapshots:
     dependencies:
       which: 4.0.0
 
-  browser-extension-manifest-fields@2.2.7: {}
+  browser-extension-manifest-fields@2.2.8: {}
 
   browserslist@4.28.1:
     dependencies:
@@ -7680,7 +7680,7 @@ snapshots:
       '@swc/helpers': 0.5.23
       '@vue/compiler-sfc': 3.5.26
       adm-zip: 0.5.16
-      browser-extension-manifest-fields: 2.2.7
+      browser-extension-manifest-fields: 2.2.8
       case-sensitive-paths-webpack-plugin: 2.4.0
       content-security-policy-parser: 0.6.0
       cross-spawn: 7.0.6

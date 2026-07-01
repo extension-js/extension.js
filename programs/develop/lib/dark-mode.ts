@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {type BrowserConfig, type BrowserType} from '../types'
+import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
 // Returns cross-browser defaults to force dark mode.
 // - Chromium/Edge: uses command-line flags to force dark UI.
@@ -14,13 +15,9 @@ import {type BrowserConfig, type BrowserType} from '../types'
 export function getDarkModeDefaults(
   browser: BrowserType
 ): Pick<BrowserConfig, 'browserFlags' | 'preferences'> {
-  // Chromium family → prefer flags for reliable behavior
-  if (
-    browser === 'chrome' ||
-    browser === 'edge' ||
-    browser === 'chromium' ||
-    browser === 'chromium-based'
-  ) {
+  // Chromium family (chrome/edge + forks like brave/opera/vivaldi/yandex)
+  // → prefer flags for reliable behavior.
+  if (isChromiumBasedBrowser(String(browser))) {
     return {
       browserFlags: [
         '--force-dark-mode',
@@ -31,16 +28,13 @@ export function getDarkModeDefaults(
     }
   }
 
-  // Firefox/Gecko → set UI + content color-scheme prefs
+  // Firefox/Gecko family (firefox + forks like waterfox/librewolf) → set UI +
+  // content color-scheme prefs.
   // References:
   // - ui.systemUsesDarkTheme: 1 → dark, 0 → light
   // - layout.css.prefers-color-scheme.content-override:
   //   2 → dark, 1 → light, 0/3 → follow system/default
-  if (
-    browser === 'firefox' ||
-    browser === 'gecko-based' ||
-    browser === 'firefox-based'
-  ) {
+  if (isGeckoBasedBrowser(String(browser))) {
     return {
       browserFlags: [],
       preferences: {

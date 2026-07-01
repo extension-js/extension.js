@@ -15,6 +15,7 @@ import type {
   Controller,
   PluginInterface
 } from './browsers-types'
+import {isChromiumBrowser, isFirefoxBrowser} from './browsers-lib/browser-family'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
@@ -104,29 +105,6 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
     },
     outputOptions: {path: opts.outputPath}
   }
-}
-
-function isChromiumBrowser(browser: BrowserType): boolean {
-  return (
-    browser === 'chrome' ||
-    browser === 'edge' ||
-    browser === 'chromium' ||
-    browser === 'brave' ||
-    browser === 'opera' ||
-    browser === 'vivaldi' ||
-    browser === 'yandex' ||
-    browser === 'chromium-based'
-  )
-}
-
-function isFirefoxBrowser(browser: BrowserType): boolean {
-  return (
-    browser === 'firefox' ||
-    browser === 'waterfox' ||
-    browser === 'librewolf' ||
-    browser === 'gecko-based' ||
-    browser === 'firefox-based'
-  )
 }
 
 /**
