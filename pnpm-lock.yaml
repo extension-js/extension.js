@@ -250,7 +250,7 @@ importers:
         version: 6.0.2
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
       webextension-polyfill:
         specifier: ^0.12.0
         version: 0.12.0
@@ -306,11 +306,11 @@ importers:
         specifier: ^7.0.5
         version: 7.0.5
       less:
-        specifier: 4.5.1
-        version: 4.5.1
+        specifier: 4.6.7
+        version: 4.6.7
       less-loader:
         specifier: 13.0.0
-        version: 13.0.0(@rspack/core@2.1.1(@swc/helpers@0.5.23))(less@4.5.1)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))
+        version: 13.0.0(@rspack/core@2.1.1(@swc/helpers@0.5.23))(less@4.6.7)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))
       parse5-utilities:
         specifier: ^1.0.0
         version: 1.0.0
@@ -413,7 +413,7 @@ importers:
         version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(jiti@2.6.1)(postcss@8.5.10)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.9.0)
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
       vue-style-loader:
         specifier: 4.1.3
         version: 4.1.3
@@ -516,7 +516,7 @@ importers:
         version: 6.0.2
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
       webextension-polyfill:
         specifier: ^0.12.0
         version: 0.12.0
@@ -547,7 +547,7 @@ importers:
         version: 6.0.2
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
 packages:
 
@@ -3085,6 +3085,10 @@ packages:
   copy-anything@2.0.6:
     resolution: {integrity: sha512-1j20GZTsvKNkc4BY3NpMOM8tt///wY3FpIzozTOFO2ffuZcV61nojHXVKIy3WM+7ADCy5FVhdZYHYDdgTU0yJw==}
 
+  copy-anything@3.0.5:
+    resolution: {integrity: sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==}
+    engines: {node: '>=12.13'}
+
   core-js@3.47.0:
     resolution: {integrity: sha512-c3Q2VVkGAUyupsjRnaNX6u8Dq2vAdzm9iuPj5FW0fRxzlxgq9Q39MDq10IvmQSpLgHQNyQzQmOo6bgGHmH3NNg==}
 
@@ -3578,6 +3582,10 @@ packages:
   is-what@3.14.1:
     resolution: {integrity: sha512-sNxgpk9793nzSs7bA6JQJGeIuRBQhAaNGG77kzYQgMkrID+lS6SlK07K5LaptscDlSaIgH+GPFzf+d75FVxozA==}
 
+  is-what@4.1.16:
+    resolution: {integrity: sha512-ZhMwEosbFJkA0YhFnNDgTM4ZxDRsS6HqTo7qsZM08fehyRYIYa0yHu5R6mgo1n/8MgaPBXiPimPD77baVFYg+A==}
+    engines: {node: '>=12.13'}
+
   is-windows@1.0.2:
     resolution: {integrity: sha512-eXK1UInq2bPmjyX6e3VHIzMLobc4J94i4AWn+Hpq3OU5KkrRC96OAcR3PRJ/pGu6m8TRnBHP9dkXQVsT/COVIA==}
     engines: {node: '>=0.10.0'}
@@ -3675,6 +3683,11 @@ packages:
   less@4.5.1:
     resolution: {integrity: sha512-UKgI3/KON4u6ngSsnDADsUERqhZknsVZbnuzlRZXLQCmfC/MDld42fTydUE9B+Mla1AL6SJ/Pp6SlEFi/AVGfw==}
     engines: {node: '>=14'}
+    hasBin: true
+
+  less@4.6.7:
+    resolution: {integrity: sha512-o3UxHBPPVY1HtCXx15/z1NlknQiWyafRNbtLEv+6xFaDRI2g2xPKIH43do9dSwt8bGLTsjNSaifa48N3d6odsQ==}
+    engines: {node: '>=18'}
     hasBin: true
 
   librewolf-location@1.1.2:
@@ -3890,6 +3903,10 @@ packages:
   make-dir@4.0.0:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
+
+  make-dir@5.1.0:
+    resolution: {integrity: sha512-IfpFq6UM39dUNiphpA6uDezNx/AvWyhwfICWPR3t1VspkgkMZrL+Rk1RbN1bx+aeNYwOrqGJgEgV3yotk+ZUVw==}
+    engines: {node: '>=18'}
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -7044,7 +7061,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.9':
     dependencies:
@@ -7055,13 +7072,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.9(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.9(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.9':
     dependencies:
@@ -7445,6 +7462,10 @@ snapshots:
   copy-anything@2.0.6:
     dependencies:
       is-what: 3.14.1
+
+  copy-anything@3.0.5:
+    dependencies:
+      is-what: 4.1.16
 
   core-js@3.47.0:
     optional: true
@@ -7987,6 +8008,8 @@ snapshots:
 
   is-what@3.14.1: {}
 
+  is-what@4.1.16: {}
+
   is-windows@1.0.2: {}
 
   isexe@3.1.5: {}
@@ -8047,10 +8070,10 @@ snapshots:
       '@rspack/core': 2.1.1(@swc/helpers@0.5.23)
       webpack: 5.104.1(esbuild@0.27.2)
 
-  less-loader@13.0.0(@rspack/core@2.1.1(@swc/helpers@0.5.23))(less@4.5.1)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2)):
+  less-loader@13.0.0(@rspack/core@2.1.1(@swc/helpers@0.5.23))(less@4.6.7)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2)):
     dependencies:
       '@types/less': 3.0.8
-      less: 4.5.1
+      less: 4.6.7
     optionalDependencies:
       '@rspack/core': 2.1.1(@swc/helpers@0.5.23)
       webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2)
@@ -8065,6 +8088,19 @@ snapshots:
       graceful-fs: 4.2.11
       image-size: 0.5.5
       make-dir: 2.1.0
+      mime: 1.6.0
+      needle: 3.5.0
+      source-map: 0.6.1
+
+  less@4.6.7:
+    dependencies:
+      copy-anything: 3.0.5
+      parse-node-version: 1.0.1
+    optionalDependencies:
+      errno: 0.1.8
+      graceful-fs: 4.2.11
+      image-size: 0.5.5
+      make-dir: 5.1.0
       mime: 1.6.0
       needle: 3.5.0
       source-map: 0.6.1
@@ -8249,6 +8285,9 @@ snapshots:
   make-dir@4.0.0:
     dependencies:
       semver: 7.7.4
+
+  make-dir@5.1.0:
+    optional: true
 
   math-intrinsics@1.1.0: {}
 
@@ -9247,10 +9286,28 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.9.0
 
-  vitest@4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)):
+  vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0):
+    dependencies:
+      lightningcss: 1.32.0
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rolldown: 1.0.3
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 26.0.1
+      esbuild: 0.27.2
+      fsevents: 2.3.3
+      jiti: 2.6.1
+      less: 4.6.7
+      sass: 1.97.2
+      terser: 5.46.0
+      tsx: 4.21.0
+      yaml: 2.9.0
+
+  vitest@4.1.9(@types/node@26.0.1)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.9
-      '@vitest/mocker': 4.1.9(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.9(vite@8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.9
       '@vitest/runner': 4.1.9
       '@vitest/snapshot': 4.1.9
@@ -9267,7 +9324,7 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.5.1)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 26.0.1
