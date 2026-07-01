@@ -158,8 +158,12 @@ export class PersistManifestToDisk {
               `  - ${sample}${more}`,
               '',
               'The previous manifest.json was kept to avoid loading a broken extension.',
-              'This usually means the bundler skipped a chunk during an incremental rebuild.',
-              'Try saving any source file again, or restart `extension dev` if it persists.'
+              'Most often this is one of:',
+              '  • An outdated Extension.js. Run `npm ls extension` and update to the',
+              '    latest — this missing-entry class (e.g. engine-family targets like',
+              '    `chromium-based`) was fixed in 4.0.0.',
+              '  • A skipped chunk on an incremental rebuild. Save a source file again,',
+              '    or restart after removing the `dist/` folder for a clean build.'
             ].join('\n')
           ) as Error & {file?: string}
           err.file = 'manifest.json'
