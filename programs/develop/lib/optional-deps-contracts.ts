@@ -2,6 +2,29 @@ import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
 } from './optional-dependency-types'
+import developPackageJson from '../package.json'
+
+// Every package a contract can suggest installing is already bundled as a hard
+// dependency of extension-develop. Treat that package.json as the single source
+// of truth for versions so the install hints we print can never drift from what
+// actually ships (previously the versions were hand-duplicated here and had
+// silently diverged — e.g. hinting less-loader@12 while shipping 13).
+const BUNDLED_DEPENDENCY_VERSIONS: Record<string, string> = {
+  ...((developPackageJson as {dependencies?: Record<string, string>})
+    .dependencies || {})
+}
+
+// Build a `name@version` spec pinned to the bundled version. Falls back to the
+// bare name if a package somehow isn't bundled, keeping the hint usable rather
+// than throwing at import time.
+function spec(packageId: string): string {
+  const version = BUNDLED_DEPENDENCY_VERSIONS[packageId]
+  return version ? `${packageId}@${version}` : packageId
+}
+
+function specs(packageIds: string[]): string[] {
+  return packageIds.map(spec)
+}
 
 function installRootRules(
   packageIds: string[]
@@ -22,16 +45,13 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   typescript: defineContract({
     id: 'typescript',
     integration: 'TypeScript',
-    installPackages: ['typescript@5.9.3'],
+    installPackages: specs(['typescript']),
     verificationRules: installRootRules(['typescript'])
   }),
   'react-refresh': defineContract({
     id: 'react-refresh',
     integration: 'React',
-    installPackages: [
-      'react-refresh@0.18.0',
-      '@rspack/plugin-react-refresh@2.0.2'
-    ],
+    installPackages: specs(['react-refresh', '@rspack/plugin-react-refresh']),
     verificationRules: [
       ...installRootRules(['react-refresh', '@rspack/plugin-react-refresh']),
       {
@@ -44,18 +64,18 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   'preact-refresh': defineContract({
     id: 'preact-refresh',
     integration: 'Preact',
-    installPackages: [
-      '@prefresh/core@1.5.9',
-      '@prefresh/utils@1.2.1',
-      // 2.0.1 is the rspack-2.x-native major: it declares `@rspack/core`
-      // ^2.0.0 as a peer and keeps the `runtimeModule.constructor?.name`
-      // fallback that 1.1.5 introduced. (Earlier 1.1.4 only checked
-      // `runtimeModule.constructorName`, which is `undefined` in rspack 2.x,
-      // so the HMR runtime intercept was never appended and `$RefreshReg$`
-      // stayed undefined when the user's bundle evaluated.)
-      '@rspack/plugin-preact-refresh@2.0.1',
-      'preact@10.27.2'
-    ],
+    // Note on @rspack/plugin-preact-refresh: 2.x is the rspack-2.x-native major:
+    // it declares `@rspack/core` ^2.0.0 as a peer and keeps the
+    // `runtimeModule.constructor?.name` fallback that 1.1.5 introduced. (Earlier
+    // 1.1.4 only checked `runtimeModule.constructorName`, which is `undefined`
+    // in rspack 2.x, so the HMR runtime intercept was never appended and
+    // `$RefreshReg$` stayed undefined when the user's bundle evaluated.)
+    installPackages: specs([
+      '@prefresh/core',
+      '@prefresh/utils',
+      '@rspack/plugin-preact-refresh',
+      'preact'
+    ]),
     verificationRules: [
       ...installRootRules([
         '@prefresh/core',
@@ -83,11 +103,7 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   vue: defineContract({
     id: 'vue',
     integration: 'Vue',
-    installPackages: [
-      'vue-loader@17.4.2',
-      '@vue/compiler-sfc@3.5.26',
-      'vue@3.5.26'
-    ],
+    installPackages: specs(['vue-loader', '@vue/compiler-sfc', 'vue']),
     verificationRules: [
       ...installRootRules(['vue-loader', '@vue/compiler-sfc', 'vue']),
       {
@@ -100,30 +116,30 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   svelte: defineContract({
     id: 'svelte',
     integration: 'Svelte',
-    installPackages: ['typescript@5.9.3', 'svelte-loader@3.2.4'],
+    installPackages: specs(['typescript', 'svelte-loader']),
     verificationRules: installRootRules(['typescript', 'svelte-loader'])
   }),
   less: defineContract({
     id: 'less',
     integration: 'LESS',
-    installPackages: ['less@4.6.7', 'less-loader@12.3.0'],
+    installPackages: specs(['less', 'less-loader']),
     verificationRules: installRootRules(['less', 'less-loader'])
   }),
   postcss: defineContract({
     id: 'postcss',
     integration: 'PostCSS',
-    installPackages: ['postcss@8.5.6', 'postcss-loader@8.2.0'],
+    installPackages: specs(['postcss', 'postcss-loader']),
     verificationRules: installRootRules(['postcss', 'postcss-loader'])
   }),
   sass: defineContract({
     id: 'sass',
     integration: 'SASS',
-    installPackages: [
-      'postcss-loader@8.2.0',
-      'postcss-scss@4.0.9',
-      'postcss-preset-env@11.1.1',
-      'sass-loader@16.0.6'
-    ],
+    installPackages: specs([
+      'postcss-loader',
+      'postcss-scss',
+      'postcss-preset-env',
+      'sass-loader'
+    ]),
     verificationRules: installRootRules([
       'postcss-loader',
       'postcss-scss',
@@ -144,13 +160,6 @@ export function getOptionalDependencyContract(contractId: string) {
   }
 
   return contract
-}
-
-export function getContractsSignature(): string {
-  const allSpecs = Object.values(OPTIONAL_DEPENDENCY_CONTRACTS)
-    .flatMap((c) => c.installPackages)
-    .sort()
-  return allSpecs.join('::')
 }
 
 export {
