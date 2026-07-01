@@ -14,6 +14,7 @@ import {reportToCompilation} from '../../scripts-lib/utils'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {type DevOptions, type Manifest} from '../../../../types'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
+import {isGeckoBasedBrowser} from '../../../../lib/constants'
 
 export class SetupBackgroundEntry {
   private manifestPath: string
@@ -55,10 +56,12 @@ export class SetupBackgroundEntry {
     // Guards are handled at the root plugin level
     const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
     const browser = this.browser
+    // Gecko family (firefox + forks like waterfox/librewolf) gets the gecko
+    // reload helper; everything else (chromium family + Safari/webkit) gets the
+    // chromium one.
+    const isGecko = isGeckoBasedBrowser(String(browser))
     const minimumBgScript = resolveDevelopDistFile(
-      browser === 'firefox' || browser === 'gecko-based'
-        ? 'minimum-firefox-file'
-        : 'minimum-chromium-file'
+      isGecko ? 'minimum-firefox-file' : 'minimum-chromium-file'
     )
     const dirname = path.dirname(this.manifestPath)
     const filteredManifest =
@@ -76,7 +79,7 @@ export class SetupBackgroundEntry {
       )
     }
 
-    if (browser === 'firefox' || browser === 'gecko-based') {
+    if (isGecko) {
       const bgScripts = manifestBg?.scripts
 
       if (bgScripts && bgScripts.length > 0) {

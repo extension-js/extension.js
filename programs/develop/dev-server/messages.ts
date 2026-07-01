@@ -9,6 +9,7 @@
 import * as fs from 'fs'
 import {createRequire} from 'module'
 import colors from 'pintor'
+import {isGeckoBasedBrowser} from '../lib/constants'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -30,12 +31,7 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
 export function ready(mode: 'development' | 'production', browser: string) {
   const key = String(browser || '').toLowerCase()
   const extensionOutput =
-    key === 'firefox' ||
-    key === 'gecko-based' ||
-    key === 'firefox-based' ||
-    key === 'edge'
-      ? 'Add-on'
-      : 'Extension'
+    isGeckoBasedBrowser(key) || key === 'edge' ? 'Add-on' : 'Extension'
   const cap =
     key === 'firefox' || key === 'gecko-based' || key === 'firefox-based'
       ? 'Firefox'

@@ -7,13 +7,16 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {Manifest, DevOptions} from '../../../../types'
+import {isGeckoBasedBrowser} from '../../../../lib/constants'
 
 export default function patchBackground(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
   if (!manifest.background) {
-    if (browser === 'firefox' || browser === 'gecko-based') {
+    // Gecko family (firefox + forks like waterfox/librewolf, and the
+    // gecko-based/firefox-based aliases) uses MV2 background.scripts.
+    if (isGeckoBasedBrowser(String(browser))) {
       return {
         background: {
           ...(manifest.background || {}),

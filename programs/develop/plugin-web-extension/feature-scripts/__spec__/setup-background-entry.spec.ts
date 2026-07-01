@@ -69,4 +69,22 @@ describe('SetupBackgroundEntry default entry registration', () => {
     expect(compiler.options.entry).toHaveProperty('background/script')
     expect(compiler.options.entry).not.toHaveProperty('background/service_worker')
   })
+
+  // Gecko forks must be treated like Firefox (MV2 background.scripts), not fall
+  // through to the chromium service_worker default.
+  for (const browser of ['waterfox', 'librewolf']) {
+    it(`registers background/script for the gecko fork ${browser}`, () => {
+      const manifestPath = writeManifest(NO_BACKGROUND)
+      const compiler = fakeCompiler()
+
+      new SetupBackgroundEntry({manifestPath, browser: browser as any}).apply(
+        compiler
+      )
+
+      expect(compiler.options.entry).toHaveProperty('background/script')
+      expect(compiler.options.entry).not.toHaveProperty(
+        'background/service_worker'
+      )
+    })
+  }
 })

@@ -11,6 +11,7 @@ import * as path from 'path'
 import {createHash} from 'crypto'
 import colors from 'pintor'
 import * as messages from './messages'
+import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import type {BrowserType} from '../browsers-types'
 
 // Inline shared-state flag: in the standalone browser package we only need
@@ -163,18 +164,13 @@ function resolveExtensionId(args: {
   const fromFallback = toNormalizedId(args.fallback?.extensionId)
   if (fromFallback) return fromFallback
 
-  if (
-    args.browser === 'chrome' ||
-    args.browser === 'edge' ||
-    args.browser === 'chromium' ||
-    args.browser === 'chromium-based'
-  ) {
+  if (isChromiumBrowser(args.browser)) {
     const fromKey = deriveChromiumExtensionIdFromManifest(args.manifest)
     if (fromKey) return fromKey
     return deriveChromiumExtensionIdFromPath(args.extensionPath || '')
   }
 
-  if (args.browser === 'firefox' || args.browser === 'firefox-based') {
+  if (isFirefoxBrowser(args.browser)) {
     return deriveFirefoxExtensionIdFromManifest(args.manifest)
   }
 

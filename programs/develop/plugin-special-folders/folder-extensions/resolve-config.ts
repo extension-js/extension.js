@@ -17,6 +17,7 @@ import {
   normalizeCompanionConfig,
   toAbs
 } from './utils'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 
 type StoreBrowser = 'chrome' | 'edge' | 'firefox'
 
@@ -33,11 +34,9 @@ function isSubpathOf(parent: string, child: string): boolean {
 }
 
 function getBrowserFolder(browser: string | undefined): StoreBrowser {
-  if (
-    browser === 'firefox' ||
-    browser === 'gecko-based' ||
-    browser === 'firefox-based'
-  ) {
+  // Gecko family (firefox + forks like waterfox/librewolf) maps to the firefox
+  // companion-extensions store folder.
+  if (browser && isGeckoBasedBrowser(String(browser))) {
     return 'firefox'
   }
 
