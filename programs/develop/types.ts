@@ -209,20 +209,6 @@ export interface DevOptions extends BrowserOptionsBase {
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
-  // Source inspection options
-  source?: string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean
   // Unified logger CLI output options
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -318,20 +304,6 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
    */
   publicHost?: string
-  // Source inspection options (parity with DevOptions)
-  source?: string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean
   // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -382,20 +354,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
    */
   publicHost?: string
-  // Source inspection options (parity with DevOptions)
-  source?: string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean
   // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -538,8 +496,6 @@ export interface FileConfig {
       | 'port'
       | 'host'
       | 'publicHost'
-      | 'source'
-      | 'watchSource'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'
@@ -566,8 +522,6 @@ export interface FileConfig {
       | 'port'
       | 'host'
       | 'publicHost'
-      | 'source'
-      | 'watchSource'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'

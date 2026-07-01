@@ -142,7 +142,6 @@ export function browserConfig(
   const extensionsToLoad = toExtensionLoadList(configOptions.extension)
 
   // Use ephemeral profile under dist unless explicit profile provided
-  const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
   const devWantsCDP = compilation?.options?.mode === 'development'
   const rawProfile = configOptions.profile
   const useSystemProfile =
@@ -295,7 +294,7 @@ export function browserConfig(
     ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
     ...linuxContainerSandboxFlags,
     ...aiOptimizedFlags,
-    ...(sourceEnabled || devWantsCDP
+    ...(devWantsCDP
       ? [
           `--remote-debugging-port=${cdpPort}`,
           '--remote-debugging-address=127.0.0.1',

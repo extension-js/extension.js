@@ -24,18 +24,6 @@ export type FirefoxPluginLike = Pick<
   | 'startingUrl'
   | 'geckoBinary'
   | 'instanceId'
-  | 'watchSource'
-  | 'sourceFormat'
-  | 'sourceSummary'
-  | 'sourceMeta'
-  | 'sourceProbe'
-  | 'sourceTree'
-  | 'sourceConsole'
-  | 'sourceDom'
-  | 'sourceMaxBytes'
-  | 'sourceRedact'
-  | 'sourceIncludeShadow'
-  | 'sourceDiff'
   | 'port'
   | 'logLevel'
   | 'logContexts'
@@ -47,7 +35,6 @@ export type FirefoxPluginLike = Pick<
   | 'dryRun'
 > & {
   browser: PluginInterface['browser']
-  source?: string | boolean
 }
 
 /**

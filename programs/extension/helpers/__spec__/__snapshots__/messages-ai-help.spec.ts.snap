@@ -79,23 +79,6 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       ],
       "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits; pair with --wait-format=json for machine output",
     },
-    "sourceInspection": {
-      "notes": [
-        "--source supports URL fallback to --starting-url or https://example.com",
-        "run-only preview mode does not perform source inspection",
-      ],
-      "supportedIn": [
-        "dev",
-      ],
-      "unsupportedIn": [
-        "start",
-        "preview",
-        "build",
-        "create",
-        "install",
-        "uninstall",
-      ],
-    },
   },
   "commands": [
     {
@@ -177,7 +160,6 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
   "examples": [
     "extension --ai-help",
     "extension --ai-help --format json",
-    "extension dev ./my-ext --source https://example.com --source-format json",
     "extension dev ./my-ext --logs=info --log-format=json",
     "extension dev ./my-ext --host 0.0.0.0 --no-browser",
     "extension dev ./my-ext --wait --browser=chromium --wait-format=json",
