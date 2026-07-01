@@ -300,19 +300,6 @@ export function buildInstallCommand(
   return {command: pm.name, args}
 }
 
-export function buildNpmCliFallback(
-  args: string[]
-): {command: string; args: string[]} | undefined {
-  const npmCli = resolveBundledNpmCliPath()
-
-  if (!npmCli) return undefined
-
-  return {
-    command: process.execPath,
-    args: [npmCli, ...args]
-  }
-}
-
 export function buildSpawnInvocation(
   command: string,
   args: string[]
@@ -350,8 +337,4 @@ export function execInstallCommand(
 
     child.on('error', (error) => reject(error))
   })
-}
-
-export function getInstallCommandForPath(cwd: string): PackageManagerName {
-  return resolvePackageManager({cwd}).name
 }
