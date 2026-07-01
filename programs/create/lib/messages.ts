@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
-import * as fs from 'fs'
 import colors from 'pintor'
 import {detectPackageManagerFromEnv, isDenoRuntime} from './package-manager'
 
@@ -34,10 +33,7 @@ export async function directoryHasConflicts(
   let message = `Conflicting files found in ${colors.blue(projectName)}.\n\n`
 
   for (const file of conflictingFiles) {
-    const stats = await fs.promises.lstat(path.join(projectPath, file))
-    message += stats.isDirectory()
-      ? `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
-      : `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
+    message += `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
   }
 
   message +=
@@ -222,10 +218,7 @@ export function installingProjectIntegrations(integrations: string[]) {
     if (items.length === 2) return `${items[0]} and ${items[1]}`
     return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
   }
-  const tools =
-    integrations.length > 0
-      ? formatList(integrations.map((name) => colors.yellow(name)))
-      : colors.gray('project tooling')
+  const tools = formatList(integrations.map((name) => colors.yellow(name)))
   return `${statusPrefix} Installing specialized dependencies for ${tools}... ${colors.gray(
     '(This may take a moment)'
   )}`
