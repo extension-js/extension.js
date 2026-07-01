@@ -1,7 +1,7 @@
 # Implementation spec: Firefox add-on id — harden the banner fallback
 
-**Status:** open · **Severity:** very low (cosmetic — dev-banner id only; no functional misattachment) · **Area:** `run-firefox/rdp/remote-firefox` id derivation
-**Owner:** unassigned · **Created:** 2026-07-01 · **Updated:** 2026-07-01 (investigation → spec) · **Repo:** `extension.js`
+**Status:** implemented + real-browser-verified (Firefox 151, local) · **Severity:** very low (cosmetic — dev-banner id only; no functional misattachment) · **Area:** `run-firefox/rdp/remote-firefox` id derivation
+**Owner:** unassigned · **Created:** 2026-07-01 · **Updated:** 2026-07-01 (investigation → spec → implemented → browser-verified) · **Repo:** `extension.js`
 
 This is a self-contained handoff. You should not need the originating conversation.
 
@@ -154,13 +154,49 @@ functional-ownership question: identity is a CLI launch-lifecycle concern.)
 
 ## Validation (the part an AI cannot fully self-serve)
 
-Unit tests above are self-contained. The **only** real-browser check — and it needs
-a human or CI with a display — is: launch `dev --browser=firefox` against a
-persisted profile that already has another temporary add-on installed, and confirm
-the banner shows our add-on's id (or no id) rather than the pre-existing add-on's
-host. This can't be reproduced headlessly here (Firefox RDP + real profile state),
-so an implementing agent should ship the code + unit tests and hand the browser
-check to CI/human.
+Unit tests above are self-contained. The real-browser check — launch
+`dev --browser=firefox` and confirm the banner shows our add-on's id (or no id)
+rather than a pre-existing add-on's host — **was run locally on 2026-07-01** via the
+compiled CLI (`node programs/extension/dist/cli.cjs dev <ext> --browser firefox
+--author`) against real Firefox 151 (Nightly). Results below.
+
+**Result: happy path green; fallback confirmed structurally dead; one residual
+limitation surfaced that the "exactly one target" rule does NOT close.**
+
+1. **Happy path — no regression.** With three add-ons loaded (extension-js-devtools,
+   extension-js-theme, and the user extension), the banner printed
+   `Extension ID   mozid-banner-test@extension.js` — the authoritative
+   install-provenance id. `derivedExtensionId` came from `installResponse.addon.id`;
+   the fallback was never entered and the new author-mode warning did **not** fire.
+   No `addonInstallError`, no "Failed to print banner."
+
+2. **Open question resolved empirically: `installResponse.addon.id` is populated.**
+   On supported Firefox the install reply carried the id every time, so the scan is
+   pure defense — matching the "smaller diff" branch of §3.
+
+3. **Live target probe (RDP `listTabs` on port 9230).** `listTabs` returned two tabs:
+   `about:blank` and `moz-extension://8f5c3021-…/pages/welcome.html` — the **manager**
+   extension's welcome page. The user extension (background-only, no open tab) does
+   **not** appear in `listTabs` at all. Two structural facts fall out:
+   - The fallback's data source (`listTabs`) only ever contains add-ons that have
+     opened a **visible page**. Our user extension typically has none, so the fallback
+     is *structurally incapable* of returning the user host in the common case —
+     reinforcing "defensive/effectively dead."
+   - In this run there was exactly **one** `moz-extension://` tab, so
+     `pickMozExtensionHost` returns it (`8f5c3021-…`) — but that host is the
+     **manager's**, not the user's. The "refuse on 2+" rule doesn't help when the sole
+     visible moz-extension tab is the wrong add-on. This is **not a regression** (the
+     old "first match wins" returned the same manager host); the new rule strictly
+     improves only the 2+-visible-tab case. It stays cosmetic-only and unreached
+     because of fact (1)/(2).
+
+**Net:** the shipped change is correct and safe (happy path intact, ambiguous multi-tab
+case now refuses to guess). The real-browser run additionally proves the fallback is
+dead in practice and, if ever revived, would need a *different* signal than `listTabs`
+host-counting to attribute a host to the user extension (e.g. the RDP add-on list
+keyed by install path, not open tabs). Recorded as a known limitation rather than
+fixed, since the path is unreached and banner-only — consistent with the "won't fix /
+document" latitude in the TL;DR.
 
 ## History
 
@@ -169,3 +205,18 @@ check to CI/human.
 - 2026-07-01: Upgraded to this spec after reading the install flow — the functional
   ownership concern dissolved (install-provenance id is preferred; the scanned id is
   banner-only), leaving a small, well-scoped fallback-hardening change.
+- 2026-07-01: Implemented the smaller diff. `moz-id.ts` now exposes a pure
+  `pickMozExtensionHost(targetUrls)` that adopts a host only when exactly one distinct
+  `moz-extension://` host is present (otherwise `undefined`); `deriveMozExtensionId`
+  delegates to it. Resolved the open question toward the smaller diff — the install
+  reply populates `addon.id` for temporary add-ons, so the scan is defensive-only, and
+  a `moz-extension://` host is a per-session UUID with no manager-vs-user signal, so the
+  `managerHostPattern` hook was dropped rather than carried unused. Added the author-mode
+  warning at the fallback site in `index.ts`. New unit spec
+  `programs/extension/browsers/__spec__/moz-id.unit.spec.ts` (5 cases, green).
+- 2026-07-01: Ran the real-browser check locally via the compiled CLI against Firefox 151
+  (see Validation). Happy-path banner shows the authoritative user id with no regression;
+  the open question is resolved (install reply always carries the id → fallback is defensive
+  only); and an RDP `listTabs` probe surfaced that the sole visible `moz-extension://` tab in
+  a real run is the *manager's* welcome page, so the fallback can't attribute a host to the
+  user extension from open tabs anyway. Logged as a known, unreached, cosmetic limitation.
