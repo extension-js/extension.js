@@ -37,10 +37,6 @@ describe('programAIHelp', () => {
       'uninstall',
       'telemetry'
     ])
-    expect(help.capabilities.sourceInspection.supportedIn).toEqual(['dev'])
-    expect(help.capabilities.sourceInspection.unsupportedIn).toContain(
-      'preview'
-    )
     expect(help.capabilities.logger.formats).toEqual([
       'pretty',
       'json',

@@ -49,20 +49,6 @@ export interface BrowserLaunchOptions {
   instanceId?: string
   port?: number | string
   dryRun?: boolean
-  // Source inspection options
-  source?: string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean
   // Unified logger options
   logLevel?: string
   logContexts?: string[]
@@ -155,19 +141,6 @@ async function launchChromium(
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
-    source: opts.source,
-    watchSource: opts.watchSource,
-    sourceFormat: opts.sourceFormat,
-    sourceSummary: opts.sourceSummary,
-    sourceMeta: opts.sourceMeta,
-    sourceProbe: opts.sourceProbe,
-    sourceTree: opts.sourceTree,
-    sourceConsole: opts.sourceConsole,
-    sourceDom: opts.sourceDom,
-    sourceMaxBytes: opts.sourceMaxBytes,
-    sourceRedact: opts.sourceRedact,
-    sourceIncludeShadow: opts.sourceIncludeShadow,
-    sourceDiff: opts.sourceDiff,
     logLevel: opts.logLevel as PluginInterface['logLevel'],
     logContexts: opts.logContexts as PluginInterface['logContexts'],
     logFormat: opts.logFormat as PluginInterface['logFormat'],
@@ -226,21 +199,6 @@ async function launchFirefox(
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
-    // Source inspection — forwarded to FirefoxRDPController via
-    // setup-rdp-after-launch so that Firefox reaches parity with Chromium.
-    source: opts.source,
-    watchSource: opts.watchSource,
-    sourceFormat: opts.sourceFormat,
-    sourceSummary: opts.sourceSummary,
-    sourceMeta: opts.sourceMeta,
-    sourceProbe: opts.sourceProbe,
-    sourceTree: opts.sourceTree,
-    sourceConsole: opts.sourceConsole,
-    sourceDom: opts.sourceDom,
-    sourceMaxBytes: opts.sourceMaxBytes,
-    sourceRedact: opts.sourceRedact,
-    sourceIncludeShadow: opts.sourceIncludeShadow,
-    sourceDiff: opts.sourceDiff,
     // Unified logger options — consumed by FirefoxRDPController.enableUnifiedLogging
     logLevel: opts.logLevel as PluginInterface['logLevel'],
     logContexts: opts.logContexts as PluginInterface['logContexts'],
