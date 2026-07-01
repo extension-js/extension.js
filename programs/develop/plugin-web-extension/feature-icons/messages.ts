@@ -87,16 +87,3 @@ export function iconsNormalizationSummary(
     `normalized ${colors.gray(String(changedCount))}`
   )
 }
-
-export function iconsManifestChangeDetected(
-  field: string,
-  before?: string,
-  after?: string
-) {
-  const parts = [
-    `Manifest icons change detected in ${colors.yellow(field)}`,
-    before ? `${colors.gray('before')} ${colors.underline(before)}` : '',
-    after ? `${colors.gray('after')} ${colors.underline(after)}` : ''
-  ].filter(Boolean)
-  return parts.join(' — ')
-}

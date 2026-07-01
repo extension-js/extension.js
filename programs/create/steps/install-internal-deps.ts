@@ -316,9 +316,3 @@ export async function installInternalDependencies(
     )
   }
 }
-
-export const __testing__ = {
-  resolveDevelopRoot,
-  resolveMissingOptionalDeps,
-  detectOptionalDependencies
-}

@@ -27,14 +27,6 @@ export function youAreAllSet(name: string) {
   return `${colors.green('⏵⏵⏵')} ${name} installation completed.`
 }
 
-export function optionalDepsReady(integrations: string[]) {
-  const list =
-    integrations.length > 0
-      ? integrations.map((name) => colors.yellow(name)).join(', ')
-      : colors.gray('optional')
-  return `${colors.green('⏵⏵⏵')} All set — ${list} tooling is ready.`
-}
-
 export function creatingTSConfig() {
   return `${colors.gray('⏵⏵⏵')} Creating default tsconfig.json...`
 }

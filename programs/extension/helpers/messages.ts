@@ -107,13 +107,6 @@ export function checkUpdates(
   return {suffix, message}
 }
 
-export function unsupportedNodeVersion() {
-  return (
-    `${getLoggingPrefix('error')} You are using an unsupported Node version.\n` +
-    `${colors.red(`${process.version}. Please update to a version higher than 18.`)}`
-  )
-}
-
 export function noURLWithoutStart(argument: string) {
   return (
     `The default ${colors.gray('create')} command does not accept URLs.\n` +
@@ -256,7 +249,6 @@ ${colors.underline('Path Resolution (important)')}
 - Relative paths resolve from the ${code('manifest.json')} directory.
 - Absolute OS paths are used as-is.
 
-
 ${'AI Assistants'}
 - For AI-oriented guidance and deeper tips, run ${code('extension --ai-help')}
 - For machine-readable AI guidance, run ${code('extension --ai-help --format json')}
@@ -278,22 +270,6 @@ export function safariCommandNotSupported(
     `browser session to load into — unlike Chromium and Firefox.\n` +
     `Build the Safari app instead: ${code('extension build --browser safari')}\n` +
     `Then open the generated app and enable it in Safari → Settings → Extensions.`
-  )
-}
-
-export function invalidLogsOptionPipe(value: string) {
-  return (
-    `${getLoggingPrefix('error')} Invalid value for ${code('--logs')}: ${colors.red(String(value))}\n` +
-    `The '|' character is a shell pipe, not a separator for values.\n` +
-    `Use a single level, e.g. ${code('--logs warn')} or ${code('--logs=warn')}.\n` +
-    `Allowed values: ${arg('off, error, warn, info, debug, trace, all')}`
-  )
-}
-
-export function invalidLogsOptionValue(value: string, allowed: string[]) {
-  return (
-    `${getLoggingPrefix('error')} Invalid value for ${code('--logs')}: ${colors.red(String(value))}\n` +
-    `Allowed values: ${arg(allowed.join(', '))}. Example: ${code('--logs=warn')}`
   )
 }
 

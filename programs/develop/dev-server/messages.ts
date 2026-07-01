@@ -145,26 +145,6 @@ export function bundlerFatalError(error: unknown) {
 }
 
 // Compilation finished with errors
-export function bundlerCompileFailed(errors: Array<any>) {
-  const count = (errors && errors.length) || 0
-  const formatOne = (e: any) => {
-    if (!e) return ''
-    if (typeof e === 'string') return e
-    if (e?.message) return e.message
-    try {
-      return JSON.stringify(e)
-    } catch {
-      return String(e)
-    }
-  }
-  const preview = (errors || []).slice(0, 3).map(formatOne).join('\n\n')
-  const more =
-    count > 3
-      ? `\n\n… and ${colors.brightBlue(String(count - 3))} more error(s).`
-      : ''
-  return `Compilation failed with ${colors.brightBlue(String(count))} error(s):\n\n${colors.red(preview)}${more}`
-}
-
 // Optional low-noise message on invalidation
 export function bundlerRecompiling() {
   return `Recompiling due to file changes…`
@@ -181,29 +161,6 @@ export function noEntrypointsDetected(port: number) {
     `  • All sources are ignored or excluded.`,
     `Try enabling verbose logs with ${colors.brightBlue('EXTENSION_VERBOSE=1')} or review your extension config.`
   ].join('\n')
-}
-
-export function devServerConfig(
-  host: string,
-  port: number,
-  hmrEnabled: boolean,
-  wsHost: string,
-  wsPort: number,
-  pollingIntervalMs: number
-) {
-  const heading = 'Dev server'
-  return [
-    heading,
-    `${colors.gray('HOST')} ${colors.underline(host)}`,
-    `${colors.gray('PORT')} ${colors.underline(String(port))}`,
-    `${colors.gray('HMR')} ${hmrEnabled ? colors.green('enabled') : colors.gray('disabled')}`,
-    `${colors.gray('WS')} ${colors.underline(`${wsHost}:${wsPort}`)}`,
-    `${colors.gray('POLLING')} ${colors.underline(String(pollingIntervalMs))}${colors.gray('ms')}`
-  ].join('\n')
-}
-
-export function devServerWsSummary(connections: number) {
-  return `${getLoggingPrefix('info')} DevServer: WS connections ${colors.underline(String(connections))}`
 }
 
 export function spacerLine() {
