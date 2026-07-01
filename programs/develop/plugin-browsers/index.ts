@@ -135,19 +135,6 @@ export interface BrowserLaunchOptions {
   instanceId?: string
   port?: number | string
   dryRun?: boolean
-  source?: string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean
   logLevel?: string
   logContexts?: string[]
   logFormat?: 'pretty' | 'json' | 'ndjson'

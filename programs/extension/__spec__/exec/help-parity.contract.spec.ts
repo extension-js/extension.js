@@ -118,7 +118,6 @@ describe('CLI help parity contract', () => {
       'Development tips for extension developers and AI assistants'
     )
     expect(out).toContain('Managed Dependencies (Important)')
-    expect(out).toContain('Source Inspection & Real-Time Monitoring')
   })
 
   it('contract #5: command --help output contains declared options', () => {
@@ -130,89 +129,6 @@ describe('CLI help parity contract', () => {
         expect(help).toContain(option.long)
       }
     }
-  })
-
-  it('contract #6: source inspection capability is explicit and enforced for preview/start', () => {
-    const topHelp = stripAnsi(programUserHelp())
-    expect(topHelp).toContain(
-      'extension preview and extension start do not run source inspection'
-    )
-
-    const previewResult = spawnSync(
-      process.execPath,
-      [cliBin(), 'preview', '--source', 'https://example.com'],
-      {cwd: cliRoot(), encoding: 'utf8'}
-    )
-    const startResult = spawnSync(
-      process.execPath,
-      [cliBin(), 'start', '--source', 'https://example.com'],
-      {cwd: cliRoot(), encoding: 'utf8'}
-    )
-
-    const previewOutput = stripAnsi(
-      `${previewResult.stdout || ''}\n${previewResult.stderr || ''}`
-    )
-    const startOutput = stripAnsi(
-      `${startResult.stdout || ''}\n${startResult.stderr || ''}`
-    )
-
-    expect(previewResult.status).toBe(1)
-    expect(startResult.status).toBe(1)
-    expect(previewOutput).toContain(
-      'extension preview currently runs in run-only preview mode and does not support source inspection'
-    )
-    expect(startOutput).toContain(
-      'extension start currently runs in run-only preview mode and does not support source inspection'
-    )
-  })
-
-  it('contract #6b: preview/start do not declare source-inspection flags in --help', () => {
-    const program = buildProgramForInspection()
-    const preview = program.commands.find((cmd) => cmd.name() === 'preview')
-    const start = program.commands.find((cmd) => cmd.name() === 'start')
-    expect(preview).toBeDefined()
-    expect(start).toBeDefined()
-
-    for (const cmd of [preview!, start!]) {
-      const help = stripAnsi(cmd.helpInformation())
-      expect(help).not.toMatch(/^\s*--source\b/m)
-      expect(help).not.toMatch(/--source-/)
-      expect(help).not.toMatch(/--watch-source/)
-    }
-  })
-
-  it('contract #6c: preview/start reject source-inspection sub-flags with a helpful error', () => {
-    const cases: Array<[string, string]> = [
-      ['--source-dom', 'true'],
-      ['--source-format', 'json'],
-      ['--watch-source', 'true']
-    ]
-
-    for (const subcommand of ['preview', 'start'] as const) {
-      for (const [flag, value] of cases) {
-        const result = spawnSync(
-          process.execPath,
-          [cliBin(), subcommand, flag, value],
-          {cwd: cliRoot(), encoding: 'utf8'}
-        )
-        const out = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
-        expect(result.status).toBe(1)
-        expect(out).toContain(
-          `extension ${subcommand} currently runs in run-only preview mode and does not support source inspection`
-        )
-      }
-    }
-  })
-
-  it('contract #7: user help and ai-help remain aligned on source-inspection scope', () => {
-    const userHelp = stripAnsi(programUserHelp())
-    const aiHelp = stripAnsi(programAIHelp())
-
-    expect(userHelp).toContain('Source Inspection (dev command)')
-    expect(aiHelp).toContain(
-      'Note: preview/start run in run-only mode and do not perform source inspection.'
-    )
-    expect(userHelp).not.toContain('extension cleanup')
   })
 
   it('contract #8: --ai-help supports machine-readable JSON output with a stable schema', () => {
@@ -304,31 +220,4 @@ describe('CLI help parity contract', () => {
     expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
   })
 
-  it('contract #13: dev --source --wait is rejected with a helpful error', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'dev', '--source', 'https://example.com', '--wait'],
-      {cwd: cliRoot(), encoding: 'utf8'}
-    )
-
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
-    expect(result.status).toBe(1)
-    expect(output).toContain('--source')
-    expect(output).toContain('--wait')
-    expect(output).toMatch(/cannot be combined/i)
-  })
-
-  it('contract #14: dev --source --no-browser is rejected with a helpful error', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'dev', '--source', 'https://example.com', '--no-browser'],
-      {cwd: cliRoot(), encoding: 'utf8'}
-    )
-
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
-    expect(result.status).toBe(1)
-    expect(output).toContain('--source')
-    expect(output).toContain('--no-browser')
-    expect(output).toMatch(/cannot be combined/i)
-  })
 })

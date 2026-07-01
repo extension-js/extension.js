@@ -200,25 +200,6 @@ ${'Common Options'}
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
-${'Source Inspection (dev command)'}
-- ${code('--source')} ${arg('<url|boolean>')}         Open URL and print HTML after content scripts inject (dev only)
-  - When provided without a URL, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
-  - For ${code('extension dev')}, watch mode is enabled by default when ${code('--source')} is present
-- ${arg('Note:')} ${code('extension preview')} and ${code('extension start')} do not run source inspection in run-only preview mode.
-- ${arg('Automation sync:')} when using ${code('extension dev --no-browser')} or ${code('extension start --no-browser')}, run ${code('extension <dev|start> --wait --browser=<browser>')} in a second process to gate on ${code('ready.json')} (add ${code('--wait-format=json')} for machine-readable output).
-- ${code('--watch-source')} ${arg('[boolean]')}       Re-print HTML on rebuilds or file changes
-- ${code('--source-format')} ${arg('<pretty|json|ndjson>')} Output format for page HTML (defaults to ${code('--log-format')} when present)
-- ${code('--source-summary')} ${arg('[boolean]')}     Output a compact summary instead of full HTML
-- ${code('--source-meta')} ${arg('[boolean]')}        Output page metadata (readyState, viewport, frames)
-- ${code('--source-probe')} ${arg('<selectors>')}     Comma-separated CSS selectors to probe
-- ${code('--source-tree')} ${arg('<off|root-only>')}  Output a compact extension root tree
-- ${code('--source-console')} ${arg('[boolean]')}     Output console summary (best-effort)
-- ${code('--source-dom')} ${arg('[boolean]')}         Output DOM snapshots and diffs
-- ${code('--source-max-bytes')} ${arg('<bytes>')}      Limit HTML output size (0 disables truncation)
-- ${code('--source-redact')} ${arg('<off|safe|strict>')} Redact sensitive HTML content (default: safe for JSON/NDJSON)
-- ${code('--source-include-shadow')} ${arg('<off|open-only|all>')} Control Shadow DOM inclusion (default: open-only)
-- ${code('--source-diff')} ${arg('[boolean]')}        Include diff metadata on watch updates
-
 ${'Browser-Specific Options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
 - ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
@@ -374,30 +355,6 @@ ${'Hot Module Replacement (HMR)'}
 - Content scripts automatically re-inject on changes
 - Service workers, _locales and manifest changes reload the extension
 
-${'Source Inspection & Real-Time Monitoring'}
-- Use ${code('extension dev --source')} ${arg('<url|boolean>')} to inspect page HTML after content script injection
-  - When no URL is provided, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
-  - Watch mode is enabled by default when ${code('--source')} is present
-- Use ${code('--watch-source')} to re-print HTML on rebuilds or file changes
-- Use ${code('--source-format')} ${arg('<pretty|json|ndjson>')} for machine-friendly HTML output
-- Use ${code('--source-summary')} to emit a compact JSON summary instead of full HTML
-- Use ${code('--source-meta')} to emit page metadata (readyState, viewport, frames)
-- Use ${code('--source-probe')} to probe CSS selectors for quick validation
-- Use ${code('--source-tree')} to emit a compact extension root tree
-- Use ${code('--source-console')} to emit a console summary (best-effort)
-- Use ${code('--source-dom')} to emit DOM snapshots and diffs
-- Use ${code('--source-redact')} ${arg('<off|safe|strict>')} to redact sensitive content
-- Use ${code('--source-max-bytes')} ${arg('<bytes>')} to limit output size
-- Use ${code('--source-diff')} ${arg('[boolean]')} to emit diff metadata for watch updates
-- Source events include frame context (frameId/frameUrl), and console summaries include best-effort script URLs.
-- Action timeline events ${code('action_event')} report navigation, injection, rebuilds, snapshots, and reloads.
-- Automatically enables Chrome remote debugging (port 9222) when source inspection is active
-- Extracts Shadow DOM content from ${code('#extension-root')} or ${code('[data-extension-root=\"true\"]')} elements
-- Useful for debugging content script behavior and style injection
-- Example: ${code('extension dev --source=' + arg('https://example.com'))}
-- ${arg('Note:')} ${code('preview/start')} run in run-only mode and do not perform source inspection.
-- For machine synchronization with ${code('--no-browser')}, use ${code('extension dev --wait --browser=<browser>')} or ${code('extension start --wait --browser=<browser>')} in a second process (use ${code('--wait-format=json')} when a parser consumes stdout).
-
 ${'Non-Destructive Testing in CI'}
 - Prefer ${code('EXTENSION_AUTHOR_MODE=development')} to copy local templates and avoid network.
 - Reuse Playwright's Chromium via ${code('--chromium-binary')} path when available.
@@ -408,7 +365,6 @@ ${'File Watching & HMR Examples'}
 - For watch-source HTML prints, update a visible string in ${code('content/scripts.*')} and assert it appears in stdout.
 
 ${'Troubleshooting'}
-- If HTML is not printed, ensure ${code('--source')} is provided and browser launched with debugging port.
 - Use ${code('--silent true')} during builds to reduce noise; logs still surface errors.
 - When ports conflict, pass ${code('--port 0')} to auto-select an available port.
 - In Docker/devcontainers, pass ${code('--host 0.0.0.0')} so the dev server is reachable from the host.
@@ -465,11 +421,6 @@ export type ProgramAIHelpJSON = {
     description: string
   }>
   capabilities: {
-    sourceInspection: {
-      supportedIn: string[]
-      unsupportedIn: string[]
-      notes: string[]
-    }
     logger: {
       levels: string[]
       formats: string[]
@@ -628,21 +579,6 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       }
     ],
     capabilities: {
-      sourceInspection: {
-        supportedIn: ['dev'],
-        unsupportedIn: [
-          'start',
-          'preview',
-          'build',
-          'create',
-          'install',
-          'uninstall'
-        ],
-        notes: [
-          '--source supports URL fallback to --starting-url or https://example.com',
-          'run-only preview mode does not perform source inspection'
-        ]
-      },
       logger: {
         levels: ['off', 'error', 'warn', 'info', 'debug', 'trace', 'all'],
         formats: ['pretty', 'json', 'ndjson'],
@@ -709,7 +645,6 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
     examples: [
       'extension --ai-help',
       'extension --ai-help --format json',
-      'extension dev ./my-ext --source https://example.com --source-format json',
       'extension dev ./my-ext --logs=info --log-format=json',
       'extension dev ./my-ext --host 0.0.0.0 --no-browser',
       'extension dev ./my-ext --wait --browser=chromium --wait-format=json',
@@ -732,15 +667,6 @@ export function invalidAIHelpFormat(value: string) {
   )
 }
 
-export function sourceInspectionNotSupported(command: 'start' | 'preview') {
-  return (
-    `${getLoggingPrefix('error')} ${code(
-      `extension ${command}`
-    )} currently runs in run-only preview mode and does not support source inspection.\n` +
-    `Use ${code('extension dev --source <url>')} for source inspection features.`
-  )
-}
-
 export function removedNoRunnerFlag() {
   return (
     `${getLoggingPrefix('error')} ${code('--no-runner')} was removed.\n` +
@@ -755,31 +681,5 @@ export function noBrowserNotSupportedForCommand(command?: string) {
     )} is only supported for ${code('dev')}, ${code('start')}, and ${code(
       'preview'
     )}.\n` + `Received command: ${code(command || '(none)')}`
-  )
-}
-
-export function sourceIncompatibleWithWait() {
-  return (
-    `${getLoggingPrefix('error')} ${code(
-      '--source'
-    )} cannot be combined with ${code('--wait')}.\n` +
-    `Source inspection requires a live browser session; ${code(
-      '--wait'
-    )} exits as soon as the ready contract is satisfied.\n` +
-    `Run them separately: ${code('extension dev --wait')} for the readiness gate, then ${code(
-      'extension dev --source <url>'
-    )} for inspection.`
-  )
-}
-
-export function sourceIncompatibleWithNoBrowser() {
-  return (
-    `${getLoggingPrefix('error')} ${code(
-      '--source'
-    )} cannot be combined with ${code('--no-browser')}.\n` +
-    `Source inspection drives a real browser via CDP/RDP and cannot run headlessly against the dev server alone.\n` +
-    `Drop ${code('--no-browser')} or omit the ${code(
-      '--source'
-    )} flags to continue.`
   )
 }
