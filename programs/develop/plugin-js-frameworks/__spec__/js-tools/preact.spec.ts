@@ -25,7 +25,7 @@ describe('preact tools', () => {
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
-  it('isUsingPreact logs once when dependency present; maybeUsePreact returns aliases and plugin', async () => {
+  it('isUsingPreact logs once when dependency present; maybeUsePreact returns aliases and no fast-refresh plugin', async () => {
     const integrations = (await import(
       '../../frameworks-lib/integrations'
     )) as any
@@ -59,7 +59,10 @@ describe('preact tools', () => {
     expect(logSpy).toHaveBeenCalledTimes(1)
 
     const result = await maybeUsePreact('/p')
-    expect(result?.plugins?.length).toBeGreaterThan(0)
+    // Fast-refresh is intentionally disabled (rspack 2.x renames the prefresh
+    // runtime's `module` arg → `module is not defined` at eval). Preact falls
+    // back to live-reload, so no plugin is contributed — only the alias map.
+    expect(result?.plugins).toEqual([])
     expect(result?.alias?.react).toContain(
       '/project/node_modules/preact/compat'
     )
@@ -75,17 +78,14 @@ describe('preact tools', () => {
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/preact/jsx-dev-runtime'
     )
-    // Regression: @rspack/plugin-preact-refresh sets
-    // `compiler.options.resolve.alias.preact = options.preactPath` at apply-
-    // time. If we pass `{}` here pnpm strict layouts wedge the dev server
-    // because `preact: undefined` short-circuits webpack's alias and the
-    // plugin's pnpm dir doesn't sibling-link preact for Node fallback. The
-    // alias resolves to the *package directory* (parent of package.json) so
-    // webpack treats it as a prefix for sub-paths like `preact/hooks`.
+    // The `preact` alias resolves to the *package directory* (parent of
+    // package.json) so webpack treats it as a prefix for sub-paths like
+    // `preact/hooks`. Without it, pnpm strict layouts leave `preact`
+    // unresolvable for `preact/compat` sub-imports.
     expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 
-  it('passes preactPath to PreactRefreshPlugin so it can alias preact in pnpm strict layouts', async () => {
+  it('does not attempt to load @rspack/plugin-preact-refresh (fast-refresh disabled)', async () => {
     const integrations = (await import(
       '../../frameworks-lib/integrations'
     )) as any
@@ -93,55 +93,14 @@ describe('preact tools', () => {
       (_p: string, dep: string) => dep === 'preact'
     )
 
-    let pluginOptions: unknown
-    const PreactRefreshPluginMock = function (this: any, options: unknown) {
-      pluginOptions = options
-      this.apply = vi.fn()
-    } as any
+    // If maybeUsePreact tried to require the refresh plugin, this would be hit.
+    let pluginRequested = false
     vi.doMock('module', () => ({
       createRequire: () => {
         const req = ((id: string) => {
           if (id === '@rspack/plugin-preact-refresh') {
-            return {default: PreactRefreshPluginMock}
-          }
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-        return req
-      }
-    }))
-
-    const {maybeUsePreact} = await import('../../js-tools/preact')
-    await maybeUsePreact('/p')
-
-    expect(pluginOptions).toEqual({
-      preactPath: '/project/node_modules/preact'
-    })
-  })
-
-  it('resolves the ctor from the v2 named export (PreactRefreshRspackPlugin, no default)', async () => {
-    // Regression: @rspack/plugin-preact-refresh@2.x dropped the default
-    // export and exposes `{ PreactRefreshRspackPlugin }`. The old adapter
-    // `(mod.default || mod)` then handed rspack the namespace object and
-    // `new PreactRefreshPlugin()` threw "is not a constructor" at config time.
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'preact'
-    )
-
-    let constructed = false
-    const PreactRefreshRspackPlugin = function (this: any) {
-      constructed = true
-      this.apply = vi.fn()
-    } as any
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === '@rspack/plugin-preact-refresh') {
-            // v2 shape: named export only, no `default`.
-            return {PreactRefreshRspackPlugin}
+            pluginRequested = true
+            throw new Error(`Cannot find module ${id}`)
           }
           throw new Error(`Cannot find module ${id}`)
         }) as any
@@ -153,7 +112,9 @@ describe('preact tools', () => {
     const {maybeUsePreact} = await import('../../js-tools/preact')
     const result = await maybeUsePreact('/p')
 
-    expect(constructed).toBe(true)
-    expect(result?.plugins?.length).toBeGreaterThan(0)
+    expect(pluginRequested).toBe(false)
+    expect(result?.plugins).toEqual([])
+    // Aliases are still wired so Preact compiles and runs (live-reload only).
+    expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 })
