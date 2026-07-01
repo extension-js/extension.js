@@ -266,10 +266,21 @@ export class RemoteFirefox {
       this.derivedExtensionId = primaryUserAddonId
     }
 
-    // Best-effort: if no explicit id yet, try to infer from any moz-extension URL target
+    // Best-effort: if no explicit id yet, try to infer from any moz-extension URL
+    // target. Reaching here means the install reply carried no id — surface that
+    // in author mode so a real regression in the reply is visible instead of
+    // silently degrading to a scanned (or absent) banner id.
     try {
       if (!this.derivedExtensionId) {
         this.derivedExtensionId = await deriveMozExtensionId(client)
+        if (
+          process.env.EXTENSION_AUTHOR_MODE === 'true' &&
+          !this.derivedExtensionId
+        ) {
+          console.warn(
+            '[browser] Firefox: could not resolve a unique add-on id for the banner (install response had none; multiple or zero moz-extension targets).'
+          )
+        }
       }
     } catch {}
 
