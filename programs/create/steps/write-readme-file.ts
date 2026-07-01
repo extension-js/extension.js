@@ -10,6 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+import {isDenoRuntime} from '../lib/package-manager'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
 
 async function pathExists(target: string): Promise<boolean> {
@@ -32,6 +33,11 @@ export async function writeReadmeFile(
   // template-specific READMEs for browsing on GitHub.
 
   const installCommand = await utils.getInstallCommand()
+  // Deno runs package.json scripts through `deno task <name>` and forwards
+  // extra flags directly (no `--` separator), unlike `<pm> run <name> -- <flags>`.
+  const deno = isDenoRuntime()
+  const runPrefix = deno ? 'deno task' : `${installCommand} run`
+  const argSeparator = deno ? '' : ' --'
   const manifestJsonPath = await findManifestJsonPath(projectPath)
   const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
   const description = String(manifestJson.description || '').trim()
@@ -58,9 +64,9 @@ export async function writeReadmeFile(
     `Run the extension in development mode. Target a browser with \`--browser\`:\n` +
     `\n` +
     `\`\`\`bash\n` +
-    `${installCommand} run dev\n` +
-    `${installCommand} run dev -- --browser=firefox\n` +
-    `${installCommand} run dev -- --browser=edge\n` +
+    `${runPrefix} dev\n` +
+    `${runPrefix} dev${argSeparator} --browser=firefox\n` +
+    `${runPrefix} dev${argSeparator} --browser=edge\n` +
     `\`\`\`\n` +
     `\n` +
     `### build\n` +
@@ -68,9 +74,9 @@ export async function writeReadmeFile(
     `Build for production. Convenience scripts target each browser:\n` +
     `\n` +
     `\`\`\`bash\n` +
-    `${installCommand} run build           # Chrome (default)\n` +
-    `${installCommand} run build:firefox\n` +
-    `${installCommand} run build:edge\n` +
+    `${runPrefix} build           # Chrome (default)\n` +
+    `${runPrefix} build:firefox\n` +
+    `${runPrefix} build:edge\n` +
     `\`\`\`\n` +
     `\n` +
     `### preview\n` +
@@ -78,7 +84,7 @@ export async function writeReadmeFile(
     `Preview the production build in the browser:\n` +
     `\n` +
     `\`\`\`bash\n` +
-    `${installCommand} run preview\n` +
+    `${runPrefix} preview\n` +
     `\`\`\`\n` +
     `\n` +
     `## Learn more\n` +

@@ -9,7 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import colors from 'pintor'
-import {detectPackageManagerFromEnv} from './package-manager'
+import {detectPackageManagerFromEnv, isDenoRuntime} from './package-manager'
 
 const statusPrefix = colors.brightBlue('⏵⏵⏵')
 
@@ -74,18 +74,28 @@ export async function successfullInstall(
   let command = 'npm run'
   let installCmd = 'npm install'
 
-  switch (pm) {
-    case 'yarn':
-      command = 'yarn dev'
-      installCmd = 'yarn'
-      break
-    case 'pnpm':
-      command = 'pnpm dev'
-      installCmd = 'pnpm install'
-      break
-    default:
-      command = 'npm run dev'
-      installCmd = 'npm install'
+  if (isDenoRuntime()) {
+    // Deno runs package.json scripts via `deno task`, not `deno run`.
+    command = 'deno task dev'
+    installCmd = 'deno install'
+  } else {
+    switch (pm) {
+      case 'yarn':
+        command = 'yarn dev'
+        installCmd = 'yarn'
+        break
+      case 'pnpm':
+        command = 'pnpm dev'
+        installCmd = 'pnpm install'
+        break
+      case 'bun':
+        command = 'bun dev'
+        installCmd = 'bun install'
+        break
+      default:
+        command = 'npm run dev'
+        installCmd = 'npm install'
+    }
   }
 
   const steps = depsInstalled
