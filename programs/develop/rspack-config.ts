@@ -413,12 +413,27 @@ export default function webpackConfig(
       // rules: the user project's own copy still wins (project chain first),
       // and the bundled copy is used otherwise — the same [project, develop]
       // order the old per-loader absolute-path resolution used.
+      //
+      // rspack treats absolute entries in `modules` as literal directories
+      // with no node-style upward traversal, so we must list both places a
+      // package manager can put the bundled loaders relative to
+      // extension-develop: nested under its own node_modules (non-hoisted),
+      // and — the common case — hoisted up as a sibling in the node_modules
+      // that *contains* extension-develop. The old require.resolve-based
+      // resolution walked up and so caught the hoisted copy for free; when
+      // running via `npx`/`exec` extension-develop lives in the package
+      // manager's cache and its deps are hoisted, which is why exec builds
+      // failed to resolve sass-loader/less-loader without this parent entry.
       modules: [
         'node_modules',
         path.join(packageJsonDir, 'node_modules'),
         ...(() => {
           const developRoot = resolveDevelopInstallRoot()
-          return developRoot ? [path.join(developRoot, 'node_modules')] : []
+          if (!developRoot) return []
+          return [
+            path.join(developRoot, 'node_modules'),
+            path.dirname(developRoot)
+          ]
         })()
       ],
       extensions: [
