@@ -9,7 +9,6 @@
 import type {RuleSetRule} from '@rspack/core'
 import {commonStyleLoaders} from '../common-style-loaders'
 import {createSassLoaderOptions} from '../css-tools/sass'
-import {resolveOptionalDependencySync} from '../../lib/optional-deps-resolver'
 import type {DevOptions} from '../../types'
 
 export interface PreprocessorUsage {
@@ -22,13 +21,6 @@ interface BuildCssRulesOptions {
   // CSS (`asset/inline`); HTML entries emit a real stylesheet (`css`)
   nonModuleType: 'asset/inline' | 'css'
   issuer: (issuer: string) => boolean
-}
-
-function resolvePreprocessorLoader(
-  loader: 'sass-loader' | 'less-loader',
-  projectPath: string
-): string {
-  return resolveOptionalDependencySync(loader, projectPath)
 }
 
 export async function buildCssRules(
@@ -90,7 +82,9 @@ export async function buildCssRules(
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
-            loader: resolvePreprocessorLoader(loader, projectPath),
+            // Bare loader name; rspack resolves it via `resolveLoader.modules`,
+            // which includes extension-develop's node_modules as a fallback.
+            loader,
             loaderOptions:
               loader === 'sass-loader'
                 ? createSassLoaderOptions(
