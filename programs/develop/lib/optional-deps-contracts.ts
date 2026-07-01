@@ -106,7 +106,7 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   less: defineContract({
     id: 'less',
     integration: 'LESS',
-    installPackages: ['less@4.5.1', 'less-loader@12.3.0'],
+    installPackages: ['less@4.6.7', 'less-loader@12.3.0'],
     verificationRules: installRootRules(['less', 'less-loader'])
   }),
   postcss: defineContract({
