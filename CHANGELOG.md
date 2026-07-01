@@ -2,28 +2,14 @@
 
 ## Unreleased
 
-### 🚀 Features
-
-- Support named browser forks via engine-family manifest keys and build/launch path ([d7c903f4](https://github.com/extension-js/extension.js/commit/d7c903f44d91e9b83006ca1a7eff7bf7bd7bde31))
-
 ### 🐛 Fixes
 
-- Harden Firefox banner add-on id fallback to refuse ambiguous guesses ([d776e4d9](https://github.com/extension-js/extension.js/commit/d776e4d98200c42926747953bd1dac4632f47cb3))
-- Resolve bundled CSS preprocessor loaders via rspack resolveLoader.modules instead of manual path resolution ([8059fc62](https://github.com/extension-js/extension.js/commit/8059fc62fa016f4382220ae1e29adf6579174771))
+- Resolve bundled sass-loader and less-loader hoisted beside extension-develop so npx and exec builds find them ([0355b4a4](https://github.com/extension-js/extension.js/commit/0355b4a491078669246418b1f355be15a2544440))
 
 <details>
-<summary>🧹 Other changes (10)</summary>
+<summary>🧹 Other changes (1)</summary>
 
-- Drop four dead develop exports and rename the firefox follow-up to match its content ([ca49dd54](https://github.com/extension-js/extension.js/commit/ca49dd54403a679e716c7f28707dd9a9fed173e9))
-- Rename the source-inspection dirs to cdp/ and rdp/, upgrade the firefox id follow-up ([c3dabd31](https://github.com/extension-js/extension.js/commit/c3dabd31be17727ce404b4c36e047768703fff3e))
-- Remove dead controller methods left by source-inspection and pair up chromium/firefox ([53331d86](https://github.com/extension-js/extension.js/commit/53331d86bd72753fa609faa5f0c0410dbacaa623))
-- Remove the unwired source-inspection feature ([a2afe400](https://github.com/extension-js/extension.js/commit/a2afe400a320764693cfd4f5967c9b881186271e))
-- Remove dead code across create, develop, and extension ([6b8c47dc](https://github.com/extension-js/extension.js/commit/6b8c47dcf85d3c0ddfffb4b802e1b9671cf77e65))
-- Single-source optional-dependency install hints from bundled versions and drop dead signature helper ([4e6da9a7](https://github.com/extension-js/extension.js/commit/4e6da9a751c5d76eb504e4f5c6c9a2a38b815f4c))
-- Make the not-emitted manifest guard version-aware instead of blaming incremental builds ([df9c51d3](https://github.com/extension-js/extension.js/commit/df9c51d38fcbe8450ee11a28a0498858c4750c38))
-- Bump bundled less to 4.6.7 to drop the errant 4.5.1 postinstall that trips build-script warnings ([f4cc754a](https://github.com/extension-js/extension.js/commit/f4cc754a575196fd5f5438b0300a6dd6aaf44a44))
-- Detect the Deno runtime so scaffolds suggest deno install and deno task commands ([fd9f869b](https://github.com/extension-js/extension.js/commit/fd9f869b4c4ee3fc45d5c95a761e03160e66b4c7))
-- Pre-approve dependency build scripts in scaffolds so install-once just works ([7218b099](https://github.com/extension-js/extension.js/commit/7218b099691aeaefca320c11524ae33c86666958))
+- Disable Preact fast-refresh so the rspack 2.x prefresh runtime stops crashing dev with module is not defined ([4f6380cc](https://github.com/extension-js/extension.js/commit/4f6380cc1f100be5e67727f40eaeb4f2a80467b2))
 </details>
 
 ## 3.18.0 (May 28, 2026)
