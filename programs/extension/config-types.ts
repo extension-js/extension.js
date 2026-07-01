@@ -125,8 +125,6 @@ export interface ServeCommandConfig
   port?: string | number
   host?: string
   publicHost?: string
-  source?: string
-  watchSource?: boolean
 }
 
 /** `commands.build` overrides. */

@@ -46,8 +46,6 @@ export class FirefoxRDPController {
       // with (already passed through findAvailablePortNear). Pin it so the
       // add-on install connects to THAT port instead of re-deriving it.
       resolvedRdpPort: normalizedDebugPort,
-      source: typeof plugin.source === 'string' ? plugin.source : undefined,
-      watchSource: plugin.watchSource,
       browserVersionLine: plugin.browserVersionLine
     })
     this.debugPort = normalizedDebugPort

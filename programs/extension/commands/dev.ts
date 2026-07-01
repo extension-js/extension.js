@@ -24,17 +24,6 @@ import {
   parseOptionalBoolean
 } from '../helpers/vendors'
 import {
-  normalizeSourceOption,
-  normalizeSourceFormatOption,
-  normalizeSourceIncludeShadowOption,
-  normalizeSourceMaxBytesOption,
-  normalizeSourceRedactOption,
-  normalizeSourceMetaOption,
-  normalizeSourceProbeOption,
-  normalizeSourceTreeOption,
-  normalizeSourceConsoleOption,
-  normalizeSourceDomOption,
-  normalizeSourceDiffOption,
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
@@ -48,19 +37,6 @@ type DevOptions = {
   polyfill?: boolean | string
   open?: boolean
   startingUrl?: string
-  source?: boolean | string
-  watchSource?: boolean
-  sourceFormat?: 'pretty' | 'json' | 'ndjson'
-  sourceSummary?: boolean
-  sourceMeta?: boolean
-  sourceProbe?: string | string[]
-  sourceTree?: 'off' | 'root-only'
-  sourceConsole?: boolean
-  sourceDom?: boolean
-  sourceMaxBytes?: number | string
-  sourceRedact?: 'off' | 'safe' | 'strict'
-  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
-  sourceDiff?: boolean | string
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
@@ -146,64 +122,6 @@ export function registerDevCommand(program: Command) {
       '[experimental] only show logs where event.url matches this substring or regex (/re/i)'
     )
     .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
-    .option(
-      '--source [url]',
-      '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
-    )
-    .option(
-      '--watch-source [boolean]',
-      '[experimental] re-print HTML on rebuilds or file changes (defaults to true when --source is present)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-format <pretty|json|ndjson>',
-      '[experimental] output format for source HTML (defaults to --log-format when present, otherwise JSON when --source is used)'
-    )
-    .option(
-      '--source-summary [boolean]',
-      '[experimental] output a compact summary instead of full HTML',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-meta [boolean]',
-      '[experimental] output page metadata (readyState, viewport, frames)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-probe <selectors>',
-      '[experimental] comma-separated CSS selectors to probe'
-    )
-    .option(
-      '--source-tree <off|root-only>',
-      '[experimental] output a compact extension root tree'
-    )
-    .option(
-      '--source-console [boolean]',
-      '[experimental] output console summary (best-effort)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-dom [boolean]',
-      '[experimental] output DOM snapshots and diffs (default: true when watch is enabled)',
-      parseOptionalBoolean
-    )
-    .option(
-      '--source-max-bytes <bytes>',
-      '[experimental] limit HTML output size in bytes (0 disables truncation)'
-    )
-    .option(
-      '--source-redact <off|safe|strict>',
-      '[experimental] redact sensitive content in HTML output (default: safe for JSON/NDJSON)'
-    )
-    .option(
-      '--source-include-shadow <off|open-only|all>',
-      '[experimental] control Shadow DOM inclusion in HTML output (default: open-only)'
-    )
-    .option(
-      '--source-diff [boolean]',
-      '[experimental] include diff metadata on watch updates (default: true when watch is enabled)',
-      parseOptionalBoolean
-    )
     .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
@@ -291,75 +209,6 @@ export function registerDevCommand(program: Command) {
         return
       }
 
-      // Normalize source/watch behavior:
-      // - If --source present without URL, fall back to startingUrl or https://example.com
-      // - When --source is provided, enable watch mode by default
-      const normalizedSource = normalizeSourceOption(
-        devOptions.source,
-        devOptions.startingUrl
-      )
-      if (normalizedSource) {
-        devOptions.source = normalizedSource
-        if (typeof devOptions.watchSource === 'undefined') {
-          devOptions.watchSource = true
-        }
-      }
-
-      const sourceEnabled = Boolean(devOptions.source || devOptions.watchSource)
-      const normalizedSourceFormat = normalizeSourceFormatOption({
-        sourceFormat: (devOptions as any).sourceFormat,
-        logFormat: devOptions.logFormat,
-        sourceEnabled
-      })
-
-      devOptions.sourceFormat = normalizedSourceFormat
-      if (sourceEnabled && normalizedSourceFormat) {
-        process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
-      }
-
-      devOptions.sourceRedact = normalizeSourceRedactOption(
-        devOptions.sourceRedact,
-        normalizedSourceFormat
-      )
-
-      devOptions.sourceMeta = normalizeSourceMetaOption(
-        devOptions.sourceMeta,
-        sourceEnabled
-      )
-
-      devOptions.sourceProbe = normalizeSourceProbeOption(
-        devOptions.sourceProbe
-      )
-
-      devOptions.sourceTree = normalizeSourceTreeOption(
-        devOptions.sourceTree,
-        sourceEnabled
-      )
-
-      devOptions.sourceConsole = normalizeSourceConsoleOption(
-        devOptions.sourceConsole,
-        sourceEnabled
-      )
-
-      devOptions.sourceDom = normalizeSourceDomOption(
-        devOptions.sourceDom,
-        devOptions.watchSource
-      )
-
-      devOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
-        devOptions.sourceMaxBytes
-      )
-
-      devOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
-        devOptions.sourceIncludeShadow,
-        sourceEnabled
-      )
-
-      devOptions.sourceDiff = normalizeSourceDiffOption(
-        devOptions.sourceDiff,
-        devOptions.watchSource
-      )
-
       const {extensionDev}: {extensionDev: any} =
         await loadExtensionDevelopModule()
       const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
@@ -390,19 +239,6 @@ export function registerDevCommand(program: Command) {
           install: devOptions.install,
           noBrowser,
           extensions: parseExtensionsList(devOptions.extensions),
-          source: devOptions.source,
-          watchSource: devOptions.watchSource,
-          sourceFormat: devOptions.sourceFormat,
-          sourceSummary: devOptions.sourceSummary,
-          sourceMeta: devOptions.sourceMeta,
-          sourceProbe: devOptions.sourceProbe,
-          sourceTree: devOptions.sourceTree,
-          sourceConsole: devOptions.sourceConsole,
-          sourceDom: devOptions.sourceDom,
-          sourceMaxBytes: devOptions.sourceMaxBytes,
-          sourceRedact: devOptions.sourceRedact,
-          sourceIncludeShadow: devOptions.sourceIncludeShadow,
-          sourceDiff: devOptions.sourceDiff,
           logLevel,
           logContexts,
           logFormat: devOptions.logFormat || 'pretty',
