@@ -7,16 +7,16 @@ const lifecycleMocks = vi.hoisted(() => ({
   establishConnection: vi.fn()
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/discovery', () => ({
+vi.mock('../../run-chromium/cdp/discovery', () => ({
   discoverWebSocketDebuggerUrl: lifecycleMocks.discoverUrl,
   checkChromeRemoteDebugging: vi.fn(async () => true)
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/ws', () => ({
+vi.mock('../../run-chromium/cdp/ws', () => ({
   establishBrowserConnection: lifecycleMocks.establishConnection
 }))
 
-import {CDPClient} from '../../run-chromium/chromium-source-inspection/cdp-client'
+import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 function createMockWs() {
   const ws: any = new EventEmitter()

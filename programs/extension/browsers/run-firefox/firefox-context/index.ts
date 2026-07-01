@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {BrowserLogger} from '../../browsers-types'
-import type {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
+import type {FirefoxRDPController} from '../rdp/rdp-extension-controller'
 
 export type PendingReason = 'manifest' | 'locales' | 'sw'
 

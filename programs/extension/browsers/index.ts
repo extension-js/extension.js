@@ -64,7 +64,7 @@ export interface BrowserLaunchOptions {
  *
  * Reload is owned by the dev server's control-bridge SW producer (the same
  * executor for launched + `--no-browser`), not this controller; the CDP/RDP
- * controller is kept only for logging / source inspection.
+ * controller is kept only for unified logging.
  *
  * Browser process cleanup is owned by signal handlers installed during launch
  * (`setupFirefoxProcessHandlers` / Chromium equivalents). The controller is
@@ -153,7 +153,7 @@ async function launchChromium(
   const ctx = createChromiumContext()
   const launcher = new ChromiumLaunchPlugin(chromiumOpts, ctx)
 
-  // Enable CDP post-launch in dev mode (for reload, logging, source inspection).
+  // Enable CDP post-launch in dev mode (for unified logging).
   const enableCdp = mode === 'development'
   await launcher.runOnce(compilationLike, {enableCdpPostLaunch: enableCdp})
 
@@ -166,7 +166,7 @@ async function launchChromium(
   return {
     // Reload is owned by the dev server's control-bridge SW producer (the same
     // executor for launched + `--no-browser`); the CDP controller is kept only
-    // for logging / source inspection.
+    // for unified logging.
     async enableUnifiedLogging(logOpts) {
       if (cdpController?.enableUnifiedLogging) {
         await cdpController.enableUnifiedLogging({
