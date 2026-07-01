@@ -246,25 +246,10 @@ async function launchFirefox(
   // is created — reload/logging will degrade to no-ops in that case.
   const rdpController = ctx.getController?.()
 
-  // F3 — front-load the runtime capability probe so the author-mode
-  // summary lands once at install rather than on the first content-script
-  // edit. Best-effort: if the addon background isn't reachable yet, the
-  // probe returns null and the on-edit path fills the cache instead.
-  if (
-    rdpController &&
-    typeof (rdpController as any).probeRuntimeCapability === 'function'
-  ) {
-    Promise.resolve((rdpController as any).probeRuntimeCapability()).catch(
-      () => {
-        // Best-effort capability probe; runtime path will degrade gracefully.
-      }
-    )
-  }
-
   return {
     // Reload is owned by the dev server's control-bridge SW producer (the same
     // executor for launched + `--no-browser`); the RDP controller is kept only
-    // for logging / source inspection.
+    // for unified logging.
     async enableUnifiedLogging(logOpts) {
       if (!rdpController?.enableUnifiedLogging) return
       await rdpController.enableUnifiedLogging({

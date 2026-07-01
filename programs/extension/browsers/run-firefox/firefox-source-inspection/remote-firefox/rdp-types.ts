@@ -84,39 +84,3 @@ export interface RdpEvalResponse {
   actor?: string
   substring?: string
 }
-
-/**
- * The subset of the RDP messaging client used by the standalone
- * source-inspection helpers. Methods invoked defensively through
- * `client.method?.()` are declared OPTIONAL so the existing guarded/optional
- * calls keep type-checking and running exactly as before.
- */
-export interface RdpSourceInspectionClient {
-  getTargets(): Promise<RdpTarget[]>
-  getTargetFromDescriptor(
-    descriptorId: string
-  ): Promise<{targetActor?: string; consoleActor?: string}>
-  evaluate(tabId: string, expression: string): Promise<unknown>
-  evaluateRaw(tabId: string, expression: string): Promise<unknown>
-  attach(tabId: string): Promise<unknown>
-  navigate(tabId: string, url: string): Promise<void>
-  navigateViaScript(consoleActor: string, url: string): Promise<void>
-  waitForLoadEvent(tabId: string): Promise<void>
-  waitForPageReady(
-    consoleActor: string,
-    url: string,
-    timeoutMs?: number
-  ): Promise<void>
-  getPageHTML?(
-    descriptorActor: string,
-    consoleActorHint?: string
-  ): Promise<string>
-  coerceResponseToString?(
-    tabId: string,
-    response: unknown,
-    opts?: {fallbackToFullDocument?: boolean}
-  ): Promise<string>
-  serializeDocument?(actorToUse: string): Promise<string>
-  extractShadowContent?(actorToUse: string): Promise<string>
-  mergeShadowIntoMain?(mainHTML: string, shadowContent: string): string
-}
