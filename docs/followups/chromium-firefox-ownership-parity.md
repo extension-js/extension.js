@@ -1,135 +1,171 @@
-# Follow-up: Chromium has extension-ownership tri-state; Firefox has no equivalent
+# Implementation spec: Firefox add-on id — harden the banner fallback
 
-**Status:** open · **Severity:** low (correctness hardening / DX; no known incorrect behavior today) · **Area:** browser attach/identity — chromium `cdp-extension-controller` vs firefox `rdp-extension-controller`
-**Owner:** unassigned · **Created:** 2026-07-01 · **Repo:** `extension.js`
+**Status:** open · **Severity:** very low (cosmetic — dev-banner id only; no functional misattachment) · **Area:** `run-firefox/rdp/remote-firefox` id derivation
+**Owner:** unassigned · **Created:** 2026-07-01 · **Updated:** 2026-07-01 (investigation → spec) · **Repo:** `extension.js`
 
 This is a self-contained handoff. You should not need the originating conversation.
 
 ---
 
-## TL;DR
+## TL;DR (re-scoped after reading the code)
 
-After launching a browser, the CLI's per-browser controller has to answer one
-question before it adopts an extension id for logging / reload / the dev banner:
-**"is this discovered extension actually the one I'm developing, or something else
-already in this browser?"**
+The original question was "Chromium has an extension-ownership tri-state; does
+Firefox need an equivalent?" **After reading the Firefox flow, the answer is
+essentially no — and the residual gap is smaller and lower-stakes than feared.**
 
-- **Chromium answers it explicitly** with an ownership *tri-state*
-  (`'mine' | 'not_mine' | 'unknown'`) in
-  `chromium-source-inspection/cdp-extension-controller/ownership.ts`
-  (`classifyExtensionOwnership`). It has to, because Chrome assigns unpacked
-  extensions an id that must be **discovered** from the profile, and a reused /
-  populated profile can contain other extensions. `unknown` is deliberately *not*
-  a yes — callers defer/retry/re-derive rather than adopt an id on trust.
-- **Firefox has no equivalent.** The RDP `installTemporaryAddon` flow returns the
-  authoritative id directly (the controller derives the `moz-extension://` host
-  from the install), so it never disambiguates against a shared profile.
+- Firefox **already prefers the authoritative id** returned by the RDP
+  `installTemporaryAddon` response (`installResponse.addon.id`). Target scanning is
+  only a **fallback** when that response has no id.
+- The fallback (`deriveMozExtensionId`) is **"first `moz-extension://` target
+  wins,"** with no disambiguation — so in a profile that already contains another
+  add-on it could pick the wrong host. **But** the derived id is used **only to
+  print the dev banner** — it does not reach `ready.json`, unified logging, or
+  reload. Worst case is a wrong id *string in the banner*, not a misattached
+  session.
 
-So this is **not a missing capability** so much as: Chromium solves an
-identity-ambiguity problem that the Firefox temporary-addon flow mostly sidesteps.
-The open question is whether Firefox has residual exposure to the *same class of
-bug* (adopting the wrong extension) and, if so, whether it deserves a parallel
-guard. **Recommendation for where any such guard belongs: here in the CLI, not the
-MCP** (see "Where should this be built").
+So there is **no ownership tri-state to port**. The only concrete, implementable
+change is to make the banner fallback refuse to guess when it can't disambiguate.
+This spec defines exactly that. If you'd rather not spend effort on a cosmetic
+edge case, "won't fix / document" is a legitimate close.
 
-## Background: what Chromium does and why
+## Verified current behavior (file:line)
 
-`classifyExtensionOwnership(profilePath, outPath, extensionId)` reads the Chrome
-profile's `Preferences` JSON (`extensions.settings[id].path`) and compares the
-stored install path to the dev build's `outPath`:
+`programs/extension/browsers/run-firefox/rdp/remote-firefox/index.ts` — `installAddons`:
 
-- `'mine'` — a `Preferences` file maps the id to `outPath`.
-- `'not_mine'` — a `Preferences` file maps the id to a **different** path
-  (verifiably someone else's extension).
-- `'unknown'` — can't tell yet: no profile path, no `Preferences` on disk yet, or
-  the id is absent from every `Preferences` file (a freshly created profile hasn't
-  flushed its bookkeeping).
+```ts
+const installResponse = await installTemporaryAddon(client, addonsActor, addonPath, isDevtoolsEnabled) // :234
+const maybeIdRaw = installResponse?.addon?.id                                                          // :241
+const maybeId = typeof maybeIdRaw === 'string' && maybeIdRaw.length > 0 ? maybeIdRaw : null            // :242
+if (primaryAddonPath && String(addonPath) === String(primaryAddonPath) && maybeId) {
+  primaryUserAddonId = maybeId                                                                          // :251  (authoritative, per-install)
+}
+...
+if (primaryUserAddonId) { this.derivedExtensionId = primaryUserAddonId }                                // :265-267  (provenance wins)
+try {
+  if (!this.derivedExtensionId) {
+    this.derivedExtensionId = await deriveMozExtensionId(client)                                        // :272  (FALLBACK — the gap)
+  }
+} catch {}
+...
+await printRunningInDevelopmentSummary(candidateAddonPaths, 'firefox', this.derivedExtensionId, ...)    // :279-284  (only consumer)
+```
 
-`CDPExtensionController` funnels every ownership question through this one decision
-(`index.ts` `classifyOwnership`, used in `ensureLoaded` and the best-effort info
-path): on `not_mine` it rejects the id; on `unknown` with a profile it defers /
-re-derives rather than trusting it. This is what stops the controller from
-attaching its logging/reload to a *pre-existing* extension when the dev browser
-reuses a populated profile.
+- RDP install response shape is confirmed:
+  `addons-install.ts` `installTemporaryAddon` returns `{addon?: {id?: string}}` (`:96`, `return … as {addon?: {id?: string}}` `:136`).
+- The fallback: `moz-id.ts` `deriveMozExtensionId(client)` = `getTargets()` → **first**
+  target whose url starts with `moz-extension://` → its `URL.host`. No
+  disambiguation, no provenance check.
+- Blast radius: `derivedExtensionId` is a **private field** (`index.ts:51`) whose
+  only read is the banner call at `:282`. Grep confirms no external getter, no
+  `ready.json` / logging / reload consumer.
 
-## Why Firefox currently gets away without it
+Chromium reference (for contrast, not to copy):
+`programs/extension/browsers/run-chromium/cdp/cdp-extension-controller/ownership.ts`
+`classifyExtensionOwnership` — needed there because Chrome *discovers* the unpacked
+id from a shared profile and must verify ownership against `Preferences`. Firefox's
+install-provenance sidesteps that entirely for the functional paths.
 
-`FirefoxRDPController.ensureLoaded` → `RemoteFirefox.installAddons` installs the
-build as a **temporary add-on** over RDP and reads the id back from the install
-result / the `moz-extension://` target (`moz-id.ts` `deriveMozExtensionId`).
-Because the id comes from *the install this session just performed*, there is no
-"whose id is this?" ambiguity to resolve against persisted profile state, and
-temporary add-ons don't persist across restarts.
+## The change
 
-## The real question to evaluate later
+Make the fallback provenance-aware: adopt a scanned id **only when it is
+unambiguous**, otherwise leave it undefined (banner prints without an id rather
+than a wrong one).
 
-Does Firefox have residual exposure to adopting the wrong add-on? Candidate
-scenarios worth probing before deciding to build anything:
+### 1. Turn `deriveMozExtensionId` into a pure, disambiguating picker
 
-1. **System / reused profile with a pre-installed copy** of the same or another
-   add-on (`EXTENSION_USE_SYSTEM_PROFILE`, `--profile <persisted>`). Does
-   `deriveMozExtensionId` / the `moz-extension://` target selection ever pick a
-   target that isn't the one we just installed?
-2. **Multiple `moz-extension://` targets** present (our add-on + `-manager` +
-   anything else). The install ordering handles user-first-vs-manager, but confirm
-   the id we adopt is provably the one from *our* `installTemporaryAddon` response,
-   not just "the first moz-extension target."
-3. **Partial / retried install.** If install is retried, is there a window where an
-   earlier or stale target could be adopted?
+`moz-id.ts` — replace the "first match" body with an explicit rule and make the
+core logic a pure function so it's unit-testable without RDP:
 
-If all three are provably safe (the RDP install response is always the authoritative
-source), then there is **no parity work to do** — document that and close this.
-If any is exploitable, the fix is a Firefox-side "adopt only the id the install
-returned" assertion — the RDP analogue of the tri-state, but simpler (identity by
-install-provenance rather than by `Preferences` path-match).
+```ts
+// Pure core — no client, unit-testable.
+export function pickMozExtensionHost(
+  targetUrls: Array<string | undefined>,
+  opts?: {managerHostPattern?: RegExp}
+): string | undefined {
+  const hosts = targetUrls
+    .map((u) => { try { return u && u.startsWith('moz-extension://') ? new URL(u).host : undefined } catch { return undefined } })
+    .filter((h): h is string => !!h)
+  const unique = Array.from(new Set(hosts))
+  const managerRe = opts?.managerHostPattern
+  const nonManager = managerRe ? unique.filter((h) => !managerRe.test(h)) : unique
+  // Unambiguous only: exactly one candidate (prefer non-manager). Otherwise refuse to guess.
+  if (nonManager.length === 1) return nonManager[0]
+  if (unique.length === 1) return unique[0]
+  return undefined
+}
+
+export async function deriveMozExtensionId(client: MessagingClient): Promise<string | undefined> {
+  try {
+    const targets = (await client.getTargets()) as Array<{url?: string}>
+    return pickMozExtensionHost((targets || []).map((t) => t?.url))
+  } catch { return undefined }
+}
+```
+
+Note: a `moz-extension://` **host is not the add-on id** (it's a per-session UUID),
+so there is no manager-vs-user disambiguation by id available here — the manager
+pattern arg is a hook only if a future manager target is identifiable by some other
+signal; if not, drop the arg and keep the "exactly one target" rule. Deciding that
+is part of the task (see open question below).
+
+### 2. Warn (author mode) when the fallback is exercised at all
+
+At `index.ts:271`, the fact that we reached the fallback means the install response
+gave us no id — worth a one-line author-mode warning so a real regression in the
+install response is visible instead of silently degrading to a scanned/absent id:
+
+```ts
+if (!this.derivedExtensionId) {
+  this.derivedExtensionId = await deriveMozExtensionId(client)
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true' && !this.derivedExtensionId) {
+    console.warn('[browser] Firefox: could not resolve a unique add-on id for the banner (install response had none; multiple/zero moz-extension targets).')
+  }
+}
+```
+
+### 3. Open question the implementer must resolve first
+
+Confirm **when, if ever, `installResponse.addon.id` is empty** on supported Firefox
+(≥ the versions we target). Read the RDP `installTemporaryAddon` reply on a real
+run (or a captured frame). If it is *always* populated, the fallback is effectively
+dead and the change is pure defense — in that case prefer the smaller diff
+(disambiguating picker + warn) and skip any manager-pattern machinery. If it can be
+empty, the picker's "refuse to guess" rule is the actual behavior fix.
+
+## Unit test (no live browser needed)
+
+New `moz-id.unit.spec.ts` around `pickMozExtensionHost`, mirroring
+`run-chromium/cdp/.../ownership.unit.spec.ts` structure:
+
+- one `moz-extension://<uuid>/…` target → returns that host.
+- two distinct `moz-extension://` hosts → returns `undefined` (refuses to guess).
+- zero `moz-extension://` targets (only `about:`/http targets) → `undefined`.
+- malformed url mixed with one valid → returns the valid host.
+- (if manager pattern is kept) one user + one manager host → returns the user host.
 
 ## Where should this be built — here (extension.js) or the MCP?
 
-**Here, in the extension.js CLI (the `run-firefox` controller).** Reasoning:
+**Here, in the CLI.** The banner is printed by the CLI's Firefox controller, and the
+id is a launch-time artifact the CLI owns. The MCP (`@extension.dev/mcp`) never sees
+`derivedExtensionId` — it reads the authoritative id/port from `ready.json` (written
+by the CLI) and attaches; it has no banner and no role in id derivation. Building
+anything here in the MCP would be wrong-layer. (This is the same conclusion as the
+functional-ownership question: identity is a CLI launch-lifecycle concern.)
 
-- Extension **identity + teardown ownership is a launch-lifecycle concern**. The
-  CLI is what launches the browser, installs/loads the extension, and must name
-  "its" extension among any others. That is exactly where Chromium's tri-state
-  lives, and the Firefox analogue belongs in the symmetric place
-  (`rdp-extension-controller` / `RemoteFirefox`).
-- **The MCP (`@extension.dev/mcp`) is a downstream consumer, not a launcher.**
-  `extension_source_inspect` / `extension_list_extensions` attach to a browser the
-  CLI *already* launched and read the authoritative id + CDP/RDP port from the
-  session's `ready.json` (written by the CLI). The MCP owns no launch and no
-  teardown, so it cannot and should not re-derive identity — if the CLI establishes
-  the correct id, the MCP inherits it for free.
-- Corollary: building this in the MCP would be wrong-layer and would only paper
-  over a CLI-side misidentification, not fix it. Fix it once, in the CLI, and every
-  consumer (banner, unified logging, reload, and the MCP) benefits.
+## Validation (the part an AI cannot fully self-serve)
 
-## Where (code pointers)
-
-- Chromium reference implementation:
-  `programs/extension/browsers/run-chromium/chromium-source-inspection/cdp-extension-controller/ownership.ts`
-  and its call sites in the same dir's `index.ts` (`classifyOwnership`).
-- Firefox side to (potentially) harden:
-  `programs/extension/browsers/run-firefox/firefox-source-inspection/rdp-extension-controller/index.ts`,
-  `.../remote-firefox/index.ts` (`installAddons`), `.../remote-firefox/moz-id.ts`
-  (`deriveMozExtensionId`).
-- Consumer that must NOT own this (for context):
-  `@extension.dev/mcp` `src/tools/source-inspect.ts` / `list-extensions` (reads
-  `ready.json`; attaches, never launches).
-
-## Validation (if pursued)
-
-1. Launch `dev --browser=firefox` against a **persisted profile that already has a
-   different temporary/permanent add-on**, and assert the controller's adopted id
-   is the one from our install, not the pre-existing one (mirror of the Chromium
-   `not_mine` rejection test in `ownership.unit.spec.ts`).
-2. Add a unit test around `deriveMozExtensionId` with multiple `moz-extension://`
-   targets present, asserting install-provenance wins over "first target."
-3. If a guard is added, keep it a pure function (like `classifyExtensionOwnership`)
-   so it's unit-testable without a live browser.
+Unit tests above are self-contained. The **only** real-browser check — and it needs
+a human or CI with a display — is: launch `dev --browser=firefox` against a
+persisted profile that already has another temporary add-on installed, and confirm
+the banner shows our add-on's id (or no id) rather than the pre-existing add-on's
+host. This can't be reproduced headlessly here (Firefox RDP + real profile state),
+so an implementing agent should ship the code + unit tests and hand the browser
+check to CI/human.
 
 ## History
 
-- 2026-07-01: Surfaced while removing the unwired source-inspection feature and
-  pairing up the chromium/firefox controllers. The dead-code removal left both
-  controllers with a symmetric live core (`ensureLoaded` + `enableUnifiedLogging`);
-  the ownership tri-state is the one genuine *live* asymmetry (chromium-only). It's
-  a deliberate feature question rather than a mechanical pairing, hence this note.
+- 2026-07-01: Created as an investigation note while removing the source-inspection
+  feature and pairing the chromium/firefox controllers.
+- 2026-07-01: Upgraded to this spec after reading the install flow — the functional
+  ownership concern dissolved (install-provenance id is preferred; the scanned id is
+  banner-only), leaving a small, well-scoped fallback-hardening change.

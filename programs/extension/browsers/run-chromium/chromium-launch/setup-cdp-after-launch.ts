@@ -16,7 +16,7 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
-import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+import {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 

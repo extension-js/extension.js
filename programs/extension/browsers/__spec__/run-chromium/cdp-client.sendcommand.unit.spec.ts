@@ -6,19 +6,19 @@ import WebSocket from 'ws'
 // timeout cleanup, late-response handling, and the timeout-vs-close race.
 
 // Mock the discovery and ws modules to prevent real network calls
-vi.mock('../../run-chromium/chromium-source-inspection/discovery', () => ({
+vi.mock('../../run-chromium/cdp/discovery', () => ({
   discoverWebSocketDebuggerUrl: vi.fn(
     async () => 'ws://127.0.0.1:9222/devtools/browser'
   ),
   checkChromeRemoteDebugging: vi.fn(async () => true)
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/ws', () => ({
+vi.mock('../../run-chromium/cdp/ws', () => ({
   establishBrowserConnection: vi.fn()
 }))
 
-import {CDPClient} from '../../run-chromium/chromium-source-inspection/cdp-client'
-import {establishBrowserConnection} from '../../run-chromium/chromium-source-inspection/ws'
+import {CDPClient} from '../../run-chromium/cdp/cdp-client'
+import {establishBrowserConnection} from '../../run-chromium/cdp/ws'
 
 describe('CDPClient.sendCommand', () => {
   let client: CDPClient

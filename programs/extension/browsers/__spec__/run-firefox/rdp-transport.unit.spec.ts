@@ -4,8 +4,8 @@ import net from 'net'
 // We test RdpTransport directly — it is the core RDP connection layer.
 // These tests cover per-actor request queuing, error isolation,
 // disconnect cleanup, and event forwarding.
-import {RdpTransport} from '../../run-firefox/firefox-source-inspection/remote-firefox/transport'
-import {buildRdpFrame} from '../../run-firefox/firefox-source-inspection/remote-firefox/rdp-wire'
+import {RdpTransport} from '../../run-firefox/rdp/remote-firefox/transport'
+import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 
 // ---------------------------------------------------------------------------
 // Helpers

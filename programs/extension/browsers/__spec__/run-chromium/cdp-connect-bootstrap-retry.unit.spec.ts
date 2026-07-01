@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => ({
   disconnectMock: vi.fn()
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/discovery', () => ({
+vi.mock('../../run-chromium/cdp/discovery', () => ({
   checkChromeRemoteDebugging: mocks.checkChromeRemoteDebuggingMock
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
+vi.mock('../../run-chromium/cdp/cdp-client', () => {
   class CDPClient {
     constructor(...args: unknown[]) {
       mocks.cdpCtorMock(...args)
@@ -29,7 +29,7 @@ vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
   return {CDPClient, EXTENSION_AUTO_ATTACH_FILTER}
 })
 
-import {connectToChromeCdp} from '../../run-chromium/chromium-source-inspection/cdp-extension-controller/connect'
+import {connectToChromeCdp} from '../../run-chromium/cdp/cdp-extension-controller/connect'
 
 describe('connectToChromeCdp', () => {
   beforeEach(() => {
