@@ -5,7 +5,7 @@ import * as net from 'net'
 import {
   discoverWebSocketDebuggerUrl,
   checkChromeRemoteDebugging
-} from '../../run-chromium/chromium-source-inspection/discovery'
+} from '../../run-chromium/cdp/discovery'
 
 // ---------------------------------------------------------------------------
 // Helpers — tiny HTTP server for testing discovery

@@ -14,7 +14,7 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
 }))
 
 vi.mock(
-  '../../run-chromium/chromium-source-inspection/cdp-extension-controller',
+  '../../run-chromium/cdp/cdp-extension-controller',
   () => {
     class CDPExtensionController {
       constructor(args: any) {

@@ -29,7 +29,7 @@ export const EXTENSION_AUTO_ATTACH_FILTER: Array<{
   exclude?: boolean
 }> = [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
 
-// Chrome DevTools Protocol Client for source inspection
+// Chrome DevTools Protocol client for the dev-time extension controller
 // Handles communication with Chrome's remote debugging interface
 export class CDPClient {
   private port: number

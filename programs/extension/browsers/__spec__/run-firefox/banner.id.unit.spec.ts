@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest'
-import {FirefoxRDPController} from '../../run-firefox/firefox-source-inspection/rdp-extension-controller'
+import {FirefoxRDPController} from '../../run-firefox/rdp/rdp-extension-controller'
 
 describe('Firefox banner id (smoke)', () => {
   it('controller exposes methods used by setup', async () => {

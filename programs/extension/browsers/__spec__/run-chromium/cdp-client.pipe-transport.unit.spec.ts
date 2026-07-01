@@ -1,16 +1,16 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import {PassThrough} from 'stream'
 
-vi.mock('../../run-chromium/chromium-source-inspection/discovery', () => ({
+vi.mock('../../run-chromium/cdp/discovery', () => ({
   discoverWebSocketDebuggerUrl: vi.fn(),
   checkChromeRemoteDebugging: vi.fn(async () => true)
 }))
 
-vi.mock('../../run-chromium/chromium-source-inspection/ws', () => ({
+vi.mock('../../run-chromium/cdp/ws', () => ({
   establishBrowserConnection: vi.fn()
 }))
 
-import {CDPClient} from '../../run-chromium/chromium-source-inspection/cdp-client'
+import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 describe('CDPClient pipe transport', () => {
   let client: CDPClient

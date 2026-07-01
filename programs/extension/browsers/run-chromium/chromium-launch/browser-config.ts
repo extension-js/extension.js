@@ -243,7 +243,6 @@ export function browserConfig(
   // Filter out excluded flags
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
-  // Source inspection toggles remote debugging flags
   // Compute instance-based CDP port using shared helper
   const cdpPort = deriveDebugPortWithInstance(
     configOptions.port,

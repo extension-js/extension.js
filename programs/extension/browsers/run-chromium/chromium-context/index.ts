@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 
 export type ChromiumContext = {
   // Controller lifecycle

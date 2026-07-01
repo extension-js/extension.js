@@ -12,7 +12,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {classifyExtensionOwnership} from '../../run-chromium/chromium-source-inspection/cdp-extension-controller/ownership'
+import {classifyExtensionOwnership} from '../../run-chromium/cdp/cdp-extension-controller/ownership'
 
 const tempDirs: string[] = []
 
