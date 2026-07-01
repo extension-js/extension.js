@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {deriveExtensionIdFromTargetsHelper} from '../../run-chromium/chromium-source-inspection/cdp-extension-controller/derive-id'
+import {deriveExtensionIdFromTargetsHelper} from '../../run-chromium/cdp/cdp-extension-controller/derive-id'
 
 describe('deriveExtensionIdFromTargetsHelper', () => {
   const createdDirs: string[] = []

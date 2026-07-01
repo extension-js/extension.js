@@ -23,7 +23,7 @@ import {
   resolvePortForInstance,
   setInstancePorts
 } from '../browsers-lib/instance-registry'
-import {RemoteFirefox} from '../run-firefox/firefox-source-inspection/remote-firefox'
+import {RemoteFirefox} from '../run-firefox/rdp/remote-firefox'
 import {deriveDebugPortWithInstance} from '../browsers-lib/shared-utils'
 
 // The registry is a module-global singleton; isolate every test by re-seeding

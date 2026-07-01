@@ -3,7 +3,7 @@ import {describe, it, expect, vi} from 'vitest'
 // Mock the RDP messaging client so connectClient() runs without a real socket.
 // A minimal on/emit lets us simulate the transport "reconnected" event.
 vi.mock(
-  '../../../../run-firefox/firefox-source-inspection/remote-firefox/messaging-client',
+  '../../../../run-firefox/rdp/remote-firefox/messaging-client',
   () => {
     class FakeMessagingClient {
       _handlers: Record<string, Array<(...a: unknown[]) => void>> = {}
@@ -24,7 +24,7 @@ vi.mock(
   }
 )
 
-import {RemoteFirefox} from '../../../../run-firefox/firefox-source-inspection/remote-firefox'
+import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 
 describe('RemoteFirefox connection-scoped actor cache', () => {
   // Regression: a transient first-attempt failure used to poison

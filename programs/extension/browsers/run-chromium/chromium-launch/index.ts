@@ -43,8 +43,8 @@ import type {
   CompilationLike
 } from '../../browsers-types'
 import type {ChromiumContext} from '../chromium-context'
-import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
-import {checkChromeRemoteDebugging} from '../chromium-source-inspection/discovery'
+import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
+import {checkChromeRemoteDebugging} from '../cdp/discovery'
 import type {
   ChromiumLaunchOptions,
   ChromiumPluginRuntime

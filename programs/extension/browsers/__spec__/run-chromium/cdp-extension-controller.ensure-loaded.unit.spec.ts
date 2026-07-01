@@ -2,8 +2,8 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {CDPExtensionController} from '../../run-chromium/chromium-source-inspection/cdp-extension-controller'
-import * as ensureModule from '../../run-chromium/chromium-source-inspection/cdp-extension-controller/ensure'
+import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
+import * as ensureModule from '../../run-chromium/cdp/cdp-extension-controller/ensure'
 
 describe('CDPExtensionController ensureLoaded', () => {
   const tempDirs: string[] = []

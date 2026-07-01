@@ -2,7 +2,7 @@ import {describe, it, expect} from 'vitest'
 import {
   parseRdpFrame,
   buildRdpFrame
-} from '../../run-firefox/firefox-source-inspection/remote-firefox/rdp-wire'
+} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 
 describe('RDP wire format', () => {
   // -----------------------------------------------------------------------

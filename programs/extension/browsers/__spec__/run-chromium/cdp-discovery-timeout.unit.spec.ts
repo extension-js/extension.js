@@ -1,6 +1,6 @@
 import * as http from 'http'
 import {afterEach, describe, expect, it} from 'vitest'
-import {discoverWebSocketDebuggerUrl} from '../../run-chromium/chromium-source-inspection/discovery'
+import {discoverWebSocketDebuggerUrl} from '../../run-chromium/cdp/discovery'
 
 describe('discoverWebSocketDebuggerUrl', () => {
   let server: http.Server | null = null

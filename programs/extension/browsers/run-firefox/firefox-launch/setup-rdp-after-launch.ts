@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {CompilationLike} from '../../browsers-types'
-import {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
+import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
 import type {FirefoxPluginLike, FirefoxPluginRuntime} from '../firefox-types'
 
 export async function setupRdpAfterLaunch(

@@ -25,7 +25,7 @@ vi.mock('ws', async () => {
   return {default: MockWebSocket}
 })
 
-import {establishBrowserConnection} from '../../run-chromium/chromium-source-inspection/ws'
+import {establishBrowserConnection} from '../../run-chromium/cdp/ws'
 
 describe('establishBrowserConnection', () => {
   beforeEach(() => {
