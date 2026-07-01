@@ -13,6 +13,7 @@ import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import {asAbsolute, getDirs} from './lib/paths'
+import {resolveDevelopInstallRoot} from './lib/develop-context'
 import * as messages from './lib/messages'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
@@ -406,6 +407,20 @@ export default function webpackConfig(
       __dirname: false
     },
     resolveLoader: {
+      // extension-develop bundles the optional preprocessor loaders
+      // (less-loader, sass-loader, …). Add its node_modules as a resolution
+      // fallback so those loaders can be referenced by bare name in the CSS
+      // rules: the user project's own copy still wins (project chain first),
+      // and the bundled copy is used otherwise — the same [project, develop]
+      // order the old per-loader absolute-path resolution used.
+      modules: [
+        'node_modules',
+        path.join(packageJsonDir, 'node_modules'),
+        ...(() => {
+          const developRoot = resolveDevelopInstallRoot()
+          return developRoot ? [path.join(developRoot, 'node_modules')] : []
+        })()
+      ],
       extensions: [
         '.js',
         '.cjs',

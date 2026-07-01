@@ -551,21 +551,6 @@ function buildDiagnostics(input: {
   }
 }
 
-/**
- * Resolve a toolchain package from the extension project or extension-develop.
- * Use after preflight has verified contracts.
- */
-export function resolveOptionalDependencySync(
-  dependencyId: string,
-  projectPath: string
-): string {
-  const resolved = resolveFromKnownLocations(dependencyId, projectPath)
-  if (resolved) return resolved
-  const bases = getResolutionBases(projectPath)
-  throw new Error(
-    `[CSS] ${dependencyId} could not be resolved. Searched: ${bases.join(', ')}`
-  )
-}
 
 export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
