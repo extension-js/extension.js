@@ -8,7 +8,10 @@
 
 import * as path from 'path'
 import {getFilename} from '../../../shared/paths'
-import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {
+  iconOutputPath,
+  normalizeManifestOutputPath
+} from '../../normalize-manifest-path'
 import {type Manifest} from '../../../../types'
 
 export function browserAction(manifest: Manifest) {
@@ -27,26 +30,14 @@ export function browserAction(manifest: Manifest) {
             typeof manifest.browser_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.browser_action.default_icon)
-                  const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                    raw
-                  )
-                  const target = isPublic
-                    ? normalizeManifestOutputPath(raw)
-                    : `icons/${path.basename(raw)}`
-                  return getFilename(target, raw)
+                  return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
                   Object.entries(
                     manifest.browser_action.default_icon as string
                   ).map(([size, icon]) => {
                     const raw = String(icon)
-                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                      raw
-                    )
-                    const target = isPublic
-                      ? normalizeManifestOutputPath(raw)
-                      : `icons/${path.basename(raw)}`
-                    return [size, getFilename(target, raw)]
+                    return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )
         }),
