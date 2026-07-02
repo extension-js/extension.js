@@ -555,6 +555,55 @@ describe('generateManifestPatches', () => {
       expect(groups[0].resources).toEqual(['assets/logo.png'])
     })
 
+    it('emits a directory WAR entry as its files + a glob instead of crashing (G15)', () => {
+      const iconsDir = path.join(tmpRoot, 'icons')
+      fs.mkdirSync(path.join(iconsDir, 'sub'), {recursive: true})
+      fs.writeFileSync(path.join(iconsDir, 'a.png'), 'a')
+      fs.writeFileSync(path.join(iconsDir, 'sub', 'b.png'), 'b')
+
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['https://example.com/*'], resources: ['icons/']}
+        ]
+      }
+
+      const emitAsset = vi.fn()
+      const emitted = new Set<string>()
+      const compilation: any = {
+        options: {mode: 'development', context: tmpRoot, output: {path: path.join(tmpRoot, 'dist')}},
+        outputOptions: {path: path.join(tmpRoot, 'dist')},
+        errors: [],
+        warnings: [],
+        assets: {},
+        getAsset: (n: string) => (emitted.has(n) ? {name: n} : undefined),
+        emitAsset: (n: string, s: any) => {
+          emitted.add(n)
+          emitAsset(n, s)
+        },
+        fileDependencies: new Set<string>()
+      }
+
+      let resolved: any
+      expect(() => {
+        resolved = resolveUserDeclaredWAR(
+          compilation as Compilation,
+          manifestPath,
+          manifest,
+          'chrome'
+        )
+      }).not.toThrow()
+
+      // Directory declared as a glob so Chrome serves everything beneath it.
+      expect(Array.from(resolved.v3[0].resources)).toContain('icons/*')
+      // Each file under the directory emitted, preserving its relative path.
+      const names = emitAsset.mock.calls.map((c: any[]) => c[0])
+      expect(names).toContain('icons/a.png')
+      expect(names).toContain('icons/sub/b.png')
+      // No spurious errors.
+      expect(compilation.errors.length).toBe(0)
+    })
+
     it('preserves public-root path and warns if missing under public/', () => {
       const pub = '/img/logo.png'
       // Do not create public/img/logo.png to trigger warning and preserve string

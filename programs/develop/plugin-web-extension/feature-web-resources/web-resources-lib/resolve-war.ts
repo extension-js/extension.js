@@ -36,6 +36,40 @@ function toPublicOutput(possiblePath: string) {
   return normalizedPath
 }
 
+// A `web_accessible_resources` entry may name a whole directory (e.g. `icons/`),
+// which Chrome serves as all files beneath it. Reading a directory as a file
+// throws EISDIR (G15), so emit each contained file individually, preserving its
+// path relative to the manifest so runtime references (`getURL('icons/x.png')`)
+// keep resolving. The caller declares the directory as a `dir/*` glob resource.
+function emitDirectoryAsAssets(
+  compilation: Compilation,
+  absDir: string,
+  baseDir: string
+): void {
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(full)
+        continue
+      }
+      if (!entry.isFile()) continue
+      const outName = unixify(path.relative(baseDir, full))
+      if (!compilation.getAsset(outName)) {
+        compilation.emitAsset(outName, new sources.RawSource(fs.readFileSync(full)))
+      }
+      compilation.fileDependencies.add(full)
+    }
+  }
+  walk(absDir)
+}
+
 function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   const mode = compilation.options?.mode || 'development'
   const filenamePattern =
@@ -327,6 +361,15 @@ export function resolveUserDeclaredWAR(
       warn.file = 'manifest.json'
       warn.name = 'WARRelativeAssetMissing'
       compilation.warnings!.push(warn)
+      return
+    }
+
+    // A directory entry (e.g. `icons/`) — emit its files and declare a glob so
+    // Chrome serves them all, instead of reading the directory as a file (EISDIR).
+    if (fs.statSync(abs).isDirectory()) {
+      emitDirectoryAsAssets(compilation, abs, manifestDir)
+      const dirResource = unixify(res).replace(/\/+$/, '') + '/*'
+      pushResource(matches, dirResource, extra)
       return
     }
 
