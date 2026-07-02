@@ -172,6 +172,21 @@ export class EnvPlugin {
     filteredEnvVars['process.env.MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.MODE'] = JSON.stringify(mode)
 
+    // Neutralize the Node-only `import.meta` accessors (G12). Vendored ESM
+    // (`.mjs`) runtimes — ONNX runtime, kokoro/piper TTS — reference
+    // `import.meta.dirname`/`import.meta.filename` in dead Node-only branches
+    // (e.g. `typeof __dirname < 'u' ? __dirname : import.meta.dirname`).
+    // Extension.js emits classic (non-module) chunks, and rspack leaves these
+    // unknown property forms verbatim, so a literal `import.meta` survives into
+    // the chunk and fails minification with "'import.meta' cannot be used outside
+    // of module code". Define them to `undefined` so the dead branch collapses
+    // before the minifier runs. We deliberately do NOT touch `import.meta.url`
+    // (rspack already rewrites that property form for classic output) or bare
+    // `import.meta` (rspack replaces direct access with `{}` + a warning, which
+    // is non-fatal), to avoid regressing extensions that use them.
+    filteredEnvVars['import.meta.dirname'] = 'undefined'
+    filteredEnvVars['import.meta.filename'] = 'undefined'
+
     const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
       k.startsWith('process.env.EXTENSION_PUBLIC_')
     ).length
