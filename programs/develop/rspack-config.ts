@@ -276,9 +276,13 @@ export default function webpackConfig(
       ) => {
         if (typeof request !== 'string') return callback()
 
-        if (/^(chrome|moz)-extension:/i.test(request)) {
+        if (/^(chrome|moz)-extension:|^safari-web-extension:/i.test(request)) {
+          // Runtime extension-URL self-references (often
+          // `…-extension://__MSG_@@extension_id__/…` in CSS `url()`/`cursor`).
           // `asset` external type emits the request verbatim as a URL string,
-          // which is what both CSS `url()` and JS consumers expect.
+          // which is what both CSS `url()` and JS consumers expect. Safari uses
+          // the `safari-web-extension:` scheme, so it must be matched alongside
+          // Chromium's `chrome-extension:` and Firefox's `moz-extension:`.
           return callback(null, request, 'asset')
         }
 

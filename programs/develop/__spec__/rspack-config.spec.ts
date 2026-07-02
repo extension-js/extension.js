@@ -320,6 +320,14 @@ describe('webpack-config transpile packages watch behavior', () => {
       'moz-extension://abc/icon.png',
       'asset'
     ])
+    // Safari's scheme must pass through too (G11) — cross-browser extensions
+    // reference `safari-web-extension://__MSG_@@extension_id__/…` in CSS url().
+    expect(
+      run('safari-web-extension://__MSG_@@extension_id__/icons/x.svg')
+    ).toEqual([
+      'safari-web-extension://__MSG_@@extension_id__/icons/x.svg',
+      'asset'
+    ])
     // Ordinary requests are not externalized (callback invoked with no args).
     expect(run('./icon.png')).toEqual([undefined, undefined])
     expect(run('https://example.com/x.png')).toEqual([undefined, undefined])
