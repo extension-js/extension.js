@@ -56,7 +56,7 @@ export class StaticAssetsPlugin {
         const rule = thisRule as RuleSetRule
         const resourceQuery = (rule as any)?.resourceQuery
         if (!(resourceQuery instanceof RegExp)) return false
-        return resourceQuery.test('url')
+        return resourceQuery.test('?url')
       }
     )
 
@@ -80,7 +80,14 @@ export class StaticAssetsPlugin {
         ? []
         : [
             {
-              resourceQuery: /url/,
+              // Match only the standalone `?url` import query (e.g.
+              // `import href from './icon.png?url'`). An unanchored /url/ also
+              // matched "url" anywhere in a resourceQuery — including inside the
+              // __extensionjs_classic_concat__ payload when a concatenated file
+              // name contains "url" (e.g. clearurls.js) — which wrongly turned the
+              // whole content-script/background concat entry into an asset/resource
+              // emitted under a hash name instead of its canonical chunk file.
+              resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
               type: 'asset/resource'
             }
           ]),

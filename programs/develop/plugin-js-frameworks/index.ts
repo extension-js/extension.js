@@ -380,6 +380,14 @@ export class JsFrameworksPlugin {
       {
         ...swcRuleBase,
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        // Classic multi-file concat entries (content_scripts AND MV2
+        // background.scripts) carry the __extensionjs_classic_concat__ query and
+        // are always plain concatenated classic scripts sharing one scope — never
+        // ES modules. They must be excluded here or Rspack marks the synthetic
+        // entry `javascript/esm` and emits it as a hash-named asset instead of the
+        // canonical `background/scripts.js` chunk (a content_scripts concat only
+        // dodges this by matching `isfeatureScriptsContentLike` below).
+        resourceQuery: {not: /__extensionjs_classic_concat__/},
         // Page scripts (popup/options/sidebar/newtab/devtools) and module
         // background scripts are loaded as ES modules in the browser
         // (`<script type="module">` / `"type": "module"` service workers), so
