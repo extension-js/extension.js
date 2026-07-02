@@ -10,17 +10,17 @@ import {getFilename} from '../../../shared/paths'
 import {type Manifest, type FilepathList} from '../../../../types'
 
 export function backgroundPage(manifest: Manifest) {
+  // Contribute ONLY the rewritten `page` key — see the sibling MV2 override for
+  // why re-spreading `...manifest.background` here clobbers other keys in the
+  // aggregate merge (G14).
   return (
     manifest.background &&
     manifest.background.page && {
       background: {
-        ...manifest.background,
-        ...(manifest.background.page && {
-          page: (() => {
-            const raw = String(manifest.background.page)
-            return getFilename('background/index.html', raw)
-          })()
-        })
+        page: (() => {
+          const raw = String(manifest.background.page)
+          return getFilename('background/index.html', raw)
+        })()
       }
     }
   )
