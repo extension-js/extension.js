@@ -115,6 +115,38 @@ describe('EmitFile step', () => {
     expect(calls).toContain('icons/sa16.png')
   })
 
+  it('preserves manifest-relative paths for in-project icons (G16)', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    // Regression (G16): a manifest pointing at icons-dev/icon48.png while a
+    // popup references the real icons/icon48.png used to flatten both to
+    // icons/icon48.png — different content, same filename → build abort.
+    const existing = new Set([
+      '/abs/project/icons-dev/icon48.png',
+      '/abs/project/images/logo.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        icons: ['/abs/project/icons-dev/icon48.png'],
+        'action/default_icon': ['/abs/project/images/logo.png']
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toContain('icons-dev/icon48.png')
+    expect(calls).toContain('images/logo.png')
+    expect(calls).not.toContain('icons/icon48.png')
+    expect(calls).not.toContain('icons/logo.png')
+  })
+
   it('skips missing files and emits only existing ones', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
