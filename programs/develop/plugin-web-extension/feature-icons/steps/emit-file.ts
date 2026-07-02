@@ -273,7 +273,27 @@ export class EmitFile {
                   outputDir = 'theme/images'
                 }
 
-                const filename = `${outputDir}/${basename}`
+                let filename = `${outputDir}/${basename}`
+
+                // Icons keep their manifest-relative location so they can't
+                // collide with another emitted asset that legitimately owns
+                // icons/<basename> — e.g. a popup-referenced image (G16).
+                // Files outside the manifest directory have no in-project
+                // location to preserve and keep the flattened fallback.
+                // Mirrors iconOutputPath() in the manifest overrides.
+                if (outputDir === 'icons') {
+                  const relFromManifest = path
+                    .relative(manifestDir, resolved)
+                    .replace(/\\/g, '/')
+
+                  if (
+                    relFromManifest &&
+                    !relFromManifest.startsWith('..') &&
+                    !path.isAbsolute(relFromManifest)
+                  ) {
+                    filename = relFromManifest
+                  }
+                }
 
                 compilation.emitAsset(filename, rawSource)
                 emittedCount++
