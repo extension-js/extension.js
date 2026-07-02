@@ -30,6 +30,13 @@ interface ClassicConcatLoaderContext {
 const BASE64 =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
+// Text wrapped around the concatenated classic sources to neutralize the
+// CommonJS/AMD module system. See the block comment at the wrap site below.
+const CONCAT_UMD_WRAP_OPEN =
+  ';(function (module, exports, define, require) {'
+const CONCAT_UMD_WRAP_CLOSE =
+  '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
+
 function vlqEncode(value: number): string {
   let vlq = value < 0 ? (-value << 1) + 1 : value << 1
   let encoded = ''
@@ -84,6 +91,31 @@ export default function classicConcatLoader(
     lineMappings.push(null)
   }
 
+  // Wrap the concatenated classic sources in a function whose parameters shadow
+  // the CommonJS/AMD module system, then call it with all four undefined.
+  //
+  // Why: rspack wraps this entry in a module closure where `require`/`module`/
+  // `exports` are real (rspack's own require, and a module object). A vendored
+  // UMD lib (katex, jszip, markdown-it, FileSaver…) would then (a) have rspack
+  // *statically* collect its top-level `require('katex')` and fail with "Module
+  // not found: Can't resolve 'katex'", and (b) at runtime see `typeof module ===
+  // 'object'` and run its Node branch instead of the browser-global branch it
+  // must take in a content script.
+  //
+  // Making `require`/`module`/`exports`/`define` function parameters fixes both:
+  // rspack treats a locally-bound `require` as an ordinary variable and does NOT
+  // collect its calls, and at runtime the guards see `undefined` and fall back to
+  // the global — exactly as when these files are injected as plain classic
+  // scripts. Browserify/webpack-bundled libs keep working too: their *inner*
+  // `function (require, module, exports)` params still shadow within their own
+  // scope, so their self-contained relative requires resolve internally.
+  //
+  // `.call(globalThis, …)` keeps top-level `this` pointing at the global, matching
+  // classic-script semantics. Both wrapper lines map to null so the per-line
+  // source map for the real files stays accurate.
+  outputLines.push(CONCAT_UMD_WRAP_OPEN)
+  lineMappings.push(null)
+
   // Feature header comment
   if (feature) {
     outputLines.push(
@@ -116,6 +148,10 @@ export default function classicConcatLoader(
       lineMappings.push(null)
     }
   }
+
+  // Close the module-system-shadowing wrapper opened above.
+  outputLines.push(CONCAT_UMD_WRAP_CLOSE)
+  lineMappings.push(null)
 
   const output = outputLines.join('\n')
 

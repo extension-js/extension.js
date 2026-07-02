@@ -24,11 +24,15 @@ const isBackgroundScriptsFeature = (feature: string) =>
 
 function createSequentialEntryModule(
   feature: string,
-  entryImports: string[]
+  scriptImports: string[]
 ): string {
-  const isCss = (p: string) => /\.css$/i.test(p)
-  const jsFiles = entryImports.filter((p) => !isCss(p))
-  const cssFiles = entryImports.filter(isCss)
+  // Only the JS files are sequenced/concatenated here. CSS is declared by the
+  // caller as a bare entry import (see `finalEntryImports` below) so it extracts
+  // to the canonical `content_scripts/content-N.css` name — routing CSS through
+  // this entry module instead would root its import at a content-script module,
+  // which flips it to `asset/inline` and never emits the file the manifest
+  // declares.
+  const jsFiles = scriptImports
 
   // Classic content scripts split across multiple files share a single global
   // scope: the browser injects `content_scripts[].js` in order into one world, so
@@ -58,7 +62,7 @@ function createSequentialEntryModule(
     // addDependency (enabling watch-mode rebuilds) and generates a V3 source
     // map (enabling real file/line error tracing).
     const queryData = encodeURIComponent(
-      JSON.stringify({feature, js: jsFiles, css: cssFiles})
+      JSON.stringify({feature, js: jsFiles, css: []})
     )
     // Use the first JS file as the entry so rspack resolves a real file.
     // The query parameter tells the concat loader which files to combine.
@@ -67,7 +71,7 @@ function createSequentialEntryModule(
 
   const source = [
     `/* extension.js sequential entry: ${feature} */`,
-    ...entryImports.map(
+    ...jsFiles.map(
       (entryImport) => `import ${JSON.stringify(String(entryImport))};`
     )
   ].join('\n')
@@ -176,6 +180,37 @@ export class AddScripts {
       return path.join(manifestDir, entry)
     }
 
+    // Files under the `scripts/` special folder are registered as standalone
+    // entries so bare `scripts/` helpers still get compiled. But when a file is
+    // ALSO declared in a manifest `content_scripts` group it is already built by
+    // that (concatenated) entry — registering a second, standalone entry both
+    // duplicates output and, worse, parses the file in isolation as a
+    // CommonJS-capable module. Vendored UMD libs then trip rspack on their dead
+    // `typeof module === 'object' && require('pkg')` branch (e.g. katex), failing
+    // the build. Collect the content-script-claimed paths so those `scripts/`
+    // duplicates can be skipped below.
+    //
+    // Only content_scripts claims count: a content_scripts group is rewritten in
+    // the emitted manifest to `content_scripts/content-N.js`, so the original
+    // `scripts/foo.js` path is no longer referenced and its standalone output is
+    // pure duplication. Background is deliberately excluded — a manifest can keep
+    // an MV2 `background.scripts: ["scripts/x.js"]` entry pointing at the raw
+    // `scripts/` path (which the concat emits under a *different* name,
+    // `background/scripts.js`), so its standalone `scripts/x.js` output is still
+    // required on disk.
+    const claimedByContentScript = new Set<string>()
+    for (const [feature, scriptPath] of Object.entries(scriptFields)) {
+      if (!isContentScriptFeature(feature)) continue
+      const rawEntries: string[] = Array.isArray(scriptPath)
+        ? scriptPath || []
+        : scriptPath
+          ? [scriptPath]
+          : []
+      for (const resolved of getScriptEntries(rawEntries.map(resolveEntryPath))) {
+        claimedByContentScript.add(path.resolve(resolved))
+      }
+    }
+
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const rawEntries: string[] = Array.isArray(scriptPath)
         ? scriptPath || []
@@ -183,7 +218,11 @@ export class AddScripts {
           ? [scriptPath]
           : []
       const resolvedEntries = rawEntries.map(resolveEntryPath)
-      const scriptImports = getScriptEntries(resolvedEntries)
+      const scriptImports = isScriptsFolderFeature(feature)
+        ? getScriptEntries(resolvedEntries).filter(
+            (p) => !claimedByContentScript.has(path.resolve(p))
+          )
+        : getScriptEntries(resolvedEntries)
       const cssImports = getCssEntries(resolvedEntries)
       const entryImports = [...new Set([...scriptImports, ...cssImports])]
       const shouldUseSequentialEntryModule =
@@ -191,7 +230,7 @@ export class AddScripts {
           isBackgroundScriptsFeature(feature)) &&
         scriptImports.length > 1
       const finalEntryImports = shouldUseSequentialEntryModule
-        ? [createSequentialEntryModule(feature, entryImports)]
+        ? [createSequentialEntryModule(feature, scriptImports), ...cssImports]
         : entryImports
 
       if (!finalEntryImports.length) continue
