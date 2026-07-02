@@ -6,9 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
 import {getFilename} from '../../../shared/paths'
-import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {iconOutputPath} from '../../normalize-manifest-path'
 import {type Manifest} from '../../../../types'
 
 export function sidebarAction(manifest: Manifest) {
@@ -28,13 +27,7 @@ export function sidebarAction(manifest: Manifest) {
             typeof manifest.sidebar_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.sidebar_action.default_icon)
-                  const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                    raw
-                  )
-                  const target = isPublic
-                    ? normalizeManifestOutputPath(raw)
-                    : `icons/${path.basename(raw)}`
-                  return getFilename(target, raw)
+                  return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
                   Object.entries(
@@ -44,13 +37,7 @@ export function sidebarAction(manifest: Manifest) {
                     >
                   ).map(([size, icon]) => {
                     const raw = String(icon)
-                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                      raw
-                    )
-                    const target = isPublic
-                      ? normalizeManifestOutputPath(raw)
-                      : `icons/${path.basename(raw)}`
-                    return [size, getFilename(target, raw)]
+                    return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )
         })
