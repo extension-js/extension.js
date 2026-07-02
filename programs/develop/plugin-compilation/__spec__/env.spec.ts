@@ -170,6 +170,13 @@ describe('EnvPlugin', () => {
     // paths only), so the inline fallback stub is defined for browser safety.
     expect(lastDefineArgs['process']).toBeTruthy()
     expect(lastDefineArgs['process.env']).toBeTruthy()
+    // G12: Node-only import.meta accessors are neutralized to undefined so
+    // vendored ESM (.mjs) dead branches don't leave a literal `import.meta` in a
+    // classic chunk (which fails minification).
+    expect(lastDefineArgs['import.meta.dirname']).toBe('undefined')
+    expect(lastDefineArgs['import.meta.filename']).toBe('undefined')
+    // import.meta.url is deliberately left to rspack's own rewrite.
+    expect(lastDefineArgs['import.meta.url']).toBeUndefined()
     expect(provideApply).not.toHaveBeenCalled()
   })
 
