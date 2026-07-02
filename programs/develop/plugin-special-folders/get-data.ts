@@ -93,6 +93,116 @@ function filterNodeToolingScripts(list: FilepathList | undefined): FilepathList 
   return next
 }
 
+// ── G13 option 2: only enroll `scripts/` files the extension actually uses ──
+// The `scripts/` special folder auto-enrolls EVERY file in it as a standalone
+// content-script entry. The Node-tooling filter above catches build/dev scripts
+// that import Node builtins or carry a `#!node` shebang, but it can't see a plain
+// data/generator helper (e.g. `data = {…}`, top-level `await`, no imports) — that
+// file has no Node "tell", yet it's still not a browser script, so enrolling it
+// breaks the build (G13 gap: `vict0rsch/PaperMemory`'s `scripts/cell.js`).
+//
+// A real `scripts/` file is referenced by the extension: listed in the manifest
+// (`content_scripts`, `web_accessible_resources`, …), pulled from an HTML page, or
+// injected at runtime via a string path (`chrome.scripting.executeScript({files:
+// ['/scripts/x.js']})` — how the canonical special-folders-scripts example works).
+// So keep a `scripts/` entry only if its project-relative path appears in the
+// project's own extension assets; drop the ones referenced nowhere.
+//
+// Fail OPEN: if we can't read any reference assets (nothing to check against), keep
+// everything — biasing toward a false-keep (a loud build error) over a false-drop
+// (a script silently missing at runtime).
+
+const REFERENCE_SOURCE_EXTS = new Set([
+  '.html', '.htm', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts',
+  '.cts', '.vue', '.svelte'
+])
+
+// Directories that never hold hand-authored reference assets. `scripts/` is
+// excluded too: a reference to a scripts/ file comes from the extension's real
+// entrypoints (background/content/popup/manifest), not from a sibling build tool
+// inside scripts/ — including scripts/ would let a build script that reads a data
+// helper (`fs.readFile('scripts/cell.js')`) falsely "reference" it.
+const REFERENCE_SKIP_DIRS = new Set([
+  'node_modules', 'dist', 'build', 'out', '.output', 'coverage', '.next',
+  '.cache', '.git', '.turbo', 'scripts'
+])
+
+const REFERENCE_MAX_FILES = 4000
+const REFERENCE_MAX_BYTES = 12 * 1024 * 1024
+
+function collectReferenceCorpus(projectRoot: string): string {
+  const parts: string[] = []
+  let files = 0
+  let bytes = 0
+
+  const walk = (dir: string) => {
+    if (files >= REFERENCE_MAX_FILES || bytes >= REFERENCE_MAX_BYTES) return
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (files >= REFERENCE_MAX_FILES || bytes >= REFERENCE_MAX_BYTES) return
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (REFERENCE_SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) {
+          continue
+        }
+        walk(full)
+        continue
+      }
+      if (!entry.isFile()) continue
+      const ext = path.extname(entry.name).toLowerCase()
+      const isManifest = /^manifest\b.*\.json$/i.test(entry.name)
+      if (!isManifest && !REFERENCE_SOURCE_EXTS.has(ext)) continue
+      try {
+        const text = fs.readFileSync(full, 'utf8')
+        parts.push(text)
+        files += 1
+        bytes += text.length
+      } catch {
+        // ignore unreadable files
+      }
+    }
+  }
+
+  walk(projectRoot)
+  return files === 0 ? '' : parts.join('\n')
+}
+
+function filterUnreferencedScripts(
+  list: FilepathList | undefined,
+  projectRoot: string
+): FilepathList {
+  const entries = Object.entries(list || {})
+  if (entries.length === 0) return list || {}
+
+  const corpus = collectReferenceCorpus(projectRoot)
+  // Fail open: no reference assets found → we can't tell, so keep everything.
+  if (corpus === '') return list || {}
+
+  const isReferenced = (entry: string): boolean => {
+    const abs = String(entry)
+    if (!path.isAbsolute(abs)) return true
+    const rel = path.relative(projectRoot, abs).split(path.sep).join('/')
+    // Match the project-relative path (`scripts/foo.js`) as a substring, which
+    // also covers `/scripts/foo.js` runtime-injection paths.
+    return corpus.includes(rel)
+  }
+
+  const next: FilepathList = {}
+  for (const [key, value] of entries) {
+    const paths = Array.isArray(value) ? value : value ? [value] : []
+    const kept = paths.filter(isReferenced)
+    if (kept.length === 0) continue
+    next[key] = Array.isArray(value) ? kept : (kept[0] as any)
+  }
+
+  return next
+}
+
 function isUnderPublicDir(
   entry: string,
   projectRoot: string,
@@ -181,9 +291,13 @@ function finalizeSpecialFoldersData(
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
     // Drop Node build/dev tooling that happens to live in `scripts/` (G13), then
-    // exclude any public/ entries as with pages.
+    // drop any `scripts/` file the extension never references (G13 gap — data /
+    // generator helpers with no Node tell), then exclude public/ entries as pages.
     scripts: filterPublicEntrypoints(
-      filterNodeToolingScripts(data.scripts),
+      filterUnreferencedScripts(
+        filterNodeToolingScripts(data.scripts),
+        projectRoot
+      ),
       projectRoot,
       publicDir
     ),
