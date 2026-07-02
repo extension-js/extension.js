@@ -6,9 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
 import {getFilename} from '../../../shared/paths'
-import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {iconOutputPath} from '../../normalize-manifest-path'
 import {type Manifest} from '../../../../types'
 
 export function icons(manifest: Manifest) {
@@ -17,11 +16,7 @@ export function icons(manifest: Manifest) {
       icons: Object.fromEntries(
         Object.entries(manifest.icons).map(([size, icon]) => {
           const raw = String(icon)
-          const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(raw)
-          const target = isPublic
-            ? normalizeManifestOutputPath(raw)
-            : `icons/${path.basename(raw)}`
-          return [size, getFilename(target, raw)]
+          return [size, getFilename(iconOutputPath(raw), raw)]
         })
       )
     }
