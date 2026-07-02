@@ -107,6 +107,57 @@ describe('classic-concat-loader', () => {
     expect(output.indexOf('import')).toBeLessThan(output.indexOf('console.log'))
   })
 
+  it('wraps the concat so UMD require/define are shadowed, not rewritten (G7)', () => {
+    const dir = createTempProject()
+    const umdPath = path.join(dir, 'texmath.js')
+    const browserifyPath = path.join(dir, 'jszip.js')
+    // Mirrors the katex-style UMD dead branch that broke the build, plus a
+    // browserify-style INTERNAL require that must survive verbatim.
+    fs.writeFileSync(
+      umdPath,
+      [
+        'if (typeof module === "object") texmath.katex = require("katex");',
+        'else texmath.katex = {};'
+      ].join('\n') + '\n',
+      'utf8'
+    )
+    fs.writeFileSync(
+      browserifyPath,
+      '(function(f){})({1:[function(require,module,exports){var u=require("./utils")}]})\n',
+      'utf8'
+    )
+
+    const ctx = createLoaderContext(umdPath, {
+      feature: 'content_scripts/content-0',
+      js: [umdPath, browserifyPath],
+      css: []
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [, output] = ctx.callback.mock.calls[0]
+    // The source is wrapped in a function whose params shadow the module system,
+    // called with all four undefined — rspack then treats every `require` as a
+    // locally-bound variable and does not statically collect it.
+    expect(output).toContain(
+      ';(function (module, exports, define, require) {'
+    )
+    expect(output).toContain(
+      '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
+    )
+    // Require/define calls are NOT rewritten — that would break browserify libs
+    // whose inner `function (require, module, exports)` provides its own require.
+    expect(output).toContain('require("katex")')
+    expect(output).toContain('function(require,module,exports){var u=require("./utils")}')
+    // The wrapper must enclose the user sources.
+    expect(output.indexOf('(function (module')).toBeLessThan(
+      output.indexOf('require("katex")')
+    )
+    expect(output.indexOf('require("katex")')).toBeLessThan(
+      output.indexOf('}).call(typeof globalThis')
+    )
+  })
+
   it('passes source through unchanged when no concat query is present', () => {
     const ctx = {
       resourcePath: '/some/file.js',
