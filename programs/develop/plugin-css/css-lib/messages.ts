@@ -57,3 +57,18 @@ export function missingSassDependency() {
     '  }'
   ].join('\n')
 }
+
+export function cssParseErrorShippedVerbatim(
+  resourcePath: string,
+  error: unknown
+) {
+  const reason =
+    error && typeof error === 'object' && 'reason' in (error as any)
+      ? String((error as any).reason)
+      : String((error as any)?.message || error)
+  return [
+    `${colors.yellow('⏵⏵⏵')} Invalid CSS in ${colors.underline(resourcePath)} — ${reason}.`,
+    'Browsers skip invalid rules, so the stylesheet was copied as-is instead of failing the build.',
+    'PostCSS/Tailwind processing was NOT applied to this file. Fix the CSS to re-enable it.'
+  ].join('\n')
+}
