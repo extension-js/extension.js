@@ -46,6 +46,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestNotFoundError: function(1)",
     "noCompanionExtensionsResolved: function(0)",
     "notAZipArchive: function(2)",
+    "notAnExtensionManifestError: function(1)",
     "packagingDistributionFiles: function(1)",
     "packagingSourceFiles: function(1)",
     "previewSkippedNoBrowser: function(1)",
