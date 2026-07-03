@@ -297,7 +297,13 @@ export class JsFrameworksPlugin {
         // by Rspack optimization, and disabling SWC minify preserves magic
         // comments like /* webpackIgnore: true */ for native dynamic imports
         minify: false,
-        isModule: true,
+        // Auto-detect script vs module per file. Browsers load content scripts
+        // and background.scripts as classic sloppy-mode scripts, where legacy
+        // octal escapes and loose semantics are legal — forcing every file
+        // through strict-mode ESM parsing rejects Chrome-valid extensions (and
+        // multi-MB data scripts full of octal escapes melt the SWC diagnostic
+        // renderer). Files with import/export still parse as strict modules.
+        isModule: 'unknown',
         sourceMap: wantsSourceMaps,
         env: {targets},
         jsc: {
