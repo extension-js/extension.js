@@ -97,6 +97,16 @@ export function manifestInvalidJson(manifestPath: string, error: unknown) {
   )
 }
 
+export function notAnExtensionManifestError(manifestPath: string) {
+  return (
+    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest — it has no ${colors.yellow('manifest_version')} field.\n` +
+    `${colors.red(
+      'This looks like a PWA web-app manifest. Point Extension.js at the directory that contains your extension manifest.'
+    )}\n` +
+    `${colors.gray('PATH')} ${colors.underline(manifestPath)}`
+  )
+}
+
 export function manifestNotFoundError(
   manifestPath: string,
   candidates: string[] = []
