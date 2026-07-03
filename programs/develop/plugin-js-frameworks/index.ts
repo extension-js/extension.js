@@ -9,6 +9,10 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
+import {
+  getManifestFieldsData,
+  filterKeysForThisBrowser
+} from 'browser-extension-manifest-fields'
 import type {PluginInterface, DevOptions} from '../types'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
@@ -25,10 +29,13 @@ import {
 } from './js-tools/typescript'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
+import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
 
@@ -39,6 +46,7 @@ export class JsFrameworksPlugin {
     }
   ) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.mode = options.mode
     this.transpilePackages = options.transpilePackages || []
   }
@@ -200,6 +208,43 @@ export class JsFrameworksPlugin {
       for (const jsFile of jsList) {
         contentScriptLikePaths.add(path.resolve(manifestDir, jsFile))
       }
+    }
+
+    // Browsers parse a script as an ES module only where the platform declares
+    // it: `<script type="module">` in an HTML page, or a `"type": "module"`
+    // background service worker. Everything else — plain `<script src>` page
+    // scripts, classic workers — loads as a classic script, so only declared
+    // modules may be force-marked `javascript/esm` below.
+    const platformModulePaths = new Set<string>()
+    try {
+      const browserManifest = filterKeysForThisBrowser(manifest, this.browser)
+      const background = browserManifest?.background
+      if (
+        background?.type === 'module' &&
+        typeof background?.service_worker === 'string'
+      ) {
+        platformModulePaths.add(
+          path.normalize(path.resolve(manifestDir, background.service_worker))
+        )
+      }
+
+      const htmlPages: Record<string, unknown> = {
+        ...getManifestFieldsData({
+          manifestPath: this.manifestPath,
+          browser: this.browser
+        }).html,
+        ...getSpecialFoldersDataForCompiler(compiler).pages
+      }
+      for (const htmlPage of Object.values(htmlPages)) {
+        if (typeof htmlPage !== 'string') continue
+        for (const moduleScript of getAssetsFromHtml(htmlPage)?.moduleJs ||
+          []) {
+          platformModulePaths.add(path.normalize(moduleScript))
+        }
+      }
+    } catch {
+      // Fail open: with no declared modules everything parses as
+      // `javascript/auto`, and import/export files are still detected as ESM
     }
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
@@ -394,15 +439,15 @@ export class JsFrameworksPlugin {
         // canonical `background/scripts.js` chunk (a content_scripts concat only
         // dodges this by matching `isfeatureScriptsContentLike` below).
         resourceQuery: {not: /__extensionjs_classic_concat__/},
-        // Page scripts (popup/options/sidebar/newtab/devtools) and module
-        // background scripts are loaded as ES modules in the browser
-        // (`<script type="module">` / `"type": "module"` service workers), so
-        // legal top-level await must parse. swc already treats these as modules
-        // (`isModule: true`); mark the Rspack module type ESM to match, otherwise
-        // Rspack re-classifies any first-party script without import/export as a
-        // non-module and rejects top-level await. Content scripts are excluded
-        // above — they are injected as classic scripts and must stay non-ESM.
-        type: 'javascript/esm',
+        // No `type` override: page/background scripts stay `javascript/auto`
+        // so Rspack detects script-vs-module per file (import/export → ESM),
+        // matching how browsers load a plain `<script src>` page script as a
+        // classic sloppy-mode script. Force-parsing these as strict ESM
+        // rejected Chrome-valid classic scripts and melted the diagnostic
+        // renderer on multi-MB legacy-octal data scripts. Platform-declared
+        // modules (`<script type="module">`, `"type": "module"` service
+        // workers) are marked `javascript/esm` by the dedicated rule below so
+        // their legal top-level await parses even without import/export.
         exclude: [
           ...swcRuleBase.exclude,
           (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
@@ -423,7 +468,27 @@ export class JsFrameworksPlugin {
             }
           }
         }
-      }
+      },
+      // Platform-declared ES modules only. Rspack merges every matching
+      // rule, so this adds `type: 'javascript/esm'` on top of the loader
+      // rule above without duplicating it. The content-script exclusion
+      // covers a file declared both as a content script and a module page
+      // script — the content-script instance must stay classic.
+      ...(platformModulePaths.size > 0
+        ? [
+            {
+              test: swcRuleBase.test,
+              include: (resourcePath: string) =>
+                platformModulePaths.has(path.normalize(resourcePath)),
+              exclude: [
+                (resourcePath: string) =>
+                  isfeatureScriptsContentLike(resourcePath)
+              ],
+              resourceQuery: {not: /__extensionjs_classic_concat__/},
+              type: 'javascript/esm'
+            }
+          ]
+        : [])
     ]
 
     compiler.options.module.rules = [
