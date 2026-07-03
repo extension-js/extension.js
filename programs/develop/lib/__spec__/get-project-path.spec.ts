@@ -200,4 +200,52 @@ describe('get-project-path', () => {
 
     await expect(getProjectStructure(root)).rejects.toThrow(/manifest\.json/i)
   })
+
+  const PWA_MANIFEST = JSON.stringify({
+    name: 'My PWA',
+    start_url: '/',
+    display: 'standalone',
+    icons: [{src: '/icon-192.png', sizes: '192x192', type: 'image/png'}]
+  })
+
+  it('skips a root PWA web-app manifest and resolves a nested extension manifest', async () => {
+    const root = makeTempDir('extjs-pwa-nested-ext-')
+    const extDir = path.join(root, 'extension')
+    fs.mkdirSync(extDir, {recursive: true})
+    fs.writeFileSync(path.join(root, 'manifest.json'), PWA_MANIFEST)
+    fs.writeFileSync(
+      path.join(extDir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'ext', version: '1.0.0'})
+    )
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const s = await getProjectStructure(root)
+    expect(path.dirname(s.manifestPath)).toBe(extDir)
+    logSpy.mockRestore()
+  })
+
+  it('rejects a lone PWA web-app manifest with a clear message', async () => {
+    const root = makeTempDir('extjs-pwa-only-')
+    fs.writeFileSync(path.join(root, 'manifest.json'), PWA_MANIFEST)
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /not a browser extension manifest/i
+    )
+  })
+
+  it('keeps accepting minimal manifests without PWA fields', async () => {
+    const root = makeTempDir('extjs-minimal-manifest-')
+    fs.writeFileSync(path.join(root, 'manifest.json'), '{"name":"minimal"}')
+
+    const s = await getProjectStructure(root)
+    expect(s.manifestPath.endsWith('manifest.json')).toBe(true)
+  })
 })
