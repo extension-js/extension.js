@@ -133,7 +133,12 @@ function isValidChromeMatchPattern(pattern: string): boolean {
 
   if (!pattern.endsWith('/*')) return false
 
-  const parseable = pattern.replace(/^\*:\/\//, 'https://')
+  // Chrome loads WAR match patterns that carry a port, including the port
+  // wildcard (`*://localhost:*/*` — verified against live Chrome). `:*` is
+  // not URL-parseable, so normalize it to a concrete port before parsing.
+  const parseable = pattern
+    .replace(/^\*:\/\//, 'https://')
+    .replace(/:\*(\/)/, ':65535$1')
 
   try {
     const u = new URL(parseable)
