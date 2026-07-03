@@ -134,6 +134,7 @@ export default function webpackConfig(
     }),
     new JsFrameworksPlugin({
       manifestPath,
+      browser: devOptions.browser,
       mode: devOptions.mode,
       transpilePackages: devOptions.transpilePackages
     }),
