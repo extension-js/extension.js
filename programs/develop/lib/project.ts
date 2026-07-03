@@ -10,6 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from './messages'
 import {findNearestPackageJson, validatePackageJson} from './package-json'
+import {parseJsonSafe} from './parse-json-safe'
 
 export interface ProjectStructure {
   manifestPath: string
@@ -409,6 +410,47 @@ export async function getProjectStructure(
       } else {
         throw new Error(messages.manifestNotFoundError(manifestPath))
       }
+    }
+  }
+
+  // PWA web-app manifests share the manifest.json filename but are not
+  // browser-extension manifests. Detect them by their signature fields
+  // (no manifest_version plus web-app-only keys) and re-resolve to a real
+  // extension manifest elsewhere in the project — or fail with a clear
+  // message instead of crashing on PWA-shaped fields downstream.
+  const readManifestObject = (candidatePath: string): any | undefined => {
+    try {
+      const parsed = parseJsonSafe(fs.readFileSync(candidatePath))
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
+        return undefined
+      return parsed
+    } catch {
+      return undefined
+    }
+  }
+  const isPwaManifest = (candidatePath: string): boolean => {
+    const parsed = readManifestObject(candidatePath)
+    if (!parsed || parsed.manifest_version != null) return false
+    return (
+      Array.isArray(parsed.icons) ||
+      typeof parsed.start_url === 'string' ||
+      typeof parsed.display === 'string' ||
+      parsed.related_applications != null ||
+      parsed.prefer_related_applications != null
+    )
+  }
+
+  if (fs.existsSync(manifestPath) && isPwaManifest(manifestPath)) {
+    const alternatives = collectManifestCandidates(projectPath, 3).filter(
+      (candidate) =>
+        path.resolve(candidate) !== path.resolve(manifestPath) &&
+        readManifestObject(candidate)?.manifest_version != null
+    )
+    if (alternatives.length === 1) {
+      manifestPath = alternatives[0]
+      console.log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
+    } else {
+      throw new Error(messages.notAnExtensionManifestError(manifestPath))
     }
   }
 
