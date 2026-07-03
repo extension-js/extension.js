@@ -530,6 +530,45 @@ describe('generateManifestPatches', () => {
       expect(err.name).toBe('WARInvalidMatchPattern')
       expect(err.file).toBe('manifest.json')
     })
+
+    it('accepts mv3 matches with ports and port wildcards Chrome loads (G21)', () => {
+      // Chrome loads WAR matches carrying a port, including the `:*` port
+      // wildcard (verified against live Chrome) — the build must not fail.
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {
+            matches: [
+              '*://localhost:*/*',
+              'http://localhost:*/*',
+              'http://localhost:3000/*',
+              '*://*.example.com:8080/*'
+            ],
+            resources: ['/*.json']
+          }
+        ]
+      }
+
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const compilation: any = {
+        getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+        assets: {'manifest.json': manifestSource},
+        updateAsset: vi.fn(),
+        emitAsset: vi.fn(),
+        fileDependencies: new Set(),
+        options: {mode: 'development'},
+        errors: [] as any[]
+      }
+
+      generateManifestPatches(
+        compilation as unknown as Compilation,
+        manifestPath,
+        {}
+      )
+
+      expect(compilation.errors.length).toBe(0)
+    })
+
     it('resolves relative file to emitted asset (mv3)', () => {
       const rel = 'images/logo.png'
       const abs = path.join(tmpRoot, rel)
