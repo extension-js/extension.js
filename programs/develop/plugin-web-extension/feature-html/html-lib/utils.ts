@@ -53,12 +53,16 @@ export function reportToCompilation(
 export interface ParsedHtmlAsset {
   css?: string[]
   js?: string[]
+  // Subset of `js`: scripts declared `<script type="module">`, the only
+  // scripts the browser parses as ES modules
+  moduleJs?: string[]
   static?: string[]
 }
 
 const cloneParsedHtmlAsset = (assets: ParsedHtmlAsset): ParsedHtmlAsset => ({
   css: [...(assets.css || [])],
   js: [...(assets.js || [])],
+  moduleJs: [...(assets.moduleJs || [])],
   static: [...(assets.static || [])]
 })
 
@@ -75,6 +79,7 @@ export function getAssetsFromHtml(
   const assets: ParsedHtmlAsset = {
     css: [],
     js: [],
+    moduleJs: [],
     static: []
   }
 
@@ -134,13 +139,21 @@ export function getAssetsFromHtml(
       return path.join(baseJoin, cleanPath)
     }
 
-    parseHtml(htmlDocument as any, ({filePath, assetType}) => {
+    parseHtml(htmlDocument as any, ({filePath, childNode, assetType}) => {
       const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
 
       switch (assetType) {
-        case 'script':
+        case 'script': {
           assets.js?.push(fileAbsolutePath)
+          // The HTML spec matches the module type ASCII case-insensitively
+          const scriptType = (childNode as any)?.attrs?.find(
+            (attr: any) => attr.name === 'type'
+          )?.value
+          if (String(scriptType || '').toLowerCase() === 'module') {
+            assets.moduleJs?.push(fileAbsolutePath)
+          }
           break
+        }
         case 'css':
           assets.css?.push(fileAbsolutePath)
           break

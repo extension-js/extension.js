@@ -9,7 +9,35 @@ describe('getAssetsFromHtml', () => {
 
   it('returns empty when file missing', () => {
     const res = getAssetsFromHtml(path.join(tmp, 'missing.html'))
-    expect(res).toEqual({css: [], js: [], static: []})
+    expect(res).toEqual({css: [], js: [], moduleJs: [], static: []})
+  })
+
+  it('reports <script type="module"> sources in moduleJs (case-insensitive)', () => {
+    const html = `
+		<html>
+		<body>
+		  <script type="module" src="main.js"></script>
+		  <script type="Module" src="upper.js"></script>
+		  <script src="classic.js"></script>
+		  <script type="text/javascript" src="legacy.js"></script>
+		</body>
+		</html>
+		`
+    const dir = path.join(tmp, 'modulejs')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.js).toEqual([
+      path.join(dir, 'main.js'),
+      path.join(dir, 'upper.js'),
+      path.join(dir, 'classic.js'),
+      path.join(dir, 'legacy.js')
+    ])
+    expect(res.moduleJs).toEqual([
+      path.join(dir, 'main.js'),
+      path.join(dir, 'upper.js')
+    ])
   })
 
   it('extracts js, css, and static with base href and preserves public-root', () => {

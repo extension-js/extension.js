@@ -40,6 +40,11 @@ const transpilePackagesMocks = vi.hoisted(() => ({
       resourcePath.startsWith(`${directoryPath}/`)
   )
 }))
+const projectFilesMocks = vi.hoisted(() => ({
+  manifest: {} as Record<string, any>,
+  htmlFiles: {} as Record<string, string>,
+  manifestHtmlFields: {} as Record<string, string | undefined>
+}))
 
 vi.mock('../js-tools/react', () => ({
   isUsingReact: vi.fn(() => true),
@@ -65,18 +70,29 @@ vi.mock('../../lib/transpile-packages', () => ({
     transpilePackagesMocks.resolveTranspilePackageDirs,
   isSubPath: transpilePackagesMocks.isSubPath
 }))
+// The manifest-fields package is externalized CJS (the fs mock below cannot
+// reach it), so stub it at the module boundary instead
+vi.mock('browser-extension-manifest-fields', () => ({
+  getManifestFieldsData: vi.fn(() => ({
+    html: projectFilesMocks.manifestHtmlFields
+  })),
+  filterKeysForThisBrowser: vi.fn((manifest: any) => manifest)
+}))
+vi.mock('../../plugin-special-folders/get-data', () => ({
+  getSpecialFoldersDataForCompiler: vi.fn(() => ({pages: {}, scripts: {}}))
+}))
 
-// Mock manifest reads inside fs.readFileSync
+// Mock manifest and page-HTML reads inside fs.readFileSync
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
     ...actual,
     readFileSync: vi.fn((filePath: any) => {
       if (String(filePath).endsWith('manifest.json')) {
-        return JSON.stringify({
-          minimum_chrome_version: '120',
-          browser_specific_settings: {gecko: {strict_min_version: '118.0'}}
-        })
+        return JSON.stringify(projectFilesMocks.manifest)
+      }
+      if (projectFilesMocks.htmlFiles[String(filePath)] !== undefined) {
+        return projectFilesMocks.htmlFiles[String(filePath)]
       }
       return (actual.readFileSync as any)(filePath)
     })
@@ -117,6 +133,12 @@ describe('JsFrameworksPlugin', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([])
+    projectFilesMocks.manifest = {
+      minimum_chrome_version: '120',
+      browser_specific_settings: {gecko: {strict_min_version: '118.0'}}
+    }
+    projectFilesMocks.htmlFiles = {}
+    projectFilesMocks.manifestHtmlFields = {}
   })
 
   it('applies aliases, SWC rule, framework loaders/plugins and tsconfig in development', async () => {
@@ -267,7 +289,7 @@ describe('JsFrameworksPlugin', () => {
     expect(excludeFn('/project/node_modules/other-lib/index.js')).toBe(true)
   })
 
-  it('marks non-content-script first-party JS as ESM so top-level await parses', async () => {
+  it('leaves scripts as javascript/auto unless the platform declares a module', async () => {
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -276,13 +298,14 @@ describe('JsFrameworksPlugin', () => {
 
     await plugin.apply(compiler)
 
+    // Browsers load plain `<script src>` page scripts and classic workers as
+    // sloppy classic scripts; forcing every non-content-script file to
+    // strict ESM rejected Chrome-valid extensions (G20). Rspack detects
+    // import/export files as modules under the default javascript/auto.
     const nonContentRule = compiler.options.module.rules.find(
       (rule: any) => rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
-    // Page/background scripts run as ES modules in the browser; the module
-    // type must be esm or Rspack rejects top-level await on a script with no
-    // import/export.
-    expect(nonContentRule?.type).toBe('javascript/esm')
+    expect(nonContentRule?.type).toBeUndefined()
 
     // Content-script rules must NOT be forced esm — they are injected as
     // classic scripts.
@@ -293,6 +316,79 @@ describe('JsFrameworksPlugin', () => {
     for (const rule of contentRules) {
       expect((rule as any).type).toBeUndefined()
     }
+
+    // With nothing platform-declared as a module, no ESM marker rule exists.
+    const esmRules = compiler.options.module.rules.filter(
+      (rule: any) => rule?.type === 'javascript/esm'
+    )
+    expect(esmRules.length).toBe(0)
+  })
+
+  it('marks a "type": "module" service worker as javascript/esm', async () => {
+    projectFilesMocks.manifest = {
+      background: {service_worker: 'sw.js', type: 'module'}
+    }
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const esmRule = compiler.options.module.rules.find(
+      (rule: any) => rule?.type === 'javascript/esm'
+    )
+    expect(esmRule).toBeDefined()
+    expect(esmRule.include(path.normalize('/project/sw.js'))).toBe(true)
+    expect(esmRule.include(path.normalize('/project/other.js'))).toBe(false)
+  })
+
+  it('does not mark a classic (no "type") service worker as ESM', async () => {
+    projectFilesMocks.manifest = {
+      background: {service_worker: 'sw.js'}
+    }
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const esmRules = compiler.options.module.rules.filter(
+      (rule: any) => rule?.type === 'javascript/esm'
+    )
+    expect(esmRules.length).toBe(0)
+  })
+
+  it('marks only <script type="module"> HTML page scripts as ESM', async () => {
+    projectFilesMocks.manifest = {action: {default_popup: 'popup.html'}}
+    projectFilesMocks.manifestHtmlFields = {
+      'action/default_popup': '/project/popup.html'
+    }
+    projectFilesMocks.htmlFiles['/project/popup.html'] = [
+      '<html><body>',
+      '<script type="module" src="./main.js"></script>',
+      '<script src="./classic.js"></script>',
+      '</body></html>'
+    ].join('')
+
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const esmRule = compiler.options.module.rules.find(
+      (rule: any) => rule?.type === 'javascript/esm'
+    )
+    expect(esmRule).toBeDefined()
+    expect(esmRule.include(path.normalize('/project/main.js'))).toBe(true)
+    // A plain <script src> is a classic script to the browser — never ESM.
+    expect(esmRule.include(path.normalize('/project/classic.js'))).toBe(false)
   })
 
   it('auto-transpiles workspace packages even without explicit transpilePackages config', async () => {
