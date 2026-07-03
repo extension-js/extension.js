@@ -419,6 +419,43 @@ export class AddAssetsToCompilation {
                   )
                 }
               }
+
+              // Chrome serves every packed file at its source path
+              // (chrome-extension://<id>/images/logo.png), so script-side
+              // references to the same file (chrome.runtime.getURL, a
+              // runtime-created <img> src) only keep working in the built
+              // extension if the file also exists there. Emit a copy at the
+              // manifest-relative source path alongside the assets/ one.
+              // public/ files already land at the output root and HTML pages
+              // have their own feature emission, so both stay excluded.
+              if (!isNestedHtml && fs.existsSync(absoluteFsPath)) {
+                const manifestRelative = path.relative(
+                  manifestDir,
+                  absoluteFsPath
+                )
+                if (
+                  manifestRelative &&
+                  !manifestRelative.startsWith('..') &&
+                  !path.isAbsolute(manifestRelative)
+                ) {
+                  const sourcePathAsset = manifestRelative
+                    .split(path.sep)
+                    .join('/')
+                  if (
+                    sourcePathAsset !== filepath &&
+                    !(
+                      typeof getAssetFn === 'function' &&
+                      getAssetFn.call(compilation, sourcePathAsset)
+                    )
+                  ) {
+                    const source = fs.readFileSync(absoluteFsPath)
+                    compilation.emitAsset(
+                      sourcePathAsset,
+                      new (sources as any).RawSource(source)
+                    )
+                  }
+                }
+              }
             }
           }
           // end runner
