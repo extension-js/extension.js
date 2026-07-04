@@ -9,11 +9,13 @@ import {createChangedSourcesTracker, dispatchReload} from '../reload-dispatch'
 const CS: ReloadInstruction = {
   type: 'content-scripts',
   changedContentScriptEntries: ['content_scripts/content-0'],
-  changedAssets: ['src/content/scripts.js']
+  changedAssets: ['src/content/scripts.js'],
+  label: 'content_script (src/content/scripts.js)'
 }
 
 afterEach(() => {
   delete process.env.EXTENSION_NO_RELOAD
+  vi.restoreAllMocks()
 })
 
 describe('dispatchReload', () => {
@@ -21,16 +23,37 @@ describe('dispatchReload', () => {
   // producer) for BOTH launched (Chromium CDP + Firefox RDP) and `--no-browser`.
   // A launched browser's controller is kept only for logging / source
   // inspection, never reload — so the seam is broker-only.
-  it('broadcasts over the broker', async () => {
+  it('broadcasts over the broker with the shared label + changed files', async () => {
     const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
     await dispatchReload(CS, {broker})
     expect(broker.broadcastReload).toHaveBeenCalledWith({
       type: 'content-scripts',
-      changedContentScriptEntries: ['content_scripts/content-0']
+      changedContentScriptEntries: ['content_scripts/content-0'],
+      label: 'content_script (src/content/scripts.js)',
+      changedFiles: ['src/content/scripts.js']
     })
   })
 
-  it('is a no-op for an undefined instruction (page-only edit)', async () => {
+  it('prints the stdout "Reloading …" line only when a producer was notified', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    // 0 producers → nothing actually reloads → no line.
+    await dispatchReload(CS, {
+      broker: {broadcastReload: vi.fn().mockReturnValue(0)}
+    })
+    expect(log).not.toHaveBeenCalled()
+
+    // ≥1 producer → the one shared label is announced.
+    await dispatchReload(CS, {
+      broker: {broadcastReload: vi.fn().mockReturnValue(1)}
+    })
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0][0])).toContain(
+      'content_script (src/content/scripts.js)'
+    )
+  })
+
+  it('is a no-op for an undefined instruction (no changed sources)', async () => {
     const broker = {broadcastReload: vi.fn()}
     await dispatchReload(undefined, {broker})
     expect(broker.broadcastReload).not.toHaveBeenCalled()
@@ -75,6 +98,18 @@ describe('createChangedSourcesTracker', () => {
       forcedFull: false,
       changedSources: ['src/content/scripts.js']
     })
+  })
+
+  it('drops the watch root itself (relativizes to empty) from changed sources', () => {
+    // rspack sometimes reports the project dir as a modified "file"; it must
+    // not leak into the reload label as a dangling comma.
+    const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj', '/proj/src/content/scripts.js'])
+    fireWatchRun()
+    expect(tracker.snapshot().changedSources).toEqual([
+      'src/content/scripts.js'
+    ])
   })
 
   it('forces a full reload for a manifest.json or _locales change', () => {
