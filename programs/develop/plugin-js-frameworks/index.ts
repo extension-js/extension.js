@@ -316,6 +316,14 @@ export class JsFrameworksPlugin {
 
     const swcRuleBase = {
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      // Explicit `javascript/auto` so rspack detects script-vs-module from the
+      // file itself. Left implicit, rspack infers the type from the nearest
+      // package.json `"type"` field — but Chrome never reads package.json:
+      // a project with `"type": "commonjs"` (Node tooling) still loads its
+      // `"type": "module"` service worker graph as ESM, and one with
+      // `"type": "module"` still loads classic sloppy content scripts. The
+      // platform-declared-ESM marker rule below still wins where it matches.
+      type: 'javascript/auto',
       include: Array.from(new Set([tsRoot, ...swcIncludeDirs])),
       exclude: [
         (resourcePath: string) => {
@@ -439,8 +447,8 @@ export class JsFrameworksPlugin {
         // canonical `background/scripts.js` chunk (a content_scripts concat only
         // dodges this by matching `isfeatureScriptsContentLike` below).
         resourceQuery: {not: /__extensionjs_classic_concat__/},
-        // No `type` override: page/background scripts stay `javascript/auto`
-        // so Rspack detects script-vs-module per file (import/export → ESM),
+        // Page/background scripts stay `javascript/auto` (explicit, via the
+        // base rule) so Rspack detects script-vs-module per file (import/export → ESM),
         // matching how browsers load a plain `<script src>` page script as a
         // classic sloppy-mode script. Force-parsing these as strict ESM
         // rejected Chrome-valid classic scripts and melted the diagnostic
