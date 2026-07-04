@@ -222,4 +222,85 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     const b = new BridgeBroker(opts)
     expect(b.broadcastReload({type: 'full'})).toBe(0)
   })
+
+  it('self-heals a STALE producer: full-reload frame before the close', () => {
+    // A live SW from a previous dev session (Chrome kept its cached script
+    // after a restart) dials in with the old instanceId. Rejecting it would
+    // strand the extension — instead it is told to reload itself so the
+    // fresh on-disk bundle (current port + instanceId) takes over.
+    const b = new BridgeBroker(opts)
+    const stale = new FakeConn('stale')
+    b.onFrame(stale, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'PREVIOUS-SESSION'
+    })
+
+    expect(stale.sent).toHaveLength(1)
+    expect(stale.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'full',
+      label: 'extension (resyncing previous dev session)'
+    })
+    expect(stale.closed?.code).toBe(CLOSE_BAD_INSTANCE)
+    expect(b.producerCount).toBe(0)
+  })
+
+  it('does NOT resync stale controllers or consumers (they are not the extension)', () => {
+    const b = new BridgeBroker({...opts, allowControl: true})
+    for (const role of ['controller', 'consumer'] as const) {
+      const c = new FakeConn(role)
+      b.onFrame(c, {type: 'hello', v: 1, role, instanceId: 'PREVIOUS-SESSION'})
+      expect(c.sent).toHaveLength(0)
+      expect(c.closed?.code).toBe(CLOSE_BAD_INSTANCE)
+    }
+  })
+
+  it('storm-guards the resync: at most 3 reloads per rolling minute', () => {
+    let nowMs = 1_000_000
+    const b = new BridgeBroker({...opts, now: () => nowMs})
+
+    const helloStale = () => {
+      const c = new FakeConn('s')
+      b.onFrame(c, {
+        type: 'hello',
+        v: 1,
+        role: 'producer',
+        instanceId: 'PREVIOUS-SESSION'
+      })
+      return c
+    }
+
+    for (let i = 0; i < 3; i++) {
+      expect(helloStale().sent).toHaveLength(1)
+    }
+    // Fourth within the window: closed without a reload (no cycle storms).
+    const fourth = helloStale()
+    expect(fourth.sent).toHaveLength(0)
+    expect(fourth.closed?.code).toBe(CLOSE_BAD_INSTANCE)
+
+    // Window rolls over → resync allowed again.
+    nowMs += 61_000
+    expect(helloStale().sent).toHaveLength(1)
+  })
+
+  it('forwards the shared announcement label + changed files on the frame', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+
+    b.broadcastReload({
+      type: 'page',
+      label: 'sidebar page (src/sidebar/index.tsx)',
+      changedFiles: ['src/sidebar/index.tsx']
+    })
+
+    expect(prod.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'page',
+      label: 'sidebar page (src/sidebar/index.tsx)',
+      changedFiles: ['src/sidebar/index.tsx']
+    })
+  })
 })

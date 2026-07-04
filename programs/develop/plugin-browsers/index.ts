@@ -29,9 +29,55 @@ export {
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
 export interface ReloadInstruction {
-  type: ReloadType
+  /**
+   * 'page' is a notify-only instruction: the extension itself is NOT reloaded
+   * (rspack-dev-server's livereload refreshes the open surface), but the
+   * signal still travels the bridge so every "Reloading…" surface (stdout,
+   * devtools pill) reflects it.
+   */
+  type: ReloadType | 'page'
   changedContentScriptEntries?: string[]
   changedAssets?: string[]
+  /**
+   * Human context label shared VERBATIM by every surface that announces this
+   * reload — CLI stdout, the page's devtools console line, and the devtools
+   * extension pill — so they can never disagree about what is reloading.
+   * e.g. "content_script (content/scripts.tsx)".
+   */
+  label?: string
+}
+
+/** "context (fileA, fileB +2 more)" — the one label every reload surface shows. */
+export function formatReloadContextLabel(
+  context: string,
+  files: string[]
+): string {
+  if (!files.length) return context
+  const shown = files.slice(0, 2).join(', ')
+  const extra = files.length > 2 ? ` +${files.length - 2} more` : ''
+  return `${context} (${shown}${extra})`
+}
+
+/**
+ * Best-effort page-context name for a page-only edit, mirroring the path
+ * heuristics used for the service-worker branch. Only used for the label —
+ * never for the reload decision.
+ */
+export function pageContextFromSources(changedSources: string[]): string {
+  const rules: Array<[RegExp, string]> = [
+    [/(^|\/)(sidebar|side[-_]?panel)(\.|\/)/i, 'sidebar page'],
+    [/(^|\/)(action|popup)(\.|\/)/i, 'popup page'],
+    [/(^|\/)options(\.|\/)/i, 'options page'],
+    [/(^|\/)devtools(\.|\/)/i, 'devtools page'],
+    [/(^|\/)(newtab|new[-_]?tab)(\.|\/)/i, 'new tab page'],
+    [/(^|\/)(history|bookmarks)(\.|\/)/i, 'page']
+  ]
+  for (const rel of changedSources) {
+    for (const [re, name] of rules) {
+      if (re.test(rel)) return name
+    }
+  }
+  return 'page'
 }
 
 /**
@@ -44,9 +90,11 @@ export interface ReloadInstruction {
  * `getContentScriptCount` is a thunk so the (cheap) manifest read only happens
  * when classification actually reaches the content-scripts branch.
  *
- * Returns `undefined` for page-only edits (popup/options/devtools/newtab HTML/
- * CSS/JS) — those are delivered by rspack-dev-server's livereload broadcast, so
- * firing an extension reload would race it and flash the open surface.
+ * Returns a notify-only `type: 'page'` instruction for page-only edits
+ * (popup/options/devtools/newtab HTML/CSS/JS) — those are delivered by
+ * rspack-dev-server's livereload broadcast, so firing an extension reload
+ * would race it and flash the open surface. The 'page' instruction only
+ * carries the announcement label; dispatch never reloads the extension for it.
  */
 export function classifyReloadFromSources(opts: {
   changedSources: string[]
@@ -57,14 +105,22 @@ export function classifyReloadFromSources(opts: {
   if (changedSources.length === 0) return undefined
 
   if (forcedFull) {
-    return {type: 'full', changedAssets: changedSources}
+    return {
+      type: 'full',
+      changedAssets: changedSources,
+      label: formatReloadContextLabel('extension', changedSources)
+    }
   }
 
   const isServiceWorkerSource = (rel: string) =>
     /(^|\/)background(\.|\/)/i.test(rel) || /service[-_.]?worker/i.test(rel)
 
   if (changedSources.some(isServiceWorkerSource)) {
-    return {type: 'service-worker', changedAssets: changedSources}
+    return {
+      type: 'service-worker',
+      changedAssets: changedSources,
+      label: formatReloadContextLabel('service_worker', changedSources)
+    }
   }
 
   const contentScriptCount = getContentScriptCount()
@@ -76,11 +132,21 @@ export function classifyReloadFromSources(opts: {
     return {
       type: 'content-scripts',
       changedContentScriptEntries: entries,
-      changedAssets: changedSources
+      changedAssets: changedSources,
+      label: formatReloadContextLabel('content_script', changedSources)
     }
   }
 
-  return undefined
+  // Page-only edit: livereload owns the actual refresh; emit a notify-only
+  // instruction so the reload announcement surfaces still fire.
+  return {
+    type: 'page',
+    changedAssets: changedSources,
+    label: formatReloadContextLabel(
+      pageContextFromSources(changedSources),
+      changedSources
+    )
+  }
 }
 
 export interface CompiledEvent {

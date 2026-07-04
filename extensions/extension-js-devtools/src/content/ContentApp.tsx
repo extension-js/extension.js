@@ -54,10 +54,12 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     'idle'
   )
   const [isReloading, setIsReloading] = useState(false)
+  const [reloadLabel, setReloadLabel] = useState('')
   const idRef = useRef(1)
   const autoOpenedRef = useRef(false)
   const lastExtensionSignalRef = useRef<string>('')
   const reloadDoneTimerRef = useRef<number | undefined>(undefined)
+  const reloadSafetyTimerRef = useRef<number | undefined>(undefined)
 
   const errorCount = entries.filter((e) => e.level === 'error').length
   const pageErrors = useMemo(
@@ -185,37 +187,69 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
   useEffect(() => {
     if (!isErrorOverlayEnabled) return
+    const clearReloadTimers = () => {
+      if (reloadDoneTimerRef.current !== undefined) {
+        window.clearTimeout(reloadDoneTimerRef.current)
+        reloadDoneTimerRef.current = undefined
+      }
+      if (reloadSafetyTimerRef.current !== undefined) {
+        window.clearTimeout(reloadSafetyTimerRef.current)
+        reloadSafetyTimerRef.current = undefined
+      }
+    }
+
+    const settleReload = (linger: number) => {
+      reloadDoneTimerRef.current = window.setTimeout(() => {
+        setIsReloading(false)
+        setReloadLabel('')
+        reloadDoneTimerRef.current = undefined
+      }, linger)
+    }
+
     const onMessage = (message: unknown) => {
       const payload = message as
-        | {type?: string; state?: 'reloading' | 'reloaded'}
+        | {
+            type?: string
+            state?: 'reloading' | 'reloaded'
+            label?: string
+            kind?: string
+          }
         | undefined
       if (!payload || payload.type !== 'extjs-dev-reload') return
 
+      const label = typeof payload.label === 'string' ? payload.label : ''
+
       if (payload.state === 'reloading') {
-        if (reloadDoneTimerRef.current !== undefined) {
-          window.clearTimeout(reloadDoneTimerRef.current)
-          reloadDoneTimerRef.current = undefined
-        }
+        clearReloadTimers()
         setIsReloading(true)
-      } else if (payload.state === 'reloaded') {
-        if (reloadDoneTimerRef.current !== undefined) {
-          window.clearTimeout(reloadDoneTimerRef.current)
+        if (label) setReloadLabel(label)
+
+        if (payload.kind === 'page') {
+          // Notify-only page reload (livereload lands almost immediately and
+          // there is no confirmation event) — settle on a short linger.
+          settleReload(1400)
+        } else {
+          // Never let a lost confirmation keep the pill lying: if neither the
+          // producer nor chrome.management confirms, clear on a safety window.
+          reloadSafetyTimerRef.current = window.setTimeout(() => {
+            setIsReloading(false)
+            setReloadLabel('')
+            reloadSafetyTimerRef.current = undefined
+          }, 8000)
         }
+      } else if (payload.state === 'reloaded') {
+        clearReloadTimers()
         // Briefly keep the indicator visible so the transition is perceivable
         // even when the disabled→enabled flip is near-instant.
         setIsReloading(true)
-        reloadDoneTimerRef.current = window.setTimeout(() => {
-          setIsReloading(false)
-          reloadDoneTimerRef.current = undefined
-        }, 900)
+        if (label) setReloadLabel(label)
+        settleReload(900)
       }
     }
     chrome.runtime.onMessage.addListener(onMessage)
     return () => {
       chrome.runtime.onMessage.removeListener(onMessage)
-      if (reloadDoneTimerRef.current !== undefined) {
-        window.clearTimeout(reloadDoneTimerRef.current)
-      }
+      clearReloadTimers()
     }
   }, [isErrorOverlayEnabled])
 
@@ -223,6 +257,12 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     diagnosticsIssueCount === 1
       ? '1 setup check needs attention'
       : `${diagnosticsIssueCount} setup checks need attention`
+
+  // Same server-built label the CLI printed to stdout and the producer echoed
+  // into the page console — one string, every surface.
+  const reloadingText = reloadLabel
+    ? `Reloading ${reloadLabel}…`
+    : 'Reloading…'
 
   const emitDxSignal = (payload: DxSignalPayload) => {
     if (!isErrorOverlayEnabled) return
@@ -656,7 +696,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
           variant="secondary"
           aria-label={
             isReloading
-              ? 'Extension is reloading'
+              ? reloadingText
               : diagnosticsIssueCount > 0
               ? diagnosticsIssueLabel
               : errorCount > 0
@@ -665,7 +705,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
           }
           title={
             isReloading
-              ? 'Extension is reloading'
+              ? reloadingText
               : diagnosticsIssueCount > 0
               ? diagnosticsIssueLabel
               : errorCount > 0
@@ -702,9 +742,9 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
               color: '#e5e5e5',
               opacity: 1
             }}
-            className="pointer-events-none rounded-full border px-3 py-1 text-xs font-medium shadow"
+            className="pointer-events-none max-w-[60vw] truncate rounded-full border px-3 py-1 text-xs font-medium shadow"
           >
-            Reloading…
+            {reloadingText}
           </span>
         ) : null}
       </div>

@@ -8,6 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 import * as path from 'path'
+import colors from 'pintor'
 import type {ReloadInstruction} from './index'
 
 // Every dev mode — launched (Chromium CDP / Firefox RDP) and `--no-browser` —
@@ -18,6 +19,8 @@ export interface ReloadBroker {
   broadcastReload(instruction: {
     type: ReloadInstruction['type']
     changedContentScriptEntries?: string[]
+    label?: string
+    changedFiles?: string[]
   }): number
 }
 
@@ -26,11 +29,22 @@ export interface ReloadExecutor {
 }
 
 /** Broadcast a reload over the control bridge to the SW producer. */
-function viaBroker(broker: ReloadBroker, instruction: ReloadInstruction): void {
-  broker.broadcastReload({
+function viaBroker(broker: ReloadBroker, instruction: ReloadInstruction): number {
+  return broker.broadcastReload({
     type: instruction.type,
-    changedContentScriptEntries: instruction.changedContentScriptEntries
+    changedContentScriptEntries: instruction.changedContentScriptEntries,
+    label: instruction.label,
+    changedFiles: instruction.changedAssets
   })
+}
+
+/**
+ * The one stdout announcement per dispatched reload. Prints the SAME label the
+ * producer echoes into the page's devtools console and the devtools-extension
+ * pill renders — one server-built string, three surfaces, zero drift.
+ */
+export function formatReloadingLine(label: string): string {
+  return `Reloading ${colors.brightBlue(label)}…`
 }
 
 /**
@@ -51,7 +65,15 @@ export async function dispatchReload(
   if (process.env.EXTENSION_NO_RELOAD === 'true') return
 
   if (executor.broker) {
-    viaBroker(executor.broker, instruction)
+    const notified = viaBroker(executor.broker, instruction)
+
+    // Announce only when at least one live extension instance received the
+    // signal (`notified` producers). With zero producers nothing reloads
+    // anywhere — printing "Reloading…" would be a lie. This also covers
+    // `--no-browser` before/without an attached browser.
+    if (notified > 0 && instruction.label) {
+      console.log(formatReloadingLine(instruction.label))
+    }
   }
 }
 
@@ -89,6 +111,10 @@ export function createChangedSourcesTracker(
     const contextDir = compiler.options.context || ''
     for (const file of modifiedFiles) {
       const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
+      // rspack sometimes reports the watch root itself as modified — it
+      // relativizes to '' and would leak into the reload label as a dangling
+      // comma ("(src/a.js, )").
+      if (!normalized) continue
       changedSources.push(normalized)
       if (
         normalized.includes('manifest.json') ||

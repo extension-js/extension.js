@@ -379,7 +379,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // FROM DISK (not chrome.runtime.getManifest(), which is frozen at extension-
     // registration time) because dev content-script filenames are content-hashed
     // and change on every edit — disk has the new js/css paths.
-    function reinjectContentScripts() {
+    function reinjectContentScripts(onDone) {
       var chrome = g.chrome;
       try {
         if (typeof g.fetch !== "function" || !chrome.scripting) return false;
@@ -389,6 +389,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             var entries = (manifest && manifest.content_scripts) || [];
             for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i]);
             reregisterForFutureNavigations(entries);
+            if (onDone) { try { onDone(); } catch (e) {} }
           })
           .catch(function () {});
         return true;
@@ -463,20 +464,113 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     //     if scripting is unavailable.
     //   - service-worker / full / manifest: restart the whole extension so it
     //     re-registers from the fresh manifest.
-    function performDevReload(type) {
+    function performDevReload(type, onDone) {
       var chrome = g.chrome;
       if (!chrome) return;
 
       var fullReload = function () {
-        // Deferred so any in-flight result/log frame flushes before the SW dies.
-        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 50); } catch (e) {}
+        // Deferred so any in-flight result/log frame — and the "Reloading…"
+        // console announcement dispatched into tabs — flushes before the SW
+        // dies. runtime.reload() restarts the whole extension; the devtools
+        // companion confirms completion via chrome.management events, so no
+        // onDone here.
+        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 150); } catch (e) {}
       };
 
       if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
-        if (reinjectContentScripts()) return;
+        if (reinjectContentScripts(onDone)) return;
       }
 
       fullReload();
+    }
+
+    // ---- Dev-reload announcement surfaces --------------------------------
+    // One server-built label travels the ReloadFrame; the producer echoes it
+    // 1:1 into (a) the page's devtools console and (b) the bundled
+    // extension-js-devtools companion (the bottom-left pill). Both fire HERE,
+    // next to the actual reload action, so a surface can only say
+    // "Reloading…" when a reload is actually being performed.
+
+    // Stable IDs of the bundled extension-js-devtools companion: Chromium pins
+    // via the manifest "key"; Firefox via browser_specific_settings.gecko.id.
+    // Absent companion (e.g. --no-browser in the user's own browser) is fine —
+    // sendMessage just reports no receiver and we swallow it.
+    var DEVTOOLS_COMPANION_ID_CHROMIUM = "kgdaecdpfkikjncaalnmmnjjfpofkcbl";
+    var DEVTOOLS_COMPANION_ID_FIREFOX = "devtools@extension.js";
+
+    function notifyDevtoolsCompanion(phase, label, kind) {
+      try {
+        var chrome = g.chrome;
+        if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") return;
+        var id = engineName() === "firefox" ? DEVTOOLS_COMPANION_ID_FIREFOX : DEVTOOLS_COMPANION_ID_CHROMIUM;
+        chrome.runtime.sendMessage(
+          id,
+          {type: "extjs-dev-reload-state", phase: phase, label: label || "", kind: kind || "", instanceId: INSTANCE_ID},
+          function () { noopLastError(); }
+        );
+      } catch (e) {}
+    }
+
+    // console.log the reload line into every open injectable tab. Runs in the
+    // user extension's ISOLATED world, where the bridge relay patched console —
+    // so the same line also lands in the centralized dev-server log stream.
+    function announceReloadInTabs(text) {
+      var chrome = g.chrome;
+      if (!chrome || !chrome.tabs || !chrome.tabs.query) return;
+      try {
+        chrome.tabs.query({}, function (tabs) {
+          noopLastError();
+          if (!tabs) return;
+          for (var i = 0; i < tabs.length; i++) {
+            (function (tab) {
+              if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
+              if (chrome.scripting && chrome.scripting.executeScript) {
+                try {
+                  chrome.scripting.executeScript(
+                    {target: {tabId: tab.id}, func: function (t) { console.log(t); }, args: [text]},
+                    noopLastError
+                  );
+                  return;
+                } catch (e) {}
+              }
+              // MV2 fallback (Firefox without the scripting API).
+              if (chrome.tabs.executeScript) {
+                try {
+                  chrome.tabs.executeScript(tab.id, {code: "console.log(" + JSON.stringify(text) + ");"}, noopLastError);
+                } catch (e) {}
+              }
+            })(tabs[i]);
+          }
+        });
+      } catch (e) {}
+    }
+
+    function handleDevReloadFrame(frame) {
+      var kind = frame.reloadType || "full";
+      var label = typeof frame.label === "string" ? frame.label : "";
+      // The server always builds the label; the kind-derived fallback only
+      // covers a malformed frame so the announcement stays truthful.
+      var fallback = kind === "content-scripts" ? "content_script"
+        : kind === "service-worker" ? "service_worker"
+        : "extension";
+      var announced = "[extension.js] Reloading " + (label || fallback) + "…";
+
+      notifyDevtoolsCompanion("reloading", label, kind);
+
+      if (kind === "page") {
+        // Notify-only: rspack-dev-server's livereload refreshes the open
+        // surface; reloading the extension here would race it. No tab console
+        // line either — the reloading page clears its own console anyway.
+        return;
+      }
+
+      announceReloadInTabs(announced);
+      performDevReload(kind, function () {
+        // Only the content-scripts path confirms from here (reinjection ran to
+        // completion in this same SW). Full/SW reloads are confirmed by the
+        // devtools companion's chrome.management listeners.
+        notifyDevtoolsCompanion("reloaded", label, kind);
+      });
     }
 
     function sanitize(args) {
@@ -537,9 +631,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (frame && frame.type === "command") {
           try { executeCommand(frame); } catch (e) { replyErr(frame.cmdId, "ExecutorError", e); }
         } else if (frame && frame.type === "reload") {
-          // Dev-loop reload broadcast (no CDP controller — see broker.broadcastReload).
+          // Dev-loop reload broadcast (see broker.broadcastReload).
           // Fire-and-forget: no result frame is expected.
-          try { performDevReload(frame.reloadType || "full"); } catch (e) {}
+          try { handleDevReloadFrame(frame); } catch (e) {}
         }
       };
       socket.onclose = function () {
