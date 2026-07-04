@@ -6,6 +6,12 @@
   "description": "Extension.js built-in developer tools",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
+  "chromium:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAllbZJQG6Sfby1qyGr2pyR5JktAOh44tJMD1fm4Svk0JF/8TYwTTugJaFTPZoCepdgNU8gwc+jixaleQHOKNxmm2g1aV0eW8XSv4Mk+QM3//l9ftwvyoE/Z7vcwI1KT+OxUAoq6RUuQVjm007c4/mE3TiH83Atubrhp6eFVX7BfLAD49SNlpSvaK+Y8QgsJcmjQmLiUpkd4w9kWT3pk0Gn2Ytjz9spPurhdnFatwMuATQggazmS+lq0chGLzlznWN64lZER3iQ/gv30Z1DHGAPyOlf1w4YgVortWnbqrkIKzpCnymW2z8sj1BQMknaBW3katl20gg2DnpX4acsCzwYQIDAQAB",
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "id": "devtools@extension.js"
+    }
+  },
   "author": "Cezar Augusto",
   "icons": {
     "48": "images/logo.png"

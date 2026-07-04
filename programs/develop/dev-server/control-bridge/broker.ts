@@ -12,7 +12,7 @@ import {
   type IncomingLogEvent,
   type ReadyFrame,
   type ReloadFrame,
-  type ReloadType,
+  type DevReloadKind,
   type ResultFrame,
   type ServerFrame
 } from './contracts'
@@ -88,6 +88,7 @@ export class BridgeBroker {
   private readonly clearTimer: (handle: ReturnType<typeof setTimeout>) => void
   private readonly evalAllowed = new Map<BridgeConnection, boolean>()
   private readonly pending = new Map<string, Pending>()
+  private staleResyncTimes: number[] = []
 
   constructor(options: BridgeBrokerOptions) {
     this.instanceId = options.instanceId
@@ -175,13 +176,17 @@ export class BridgeBroker {
    * yet, e.g. before the first compile finishes writing the background bundle).
    */
   broadcastReload(instruction: {
-    type: ReloadType
+    type: DevReloadKind
     changedContentScriptEntries?: string[]
+    label?: string
+    changedFiles?: string[]
   }): number {
     const frame: ReloadFrame = {
       type: 'reload',
       reloadType: instruction.type,
-      changedContentScriptEntries: instruction.changedContentScriptEntries
+      changedContentScriptEntries: instruction.changedContentScriptEntries,
+      label: instruction.label,
+      changedFiles: instruction.changedFiles
     }
 
     let notified = 0
@@ -218,6 +223,17 @@ export class BridgeBroker {
 
   // --- internals ---
 
+  /** At most 3 stale-producer resync reloads per rolling minute. */
+  private allowStaleProducerResync(): boolean {
+    const now = this.now()
+    this.staleResyncTimes = this.staleResyncTimes.filter(
+      (t) => now - t < 60_000
+    )
+    if (this.staleResyncTimes.length >= 3) return false
+    this.staleResyncTimes.push(now)
+    return true
+  }
+
   private onHello(conn: BridgeConnection, hello: HelloFrame): void {
     if (hello.v !== CONTROL_ENVELOPE_VERSION) {
       conn.close(CLOSE_BAD_HELLO, 'unsupported envelope version')
@@ -225,6 +241,29 @@ export class BridgeBroker {
     }
 
     if (hello.instanceId !== this.instanceId) {
+      // A producer with a stale instanceId is a live background SW from a
+      // PREVIOUS dev session: Chrome caches the extension service-worker
+      // script, so a reused profile can keep running old code whose baked
+      // instanceId (and formerly, control port) predate this server. Just
+      // rejecting it would strand the extension — its producer retries
+      // forever and no reload could ever reach it. Instead, tell it to
+      // full-reload itself: the restarted SW re-reads the fresh bundle from
+      // disk (current port + instanceId) and connects cleanly. Storm-guarded
+      // so a persistent mismatch (e.g. a second project pointed at this
+      // port) can't reload-cycle an extension forever. Controllers/consumers
+      // are simply rejected — they are not the extension.
+      if (hello.role === 'producer' && this.allowStaleProducerResync()) {
+        if (this.authorMode) {
+          console.log(
+            `[control-bridge] stale producer (instance ${hello.instanceId}) → full-reload resync`
+          )
+        }
+        conn.send({
+          type: 'reload',
+          reloadType: 'full',
+          label: 'extension (resyncing previous dev session)'
+        })
+      }
       conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
       return
     }

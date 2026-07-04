@@ -168,9 +168,17 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Broadcast reload-state pings to the content-script overlay so the floating
 // pill can render a "Reloading…" indicator while the user's unpacked
-// extension is cycling. Chrome's `chrome.runtime.reload()` (which the
-// Extension.js SDK fires on file edits) flips the target extension through
-// onDisabled → onEnabled, so we hook both and rebroadcast to every tab.
+// extension is cycling.
+//
+// Two signal sources, one broadcast:
+//  1. The bridge producer injected into the user's extension forwards the
+//     dev-server ReloadFrame here (onMessageExternal) — it carries the
+//     server-built context label ("content_script (content/scripts.tsx)"),
+//     and fires next to the actual reload action, so the pill shows the same
+//     string the CLI printed to stdout.
+//  2. chrome.management onDisabled/onEnabled/onInstalled — ground truth for
+//     full extension restarts (the producer dies mid-reload and can't confirm
+//     those itself).
 function isUserDevExtensionForReload(
   info: chrome.management.ExtensionInfo
 ): boolean {
@@ -181,14 +189,27 @@ function isUserDevExtensionForReload(
   return !isBuiltInExtension(info)
 }
 
-function broadcastReloadState(state: 'reloading' | 'reloaded') {
+// Label from the most recent 'reloading' signal, replayed on the management
+// confirmation so "reloaded" clears with the same context it started with.
+let lastReloadLabel = ''
+
+function broadcastReloadState(
+  state: 'reloading' | 'reloaded',
+  label?: string,
+  kind?: string
+) {
   try {
     chrome.tabs.query({}, (tabs) => {
       for (const tab of tabs || []) {
         if (typeof tab.id !== 'number') continue
         try {
           chrome.tabs
-            .sendMessage(tab.id, {type: 'extjs-dev-reload', state})
+            .sendMessage(tab.id, {
+              type: 'extjs-dev-reload',
+              state,
+              label: label || '',
+              kind: kind || ''
+            })
             .catch(() => {
               // Tab has no listener — ignore (most pages won't host the overlay).
             })
@@ -202,17 +223,50 @@ function broadcastReloadState(state: 'reloading' | 'reloaded') {
   }
 }
 
+type ExternalReloadStateMessage = {
+  type?: string
+  phase?: string
+  label?: string
+  kind?: string
+}
+
+if (typeof chrome.runtime?.onMessageExternal?.addListener === 'function') {
+  chrome.runtime.onMessageExternal.addListener(
+    (message: ExternalReloadStateMessage, sender, sendResponse) => {
+      if (!message || message.type !== 'extjs-dev-reload-state') return
+      const senderId = sender?.id
+      if (!senderId) return
+
+      const phase = message.phase === 'reloaded' ? 'reloaded' : 'reloading'
+      const label = typeof message.label === 'string' ? message.label : ''
+      const kind = typeof message.kind === 'string' ? message.kind : ''
+
+      // Only trust unpacked dev extensions (the user's extension running
+      // under `extension dev` — the sender of the bridge-producer signal).
+      chrome.management.get(senderId, (info) => {
+        if (chrome.runtime.lastError) return
+        if (!isUserDevExtensionForReload(info)) return
+        lastReloadLabel = phase === 'reloading' ? label : ''
+        broadcastReloadState(phase, label, kind)
+      })
+
+      sendResponse({ok: true})
+    }
+  )
+}
+
 if (typeof chrome.management?.onDisabled?.addListener === 'function') {
   chrome.management.onDisabled.addListener((info) => {
     if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloading')
+    broadcastReloadState('reloading', lastReloadLabel)
   })
 }
 
 if (typeof chrome.management?.onEnabled?.addListener === 'function') {
   chrome.management.onEnabled.addListener((info) => {
     if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloaded')
+    broadcastReloadState('reloaded', lastReloadLabel)
+    lastReloadLabel = ''
   })
 }
 
@@ -222,6 +276,7 @@ if (typeof chrome.management?.onInstalled?.addListener === 'function') {
   // so the pill clears its spinner even on the install-only path.
   chrome.management.onInstalled.addListener((info) => {
     if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloaded')
+    broadcastReloadState('reloaded', lastReloadLabel)
+    lastReloadLabel = ''
   })
 }
