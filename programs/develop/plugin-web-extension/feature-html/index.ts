@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
+import {toResourceKey} from '../../lib/resource-path'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
 import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
@@ -113,7 +114,7 @@ export class HtmlPlugin {
 
           for (const jsFile of jsList) {
             contentScriptEntryPaths.add(
-              path.normalize(path.resolve(manifestDir, jsFile))
+              toResourceKey(path.resolve(manifestDir, jsFile))
             )
           }
         }
@@ -128,7 +129,7 @@ export class HtmlPlugin {
         exclude: [
           /([\\/])node_modules\1/,
           (resourcePath: string) =>
-            contentScriptEntryPaths.has(path.normalize(resourcePath))
+            contentScriptEntryPaths.has(toResourceKey(resourcePath))
         ],
         use: [
           {
