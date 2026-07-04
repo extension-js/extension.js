@@ -218,6 +218,24 @@ export function resolveFromBinaries(
   return null
 }
 
+// When the requested browser is Chromium but no managed Chromium exists,
+// another managed chromium-family binary is a working substitute — this
+// keeps `extension install all` + `extension dev` working even though
+// `install all` and the dev default can drift apart across versions.
+export function resolveChromiumFamilyFallback(
+  compilation: CompilationLike
+): {browser: 'chrome' | 'edge'; binary: string} | null {
+  for (const browser of ['chrome', 'edge'] as const) {
+    const binary = resolveFromBinaries(compilation, browser)
+
+    if (binary && fs.existsSync(binary)) {
+      return {browser, binary}
+    }
+  }
+
+  return null
+}
+
 function buildCandidates(
   dir: string,
   browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
