@@ -76,6 +76,15 @@ export type CommandOp =
  */
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
+/**
+ * Everything a {@link ReloadFrame} can carry in `reloadType`: the extension
+ * reload granularities plus `'page'` — a notify-only signal for page-only
+ * edits (popup/options/sidebar/devtools/newtab). For `'page'` the producer
+ * performs NO reload (livereload owns the refresh); it only forwards the
+ * announcement so the devtools pill mirrors the dev loop.
+ */
+export type DevReloadKind = ReloadType | 'page'
+
 export type GapReason =
   | 'ring_overflow'
   | 'rate_limit'
@@ -149,8 +158,17 @@ export interface ResultFrame {
  */
 export interface ReloadFrame {
   type: 'reload'
-  reloadType: ReloadType
+  reloadType: DevReloadKind
   changedContentScriptEntries?: string[]
+  /**
+   * Server-built human context label, e.g. "content_script (content/scripts.tsx)".
+   * Shown VERBATIM by every announcement surface (CLI stdout, the page's
+   * devtools console line, the devtools-extension pill) so the three can
+   * never disagree about what is reloading.
+   */
+  label?: string
+  /** Project-relative source files that triggered this reload. */
+  changedFiles?: string[]
 }
 
 export type ClientFrame = HelloFrame | LogFrame | CommandFrame

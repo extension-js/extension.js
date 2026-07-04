@@ -47,13 +47,57 @@ describe('classifyReloadFromSources', () => {
     expect(result?.changedAssets).toEqual(['src/content/scripts.js'])
   })
 
-  it('a page-only edit with no content scripts → undefined (livereload owns it)', () => {
+  it('a page-only edit with no content scripts → notify-only "page" (livereload owns the refresh)', () => {
     expect(
       classifyReloadFromSources({
         changedSources: ['src/popup/index.js'],
         getContentScriptCount: count(0)
       })
-    ).toBeUndefined()
+    ).toMatchObject({
+      type: 'page',
+      label: 'popup page (src/popup/index.js)'
+    })
+  })
+
+  it('builds the shared context label for every classification', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/manifest.json'],
+        forcedFull: true,
+        getContentScriptCount: count(1)
+      })?.label
+    ).toBe('extension (src/manifest.json)')
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.ts'],
+        getContentScriptCount: count(1)
+      })?.label
+    ).toBe('service_worker (src/background.ts)')
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/content/scripts.js'],
+        getContentScriptCount: count(1)
+      })?.label
+    ).toBe('content_script (src/content/scripts.js)')
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/sidebar/index.tsx'],
+        getContentScriptCount: count(0)
+      })?.label
+    ).toBe('sidebar page (src/sidebar/index.tsx)')
+  })
+
+  it('caps the label file list at two entries', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts'],
+        forcedFull: true,
+        getContentScriptCount: count(0)
+      })?.label
+    ).toBe('extension (src/a.ts, src/b.ts +2 more)')
   })
 
   it('does not read the content-script count when classification resolves earlier', () => {

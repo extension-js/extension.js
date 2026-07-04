@@ -27,6 +27,11 @@ import {LogsFileWriter} from './control-bridge/logs-file'
 import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
+import {
+  controlPortFilePath,
+  readPersistedControlPort,
+  writePersistedControlPort
+} from './control-bridge/control-port-store'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import {
   classifyReloadFromSources,
@@ -405,11 +410,31 @@ export async function devServer(
     bridgeLogFile.start()
     bridgeActionsFile?.start()
 
-    const controlServer = await startControlServer({
-      broker: bridgeBroker,
-      host: devServerHost
-    })
+    // Prefer the port of the previous session for this project+browser: a
+    // reused profile can still be running a CACHED background SW with that
+    // old port baked in, and only a reachable server can tell it to resync
+    // (broker sends it a full-reload on the stale hello). Falls back to an
+    // ephemeral port when the persisted one is taken (e.g. a concurrent
+    // instance).
+    const controlPortFile = controlPortFilePath(packageJsonDir, browserName)
+    const preferredControlPort = readPersistedControlPort(controlPortFile)
+
+    let controlServer
+    try {
+      controlServer = await startControlServer({
+        broker: bridgeBroker,
+        host: devServerHost,
+        port: preferredControlPort ?? 0
+      })
+    } catch (error) {
+      if (preferredControlPort == null) throw error
+      controlServer = await startControlServer({
+        broker: bridgeBroker,
+        host: devServerHost
+      })
+    }
     bridgeControlPort = controlServer.port
+    writePersistedControlPort(controlPortFile, controlServer.port)
   } catch {
     // Control port could not bind; the dev server still runs without the bridge.
     try {
