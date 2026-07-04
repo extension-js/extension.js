@@ -570,6 +570,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
   it('reload broadcast (content-scripts): re-injects the fresh script into open tabs in place (no extension restart)', async () => {
     const injected: Array<{tabId?: number; files: string[]; world?: string}> =
       []
+    // The console announcement is a separate executeScript call carrying
+    // `func`+`args` (no `files`): the "[extension.js] Reloading …" line echoed
+    // into each tab's devtools console.
+    const announced: Array<{tabId?: number; args?: unknown[]}> = []
     let runtimeReloaded = false
     // The on-disk manifest the SW fetches has the NEW (content-hashed) filename.
     const diskManifest = {
@@ -600,14 +604,24 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
         },
         scripting: {
           executeScript: (
-            opts: {target: {tabId: number}; files: string[]; world?: string},
+            opts: {
+              target: {tabId: number}
+              files?: string[]
+              world?: string
+              func?: unknown
+              args?: unknown[]
+            },
             cb?: () => void
           ) => {
-            injected.push({
-              tabId: opts.target.tabId,
-              files: opts.files,
-              world: opts.world
-            })
+            if (opts.files) {
+              injected.push({
+                tabId: opts.target.tabId,
+                files: opts.files,
+                world: opts.world
+              })
+            } else {
+              announced.push({tabId: opts.target.tabId, args: opts.args})
+            }
             cb && cb()
           }
         }
@@ -618,7 +632,11 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       }
     )
 
-    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      label: 'content_script (src/content/scripts.ts)'
+    })
     // fetch().then().then() — let the microtasks settle.
     await new Promise((r) => setTimeout(r, 20))
 
@@ -626,6 +644,12 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(injected.map((i) => i.tabId).sort()).toEqual([11, 12])
     expect(injected[0].files).toEqual(['content_scripts/content-0.NEWHASH.js'])
     expect(injected[0].world).toBe('ISOLATED')
+    // The devtools console line carries the SAME server-built label, and only
+    // into injectable tabs.
+    expect(announced.map((a) => a.tabId).sort()).toEqual([11, 12])
+    expect(announced[0].args).toEqual([
+      '[extension.js] Reloading content_script (src/content/scripts.ts)…'
+    ])
     // No extension restart and no command result frame.
     expect(runtimeReloaded).toBe(false)
     expect(results(ws)).toHaveLength(0)
@@ -708,9 +732,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'full'})
 
-    // The reload is deferred (50ms) so any in-flight frame flushes first.
+    // The reload is deferred (150ms) so any in-flight frame — and the console
+    // announcement dispatched into tabs — flushes first.
     expect(runtimeReloaded).toBe(false)
-    await new Promise((r) => setTimeout(r, 80))
+    await new Promise((r) => setTimeout(r, 250))
     expect(runtimeReloaded).toBe(true)
   })
 
@@ -729,8 +754,103 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
 
-    await new Promise((r) => setTimeout(r, 80))
+    await new Promise((r) => setTimeout(r, 250))
     expect(runtimeReloaded).toBe(true)
+  })
+
+  it('reload broadcast (page): notify-only — no extension reload, no tab console line, companion still pinged', async () => {
+    const external: Array<{id: string; msg: any}> = []
+    const execCalls: unknown[] = []
+    let runtimeReloaded = false
+    const ws = setup({
+      runtime: {
+        reload: () => {
+          runtimeReloaded = true
+        },
+        sendMessage: (id: string, msg: unknown, cb?: () => void) => {
+          external.push({id, msg})
+          cb && cb()
+        },
+        lastError: undefined
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 1, url: 'https://x.test/'}])
+      },
+      scripting: {
+        executeScript: (opts: unknown, cb?: () => void) => {
+          execCalls.push(opts)
+          cb && cb()
+        }
+      }
+    })
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'page',
+      label: 'sidebar page (src/sidebar/index.tsx)'
+    })
+    await new Promise((r) => setTimeout(r, 250))
+
+    // livereload owns the page refresh: the producer must not reload the
+    // extension or console-spam web tabs for a page-only edit…
+    expect(runtimeReloaded).toBe(false)
+    expect(execCalls).toHaveLength(0)
+    // …but the devtools companion pill still mirrors the dev loop.
+    expect(external).toHaveLength(1)
+    expect(external[0].msg).toMatchObject({
+      type: 'extjs-dev-reload-state',
+      phase: 'reloading',
+      label: 'sidebar page (src/sidebar/index.tsx)',
+      kind: 'page'
+    })
+  })
+
+  it('reload broadcast (content-scripts): confirms "reloaded" to the devtools companion after reinjection', async () => {
+    const external: Array<{id: string; msg: any}> = []
+    const diskManifest = {
+      content_scripts: [
+        {
+          matches: ['https://x.test/*'],
+          js: ['content_scripts/content-0.NEWHASH.js'],
+          css: []
+        }
+      ]
+    }
+    const ws = setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          sendMessage: (id: string, msg: unknown, cb?: () => void) => {
+            external.push({id, msg})
+            cb && cb()
+          },
+          lastError: undefined
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {
+          executeScript: (_o: unknown, cb?: () => void) => cb && cb()
+        }
+      },
+      {
+        fetch: (_url: string) =>
+          Promise.resolve({json: () => Promise.resolve(diskManifest)})
+      }
+    )
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      label: 'content_script (src/content/scripts.ts)'
+    })
+    await new Promise((r) => setTimeout(r, 20))
+
+    // reloading fires next to the action; reloaded only after reinjection ran.
+    const phases = external.map((e) => e.msg.phase)
+    expect(phases).toEqual(['reloading', 'reloaded'])
+    for (const e of external) {
+      expect(e.msg.label).toBe('content_script (src/content/scripts.ts)')
+    }
   })
 
   it('inspect of a content tab extracts a DOM snapshot via chrome.scripting', async () => {

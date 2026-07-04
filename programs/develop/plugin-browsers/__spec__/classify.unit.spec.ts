@@ -246,7 +246,7 @@ describe('BrowsersPlugin classifier', () => {
     expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
-  it('emits NO reload instruction when a non-content-script project edits a page asset', async () => {
+  it('emits a notify-only "page" instruction when a non-content-script project edits a page asset', async () => {
     // Action / popup / options-only extensions declare no content_scripts.
     // Page asset edits (popup HTML/JS/CSS) are picked up by
     // rspack-dev-server's livereload broadcast — the HMR client injected
@@ -256,14 +256,18 @@ describe('BrowsersPlugin classifier', () => {
     // races livereload, kills the open popup, and produces a visible flash
     // for every popup save. The reload-matrix harness scenario
     // "popup-html-edit-popup-open" measures this from CDP ground truth.
+    //
+    // The 'page' instruction only carries the announcement label (stdout /
+    // devtools pill); the producer performs no extension reload for it.
     const h = createHarness(0)
     await primeFirstCompile(h)
 
     h.triggerWatchRun(['src/action/scripts.js'])
     await h.triggerDone()
 
-    expect(h.lastReload()).toBeUndefined()
-    expect(h.reload).not.toHaveBeenCalled()
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('page')
+    expect(instruction?.label).toBe('popup page (src/action/scripts.js)')
   })
 
   it('background + content change prefers "service-worker" (widest blast radius wins)', async () => {
