@@ -300,12 +300,14 @@ describe('JsFrameworksPlugin', () => {
 
     // Browsers load plain `<script src>` page scripts and classic workers as
     // sloppy classic scripts; forcing every non-content-script file to
-    // strict ESM rejected Chrome-valid extensions (G20). Rspack detects
-    // import/export files as modules under the default javascript/auto.
+    // strict ESM rejected Chrome-valid extensions (G20). The type must be an
+    // EXPLICIT javascript/auto: left implicit, rspack infers it from the
+    // nearest package.json `"type"` field, which Chrome never reads (G24 —
+    // a `"type": "commonjs"` project broke its own module service worker).
     const nonContentRule = compiler.options.module.rules.find(
       (rule: any) => rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
-    expect(nonContentRule?.type).toBeUndefined()
+    expect(nonContentRule?.type).toBe('javascript/auto')
 
     // Content-script rules must NOT be forced esm — they are injected as
     // classic scripts.
@@ -314,7 +316,7 @@ describe('JsFrameworksPlugin', () => {
     )
     expect(contentRules.length).toBeGreaterThan(0)
     for (const rule of contentRules) {
-      expect((rule as any).type).toBeUndefined()
+      expect((rule as any).type).toBe('javascript/auto')
     }
 
     // With nothing platform-declared as a module, no ESM marker rule exists.
