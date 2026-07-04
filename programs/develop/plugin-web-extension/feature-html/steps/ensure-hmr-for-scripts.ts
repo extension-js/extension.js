@@ -13,6 +13,7 @@ import {type Schema} from 'schema-utils/declarations/validate'
 import type {LoaderInterface} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
 import {stripBom} from '../../../lib/parse-json-safe'
+import {toResourceKey} from '../../../lib/resource-path'
 
 const schema: Schema = {
   type: 'object',
@@ -79,12 +80,12 @@ export default function ensureHMRForScripts(
 
         for (const jsFile of jsList) {
           contentEntryPaths.add(
-            path.normalize(path.resolve(manifestDir, jsFile))
+            toResourceKey(path.resolve(manifestDir, jsFile))
           )
         }
       }
 
-      if (contentEntryPaths.has(path.normalize(resourcePath))) {
+      if (contentEntryPaths.has(toResourceKey(resourcePath))) {
         if (debugHtmlHmr) {
           console.log(
             `[extjs:html-hmr] skip direct resource=${resourcePath} manifest=${manifestPath}`
@@ -102,7 +103,7 @@ export default function ensureHMRForScripts(
 
         if (
           issuerResource &&
-          contentEntryPaths.has(path.normalize(issuerResource))
+          contentEntryPaths.has(toResourceKey(issuerResource))
         ) {
           if (debugHtmlHmr) {
             console.log(

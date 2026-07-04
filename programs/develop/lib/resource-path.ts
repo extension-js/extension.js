@@ -64,6 +64,26 @@ export function canonicalizeResourcePath(resourcePath: string): string {
   }
 }
 
+// Membership key for comparing a path against an rspack resource path via a
+// Set/Map. `canonicalizeResourcePath` alone is NOT enough for equality checks:
+// on Windows a drive-less absolute (`\project\sw.js`, the shape `path.join`
+// and `path.normalize` preserve) never string-equals the drive-lettered form
+// rspack reports (`D:\project\sw.js`, the shape `path.resolve` produces), so a
+// set built with one and probed with the other silently never matches — on
+// exactly one platform. `path.resolve` pins both sides to the same rooted
+// form; drive-letter casing is then folded because `realpathSync.native` only
+// normalizes it for paths that exist on disk.
+export function toResourceKey(resourcePath: string): string {
+  if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
+    return resourcePath
+  }
+  const key = canonicalizeResourcePath(path.resolve(resourcePath))
+  if (process.platform === 'win32' && /^[a-zA-Z]:/.test(key)) {
+    return key[0].toUpperCase() + key.slice(1)
+  }
+  return key
+}
+
 // True when `resource` resolves to a path inside any of `dirs`. `dirs` are
 // expected to already be `canonicalizeDir`-resolved; the resource is
 // canonicalized the same way here so cross-platform form differences don't
