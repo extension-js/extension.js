@@ -10,6 +10,7 @@ import path from 'path'
 import fs from 'fs'
 import type {FilepathList} from '../../../../../types'
 import {getCanonicalContentScriptEntryName} from '../../../contracts'
+import {stripBom} from '../../../../../lib/parse-json-safe'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
@@ -71,7 +72,7 @@ export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
   const bridgeScripts: FilepathList = {}
 
   try {
-    const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const raw = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
     const contentScripts: any[] = Array.isArray(raw?.content_scripts)
       ? raw.content_scripts
       : []

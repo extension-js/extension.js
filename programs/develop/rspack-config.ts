@@ -12,6 +12,7 @@ import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
+import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs} from './lib/paths'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import * as messages from './lib/messages'
@@ -43,7 +44,7 @@ export default function webpackConfig(
 
   let rawManifest: unknown
   try {
-    rawManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    rawManifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   } catch (error) {
     throw new Error(messages.manifestInvalidJson(manifestPath, error))
   }

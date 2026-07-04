@@ -17,6 +17,7 @@ import {
 } from '../../../contracts'
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
 import * as messages from '../../../messages'
+import {stripBom} from '../../../../../lib/parse-json-safe'
 import {
   canonicalizeDir,
   canonicalizeResourcePath
@@ -157,14 +158,14 @@ function readManifestCached(manifestPath: string): any {
 
     if (cached && cached.key === key) return cached.manifest
 
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
     __EXTENSIONJS_manifestParseCache.set(manifestPath, {key, manifest})
 
     return manifest
   } catch {
     // stat/read/parse failures fall back to a direct read so callers keep
     // their existing error behavior.
-    return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    return JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   }
 }
 
