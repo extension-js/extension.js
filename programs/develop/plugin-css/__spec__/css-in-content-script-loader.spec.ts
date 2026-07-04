@@ -51,4 +51,34 @@ describe('cssInContentScriptLoader', () => {
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
+
+  it('still routes .scss/.less as CSS when the preprocessor is not installed (G23)', async () => {
+    // Chrome loads a manifest-declared .scss stylesheet by injecting its raw
+    // text as CSS. With no rule for the extension, the file fell through to
+    // rspack's default JS parser and hard-failed a build the browser accepts.
+    const rules = await cssInContentScriptLoader(
+      '/project',
+      '/project/manifest.json',
+      'development',
+      {useSass: false, useLess: false}
+    )
+
+    const scssRule: any = (rules as any[]).find(
+      (r) =>
+        String(r.test) === String(/\.(sass|scss)$/) &&
+        r.type === 'asset/inline'
+    )
+    expect(scssRule).toBeDefined()
+    // Must NOT use sass-loader (it is not installed) — plain CSS chain only.
+    expect(
+      (scssRule.use as any[]).some((u) =>
+        String(u?.loader || u).includes('sass-loader')
+      )
+    ).toBe(false)
+
+    const lessRule: any = (rules as any[]).find(
+      (r) => String(r.test) === String(/\.less$/) && r.type === 'asset/inline'
+    )
+    expect(lessRule).toBeDefined()
+  })
 })
