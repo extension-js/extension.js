@@ -13,7 +13,7 @@
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
-> Build extensions for Chrome, Edge, and Firefox. No build config required.
+> The cross-browser extension framework. Build for Chrome, Edge, and Firefox with no build config required.
 
 <img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="15.5%" />
 
