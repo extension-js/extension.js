@@ -149,6 +149,27 @@ describe('JsonPlugin', () => {
     expect((compilation.errors[0] as any)?.file).toBe('manifest.json')
   })
 
+  it('accepts a DNR ruleset with a UTF-8 BOM, as Chrome does (G22)', () => {
+    // Verified against live Chrome: a BOM-prefixed rules JSON loads and the
+    // ruleset enables. The build must strip the BOM instead of erroring.
+    const p = '/abs/path/rules.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((x: any) => x === p)
+    mockedFs.readFileSync.mockImplementation(() =>
+      Buffer.from('\uFEFF[{"id":1}]', 'utf8')
+    )
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {['declarative_net_request.ruleset']: p}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(compilation.errors.length).toBe(0)
+    expect(calls.emit).toBe(1)
+  })
+
   it('errors when JSON is invalid for DNR ruleset', () => {
     const p = '/abs/path/rules.json'
     const mockedFs = fs as any
