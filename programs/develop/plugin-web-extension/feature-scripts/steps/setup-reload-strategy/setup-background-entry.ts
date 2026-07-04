@@ -15,6 +15,7 @@ import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {type DevOptions, type Manifest} from '../../../../types'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {isGeckoBasedBrowser} from '../../../../lib/constants'
+import {stripBom} from '../../../../lib/parse-json-safe'
 
 export class SetupBackgroundEntry {
   private manifestPath: string
@@ -30,7 +31,7 @@ export class SetupBackgroundEntry {
 
   private getMissingBackgroundError(bgFile: string) {
     if (!fs.existsSync(bgFile) && this.manifestPath) {
-      const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
+      const manifest = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf8')))
       const patched = filterKeysForThisBrowser(manifest, this.browser)
       const fieldKey =
         patched.manifest_version === 3
@@ -54,7 +55,7 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-    const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+    const manifest = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf-8')))
     const browser = this.browser
     // Gecko family (firefox + forks like waterfox/librewolf) gets the gecko
     // reload helper; everything else (chromium family + Safari/webkit) gets the

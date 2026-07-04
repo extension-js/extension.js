@@ -9,6 +9,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {devtoolsEngineFor} from './paths'
+import {stripBom} from './parse-json-safe'
 
 function hasNewTabOverride(extensionDir: string): boolean {
   const manifestPath = path.join(extensionDir, 'manifest.json')
@@ -16,7 +17,7 @@ function hasNewTabOverride(extensionDir: string): boolean {
 
   try {
     const raw = fs.readFileSync(manifestPath, 'utf-8')
-    const manifest = JSON.parse(raw)
+    const manifest = JSON.parse(stripBom(raw))
     const newtab = manifest?.chrome_url_overrides?.newtab
     return typeof newtab === 'string' && newtab.trim().length > 0
   } catch {

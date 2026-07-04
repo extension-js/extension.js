@@ -14,6 +14,7 @@ import {isGeckoBasedBrowser} from '../../../../lib/constants'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {getCanonicalContentScriptJsAssetName} from '../../contracts'
 import type {Manifest, PluginInterface, DevOptions} from '../../../../types'
+import {stripBom} from '../../../../lib/parse-json-safe'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -60,7 +61,7 @@ export class SetupReloadStrategy {
 
   public apply(compiler: Compiler) {
     const manifest: Manifest = JSON.parse(
-      fs.readFileSync(this.manifestPath, 'utf-8')
+      stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
     )
     const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 

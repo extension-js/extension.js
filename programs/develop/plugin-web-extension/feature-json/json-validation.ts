@@ -8,6 +8,7 @@
 
 import {Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
+import {stripBom} from '../../lib/parse-json-safe'
 
 export function isCriticalJsonFeature(feature: string): boolean {
   return (
@@ -24,7 +25,7 @@ export function validateJsonAsset(
 ): boolean {
   let parsed: unknown
   try {
-    parsed = JSON.parse(buf.toString('utf-8'))
+    parsed = JSON.parse(stripBom(buf.toString('utf-8')))
   } catch (e: any) {
     const err = new WebpackError(
       messages.invalidJsonSyntax(feature, filePath, String(e?.message || e))

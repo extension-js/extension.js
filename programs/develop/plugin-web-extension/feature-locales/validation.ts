@@ -11,6 +11,7 @@ import * as path from 'path'
 import {Compiler, Compilation} from '@rspack/core'
 import * as messages from './messages'
 import {pushCompilationError} from './compilation-error'
+import {stripBom} from '../../lib/parse-json-safe'
 import {resolveLocalesFolder} from './get-locales'
 
 export function validateLocales(
@@ -23,7 +24,7 @@ export function validateLocales(
     (compiler.options.context as string | undefined) || undefined
   try {
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
-    const manifest = JSON.parse(manifestRaw) as Record<string, any>
+    const manifest = JSON.parse(stripBom(manifestRaw)) as Record<string, any>
     const defaultLocale = manifest?.default_locale
 
     const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
@@ -137,7 +138,7 @@ export function validateLocales(
 
       try {
         const content = fs.readFileSync(messagesJsonPath, 'utf8')
-        defaultLocaleMessages = JSON.parse(content)
+        defaultLocaleMessages = JSON.parse(stripBom(content))
       } catch {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(
@@ -260,7 +261,7 @@ export function validateLocales(
         if (fs.existsSync(msgPath)) {
           try {
             const s = fs.readFileSync(msgPath, 'utf8')
-            JSON.parse(s)
+            JSON.parse(stripBom(s))
           } catch {
             if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
               console.log(
