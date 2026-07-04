@@ -39,7 +39,7 @@
   },
   "name": "extension",
   "version": "4.0.3",
-  "description": "Create cross-browser extensions with no build configuration.",
+  "description": "The cross-browser extension framework. Build Chrome, Edge, Firefox, and Safari extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
   "bugs": {
     "url": "https://github.com/extension-js/extension.js/issues"
@@ -61,6 +61,9 @@
     "test": "vitest run"
   },
   "keywords": [
+    "browser extension framework",
+    "chrome extension framework",
+    "web extension framework",
     "zero-config",
     "build",
     "develop",
