@@ -13,6 +13,7 @@ import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
 import {type FilepathList, type PluginInterface} from '../../../types'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 const isContentScriptFeature = (feature: string) =>
@@ -167,7 +168,7 @@ export class AddScripts {
     const projectPath = (compiler.options.context as string) || manifestDir
     let manifestJson: any = {}
     try {
-      manifestJson = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
+      manifestJson = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf8')))
     } catch {
       manifestJson = {}
     }

@@ -14,6 +14,7 @@ import {
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {type PluginInterface} from '../../../types'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 export class EmitManifest {
   public readonly manifestPath: string
@@ -37,7 +38,7 @@ export class EmitManifest {
             try {
               // Read and parse the manifest file
               const content = fs.readFileSync(this.manifestPath, 'utf-8')
-              jsonContent = JSON.parse(content)
+              jsonContent = JSON.parse(stripBom(content))
 
               // Remove the $schema field if it exists
               if ('$schema' in jsonContent) {

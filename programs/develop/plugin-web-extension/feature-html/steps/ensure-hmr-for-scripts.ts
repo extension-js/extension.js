@@ -12,6 +12,7 @@ import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import type {LoaderInterface} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 const schema: Schema = {
   type: 'object',
@@ -66,7 +67,7 @@ export default function ensureHMRForScripts(
     const manifestDir = manifestPath ? path.dirname(manifestPath) : ''
 
     if (manifestPath && resourcePath) {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+      const manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
       const contentScripts = Array.isArray(manifest?.content_scripts)
         ? manifest.content_scripts
         : []

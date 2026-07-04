@@ -11,6 +11,7 @@ import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
+import {stripBom} from '../lib/parse-json-safe'
 import {
   createChangedSourcesTracker,
   dispatchReload,
@@ -394,7 +395,7 @@ export function readContentScriptCount(
   try {
     const manifestPath = path.join(outputPath, 'manifest.json')
     if (fs.existsSync(manifestPath)) {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      const manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
