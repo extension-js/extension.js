@@ -9,7 +9,12 @@
 import type {Command} from 'commander'
 import {commandDescriptions} from '../helpers/messages'
 import * as messages from '../helpers/messages'
-import {type Browser, validateVendorsOrExit, vendors} from '../helpers/vendors'
+import {
+  type Browser,
+  installTargets,
+  validateVendorsOrExit,
+  vendors
+} from '../helpers/vendors'
 
 type InstallOptions = {
   browser?: Browser | 'all'
@@ -40,7 +45,7 @@ export function registerInstallCommand(program: Command) {
       const selectedBrowser = (options.browser || browserArg || 'chromium') as
         | Browser
         | 'all'
-      const browserList = vendors(selectedBrowser)
+      const browserList = installTargets(selectedBrowser)
 
       validateVendorsOrExit(browserList, (invalid, supported) => {
         // eslint-disable-next-line no-console

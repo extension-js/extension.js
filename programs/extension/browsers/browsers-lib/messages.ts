@@ -247,6 +247,18 @@ export function browserNotInstalledError(
   )
 }
 
+export function usingManagedChromiumFamilyFallback(
+  fallbackBrowser: Browser,
+  binaryPath: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Chromium is not installed. ` +
+    `Using managed ${capitalizedBrowserName(fallbackBrowser)} instead.\n` +
+    `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
+    `Run ${colors.blue('npx extension install chromium')} to use Chromium itself.`
+  )
+}
+
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Error launching ${capitalizedBrowserName(browser)}:\n` +
