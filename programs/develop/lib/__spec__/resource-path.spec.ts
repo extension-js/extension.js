@@ -5,7 +5,8 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   canonicalizeDir,
   canonicalizeResourcePath,
-  isResourceUnderDirs
+  isResourceUnderDirs,
+  toResourceKey
 } from '../resource-path'
 
 const tempDirs: string[] = []
@@ -89,5 +90,40 @@ describe('lib/resource-path', () => {
   it('isResourceUnderDirs rejects empty/non-string input', () => {
     expect(isResourceUnderDirs('', ['/x'])).toBe(false)
     expect(isResourceUnderDirs(undefined as any, ['/x'])).toBe(false)
+  })
+
+  it('toResourceKey yields one key for every absolute form of the same path', () => {
+    // On Windows `path.normalize('/project/sw.js')` stays drive-less
+    // (`\project\sw.js`) while `path.resolve` prepends the cwd drive — the
+    // exact divergence that made a resolve-built set unmatchable by a
+    // normalize-built probe. On POSIX the forms coincide, so this assertion
+    // is only load-bearing on the Windows runner.
+    const forms = [
+      '/project/sw.js',
+      '/project/./sw.js',
+      '/project/sub/../sw.js',
+      path.normalize('/project/sw.js'),
+      path.resolve('/project/sw.js')
+    ]
+    const keys = new Set(forms.map(toResourceKey))
+    expect(keys.size).toBe(1)
+  })
+
+  it('toResourceKey agrees across symlinked and real views of an existing file', () => {
+    const {realResource, linkedResource} = makeProjectWithSymlinkedView()
+    expect(toResourceKey(linkedResource)).toBe(toResourceKey(realResource))
+  })
+
+  it('toResourceKey folds drive-letter case on Windows', () => {
+    if (process.platform !== 'win32') return
+    const upper = toResourceKey('C:\\project\\sw.js')
+    const lower = toResourceKey('c:\\project\\sw.js')
+    expect(upper).toBe(lower)
+    expect(upper.startsWith('C:')).toBe(true)
+  })
+
+  it('toResourceKey passes through empty/non-string input', () => {
+    expect(toResourceKey('')).toBe('')
+    expect(toResourceKey(undefined as any)).toBe(undefined)
   })
 })

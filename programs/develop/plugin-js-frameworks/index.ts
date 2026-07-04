@@ -28,6 +28,7 @@ import {
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
+import {toResourceKey} from '../lib/resource-path'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
@@ -165,10 +166,14 @@ export class JsFrameworksPlugin {
         ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
       ])
     )
+    // Every entry AND every probe of these path sets goes through
+    // `toResourceKey` — a set built with `path.resolve` but probed with
+    // `path.normalize` (or vice versa) never matches on Windows, where only
+    // the resolved form carries the drive letter.
     const contentScriptLikePaths = new Set<string>()
-    const scriptsDir = path.resolve(projectPath, 'scripts')
+    const scriptsDir = toResourceKey(path.resolve(projectPath, 'scripts'))
     const isfeatureScriptsContentLike = (resourcePath: string) => {
-      const normalized = path.normalize(resourcePath)
+      const normalized = toResourceKey(resourcePath)
 
       if (contentScriptLikePaths.has(normalized)) {
         return true
@@ -206,7 +211,9 @@ export class JsFrameworksPlugin {
       const jsList = Array.isArray(contentScript?.js) ? contentScript.js : []
 
       for (const jsFile of jsList) {
-        contentScriptLikePaths.add(path.resolve(manifestDir, jsFile))
+        contentScriptLikePaths.add(
+          toResourceKey(path.resolve(manifestDir, jsFile))
+        )
       }
     }
 
@@ -224,7 +231,7 @@ export class JsFrameworksPlugin {
         typeof background?.service_worker === 'string'
       ) {
         platformModulePaths.add(
-          path.normalize(path.resolve(manifestDir, background.service_worker))
+          toResourceKey(path.resolve(manifestDir, background.service_worker))
         )
       }
 
@@ -239,7 +246,7 @@ export class JsFrameworksPlugin {
         if (typeof htmlPage !== 'string') continue
         for (const moduleScript of getAssetsFromHtml(htmlPage)?.moduleJs ||
           []) {
-          platformModulePaths.add(path.normalize(moduleScript))
+          platformModulePaths.add(toResourceKey(moduleScript))
         }
       }
     } catch {
@@ -487,7 +494,7 @@ export class JsFrameworksPlugin {
             {
               test: swcRuleBase.test,
               include: (resourcePath: string) =>
-                platformModulePaths.has(path.normalize(resourcePath)),
+                platformModulePaths.has(toResourceKey(resourcePath)),
               exclude: [
                 (resourcePath: string) =>
                   isfeatureScriptsContentLike(resourcePath)

@@ -342,8 +342,44 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.type === 'javascript/esm'
     )
     expect(esmRule).toBeDefined()
+    // The rule must match every absolute form of the same file. On Windows
+    // these disagree — `path.normalize` keeps a drive-less `\project\sw.js`
+    // while `path.resolve` (the shape rspack reports) yields
+    // `D:\project\sw.js` — so probing both keeps set-vs-probe form drift from
+    // passing on POSIX CI and failing only on the Windows runner.
     expect(esmRule.include(path.normalize('/project/sw.js'))).toBe(true)
+    expect(esmRule.include(path.resolve('/project/sw.js'))).toBe(true)
+    expect(esmRule.include('/project/./sw.js')).toBe(true)
     expect(esmRule.include(path.normalize('/project/other.js'))).toBe(false)
+    expect(esmRule.include(path.resolve('/project/other.js'))).toBe(false)
+  })
+
+  it('recognizes a manifest content script as classic in every absolute path form', async () => {
+    projectFilesMocks.manifest = {
+      background: {service_worker: 'sw.js', type: 'module'},
+      content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
+    }
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const esmRule = compiler.options.module.rules.find(
+      (rule: any) => rule?.type === 'javascript/esm'
+    )
+    expect(esmRule).toBeDefined()
+    // The ESM marker rule excludes content-script files via the shared
+    // content-like matcher. Content-script paths are stored resolved
+    // (drive-lettered on Windows) while rspack may probe with either form —
+    // the matcher must recognize all of them or the content-script instance
+    // gets force-marked ESM on exactly one platform.
+    const isContentLike = (esmRule as any).exclude[0]
+    expect(isContentLike(path.normalize('/project/content.js'))).toBe(true)
+    expect(isContentLike(path.resolve('/project/content.js'))).toBe(true)
+    expect(isContentLike(path.resolve('/project/sw.js'))).toBe(false)
   })
 
   it('does not mark a classic (no "type") service worker as ESM', async () => {
@@ -388,9 +424,14 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.type === 'javascript/esm'
     )
     expect(esmRule).toBeDefined()
+    // Probe the normalized AND resolved forms: HTML-derived module paths are
+    // built with `path.join` (drive-less on Windows) while rspack reports the
+    // resolved, drive-lettered form, so matching must be form-insensitive.
     expect(esmRule.include(path.normalize('/project/main.js'))).toBe(true)
+    expect(esmRule.include(path.resolve('/project/main.js'))).toBe(true)
     // A plain <script src> is a classic script to the browser — never ESM.
     expect(esmRule.include(path.normalize('/project/classic.js'))).toBe(false)
+    expect(esmRule.include(path.resolve('/project/classic.js'))).toBe(false)
   })
 
   it('auto-transpiles workspace packages even without explicit transpilePackages config', async () => {
