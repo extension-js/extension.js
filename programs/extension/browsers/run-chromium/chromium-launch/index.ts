@@ -551,6 +551,29 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = resolveWslFallback()
       }
 
+      // No Chromium anywhere, but another managed chromium-family binary
+      // (e.g. Chrome for Testing from `extension install all`) is a working
+      // substitute — prefer it over aborting with install guidance.
+      if (
+        (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) &&
+        browser === 'chromium'
+      ) {
+        const familyFallback =
+          binariesResolver.resolveChromiumFamilyFallback(compilation)
+        const normalized = normalizePath(familyFallback?.binary || null)
+
+        if (familyFallback && isUsableBinary(normalized)) {
+          // eslint-disable-next-line no-console
+          console.log(
+            messages.usingManagedChromiumFamilyFallback(
+              familyFallback.browser,
+              normalized
+            )
+          )
+          browserBinaryLocation = normalized
+        }
+      }
+
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
         // Always print pretty guidance for Chromium flavors
         if (browser === 'chromium' || browser === 'chromium-based') {
