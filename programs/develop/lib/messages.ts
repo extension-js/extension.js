@@ -13,6 +13,7 @@ import colors from 'pintor'
 import packageJson from '../package.json'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
+import {stripBom} from './parse-json-safe'
 
 // Pretty-format helpers for human-readable, Vercel-like tone
 export const fmt = {
@@ -192,7 +193,7 @@ export function buildWebpack(
       : path.join(projectDir, 'manifest.json')
   let manifest: Record<string, string> = {}
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
   } catch {
     manifest = {name: path.basename(projectDir), version: ''}
   }
