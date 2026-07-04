@@ -59,7 +59,21 @@ export async function buildCssRules(
             loader: 'sass-loader' as const
           }
         ]
-      : []),
+      : // Without the preprocessor installed, still route the files as CSS.
+        // Chrome loads a manifest-declared `.scss` stylesheet by injecting
+        // its raw text as CSS (dropping invalid rules), so with no rule here
+        // the file used to fall through to rspack's default JS parser and
+        // hard-fail a build the browser accepts. Uncompilable content then
+        // flows through the invalid-CSS warn-and-ship-verbatim path.
+        [
+          {
+            test: /\.(sass|scss)$/,
+            exclude: /\.module\.(sass|scss)$/,
+            type: nonModuleType,
+            loader: null
+          },
+          {test: /\.module\.(sass|scss)$/, type: 'css/module', loader: null}
+        ]),
     ...(useLess
       ? [
           {
@@ -74,7 +88,15 @@ export async function buildCssRules(
             loader: 'less-loader' as const
           }
         ]
-      : [])
+      : [
+          {
+            test: /\.less$/,
+            exclude: /\.module\.less$/,
+            type: nonModuleType,
+            loader: null
+          },
+          {test: /\.module\.less$/, type: 'css/module', loader: null}
+        ])
   ]
 
   return Promise.all(

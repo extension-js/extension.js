@@ -11,11 +11,12 @@ import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 import {manifestCommon} from './common'
 import {type Manifest} from '../../../types'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
   // Load the manifest content from the manifestPath if not provided.
   const manifestContent: Manifest =
-    manifest || JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    manifest || JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
 
   // Helper to omit a top-level key from a shallow object
   const omit = (obj: Record<string, unknown> | undefined, key: string) => {
