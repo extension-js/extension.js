@@ -239,7 +239,22 @@ export class ChromiumLaunchPlugin {
           return getEdgeInstallGuidance()
         }
         if (target === 'chromium') {
-          return getChromiumInstallGuidance()
+          // Chrome for Testing first: it tracks the stable channel Chrome
+          // users actually run, and the chromium-family launch fallback
+          // picks it up automatically for chromium targets.
+          return getChromiumInstallGuidance({
+            steps: [
+              {
+                summary:
+                  'Install Chrome for Testing (recommended — stable channel; chromium targets use it automatically)',
+                command: 'npx extension install chrome'
+              },
+              {
+                summary: 'Install Chromium (unbranded snapshot build)',
+                command: 'npx extension install chromium'
+              }
+            ]
+          })
         }
         return getChromeInstallGuidance()
       } catch {
@@ -551,21 +566,24 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = resolveWslFallback()
       }
 
-      // No Chromium anywhere, but another managed chromium-family binary
-      // (e.g. Chrome for Testing from `extension install all`) is a working
-      // substitute — prefer it over aborting with install guidance.
+      // Requested browser missing everywhere, but another managed
+      // chromium-family binary (e.g. from `extension install all`) is a
+      // working substitute — prefer it over aborting with install guidance.
       if (
         (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) &&
-        browser === 'chromium'
+        (browser === 'chrome' || browser === 'chromium')
       ) {
-        const familyFallback =
-          binariesResolver.resolveChromiumFamilyFallback(compilation)
+        const familyFallback = binariesResolver.resolveChromiumFamilyFallback(
+          compilation,
+          browser
+        )
         const normalized = normalizePath(familyFallback?.binary || null)
 
         if (familyFallback && isUsableBinary(normalized)) {
           // eslint-disable-next-line no-console
           console.log(
             messages.usingManagedChromiumFamilyFallback(
+              browser,
               familyFallback.browser,
               normalized
             )
