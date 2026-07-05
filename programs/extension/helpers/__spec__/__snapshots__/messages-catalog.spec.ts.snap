@@ -99,7 +99,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "separatorLine: function(0)",
     "skippingBrowserLaunchDueToCompileErrors: function(0)",
     "targetActorHasActiveRequestError: function(2)",
-    "usingManagedChromiumFamilyFallback: function(2)",
+    "usingManagedChromiumFamilyFallback: function(3)",
   ],
   "messages.ts": [
     "checkUpdates: function(2)",

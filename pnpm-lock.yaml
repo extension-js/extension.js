@@ -439,8 +439,8 @@ importers:
         specifier: 4.0.0
         version: 4.0.0
       chromium-location:
-        specifier: 2.0.0
-        version: 2.0.0
+        specifier: 2.1.1
+        version: 2.1.1
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -3010,6 +3010,11 @@ packages:
 
   chromium-location@2.0.0:
     resolution: {integrity: sha512-ko4EON0FN3CKa5kxp4/5ebufIFda7dd46qQ8oPLNZqPnOeCUeSlulKArhbi043iCIPQypm1k3+5BEseWEeZkcg==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+  chromium-location@2.1.1:
+    resolution: {integrity: sha512-LRygrzexlnmvmAzHixYSM46p6po7Kn/PLOZfDkzNMnTLaDaRBW9dvkSaqp1yrMdP81f70xfKVdVklgaR2ycSiw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -7394,6 +7399,11 @@ snapshots:
   chrome-trace-event@1.0.4: {}
 
   chromium-location@2.0.0:
+    dependencies:
+      userhome: 1.0.1
+      which: 4.0.0
+
+  chromium-location@2.1.1:
     dependencies:
       userhome: 1.0.1
       which: 4.0.0
