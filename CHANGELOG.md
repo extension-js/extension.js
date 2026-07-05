@@ -2,30 +2,12 @@
 
 ## Unreleased
 
-### 🐛 Fixes
-
-- Fix Safari extension-URL scheme in CSS url() and import.meta minification in vendored ESM chunks ([6246eed3](https://github.com/extension-js/extension.js/commit/6246eed3ece1fa1c10b60e5ed43238d4e34a1815))
-- Fix classic-concat content-script CSS/MV2 background emission and vendored UMD require build break ([3950253e](https://github.com/extension-js/extension.js/commit/3950253e01f947765ebe6815c7da256c6528b54d))
-
 <details>
-<summary>🧹 Other changes (16)</summary>
+<summary>🧹 Other changes (3)</summary>
 
-- Compare path sets against rspack resources through one resolved toResourceKey ([8469e2c9](https://github.com/extension-js/extension.js/commit/8469e2c9eeab83edf9fe435ccbb9f17222acb089))
-- Pin swc rules to explicit javascript/auto so the project package.json type field cannot override browser-parity script-vs-module detection ([419748fe](https://github.com/extension-js/extension.js/commit/419748fe64d7067398e40ed81a76cdebe7fe1874))
-- Tolerate UTF-8 BOM in all extension JSON parses and route preprocessor stylesheets as plain CSS when the preprocessor is not installed, matching Chrome loading ([dd8439e7](https://github.com/extension-js/extension.js/commit/dd8439e7e19e440bfaae6c50e3bb558d37f89b96))
-- Announce dev reloads with one server-built context label across CLI stdout, the page devtools console, and the devtools pill, and self-heal stale cached service workers via a persisted control port and broker resync ([f5e3d846](https://github.com/extension-js/extension.js/commit/f5e3d846cff58f21adcc370f4324b534688563a4))
-- Lead npm and README metadata with the cross-browser extension framework positioning ([85f8c057](https://github.com/extension-js/extension.js/commit/85f8c057feb7245770e0c4dbc5dc086b0103ef53))
-- Emit HTML static assets at their source paths so runtime references resolve like Chrome serves them ([56922215](https://github.com/extension-js/extension.js/commit/569222150b3a94ffcda777ef9d24cd55efa56679))
-- Accept web_accessible_resources match patterns with ports and port wildcards that Chrome loads instead of failing the build ([582e3b45](https://github.com/extension-js/extension.js/commit/582e3b45ae2b989ab8249f1b116df5cb4cfc538b))
-- Parse page scripts as javascript/auto and force ESM only where the platform declares it (script type=module, module service workers) ([8f5deca8](https://github.com/extension-js/extension.js/commit/8f5deca8337c94baced8b6172cc573b03dfb0af7))
-- Auto-detect script vs module in swc-loader so classic sloppy-mode content scripts build like Chrome loads them ([6c0fc548](https://github.com/extension-js/extension.js/commit/6c0fc5483f91765848c30ad2f3056732d3514754))
-- Skip PWA web-app manifests when resolving manifest.json and re-resolve to the real extension manifest instead of crashing on PWA-shaped fields ([f0d3f45f](https://github.com/extension-js/extension.js/commit/f0d3f45faaeedb6539aebf8501300eaeda35fa56))
-- Warn and ship invalid CSS verbatim instead of failing the build, matching browser error recovery ([4af5697d](https://github.com/extension-js/extension.js/commit/4af5697d65270b70943769c0ead7e45521507e33))
-- Preserve in-project icon paths in the output instead of flattening to icons/<basename> so same-name icons stop colliding ([ab99df87](https://github.com/extension-js/extension.js/commit/ab99df875538738174314b967548efc094c1f713))
-- Emit a directory web_accessible_resources entry as its files plus a glob instead of crashing on EISDIR ([967f6b39](https://github.com/extension-js/extension.js/commit/967f6b39f344e5dc49d56ba1ecc8f9c2d4e2a4fe))
-- Drop scripts/ files the extension never references so data and generator helpers stop breaking builds ([cd5848ef](https://github.com/extension-js/extension.js/commit/cd5848efded62cb0437bc5b001e5f2e882e0fd79))
-- Emit both background keys when a manifest declares service_worker and scripts together instead of clobbering one to its raw path ([3dc6ac68](https://github.com/extension-js/extension.js/commit/3dc6ac683716bc5658ee42c437bfed3c17bddba2))
-- Exclude Node build/dev tooling from the scripts/ special folder so it stops breaking builds ([36be9dd7](https://github.com/extension-js/extension.js/commit/36be9dd734ce0b76858c2947ae56655da639bf31))
+- Fall back to any managed chromium-family binary when the requested chrome/chromium is missing ([a13b6aaf](https://github.com/extension-js/extension.js/commit/a13b6aafa52a9009ef6449819e834df8e42b44bc))
+- Cover chromium in install all and fall back to managed chromium-family binaries when dev's default chromium is missing ([e5956fda](https://github.com/extension-js/extension.js/commit/e5956fda4dcafc6502404f31e455d92ec63c4623))
+- Update README.md ([3985a105](https://github.com/extension-js/extension.js/commit/3985a10556608112fbf13660876b3632ee2f6169))
 </details>
 
 ## 3.18.0 (May 28, 2026)
