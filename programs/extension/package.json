@@ -100,7 +100,7 @@
     "@types/webextension-polyfill": "0.12.4",
     "brave-location": "3.0.6",
     "chrome-location2": "4.0.0",
-    "chromium-location": "2.0.0",
+    "chromium-location": "2.1.1",
     "cross-spawn": "^7.0.6",
     "edge-location": "2.2.0",
     "firefox-location2": "3.0.0",
