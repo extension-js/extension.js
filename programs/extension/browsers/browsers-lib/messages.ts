@@ -248,14 +248,16 @@ export function browserNotInstalledError(
 }
 
 export function usingManagedChromiumFamilyFallback(
+  requestedBrowser: Browser,
   fallbackBrowser: Browser,
   binaryPath: string
 ) {
   return (
-    `${getLoggingPrefix('info')} Chromium is not installed. ` +
-    `Using managed ${capitalizedBrowserName(fallbackBrowser)} instead.\n` +
+    `${getLoggingPrefix('info')} ${managedBrowserDisplayName(requestedBrowser)} is not installed. ` +
+    `Using managed ${managedBrowserDisplayName(fallbackBrowser)} instead.\n` +
     `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
-    `Run ${colors.blue('npx extension install chromium')} to use Chromium itself.`
+    `Run ${colors.blue(`npx extension install ${requestedBrowser}`)} to use ` +
+    `${managedBrowserDisplayName(requestedBrowser)} itself.`
   )
 }
 
@@ -445,6 +447,21 @@ export function prettyPuppeteerInstallGuidance(
   )
   body.push('')
   body.push(`  ${colors.bold(colors.blue(installCommand))}`)
+  // Chromium managed installs are unbranded tip-of-tree snapshots; Chrome for
+  // Testing tracks the stable channel and satisfies chromium targets via the
+  // chromium-family launch fallback — offer it as the recommended alternative.
+  if (browserNorm === 'chromium') {
+    body.push('')
+    body.push(
+      colors.gray(
+        'Or install Chrome for Testing (stable channel) — chromium targets use it automatically:'
+      )
+    )
+    body.push('')
+    body.push(
+      `  ${colors.bold(colors.blue(preferredManagedInstallCommand('chrome')))}`
+    )
+  }
   if (finalCachePath) {
     body.push('')
     body.push(`${dim('INSTALL PATH')} ${colors.underline(finalCachePath)}`)
