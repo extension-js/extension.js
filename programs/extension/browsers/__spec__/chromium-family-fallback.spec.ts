@@ -13,6 +13,7 @@ const platformDir = isWin
     ? 'mac_arm-140.0.7259.2'
     : 'linux-140.0.7259.2'
 const chromeExecutable = isWin ? 'chrome.exe' : 'chrome'
+const chromiumExecutable = isWin ? 'chromium.exe' : 'chromium'
 const edgeExecutable = isWin ? 'msedge.exe' : 'msedge'
 
 let cacheRoot: string
@@ -21,7 +22,10 @@ let previousCacheDir: string | undefined
 // Mirrors the managed layout `extension install` produces via
 // `@puppeteer/browsers install --path <root>/<browser>`:
 // <root>/<browser>/<browser>/<platform>-<buildId>/<archive>/<executable>
-function installFakeBrowser(browser: 'chrome' | 'edge', executable: string) {
+function installFakeBrowser(
+  browser: 'chrome' | 'chromium' | 'edge',
+  executable: string
+) {
   const dir = path.join(cacheRoot, browser, browser, platformDir, 'unpacked')
   fs.mkdirSync(dir, {recursive: true})
   fs.writeFileSync(path.join(dir, executable), '')
@@ -71,5 +75,46 @@ describe('resolveChromiumFamilyFallback', () => {
     installFakeBrowser('edge', edgeExecutable)
 
     expect(resolveChromiumFamilyFallback(compilation)?.browser).toBe('chrome')
+  })
+
+  describe("requested 'chrome' (the default browser)", () => {
+    it('returns null when the managed cache has no chromium-family browser', () => {
+      expect(resolveChromiumFamilyFallback(compilation, 'chrome')).toBeNull()
+    })
+
+    it('falls back to a managed Chromium when Chrome is absent', () => {
+      installFakeBrowser('chromium', chromiumExecutable)
+
+      const result = resolveChromiumFamilyFallback(compilation, 'chrome')
+
+      expect(result?.browser).toBe('chromium')
+      expect(fs.existsSync(String(result?.binary))).toBe(true)
+    })
+
+    it('falls back to a managed Edge when it is the only family binary', () => {
+      installFakeBrowser('edge', edgeExecutable)
+
+      const result = resolveChromiumFamilyFallback(compilation, 'chrome')
+
+      expect(result?.browser).toBe('edge')
+      expect(fs.existsSync(String(result?.binary))).toBe(true)
+    })
+
+    it('prefers Chromium over Edge when both are installed', () => {
+      installFakeBrowser('chromium', chromiumExecutable)
+      installFakeBrowser('edge', edgeExecutable)
+
+      expect(
+        resolveChromiumFamilyFallback(compilation, 'chrome')?.browser
+      ).toBe('chromium')
+    })
+
+    it('never proposes the requested browser itself', () => {
+      installFakeBrowser('chrome', chromeExecutable)
+
+      // Only Chrome is installed and Chrome is what is missing from the
+      // caller's perspective — the resolver must not echo it back.
+      expect(resolveChromiumFamilyFallback(compilation, 'chrome')).toBeNull()
+    })
   })
 })
