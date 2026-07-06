@@ -56,6 +56,11 @@ vi.mock('../steps/setup-reload-strategy/inject-scripts-replay-shim', () => ({
     this.apply = () => {}
   })
 }))
+vi.mock('../steps/trace-runtime-loaded-files', () => ({
+  TraceRuntimeLoadedFiles: vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+}))
 
 import {ScriptsPlugin} from '../index'
 import {AddContentScriptWrapper} from '../steps/setup-reload-strategy/add-content-script-wrapper'

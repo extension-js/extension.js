@@ -15,6 +15,7 @@ import {InjectScriptsReplayShim} from './steps/setup-reload-strategy/inject-scri
 import {InjectBridgeProducer} from './steps/setup-reload-strategy/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/setup-reload-strategy/inject-bridge-relay'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
+import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
@@ -48,6 +49,13 @@ export class ScriptsPlugin {
     new AddScripts({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {}
+    }).apply(compiler)
+
+    // Runtime-loaded files the module graph cannot see: classic worker
+    // importScripts(...) dependencies and executeScript/insertCSS `files`
+    // payloads. Copied through verbatim; missing references become warnings.
+    new TraceRuntimeLoadedFiles({
+      manifestPath: this.manifestPath
     }).apply(compiler)
 
     // The content-script wrapper is load-bearing in every mode: it converts
