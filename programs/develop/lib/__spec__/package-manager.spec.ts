@@ -1,7 +1,7 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const originalPlatform = process.platform
 
@@ -29,6 +29,7 @@ vi.mock('child_process', () => ({
 import {
   buildInstallCommand,
   execInstallCommand,
+  projectInstallArgs,
   resolvePackageManager
 } from '../package-manager'
 
@@ -161,6 +162,60 @@ describe('package-manager buildInstallCommand', () => {
         process.env.npm_execpath = originalExecPath
       }
     }
+  })
+})
+
+describe('package-manager projectInstallArgs', () => {
+  const writeProject = (dir: string, pkg: Record<string, any>) => {
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg))
+  }
+
+  const withTempProject = (
+    pkg: Record<string, any>,
+    fn: (dir: string) => void
+  ) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-args-'))
+    try {
+      writeProject(dir, pkg)
+      fn(dir)
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  }
+
+  it('confines pnpm installs to the project dir (G28: no walking up to a foreign workspace)', () => {
+    withTempProject({name: 'p', dependencies: {vue: '^3.0.0'}}, (dir) => {
+      expect(projectInstallArgs({name: 'pnpm'}, dir)).toEqual([
+        '--ignore-workspace'
+      ])
+    })
+  })
+
+  it('does not confine when the project is itself a pnpm workspace root', () => {
+    withTempProject({name: 'p'}, (dir) => {
+      fs.writeFileSync(
+        path.join(dir, 'pnpm-workspace.yaml'),
+        'packages:\n  - "packages/*"\n'
+      )
+      expect(projectInstallArgs({name: 'pnpm'}, dir)).toEqual([])
+    })
+  })
+
+  it('does not confine when the project uses workspace: specifiers (needs its real workspace)', () => {
+    withTempProject(
+      {name: 'p', devDependencies: {shared: 'workspace:*'}},
+      (dir) => {
+        expect(projectInstallArgs({name: 'pnpm'}, dir)).toEqual([])
+      }
+    )
+  })
+
+  it('adds nothing for other package managers', () => {
+    withTempProject({name: 'p'}, (dir) => {
+      expect(projectInstallArgs({name: 'npm'}, dir)).toEqual([])
+      expect(projectInstallArgs({name: 'yarn'}, dir)).toEqual([])
+      expect(projectInstallArgs({name: 'bun'}, dir)).toEqual([])
+    })
   })
 })
 

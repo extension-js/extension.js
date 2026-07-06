@@ -166,6 +166,10 @@ export function authorInstallNotice(target: string) {
   return `${getLoggingPrefix('warn')} Author mode: installing ${target}.`
 }
 
+export function projectInstallFallbackToNpm(pmName: string) {
+  return `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed. Retrying once with npm so the build can continue.`
+}
+
 export function buildWebpack(
   projectDir: string,
   stats: any,
