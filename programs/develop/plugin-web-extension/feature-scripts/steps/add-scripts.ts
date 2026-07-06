@@ -10,6 +10,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
+import {
+  isClassicScript,
+  classicConcatEntry
+} from '../../shared/classic-concat'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
 import {type FilepathList, type PluginInterface} from '../../../types'
@@ -43,31 +47,11 @@ function createSequentialEntryModule(
   // (no top-level import/export), concatenate their sources into one module so they
   // share a scope — matching browser semantics and making vanilla multi-file content
   // scripts a true drop-in. CSS stays as module imports so rspack can extract it.
-  const isClassic = (p: string) => {
-    try {
-      const src = fs.readFileSync(p, 'utf8')
-      return (
-        !/^\s*import[\s{('"*]/m.test(src) && !/^\s*export[\s{*( ]/m.test(src)
-      )
-    } catch {
-      return false
-    }
-  }
-
-  const concatenateClassic = jsFiles.length > 1 && jsFiles.every(isClassic)
+  const concatenateClassic =
+    jsFiles.length > 1 && jsFiles.every(isClassicScript)
 
   if (concatenateClassic) {
-    // Instead of baking file contents into a data: URI (which rspack never
-    // watches and cannot source-map), emit a stub entry that the
-    // classic-concat-loader will process. The loader reads each file via
-    // addDependency (enabling watch-mode rebuilds) and generates a V3 source
-    // map (enabling real file/line error tracing).
-    const queryData = encodeURIComponent(
-      JSON.stringify({feature, js: jsFiles, css: []})
-    )
-    // Use the first JS file as the entry so rspack resolves a real file.
-    // The query parameter tells the concat loader which files to combine.
-    return `${jsFiles[0]}?__extensionjs_classic_concat__=${queryData}`
+    return classicConcatEntry(feature, jsFiles)
   }
 
   const source = [
