@@ -46,33 +46,33 @@ vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
   return {
     ...actual,
-    existsSync: vi.fn()
+    existsSync: vi.fn(),
+    // env.ts reads the selected .env file and hands the content to
+    // dotenv.parse. Return the path itself as the "content" so the parse
+    // mock below can keep keying its fixtures off the path.
+    readFileSync: vi.fn((p: any, ...rest: any[]) => {
+      if (/\.env[^/\\]*$/.test(String(p))) return String(p)
+      return actual.readFileSync(p, ...rest)
+    })
   }
 })
 import * as fs from 'fs'
 import * as dotenv from 'dotenv'
 
 vi.mock('dotenv', () => ({
-  config: vi.fn((opts: any) => {
-    if (!opts || !opts.path) return {parsed: {}}
-    const envPath = toPosix(String(opts.path))
+  parse: vi.fn((content: any) => {
+    const envPath = toPosix(String(content))
     if (envPath.endsWith('/repo/.env')) {
       return {
-        parsed: {
-          EXTENSION_PUBLIC_ROOT_ONLY: 'rootOnly',
-          EXTENSION_PUBLIC_FOO: 'rootFoo',
-          EXTENSION_BAR: 'rootBar'
-        }
+        EXTENSION_PUBLIC_ROOT_ONLY: 'rootOnly',
+        EXTENSION_PUBLIC_FOO: 'rootFoo',
+        EXTENSION_BAR: 'rootBar'
       }
     }
     if (envPath.endsWith('.env.defaults')) {
-      return {
-        parsed: {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
-      }
+      return {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
     }
-    return {
-      parsed: {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}
-    }
+    return {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}
   })
 }))
 
