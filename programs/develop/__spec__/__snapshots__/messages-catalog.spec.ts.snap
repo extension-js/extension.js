@@ -51,6 +51,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "packagingSourceFiles: function(1)",
     "previewSkippedNoBrowser: function(1)",
     "previewing: function(1)",
+    "projectInstallFallbackToNpm: function(1)",
     "remoteFetchTimedOut: function(2)",
     "resolvedWorkspaceManifest: function(2)",
     "treeWithDistFilesbrowser: function(4)",
