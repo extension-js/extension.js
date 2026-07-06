@@ -13,11 +13,13 @@ import {
   Compilation,
   DefinePlugin,
   ProvidePlugin,
-  sources
+  sources,
+  WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../types'
 import * as messages from './compilation-lib/messages'
+import {isChromiumBasedBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 
 function resolveProcessShim(): string | undefined {
@@ -81,6 +83,42 @@ function resolveEnvPaths(projectPath: string, envFiles: string[]) {
   }
 }
 
+/**
+ * Env files resolve family-wide, mirroring the manifest-prefix contract
+ * (lib/manifest-utils.ts): `chrome:`/`chromium:`/`edge:` manifest keys all
+ * apply to any chromium-family target, so `.env.chrome` must equally apply
+ * when building the default `chromium` target. The exact browser name always
+ * wins over family siblings; Safari/webkit inherit the chromium family for
+ * the same reason they inherit its manifest keys.
+ */
+export function getEnvFileCandidates(
+  browser: DevOptions['browser'],
+  mode: string
+): string[] {
+  const browserName = String(browser)
+  const isChromiumTarget =
+    isChromiumBasedBrowser(browserName) ||
+    browserName === 'safari' ||
+    browserName.includes('webkit')
+
+  const familyNames = isChromiumTarget
+    ? ['chromium', 'chrome', 'edge', 'chromium-based']
+    : isGeckoBasedBrowser(browserName)
+      ? ['firefox', 'gecko-based']
+      : []
+  const names = [
+    browserName,
+    ...familyNames.filter((name) => name !== browserName)
+  ]
+
+  return [
+    ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
+    `.env.${mode}`, // .env.development
+    '.env.local',
+    '.env'
+  ]
+}
+
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
   public readonly manifestPath?: string
@@ -96,16 +134,11 @@ export class EnvPlugin {
       (this.manifestPath ? path.dirname(this.manifestPath) : '')
     const mode = compiler.options.mode || 'development'
 
-    // Collect .env files based on browser and mode. Note: `.env.example` is
-    // intentionally NOT included — it holds placeholder/documentation values
-    // and must not be treated as a real value source for the build
-    const envFiles = [
-      `.env.${this.browser}.${mode}`, // .env.chrome.development
-      `.env.${this.browser}`, // .env.chrome
-      `.env.${mode}`, // .env.development
-      '.env.local', // .env.local
-      '.env' // .env
-    ]
+    // Collect .env files based on browser (family-wide, see
+    // getEnvFileCandidates) and mode. Note: `.env.example` is intentionally
+    // NOT included — it holds placeholder/documentation values and must not
+    // be treated as a real value source for the build
+    const envFiles = getEnvFileCandidates(this.browser, mode)
 
     const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
 
@@ -113,12 +146,50 @@ export class EnvPlugin {
       console.log(messages.envSelectedFile(envPath))
     }
 
-    // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
-    const envVars = envPath
-      ? dotenv.config({path: envPath, quiet: true}).parsed || {}
-      : {}
+    // The project ships .env files, but none match this browser/mode — the
+    // author clearly intended env injection, and every EXTENSION_PUBLIC_*
+    // read will silently be undefined. Surface that as a build warning.
+    if (!envPath && projectPath) {
+      let unmatchedEnvFiles: string[] = []
+      try {
+        unmatchedEnvFiles = fs
+          .readdirSync(projectPath)
+          .filter(
+            (file) =>
+              file.startsWith('.env') &&
+              file !== '.env.defaults' &&
+              file !== '.env.example'
+          )
+          .sort()
+      } catch {
+        // unreadable project dir — nothing to warn about
+      }
+
+      if (unmatchedEnvFiles.length > 0) {
+        compiler.hooks.thisCompilation.tap('env:warn-unmatched', (compilation) => {
+          const warn = new WebpackError(
+            messages.envNoMatchingFile(
+              String(this.browser),
+              String(mode),
+              unmatchedEnvFiles,
+              envFiles
+            )
+          ) as Error & {file?: string; name?: string}
+          warn.name = 'EnvNoMatchingFile'
+          compilation.warnings.push(warn)
+        })
+      }
+    }
+
+    // Load the .env file manually and filter variables prefixed with
+    // 'EXTENSION_PUBLIC_'. dotenv.parse (not .config) on purpose: .config
+    // mutates process.env, and since process.env wins the merge below, the
+    // first build's values would leak into and override every later build in
+    // the same process (e.g. chrome values overriding a firefox build's own
+    // .env.firefox when building multiple browsers).
+    const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
     const defaultsVars = fs.existsSync(defaultsPath)
-      ? dotenv.config({path: defaultsPath, quiet: true}).parsed || {}
+      ? dotenv.parse(fs.readFileSync(defaultsPath))
       : {}
 
     // Merge all environment variables (including system env vars)
@@ -171,6 +242,23 @@ export class EnvPlugin {
     filteredEnvVars['import.meta.env.BROWSER'] = JSON.stringify(this.browser)
     filteredEnvVars['process.env.MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.MODE'] = JSON.stringify(mode)
+
+    // Define bare `import.meta.env` as an object of every injected var
+    // (Vite parity). Without it, rspack rewrites a leftover `import.meta.env`
+    // to `(void 0)` in classic output, so reading ANY variable that no env
+    // file defines crashes the surface at boot with
+    // "Cannot read properties of undefined" instead of yielding `undefined`.
+    // This also makes `const {FOO} = import.meta.env` work. Member defines
+    // above still win for known vars (longest-match), so inlining and
+    // tree-shaking are unaffected.
+    const importMetaEnvObject: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(filteredEnvVars)) {
+      if (key.startsWith('import.meta.env.')) {
+        importMetaEnvObject[key.slice('import.meta.env.'.length)] =
+          JSON.parse(value)
+      }
+    }
+    filteredEnvVars['import.meta.env'] = JSON.stringify(importMetaEnvObject)
 
     // Neutralize the Node-only `import.meta` accessors (G12). Vendored ESM
     // (`.mjs`) runtimes — ONNX runtime, kokoro/piper TTS — reference
