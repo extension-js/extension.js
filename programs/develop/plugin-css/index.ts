@@ -62,7 +62,20 @@ export class CssPlugin {
       ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
         useSass: usingSass,
         useLess: usingLess
-      }))
+      })),
+      // `?inline` stylesheet imports (vue-loader emits them for every <style>
+      // in a *.ce.vue custom-element SFC; Vite exposes the same convention)
+      // must resolve to the processed CSS as the module's default string
+      // export. The issuer-based rules above type these requests as native
+      // CSS — a module with no JS exports — which dead-links the importer's
+      // default import. Appended last with no `use`, this rule only flips the
+      // module type; the matching rules above still contribute the full
+      // PostCSS/Sass/Less loader chain exactly once.
+      {
+        test: /\.(css|sass|scss|less)$/,
+        resourceQuery: /(\?|&)inline(&|$)/,
+        type: 'asset/source'
+      }
     ]
 
     // CSS output naming.  Rspack's native CSS (`experiments.css`) already
