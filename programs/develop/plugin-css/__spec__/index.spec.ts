@@ -96,4 +96,37 @@ describe('CssPlugin', () => {
     const rules = compiler.options.module.rules as any[]
     expect(rules.some((r) => r.type === 'asset/resource')).toBe(false)
   })
+
+  it('appends a type-only asset/source rule for `?inline` stylesheet requests after the issuer-based rules', async () => {
+    const compiler = createCompiler('development')
+    const plugin = new CssPlugin({manifestPath: '/project/manifest.json'})
+
+    await plugin.apply(compiler)
+
+    // Regression guard (G27): vue-loader emits `Foo.ce.vue.css?vue&type=style
+    // &index=0&id=…&inline&lang=css` for every <style> in a custom-element
+    // SFC and imports the module's default export as the style string. The
+    // issuer-based rules type such requests as native CSS (no JS exports),
+    // dead-linking that import. A trailing rule must flip the type to
+    // asset/source — and carry NO `use`, so the loader chain from the
+    // matching rules above is not duplicated.
+    const rules = compiler.options.module.rules as any[]
+    const inlineRule = rules.find(
+      (r) => r.resourceQuery && r.type === 'asset/source'
+    )
+    expect(inlineRule).toBeDefined()
+    expect(inlineRule.use).toBeUndefined()
+    expect(inlineRule.issuer).toBeUndefined()
+    expect(rules.indexOf(inlineRule)).toBe(rules.length - 1)
+
+    const query = inlineRule.resourceQuery as RegExp
+    expect(query.test('?vue&type=style&index=0&id=x&inline&lang=css')).toBe(
+      true
+    )
+    expect(query.test('?inline')).toBe(true)
+    expect(query.test('?vue&type=style&index=0&id=x&lang=css')).toBe(false)
+    // `inline` must match as a whole token, not a substring of another param
+    expect(query.test('?no-inline-here=1')).toBe(false)
+    expect(query.test('?inlineLimit=4096')).toBe(false)
+  })
 })
