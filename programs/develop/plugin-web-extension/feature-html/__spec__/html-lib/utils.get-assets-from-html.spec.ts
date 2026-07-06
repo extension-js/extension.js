@@ -40,6 +40,33 @@ describe('getAssetsFromHtml', () => {
     ])
   })
 
+  it('treats icon-family rel token lists as static assets, not stylesheets', () => {
+    const html = `
+		<html>
+		<head>
+		  <link rel="shortcut icon" href="logo.png">
+		  <link rel="SHORTCUT ICON" href="upper.png">
+		  <link rel="apple-touch-icon" href="touch.png">
+		  <link rel="mask-icon" href="mask.svg">
+		  <link rel="stylesheet" href="styles.css">
+		</head>
+		<body></body>
+		</html>
+		`
+    const dir = path.join(tmp, 'rel-tokens')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'logo.png'),
+      path.join(dir, 'upper.png'),
+      path.join(dir, 'touch.png'),
+      path.join(dir, 'mask.svg')
+    ])
+    expect(res.css).toEqual([path.join(dir, 'styles.css')])
+  })
+
   it('extracts js, css, and static with base href and preserves public-root', () => {
     const html = `
 		<html>

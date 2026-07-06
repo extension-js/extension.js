@@ -92,17 +92,26 @@ export function parseHtml(
 
     // Assume users ignored the "stylesheet" attribute,
     // but ensure it's not an icon or something else.
+    // `rel` is a space-separated, case-insensitive token list, so the legacy
+    // `rel="shortcut icon"` must match `icon` (treating it as a stylesheet
+    // pushes the image into the page bundle and breaks the entry module map).
     // See https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types.
-    if (
-      rel === 'dns-prefetch' ||
-      rel === 'icon' ||
-      rel === 'manifest' ||
-      rel === 'modulepreload' ||
-      rel === 'preconnect' ||
-      rel === 'prefetch' ||
-      rel === 'preload' ||
-      rel === 'prerender'
-    ) {
+    const nonStylesheetRelTokens = [
+      'dns-prefetch',
+      'icon',
+      'apple-touch-icon',
+      'apple-touch-icon-precomposed',
+      'mask-icon',
+      'manifest',
+      'modulepreload',
+      'preconnect',
+      'prefetch',
+      'preload',
+      'prerender'
+    ]
+    const relTokens = rel ? rel.toLowerCase().split(/\s+/) : []
+
+    if (relTokens.some((token) => nonStylesheetRelTokens.includes(token))) {
       onResourceFound({
         filePath: href,
         childNode: node,
