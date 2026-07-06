@@ -10,6 +10,10 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import * as htmlUtils from '../html-lib/utils'
+import {
+  isClassicScript,
+  classicConcatEntry
+} from '../../shared/classic-concat'
 import {type FilepathList, type PluginInterface} from '../../../types'
 import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
@@ -58,7 +62,30 @@ export class AddScriptsAndStylesToCompilation {
         const cssAssets = (htmlAssets?.css || []).filter(
           (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
         )
-        const fileAssets = [...jsAssets, ...cssAssets]
+
+        // Multiple classic <script src> tags share one global scope in the
+        // browser (`var storage` in lib/storage.js is visible to a sibling
+        // sidepanel.js). Bundling them as separate ES modules isolates each
+        // file and throws ReferenceError at boot. When every page script is
+        // classic — no type="module" tag and no top-level import/export —
+        // route the group through the classic-concat loader (same contract
+        // as multi-file content_scripts) so their sources concatenate into
+        // one shared scope, in tag order. CSS stays as bare entry imports so
+        // rspack extracts it to the canonical <feature>.css.
+        const moduleJsAssets = new Set(htmlAssets?.moduleJs || [])
+        const concatenateClassic =
+          jsAssets.length > 1 &&
+          jsAssets.every(
+            (asset) =>
+              !moduleJsAssets.has(asset) &&
+              /\.(js|cjs)$/i.test(asset) &&
+              isClassicScript(asset)
+          )
+        const jsImports = concatenateClassic
+          ? [classicConcatEntry(feature, jsAssets)]
+          : jsAssets
+
+        const fileAssets = [...jsImports, ...cssAssets]
 
         if (compiler.options.mode === 'development') {
           if (devServerHmrImports.length > 0) {
