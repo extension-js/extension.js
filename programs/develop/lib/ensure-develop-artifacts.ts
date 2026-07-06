@@ -6,16 +6,18 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 import {findExtensionDevelopRoot} from './develop-context'
 import * as messages from './messages'
-import {needsInstall, type AbsolutePath} from './paths'
 import {
   buildInstallCommand,
   execInstallCommand,
+  projectInstallArgs,
+  resolveNpmPackageManager,
   resolvePackageManager
 } from './package-manager'
+import {type AbsolutePath, needsInstall} from './paths'
 
 /**
  * Install the user's project dependencies if node_modules is missing or stale.
@@ -30,11 +32,32 @@ export async function ensureUserProjectDependencies(
   if (!needsInstall(packageJsonDir)) return
 
   const pm = resolvePackageManager({cwd: packageJsonDir})
-  const cmd = buildInstallCommand(pm, ['install'])
-  await execInstallCommand(cmd.command, cmd.args, {
-    cwd: packageJsonDir,
-    stdio: 'inherit'
-  })
+  const cmd = buildInstallCommand(pm, [
+    'install',
+    ...projectInstallArgs(pm, packageJsonDir)
+  ])
+
+  try {
+    await execInstallCommand(cmd.command, cmd.args, {
+      cwd: packageJsonDir,
+      stdio: 'inherit'
+    })
+  } catch (error) {
+    // The resolved manager can fail through no fault of the project's own
+    // dependency graph — e.g. corepack honoring a `packageManager` pin to a
+    // pnpm too old for the running Node (G28). npm ships with Node itself,
+    // so one retry with it keeps the build alive; `--no-package-lock` avoids
+    // dropping a lockfile the project's real manager never asked for.
+    if (pm.name === 'npm') throw error
+    console.warn(messages.projectInstallFallbackToNpm(pm.name))
+
+    const npmPm = resolveNpmPackageManager()
+    const npmCmd = buildInstallCommand(npmPm, ['install', '--no-package-lock'])
+    await execInstallCommand(npmCmd.command, npmCmd.args, {
+      cwd: packageJsonDir,
+      stdio: 'inherit'
+    })
+  }
 }
 
 export async function ensureDevelopArtifacts() {
