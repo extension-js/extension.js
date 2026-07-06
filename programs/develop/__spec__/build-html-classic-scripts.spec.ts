@@ -1,0 +1,192 @@
+// Real-rspack regression gate for multi-classic-script HTML pages. The
+// browser executes multiple <script src> tags in one shared global scope —
+// `var storage` in lib/storage.js is visible to a sibling popup.js. Bundling
+// each tag as a separate ES module isolates the scopes, and the built page
+// throws `ReferenceError: storage is not defined` at boot (corpus class:
+// Yunzenn__better-prompt). The fix routes all-classic script groups through
+// the classic-concat loader (same contract as multi-file content_scripts),
+// so the emitted bundle must actually EXECUTE with shared globals — asserted
+// here by running it in a VM with a stubbed document.
+
+import {describe, it, expect, beforeAll, afterAll} from 'vitest'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
+import * as vm from 'vm'
+
+const CLASSIC_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-html-classic-')
+)
+const MODULE_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-html-module-')
+)
+
+function writePackageJson(root: string, name: string) {
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name, version: '0.0.0'}, null, 2)
+  )
+}
+
+// Three classic scripts in tag order: a global definition, a consumer that
+// extends it, and a final consumer reading both — the better-prompt shape.
+function writeClassicFixture() {
+  writePackageJson(CLASSIC_ROOT, 'extjs-build-html-classic-spec')
+  fs.mkdirSync(path.join(CLASSIC_ROOT, 'lib'), {recursive: true})
+
+  fs.writeFileSync(
+    path.join(CLASSIC_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — HTML classic scripts',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(CLASSIC_ROOT, 'popup.html'),
+    [
+      '<html><body>',
+      '<script src="lib/storage.js"></script>',
+      '<script src="lib/format.js"></script>',
+      '<script src="popup.js"></script>',
+      '</body></html>',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(CLASSIC_ROOT, 'lib', 'storage.js'),
+    'var storage = {value: "ok"};\n'
+  )
+  fs.writeFileSync(
+    path.join(CLASSIC_ROOT, 'lib', 'format.js'),
+    'function formatValue() { return "storage:" + storage.value; }\n'
+  )
+  fs.writeFileSync(
+    path.join(CLASSIC_ROOT, 'popup.js'),
+    'document.title = formatValue();\n'
+  )
+}
+
+// A page with a type="module" script must NOT be folded into a classic
+// concat — module semantics (scoped top level) are the author's choice.
+function writeModuleFixture() {
+  writePackageJson(MODULE_ROOT, 'extjs-build-html-module-spec')
+
+  fs.writeFileSync(
+    path.join(MODULE_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — HTML module scripts',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(MODULE_ROOT, 'popup.html'),
+    [
+      '<html><body>',
+      '<script src="helper.js"></script>',
+      '<script type="module" src="popup.js"></script>',
+      '</body></html>',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(MODULE_ROOT, 'helper.js'),
+    'globalThis.helperReady = true;\n'
+  )
+  fs.writeFileSync(
+    path.join(MODULE_ROOT, 'popup.js'),
+    'export const started = true;\ndocument.title = "module ran";\n'
+  )
+}
+
+async function buildFixture(root: string) {
+  const {extensionBuild} = await import('../command-build')
+
+  const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
+  const previousVitest = process.env.VITEST
+  process.env.VITEST = 'true'
+  delete process.env.EXTENSION_AUTHOR_MODE
+
+  try {
+    return await extensionBuild(root, {
+      browser: 'chrome',
+      silent: true,
+      install: false,
+      mode: 'production',
+      exitOnError: false
+    } as any)
+  } finally {
+    if (previousAuthorMode === undefined) {
+      delete process.env.EXTENSION_AUTHOR_MODE
+    } else {
+      process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
+    }
+    if (previousVitest === undefined) {
+      delete process.env.VITEST
+    } else {
+      process.env.VITEST = previousVitest
+    }
+  }
+}
+
+beforeAll(() => {
+  writeClassicFixture()
+  writeModuleFixture()
+}, 30_000)
+
+afterAll(() => {
+  fs.rmSync(CLASSIC_ROOT, {recursive: true, force: true})
+  fs.rmSync(MODULE_ROOT, {recursive: true, force: true})
+})
+
+describe('build: HTML pages with multiple classic scripts (real rspack)', () => {
+  it('keeps cross-script implicit globals working in the built page bundle', async () => {
+    const summary = await buildFixture(CLASSIC_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(CLASSIC_ROOT, 'dist', 'chrome')
+    const bundlePath = path.join(distDir, 'action', 'index.js')
+    expect(fs.existsSync(bundlePath), `missing ${bundlePath}`).toBe(true)
+
+    // The page HTML must reference the bundle as a classic script — a
+    // type="module" tag would give the concat bundle module semantics.
+    const html = fs.readFileSync(
+      path.join(distDir, 'action', 'index.html'),
+      'utf8'
+    )
+    expect(html).toContain('/action/index.js')
+    expect(html).not.toContain('type="module"')
+
+    // Execute the bundle the way the browser would: before the fix this
+    // throws `ReferenceError: storage is not defined` because each script
+    // became an isolated ES module.
+    const context = vm.createContext({document: {title: ''}})
+    vm.runInContext(fs.readFileSync(bundlePath, 'utf8'), context, {
+      filename: 'action/index.js'
+    })
+    expect((context as any).document.title).toBe('storage:ok')
+  }, 120_000)
+
+  it('does not fold pages with type="module" scripts into a classic concat', async () => {
+    const summary = await buildFixture(MODULE_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(MODULE_ROOT, 'dist', 'chrome')
+    expect(fs.existsSync(path.join(distDir, 'action', 'index.js'))).toBe(true)
+  }, 120_000)
+})
