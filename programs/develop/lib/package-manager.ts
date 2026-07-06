@@ -273,6 +273,55 @@ export function resolvePackageManager(opts?: {
   return {name: 'npm'}
 }
 
+/**
+ * Extra args that confine a *project* dependency install to the project
+ * directory. pnpm walks up from cwd and, on finding any ancestor
+ * `pnpm-workspace.yaml`, installs that ENTIRE workspace instead of the
+ * project — for a project that merely sits under an unrelated monorepo
+ * (G28), that installs a foreign codebase's dependency tree. Skip the
+ * confinement only when the workspace is genuinely the project's own:
+ * the project dir is itself a workspace root, or its package.json uses
+ * `workspace:` specifiers (a standalone install could never satisfy those).
+ */
+export function projectInstallArgs(
+  pm: PackageManagerResolution,
+  projectDir: string
+): string[] {
+  if (pm.name !== 'pnpm') return []
+  if (fs.existsSync(path.join(projectDir, 'pnpm-workspace.yaml'))) return []
+
+  try {
+    const raw = fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')
+    const pkg = JSON.parse(raw)
+    const depFields = [
+      pkg.dependencies,
+      pkg.devDependencies,
+      pkg.optionalDependencies,
+      pkg.peerDependencies
+    ]
+    for (const deps of depFields) {
+      if (!deps) continue
+      for (const spec of Object.values(deps)) {
+        if (typeof spec === 'string' && spec.startsWith('workspace:')) {
+          return []
+        }
+      }
+    }
+  } catch {
+    // Unreadable package.json — the install will surface its own error.
+  }
+
+  return ['--ignore-workspace']
+}
+
+/**
+ * A hydrated npm resolution for fallback installs: PATH npm first, then the
+ * npm CLI bundled with the running Node.
+ */
+export function resolveNpmPackageManager(): PackageManagerResolution {
+  return hydrateResolvedPackageManager('npm') || {name: 'npm'}
+}
+
 export function buildInstallCommand(
   pm: PackageManagerResolution,
   args: string[]
