@@ -85,6 +85,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssParseErrorShippedVerbatim: function(2)",
     "isUsingIntegration: function(1)",
     "missingSassDependency: function(0)",
+    "postCssPluginNotResolved: function(2)",
     "youAreAllSet: function(1)",
   ],
   "plugin-js-frameworks/js-frameworks-lib/messages.ts": [

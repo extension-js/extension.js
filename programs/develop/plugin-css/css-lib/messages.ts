@@ -58,6 +58,17 @@ export function missingSassDependency() {
   ].join('\n')
 }
 
+export function postCssPluginNotResolved(
+  pluginName: string,
+  projectPath: string
+) {
+  return [
+    `${colors.yellow('⏵⏵⏵')} PostCSS plugin ${colors.brightBlue(`"${pluginName}"`)} could not be resolved from ${colors.underline(projectPath)}.`,
+    'The plugin was skipped so the build can continue. Styles it would generate are missing from the output.',
+    `Install it in your project to re-enable it, for example: ${colors.gray(`npm install --save-dev ${pluginName}`)}`
+  ].join('\n')
+}
+
 export function cssParseErrorShippedVerbatim(
   resourcePath: string,
   error: unknown
