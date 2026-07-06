@@ -16,6 +16,51 @@ export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
   )
 }
 
+export function importScriptsDependencyMissing(
+  workerPath: string,
+  literal: string,
+  expectedPath: string,
+  sourceSibling?: string
+) {
+  const sibling = sourceSibling
+    ? `Found ${colors.yellow(sourceSibling)}, but importScripts dependencies ` +
+      `are copied as-is, not compiled.\n`
+    : ''
+  return (
+    `The background service_worker ${colors.yellow(workerPath)} calls ` +
+    `importScripts(${colors.yellow(`'${literal}'`)}), but ` +
+    `${colors.yellow(expectedPath)} is not part of the output. ` +
+    `The call will fail at runtime.\n` +
+    sibling +
+    `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
+      'public/'
+    )}) so it ships with the extension, or import it from the worker so it ` +
+    `gets bundled.`
+  )
+}
+
+export function injectedFileDependencyMissing(
+  assetName: string,
+  literal: string,
+  expectedPath: string,
+  sourceSibling?: string
+) {
+  const sibling = sourceSibling
+    ? `Found ${colors.yellow(sourceSibling)}, but injected files are copied ` +
+      `as-is, not compiled.\n`
+    : ''
+  return (
+    `${colors.yellow(assetName)} injects ${colors.yellow(
+      `'${literal}'`
+    )} via executeScript/insertCSS, but ${colors.yellow(expectedPath)} is ` +
+    `not part of the output. The injection will fail at runtime.\n` +
+    sibling +
+    `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
+      'public/'
+    )}) so it ships with the extension.`
+  )
+}
+
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
   return (
