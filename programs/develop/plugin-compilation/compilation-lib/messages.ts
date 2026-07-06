@@ -79,3 +79,24 @@ export function envInjectedPublicVars(count: number) {
     `${colors.gray('INJECTED')} ${colors.gray(String(count))} EXTENSION_PUBLIC_*`
   ].join('\n')
 }
+
+export function envNoMatchingFile(
+  browser: string,
+  mode: string,
+  presentFiles: string[],
+  expectedCandidates: string[]
+) {
+  return (
+    `Found ${presentFiles.map((file) => colors.yellow(file)).join(', ')} ` +
+    `but none match browser ${colors.yellow(browser)} (mode ${colors.yellow(
+      mode
+    )}), so EXTENSION_PUBLIC_* variables read from code will be ` +
+    `${colors.yellow('undefined')} in this build.\n` +
+    `Matching names, in priority order: ` +
+    `${expectedCandidates.map((file) => colors.gray(file)).join(', ')}.\n` +
+    `Family names apply to every family member — e.g. ` +
+    `${colors.yellow('.env.chrome')} also matches ${colors.yellow(
+      'chromium'
+    )} and ${colors.yellow('edge')} targets.`
+  )
+}
