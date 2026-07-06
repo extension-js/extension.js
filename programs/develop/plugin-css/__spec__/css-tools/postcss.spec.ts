@@ -421,10 +421,10 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe(false)
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    expect((opts?.plugins as any[])[0]).toEqual({
-      '@tailwindcss/postcss': false
-    })
-    expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
+    // The config's 'tailwindcss' string entry resolves to the injected
+    // cwd-stable instance directly; no disable shims are needed.
+    expect((opts?.plugins as any[])).toEqual([{postcssPlugin: 'tailwindcss'}])
+    expect(tailwindFactory).toHaveBeenCalled()
   })
 
   it('injects cwd-stable Tailwind plugin for postcss.config.mjs with @tailwindcss/postcss', async () => {
@@ -521,10 +521,9 @@ describe('postcss detection', () => {
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect(tailwindPostcssFactory).toHaveBeenCalledWith({base: '/p'})
     expect(tailwindCssFactory).not.toHaveBeenCalled()
-    expect((opts?.plugins as any[])[0]).toEqual({
-      '@tailwindcss/postcss': false
-    })
-    expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
+    // The config's 'tailwindcss' string entry resolves to the injected
+    // v4-preferred instance directly; no disable shims are needed.
+    expect(opts?.plugins).toEqual([{postcssPlugin: 'tailwindcss-postcss'}])
   })
 
   it('injects Tailwind plugin when PostCSS config mentions tailwind but deps are not declared', async () => {
