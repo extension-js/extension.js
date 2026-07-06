@@ -203,7 +203,14 @@ export class FirefoxLaunchPlugin {
     const resolveWslFallback = (): string | null => resolveWslWindowsBinary()
     const getInstallGuidanceText = (): string => {
       try {
-        return getFirefoxInstallGuidance()
+        return getFirefoxInstallGuidance({
+          steps: [
+            {
+              summary: 'Install Firefox into the managed browser cache',
+              command: 'npx extension install firefox'
+            }
+          ]
+        })
       } catch {
         return 'npx extension install firefox'
       }
