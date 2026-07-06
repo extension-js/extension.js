@@ -236,7 +236,14 @@ export class ChromiumLaunchPlugin {
     ): string => {
       try {
         if (target === 'edge') {
-          return getEdgeInstallGuidance()
+          return getEdgeInstallGuidance({
+            steps: [
+              {
+                summary: 'Install Edge into the managed browser cache',
+                command: 'npx extension install edge'
+              }
+            ]
+          })
         }
         if (target === 'chromium') {
           // Chrome for Testing first: it tracks the stable channel Chrome
@@ -256,7 +263,15 @@ export class ChromiumLaunchPlugin {
             ]
           })
         }
-        return getChromeInstallGuidance()
+        return getChromeInstallGuidance({
+          steps: [
+            {
+              summary:
+                'Install Chrome for Testing into the managed browser cache (stable channel)',
+              command: 'npx extension install chrome'
+            }
+          ]
+        })
       } catch {
         return `npx extension install ${target}`
       }
