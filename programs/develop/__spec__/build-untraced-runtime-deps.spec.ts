@@ -1,0 +1,247 @@
+// Real-rspack regression gate for runtime-loaded file tracing — the corpus
+// sweep's largest failure cluster (56/268 runtime failures at 4.0.4). Two
+// classes of files load at runtime through APIs the module graph cannot see:
+//
+//   1. importScripts("lib/util.js") inside a classic background service
+//      worker. The worker relocates to background/service_worker.js, and
+//      importScripts resolves relative URLs against the worker's own URL, so
+//      the dep must land at background/lib/util.js in dist.
+//   2. chrome.scripting.executeScript({files: ["injected.js"]}) payloads,
+//      which Chrome resolves against the extension root and executes as
+//      classic content scripts — copied through verbatim.
+//
+// Before the fix both builds ended "Build succeeded with no warnings" while
+// dist was missing the files. See TraceRuntimeLoadedFiles.
+
+import {describe, it, expect, beforeAll, afterAll} from 'vitest'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
+
+const IMPORTSCRIPTS_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-importscripts-')
+)
+const EXECUTESCRIPT_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-executescript-')
+)
+const MISSING_DEP_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-missing-dep-')
+)
+
+function writePackageJson(root: string, name: string) {
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name, version: '0.0.0'}, null, 2)
+  )
+}
+
+// Mirrors the corpus repro `a-importscripts`: classic worker at the project
+// root pulling a sibling lib/ file, which chains a second importScripts call.
+function writeImportScriptsFixture() {
+  writePackageJson(IMPORTSCRIPTS_ROOT, 'extjs-build-importscripts-spec')
+  fs.mkdirSync(path.join(IMPORTSCRIPTS_ROOT, 'lib'), {recursive: true})
+
+  fs.writeFileSync(
+    path.join(IMPORTSCRIPTS_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — importScripts deps',
+        version: '1.0.0',
+        background: {service_worker: 'sw.js'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(IMPORTSCRIPTS_ROOT, 'sw.js'),
+    [
+      'importScripts("lib/util.js");',
+      'console.log("util says:", typeof UTIL !== "undefined" ? UTIL : "MISSING");',
+      ''
+    ].join('\n')
+  )
+
+  // util.js chains a second importScripts — chained calls still resolve
+  // against the worker URL, so both files must land under background/lib/.
+  fs.writeFileSync(
+    path.join(IMPORTSCRIPTS_ROOT, 'lib', 'util.js'),
+    ['importScripts("lib/extra.js");', 'var UTIL = "loaded";', ''].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(IMPORTSCRIPTS_ROOT, 'lib', 'extra.js'),
+    'var EXTRA = "loaded";\n'
+  )
+}
+
+// Mirrors the corpus repro `b-executescript`: popup injects a root-level
+// payload file via chrome.scripting.executeScript({files}).
+function writeExecuteScriptFixture() {
+  writePackageJson(EXECUTESCRIPT_ROOT, 'extjs-build-executescript-spec')
+
+  fs.writeFileSync(
+    path.join(EXECUTESCRIPT_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — executeScript files',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        permissions: ['scripting', 'activeTab']
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(EXECUTESCRIPT_ROOT, 'popup.html'),
+    '<html><body><script src="popup.js"></script></body></html>\n'
+  )
+
+  fs.writeFileSync(
+    path.join(EXECUTESCRIPT_ROOT, 'popup.js'),
+    [
+      'chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabs[0].id},',
+      '    files: ["injected.js"]',
+      '  })',
+      '  chrome.scripting.insertCSS({',
+      '    target: {tabId: tabs[0].id},',
+      '    files: ["injected.css"]',
+      '  })',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(EXECUTESCRIPT_ROOT, 'injected.js'),
+    'document.title = "injected ran";\n'
+  )
+  fs.writeFileSync(
+    path.join(EXECUTESCRIPT_ROOT, 'injected.css'),
+    'body { outline: 1px solid red; }\n'
+  )
+}
+
+// Worker references a dep that does not exist: the silent-breakage case must
+// become a build warning instead of "Build succeeded with no warnings".
+function writeMissingDepFixture() {
+  writePackageJson(MISSING_DEP_ROOT, 'extjs-build-missing-dep-spec')
+
+  fs.writeFileSync(
+    path.join(MISSING_DEP_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — missing importScripts dep',
+        version: '1.0.0',
+        background: {service_worker: 'sw.js'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(MISSING_DEP_ROOT, 'sw.js'),
+    'importScripts("lib/nope.js");\n'
+  )
+}
+
+async function buildFixture(root: string) {
+  const {extensionBuild} = await import('../command-build')
+
+  const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
+  const previousVitest = process.env.VITEST
+  process.env.VITEST = 'true'
+  delete process.env.EXTENSION_AUTHOR_MODE
+
+  try {
+    return await extensionBuild(root, {
+      browser: 'chrome',
+      silent: true,
+      install: false,
+      mode: 'production',
+      exitOnError: false
+    } as any)
+  } finally {
+    if (previousAuthorMode === undefined) {
+      delete process.env.EXTENSION_AUTHOR_MODE
+    } else {
+      process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
+    }
+    if (previousVitest === undefined) {
+      delete process.env.VITEST
+    } else {
+      process.env.VITEST = previousVitest
+    }
+  }
+}
+
+beforeAll(() => {
+  writeImportScriptsFixture()
+  writeExecuteScriptFixture()
+  writeMissingDepFixture()
+}, 30_000)
+
+afterAll(() => {
+  fs.rmSync(IMPORTSCRIPTS_ROOT, {recursive: true, force: true})
+  fs.rmSync(EXECUTESCRIPT_ROOT, {recursive: true, force: true})
+  fs.rmSync(MISSING_DEP_ROOT, {recursive: true, force: true})
+})
+
+describe('build: untraced runtime-loaded deps (real rspack)', () => {
+  it('copies classic-worker importScripts deps relative to the emitted worker', async () => {
+    const summary = await buildFixture(IMPORTSCRIPTS_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(IMPORTSCRIPTS_ROOT, 'dist', 'chrome')
+    const worker = fs.readFileSync(
+      path.join(distDir, 'background', 'service_worker.js'),
+      'utf8'
+    )
+    expect(worker).toContain('lib/util.js')
+
+    // importScripts("lib/util.js") resolves against
+    // chrome-extension://<id>/background/service_worker.js — the dep (and its
+    // chained dep) must exist at background/lib/, byte-identical to source.
+    const utilDist = path.join(distDir, 'background', 'lib', 'util.js')
+    const extraDist = path.join(distDir, 'background', 'lib', 'extra.js')
+    expect(fs.existsSync(utilDist), `missing ${utilDist}`).toBe(true)
+    expect(fs.existsSync(extraDist), `missing ${extraDist}`).toBe(true)
+    expect(fs.readFileSync(utilDist, 'utf8')).toBe(
+      fs.readFileSync(path.join(IMPORTSCRIPTS_ROOT, 'lib', 'util.js'), 'utf8')
+    )
+  }, 120_000)
+
+  it('copies executeScript/insertCSS files payloads verbatim at their literal paths', async () => {
+    const summary = await buildFixture(EXECUTESCRIPT_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(EXECUTESCRIPT_ROOT, 'dist', 'chrome')
+    expect(fs.existsSync(path.join(distDir, 'injected.js'))).toBe(true)
+    expect(fs.existsSync(path.join(distDir, 'injected.css'))).toBe(true)
+    // Chrome executes these as classic content scripts at their literal
+    // path — the copy must be verbatim, not bundled or wrapped.
+    expect(fs.readFileSync(path.join(distDir, 'injected.js'), 'utf8')).toBe(
+      'document.title = "injected ran";\n'
+    )
+  }, 120_000)
+
+  it('warns (instead of silently breaking) when an importScripts dep is missing', async () => {
+    const summary = await buildFixture(MISSING_DEP_ROOT)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings_count).toBeGreaterThan(0)
+
+    const distDir = path.join(MISSING_DEP_ROOT, 'dist', 'chrome')
+    expect(
+      fs.existsSync(path.join(distDir, 'background', 'lib', 'nope.js'))
+    ).toBe(false)
+  }, 120_000)
+})
