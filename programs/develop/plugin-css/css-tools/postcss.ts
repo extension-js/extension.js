@@ -9,6 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
+import {pathToFileURL} from 'url'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../lib/has-dependency'
@@ -143,6 +144,170 @@ function tailwindStringPluginDisableShims() {
   // Keep each disable shim as a single-key object.
   // postcss-loader accepts this shape while resolving string plugins from config.
   return [{'@tailwindcss/postcss': false}, {tailwindcss: false}]
+}
+
+async function loadUserPostCssConfigObject(
+  configPath: string,
+  projectPath: string,
+  mode: string
+): Promise<any | undefined> {
+  let loaded: any
+
+  try {
+    if (
+      configPath.endsWith('.postcssrc') ||
+      configPath.endsWith('.json')
+    ) {
+      loaded = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    } else if (configPath.endsWith('.yaml') || configPath.endsWith('.yml')) {
+      // No YAML parser available here; let postcss-loader handle it.
+      return undefined
+    } else if (configPath.endsWith('.cjs')) {
+      loaded = tryLoadCjsConfig(configPath)
+    } else {
+      try {
+        const mod = await import(pathToFileURL(configPath).href)
+        loaded = mod?.default ?? mod
+      } catch {
+        loaded = tryLoadCjsConfig(configPath)
+      }
+    }
+  } catch {
+    return undefined
+  }
+
+  if (typeof loaded === 'function') {
+    try {
+      loaded = loaded({env: mode, mode, cwd: projectPath})
+    } catch {
+      return undefined
+    }
+  }
+
+  return loaded && typeof loaded === 'object' ? loaded : undefined
+}
+
+function unwrapDefaultExport(mod: any): any {
+  return mod && typeof mod === 'object' && 'default' in mod ? mod.default : mod
+}
+
+const TAILWIND_PLUGIN_IDS = ['@tailwindcss/postcss', 'tailwindcss']
+
+// Resolve string plugin names from the user's config against the PROJECT
+// (then the config file location), falling back to the CLI install location.
+// postcss-loader resolves string plugins relative to itself, so a CLI
+// installed outside the project (npx, global, isolated prefix) can never see
+// the project's node_modules — the reason this resolver exists.
+function resolveConfigPluginModule(
+  name: string,
+  projectPath: string,
+  configDir: string | undefined
+): any | undefined {
+  const bases = Array.from(
+    new Set([projectPath, configDir || ''].filter(Boolean))
+  )
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, '__extensionjs__.js'))
+      return unwrapDefaultExport(req(name))
+    } catch {
+      // try next base
+    }
+  }
+  try {
+    const req = createRequire(import.meta.url)
+    return unwrapDefaultExport(req(name))
+  } catch {
+    return undefined
+  }
+}
+
+// Normalize a config `plugins` value (object map or array) into instantiated
+// plugins, resolving string names project-first. Returns undefined when the
+// shape is not understood, so the caller can fall back to postcss-loader's
+// own config loading.
+function resolveConfigPluginList(
+  rawPlugins: any,
+  ctx: {
+    projectPath: string
+    configDir?: string
+    tailwindInstance?: any
+    // When the config text references Tailwind as a direct function value,
+    // pre-instantiated entries may be legacy creators that throw at runtime;
+    // the legacy bypass path knows how to rescue those, so bail out of
+    // self-loading when function entries appear under that signal.
+    bailOnFunctionEntries?: boolean
+  }
+): {plugins: any[]; unresolved: string[]} | undefined {
+  const entries: Array<[any, any]> = []
+
+  if (Array.isArray(rawPlugins)) {
+    for (const entry of rawPlugins) {
+      if (Array.isArray(entry)) entries.push([entry[0], entry[1]])
+      else entries.push([entry, undefined])
+    }
+  } else if (rawPlugins && typeof rawPlugins === 'object') {
+    for (const [name, pluginOpts] of Object.entries(rawPlugins)) {
+      entries.push([name, pluginOpts])
+    }
+  } else {
+    return undefined
+  }
+
+  const plugins: any[] = []
+  const unresolved: string[] = []
+  let tailwindUsed = false
+
+  for (const [entry, pluginOpts] of entries) {
+    if (pluginOpts === false) continue
+
+    // Pre-instantiated plugins (functions/objects) pass through untouched.
+    if (typeof entry !== 'string') {
+      if (ctx.bailOnFunctionEntries) return undefined
+      if (entry) plugins.push(entry)
+      continue
+    }
+
+    const isTailwind = TAILWIND_PLUGIN_IDS.includes(entry)
+
+    if (isTailwind) {
+      if (tailwindUsed) continue
+      if (ctx.tailwindInstance) {
+        plugins.push(ctx.tailwindInstance)
+        tailwindUsed = true
+        continue
+      }
+    }
+
+    const mod = resolveConfigPluginModule(entry, ctx.projectPath, ctx.configDir)
+
+    if (typeof mod === 'function') {
+      const callOpts =
+        entry === '@tailwindcss/postcss'
+          ? {
+              base: ctx.projectPath,
+              ...(pluginOpts && typeof pluginOpts === 'object'
+                ? pluginOpts
+                : {})
+            }
+          : pluginOpts == null || pluginOpts === true
+            ? {}
+            : pluginOpts
+      try {
+        plugins.push(mod(callOpts))
+        if (isTailwind) tailwindUsed = true
+      } catch {
+        unresolved.push(entry)
+      }
+    } else if (mod && typeof mod === 'object') {
+      plugins.push(mod)
+      if (isTailwind) tailwindUsed = true
+    } else {
+      unresolved.push(entry)
+    }
+  }
+
+  return {plugins, unresolved}
 }
 
 function tryLoadCjsConfig(configPath: string): any | undefined {
@@ -291,7 +456,8 @@ export async function maybeUsePostCss(
     }
   }
 
-  const {hasPostCss: pkgHasPostCss} = getPackageJsonConfig(projectPath)
+  const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
+    getPackageJsonConfig(projectPath)
   const tailwindPresent = isUsingTailwind(projectPath)
   const tailwindConfigured = tailwindPresent || userConfigMentionsTailwind
 
@@ -310,6 +476,7 @@ export async function maybeUsePostCss(
   // so postcss-loader never has to require("@tailwindcss/postcss") from the
   // extensionjs cache path when used via npm/npx.
   let pluginsFromOptions: any[] | undefined
+  let tailwindResolvedInstance: any
   const shouldInjectTailwindPlugin =
     tailwindConfigured &&
     !pkgHasPostCss &&
@@ -433,6 +600,7 @@ export async function maybeUsePostCss(
           }
 
           if (instance) {
+            tailwindResolvedInstance = instance
             pluginsFromOptions = userConfigIsCjsInEsm
               ? [instance]
               : [
@@ -448,6 +616,7 @@ export async function maybeUsePostCss(
           'postcssPlugin' in tailwindMod
         ) {
           // Already a plugin object
+          tailwindResolvedInstance = tailwindMod
           pluginsFromOptions = userConfigIsCjsInEsm
             ? [tailwindMod]
             : [...tailwindStringPluginDisableShims(), tailwindMod]
@@ -455,6 +624,76 @@ export async function maybeUsePostCss(
       }
     } catch {
       // Never break the build from here; let postcss-loader handle errors.
+    }
+  }
+
+  // Project-first plugin resolution:
+  // postcss-loader resolves string plugins from the user's config relative to
+  // ITSELF, so a CLI installed outside the project (npx, global, isolated
+  // prefix) never sees the project's node_modules and the build hard-fails
+  // with "Cannot find module". When the user's config is parseable, load it
+  // here, resolve every string plugin against the project (warn and skip the
+  // ones that don't resolve anywhere), and bypass postcss-loader's own config
+  // loading entirely.
+  let selfResolved: {plugins: any[]; unresolved: string[]} | undefined
+  try {
+    let configObject: any
+    if (pkgHasPostCss && pkgPostCssConfig && typeof pkgPostCssConfig === 'object') {
+      configObject = pkgPostCssConfig
+    } else if (userPostCssConfig) {
+      configObject = await loadUserPostCssConfigObject(
+        userPostCssConfig,
+        projectPath,
+        String(opts.mode || 'development')
+      )
+    }
+    if (configObject && configObject.plugins) {
+      selfResolved = resolveConfigPluginList(configObject.plugins, {
+        projectPath,
+        configDir: userPostCssConfig
+          ? path.dirname(userPostCssConfig)
+          : undefined,
+        tailwindInstance: tailwindResolvedInstance,
+        bailOnFunctionEntries: userConfigUsesDirectTailwindReference
+      })
+    }
+  } catch {
+    selfResolved = undefined
+  }
+
+  if (selfResolved) {
+    for (const pluginName of selfResolved.unresolved) {
+      console.error(messages.postCssPluginNotResolved(pluginName, projectPath))
+    }
+
+    const postcssOptions = {
+      ident: 'postcss',
+      cwd: projectPath,
+      config: false,
+      plugins: selfResolved.plugins
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      try {
+        console.log(
+          `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] projectPath=%s selfResolvedPlugins=%d unresolved=%s`,
+          projectPath,
+          selfResolved.plugins.length,
+          selfResolved.unresolved.join(',') || 'none'
+        )
+      } catch {
+        // Logging must never break the build
+      }
+    }
+
+    return {
+      test: /\.css$/,
+      type: 'css',
+      loader: resolvedPostCssLoader,
+      options: {
+        postcssOptions,
+        sourceMap: opts.mode === 'development'
+      }
     }
   }
 
