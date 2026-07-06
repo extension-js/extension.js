@@ -433,11 +433,11 @@ importers:
         specifier: 0.12.4
         version: 0.12.4
       brave-location:
-        specifier: 3.0.6
-        version: 3.0.6
+        specifier: 3.1.0
+        version: 3.1.0
       chrome-location2:
-        specifier: 4.0.0
-        version: 4.0.0
+        specifier: 4.1.0
+        version: 4.1.0
       chromium-location:
         specifier: 2.1.1
         version: 2.1.1
@@ -448,8 +448,8 @@ importers:
         specifier: ^7.0.6
         version: 7.0.6
       edge-location:
-        specifier: 2.2.0
-        version: 2.2.0
+        specifier: 2.3.0
+        version: 2.3.0
       extension-create:
         specifier: workspace:*
         version: link:../create
@@ -460,14 +460,14 @@ importers:
         specifier: workspace:*
         version: link:../install
       firefox-location2:
-        specifier: 3.0.0
-        version: 3.0.0
+        specifier: 3.1.0
+        version: 3.1.0
       librewolf-location:
-        specifier: 1.1.2
-        version: 1.1.2
+        specifier: 1.2.0
+        version: 1.2.0
       opera-location2:
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: 2.1.0
+        version: 2.1.0
       pintor:
         specifier: 0.3.0
         version: 0.3.0
@@ -481,11 +481,11 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
       vivaldi-location2:
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: 2.1.0
+        version: 2.1.0
       waterfox-location:
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: 2.1.0
+        version: 2.1.0
       ws:
         specifier: ^8.20.1
         version: 8.21.0
@@ -493,8 +493,8 @@ importers:
         specifier: 0.1.0
         version: 0.1.0
       yandex-location:
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: 2.1.0
+        version: 2.1.0
     devDependencies:
       '@rslib/core':
         specifier: ^0.23.1
@@ -2939,8 +2939,8 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
-  brave-location@3.0.6:
-    resolution: {integrity: sha512-P8xyMgj1uZVPFxTLnDtRgHiL8KSuapJmq32o3hGFaDzX5t0ScLs6eoIacnNhKiR+eaaEaxNrExaamc/m6oAnzw==}
+  brave-location@3.1.0:
+    resolution: {integrity: sha512-729y5X0fUTrvV4Bbl+MoYmfaAX7caQMAjuiqKD+iUUlazmZ7Q9cFW6aV1dh97fPb1TEj0Alsk5Y7apGd+yZUJw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -3001,6 +3001,11 @@ packages:
 
   chrome-location2@4.0.0:
     resolution: {integrity: sha512-SvZO8N4s3iqUd+x/hRWd+P0RNLChaLtok1UwzI35titKXQhqHVCyTLOW2P85YpCZrsJHzMFDcwRrZk+WM8AJgg==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+  chrome-location2@4.1.0:
+    resolution: {integrity: sha512-mk7Q29MK66GR6WP5UDzCEPqv3zWVmNTdHqGscm/v5WYJaRATPfnS32DIl04p4YpvxUqdWpuAtCuMbegdLh0l2Q==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -3204,6 +3209,11 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
+  edge-location@2.3.0:
+    resolution: {integrity: sha512-aH6+vsAYp+0dKh5RJD7SCfkeYjCNtGdM6FKK94gGbfJhQgEOrxr8mqmTfqv0P4DToS/EkefnaeHfes2VI7kxLQ==}
+    engines: {node: '>=16'}
+    hasBin: true
+
   electron-to-chromium@1.5.267:
     resolution: {integrity: sha512-0Drusm6MVRXSOJpGbaSVgcQsuB4hEkMpHXaVstcPmhu5LIedxs1xNK/nIxmQIU/RPC0+1/o0AVZfBTkTNJOdUw==}
 
@@ -3385,6 +3395,11 @@ packages:
 
   firefox-location2@3.0.0:
     resolution: {integrity: sha512-9dZ7OevIbHMelZ2UaV+uXLOI6RsJ+0DwIBdni6t4oWL5b2wGhG4LL8neqJkTtLZ/HslDdSVKx1fG8BKpZRgMKQ==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+  firefox-location2@3.1.0:
+    resolution: {integrity: sha512-Uh9Hio8smc68xQymvFXxtcn3F8v43NeumPHsMXoBHdSjwiPQeBcz1bmjblYnoo6chAhn/6+fLMwDIBFv/niE+w==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -3695,8 +3710,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  librewolf-location@1.1.2:
-    resolution: {integrity: sha512-P1FYVVKVWO+ouveg+Q4Tyu5g74FvGZktfONVu55bofiOSwM+YD9RowesqZwkUBI4mIyIaMtLwNUwbXK45su/dQ==}
+  librewolf-location@1.2.0:
+    resolution: {integrity: sha512-oCjCqe8MAKXCvPI37JdrNcNZhRymYpqbCSu3Rpcrc5tcQui0YkqdB2QRXUHOCaR/NKDWAQ//RHN41UbqCqlyLQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4003,8 +4018,8 @@ packages:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
 
-  opera-location2@2.0.2:
-    resolution: {integrity: sha512-GuEl3/D2d1c2xKc61r1eo6EmkdT7z5yI4o7uCRfH1ud9GtePcG7VsKgjjHNl/GqprofpLNvocXwwsQlv1/BUGA==}
+  opera-location2@2.1.0:
+    resolution: {integrity: sha512-W9ylFtC8HJR7vi5Z4gOOVAF+qSMThNORUnpIkqgNxIglKr4TS8HTzv/PI1wx3dQ7adpOs3no2LZz0PcqUFjWnA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4087,6 +4102,10 @@ packages:
 
   pintor@0.3.0:
     resolution: {integrity: sha512-ywpmLlAFhq5HZRL777RnbwpwaGx/I0olpnmp2r1frwRJdSJgc+0KXRqhDkc3xHj4KrUI+0J8d1XkDjiSU2w/5A==}
+    engines: {node: '>=14.0.0'}
+
+  pintor@0.3.2:
+    resolution: {integrity: sha512-nkYltipcc+Keb5SRj2XFY7Iw3lq+J0S1Qk+hxYoPO/NbgLJJQG6URhqINA1QuRObHmKIT4PiuG5R6YOBw/UFrQ==}
     engines: {node: '>=14.0.0'}
 
   pirates@4.0.7:
@@ -4948,8 +4967,8 @@ packages:
       jsdom:
         optional: true
 
-  vivaldi-location2@2.0.2:
-    resolution: {integrity: sha512-N9abrdA1IZMeUWpUZ64p6Ew5anL3DScmIhPIrz7GZmznr5eoeIc1o6HO9STisBKoM/ShUsccrk4JpV748eZe1Q==}
+  vivaldi-location2@2.1.0:
+    resolution: {integrity: sha512-mncTo7i7Q1BWU3mTroTzhPuGxkY2k5XgBFfCPDAqhSE4/USPLcyssjXtQd00ZwmSk5QQgYCC63mfkDgll6adPA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4980,8 +4999,8 @@ packages:
     resolution: {integrity: sha512-Zn5uXdcFNIA1+1Ei5McRd+iRzfhENPCe7LeABkJtNulSxjma+l7ltNx55BWZkRlwRnpOgHqxnjyaDgJnNXnqzg==}
     engines: {node: '>=10.13.0'}
 
-  waterfox-location@2.0.2:
-    resolution: {integrity: sha512-HghHKvdgMeuSLRIQWLs0GNioz47LqYiqUzjHZNwfXHK/cdg1C+gpNh62QzEyVWomujOWlGRpjv7CU4Aukvn/PQ==}
+  waterfox-location@2.1.0:
+    resolution: {integrity: sha512-m27hg93+33vB7WxnVBV2yVQ/i55Q3hgUgFakZJwdjrU/KcBVOpbomk1nNP2HETWeXrV8au5g65N4av8YF7WWLg==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5057,8 +5076,8 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
-  yandex-location@2.0.2:
-    resolution: {integrity: sha512-maltyLUfDhXtfINVBI//4Bu1ahEMXIRVvLeFArmAbnHGXAw/9wse0FkO/XeR2+nl6tX4Ri/rt7tztPvZdGysNA==}
+  yandex-location@2.1.0:
+    resolution: {integrity: sha512-XLS0AiLaMgRrwReQ7HjuTZ6uZZU/ij1gJ+3Cxq/WQ+6zkSeejR+QCKpJvCewSCSILdYvSGWpWwr4wrKNU4WXPg==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7341,7 +7360,7 @@ snapshots:
     dependencies:
       fill-range: 7.1.1
 
-  brave-location@3.0.6:
+  brave-location@3.1.0:
     dependencies:
       which: 4.0.0
 
@@ -7393,6 +7412,12 @@ snapshots:
   chrome-location2@4.0.0:
     dependencies:
       pintor: 0.3.0
+      userhome: 1.0.1
+      which: 4.0.0
+
+  chrome-location2@4.1.0:
+    dependencies:
+      pintor: 0.3.2
       userhome: 1.0.1
       which: 4.0.0
 
@@ -7564,6 +7589,10 @@ snapshots:
       gopd: 1.2.0
 
   edge-location@2.2.0:
+    dependencies:
+      which: 4.0.0
+
+  edge-location@2.3.0:
     dependencies:
       which: 4.0.0
 
@@ -7837,6 +7866,11 @@ snapshots:
       path-exists: 4.0.0
 
   firefox-location2@3.0.0:
+    dependencies:
+      userhome: 1.0.1
+      which: 4.0.0
+
+  firefox-location2@3.1.0:
     dependencies:
       userhome: 1.0.1
       which: 4.0.0
@@ -8115,7 +8149,7 @@ snapshots:
       needle: 3.5.0
       source-map: 0.6.1
 
-  librewolf-location@1.1.2:
+  librewolf-location@1.2.0:
     dependencies:
       which: 4.0.0
 
@@ -8371,7 +8405,7 @@ snapshots:
     dependencies:
       mimic-function: 5.0.1
 
-  opera-location2@2.0.2:
+  opera-location2@2.1.0:
     dependencies:
       which: 4.0.0
 
@@ -8438,6 +8472,8 @@ snapshots:
     optional: true
 
   pintor@0.3.0: {}
+
+  pintor@0.3.2: {}
 
   pirates@4.0.7: {}
 
@@ -9342,7 +9378,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vivaldi-location2@2.0.2:
+  vivaldi-location2@2.1.0:
     dependencies:
       which: 4.0.0
 
@@ -9386,7 +9422,7 @@ snapshots:
       glob-to-regexp: 0.4.1
       graceful-fs: 4.2.11
 
-  waterfox-location@2.0.2:
+  waterfox-location@2.1.0:
     dependencies:
       which: 4.0.0
 
@@ -9504,7 +9540,7 @@ snapshots:
   yaml@2.9.0:
     optional: true
 
-  yandex-location@2.0.2:
+  yandex-location@2.1.0:
     dependencies:
       which: 4.0.0
 
