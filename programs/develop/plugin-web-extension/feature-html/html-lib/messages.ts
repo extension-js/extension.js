@@ -174,6 +174,22 @@ export function manifestHtmlEntrypointChange(
   return lines.join('\n')
 }
 
+export function manifestPageMissing(
+  manifestField: string,
+  missingFilePath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(
+    `The page path must point to an existing HTML file that will be bundled.`
+  )
+  lines.push('')
+  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
+  return lines.join('\n')
+}
+
 export function manifestFieldMessageOnly(manifestField: string) {
   const manifestFieldName = manifestField.startsWith('content_scripts')
     ? `content_scripts`
