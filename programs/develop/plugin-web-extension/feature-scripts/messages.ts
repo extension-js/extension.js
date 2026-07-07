@@ -77,6 +77,22 @@ export function fetchedFileDependencyMissing(
   )
 }
 
+export function getURLDependencyMissing(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return (
+    `${colors.yellow(assetName)} references ${colors.yellow(
+      `'${literal}'`
+    )} via chrome.runtime.getURL(), but ${colors.yellow(expectedPath)} is ` +
+    `not part of the output. The reference will fail at runtime.\n` +
+    `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
+      'public/'
+    )}) so it ships with the extension.`
+  )
+}
+
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
   return (
