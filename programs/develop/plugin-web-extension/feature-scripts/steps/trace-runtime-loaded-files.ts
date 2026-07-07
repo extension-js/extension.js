@@ -42,6 +42,7 @@ export class TraceRuntimeLoadedFiles {
             this.traceWorkerImportScripts(compilation)
             this.traceInjectedFilePayloads(compilation)
             this.traceFetchedFiles(compilation, compiler)
+            this.traceGetURLFiles(compilation)
           }
         )
       }
@@ -227,6 +228,113 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
+  private traceGetURLFiles(compilation: Compilation) {
+    const manifestDir = path.dirname(this.manifestPath)
+    const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
+    const seen = new Set<string>()
+
+    // chrome.runtime.getURL literals resolve against the extension ROOT
+    // regardless of the calling context, so — unlike relative fetch() —
+    // content scripts and scripts/ helpers are traceable here.
+    type PendingScan =
+      | {kind: 'js'; content: string; assetName: string}
+      | {kind: 'html'; content: string; baseRel: string}
+
+    let pending: PendingScan[] = compilation
+      .getAssets()
+      .filter((asset) => /\.js$/i.test(asset.name))
+      .map((asset) => ({
+        kind: 'js' as const,
+        content: asset.source.source().toString(),
+        assetName: asset.name
+      }))
+
+    // Copied files chain: a getURL'd module can call getURL again, and a
+    // getURL'd HTML page pulls its own src/href subresources along (the
+    // redirect-stub-to-real-page pattern).
+    for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
+      const next: PendingScan[] = []
+
+      for (const item of pending) {
+        const refs =
+          item.kind === 'js'
+            ? extractGetURLLiterals(item.content).map((literal) => ({
+                literal,
+                baseRel: ''
+              }))
+            : extractHtmlSubresourceLiterals(item.content).map((literal) => ({
+                literal,
+                baseRel: item.baseRel
+              }))
+
+        for (const {literal, baseRel} of refs) {
+          const distRel = resolveExtensionPath(literal, baseRel)
+          if (!distRel || seen.has(distRel)) continue
+          seen.add(distRel)
+
+          // Manifest-declared surfaces are compiled and relocated by the
+          // main pipeline — copying their raw sources would ship stale
+          // duplicates.
+          if (declaredSurfaces.has(distRel)) continue
+          if (compilation.getAsset(distRel)) continue
+          // public/ files land at the output root via the special-folders
+          // pipeline.
+          if (fs.existsSync(path.join(manifestDir, 'public', distRel)))
+            continue
+
+          // getURL paths are root-anchored, so source and dist paths match.
+          const abs = path.join(manifestDir, distRel)
+          if (
+            !path.relative(manifestDir, abs).startsWith('..') &&
+            fs.existsSync(abs) &&
+            fs.statSync(abs).isFile()
+          ) {
+            const buffer = fs.readFileSync(abs)
+            compilation.emitAsset(distRel, new sources.RawSource(buffer))
+            try {
+              compilation.fileDependencies.add(abs)
+            } catch {
+              // ignore — watch registration is best-effort
+            }
+            if (/\.js$/i.test(distRel)) {
+              next.push({
+                kind: 'js',
+                content: buffer.toString(),
+                assetName: distRel
+              })
+            } else if (/\.html?$/i.test(distRel)) {
+              next.push({
+                kind: 'html',
+                content: buffer.toString(),
+                baseRel: distRel
+              })
+            }
+            continue
+          }
+
+          // Warn only for extensioned getURL misses found in JS: HTML
+          // subresource misses inherit the page author's problem, and
+          // extensionless getURL args are often origin/base computations.
+          if (item.kind === 'js' && /\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
+            const warn = new WebpackError(
+              messages.getURLDependencyMissing(
+                item.assetName,
+                literal,
+                distRel
+              )
+            ) as Error & {file?: string; name?: string}
+            warn.name = 'RuntimeGetURLFileMissing'
+            warn.file = item.assetName
+            compilation.warnings ||= []
+            compilation.warnings.push(warn)
+          }
+        }
+      }
+
+      pending = next
+    }
+  }
+
   private traceInjectedFilePayloads(compilation: Compilation) {
     const manifestDir = path.dirname(this.manifestPath)
     const seen = new Set<string>()
@@ -376,6 +484,86 @@ function resolveExtensionPath(
   } catch {
     return null
   }
+}
+
+/**
+ * Source paths the manifest declares as compiled surfaces (pages, workers,
+ * content scripts). These relocate in dist, so getURL tracing must not copy
+ * their raw sources through — the main pipeline owns them.
+ */
+function manifestDeclaredSourcePaths(
+  manifest: Record<string, any> | undefined
+): Set<string> {
+  const declared = new Set<string>()
+  if (!manifest) return declared
+
+  const add = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) {
+      declared.add(unixify(value.trim()).replace(/^\/+/, '').split(/[?#]/)[0])
+    }
+  }
+
+  add(manifest.background?.service_worker)
+  add(manifest.background?.page)
+  for (const script of manifest.background?.scripts ?? []) add(script)
+  add(manifest.action?.default_popup)
+  add(manifest.browser_action?.default_popup)
+  add(manifest.page_action?.default_popup)
+  add(manifest.options_page)
+  add(manifest.options_ui?.page)
+  add(manifest.devtools_page)
+  add(manifest.side_panel?.default_path)
+  add(manifest.sidebar_action?.default_panel)
+  for (const page of Object.values(manifest.chrome_url_overrides ?? {})) {
+    add(page)
+  }
+  for (const contentScript of manifest.content_scripts ?? []) {
+    for (const js of contentScript?.js ?? []) add(js)
+    for (const css of contentScript?.css ?? []) add(css)
+  }
+
+  return declared
+}
+
+/**
+ * Extract string-literal arguments of chrome.runtime.getURL /
+ * browser.runtime.getURL calls. Matching on `runtime.getURL(` keeps aliased
+ * or user-defined getURL functions out while surviving minification (the
+ * chrome global's member chain is never mangled). Computed arguments cannot
+ * be traced statically and are skipped.
+ */
+function extractGetURLLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  const callRe = /\bruntime\s*\.\s*getURL\s*\(/g
+
+  let match: RegExpExecArray | null
+  while ((match = callRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+    const [first] = splitTopLevelArgs(args)
+    const literal = first == null ? null : pureStringLiteral(first)
+    if (literal != null) literals.push(literal)
+  }
+
+  return literals
+}
+
+/**
+ * Extract src/href attribute values from an HTML file copied through by
+ * getURL tracing, so the page's subresource closure ships with it. Remote
+ * and other-scheme URLs are filtered later by resolveExtensionPath.
+ */
+function extractHtmlSubresourceLiterals(html: string): string[] {
+  const literals: string[] = []
+  const attrRe = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gi
+
+  let match: RegExpExecArray | null
+  while ((match = attrRe.exec(html))) {
+    literals.push(match[2])
+  }
+
+  return literals
 }
 
 function extractImportScriptsLiterals(source: string): string[] {
