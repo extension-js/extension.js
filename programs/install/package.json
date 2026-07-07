@@ -23,7 +23,7 @@
     "dist"
   ],
   "name": "extension-install",
-  "version": "4.0.5",
+  "version": "4.0.6",
   "description": "Managed browser installer/uninstaller for Extension.js",
   "author": {
     "name": "Cezar Augusto",
