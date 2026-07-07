@@ -27,6 +27,10 @@ const EXECUTESCRIPT_ROOT = fs.mkdtempSync(
 const MISSING_DEP_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-missing-dep-')
 )
+const TEMPLATE_LITERAL_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-template-literal-')
+)
+const FETCH_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-fetch-'))
 
 function writePackageJson(root: string, name: string) {
   fs.writeFileSync(
@@ -154,6 +158,112 @@ function writeMissingDepFixture() {
   )
 }
 
+// Mirrors the corpus repro `d-executescript-callback` (bug 7 / G30): the
+// executeScript call's completion callback holds a multi-KB nested template
+// literal. Minifiers hoist the callback into the call's own argument list, so
+// the tracer's balanced-args read must survive argument spans well past the
+// old 5000-char cap — and template-literal interpolations must not desync
+// the string-aware scan.
+function writeTemplateLiteralFixture() {
+  writePackageJson(TEMPLATE_LITERAL_ROOT, 'extjs-build-template-literal-spec')
+
+  fs.writeFileSync(
+    path.join(TEMPLATE_LITERAL_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — executeScript with big template literal',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        permissions: ['scripting', 'activeTab']
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(TEMPLATE_LITERAL_ROOT, 'popup.html'),
+    '<html><body><script src="popup.js"></script></body></html>\n'
+  )
+
+  const fillerLines = Array.from(
+    {length: 80},
+    (_, index) =>
+      `        <div class="row-${index}">filler content line ${index} with enough text to matter</div>`
+  ).join('\n')
+
+  fs.writeFileSync(
+    path.join(TEMPLATE_LITERAL_ROOT, 'popup.js'),
+    [
+      'chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabs[0].id},',
+      '    files: ["extract.js"]',
+      '  }, () => {',
+      '    const rows = [[1, 2, 3]]',
+      '    const html = rows.map((row) => `',
+      fillerLines,
+      '      <span>${row.join(",")}</span>',
+      '    `)',
+      '    console.log(html.join(""))',
+      '  })',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(TEMPLATE_LITERAL_ROOT, 'extract.js'),
+    'document.title = "extracted";\n'
+  )
+}
+
+// Mirrors the corpus repro `c-runtime-fetch` (bug 6 / G29): the popup fetches
+// a package file by a page-relative literal. The page relocates in dist
+// (popup.html -> action/index.html), so the file must land where the fetch
+// resolves from the EMITTED page — action/data/config.json — and a fetch of
+// a file that exists nowhere must warn instead of staying silent.
+function writeFetchFixture() {
+  writePackageJson(FETCH_ROOT, 'extjs-build-fetch-spec')
+  fs.mkdirSync(path.join(FETCH_ROOT, 'data'), {recursive: true})
+
+  fs.writeFileSync(
+    path.join(FETCH_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — runtime fetch deps',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(FETCH_ROOT, 'popup.html'),
+    '<html><body><script src="popup.js"></script></body></html>\n'
+  )
+
+  fs.writeFileSync(
+    path.join(FETCH_ROOT, 'popup.js'),
+    [
+      'fetch("./data/config.json")',
+      '  .then((response) => response.json())',
+      '  .then((config) => console.log("config:", config))',
+      'fetch("./data/nope.json").catch(() => {})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(FETCH_ROOT, 'data', 'config.json'),
+    '{"greeting": "hello from config"}\n'
+  )
+}
+
 async function buildFixture(root: string) {
   const {extensionBuild} = await import('../command-build')
 
@@ -188,12 +298,16 @@ beforeAll(() => {
   writeImportScriptsFixture()
   writeExecuteScriptFixture()
   writeMissingDepFixture()
+  writeTemplateLiteralFixture()
+  writeFetchFixture()
 }, 30_000)
 
 afterAll(() => {
   fs.rmSync(IMPORTSCRIPTS_ROOT, {recursive: true, force: true})
   fs.rmSync(EXECUTESCRIPT_ROOT, {recursive: true, force: true})
   fs.rmSync(MISSING_DEP_ROOT, {recursive: true, force: true})
+  fs.rmSync(TEMPLATE_LITERAL_ROOT, {recursive: true, force: true})
+  fs.rmSync(FETCH_ROOT, {recursive: true, force: true})
 })
 
 describe('build: untraced runtime-loaded deps (real rspack)', () => {
@@ -232,6 +346,39 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     expect(fs.readFileSync(path.join(distDir, 'injected.js'), 'utf8')).toBe(
       'document.title = "injected ran";\n'
     )
+  }, 120_000)
+
+  it('keeps tracing executeScript files when the call carries a multi-KB template literal (G30)', async () => {
+    const summary = await buildFixture(TEMPLATE_LITERAL_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(TEMPLATE_LITERAL_ROOT, 'dist', 'chrome')
+    const extractDist = path.join(distDir, 'extract.js')
+    expect(fs.existsSync(extractDist), `missing ${extractDist}`).toBe(true)
+    expect(fs.readFileSync(extractDist, 'utf8')).toBe(
+      'document.title = "extracted";\n'
+    )
+  }, 120_000)
+
+  it('copies runtime-fetched package files relative to the relocated page, and warns on missing ones (G29)', async () => {
+    const summary = await buildFixture(FETCH_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    // fetch("./data/config.json") resolves against the EMITTED page URL
+    // (action/index.html), so the file must land at action/data/config.json.
+    const distDir = path.join(FETCH_ROOT, 'dist', 'chrome')
+    const configDist = path.join(distDir, 'action', 'data', 'config.json')
+    expect(fs.existsSync(configDist), `missing ${configDist}`).toBe(true)
+    expect(fs.readFileSync(configDist, 'utf8')).toBe(
+      '{"greeting": "hello from config"}\n'
+    )
+
+    // fetch("./data/nope.json") exists nowhere — silent breakage must
+    // surface as a build warning.
+    expect(summary.warnings_count).toBeGreaterThan(0)
+    expect(
+      fs.existsSync(path.join(distDir, 'action', 'data', 'nope.json'))
+    ).toBe(false)
   }, 120_000)
 
   it('warns (instead of silently breaking) when an importScripts dep is missing', async () => {
