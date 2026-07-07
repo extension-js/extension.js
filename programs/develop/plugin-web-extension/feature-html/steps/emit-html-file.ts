@@ -48,14 +48,33 @@ export class EmitHtmlFile {
                 : path.join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
-              // Only warn for non-entrypoint HTML (special pages/*). Entrypoint
-              // errors are handled by the manifest feature checks.
               if (featureName.startsWith('pages/')) {
+                // Non-entrypoint HTML (special pages/*) only warns.
                 reportToCompilation(
                   compilation,
                   compiler,
                   messages.manifestFieldMessageOnly(featureName),
                   'warning'
+                )
+              } else {
+                // Chrome refuses to load an extension whose popup, options,
+                // devtools, background, or override page is missing — fail
+                // the build the same way instead of emitting a manifest that
+                // points at a page that is never produced. Sandbox/sidebar
+                // surfaces are not load-checked by every browser, so they
+                // warn instead.
+                const isLoadChecked =
+                  !featureName.startsWith('sandbox/') &&
+                  featureName !== 'sidebar/index'
+                reportToCompilation(
+                  compilation,
+                  compiler,
+                  messages.manifestPageMissing(
+                    manifestFieldForHtmlFeature(featureName, this.manifestPath),
+                    resolved
+                  ),
+                  isLoadChecked ? 'error' : 'warning',
+                  'manifest.json'
                 )
               }
               continue
@@ -81,5 +100,53 @@ export class EmitHtmlFile {
         runner()
       }
     })
+  }
+}
+
+/**
+ * Map an HTML includeList feature key (the emitted page path, e.g.
+ * `action/index`) back to the manifest field the user actually wrote, so
+ * missing-file errors point at their own manifest. Field presence is checked
+ * browser-prefix tolerant (`chrome:action` counts as `action`).
+ */
+function manifestFieldForHtmlFeature(
+  featureName: string,
+  manifestPath: string
+): string {
+  let manifest: Record<string, any> = {}
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+  } catch {
+    // fall through to positional labels
+  }
+
+  const has = (key: string) =>
+    Object.keys(manifest).some(
+      (manifestKey) =>
+        manifestKey === key || manifestKey.endsWith(`:${key}`)
+    )
+
+  if (featureName.startsWith('chrome_url_overrides/')) {
+    return featureName.replace('/', '.')
+  }
+  if (featureName.startsWith('sandbox/')) return 'sandbox.pages'
+
+  switch (featureName) {
+    case 'action/index':
+      if (has('action')) return 'action.default_popup'
+      if (has('browser_action')) return 'browser_action.default_popup'
+      return 'page_action.default_popup'
+    case 'options/index':
+      return has('options_page') ? 'options_page' : 'options_ui.page'
+    case 'background/index':
+      return 'background.page'
+    case 'devtools/index':
+      return 'devtools_page'
+    case 'sidebar/index':
+      return has('side_panel')
+        ? 'side_panel.default_path'
+        : 'sidebar_action.default_panel'
+    default:
+      return featureName.replace('/', '.')
   }
 }

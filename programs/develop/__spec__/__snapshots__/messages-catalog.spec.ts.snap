@@ -121,6 +121,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "javaScriptError: function(3)",
     "manifestFieldMessageOnly: function(1)",
     "manifestHtmlEntrypointChange: function(3)",
+    "manifestPageMissing: function(2)",
     "remoteResourceWarning: function(3)",
     "serverRestartRequiredFromHtml: function(2)",
     "staticAssetError: function(3)",
