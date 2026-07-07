@@ -31,6 +31,9 @@ const TEMPLATE_LITERAL_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-template-literal-')
 )
 const FETCH_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-fetch-'))
+const GETURL_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-geturl-')
+)
 
 function writePackageJson(root: string, name: string) {
   fs.writeFileSync(
@@ -264,6 +267,82 @@ function writeFetchFixture() {
   )
 }
 
+// Mirrors the corpus repro `e-dynamic-import` (bug 8): chrome.runtime.getURL
+// literals resolve against the extension ROOT regardless of the calling
+// context, so a content script's import(chrome.runtime.getURL('common.js'))
+// is traceable even though relative fetches from content scripts are not.
+// The NAVIGATION variant (L8teNever) points getURL at an HTML page whose own
+// src/href subresources must ship along with it.
+function writeGetURLFixture() {
+  writePackageJson(GETURL_ROOT, 'extjs-build-geturl-spec')
+  fs.mkdirSync(path.join(GETURL_ROOT, 'ui'), {recursive: true})
+
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — getURL runtime deps',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}],
+        web_accessible_resources: [
+          {resources: ['common.js'], matches: ['<all_urls>']}
+        ]
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'content.js'),
+    [
+      "import(chrome.runtime.getURL('common.js')).then((common) => {",
+      "  console.log('common says:', common.MESSAGE)",
+      '})',
+      "import(chrome.runtime.getURL('nope.js')).catch(() => {})",
+      ''
+    ].join('\n')
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'common.js'),
+    "export const MESSAGE = 'loaded'\n"
+  )
+
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'popup.html'),
+    '<html><body><script src="popup.js"></script></body></html>\n'
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'popup.js'),
+    [
+      'document.body.addEventListener("click", () => {',
+      '  location.href = chrome.runtime.getURL("ui/page.html")',
+      '})',
+      ''
+    ].join('\n')
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'ui', 'page.html'),
+    [
+      '<html>',
+      '  <head><link rel="stylesheet" href="page.css"></head>',
+      '  <body><h1>ui page</h1><script src="page.js"></script></body>',
+      '</html>',
+      ''
+    ].join('\n')
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'ui', 'page.js'),
+    "document.title = 'ui page ran'\n"
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'ui', 'page.css'),
+    'h1 { color: rebeccapurple; }\n'
+  )
+}
+
 async function buildFixture(root: string) {
   const {extensionBuild} = await import('../command-build')
 
@@ -300,9 +379,11 @@ beforeAll(() => {
   writeMissingDepFixture()
   writeTemplateLiteralFixture()
   writeFetchFixture()
+  writeGetURLFixture()
 }, 30_000)
 
 afterAll(() => {
+  fs.rmSync(GETURL_ROOT, {recursive: true, force: true})
   fs.rmSync(IMPORTSCRIPTS_ROOT, {recursive: true, force: true})
   fs.rmSync(EXECUTESCRIPT_ROOT, {recursive: true, force: true})
   fs.rmSync(MISSING_DEP_ROOT, {recursive: true, force: true})
@@ -379,6 +460,33 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     expect(
       fs.existsSync(path.join(distDir, 'action', 'data', 'nope.json'))
     ).toBe(false)
+  }, 120_000)
+
+  it('copies chrome.runtime.getURL() targets — dynamic import from a content script and an HTML page with its subresources (bug 8)', async () => {
+    const summary = await buildFixture(GETURL_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(GETURL_ROOT, 'dist', 'chrome')
+
+    // getURL resolves against the extension root, so common.js must ship at
+    // the package root, verbatim (Chrome loads it as a real ES module file).
+    const commonDist = path.join(distDir, 'common.js')
+    expect(fs.existsSync(commonDist), `missing ${commonDist}`).toBe(true)
+    expect(fs.readFileSync(commonDist, 'utf8')).toBe(
+      "export const MESSAGE = 'loaded'\n"
+    )
+
+    // NAVIGATION variant: the getURL'd HTML page ships at its literal path
+    // with its own src/href subresource closure.
+    for (const rel of ['ui/page.html', 'ui/page.js', 'ui/page.css']) {
+      const abs = path.join(distDir, rel)
+      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+    }
+
+    // getURL of a file that exists nowhere must warn instead of staying
+    // silent.
+    expect(summary.warnings_count).toBeGreaterThan(0)
+    expect(fs.existsSync(path.join(distDir, 'nope.js'))).toBe(false)
   }, 120_000)
 
   it('warns (instead of silently breaking) when an importScripts dep is missing', async () => {
