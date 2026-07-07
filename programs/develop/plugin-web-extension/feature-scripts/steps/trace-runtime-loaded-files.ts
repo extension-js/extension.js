@@ -41,6 +41,7 @@ export class TraceRuntimeLoadedFiles {
           () => {
             this.traceWorkerImportScripts(compilation)
             this.traceInjectedFilePayloads(compilation)
+            this.traceFetchedFiles(compilation, compiler)
           }
         )
       }
@@ -116,6 +117,113 @@ export class TraceRuntimeLoadedFiles {
       }
 
       pending = next
+    }
+  }
+
+  private traceFetchedFiles(compilation: Compilation, compiler: Compiler) {
+    const manifestDir = path.dirname(this.manifestPath)
+    const seen = new Set<string>()
+
+    // Entry name -> directory of its first filesystem import. fetch() and
+    // friends resolve against the PAGE URL, and pages get relocated in dist
+    // (popup.html -> action/index.html), so the author's relative base is
+    // gone from the emitted layout. The entry's source dir approximates it
+    // for the common page-keeps-its-files-beside-it layouts.
+    const entrySourceDirs = new Map<string, string>()
+    const entryOption = compiler.options.entry
+    if (entryOption && typeof entryOption === 'object') {
+      for (const [name, desc] of Object.entries(entryOption)) {
+        const imports: unknown[] = Array.isArray((desc as any)?.import)
+          ? (desc as any).import
+          : typeof desc === 'string'
+            ? [desc]
+            : []
+        const fsImport = imports.find(
+          (imp): imp is string =>
+            typeof imp === 'string' &&
+            !imp.startsWith('data:') &&
+            path.isAbsolute(imp)
+        )
+        if (fsImport) entrySourceDirs.set(name, path.dirname(fsImport))
+      }
+    }
+
+    // Content scripts (and scripts/ folder helpers, which are injected into
+    // pages) run inside web pages, where a relative fetch() resolves against
+    // the WEBSITE — nothing of theirs can be traced into the package.
+    const jsAssets = compilation
+      .getAssets()
+      .filter(
+        (asset) =>
+          /\.js$/i.test(asset.name) &&
+          !asset.name.startsWith('content_scripts/') &&
+          !asset.name.startsWith('scripts/')
+      )
+
+    for (const asset of jsAssets) {
+      const content = asset.source.source().toString()
+
+      for (const literal of extractFetchedFileLiterals(content)) {
+        // Runtime resolution base is the asset's own URL directory: page
+        // scripts sit beside their page in dist, and workers fetch against
+        // the worker URL.
+        const distRel = resolveExtensionPath(literal, asset.name)
+        if (!distRel || seen.has(distRel)) continue
+        seen.add(distRel)
+
+        if (compilation.getAsset(distRel)) continue
+        // public/ files land at the output root via the special-folders
+        // pipeline.
+        if (fs.existsSync(path.join(manifestDir, 'public', distRel))) continue
+
+        const fsRel = fetchLiteralToFsPath(literal)
+        const rootRel = resolveExtensionPath(literal, '')
+        const entryDir = entrySourceDirs.get(asset.name.replace(/\.js$/i, ''))
+        const candidates = [
+          // Source layout already mirrors the emitted layout.
+          path.join(manifestDir, distRel),
+          // Author-relative to the (relocated) page's source dir.
+          entryDir && fsRel && !fsRel.startsWith('/')
+            ? path.resolve(entryDir, fsRel)
+            : null,
+          // Author-relative to the extension root (Chrome clamps ../ at the
+          // origin root, so this matches real resolution for root pages).
+          rootRel ? path.join(manifestDir, rootRel) : null
+        ].filter((candidate): candidate is string => Boolean(candidate))
+
+        const abs = candidates.find(
+          (candidate) =>
+            !path.relative(manifestDir, candidate).startsWith('..') &&
+            fs.existsSync(candidate) &&
+            fs.statSync(candidate).isFile()
+        )
+
+        if (abs) {
+          compilation.emitAsset(
+            distRel,
+            new sources.RawSource(fs.readFileSync(abs))
+          )
+          try {
+            compilation.fileDependencies.add(abs)
+          } catch {
+            // ignore — watch registration is best-effort
+          }
+          continue
+        }
+
+        // Only extensioned paths warn: a bare "/v1/users"-style literal is
+        // far likelier an API route on a user-configured host than a file
+        // the author expected in the package.
+        if (/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
+          const warn = new WebpackError(
+            messages.fetchedFileDependencyMissing(asset.name, literal, distRel)
+          ) as Error & {file?: string; name?: string}
+          warn.name = 'RuntimeFetchedFileMissing'
+          warn.file = asset.name
+          compilation.warnings ||= []
+          compilation.warnings.push(warn)
+        }
+      }
     }
   }
 
@@ -322,6 +430,77 @@ function extractInjectedFileLiterals(source: string): string[] {
 }
 
 /**
+ * Extract string-literal URLs the code loads at runtime through same-origin
+ * request APIs: fetch(), XMLHttpRequest#open(method, url), and
+ * new URL(url, <own-location base>). Computed arguments cannot be traced
+ * statically and are skipped.
+ */
+function extractFetchedFileLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  let match: RegExpExecArray | null
+
+  // fetch("data/config.json") — first argument only.
+  const fetchRe = /\bfetch\s*\(/g
+  while ((match = fetchRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+    const [first] = splitTopLevelArgs(args)
+    const literal = first == null ? null : pureStringLiteral(first)
+    if (literal != null) literals.push(literal)
+  }
+
+  // xhr.open("GET", "data/config.json") — requiring a string-literal HTTP
+  // method keeps window.open(...) and user methods named open() out.
+  const openRe = /\bopen\s*\(/g
+  while ((match = openRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+    const parts = splitTopLevelArgs(args)
+    if (parts.length < 2) continue
+    const method = pureStringLiteral(parts[0])
+    if (!method || !/^(?:GET|POST|PUT|DELETE|HEAD|PATCH|OPTIONS)$/i.test(method)) {
+      continue
+    }
+    const literal = pureStringLiteral(parts[1])
+    if (literal != null) literals.push(literal)
+  }
+
+  // new URL("data/x.json", import.meta.url | location | document.baseURI) —
+  // the allowlisted bases all resolve to the asset's own URL at runtime.
+  const urlRe = /\bnew\s+URL\s*\(/g
+  while ((match = urlRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+    const parts = splitTopLevelArgs(args)
+    if (parts.length !== 2) continue
+    const base = parts[1].trim()
+    const ownLocationBase =
+      /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
+      base === 'document.baseURI' ||
+      base === 'import.meta.url'
+    if (!ownLocationBase) continue
+    const literal = pureStringLiteral(parts[0])
+    if (literal != null) literals.push(literal)
+  }
+
+  return literals
+}
+
+/**
+ * Reduce a same-origin URL literal to a filesystem-joinable path (query and
+ * hash stripped), or null for remote/other-scheme references.
+ */
+function fetchLiteralToFsPath(literal: string): string | null {
+  const trimmed = literal.trim()
+  if (!trimmed) return null
+  if (/^[a-zA-Z][\w+.-]*:/.test(trimmed)) return null
+  if (trimmed.startsWith('//')) return null
+  const noQuery = trimmed.split(/[?#]/)[0]
+  return noQuery ? unixify(noQuery) : null
+}
+
+/**
  * Blank out // and /* *\/ comments (string-aware) so commented-out calls do
  * not produce copies or missing-file warnings. Contents are replaced with
  * spaces to keep offsets stable.
@@ -358,22 +537,11 @@ function blankComments(source: string): string {
     }
 
     if (char === '"' || char === "'" || char === '`') {
-      const quote = char
-      out += char
-      i++
-      while (i < n) {
-        if (source[i] === '\\') {
-          out += source[i] + (source[i + 1] ?? '')
-          i += 2
-          continue
-        }
-        out += source[i]
-        if (source[i] === quote) {
-          i++
-          break
-        }
-        i++
-      }
+      // Copy the whole string token verbatim, template interpolations
+      // included, so nested backticks cannot desync the comment scan.
+      const end = skipString(source, i, n)
+      out += source.slice(i, Math.min(end + 1, n))
+      i = end + 1
       continue
     }
 
@@ -386,11 +554,16 @@ function blankComments(source: string): string {
 
 /**
  * Given the index of an opening paren, return the argument text up to the
- * matching close paren (string-aware), or null when unbalanced/oversized.
+ * matching close paren (string-aware), or null when unbalanced. No size cap:
+ * minifiers hoist completion callbacks into the call's own argument list, so
+ * the args of an executeScript call can legitimately span many kilobytes
+ * (a ~5KB template literal in the callback used to silently disable tracing
+ * for the whole file). Valid JS always balances, so the scan stops at the
+ * real closing paren.
  */
 function readBalancedArgs(code: string, openIndex: number): string | null {
   if (code[openIndex] !== '(') return null
-  const cap = Math.min(code.length, openIndex + 5000)
+  const cap = code.length
   let depth = 0
 
   for (let i = openIndex; i < cap; i++) {
@@ -410,7 +583,12 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
   return null
 }
 
-/** Return the index of the closing quote (string-aware skip). */
+/**
+ * Return the index of the closing quote (string-aware skip). Template
+ * literals skip over their `${...}` interpolations, which may nest strings
+ * and further templates — without this, the inner backtick of a nested
+ * template ends the scan early and every scanner downstream desyncs.
+ */
 function skipString(code: string, start: number, cap: number): number {
   const quote = code[start]
   for (let i = start + 1; i < cap; i++) {
@@ -419,6 +597,34 @@ function skipString(code: string, start: number, cap: number): number {
       continue
     }
     if (code[i] === quote) return i
+    if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
+      i = skipTemplateExpression(code, i + 2, cap)
+    }
+  }
+  return cap
+}
+
+/**
+ * Given the index just past `${`, return the index of the matching `}` (or
+ * cap), skipping nested strings, templates, and object literals.
+ */
+function skipTemplateExpression(
+  code: string,
+  start: number,
+  cap: number
+): number {
+  let depth = 1
+  for (let i = start; i < cap; i++) {
+    const char = code[i]
+    if (char === '"' || char === "'" || char === '`') {
+      i = skipString(code, i, cap)
+      continue
+    }
+    if (char === '{') depth++
+    if (char === '}') {
+      depth--
+      if (depth === 0) return i
+    }
   }
   return cap
 }

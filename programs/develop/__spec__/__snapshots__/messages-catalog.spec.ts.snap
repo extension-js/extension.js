@@ -169,6 +169,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
+    "fetchedFileDependencyMissing: function(3)",
     "importScriptsDependencyMissing: function(4)",
     "injectedFileDependencyMissing: function(4)",
     "reservedScriptsFolder: function(2)",

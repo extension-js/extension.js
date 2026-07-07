@@ -61,6 +61,22 @@ export function injectedFileDependencyMissing(
   )
 }
 
+export function fetchedFileDependencyMissing(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return (
+    `${colors.yellow(assetName)} loads ${colors.yellow(
+      `'${literal}'`
+    )} at runtime (fetch/XMLHttpRequest/new URL), but ${colors.yellow(
+      expectedPath
+    )} is not part of the output. The request will fail at runtime.\n` +
+    `Move the file so it resolves to ${colors.yellow(expectedPath)} (or ` +
+    `serve it from ${colors.yellow('public/')}) so it ships with the extension.`
+  )
+}
+
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
   return (
