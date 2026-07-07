@@ -2,12 +2,22 @@
 
 ## Unreleased
 
-<details>
-<summary>🧹 Other changes (3)</summary>
+### 🐛 Fixes
 
-- Fall back to any managed chromium-family binary when the requested chrome/chromium is missing ([a13b6aaf](https://github.com/extension-js/extension.js/commit/a13b6aafa52a9009ef6449819e834df8e42b44bc))
-- Cover chromium in install all and fall back to managed chromium-family binaries when dev's default chromium is missing ([e5956fda](https://github.com/extension-js/extension.js/commit/e5956fda4dcafc6502404f31e455d92ec63c4623))
-- Update README.md ([3985a105](https://github.com/extension-js/extension.js/commit/3985a10556608112fbf13660876b3632ee2f6169))
+- Resolve PostCSS config string plugins project-first so CLI installs outside the project can load them ([2d13a9dc](https://github.com/extension-js/extension.js/commit/2d13a9dc18ff1155580d4c918bb7b59be4d9731e))
+- Resolve .env files family-wide and make undefined env vars safe ([2c449344](https://github.com/extension-js/extension.js/commit/2c449344ef1518ffae54c9962a5f57a16025727c))
+
+<details>
+<summary>🧹 Other changes (8)</summary>
+
+- Fail the build when manifest page surfaces (popup, options, overrides, devtools) point at missing files ([8f59a72e](https://github.com/extension-js/extension.js/commit/8f59a72e7b88c6c1e752c32ecb4b07f15274b551))
+- Trace runtime-fetched package files into dist and keep executeScript tracing alive past multi-KB template literals ([648d23f2](https://github.com/extension-js/extension.js/commit/648d23f2f01b6b17396ab9e8ffe7e850098c1413))
+- Confine project auto-install to the project dir and fall back to npm when the resolved package manager fails ([65f671af](https://github.com/extension-js/extension.js/commit/65f671af9c85efa14a3b572ed17519f0ad969cca))
+- Type ?inline stylesheet imports as asset/source so Vue custom-element styles resolve to CSS strings ([8bff845b](https://github.com/extension-js/extension.js/commit/8bff845baf58c465d2021c02443988b8c3d45a35))
+- Match link rel as a token list so shortcut icon assets stay static instead of becoming phantom stylesheet modules ([dd7d1aae](https://github.com/extension-js/extension.js/commit/dd7d1aae378ae9875c87e41fbb42f1b3ce8f90ab))
+- Update all *-location dependencies ([72533594](https://github.com/extension-js/extension.js/commit/72533594399c3c497a997db45b5be7ea94b6aebf))
+- Concatenate classic multi-script HTML pages into one shared scope ([8af0b2fb](https://github.com/extension-js/extension.js/commit/8af0b2fb5fbbdebc4c051d3a9a98cef40287bcb8))
+- Trace importScripts deps and executeScript file payloads into dist ([2cc9c9a9](https://github.com/extension-js/extension.js/commit/2cc9c9a97a85e7c3da7f9add275f5612063ccda1))
 </details>
 
 ## 3.18.0 (May 28, 2026)
