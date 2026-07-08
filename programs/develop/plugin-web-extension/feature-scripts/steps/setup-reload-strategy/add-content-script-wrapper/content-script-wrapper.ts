@@ -97,6 +97,11 @@ function collectStyleAssetSpecifiers(source: string): string[] {
       if (
         specifier &&
         SAFE_SPECIFIER.test(specifier) &&
+        // CSS-module imports compile to a class-name exports OBJECT, not an
+        // emitted asset — `new URL(exportsObject, base)` yields a garbage
+        // ".../[object Object]" candidate. The getURL(<bundle>.css) fallback
+        // covers modules css, so skip them here.
+        !/\.module\.(?:css|scss|sass|less|styl)(?:\?|$)/.test(specifier) &&
         !/(?:^|[?&])url(?:[=&]|$)/.test(specifier) &&
         !/(?:^|[?&])raw(?:[=&]|$)/.test(specifier)
       ) {
@@ -377,19 +382,29 @@ export default function contentScriptWrapper(
     '    var tries = 0;\n' +
     '    var tick = function(){\n' +
     '      try {\n' +
+    '        var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
     '        var hosts = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
     '        for (var i = 0; i < hosts.length; i++) {\n' +
     '          var host = hosts[i];\n' +
     '          if (!host || !host.shadowRoot || typeof host.getAttribute !== "function") continue;\n' +
     '          var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '          if (hostOwner && hostOwner !== String(__EXTENSIONJS_REINJECT_KEY || "")) continue;\n' +
+    // Owner tokens are extension-id qualified: never restyle a root owned by a
+    // DIFFERENT extension (the devtools companion shares our bundle key).
+    '          if (hostOwner && hostOwner !== __extjsToken) continue;\n' +
+    '          if (!hostOwner && __EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
+    '          if (!hostOwner && __EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n' +
     '          if (!hostOwner && String(host.getAttribute("data-extjs-reinject-key") || "") && String(host.getAttribute("data-extjs-reinject-key") || "") !== String(__EXTENSIONJS_BUNDLE_KEY || "")) continue;\n' +
     '          var sr = host.shadowRoot;\n' +
     '          var styles = Array.from(sr.querySelectorAll("style"));\n' +
     '          var hasUserStyle = styles.some(function(styleEl){\n' +
     '            return styleEl && styleEl.getAttribute("data-extjs-bundle-css") !== "true" && String(styleEl.textContent || "").trim().length > 0;\n' +
     '          });\n' +
-    '          var injected = sr.querySelector("style[data-extjs-bundle-css=\\"true\\"]");\n' +
+    '          var injected = null;\n' +
+    '          for (var s = 0; s < styles.length; s++) {\n' +
+    '            if (!styles[s] || styles[s].getAttribute("data-extjs-bundle-css") !== "true") continue;\n' +
+    '            var styleOwner = String(styles[s].getAttribute("data-extjs-style-owner") || "");\n' +
+    '            if (!styleOwner || styleOwner === __extjsToken) { injected = styles[s]; break; }\n' +
+    '          }\n' +
     '          if (hasUserStyle) {\n' +
     '            if (injected && injected.parentNode) injected.parentNode.removeChild(injected);\n' +
     '            return;\n' +
@@ -401,6 +416,7 @@ export default function contentScriptWrapper(
     '              injected.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
     '              sr.insertBefore(injected, sr.firstChild || null);\n' +
     '            }\n' +
+    '            injected.setAttribute("data-extjs-style-owner", __extjsToken);\n' +
     '            if (String(injected.textContent || "") !== cssText) injected.textContent = cssText;\n' +
     '            return;\n' +
     '          }\n' +
@@ -415,11 +431,44 @@ export default function contentScriptWrapper(
     '  } catch (error) {}\n' +
     '}\n'
 
+  // The bundled companion extensions (extension-js-devtools/theme) are
+  // wrapper-built like any user extension and share canonical bundle keys
+  // (content_scripts/content-0) with user content scripts in the SAME page
+  // DOM. Their wrappers must never adopt, restyle, or clean up foreign
+  // (user-extension) roots.
+  const isBuiltInCompanion = /extension-js-(?:devtools|theme)/.test(
+    String(packageJsonDir || '')
+  )
+
   const bootstrap =
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
     `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
     `var __EXTENSIONJS_REINJECT_BUILD_TOKEN=${JSON.stringify(buildToken)};\n` +
+    `var __EXTENSIONJS_NO_FOREIGN_ADOPT=${JSON.stringify(isBuiltInCompanion)};\n` +
+    // Distinct extensions run this same wrapper against the same page DOM with
+    // IDENTICAL reinject keys (content_scripts/content-0::script-0), so bare
+    // keys cannot express ownership. Qualify with the runtime extension id.
+    'function __EXTENSIONJS_ownerToken(){\n' +
+    '  var extId = "";\n' +
+    '  try {\n' +
+    '    var rt = (typeof globalThis === "object" && globalThis && ((globalThis.browser && globalThis.browser.runtime) || (globalThis.chrome && globalThis.chrome.runtime))) || null;\n' +
+    '    if (rt && rt.id) extId = String(rt.id);\n' +
+    '  } catch (error) {}\n' +
+    '  return String(__EXTENSIONJS_REINJECT_KEY || "") + (extId ? "@" + extId : "");\n' +
+    '}\n' +
     `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isProd)};\n` +
+    // Roots that already existed before OUR mount ran (other scripts in a
+    // multi-script entry, or other extensions). Adoption must never claim
+    // them: stamping every unowned root corrupts ownership, so teardown
+    // later mismatches and roots accumulate across reinjects.
+    'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
+    'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
+    '  try {\n' +
+    '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
+    '    __EXTENSIONJS_PRE_MOUNT_ROOTS = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]"));\n' +
+    '  } catch (error) { __EXTENSIONJS_PRE_MOUNT_ROOTS = []; }\n' +
+    '}\n' +
+    '__EXTENSIONJS_snapshotPreMountRoots();\n' +
     `${cssAssetUrlsInline}` +
     'var __EXTENSIONJS_REINJECT_REGISTRY=(typeof globalThis==="object" && globalThis ? (globalThis.__EXTENSIONJS_DEV_REINJECT__ || (globalThis.__EXTENSIONJS_DEV_REINJECT__={})) : {});\n' +
     'var __EXTENSIONJS_REGISTERED_CLEANUPS=[];\n' +
@@ -452,12 +501,18 @@ export default function contentScriptWrapper(
     '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED || typeof document === "undefined") return;\n' +
     '    var root = document.body || document.documentElement;\n' +
     '    if (!root) return;\n' +
+    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
     '    var marker = null;\n' +
     '    try {\n' +
     '      var markers = Array.from(document.querySelectorAll("[data-extjs-reinject-marker=\\"true\\"]"));\n' +
     '      for (var i = 0; i < markers.length; i++) {\n' +
     '        var current = markers[i];\n' +
-    '        if (current && typeof current.getAttribute === "function" && current.getAttribute("data-extjs-reinject-key") === key) { marker = current; break; }\n' +
+    '        if (!current || typeof current.getAttribute !== "function") continue;\n' +
+    // Match by qualified owner (key + extension id): distinct extensions share
+    // bundle keys, and sharing a marker element corrupts generation tracking.
+    '        var currentOwner = String(current.getAttribute("data-extjs-marker-owner") || "");\n' +
+    '        if (currentOwner === __extjsToken) { marker = current; break; }\n' +
+    '        if (!currentOwner && current.getAttribute("data-extjs-reinject-key") === key) { marker = current; break; }\n' +
     '      }\n' +
     '    } catch (error) {}\n' +
     '    if (!marker && typeof document.createElement === "function") {\n' +
@@ -470,6 +525,7 @@ export default function contentScriptWrapper(
     '    }\n' +
     '    if (!marker) return;\n' +
     '    marker.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_BUNDLE_KEY || key || ""));\n' +
+    '    marker.setAttribute("data-extjs-marker-owner", __extjsToken);\n' +
     '    marker.setAttribute("data-extjs-reinject-generation", String(generation));\n' +
     '    marker.setAttribute("data-extjs-reinject-status", String(status || "mounted"));\n' +
     '    marker.setAttribute("data-extjs-reinject-build", String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || ""));\n' +
@@ -481,9 +537,15 @@ export default function contentScriptWrapper(
     '        var host = roots[j];\n' +
     '        if (!host || typeof host.setAttribute !== "function") continue;\n' +
     '        var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '        if (hostOwner && hostOwner !== String(__EXTENSIONJS_REINJECT_KEY || "")) continue;\n' +
+    '        if (hostOwner && hostOwner !== __extjsToken) continue;\n' +
+    // Companion extensions (devtools/theme) never adopt anonymous roots — an
+    // unowned root in the shared DOM belongs to the USER extension mid-mount.
+    '        if (!hostOwner && __EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
+    // Adopt only roots OUR mount created: anything unowned that predates the
+    // mount belongs to a sibling script or another extension.
+    '        if (!hostOwner && __EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n' +
     '        ownedRootCount++;\n' +
-    '        host.setAttribute("data-extjs-reinject-owner", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
+    '        host.setAttribute("data-extjs-reinject-owner", __extjsToken);\n' +
     '        host.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_BUNDLE_KEY || key || ""));\n' +
     '        host.setAttribute("data-extjs-reinject-generation", String(generation));\n' +
     '        host.setAttribute("data-extjs-reinject-status", String(status || "mounted"));\n' +
@@ -540,7 +602,7 @@ export default function contentScriptWrapper(
     '    if (!target) return;\n' +
     '    var observer = new MutationObserver(function(records){\n' +
     '      try {\n' +
-    '        var ownedKey = String(__EXTENSIONJS_REINJECT_KEY || "");\n' +
+    '        var ownedKey = __EXTENSIONJS_ownerToken();\n' +
     '        var findOwnedRoot = function(node){\n' +
     '          try {\n' +
     '            if (!node || node.nodeType !== 1) return null;\n' +
@@ -581,24 +643,31 @@ export default function contentScriptWrapper(
     '    globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__ = observer;\n' +
     '  } catch (error) {}\n' +
     '}\n' +
-    'function __EXTENSIONJS_cleanupKnownRoots(){\n' +
+    'function __EXTENSIONJS_cleanupKnownRoots(staleEvenIfSameBuild){\n' +
     '  try {\n' +
     '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
+    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
     '    var roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
     '    for (var i = 0; i < roots.length; i++) {\n' +
     '      var host = roots[i];\n' +
     '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
     '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '      if (!hostOwner || hostOwner !== String(__EXTENSIONJS_REINJECT_KEY || "")) continue;\n' +
+    '      if (!hostOwner || hostOwner !== __extjsToken) continue;\n' +
     '      // Build-aware: only remove hosts owned by us whose build token does NOT\n' +
     '      // match the current bundle. Fresh roots from the current mount carry\n' +
     '      // the active build token and must be preserved; orphans from a prior\n' +
     '      // build (e.g. the old isolated world after `chrome.runtime.reload`)\n' +
     '      // carry stale tokens and should be cleared so we never end up with two\n' +
     '      // hosts owned by the same key.\n' +
+    '      // EXCEPT when this bundle starts in a FRESH world (no registry entry —\n' +
+    '      // the old isolated world was destroyed by `chrome.runtime.reload`):\n' +
+    '      // a same-build root then predates this execution and is a stale zombie\n' +
+    '      // (its scripts died with the world). Unedited sibling scripts in a\n' +
+    '      // multi-script entry keep their build token across recompiles, so the\n' +
+    '      // token equality alone must not protect them here.\n' +
     '      var hostBuild = String(host.getAttribute("data-extjs-reinject-build") || "");\n' +
     '      var currentBuild = String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || "");\n' +
-    '      if (hostBuild && currentBuild && hostBuild === currentBuild) continue;\n' +
+    '      if (!staleEvenIfSameBuild && hostBuild && currentBuild && hostBuild === currentBuild) continue;\n' +
     '      try {\n' +
     '        var pageRoot = document.documentElement;\n' +
     '        if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
@@ -621,8 +690,21 @@ export default function contentScriptWrapper(
     '    // could tag it (typically: the previous isolated world was destroyed\n' +
     '    // by a `chrome.runtime.reload` mid-mount, or its `whenReady`-deferred\n' +
     '    // `apply` never fired). We have not created our own root yet, so any\n' +
-    '    // untagged host we touch here is by definition NOT from this run.\n' +
+    '    // untagged host we touch here is by definition not from THIS run — but\n' +
+    '    // it may belong to a DIFFERENT extension mid-mount in the same DOM.\n' +
+    '    // Companion extensions never sweep, and everyone else sweeps only when\n' +
+    '    // a reinject marker proves a prior generation of THIS script ran here.\n' +
     '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
+    '    if (__EXTENSIONJS_NO_FOREIGN_ADOPT) return;\n' +
+    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
+    '    var sawPriorGeneration = false;\n' +
+    '    try {\n' +
+    '      var markers = Array.from(document.querySelectorAll("[data-extjs-reinject-marker=\\"true\\"]"));\n' +
+    '      for (var m = 0; m < markers.length; m++) {\n' +
+    '        if (markers[m] && typeof markers[m].getAttribute === "function" && String(markers[m].getAttribute("data-extjs-marker-owner") || "") === __extjsToken) { sawPriorGeneration = true; break; }\n' +
+    '      }\n' +
+    '    } catch (error) {}\n' +
+    '    if (!sawPriorGeneration) return;\n' +
     '    var roots = Array.from(document.querySelectorAll("[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
     '    for (var i = 0; i < roots.length; i++) {\n' +
     '      var host = roots[i];\n' +
@@ -667,8 +749,8 @@ export default function contentScriptWrapper(
     '        if (!pageRoot || typeof pageRoot.setAttribute !== "function") return;\n' +
     '        var ownedRoot = null;\n' +
     '        if (node && node.nodeType === 1) {\n' +
-    '          if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === String(__EXTENSIONJS_REINJECT_KEY || "")) ownedRoot = node;\n' +
-    '          else if (typeof node.querySelector === "function") ownedRoot = node.querySelector("[data-extjs-reinject-owner=\\"" + String(__EXTENSIONJS_REINJECT_KEY || "").replace(/"/g, "\\\\\\"") + "\\"]");\n' +
+    '          if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === __EXTENSIONJS_ownerToken()) ownedRoot = node;\n' +
+    '          else if (typeof node.querySelector === "function") ownedRoot = node.querySelector("[data-extjs-reinject-owner=\\"" + __EXTENSIONJS_ownerToken().replace(/"/g, "\\\\\\"") + "\\"]");\n' +
     '        }\n' +
     '        if (!ownedRoot) return;\n' +
     '        pageRoot.setAttribute("data-extjs-debug-stage", "dom-api-removal");\n' +
@@ -745,7 +827,10 @@ export default function contentScriptWrapper(
     '    __EXTENSIONJS_previousCleanup();\n' +
     '  }\n' +
     '} catch (error) {}\n' +
-    'try { __EXTENSIONJS_cleanupKnownRoots(); } catch (error) {}\n' +
+    // No registry entry = fresh isolated world (first injection or the world
+    // was reset by chrome.runtime.reload): any root we own predates this
+    // execution and must go, even when its build token still matches.
+    'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n' +
     'function __EXTENSIONJS_syncAssetBase(){\n' +
     '  try {\n' +
     '    var base = "";\n' +
@@ -815,6 +900,7 @@ export default function contentScriptWrapper(
     '  }\n' +
     '  function apply(){\n' +
     '    try {\n' +
+    '      __EXTENSIONJS_snapshotPreMountRoots();\n' +
     '      var nextCleanup = mount();\n' +
     '      cleanup = __EXTENSIONJS_composeCleanup(nextCleanup);\n' +
     '      __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1;\n' +
