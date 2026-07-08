@@ -42,13 +42,21 @@ export function calculateDebugPort(
   devServerPort?: number,
   defaultPort: number = DEFAULT_DEBUG_PORT
 ) {
-  const finalPort = portFromConfig
-    ? typeof portFromConfig === 'string'
+  // `--port 0` means "OS-assigned dev-server port": deriving CDP from it
+  // yields 0 + PORT_OFFSET = 100, an unbindable privileged port that leaves
+  // the browser without a CDP endpoint. Non-positive/NaN ports fall through.
+  const parsed =
+    typeof portFromConfig === 'string'
       ? parseInt(portFromConfig, 10)
       : portFromConfig
-    : devServerPort
+  const finalPort =
+    typeof parsed === 'number' && Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : devServerPort
 
-  return typeof finalPort === 'number' ? finalPort + PORT_OFFSET : defaultPort
+  return typeof finalPort === 'number' && finalPort > 0
+    ? finalPort + PORT_OFFSET
+    : defaultPort
 }
 
 // Filters browser flags based on exclusions
