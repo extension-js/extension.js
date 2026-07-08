@@ -113,29 +113,27 @@ function main() {
     }
   }
 
-  // Ensure a given extension package has a dist folder and mirror it into programs/develop/dist.
-  // If dist is missing, attempts to install and build before mirroring.
+  // Ensure a given extension package has a FRESH dist folder and mirror it
+  // into programs/develop/dist. Always rebuild: these extensions embed the
+  // just-compiled develop pipeline (content-script wrapper, producer runtime),
+  // so mirroring a pre-existing dist ships stale wrapper code whenever the
+  // pipeline changed. A failed rebuild falls back to the existing dist.
   function buildAndMirror(packageName) {
     const src = path.join(root, 'extensions', packageName, 'dist')
     const dest = path.join(root, 'programs', 'develop', 'dist', packageName)
 
-    // Build if dist is missing, then try to copy again
-    if (!fs.existsSync(src)) {
-      try {
-        const pkgRoot = path.join(root, 'extensions', packageName)
-        const hasPackageJson = fs.existsSync(path.join(pkgRoot, 'package.json'))
-        if (fs.existsSync(pkgRoot) && hasPackageJson) {
-          if (verbose) {
-            console.log(
-              `[Extension.js] ${packageName} dist missing. Attempting to build…`
-            )
-          }
-          ensureDependencies(pkgRoot)
-          buildAllTargets(pkgRoot)
+    try {
+      const pkgRoot = path.join(root, 'extensions', packageName)
+      const hasPackageJson = fs.existsSync(path.join(pkgRoot, 'package.json'))
+      if (fs.existsSync(pkgRoot) && hasPackageJson) {
+        if (verbose) {
+          console.log(`[Extension.js] Rebuilding ${packageName}…`)
         }
-      } catch {
-        // ignore build issues; copy will be skipped if still missing
+        ensureDependencies(pkgRoot)
+        buildAllTargets(pkgRoot)
       }
+    } catch {
+      // ignore build issues; the existing dist (if any) is mirrored as fallback
     }
 
     if (!fs.existsSync(src)) {
