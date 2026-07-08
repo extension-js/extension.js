@@ -292,7 +292,12 @@ export async function devServer(
     : '1'
 
   const {manifestPath, packageJsonPath} = projectStructure
-  const packageJsonDir = path.dirname(packageJsonPath!)
+  // Plain manifest+scripts extensions ship no package.json; the project root
+  // is then the manifest's directory. `build` already tolerates this shape —
+  // dev must not crash on dirname(undefined).
+  const packageJsonDir = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : path.dirname(manifestPath)
 
   // Get command defaults from extension.config.js (located at project root)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
