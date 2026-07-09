@@ -13,7 +13,22 @@ export default function patchBackground(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
-  if (!manifest.background) {
+  // A `background` key with no runnable entry (`background: {}` in the wild)
+  // must count as absent: dev always emits the reload-producer service worker,
+  // and passing the empty object through leaves that emitted worker orphaned —
+  // Chrome loads no background, no producer connects, and reload delivery is
+  // silently dead for the whole session.
+  const bg = manifest.background as
+    | {service_worker?: string; scripts?: string[]; page?: string}
+    | undefined
+  const hasRunnableEntry = Boolean(
+    bg &&
+      (bg.service_worker ||
+        (Array.isArray(bg.scripts) && bg.scripts.length > 0) ||
+        bg.page)
+  )
+
+  if (!hasRunnableEntry) {
     // Gecko family (firefox + forks like waterfox/librewolf, and the
     // gecko-based/firefox-based aliases) uses MV2 background.scripts.
     if (isGeckoBasedBrowser(String(browser))) {

@@ -782,12 +782,34 @@ export class ChromiumLaunchPlugin {
       // to avoid pulling in WS/CDP dependencies.
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
-        await mod.setupCdpAfterLaunch(
-          compilation,
-          cdpConfig,
-          chromiumConfig,
-          pipeStreams
-        )
+        // Watchdog: when Chrome rejects the extension at launch (invalid MV3
+        // CSP, manifest referencing missing files, ...) macOS shows a modal
+        // that stalls startup — the pipe handshake and target waits below then
+        // hang FOREVER with no error, no CDP endpoint, and a dev session that
+        // looks alive but can never reload. Convert that silent wedge into a
+        // loud, diagnosable failure.
+        const CDP_SETUP_TIMEOUT_MS = 45_000
+        await Promise.race([
+          mod.setupCdpAfterLaunch(
+            compilation,
+            cdpConfig,
+            chromiumConfig,
+            pipeStreams
+          ),
+          new Promise((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `CDP setup did not complete within ${
+                      CDP_SETUP_TIMEOUT_MS / 1000
+                    }s. Chrome likely rejected the extension at launch — open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to files missing from the output. Reload/HMR cannot attach until this is fixed.`
+                  )
+                ),
+              CDP_SETUP_TIMEOUT_MS
+            ).unref?.()
+          )
+        ])
 
         if (cdpConfig.cdpController) {
           this.ctx.setController(
@@ -797,9 +819,13 @@ export class ChromiumLaunchPlugin {
         }
       }
     } catch (error) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.warn('[browser] CDP post-launch setup failed:', String(error))
-      }
+      // A dead CDP wire means no reload delivery for the whole session —
+      // always tell the user (previously author-mode-only, i.e. silent).
+      const message = String(error && (error as Error).message)
+      const hint = /timed out|did not complete/i.test(message)
+        ? " Chrome likely rejected the extension at launch — open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
+        : ''
+      console.error('[browser] ' + message + hint)
     }
   }
 
@@ -816,10 +842,14 @@ export class ChromiumLaunchPlugin {
       : [...chromeFlags]
 
     // When using --remote-debugging-pipe, Chrome communicates via fds 3 & 4.
-    // stdio indices: 0=stdin, 1=stdout, 2=stderr, 3=pipe-write, 4=pipe-read
+    // stdio indices: 0=stdin, 1=stdout, 2=stderr, 3=pipe-write, 4=pipe-read.
+    // stderr is PIPED (and drained below) so extension-load rejections reach
+    // the user: with stderr ignored, a manifest Chrome refuses (e.g. MV3 CSP
+    // with 'unsafe-inline') left dev hanging with no error, no CDP endpoint,
+    // and no extension — a silent wedge.
     const stdio: import('child_process').StdioOptions = usePipe
-      ? ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']
-      : 'ignore'
+      ? ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']
+      : ['ignore', 'ignore', 'pipe']
 
     const normalizedBinary = normalizeBinaryPathForWsl(binary)
 
@@ -837,6 +867,27 @@ export class ChromiumLaunchPlugin {
           '[browser] Final Chrome flags:',
           launchArgs.join(' ')
         )
+      }
+
+      // Drain stderr (required — an unread pipe eventually blocks Chrome) and
+      // surface extension-load rejections, which otherwise die silently.
+      const stderrStream = (child as any).stdio?.[2]
+      if (stderrStream && typeof stderrStream.on === 'function') {
+        let pending = ''
+        stderrStream.on('data', (chunk: Buffer) => {
+          pending += String(chunk)
+          let newline
+          while ((newline = pending.indexOf('\n')) !== -1) {
+            const line = pending.slice(0, newline).trim()
+            pending = pending.slice(newline + 1)
+            if (/Failed to load extension|Manifest file is missing or unreadable|Manifest is not valid JSON/i.test(line)) {
+              this.logger.error(
+                `[browser] Chrome rejected an extension at launch — reload/HMR cannot attach until this is fixed:\n${line}`
+              )
+            }
+          }
+        })
+        stderrStream.on('error', () => {})
       }
 
       let disposeSignalHandlers: (() => void) | undefined

@@ -22,6 +22,7 @@ type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 import * as messages from '../messages'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
+import {patchChromiumBackground} from './patch-chromium-background'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -73,6 +74,13 @@ export class UpdateManifest {
             // Firefox can't load background.service_worker — translate it to a
             // background.scripts event page pointing at the same emitted bundle.
             patchedManifest = patchGeckoBackground(
+              patchedManifest,
+              this.browser
+            )
+
+            // And the mirror: Chromium can't load MV3 background.scripts —
+            // translate it to a classic service worker on the same bundle.
+            patchedManifest = patchChromiumBackground(
               patchedManifest,
               this.browser
             )
