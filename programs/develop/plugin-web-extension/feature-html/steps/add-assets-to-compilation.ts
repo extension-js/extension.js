@@ -19,6 +19,7 @@ import {
   isSpecialScheme,
   cleanLeading,
   computePosixRelative,
+  joinEmittedAssetName,
   resolveAbsoluteFsPath,
   reportToCompilation
 } from '../html-lib/utils'
@@ -191,7 +192,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
   assetsFromHtml.forEach((assetFromHtml) => {
     const s = fs.readFileSync(assetFromHtml)
     const r = new (sources as any).RawSource(s)
-    const assetFilepath = path.posix.join(
+    const assetFilepath = joinEmittedAssetName(
       'assets',
       computePosixRelative(absoluteFsPath, assetFromHtml)
     )
@@ -379,7 +380,7 @@ export class AddAssetsToCompilation {
                 continue
               }
 
-              const filepath = path.posix.join(
+              const filepath = joinEmittedAssetName(
                 'assets',
                 computePosixRelative(resource as string, absoluteFsPath)
               )
