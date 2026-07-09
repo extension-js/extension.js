@@ -30,6 +30,33 @@ function buildCSP(cspObject: Record<string, string[]>) {
   return directives.join('; ') + '; '
 }
 
+// The dev reload producer (service worker) and HMR client dial the local dev
+// server over ws/http. A user CSP that restricts `connect-src` (or implies the
+// restriction via `default-src`) silently blocks that socket — the producer
+// never connects and reload delivery is dead for the whole session. Dev-only:
+// this file feeds apply-dev-defaults, never production builds.
+const DEV_CONNECT_SOURCES = [
+  'ws://127.0.0.1:*',
+  'ws://localhost:*',
+  'http://127.0.0.1:*',
+  'http://localhost:*'
+]
+
+function loosenConnectSrcForDev(csp: Map<string, string[]>) {
+  const connectSrc = csp.get('connect-src')
+  const defaultSrc = csp.get('default-src')
+  if (connectSrc) {
+    for (const source of DEV_CONNECT_SOURCES) {
+      if (!connectSrc.includes(source)) connectSrc.push(source)
+    }
+    csp.set('connect-src', connectSrc)
+  } else if (defaultSrc) {
+    // No connect-src: connections fall back to default-src — extend a copy
+    // as an explicit connect-src instead of loosening default-src itself.
+    csp.set('connect-src', [...defaultSrc, ...DEV_CONNECT_SOURCES])
+  }
+}
+
 export function patchV2CSP(manifest: Manifest) {
   let policy: string | undefined = resolveV2Policy(
     manifest.content_security_policy
@@ -73,6 +100,8 @@ export function patchV2CSP(manifest: Manifest) {
     csp.set('object-src', objectSrc)
   }
 
+  loosenConnectSrcForDev(csp)
+
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   return buildCSP(cspObject)
 }
@@ -103,6 +132,8 @@ export function patchV3CSP(manifest: Manifest) {
       )
     }
   }
+
+  loosenConnectSrcForDev(csp)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   const extensionPagesPolicy = buildCSP(cspObject)
