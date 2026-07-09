@@ -34,6 +34,7 @@ import {
 } from './control-bridge/control-port-store'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import {
+  buildSourceFeatureIndex,
   classifyReloadFromSources,
   readContentScriptCount,
   createChangedSourcesTracker,
@@ -57,6 +58,11 @@ import {
 } from './control-bridge/session-token'
 
 function shouldWriteAssetToDisk(filePath: string) {
+  // A `..` segment in the write target means an emitted asset NAME escapes
+  // the output dir (dist/chromium/../../assets/x). Writing it would clobber
+  // a SOURCE file, which the watcher then reports as a user edit — a
+  // self-feeding recompile loop that reloads the extension once per second.
+  if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
 }
 
@@ -556,12 +562,16 @@ export async function devServer(
         }
 
         const outputPath = String(compilation.options?.output?.path || '')
+        const contextDir = String(compilation.options?.context || '')
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
         const instruction = classifyReloadFromSources({
           changedSources: sources,
           forcedFull,
           getContentScriptCount: () =>
-            readContentScriptCount(compilation, outputPath)
+            readContentScriptCount(compilation, outputPath),
+          getSourceFeatureIndex: () =>
+            buildSourceFeatureIndex(compilation, contextDir),
+          outputPath
         })
 
         // Same shared dispatch seam as the launched path — here with the broker
