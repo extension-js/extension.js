@@ -242,7 +242,7 @@ describe('generateManifestPatches', () => {
     expect(groups[0].resources).toEqual(['/*.json', 'assets/*.svg'])
   })
 
-  it('emits production filenames with contenthash for relative files', () => {
+  it('keeps the manifest-relative path in production (getURL addresses it by literal path)', () => {
     const rel = 'docs/readme.md'
     const abs = path.join(tmpRoot, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -258,11 +258,14 @@ describe('generateManifestPatches', () => {
     )
     const res = (updated as any).web_accessible_resources?.[0]
       ?.resources?.[0] as string
-    expect(res.startsWith('assets/readme.')).toBe(true)
-    expect(res.endsWith('.md')).toBe(true)
+    expect(res).toBe('docs/readme.md')
   })
 
-  it('rewrites user-declared resource to emitted asset path', () => {
+  it('emits user-declared resources at their manifest-relative path', () => {
+    // Runtime code addresses WAR files by their literal path
+    // (chrome.runtime.getURL('images/icon.png')); rewriting the manifest to a
+    // flattened assets/ name made the declared resource and the requested URL
+    // disagree, so Chrome refused to serve the file.
     const rel = 'images/icon.png'
     const abs = path.join(tmpRoot, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -276,7 +279,31 @@ describe('generateManifestPatches', () => {
     )
     const res = (updated as any).web_accessible_resources?.[0]
       ?.resources?.[0] as string
-    expect(res).toBe('assets/icon.png')
+    expect(res).toBe('images/icon.png')
+  })
+
+  it('same-named files in different directories stay distinct resources (Sappgulf regression)', () => {
+    for (const rel of ['ui/stats.js', 'storage/stats.js']) {
+      const abs = path.join(tmpRoot, rel)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, `// ${rel}`)
+    }
+    const updated = runWith(
+      {},
+      {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {
+            matches: ['<all_urls>'],
+            resources: ['ui/stats.js', 'storage/stats.js']
+          }
+        ]
+      }
+    )
+    const resources = (updated as any).web_accessible_resources?.[0]
+      ?.resources as string[]
+    expect(resources).toContain('ui/stats.js')
+    expect(resources).toContain('storage/stats.js')
   })
 
   it('should not generate web_accessible_resources if content scripts have no imports', () => {
@@ -569,7 +596,7 @@ describe('generateManifestPatches', () => {
       expect(compilation.errors.length).toBe(0)
     })
 
-    it('resolves relative file to emitted asset (mv3)', () => {
+    it('resolves relative file to its manifest-relative emitted path (mv3)', () => {
       const rel = 'images/logo.png'
       const abs = path.join(tmpRoot, rel)
       fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -591,7 +618,7 @@ describe('generateManifestPatches', () => {
         resources: string[]
       }[]
       expect(groups.length).toBe(1)
-      expect(groups[0].resources).toEqual(['assets/logo.png'])
+      expect(groups[0].resources).toEqual(['images/logo.png'])
     })
 
     it('emits a directory WAR entry as its files + a glob instead of crashing (G15)', () => {
@@ -717,7 +744,7 @@ describe('generateManifestPatches', () => {
       expect(groups[0].resources).toEqual(['assets/logo.svg'])
     })
 
-    it('rewrites mv2 string[] relative file to emitted asset', () => {
+    it('keeps mv2 string[] relative file at its manifest-relative path', () => {
       const rel = 'data/file.json'
       const abs = path.join(tmpRoot, rel)
       fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -733,7 +760,7 @@ describe('generateManifestPatches', () => {
       )
 
       const arr = result.web_accessible_resources
-      expect(arr).toEqual(['assets/file.json'])
+      expect(arr).toEqual(['data/file.json'])
     })
 
     it('keeps user-provided mv3 matches intact on firefox', () => {

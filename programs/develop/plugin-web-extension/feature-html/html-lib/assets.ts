@@ -9,7 +9,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as parse5utilities from 'parse5-utilities'
-import {getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
+import {
+  getFilePath,
+  getHtmlPageDeclaredAssetPath,
+  joinEmittedAssetName
+} from './utils'
 import {isFromFilepathList} from '../../shared/paths'
 import {type FilepathList} from '../../../types'
 
@@ -72,7 +76,7 @@ export function handleStaticAsset(
       ? path.basename(absolutePath)
       : path.relative(baseJoin, absolutePath)
   const posixRelative = relativeFromHtml.split(path.sep).join('/')
-  const filepath = path.posix.join('assets', posixRelative)
+  const filepath = joinEmittedAssetName('assets', posixRelative)
   if (fs.existsSync(absolutePath)) {
     node = parse5utilities.setAttribute(
       node,

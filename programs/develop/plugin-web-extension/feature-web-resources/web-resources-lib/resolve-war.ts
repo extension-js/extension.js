@@ -378,6 +378,30 @@ export function resolveUserDeclaredWAR(
       return
     }
 
+    // Emit the file AT ITS MANIFEST-RELATIVE PATH and declare that same path.
+    // WAR resources are addressed at runtime by literal path —
+    // chrome.runtime.getURL('adapters/chrome/content_module.js') — so the old
+    // assets/<basename> flattening both broke those lookups (the declared
+    // name no longer matched the requested path) and silently aliased
+    // same-named files from different directories (ui/stats.js vs
+    // storage/stats.js) to whichever was emitted first. Contenthash renaming
+    // in production breaks the runtime address the same way, so the path is
+    // preserved verbatim in every mode.
+    const relOut = unixify(path.relative(manifestDir, abs))
+    if (!relOut.startsWith('..')) {
+      if (!compilation.getAsset(relOut)) {
+        compilation.emitAsset(
+          relOut,
+          new sources.RawSource(fs.readFileSync(abs))
+        )
+      }
+      compilation.fileDependencies.add(abs)
+      pushResource(matches, relOut, extra)
+      return
+    }
+
+    // Outside the manifest root there is no extension-relative path the file
+    // could be served at — keep the legacy assets/ emit for that edge.
     const emitted = emitFileAsAsset(compilation, abs)
     pushResource(matches, emitted, extra)
   }

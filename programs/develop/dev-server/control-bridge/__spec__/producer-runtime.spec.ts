@@ -162,6 +162,49 @@ describe('bridge producer runtime', () => {
     expect(FakeWebSocket.instances).toHaveLength(0)
   })
 
+  it('reinjects content scripts once on install/reload (zombie-tab healing)', async () => {
+    // After a dev full reload, Chrome leaves already-open tabs with the OLD
+    // build's content-script DOM (nodes render, listeners dead). The producer
+    // must reinject on onInstalled — and ONLY on onInstalled, so idle-stop SW
+    // wakes never churn mounted UI.
+    const {fakeGlobal} = makeGlobal()
+    let installedListener: (() => void) | undefined
+    const fetched: string[] = []
+    fakeGlobal.fetch = (url: string) => {
+      fetched.push(String(url))
+      return Promise.resolve({json: () => Promise.resolve({content_scripts: []})})
+    }
+    fakeGlobal.chrome = {
+      runtime: {
+        id: 'test',
+        getURL: (p: string) => `chrome-extension://test/${p}`,
+        onInstalled: {
+          addListener: (fn: () => void) => {
+            installedListener = fn
+          }
+        },
+        onMessage: {addListener: () => {}},
+        sendMessage: () => {}
+      },
+      scripting: {},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    }
+
+    const src = buildBridgeProducerSource({
+      controlPort: 4004,
+      instanceId: 'zombie-test'
+    })
+    run(src, fakeGlobal)
+
+    expect(installedListener).toBeTypeOf('function')
+    // No reinject before onInstalled fires (a plain SW wake must be a no-op).
+    expect(fetched).toHaveLength(0)
+
+    installedListener!()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(fetched).toContain('chrome-extension://test/manifest.json')
+  })
+
   it('source has no unresolved placeholders by construction', () => {
     expect(BRIDGE_PRODUCER_SOURCE).toContain('__EXTJS_CONTROL_PORT__')
   })
