@@ -277,6 +277,23 @@ export function cleanLeading(s: string): string {
   return s.replace(/^\/+/, '').replace(/^\.\//, '').replace(/^\./, '')
 }
 
+/**
+ * Join an emitted-asset name from a prefix and an HTML-relative walk, clamped
+ * the way Chrome resolves the matching URL: `..` segments cannot climb above
+ * the extension root, so leading `..` left after the join are dropped. Without
+ * the clamp, an asset referenced from a nested page (`../../../assets/x.png`
+ * from `adapters/chrome/popup/popup.html`) produces the asset NAME
+ * `../../assets/x.png` — the dev middleware then writes it OUTSIDE the output
+ * dir, on top of the source file, and the watcher loops on its own emit
+ * forever (the wild-corpus Sappgulf storm).
+ */
+export function joinEmittedAssetName(prefix: string, rel: string): string {
+  const parts = path.posix.join(prefix, rel).split('/')
+  let i = 0
+  while (i < parts.length && (parts[i] === '..' || parts[i] === '.')) i++
+  return parts.slice(i).join('/') || path.posix.basename(rel)
+}
+
 export function computePosixRelative(fromPath: string, toPath: string): string {
   const fromRoot = path.parse(fromPath).root
   const toRoot = path.parse(toPath).root

@@ -701,6 +701,29 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     } catch (e) {}
 
+    // Chrome never injects manifest content scripts into tabs that were
+    // already open when the extension (re)loads, so after a dev full reload
+    // (manifest edit, SW edit, chrome.runtime.reload) every open tab keeps the
+    // PREVIOUS build's content-script DOM as a zombie: the nodes still render
+    // but their listeners died with the old world, and nothing heals the tab
+    // until the next recompile happens to reinject. Fire one producer-driven
+    // reinject when this SW generation is a fresh install/reload so open tabs
+    // converge to the new build immediately. onInstalled is the gate: it fires
+    // for install/update/reload (fresh worlds) but NOT for idle-stop SW wakes,
+    // where reinjecting would churn mounted UI for no reason.
+    try {
+      var rtBoot = g.chrome;
+      if (rtBoot && rtBoot.runtime && rtBoot.runtime.onInstalled) {
+        rtBoot.runtime.onInstalled.addListener(function () {
+          try {
+            setTimeout(function () {
+              try { reinjectContentScripts(); } catch (e) {}
+            }, 250);
+          } catch (e) {}
+        });
+      }
+    } catch (e) {}
+
     connect();
   } catch (e) {}
 })();

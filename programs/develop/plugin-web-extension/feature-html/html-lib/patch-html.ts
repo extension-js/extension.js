@@ -12,7 +12,13 @@ import {WebpackError, type Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
-import {getExtname, getFilePath, cleanAssetUrl, getBaseHref} from './utils'
+import {
+  getExtname,
+  getFilePath,
+  cleanAssetUrl,
+  getBaseHref,
+  joinEmittedAssetName
+} from './utils'
 import {handleStaticAsset} from './assets'
 import {injectJsScript} from './inject'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
@@ -256,7 +262,7 @@ export function patchHtmlNested(
                   const posixRelative = relativeFromHtml
                     .split(path.sep)
                     .join('/')
-                  const filepath = path.posix.join('assets', posixRelative)
+                  const filepath = joinEmittedAssetName('assets', posixRelative)
                   thisChildNode = parse5utilities.setAttribute(
                     thisChildNode,
                     assetType === 'staticSrc' ? 'src' : 'href',
