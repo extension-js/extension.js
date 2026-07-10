@@ -20,6 +20,7 @@ import locateEdge, {
   getEdgeVersion
 } from 'edge-location'
 import * as fs from 'fs'
+import * as path from 'path'
 import locateOpera from 'opera-location2'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
@@ -700,6 +701,26 @@ export class ChromiumLaunchPlugin {
 
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
     publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
+
+    // Modern Chromium refuses unpacked MV2 extensions outright, and the
+    // refusal surfaces only as a native modal — the session wedges with no
+    // error and no CDP endpoint. Say why up front, before the spawn.
+    for (const extPath of extensionsToLoad) {
+      try {
+        const m = JSON.parse(
+          fs.readFileSync(
+            path.join(String(extPath), 'manifest.json'),
+            'utf8'
+          )
+        )
+        if (Number(m?.manifest_version) === 2) {
+          // eslint-disable-next-line no-console
+          console.warn(messages.mv2NotSupportedByChromium(String(extPath)))
+        }
+      } catch {
+        // unreadable manifest — the browser will complain on its own
+      }
+    }
 
     let chromiumConfig: string[] = browserConfig(compilation, {
       ...this.options,
