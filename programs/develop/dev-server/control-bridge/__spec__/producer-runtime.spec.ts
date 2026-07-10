@@ -205,6 +205,94 @@ describe('bridge producer runtime', () => {
     expect(fetched).toContain('chrome-extension://test/manifest.json')
   })
 
+  it('honors exclude_matches on reinject and dynamic re-registration', async () => {
+    // Static Chrome injection never touches excluded pages, and extensions
+    // rely on that (dusk-recording opens the very page it excludes from its
+    // SW message handler — dev-injecting there creates an open-tab → inject →
+    // open-tab runaway loop). The reinject path must subtract excluded tabs,
+    // and the dynamic registration must carry excludeMatches.
+    const {fakeGlobal} = makeGlobal()
+    let installedListener: (() => void) | undefined
+    fakeGlobal.fetch = () =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            content_scripts: [
+              {
+                matches: ['<all_urls>'],
+                exclude_matches: ['*://*/_screenrecording*'],
+                js: ['content_scripts/content-0.js']
+              }
+            ]
+          })
+      })
+    const executed: Array<{target: {tabId: number}}> = []
+    const registered: Array<Record<string, unknown>> = []
+    fakeGlobal.chrome = {
+      runtime: {
+        id: 'test',
+        getURL: (p: string) => `chrome-extension://test/${p}`,
+        onInstalled: {
+          addListener: (fn: () => void) => {
+            installedListener = fn
+          }
+        },
+        onMessage: {addListener: () => {}},
+        sendMessage: () => {}
+      },
+      scripting: {
+        executeScript: (opts: {target: {tabId: number}}, cb?: () => void) => {
+          executed.push(opts)
+          cb && cb()
+        },
+        insertCSS: (_o: unknown, cb?: () => void) => cb && cb(),
+        registerContentScripts: (
+          scripts: Array<Record<string, unknown>>,
+          cb?: () => void
+        ) => {
+          registered.push(...scripts)
+          cb && cb()
+        },
+        getRegisteredContentScripts: (cb: (s: unknown[]) => void) => cb([]),
+        updateContentScripts: (_s: unknown, cb?: () => void) => cb && cb()
+      },
+      tabs: {
+        query: (
+          q: {url?: string[]},
+          cb: (t: Array<{id: number; url: string}>) => void
+        ) => {
+          const urls = Array.isArray(q.url) ? q.url : []
+          if (urls.includes('*://*/_screenrecording*')) {
+            // the exclude query — only the bootstrap tab matches
+            cb([{id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}])
+          } else {
+            // the matches query — both tabs match <all_urls>
+            cb([
+              {id: 1, url: 'http://127.0.0.1:5151/probe.html'},
+              {id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}
+            ])
+          }
+        }
+      }
+    }
+
+    const src = buildBridgeProducerSource({
+      controlPort: 4004,
+      instanceId: 'exclude-test'
+    })
+    run(src, fakeGlobal)
+    expect(installedListener).toBeTypeOf('function')
+    installedListener!()
+    await new Promise((r) => setTimeout(r, 400))
+
+    // Only the non-excluded tab received the fresh script.
+    expect(executed).toHaveLength(1)
+    expect(executed[0].target.tabId).toBe(1)
+    // The dynamic registration is no broader than the static one.
+    expect(registered).toHaveLength(1)
+    expect(registered[0].excludeMatches).toEqual(['*://*/_screenrecording*'])
+  })
+
   it('source has no unresolved placeholders by construction', () => {
     expect(BRIDGE_PRODUCER_SOURCE).toContain('__EXTJS_CONTROL_PORT__')
   })
