@@ -305,9 +305,29 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+  // common.js carries a static relative import graph (bug 10): Chrome
+  // resolves these against the module's own URL, so the copied root must
+  // ship with its ./lib siblings — including a re-export hop.
+  fs.mkdirSync(path.join(GETURL_ROOT, 'lib'), {recursive: true})
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'common.js'),
-    "export const MESSAGE = 'loaded'\n"
+    [
+      "import {WORD} from './lib/helper.js'",
+      "export const MESSAGE = 'loaded ' + WORD",
+      ''
+    ].join('\n')
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'lib', 'helper.js'),
+    [
+      "export * from './deeper.js'",
+      "export const WORD = 'with-closure'",
+      ''
+    ].join('\n')
+  )
+  fs.writeFileSync(
+    path.join(GETURL_ROOT, 'lib', 'deeper.js'),
+    'export const DEEP = true\n'
   )
 
   fs.writeFileSync(
@@ -473,8 +493,16 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     const commonDist = path.join(distDir, 'common.js')
     expect(fs.existsSync(commonDist), `missing ${commonDist}`).toBe(true)
     expect(fs.readFileSync(commonDist, 'utf8')).toBe(
-      "export const MESSAGE = 'loaded'\n"
+      fs.readFileSync(path.join(GETURL_ROOT, 'common.js'), 'utf8')
     )
+
+    // Bug 10: the copied module's static relative import graph ships too —
+    // one direct import hop plus a re-export hop, resolved against the
+    // module's own URL.
+    for (const rel of ['lib/helper.js', 'lib/deeper.js']) {
+      const abs = path.join(distDir, rel)
+      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+    }
 
     // NAVIGATION variant: the getURL'd HTML page ships at its literal path
     // with its own src/href subresource closure.

@@ -93,6 +93,21 @@ export function getURLDependencyMissing(
   )
 }
 
+export function staticImportDependencyMissing(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return (
+    `${colors.yellow(assetName)} (copied verbatim into the output) imports ` +
+    `${colors.yellow(`'${literal}'`)}, but ${colors.yellow(expectedPath)} is ` +
+    `not part of the output. The import will fail at runtime.\n` +
+    `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
+      'public/'
+    )}) so it ships with the extension.`
+  )
+}
+
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
   return (
