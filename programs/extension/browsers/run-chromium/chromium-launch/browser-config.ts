@@ -16,6 +16,7 @@ import {
 import {
   filterBrowserFlags,
   mergeChromiumFeatureSwitches,
+  parseEnvBrowserFlags,
   deriveDebugPortWithInstance,
   prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
@@ -309,7 +310,8 @@ export function browserConfig(
         ]
       : []),
     ...filteredFlags,
-    ...(configOptions.browserFlags || [])
+    ...(configOptions.browserFlags || []),
+    ...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS)
   ]
 
   // Chromium only honors the last repeated --enable-features/--disable-features
