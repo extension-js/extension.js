@@ -15,7 +15,7 @@ import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName
 } from '../../../contracts'
-import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
+import {findNearestProjectManifestSync} from '../../../../../lib/project-manifest'
 import * as messages from '../../../messages'
 import {stripBom} from '../../../../../lib/parse-json-safe'
 import {
@@ -212,7 +212,7 @@ export default function contentScriptWrapper(
   // so the file would not be recognized as a declared content script and would
   // lose its `__EXTENSIONJS_mount` call.
   const manifestDir = canonicalizeDir(path.dirname(manifestPath))
-  const packageJsonPath = findNearestPackageJsonSync(manifestPath)
+  const packageJsonPath = findNearestProjectManifestSync(manifestPath)
   const packageJsonDir = canonicalizeDir(
     packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
   )

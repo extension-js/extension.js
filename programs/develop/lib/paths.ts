@@ -9,6 +9,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type {ProjectStructure} from './project'
+import {
+  PROJECT_MANIFEST_FILENAMES,
+  readProjectDependencies
+} from './project-manifest'
 
 export type AbsolutePath = string & {readonly __brand: 'AbsolutePath'}
 export type BrowserInput =
@@ -54,8 +58,9 @@ export function getDirs(struct: ProjectStructure): {
   packageJsonDir: AbsolutePath
 } {
   const manifestDir = asAbsolute(path.dirname(struct.manifestPath))
+  const projectManifestPath = struct.packageJsonPath || struct.denoJsonPath
   const packageJsonDir = asAbsolute(
-    struct.packageJsonPath ? path.dirname(struct.packageJsonPath) : manifestDir
+    projectManifestPath ? path.dirname(projectManifestPath) : manifestDir
   )
   return {manifestDir, packageJsonDir}
 }
@@ -66,30 +71,29 @@ export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
 
 export function needsInstall(packageJsonDir: AbsolutePath): boolean {
   const nm = getNodeModulesDir(packageJsonDir)
-  const packageJsonPath = path.join(packageJsonDir, 'package.json')
 
-  // Web-only mode: no package.json means there is nothing to install.
-  // Running `npm install` here would crash with ENOENT (e.g. when running
-  // `extension dev <github-url>` against a vanilla Chrome sample).
-  if (!fs.existsSync(packageJsonPath)) {
+  // Web-only mode: no project manifest (package.json or deno.json(c)) means
+  // there is nothing to install. Running an install here would crash with
+  // ENOENT (e.g. when running `extension dev <github-url>` against a vanilla
+  // Chrome sample).
+  const hasManifest = PROJECT_MANIFEST_FILENAMES.some((filename) =>
+    fs.existsSync(path.join(packageJsonDir, filename))
+  )
+  if (!hasManifest) {
     return false
   }
 
   try {
-    const raw = fs.readFileSync(packageJsonPath, 'utf-8')
-    const packageJson = JSON.parse(raw)
-    const depsCount = Object.keys(packageJson?.dependencies || {}).length
-    const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
-    if (depsCount + devDepsCount === 0) {
+    // Merged across package.json dependency fields and deno.json(c) `npm:`
+    // imports — either manifest can declare the packages the bundler needs.
+    const deps = Object.keys(readProjectDependencies(packageJsonDir))
+    if (deps.length === 0) {
       return false
     }
 
     if (!fs.existsSync(nm)) {
       return true
     }
-
-    const deps = Object.keys(packageJson?.dependencies || {})
-    const devDeps = Object.keys(packageJson?.devDependencies || {})
 
     if (fs.existsSync(path.join(nm, '.pnpm'))) {
       return false
@@ -99,7 +103,12 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
       return false
     }
 
-    const hasInstalledDep = [...deps, ...devDeps].some((dep) =>
+    // Deno's nodeModulesDir "auto" layout keeps its store in node_modules/.deno.
+    if (fs.existsSync(path.join(nm, '.deno'))) {
+      return false
+    }
+
+    const hasInstalledDep = deps.some((dep) =>
       fs.existsSync(path.join(nm, dep))
     )
     return !hasInstalledDep
@@ -191,7 +200,7 @@ export function computePreviewOutputPath(
   const {manifestDir, packageJsonDir} = getDirs(struct)
   if (explicitOutputPath) return asAbsolute(explicitOutputPath)
 
-  if (struct.packageJsonPath) {
+  if (struct.packageJsonPath || struct.denoJsonPath) {
     const distDir = getDistPath(packageJsonDir, browser)
     try {
       if (fs.existsSync(path.join(distDir, 'manifest.json'))) {

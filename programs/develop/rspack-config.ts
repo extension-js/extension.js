@@ -390,13 +390,14 @@ export default function webpackConfig(
         fs: false,
         path: false
       },
-      modules: projectStructure.packageJsonPath
-        ? [
-            'node_modules',
-            path.join(packageJsonDir, 'node_modules'),
-            path.join(process.cwd(), 'node_modules')
-          ]
-        : ['node_modules', path.join(process.cwd(), 'node_modules')],
+      modules:
+        projectStructure.packageJsonPath || projectStructure.denoJsonPath
+          ? [
+              'node_modules',
+              path.join(packageJsonDir, 'node_modules'),
+              path.join(process.cwd(), 'node_modules')
+            ]
+          : ['node_modules', path.join(process.cwd(), 'node_modules')],
       extensions: [
         '.js',
         '.cjs',

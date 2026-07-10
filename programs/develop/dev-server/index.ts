@@ -298,12 +298,14 @@ export async function devServer(
     ? '0'
     : '1'
 
-  const {manifestPath, packageJsonPath} = projectStructure
-  // Plain manifest+scripts extensions ship no package.json; the project root
-  // is then the manifest's directory. `build` already tolerates this shape —
-  // dev must not crash on dirname(undefined).
-  const packageJsonDir = packageJsonPath
-    ? path.dirname(packageJsonPath)
+  const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
+  // Plain manifest+scripts extensions ship no project manifest; the project
+  // root is then the manifest's directory. `build` already tolerates this
+  // shape — dev must not crash on dirname(undefined). Deno projects anchor
+  // on deno.json(c) when no package.json exists.
+  const projectManifestPath = packageJsonPath || denoJsonPath
+  const packageJsonDir = projectManifestPath
+    ? path.dirname(projectManifestPath)
     : path.dirname(manifestPath)
 
   // Get command defaults from extension.config.js (located at project root)

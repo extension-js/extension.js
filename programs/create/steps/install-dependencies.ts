@@ -11,6 +11,7 @@ import * as fs from 'fs'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
+import {isDenoRuntime} from '../lib/package-manager'
 
 function getInstallArgs(packageManager: string) {
   if (packageManager === 'bun') {
@@ -119,8 +120,12 @@ export async function installDependencies(
     return
   }
 
-  const command = await utils.getInstallCommand()
-  const dependenciesArgs = getInstallArgs(command)
+  // `prefers-yarn` can't see Deno (no npm_config_user_agent); when the CLI
+  // itself runs under Deno, install with `deno install` so dependencies are
+  // resolved from the scaffolded deno.jsonc manifest.
+  const command = isDenoRuntime() ? 'deno' : await utils.getInstallCommand()
+  const dependenciesArgs =
+    command === 'deno' ? ['install'] : getInstallArgs(command)
 
   const installMessage = messages.installingDependencies()
   logger.log(installMessage)

@@ -1,30 +1,13 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import {hasProjectDependency} from './project-manifest'
 
 /**
- * True when `packageName` is listed in the project's package.json dependency
- * fields (dependencies, devDependencies, optionalDependencies, or peerDependencies).
+ * True when `packageName` is declared by the project's manifest: package.json
+ * dependency fields (dependencies, devDependencies, optionalDependencies,
+ * peerDependencies) or a deno.json(c) `npm:` import.
  */
 export function hasDependency(
   projectPath: string,
   packageName: string
 ): boolean {
-  const manifestPath = path.join(projectPath, 'package.json')
-  if (!fs.existsSync(manifestPath)) return false
-
-  try {
-    const raw = fs.readFileSync(manifestPath, 'utf8')
-    const pkg = JSON.parse(raw || '{}') as Record<string, unknown>
-    const sections = [
-      pkg.dependencies,
-      pkg.devDependencies,
-      pkg.optionalDependencies,
-      pkg.peerDependencies
-    ]
-    return sections.some(
-      (s) => s && typeof s === 'object' && packageName in (s as object)
-    )
-  } catch {
-    return false
-  }
+  return hasProjectDependency(projectPath, packageName)
 }

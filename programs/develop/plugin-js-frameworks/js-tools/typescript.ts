@@ -16,21 +16,15 @@ import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-res
 
 let hasShownUserMessage = false
 
+import {
+  findNearestProjectManifestDirSync,
+  hasProjectDependency
+} from '../../lib/project-manifest'
+
 function findNearestPackageJsonDirectory(
   startPath: string
 ): string | undefined {
-  let currentDirectory = startPath
-  const maxDepth = 6
-
-  for (let i = 0; i < maxDepth; i++) {
-    const candidate = path.join(currentDirectory, 'package.json')
-    if (fs.existsSync(candidate)) return currentDirectory
-    const parentDirectory = path.dirname(currentDirectory)
-    if (parentDirectory === currentDirectory) break
-    currentDirectory = parentDirectory
-  }
-
-  return undefined
+  return findNearestProjectManifestDirSync(startPath, 6)
 }
 
 function hasTypeScriptSourceFiles(projectPath: string): boolean {
@@ -61,20 +55,11 @@ function hasTypeScriptSourceFiles(projectPath: string): boolean {
   }
 }
 
-import {parseJsonSafe} from '../../lib/parse-json-safe'
-
 function hasTypeScriptDependency(projectPath: string): boolean {
-  const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
-  if (!packageJsonDirectory) return false
+  const manifestDirectory = findNearestPackageJsonDirectory(projectPath)
+  if (!manifestDirectory) return false
 
-  const packageJson = parseJsonSafe(
-    fs.readFileSync(path.join(packageJsonDirectory, 'package.json'), 'utf8')
-  )
-
-  return !!(
-    packageJson?.devDependencies?.typescript ||
-    packageJson?.dependencies?.typescript
-  )
+  return hasProjectDependency(manifestDirectory, 'typescript')
 }
 
 export function isUsingTypeScript(projectPath: string): boolean {

@@ -15,7 +15,7 @@ export {buildExecEnv}
 
 const require = createRequire(import.meta.url)
 
-export type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun'
+export type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun' | 'deno'
 
 export type PackageManagerResolution = {
   name: PackageManagerName
@@ -40,6 +40,7 @@ function normalizePackageManager(
   if (lower === 'yarn') return 'yarn'
   if (lower === 'bun') return 'bun'
   if (lower === 'npm') return 'npm'
+  if (lower === 'deno') return 'deno'
 
   return undefined
 }
@@ -228,6 +229,35 @@ function hydrateResolvedPackageManager(
   return undefined
 }
 
+/**
+ * A project is Deno-managed when it carries a deno.lock, or a deno.json(c)
+ * with no package.json beside it. npm-family lockfiles (checked before this)
+ * still win for hybrid projects — deno.lock alone marks a `deno install`.
+ */
+function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
+  if (!cwd) return undefined
+
+  try {
+    const hasDenoLock = fs.existsSync(path.join(cwd, 'deno.lock'))
+    const hasDenoConfig =
+      fs.existsSync(path.join(cwd, 'deno.jsonc')) ||
+      fs.existsSync(path.join(cwd, 'deno.json'))
+    const hasPackageJson = fs.existsSync(path.join(cwd, 'package.json'))
+
+    if (!hasDenoLock && !(hasDenoConfig && !hasPackageJson)) return undefined
+  } catch {
+    return undefined
+  }
+
+  const execPath = resolveCommandOnPath('deno')
+  if (execPath) return {name: 'deno', execPath}
+
+  // Deno projects created by `deno run npm:extension@latest create` may run
+  // dev/build through a node CLI later; only claim deno when the binary is
+  // actually available.
+  return undefined
+}
+
 export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
@@ -240,6 +270,9 @@ export function resolvePackageManager(opts?: {
 
   const override = getPackageManagerOverride()
   if (override) return override
+
+  const denoPm = detectDenoProject(opts?.cwd)
+  if (denoPm) return denoPm
 
   const envPm = detectPackageManagerFromEnv()
   if (envPm) return envPm
