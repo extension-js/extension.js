@@ -504,6 +504,18 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
 
+    // Bug 9: the consuming call site must stay a NATIVE dynamic import —
+    // lowered into the bundler module map it throws
+    // `Cannot find module 'chrome-extension://<id>/common.js'` at runtime.
+    const contentBundle = fs.readFileSync(
+      path.join(distDir, 'content_scripts', 'content-0.js'),
+      'utf8'
+    )
+    expect(contentBundle).toMatch(
+      /\bimport\(\s*(?:\/\*[\s\S]*?\*\/\s*)?[\w.$]*runtime\.getURL\(/
+    )
+    expect(contentBundle).not.toContain('Cannot find module')
+
     // NAVIGATION variant: the getURL'd HTML page ships at its literal path
     // with its own src/href subresource closure.
     for (const rel of ['ui/page.html', 'ui/page.js', 'ui/page.css']) {
