@@ -56,11 +56,10 @@ export async function extensionDev(
       await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
-    if (projectStructure.packageJsonPath) {
-      assertNoManagedDependencyConflicts(
-        projectStructure.packageJsonPath,
-        manifestDir
-      )
+    const userManifestPath =
+      projectStructure.packageJsonPath || projectStructure.denoJsonPath
+    if (userManifestPath) {
+      assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
 
     const browser = normalizeBrowser(

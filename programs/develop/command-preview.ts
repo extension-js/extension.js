@@ -69,11 +69,10 @@ export async function extensionPreview(
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
   // Guard: only error if user references managed deps in extension.config.js
-  if (projectStructure.packageJsonPath) {
-    assertNoManagedDependencyConflicts(
-      projectStructure.packageJsonPath,
-      packageJsonDir
-    )
+  const userManifestPath =
+    projectStructure.packageJsonPath || projectStructure.denoJsonPath
+  if (userManifestPath) {
+    assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
   const browser = normalizeBrowser(
     previewOptions.browser || 'chrome',
