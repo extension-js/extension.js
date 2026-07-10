@@ -69,6 +69,38 @@ export function filterBrowserFlags(
   )
 }
 
+// Chromium keeps only the LAST occurrence of a repeated switch, so passing
+// --disable-features (or --enable-features) more than once silently drops
+// every earlier value. Collapse all occurrences of each into a single
+// comma-joined switch (deduped, first-seen order) at the end of the list.
+export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
+  const merged: string[] = []
+  const featureValues: Record<string, string[]> = {
+    '--enable-features=': [],
+    '--disable-features=': []
+  }
+
+  for (const flag of flags) {
+    const prefix = Object.keys(featureValues).find((p) => flag.startsWith(p))
+    if (!prefix) {
+      merged.push(flag)
+      continue
+    }
+    for (const value of flag.slice(prefix.length).split(',')) {
+      const trimmed = value.trim()
+      if (trimmed && !featureValues[prefix].includes(trimmed)) {
+        featureValues[prefix].push(trimmed)
+      }
+    }
+  }
+
+  for (const [prefix, values] of Object.entries(featureValues)) {
+    if (values.length) merged.push(`${prefix}${values.join(',')}`)
+  }
+
+  return merged
+}
+
 // Find an available TCP port near a starting port.
 // Defaults to localhost.
 export async function findAvailablePortNear(
