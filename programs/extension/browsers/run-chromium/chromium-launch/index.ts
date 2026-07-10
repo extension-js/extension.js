@@ -30,6 +30,7 @@ import {
 } from '../../browsers-lib/banner'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
+import {diagnoseChromiumManifestRefusal} from '../../browsers-lib/manifest-refusal'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
@@ -702,9 +703,10 @@ export class ChromiumLaunchPlugin {
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
     publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
 
-    // Modern Chromium refuses unpacked MV2 extensions outright, and the
-    // refusal surfaces only as a native modal — the session wedges with no
-    // error and no CDP endpoint. Say why up front, before the spawn.
+    // Manifest shapes modern Chromium refuses outright (MV2, Firefox-style
+    // MV3 background.scripts): the refusal surfaces only as a native modal —
+    // or nothing at all — and the session wedges with no error and no CDP
+    // endpoint. Say why up front, before the spawn.
     for (const extPath of extensionsToLoad) {
       try {
         const m = JSON.parse(
@@ -713,9 +715,17 @@ export class ChromiumLaunchPlugin {
             'utf8'
           )
         )
-        if (Number(m?.manifest_version) === 2) {
+        const refusal = diagnoseChromiumManifestRefusal(m)
+        if (refusal === 'mv2') {
           // eslint-disable-next-line no-console
           console.warn(messages.mv2NotSupportedByChromium(String(extPath)))
+        } else if (refusal === 'mv3-background-scripts') {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.mv3BackgroundScriptsNotSupportedByChromium(
+              String(extPath)
+            )
+          )
         }
       } catch {
         // unreadable manifest — the browser will complain on its own
