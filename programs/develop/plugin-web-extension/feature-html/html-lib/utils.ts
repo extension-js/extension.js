@@ -315,8 +315,11 @@ export function resolveAbsoluteFsPath(params: {
   projectRoot: string
   publicRootForResource: string
   outputRoot: string
+  /** Manifest dir: Chrome resolves root URLs (/pages/x.html) against it. */
+  manifestRoot?: string
 }): {absoluteFsPath: string; isUnderPublicRoot: boolean; isRootUrl: boolean} {
-  const {asset, projectRoot, publicRootForResource, outputRoot} = params
+  const {asset, projectRoot, publicRootForResource, outputRoot, manifestRoot} =
+    params
   const isRootUrl =
     asset.startsWith('/') &&
     !(
@@ -333,8 +336,20 @@ export function resolveAbsoluteFsPath(params: {
         const normalized = cleanLeading(rootRelative)
         const withoutPublicPrefix = normalized.replace(/^public\//, '')
         const candidate = path.join(publicRootForResource, withoutPublicPrefix)
-        const outCandidate = path.join(outputRoot, withoutPublicPrefix)
-        return fs.existsSync(candidate) ? candidate : outCandidate
+        if (fs.existsSync(candidate)) return candidate
+        // Chrome serves /pages/x.html as chrome-extension://<id>/pages/x.html,
+        // i.e. manifest-relative — resolve the SOURCE file there. Never fall
+        // back into outputRoot: reading our own emitted output as input feeds
+        // already-patched HTML (compiled /feature.js refs) back through the
+        // pipeline, which ENOENTs from the filesystem root and kills the
+        // recompile (first seen on a wild subject's <iframe src="/pages/…">).
+        const manifestCandidate = manifestRoot
+          ? path.join(manifestRoot, normalized)
+          : ''
+        if (manifestCandidate && fs.existsSync(manifestCandidate)) {
+          return manifestCandidate
+        }
+        return manifestCandidate || candidate
       })()
     : isDotPublic
       ? path.join(projectRoot, cleanLeading(asset))

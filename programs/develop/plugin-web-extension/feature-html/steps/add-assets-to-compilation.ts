@@ -190,6 +190,13 @@ function emitNestedHtmlAndReferencedAssets(params: {
   )
 
   assetsFromHtml.forEach((assetFromHtml) => {
+    // A reference that doesn't resolve to a real source file (remote URL kept
+    // verbatim, root URL with no source counterpart, author typo) must not
+    // throw here: an uncaught ENOENT inside processAssets fails the whole
+    // compilation and wedges the watch loop.
+    if (!path.isAbsolute(assetFromHtml) || !fs.existsSync(assetFromHtml)) {
+      return
+    }
     const s = fs.readFileSync(assetFromHtml)
     const r = new (sources as any).RawSource(s)
     const assetFilepath = joinEmittedAssetName(
@@ -333,7 +340,8 @@ export class AddAssetsToCompilation {
                   asset,
                   projectRoot,
                   publicRootForResource,
-                  outputRoot
+                  outputRoot,
+                  manifestRoot: manifestDir
                 })
 
               // If root URL exists in source public, skip
