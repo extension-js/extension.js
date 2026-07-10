@@ -307,6 +307,22 @@ export function mv3BackgroundScriptsNotSupportedByChromium(
   )
 }
 
+export function chromiumInvalidMatchPatterns(
+  extensionPath: string,
+  patterns: string[]
+) {
+  const shown = patterns.slice(0, 6)
+  const more = patterns.length - shown.length
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares match patterns Chrome refuses — the whole extension will not load.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    shown.map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`).join('') +
+    (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
+    `Match patterns cannot contain a query string, fragment, or port. ` +
+    `Replace the invalid part with ${colors.blue('*')} (e.g. ${colors.blue('/page*')} instead of ${colors.blue('/page?id=*')}) in the source manifest.`
+  )
+}
+
 export function devChannelSnapshotInUse(binaryPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('Running a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +
