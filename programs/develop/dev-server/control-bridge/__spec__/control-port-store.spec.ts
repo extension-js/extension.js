@@ -1,7 +1,8 @@
 // Unit spec for control-port persistence — the reachability half of the
 // stale-SW self-heal (see BridgeBroker stale-producer resync). The port file
-// lives under dist/extension-js/<browser>/ so it shares dist/'s lifetime with
-// the browser profile: wiped together, stale together.
+// lives under the project's .extension-js/ dir so it outlives dist/: a kept
+// or explicit browser profile survives a dist wipe, and its cached SW can
+// only resync if the next session rebinds the port it has baked in (#484).
 
 import * as fs from 'fs'
 import * as os from 'os'
@@ -9,6 +10,7 @@ import * as path from 'path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   controlPortFilePath,
+  legacyControlPortFilePath,
   readPersistedControlPort,
   writePersistedControlPort
 } from '../control-port-store'
@@ -26,8 +28,20 @@ function makeTmpDir(): string {
 }
 
 describe('control-port-store', () => {
-  it('resolves the file under dist/extension-js/<browser>/', () => {
+  it('resolves the file under .extension-js/, outside dist/', () => {
     expect(controlPortFilePath('/proj', 'chromium')).toBe(
+      path.join('/proj', '.extension-js', 'control-port-chromium')
+    )
+  })
+
+  it('keeps the port file per browser', () => {
+    expect(controlPortFilePath('/proj', 'chrome')).not.toBe(
+      controlPortFilePath('/proj', 'chromium')
+    )
+  })
+
+  it('resolves the legacy (pre-#484) file under dist/extension-js/<browser>/', () => {
+    expect(legacyControlPortFilePath('/proj', 'chromium')).toBe(
       path.join('/proj', 'dist', 'extension-js', 'chromium', 'control-port')
     )
   })
@@ -36,6 +50,14 @@ describe('control-port-store', () => {
     const file = controlPortFilePath(makeTmpDir(), 'chromium')
     writePersistedControlPort(file, 61234)
     expect(readPersistedControlPort(file)).toBe(61234)
+  })
+
+  it('survives a dist/ wipe', () => {
+    const proj = makeTmpDir()
+    const file = controlPortFilePath(proj, 'chrome')
+    writePersistedControlPort(file, 53763)
+    fs.rmSync(path.join(proj, 'dist'), {recursive: true, force: true})
+    expect(readPersistedControlPort(file)).toBe(53763)
   })
 
   it('returns null for a missing file', () => {

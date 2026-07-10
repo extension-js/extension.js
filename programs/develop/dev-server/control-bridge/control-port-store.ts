@@ -12,11 +12,27 @@ import * as path from 'path'
  * the NEW server, whose broker then tells it to full-reload itself (see
  * BridgeBroker.onHello).
  *
- * The file lives under dist/extension-js/<browser>/ — the same dist/ that
- * holds the browser profile. Wiping dist/ wipes both, so a fresh profile
- * (no staleness possible) is exactly when a fresh port is acceptable.
+ * The file lives under the project's `.extension-js/` dir (with the control
+ * token), NOT under dist/: profiles can outlive dist/ — an explicit
+ * `--profile <path>` or a kept managed profile survives a dist wipe — and a
+ * port file that dies with dist strands the profile's cached SW on a dead
+ * port with no resync path (issue #484: permanent "no executor connected"
+ * against a live, awake SW). The port must live at least as long as any
+ * profile that may have it baked in.
  */
 export function controlPortFilePath(
+  packageJsonDir: string,
+  browser: string
+): string {
+  return path.join(packageJsonDir, '.extension-js', `control-port-${browser}`)
+}
+
+/**
+ * Pre-fix location (shared dist/'s lifetime — the #484 hole). Still read as a
+ * fallback so the first run after an upgrade rebinds the port that a 4.0.6-era
+ * profile has baked into its cached SW.
+ */
+export function legacyControlPortFilePath(
   packageJsonDir: string,
   browser: string
 ): string {

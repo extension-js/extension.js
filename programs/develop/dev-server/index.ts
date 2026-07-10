@@ -29,6 +29,7 @@ import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {
   controlPortFilePath,
+  legacyControlPortFilePath,
   readPersistedControlPort,
   writePersistedControlPort
 } from './control-bridge/control-port-store'
@@ -428,7 +429,13 @@ export async function devServer(
     // ephemeral port when the persisted one is taken (e.g. a concurrent
     // instance).
     const controlPortFile = controlPortFilePath(packageJsonDir, browserName)
-    const preferredControlPort = readPersistedControlPort(controlPortFile)
+    const preferredControlPort =
+      readPersistedControlPort(controlPortFile) ??
+      // Pre-fix sessions persisted the port under dist/; honor it once so a
+      // profile whose cached SW has that port baked in can still resync.
+      readPersistedControlPort(
+        legacyControlPortFilePath(packageJsonDir, browserName)
+      )
 
     let controlServer
     try {
