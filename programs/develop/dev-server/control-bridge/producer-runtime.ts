@@ -340,39 +340,66 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // the previous mount (matched by data-extjs-reinject-owner + build hash) and
     // mounts the new one — so this is the controller-less equivalent of the CDP
     // controller's reinjection, just driven from inside the extension.
+    //
+    // exclude_matches MUST be honored: the browser's own static injection never
+    // touches excluded pages, and extensions can rely on that (e.g. a script
+    // whose message handler opens the very page it excludes — injecting there
+    // anyway creates an open-a-tab → inject → open-a-tab runaway loop). Chrome's
+    // tabs.query has no exclude support, so query the exclude patterns
+    // separately and subtract — the browser stays the single pattern matcher.
     function reinjectContentScriptEntry(entry) {
       var chrome = g.chrome;
       var matches = (entry && entry.matches) || [];
       if (!Array.isArray(matches) || !matches.length) return;
+      var excludeMatches = (entry && entry.exclude_matches) || [];
       var jsFiles = ((entry && entry.js) || []).filter(function (f) { return typeof f === "string"; });
       var cssFiles = ((entry && entry.css) || []).filter(function (f) { return typeof f === "string"; });
       if (!jsFiles.length && !cssFiles.length) return;
       var world = entry.world === "MAIN" ? "MAIN" : "ISOLATED";
       var allFrames = !!entry.all_frames;
-      try {
-        chrome.tabs.query({url: matches}, function (tabs) {
-          var err = null;
-          try { err = chrome.runtime.lastError; } catch (e) {}
-          if (err || !tabs) return;
-          for (var i = 0; i < tabs.length; i++) {
-            (function (tab) {
-              if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
-              var target = {tabId: tab.id, allFrames: allFrames};
-              if (cssFiles.length && chrome.scripting.insertCSS) {
-                try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {}
+      function injectInto(excludedTabIds) {
+        try {
+          chrome.tabs.query({url: matches}, function (tabs) {
+            var err = null;
+            try { err = chrome.runtime.lastError; } catch (e) {}
+            if (err || !tabs) return;
+            for (var i = 0; i < tabs.length; i++) {
+              (function (tab) {
+                if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
+                if (excludedTabIds[tab.id]) return;
+                var target = {tabId: tab.id, allFrames: allFrames};
+                if (cssFiles.length && chrome.scripting.insertCSS) {
+                  try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {}
+                }
+                if (jsFiles.length && chrome.scripting.executeScript) {
+                  try {
+                    chrome.scripting.executeScript(
+                      {target: target, files: jsFiles, world: world, injectImmediately: true},
+                      noopLastError
+                    );
+                  } catch (e) {}
+                }
+              })(tabs[i]);
+            }
+          });
+        } catch (e) {}
+      }
+      if (Array.isArray(excludeMatches) && excludeMatches.length) {
+        try {
+          chrome.tabs.query({url: excludeMatches}, function (excludedTabs) {
+            try { void chrome.runtime.lastError; } catch (e) {}
+            var excluded = {};
+            if (excludedTabs) {
+              for (var i = 0; i < excludedTabs.length; i++) {
+                if (excludedTabs[i] && excludedTabs[i].id != null) excluded[excludedTabs[i].id] = true;
               }
-              if (jsFiles.length && chrome.scripting.executeScript) {
-                try {
-                  chrome.scripting.executeScript(
-                    {target: target, files: jsFiles, world: world, injectImmediately: true},
-                    noopLastError
-                  );
-                } catch (e) {}
-              }
-            })(tabs[i]);
-          }
-        });
-      } catch (e) {}
+            }
+            injectInto(excluded);
+          });
+          return;
+        } catch (e) {}
+      }
+      injectInto({});
     }
 
     // Re-inject all content scripts into their open tabs. Reads the manifest
@@ -431,6 +458,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           allFrames: !!e.all_frames,
           world: e.world === "MAIN" ? "MAIN" : "ISOLATED"
         };
+        // Dev registration must not be BROADER than the static one: dropping
+        // exclude_matches injects into pages the browser itself would skip.
+        if (Array.isArray(e.exclude_matches) && e.exclude_matches.length) {
+          s.excludeMatches = e.exclude_matches;
+        }
         if (js.length) s.js = js;
         if (css.length) s.css = css;
         scripts.push(s);
