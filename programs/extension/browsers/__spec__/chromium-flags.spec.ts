@@ -368,3 +368,93 @@ describe('Chromium container sandbox flags', () => {
     expect(flags).not.toContain('--no-sandbox')
   })
 })
+
+describe('Chromium feature-switch merging', () => {
+  // Chromium keeps only the LAST occurrence of a repeated switch, so every
+  // --disable-features before the final one used to be silently dropped.
+  it('emits exactly one --disable-features switch with every default feature', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    const disables = flags.filter((f: string) =>
+      f.startsWith('--disable-features=')
+    )
+    expect(disables).toHaveLength(1)
+    const features = disables[0].replace('--disable-features=', '').split(',')
+    for (const feature of [
+      'InterestFeedContentSuggestions',
+      'Translate',
+      'MediaRoute',
+      'DisableLoadExtensionCommandLineSwitch',
+      'ExtensionDisableUnsupportedDeveloper',
+      'TranslateUI'
+    ]) {
+      expect(features).toContain(feature)
+    }
+  })
+
+  it('emits exactly one --enable-features switch', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    const enables = flags.filter((f: string) =>
+      f.startsWith('--enable-features=')
+    )
+    expect(enables).toHaveLength(1)
+    expect(enables[0]).toContain('SidePanelUpdates')
+  })
+
+  // Chromium 152+ permanently disables command-line-loaded extensions with
+  // DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the first runtime.reload()
+  // unless this feature is off — which breaks every dev-mode SW/manifest edit.
+  it('disables ExtensionDisableUnsupportedDeveloper (Chromium 152 reload kill)', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    const disables = flags.find((f: string) =>
+      f.startsWith('--disable-features=')
+    )
+    expect(disables).toContain('ExtensionDisableUnsupportedDeveloper')
+  })
+
+  it('merges user-provided feature switches instead of dropping defaults', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      browserFlags: [
+        '--disable-features=MyCustomFeature',
+        '--enable-features=MyEnabledFeature'
+      ]
+    } as any)
+    const disables = flags.filter((f: string) =>
+      f.startsWith('--disable-features=')
+    )
+    expect(disables).toHaveLength(1)
+    expect(disables[0]).toContain('MyCustomFeature')
+    expect(disables[0]).toContain('DisableLoadExtensionCommandLineSwitch')
+    const enables = flags.filter((f: string) =>
+      f.startsWith('--enable-features=')
+    )
+    expect(enables).toHaveLength(1)
+    expect(enables[0]).toContain('MyEnabledFeature')
+    expect(enables[0]).toContain('SidePanelUpdates')
+  })
+
+  it('excludeBrowserFlags can still drop an individual feature entry', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      excludeBrowserFlags: [
+        '--disable-features=ExtensionDisableUnsupportedDeveloper'
+      ]
+    } as any)
+    const disables = flags.find((f: string) =>
+      f.startsWith('--disable-features=')
+    )
+    expect(disables).not.toContain('ExtensionDisableUnsupportedDeveloper')
+    expect(disables).toContain('DisableLoadExtensionCommandLineSwitch')
+  })
+})
