@@ -60,6 +60,12 @@ const DEFAULT_DEBOUNCE_MS = Number(
 const DEFAULT_TIMEOUT_MS = Number(
   process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 300
 )
+const DEFAULT_AUDIT_MAX_BYTES = 1024 * 1024
+
+function auditMaxBytes(): number {
+  const raw = Number(process.env.EXTENSION_TELEMETRY_AUDIT_MAX_BYTES)
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_AUDIT_MAX_BYTES
+}
 
 export const DEFAULT_POSTHOG_KEY =
   process.env.POSTHOG_KEY || 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
@@ -379,6 +385,7 @@ export class Telemetry {
 
   private writeAudit(payload: unknown): void {
     if (!this.storage) return
+    this.rotateAuditIfNeeded(this.storage.auditFile)
     try {
       fs.appendFileSync(this.storage.auditFile, JSON.stringify(payload) + '\n')
     } catch {
@@ -388,6 +395,27 @@ export class Telemetry {
     if (this.debug) {
       // eslint-disable-next-line no-console
       console.error('[telemetry]', JSON.stringify(payload))
+    }
+  }
+
+  // The audit log is write-only (flush() sends from the in-memory buffer), so
+  // it must stay bounded: at the cap, roll to a single .1 backup — total disk
+  // usage never exceeds ~2x the cap. Files grossly over the cap (legacy
+  // unbounded growth) are dropped instead of kept as the backup.
+  private rotateAuditIfNeeded(auditFile: string): void {
+    try {
+      const max = auditMaxBytes()
+      const size = fs.statSync(auditFile).size
+      if (size < max) return
+      const backup = auditFile + '.1'
+      fs.rmSync(backup, {force: true})
+      if (size >= max * 10) {
+        fs.rmSync(auditFile, {force: true})
+      } else {
+        fs.renameSync(auditFile, backup)
+      }
+    } catch {
+      // missing file or failed rotation — appending proceeds either way
     }
   }
 }
