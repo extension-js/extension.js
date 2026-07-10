@@ -34,3 +34,47 @@ export function diagnoseChromiumManifestRefusal(
 
   return null
 }
+
+/**
+ * Match patterns Chrome's grammar refuses — a query string / fragment
+ * (`?`, `#`) or an explicit port in the host. ONE invalid pattern in
+ * content_scripts matches, host_permissions, or web_accessible_resources
+ * makes Chrome refuse the WHOLE extension at load (wild: Ban-Checker's
+ * `.../gcpd/730?tab=majors`, Better-Names' `host:8888/...`). Loading the
+ * source unpacked fails identically, so this is extension-own — but dev
+ * must say so instead of printing an ID for an extension that never loads.
+ */
+export function findInvalidMatchPatterns(manifest: unknown): string[] {
+  const m = manifest as Record<string, any> | null | undefined
+  const patterns: string[] = []
+
+  for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
+    if (Array.isArray(list)) patterns.push(...list)
+  }
+  for (const contentScript of Array.isArray(m?.content_scripts)
+    ? m.content_scripts
+    : []) {
+    for (const list of [
+      contentScript?.matches,
+      contentScript?.exclude_matches
+    ]) {
+      if (Array.isArray(list)) patterns.push(...list)
+    }
+  }
+  for (const resource of Array.isArray(m?.web_accessible_resources)
+    ? m.web_accessible_resources
+    : []) {
+    if (Array.isArray(resource?.matches)) patterns.push(...resource.matches)
+  }
+
+  const invalid = patterns.filter(
+    (pattern): pattern is string =>
+      typeof pattern === 'string' &&
+      pattern !== '<all_urls>' &&
+      (pattern.includes('?') ||
+        pattern.includes('#') ||
+        /^[a-zA-Z*]+:\/\/[^/]*:\d+(?:\/|$)/.test(pattern))
+  )
+
+  return [...new Set(invalid)]
+}
