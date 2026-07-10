@@ -87,6 +87,10 @@ const nodeEntries = {
     __dirname,
     './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/classic-concat-loader.ts'
   ),
+  'feature-scripts-native-geturl-import-loader': path.resolve(
+    __dirname,
+    './plugin-web-extension/feature-scripts/steps/native-geturl-import-loader.ts'
+  ),
   'css-parse-guard-loader': path.resolve(
     __dirname,
     './plugin-css/css-parse-guard-loader.ts'
