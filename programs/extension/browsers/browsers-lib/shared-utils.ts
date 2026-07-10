@@ -69,6 +69,51 @@ export function filterBrowserFlags(
   )
 }
 
+export interface ChromiumBinaryChoice {
+  binary: string | null
+  usedManagedSnapshot: boolean
+  swappedToSystem: boolean
+}
+
+// A managed `chromium` install is always a tip-of-tree snapshot (dev channel):
+// one `extension install chromium` (or chromium-location --download) would
+// otherwise silently outrank every installed stable browser for all future
+// dev sessions. Prefer a system-installed browser over the cached snapshot
+// unless the user opts in (EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true). A system
+// candidate that itself lives in a download cache (puppeteer dirs, the managed
+// cache root) is just another snapshot and does not count as stable.
+export function chooseChromiumBinaryPreferringStable(opts: {
+  managedSnapshotBinary: string | null
+  systemBinary: string | null
+  managedCacheRoot?: string
+  preferManagedSnapshot?: boolean
+}): ChromiumBinaryChoice {
+  const managed = opts.managedSnapshotBinary
+  if (!managed) {
+    return {binary: null, usedManagedSnapshot: false, swappedToSystem: false}
+  }
+  if (opts.preferManagedSnapshot) {
+    return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
+  }
+
+  const system = opts.systemBinary
+  const cacheRoot = String(opts.managedCacheRoot || '').trim()
+  const isCacheLikePath = (p: string) => {
+    const normalized = p.replace(/\\/g, '/')
+    if (/\/(puppeteer|ms-playwright)\//i.test(normalized)) return true
+    if (cacheRoot && normalized.startsWith(cacheRoot.replace(/\\/g, '/'))) {
+      return true
+    }
+    return false
+  }
+
+  if (system && system !== managed && !isCacheLikePath(system)) {
+    return {binary: system, usedManagedSnapshot: false, swappedToSystem: true}
+  }
+
+  return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
+}
+
 // Chromium keeps only the LAST occurrence of a repeated switch, so passing
 // --disable-features (or --enable-features) more than once silently drops
 // every earlier value. Collapse all occurrences of each into a single
