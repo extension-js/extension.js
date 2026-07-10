@@ -17,6 +17,7 @@ import {InjectBridgeRelay} from './steps/setup-reload-strategy/inject-bridge-rel
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
+import {ValidateContentScriptSyntax} from './steps/validate-content-script-syntax'
 import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
@@ -74,6 +75,11 @@ export class ScriptsPlugin {
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
+
+    // swc tolerates some early syntax errors (top-level redeclarations) and
+    // emits them into the bundle; the browser then silently never injects the
+    // file. Fail loudly instead — in every mode.
+    new ValidateContentScriptSyntax().apply(compiler)
 
     if (
       compiler.options.mode !== 'production' &&
