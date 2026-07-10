@@ -14,6 +14,8 @@ const globalDependencies = ['', '# dependencies', 'node_modules']
 const globalTesting = ['', '# testing', 'coverage']
 const globalProduction = ['', '# production', 'dist']
 const globalMisc = ['', '# misc', '.DS_Store']
+// Dev-session state (control token, per-browser control port). Machine-local.
+const localSessionState = ['', '# extension.js local session state', '.extension-js']
 const envFiles = [
   '',
   '# local env files',
@@ -36,6 +38,7 @@ const globalLines = [
   ...globalTesting,
   ...globalProduction,
   ...globalMisc,
+  ...localSessionState,
   ...envFiles,
   ...debugFiles
 ]
