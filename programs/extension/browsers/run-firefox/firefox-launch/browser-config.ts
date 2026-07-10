@@ -10,7 +10,10 @@ import * as path from 'path'
 import * as fs from 'fs'
 import type {CompilationLike} from '../../browsers-types'
 import * as messages from '../../browsers-lib/messages'
-import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import {
+  cleanupOldTempProfiles,
+  parseEnvBrowserFlags
+} from '../../browsers-lib/shared-utils'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {getPreferences} from './master-preferences'
 import type {BrowserType, BrowserConfig} from '../../browsers-types'
@@ -45,6 +48,10 @@ export async function browserConfig(
   if (filteredFlags.length > 0) {
     binaryArgs.push(...filteredFlags)
   }
+
+  // Environment escape hatch (see parseEnvBrowserFlags): appended after config
+  // browserFlags and NOT subject to excludeBrowserFlags — the env is explicit.
+  binaryArgs.push(...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS))
 
   // Firefox supports being launched with an URL as the last argument.
   // This keeps parity with Chromium, where we append `startingUrl` on spawn.
