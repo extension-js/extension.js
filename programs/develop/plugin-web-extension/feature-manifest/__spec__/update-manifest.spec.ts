@@ -15,9 +15,16 @@ vi.mock('../manifest-overrides', () => ({
 }))
 
 describe('UpdateManifest', () => {
-  const make = (mode: 'development' | 'production') => {
+  const make = (
+    mode: 'development' | 'production',
+    manifestSource = '{"name":"x"}',
+    extraAssets: string[] = []
+  ) => {
     const assets: Record<string, any> = {
-      'manifest.json': {source: () => '{"name":"x"}'}
+      'manifest.json': {source: () => manifestSource}
+    }
+    for (const name of extraAssets) {
+      assets[name] = {source: () => ''}
     }
     const updated: Record<string, string> = {}
     const compilation: any = {
@@ -44,12 +51,52 @@ describe('UpdateManifest', () => {
   }
 
   it('applies overrides and dev content_scripts overrides in development', () => {
-    const {compiler, updated} = make('development')
+    const {compiler, updated} = make(
+      'development',
+      JSON.stringify({
+        name: 'x',
+        content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
+      })
+    )
     new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.icons).toBeDefined()
-    const firstJs = out.content_scripts?.[0]?.js?.[0]
-    if (firstJs) expect(firstJs).toContain('content_scripts-0')
+    // A css-only group must reference the entry chunk the compiler actually
+    // emits (content_scripts/content-N.js), not a legacy content_scripts-N
+    // stub that nothing emits — the persist guard fails the build over it.
+    expect(out.content_scripts?.[0]?.js).toEqual(['content_scripts/content-0.js'])
+  })
+
+  it('resolves the css-only dev stub to the hashed emitted asset', () => {
+    const {compiler, updated} = make(
+      'development',
+      JSON.stringify({
+        name: 'x',
+        content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
+      }),
+      ['content_scripts/content-0.deadbeef.js']
+    )
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    const out = JSON.parse(updated['manifest.json'])
+    expect(out.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.deadbeef.js'
+    ])
+  })
+
+  it('derives the css-only stub index from the canonical css path, not array position', () => {
+    const {compiler, updated} = make(
+      'development',
+      JSON.stringify({
+        name: 'x',
+        content_scripts: [
+          {matches: ['*://*/*'], js: ['content_scripts/content-0.js']},
+          {matches: ['*://*/*'], css: ['content_scripts/content-3.css']}
+        ]
+      })
+    )
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    const out = JSON.parse(updated['manifest.json'])
+    expect(out.content_scripts?.[1]?.js).toEqual(['content_scripts/content-3.js'])
   })
 
   it('updates asset in production as well', () => {
