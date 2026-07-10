@@ -15,6 +15,7 @@ import {InjectScriptsReplayShim} from './steps/setup-reload-strategy/inject-scri
 import {InjectBridgeProducer} from './steps/setup-reload-strategy/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/setup-reload-strategy/inject-bridge-relay'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
+import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {ValidateContentScriptSyntax} from './steps/validate-content-script-syntax'
@@ -56,6 +57,14 @@ export class ScriptsPlugin {
     // importScripts(...) dependencies and executeScript/insertCSS `files`
     // payloads. Copied through verbatim; missing references become warnings.
     new TraceRuntimeLoadedFiles({
+      manifestPath: this.manifestPath
+    }).apply(compiler)
+
+    // import(chrome.runtime.getURL(...)) resolves to an absolute
+    // chrome-extension:// URL at runtime — no module map can satisfy it, so
+    // the call must stay a NATIVE import() in the emitted bundle (the trace
+    // step above guarantees the target files ship).
+    new KeepGetURLImportsNative({
       manifestPath: this.manifestPath
     }).apply(compiler)
 
