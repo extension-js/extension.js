@@ -261,6 +261,40 @@ export function usingManagedChromiumFamilyFallback(
   )
 }
 
+// One always-on line naming the exact binary a dev session runs. A silently
+// selected cached snapshot must never be invisible in dev output.
+export function resolvedBrowserBinary(
+  browser: Browser,
+  binaryPath: string,
+  versionLine?: string
+) {
+  const version =
+    versionLine && versionLine.trim().length > 0
+      ? versionLine.trim()
+      : capitalizedBrowserName(browser)
+  return `${getLoggingPrefix('info')} Browser: ${version} ${colors.gray('at')} ${colors.underline(binaryPath)}`
+}
+
+export function preferringSystemBrowserOverSnapshot(
+  systemBinary: string,
+  snapshotBinary: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Using the installed browser instead of the cached Chromium snapshot (a dev-channel build).\n` +
+    `${colors.gray('USING')} ${colors.underline(systemBinary)}\n` +
+    `${colors.gray('CACHED')} ${colors.underline(snapshotBinary)}\n` +
+    `Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached snapshot.`
+  )
+}
+
+export function devChannelSnapshotInUse(binaryPath: string) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('Running a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
+    `Behavior may differ from stable Chrome. Install a stable browser or remove the snapshot to stop using it.`
+  )
+}
+
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Error launching ${capitalizedBrowserName(browser)}:\n` +
