@@ -5,7 +5,8 @@ import * as os from 'os'
 import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
 import {
   cleanupOldTempProfiles,
-  markManagedEphemeralProfile
+  markManagedEphemeralProfile,
+  parseEnvBrowserFlags
 } from '../browsers-lib/shared-utils'
 
 function makeCompilation(
@@ -456,5 +457,76 @@ describe('Chromium feature-switch merging', () => {
     )
     expect(disables).not.toContain('ExtensionDisableUnsupportedDeveloper')
     expect(disables).toContain('DisableLoadExtensionCommandLineSwitch')
+  })
+})
+
+describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
+  const OLD_ENV = process.env
+  beforeEach(() => {
+    process.env = {...OLD_ENV}
+  })
+  afterEach(() => {
+    process.env = OLD_ENV
+    try {
+      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+        recursive: true,
+        force: true
+      })
+    } catch {}
+  })
+
+  it('parses whitespace-separated flags and ignores empty input', () => {
+    expect(parseEnvBrowserFlags(undefined)).toEqual([])
+    expect(parseEnvBrowserFlags('')).toEqual([])
+    expect(parseEnvBrowserFlags('   ')).toEqual([])
+    expect(parseEnvBrowserFlags('--headless=new')).toEqual(['--headless=new'])
+    expect(parseEnvBrowserFlags('  --headless=new \t --mute-audio ')).toEqual([
+      '--headless=new',
+      '--mute-audio'
+    ])
+  })
+
+  it('appends env flags to the launched flag list', () => {
+    process.env.EXTENSION_BROWSER_FLAGS = '--headless=new'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(flags).toContain('--headless=new')
+  })
+
+  it('adds nothing when the env var is unset', () => {
+    delete process.env.EXTENSION_BROWSER_FLAGS
+    const baseline = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(baseline.some((f: string) => f.includes('--headless'))).toBe(false)
+  })
+
+  it('env feature switches merge with defaults instead of clobbering them', () => {
+    process.env.EXTENSION_BROWSER_FLAGS = '--disable-features=EnvOnlyFeature'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    const disables = flags.filter((f: string) =>
+      f.startsWith('--disable-features=')
+    )
+    expect(disables).toHaveLength(1)
+    expect(disables[0]).toContain('EnvOnlyFeature')
+    expect(disables[0]).toContain('ExtensionDisableUnsupportedDeveloper')
+  })
+
+  it('env flags land after config browserFlags', () => {
+    process.env.EXTENSION_BROWSER_FLAGS = '--headless=new'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      browserFlags: ['--window-size=800,600']
+    } as any)
+    expect(flags.indexOf('--headless=new')).toBeGreaterThan(
+      flags.indexOf('--window-size=800,600')
+    )
   })
 })
