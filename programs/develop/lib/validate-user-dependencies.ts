@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
 import programPackageJson from '../package.json'
+import {readProjectDependencies} from './project-manifest'
 
 function isReferencedAsModuleSpecifier(
   configSource: string,
@@ -25,21 +26,15 @@ function isReferencedAsModuleSpecifier(
 // managed by Extension.js itself. Managed packages live in the
 // develop program's package.json (dependencies/optionalDependencies).
 // If a conflict is found, print a helpful error and abort the current command.
+// `userManifestPath` is the project's manifest: package.json or deno.json(c) —
+// dependencies are read from whichever manifests its directory holds.
 export function assertNoManagedDependencyConflicts(
-  userPackageJsonPath: string,
+  userManifestPath: string,
   projectPath: string
 ) {
   try {
-    const raw = fs.readFileSync(userPackageJsonPath, 'utf-8')
-    const userPackageJson = JSON.parse(raw) as Record<string, any>
-
-    const userDeps: string[] = Array.from(
-      new Set([
-        ...Object.keys(userPackageJson.dependencies || {}),
-        ...Object.keys(userPackageJson.devDependencies || {}),
-        ...Object.keys(userPackageJson.optionalDependencies || {}),
-        ...Object.keys(userPackageJson.peerDependencies || {})
-      ])
+    const userDeps: string[] = Object.keys(
+      readProjectDependencies(path.dirname(userManifestPath))
     )
 
     const managedDeps = new Set<string>([
@@ -74,7 +69,7 @@ export function assertNoManagedDependencyConflicts(
       // Print detailed error and abort.
       // We intentionally hard-exit to prevent version conflicts.
       console.error(
-        messages.managedDependencyConflict(duplicates, userPackageJsonPath)
+        messages.managedDependencyConflict(duplicates, userManifestPath)
       )
       process.exit(1)
     }

@@ -9,9 +9,11 @@
 import * as path from 'path'
 import * as messages from './lib/messages'
 import * as utils from './lib/utils'
+import {isDenoRuntime} from './lib/package-manager'
 import {createDirectory} from './steps/create-directory'
 import {importExternalTemplate} from './steps/import-external-template'
 import {overridePackageJson} from './steps/write-package-json'
+import {writeDenoJsonc} from './steps/write-deno-jsonc'
 import {installDependencies} from './steps/install-dependencies'
 import {writeReadmeFile} from './steps/write-readme-file'
 import {writeManifestJson} from './steps/write-manifest-json'
@@ -65,12 +67,30 @@ export async function extensionCreate(
 
   await createDirectory(projectPath, projectName, logger)
   await importExternalTemplate(projectPath, projectName, template, logger)
-  await overridePackageJson(
-    projectPath,
-    projectName,
-    {template, cliVersion},
-    logger
-  )
+
+  // Deno-created scaffolds get deno.jsonc as the project manifest instead of
+  // package.json (issue #482): dependencies live in `imports` as npm:
+  // specifiers, which `deno install` resolves and the toolchain reads for
+  // framework detection. Monorepo templates keep package.json (npm workspaces
+  // have no Deno analog in our scaffold) with a tasks-only deno.jsonc beside
+  // it. Both are written before install so `deno install` sees them.
+  const isMonorepoTemplate = String(template).toLowerCase().includes('monorepo')
+  if (isDenoRuntime() && !isMonorepoTemplate) {
+    await writeDenoJsonc(
+      projectPath,
+      projectName,
+      {template, cliVersion, primary: true},
+      logger
+    )
+  } else {
+    await overridePackageJson(
+      projectPath,
+      projectName,
+      {template, cliVersion},
+      logger
+    )
+    await writeDenoJsonc(projectPath, projectName, {template}, logger)
+  }
 
   if (install) {
     await installDependencies(projectPath, projectName, logger)

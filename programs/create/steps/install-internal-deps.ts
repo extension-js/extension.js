@@ -11,6 +11,7 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import * as messages from '../lib/messages'
 import {detectPackageManagerFromEnv} from '../lib/package-manager'
+import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {runInstall} from '../lib/install-runner'
 
 const requireFromCreate = createRequire(import.meta.url)
@@ -59,14 +60,25 @@ function resolveDevelopRoot(projectPath: string): string | null {
 }
 
 function readPackageJson(projectPath: string): PackageJson {
+  let pkg: PackageJson = {}
   try {
     const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
-    return JSON.parse(raw)
+    pkg = JSON.parse(raw)
   } catch {
-    return {
-      // Do nothing
+    // Deno-created scaffolds carry no package.json at all.
+  }
+
+  // Deno projects declare npm dependencies in deno.json(c) `imports`;
+  // fold them in so integration detection sees them.
+  const denoDependencies = readDenoConfigDependencies(projectPath)
+  if (Object.keys(denoDependencies).length > 0) {
+    pkg = {
+      ...pkg,
+      dependencies: {...denoDependencies, ...(pkg.dependencies || {})}
     }
   }
+
+  return pkg
 }
 
 function hasDependency(pkg: PackageJson, name: string): boolean {

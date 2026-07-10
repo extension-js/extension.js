@@ -13,6 +13,7 @@ import {pathToFileURL} from 'url'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../lib/has-dependency'
+import {readProjectDependencies} from '../../lib/project-manifest'
 import {isUsingTailwind, getTailwindConfigFile} from './tailwind'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
@@ -372,10 +373,7 @@ function normalizeTailwindContentGlobs(config: any, projectPath: string): any {
 
 function getDeclaredTailwindMajor(projectPath: string): number | undefined {
   try {
-    const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
-    const pkg = JSON.parse(raw || '{}')
-    const version =
-      pkg?.dependencies?.tailwindcss || pkg?.devDependencies?.tailwindcss
+    const version = readProjectDependencies(projectPath)['tailwindcss']
     if (typeof version !== 'string') return undefined
     const match = version.match(/(\d+)/)
     if (!match) return undefined

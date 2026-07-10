@@ -3,6 +3,7 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import {resolveDevelopInstallRoot} from './develop-context'
 import {getOptionalDependencyContract} from './optional-deps-contracts'
+import {hasProjectDependency} from './project-manifest'
 import {resolvePackageManager} from './package-manager'
 import type {PackageManagerName} from './package-manager'
 import type {
@@ -24,7 +25,9 @@ function isVerboseMode(): boolean {
 // working directory (projectPath), never `process.cwd()` — the dev server's
 // cwd is extension-develop, not the project being built.
 function installVerbForPackageManager(name: PackageManagerName): string {
-  return name === 'npm' ? 'install -D' : 'add -D'
+  if (name === 'npm') return 'install -D'
+  if (name === 'deno') return 'add --dev'
+  return 'add -D'
 }
 
 function formatInstallHint(projectPath: string, packageSpecs: string[]): string {
@@ -181,24 +184,7 @@ function declaresDependency(
   dependencyId: string
 ): boolean {
   try {
-    const packageJsonPath = path.join(projectPath, 'package.json')
-    if (!fs.existsSync(packageJsonPath)) return false
-    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<
-      string,
-      unknown
-    >
-    const sections = [
-      pkg.dependencies,
-      pkg.devDependencies,
-      pkg.optionalDependencies,
-      pkg.peerDependencies
-    ]
-    return sections.some(
-      (section) =>
-        section &&
-        typeof section === 'object' &&
-        dependencyId in (section as object)
-    )
+    return hasProjectDependency(projectPath, dependencyId)
   } catch {
     return false
   }
