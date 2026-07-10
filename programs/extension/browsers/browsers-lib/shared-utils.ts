@@ -114,6 +114,21 @@ export function chooseChromiumBinaryPreferringStable(opts: {
   return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
 }
 
+// EXTENSION_BROWSER_FLAGS is the launcher-agnostic escape hatch for harnesses
+// and CI to append flags to every launched browser without touching the
+// project's extension.config.js (e.g. --headless=new so batch runs never open
+// a window that steals macOS keyboard focus). Whitespace-separated; flag
+// values that themselves contain spaces are not supported. Appended AFTER
+// config browserFlags so the environment wins feature-switch merges.
+export function parseEnvBrowserFlags(
+  raw: string | undefined | null
+): string[] {
+  return String(raw || '')
+    .split(/\s+/)
+    .map((flag) => flag.trim())
+    .filter(Boolean)
+}
+
 // Chromium keeps only the LAST occurrence of a repeated switch, so passing
 // --disable-features (or --enable-features) more than once silently drops
 // every earlier value. Collapse all occurrences of each into a single
