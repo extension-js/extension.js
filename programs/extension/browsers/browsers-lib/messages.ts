@@ -296,6 +296,17 @@ export function mv2NotSupportedByChromium(extensionPath: string) {
   )
 }
 
+export function mv3BackgroundScriptsNotSupportedByChromium(
+  extensionPath: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker — Chromium refuses to load it.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `The browser rejects it at launch with no console error, so the dev session cannot attach.\n` +
+    `Run it on the browser it targets (${colors.blue('--browser firefox')}) or declare ${colors.blue('background.service_worker')} for Chromium.`
+  )
+}
+
 export function devChannelSnapshotInUse(binaryPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('Running a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +
