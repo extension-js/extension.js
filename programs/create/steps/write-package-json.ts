@@ -11,7 +11,7 @@ import * as fs from 'fs/promises'
 import * as messages from '../lib/messages'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
-async function resolveExtensionBinary(): Promise<string> {
+export async function resolveExtensionBinary(): Promise<string> {
   const developRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
   if (developRoot) {
     // In repo author mode, route scaffolded scripts to the local CLI build so
@@ -51,7 +51,7 @@ function extensionJsPackageJsonScripts(extensionBinary: string) {
   }
 }
 
-function getTemplateAwareScripts(
+export function getTemplateAwareScripts(
   template: string,
   extensionBinary: string
 ): Record<string, string> {
@@ -96,7 +96,9 @@ const ML_DEP_TRIGGERS = ['@huggingface/transformers', '@xenova/transformers']
 const uniq = (values: Array<string | undefined>): string[] =>
   Array.from(new Set(values.filter(Boolean) as string[]))
 
-function resolveExtensionDevDependencyVersion(cliVersion?: string): string {
+export function resolveExtensionDevDependencyVersion(
+  cliVersion?: string
+): string {
   if (!cliVersion) {
     return 'latest'
   }

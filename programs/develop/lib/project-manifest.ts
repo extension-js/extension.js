@@ -1,0 +1,328 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
+import * as fs from 'fs'
+import * as path from 'path'
+import {stripBom} from './parse-json-safe'
+
+/**
+ * Files that mark a directory as a project root and declare its dependencies.
+ * package.json is the npm-family manifest; deno.json(c) is Deno's, where npm
+ * dependencies appear as `npm:` specifiers in the `imports` map.
+ */
+export const PROJECT_MANIFEST_FILENAMES = [
+  'package.json',
+  'deno.jsonc',
+  'deno.json'
+] as const
+
+export const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
+
+/**
+ * Removes JSONC extensions (// and block comments, trailing commas) so the
+ * result parses with JSON.parse. String contents — including commas and
+ * comment-looking sequences inside them — are preserved verbatim.
+ */
+export function stripJsoncExtensions(text: string): string {
+  let out = ''
+  let i = 0
+  let inString = false
+
+  const flushPendingComma = (buffered: string, nextChar: string): string =>
+    nextChar === '}' || nextChar === ']' ? buffered.slice(1) : buffered
+
+  while (i < text.length) {
+    const char = text[i]
+
+    if (inString) {
+      out += char
+      if (char === '\\' && i + 1 < text.length) {
+        out += text[i + 1]
+        i += 2
+        continue
+      }
+      if (char === '"') inString = false
+      i++
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      out += char
+      i++
+      continue
+    }
+
+    if (char === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++
+      continue
+    }
+
+    if (char === '/' && text[i + 1] === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+
+    if (char === ',') {
+      // Buffer the comma plus trailing whitespace/comments; drop it when the
+      // next significant character closes the object/array (trailing comma).
+      let buffered = ','
+      let j = i + 1
+      while (j < text.length) {
+        const c = text[j]
+        if (/\s/.test(c)) {
+          buffered += c
+          j++
+          continue
+        }
+        if (c === '/' && text[j + 1] === '/') {
+          while (j < text.length && text[j] !== '\n') j++
+          continue
+        }
+        if (c === '/' && text[j + 1] === '*') {
+          j += 2
+          while (j < text.length && !(text[j] === '*' && text[j + 1] === '/'))
+            j++
+          j += 2
+          continue
+        }
+        break
+      }
+      out += flushPendingComma(buffered, text[j] ?? '')
+      i = j
+      continue
+    }
+
+    out += char
+    i++
+  }
+
+  return out
+}
+
+/**
+ * JSON.parse for JSONC input (comments + trailing commas tolerated).
+ * Empty input parses as `{}`; invalid syntax still throws.
+ */
+export function parseJsoncSafe(text: string | Buffer): any {
+  const stripped = stripJsoncExtensions(stripBom(text))
+  return JSON.parse(stripped.trim() || '{}')
+}
+
+/**
+ * Parses an `npm:` import specifier into its package name and version range.
+ * Handles `npm:pkg@ver`, `npm:@scope/pkg@ver`, the path form `npm:/pkg@ver/sub`,
+ * and versionless `npm:pkg` (version `*`).
+ */
+export function parseNpmSpecifier(
+  specifier: unknown
+): {name: string; version: string} | undefined {
+  if (typeof specifier !== 'string' || !specifier.startsWith('npm:')) {
+    return undefined
+  }
+
+  let rest = specifier.slice('npm:'.length)
+  if (rest.startsWith('/')) rest = rest.slice(1)
+  if (!rest) return undefined
+
+  // Scoped names contain a '@' at position 0 that is not a version separator.
+  const versionSeparator = rest.indexOf('@', rest.startsWith('@') ? 1 : 0)
+  if (versionSeparator === -1) {
+    // Strip any subpath from the versionless form (npm:pkg/subpath).
+    const name = rest.split('/', rest.startsWith('@') ? 2 : 1).join('/')
+    return name ? {name, version: '*'} : undefined
+  }
+
+  const name = rest.slice(0, versionSeparator)
+  // The version ends at the subpath boundary (npm:/pkg@1.2.3/subpath).
+  const version = rest.slice(versionSeparator + 1).split('/')[0] || '*'
+  return name ? {name, version} : undefined
+}
+
+export function findDenoConfigPath(projectDir: string): string | undefined {
+  for (const filename of DENO_CONFIG_FILENAMES) {
+    const candidate = path.join(projectDir, filename)
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate
+    } catch {
+      // Keep looking.
+    }
+  }
+  return undefined
+}
+
+/**
+ * Dependencies a deno.json(c) declares through `npm:` specifiers in its
+ * `imports` map. Both the npm package name and the import alias are
+ * registered: the alias is what project source imports, the package name is
+ * what lands in node_modules — dependency checks may ask for either.
+ */
+export function readDenoConfigDependencies(
+  denoConfigPath: string
+): Record<string, string> {
+  const dependencies: Record<string, string> = {}
+
+  let config: any
+  try {
+    config = parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
+  } catch {
+    return dependencies
+  }
+
+  const imports = config?.imports
+  if (!imports || typeof imports !== 'object') return dependencies
+
+  for (const [rawAlias, specifier] of Object.entries(imports)) {
+    const parsed = parseNpmSpecifier(specifier)
+    if (!parsed) continue
+
+    dependencies[parsed.name] = dependencies[parsed.name] || parsed.version
+
+    // Subpath aliases end with '/' ("react/": "npm:react@18/").
+    const alias = rawAlias.endsWith('/') ? rawAlias.slice(0, -1) : rawAlias
+    if (alias && alias !== parsed.name) {
+      dependencies[alias] = dependencies[alias] || parsed.version
+    }
+  }
+
+  return dependencies
+}
+
+function readPackageJsonDependencies(
+  packageJsonPath: string
+): Record<string, string> {
+  try {
+    const pkg = JSON.parse(
+      stripBom(fs.readFileSync(packageJsonPath, 'utf8')) || '{}'
+    ) as Record<string, any>
+    const sections = [
+      pkg.dependencies,
+      pkg.devDependencies,
+      pkg.optionalDependencies,
+      pkg.peerDependencies
+    ]
+    const dependencies: Record<string, string> = {}
+    for (const section of sections) {
+      if (!section || typeof section !== 'object') continue
+      for (const [name, version] of Object.entries(section)) {
+        if (typeof version !== 'string') continue
+        dependencies[name] = dependencies[name] || version
+      }
+    }
+    return dependencies
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * The project's declared dependencies, merged across every manifest present
+ * in `projectDir`: package.json dependency fields and deno.json(c) `npm:`
+ * imports. package.json wins when both declare the same package.
+ */
+export function readProjectDependencies(
+  projectDir: string
+): Record<string, string> {
+  const denoConfigPath = findDenoConfigPath(projectDir)
+  const denoDependencies = denoConfigPath
+    ? readDenoConfigDependencies(denoConfigPath)
+    : {}
+
+  // Read-and-catch rather than existsSync-then-read: cheaper, and callers
+  // (and specs) that intercept reads don't all intercept stat calls.
+  const packageJsonDependencies = readPackageJsonDependencies(
+    path.join(projectDir, 'package.json')
+  )
+
+  return {...denoDependencies, ...packageJsonDependencies}
+}
+
+export function hasProjectDependency(
+  projectDir: string,
+  packageName: string
+): boolean {
+  return packageName in readProjectDependencies(projectDir)
+}
+
+/**
+ * Walks up from `startPath` to the nearest directory containing a project
+ * manifest (package.json or deno.json(c)).
+ */
+export function findNearestProjectManifestDirSync(
+  startPath: string,
+  maxDepth = 6
+): string | undefined {
+  let currentDirectory = startPath
+  for (let i = 0; i < maxDepth; i++) {
+    if (
+      PROJECT_MANIFEST_FILENAMES.some((filename) =>
+        fs.existsSync(path.join(currentDirectory, filename))
+      )
+    ) {
+      return currentDirectory
+    }
+    const parentDirectory = path.dirname(currentDirectory)
+    if (parentDirectory === currentDirectory) break
+    currentDirectory = parentDirectory
+  }
+  return undefined
+}
+
+/**
+ * Find-up variant that returns the manifest file path itself, preferring
+ * package.json when a directory holds more than one manifest. Walks to the
+ * filesystem root, mirroring findNearestPackageJsonSync.
+ */
+export function findNearestProjectManifestSync(
+  manifestPath: string
+): string | null {
+  const root = path.parse(manifestPath).root
+  let currentDir = path.dirname(manifestPath)
+
+  while (true) {
+    for (const filename of PROJECT_MANIFEST_FILENAMES) {
+      const candidate = path.join(currentDir, filename)
+      try {
+        if (fs.statSync(candidate).isFile()) return candidate
+      } catch {
+        // Keep walking.
+      }
+    }
+    if (currentDir === root) return null
+    currentDir = path.dirname(currentDir)
+  }
+}
+
+/**
+ * Walks up from the extension manifest to the nearest deno.json(c), mirroring
+ * findNearestPackageJson's contract (walks to the filesystem root).
+ */
+export function findNearestDenoConfigSync(manifestPath: string): string | null {
+  const root = path.parse(manifestPath).root
+  let currentDir = path.dirname(manifestPath)
+
+  while (true) {
+    const found = findDenoConfigPath(currentDir)
+    if (found) return found
+    if (currentDir === root) return null
+    currentDir = path.dirname(currentDir)
+  }
+}
+
+/** True when the file exists and parses as JSONC. */
+export function validateDenoConfig(denoConfigPath: string): boolean {
+  try {
+    if (!fs.existsSync(denoConfigPath)) return false
+    parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
+    return true
+  } catch {
+    return false
+  }
+}

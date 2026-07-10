@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
+import {findNearestProjectManifestSync} from '../../../../../lib/project-manifest'
 import {resolveDevelopDistFile} from '../../../../../lib/develop-context'
 import {
   canonicalizeDir,
@@ -44,7 +44,7 @@ export class AddContentScriptWrapper {
 
   public apply(compiler: Compiler) {
     const manifestDir = canonicalizeDir(path.dirname(this.manifestPath))
-    const packageJsonPath = findNearestPackageJsonSync(this.manifestPath)
+    const packageJsonPath = findNearestProjectManifestSync(this.manifestPath)
     const packageJsonDir = canonicalizeDir(
       packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
     )
