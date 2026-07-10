@@ -89,6 +89,13 @@ export class BridgeBroker {
   private readonly evalAllowed = new Map<BridgeConnection, boolean>()
   private readonly pending = new Map<string, Pending>()
   private staleResyncTimes: number[] = []
+  /**
+   * Latest reload broadcast that reached zero producers (the SW wasn't
+   * connected — not started yet, or stopped after idling out). Delivered
+   * once to the next producer that says hello, so an edit made while the
+   * SW was away still applies instead of silently reloading nothing.
+   */
+  private pendingReload?: ReloadFrame
 
   constructor(options: BridgeBrokerOptions) {
     this.instanceId = options.instanceId
@@ -201,7 +208,32 @@ export class BridgeBroker {
       }
     }
 
+    // Nobody was listening: latch the newest instruction so the next
+    // producer hello (SW started late, or woken after an idle stop) still
+    // applies it. Delivered broadcasts clear the latch — they supersede it.
+    this.pendingReload = notified === 0 ? frame : undefined
+
     return notified
+  }
+
+  /**
+   * Keepalive for the dev extension's MV3 service worker: receiving any
+   * WebSocket message resets its ~30s idle timer, so the dev server pings
+   * all producers on an interval shorter than that. Without this, a quiet
+   * extension's SW stops between edits and reload broadcasts reach nothing.
+   */
+  pingProducers(): number {
+    let pinged = 0
+    for (const [conn, role] of this.roles) {
+      if (role !== 'producer') continue
+      try {
+        conn.send({type: 'ping'})
+        pinged++
+      } catch {
+        // Dead sockets are torn down by the adapter on error/close.
+      }
+    }
+    return pinged
   }
 
   ingestLog(incoming: IncomingLogEvent): void {
@@ -296,6 +328,14 @@ export class BridgeBroker {
     }
 
     this.roles.set(conn, hello.role)
+
+    if (hello.role === 'producer' && this.pendingReload) {
+      // An edit landed while no SW was connected (idle-stopped or not yet
+      // started). Deliver the latched instruction so that edit still applies.
+      const frame = this.pendingReload
+      this.pendingReload = undefined
+      conn.send(frame)
+    }
 
     if (hello.role === 'consumer') {
       const ready: ReadyFrame = {

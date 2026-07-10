@@ -303,4 +303,56 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       changedFiles: ['src/sidebar/index.tsx']
     })
   })
+
+  it('latches an undeliverable reload and hands it to the next producer hello', () => {
+    // An MV3 SW that idled out (or has not started yet) holds no producer
+    // socket — the broadcast reaches nobody. The edit must still apply when
+    // the SW comes back, not silently reload nothing.
+    const b = new BridgeBroker(opts)
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)
+
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+    expect(prod.sent).toHaveLength(1)
+    expect(prod.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'full',
+      label: 'extension'
+    })
+
+    // Delivered once: a second producer hello gets nothing.
+    const prod2 = new FakeConn('p2')
+    hello(b, prod2, 'producer')
+    expect(prod2.sent).toHaveLength(0)
+  })
+
+  it('keeps only the newest undeliverable reload and clears it on a delivered broadcast', () => {
+    const b = new BridgeBroker(opts)
+    b.broadcastReload({type: 'service-worker'})
+    b.broadcastReload({type: 'full'}) // supersedes the latched SW reload
+
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+    expect(prod.sent).toHaveLength(1)
+    expect(prod.sent[0]).toMatchObject({type: 'reload', reloadType: 'full'})
+
+    // A broadcast that reached a live producer clears any stale latch.
+    b.broadcastReload({type: 'service-worker'})
+    const late = new FakeConn('late')
+    hello(b, late, 'producer')
+    expect(late.sent).toHaveLength(0)
+  })
+
+  it('pings connected producers only (SW keepalive)', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    const cons = new FakeConn('c')
+    hello(b, prod, 'producer')
+    hello(b, cons, 'consumer')
+    cons.sent = [] // drop the ready frame
+
+    expect(b.pingProducers()).toBe(1)
+    expect(prod.sent).toEqual([{type: 'ping'}])
+    expect(cons.sent).toHaveLength(0)
+  })
 })
