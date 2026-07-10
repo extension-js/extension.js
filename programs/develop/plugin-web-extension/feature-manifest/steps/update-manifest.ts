@@ -8,7 +8,10 @@
 
 import {Compiler, Compilation, sources, WebpackError} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
-import {getFilename} from '../../shared/paths'
+import {
+  getCanonicalContentScriptJsAssetName,
+  parseCanonicalContentScriptAsset
+} from '../../feature-scripts/contracts'
 import {
   getManifestContent,
   buildCanonicalManifest,
@@ -41,7 +44,13 @@ export class UpdateManifest {
       const css = contentObj.css ?? []
       const js = contentObj.js ?? []
       if (css.length && !js.length) {
-        contentObj.js = [getFilename(`content_scripts-${index}`, 'dev.js')]
+        // The group's entry always emits a JS chunk (it carries the CSS HMR
+        // runtime), named after the canonical group index — which can differ
+        // from the array position once MAIN-world bridges are inserted, so
+        // read the index back from the rewritten css path.
+        const canonicalIndex =
+          parseCanonicalContentScriptAsset(css[0])?.index ?? index
+        contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
       }
 
       return contentObj
@@ -88,21 +97,22 @@ export class UpdateManifest {
 
             const overrides = getManifestOverrides(this.manifestPath, manifest)
 
-            if (compiler.options.mode === 'development') {
-              patchedManifest = patchDevContentScriptManifestPaths(
-                compilation,
-                patchedManifest
-              )
-            }
-
             // During development, if user has only CSS files in content_scripts,
             // we add a JS file to the content_scripts bundle so that
             // these files can be dynamically imported, thus allowing HMR.
+            // Must run before patchDevContentScriptManifestPaths so the
+            // canonical js name it injects resolves to the hashed emitted
+            // asset like every other content-script reference.
             if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =
                   this.applyDevOverrides(patchedManifest)
               }
+
+              patchedManifest = patchDevContentScriptManifestPaths(
+                compilation,
+                patchedManifest
+              )
             }
 
             if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
