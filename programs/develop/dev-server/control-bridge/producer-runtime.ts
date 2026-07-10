@@ -634,6 +634,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           // Dev-loop reload broadcast (see broker.broadcastReload).
           // Fire-and-forget: no result frame is expected.
           try { handleDevReloadFrame(frame); } catch (e) {}
+        } else if (frame && frame.type === "ping") {
+          // Server keepalive: merely RECEIVING this message resets the MV3
+          // service worker's ~30s idle timer (Chrome 116+), keeping this SW
+          // reachable for reload broadcasts. Nothing to do.
         }
       };
       socket.onclose = function () {

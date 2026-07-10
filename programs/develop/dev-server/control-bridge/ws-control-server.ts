@@ -5,6 +5,12 @@ import {CONTROL_WS_PATH, type AnyFrame, type ServerFrame} from './contracts'
 const SLOW_CONSUMER_BYTES = 8 * 1024 * 1024
 const CLOSE_SLOW_CONSUMER = 4008
 
+// MV3 service workers idle out after ~30s without events; receiving a
+// WebSocket message resets that timer (Chrome 116+). Ping producers on a
+// shorter cadence so the dev extension's SW stays reachable for reload
+// broadcasts however long the developer pauses between edits.
+const PRODUCER_KEEPALIVE_INTERVAL_MS = 20_000
+
 export interface ControlServer {
   port: number
   broker: BridgeBroker
@@ -78,11 +84,17 @@ export function startControlServer(
     wss.on('listening', () => {
       const address = wss.address()
       const port = typeof address === 'object' && address ? address.port : 0
+      const keepalive = setInterval(
+        () => broker.pingProducers(),
+        PRODUCER_KEEPALIVE_INTERVAL_MS
+      )
+      keepalive.unref?.()
       resolve({
         port,
         broker,
         close: () =>
           new Promise<void>((res) => {
+            clearInterval(keepalive)
             for (const client of wss.clients) {
               try {
                 client.terminate()
