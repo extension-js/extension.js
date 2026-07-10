@@ -171,6 +171,19 @@ export interface ReloadFrame {
   changedFiles?: string[]
 }
 
+/**
+ * Server → producer keepalive. An MV3 service worker idles out after ~30s
+ * without events, and a stopped SW holds no control socket — reload
+ * broadcasts would reach zero producers and silently apply to nothing
+ * (quiet extensions lost SW/manifest reloads once >30s passed between
+ * edits). Receiving any WebSocket message resets the SW idle timer
+ * (Chrome 116+), so a periodic ping keeps the dev extension's SW
+ * responsive for the whole dev session. Producers ignore the frame.
+ */
+export interface PingFrame {
+  type: 'ping'
+}
+
 export type ClientFrame = HelloFrame | LogFrame | CommandFrame
 export type ServerFrame =
   | ReadyFrame
@@ -178,6 +191,7 @@ export type ServerFrame =
   | GapFrame
   | ResultFrame
   | ReloadFrame
+  | PingFrame
 export type AnyFrame = ClientFrame | ServerFrame
 
 export const CONTROL_WS_PATH = '/extjs-control'
