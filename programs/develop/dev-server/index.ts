@@ -622,9 +622,12 @@ export async function devServer(
     })
   }
 
-  // Log port information only in verbose mode
-  if (typeof devOptions.port !== 'undefined' && devOptions.port !== port) {
-    console.log(messages.portInUse(devOptions.port as number, port))
+  // Say so when the requested port was taken. Compare numerically: a CLI
+  // --port arrives as a string, and '55835' !== 55835 used to print
+  // "port 55835 is in use; using 55835 instead" on every run.
+  const requestedPort = Number(devOptions.port)
+  if (Number.isFinite(requestedPort) && requestedPort !== port) {
+    console.log(messages.portInUse(requestedPort, port))
   }
 
   // webpack-dev-server configuration
