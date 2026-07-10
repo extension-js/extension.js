@@ -287,6 +287,15 @@ export function preferringSystemBrowserOverSnapshot(
   )
 }
 
+export function mv2NotSupportedByChromium(extensionPath: string) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares Manifest V2, which modern Chromium refuses to load.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `The browser will reject it at launch (a native dialog, not a console error), so the dev session cannot attach.\n` +
+    `Run it on an MV2-capable browser (${colors.blue('--browser firefox')}) or migrate the manifest to MV3.`
+  )
+}
+
 export function devChannelSnapshotInUse(binaryPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('Running a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +
