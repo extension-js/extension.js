@@ -237,7 +237,7 @@ export class TraceRuntimeLoadedFiles {
     // regardless of the calling context, so — unlike relative fetch() —
     // content scripts and scripts/ helpers are traceable here.
     type PendingScan =
-      | {kind: 'js'; content: string; assetName: string}
+      | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
 
     let pending: PendingScan[] = compilation
@@ -249,25 +249,41 @@ export class TraceRuntimeLoadedFiles {
         assetName: asset.name
       }))
 
-    // Copied files chain: a getURL'd module can call getURL again, and a
-    // getURL'd HTML page pulls its own src/href subresources along (the
-    // redirect-stub-to-real-page pattern).
+    // Copied files chain: a getURL'd module can call getURL again, a copied
+    // raw module keeps its static relative import/export-from graph (Chrome
+    // resolves those against the module's own URL — the root must not ship
+    // without its siblings), and a getURL'd HTML page pulls its own src/href
+    // subresources along (the redirect-stub-to-real-page pattern).
     for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
       const next: PendingScan[] = []
 
       for (const item of pending) {
-        const refs =
+        type Ref = {literal: string; baseRel: string; isStaticImport?: boolean}
+        const refs: Ref[] =
           item.kind === 'js'
-            ? extractGetURLLiterals(item.content).map((literal) => ({
-                literal,
-                baseRel: ''
-              }))
+            ? [
+                ...extractGetURLLiterals(item.content).map((literal) => ({
+                  literal,
+                  baseRel: ''
+                })),
+                // Only files WE copied verbatim: emitted bundles had their
+                // static imports resolved by the bundler already.
+                ...(item.copied
+                  ? extractStaticImportLiterals(item.content).map(
+                      (literal) => ({
+                        literal,
+                        baseRel: item.assetName,
+                        isStaticImport: true
+                      })
+                    )
+                  : [])
+              ]
             : extractHtmlSubresourceLiterals(item.content).map((literal) => ({
                 literal,
                 baseRel: item.baseRel
               }))
 
-        for (const {literal, baseRel} of refs) {
+        for (const {literal, baseRel, isStaticImport} of refs) {
           const distRel = resolveExtensionPath(literal, baseRel)
           if (!distRel || seen.has(distRel)) continue
           seen.add(distRel)
@@ -296,11 +312,12 @@ export class TraceRuntimeLoadedFiles {
             } catch {
               // ignore — watch registration is best-effort
             }
-            if (/\.js$/i.test(distRel)) {
+            if (/\.(?:js|mjs)$/i.test(distRel)) {
               next.push({
                 kind: 'js',
                 content: buffer.toString(),
-                assetName: distRel
+                assetName: distRel,
+                copied: true
               })
             } else if (/\.html?$/i.test(distRel)) {
               next.push({
@@ -317,13 +334,21 @@ export class TraceRuntimeLoadedFiles {
           // extensionless getURL args are often origin/base computations.
           if (item.kind === 'js' && /\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
             const warn = new WebpackError(
-              messages.getURLDependencyMissing(
-                item.assetName,
-                literal,
-                distRel
-              )
+              isStaticImport
+                ? messages.staticImportDependencyMissing(
+                    item.assetName,
+                    literal,
+                    distRel
+                  )
+                : messages.getURLDependencyMissing(
+                    item.assetName,
+                    literal,
+                    distRel
+                  )
             ) as Error & {file?: string; name?: string}
-            warn.name = 'RuntimeGetURLFileMissing'
+            warn.name = isStaticImport
+              ? 'RuntimeStaticImportFileMissing'
+              : 'RuntimeGetURLFileMissing'
             warn.file = item.assetName
             compilation.warnings ||= []
             compilation.warnings.push(warn)
@@ -561,6 +586,43 @@ function extractHtmlSubresourceLiterals(html: string): string[] {
   let match: RegExpExecArray | null
   while ((match = attrRe.exec(html))) {
     literals.push(match[2])
+  }
+
+  return literals
+}
+
+/**
+ * Extract module specifiers a raw (unbundled) ES module resolves against its
+ * own URL at runtime: static `import ... from "./x.js"`, side-effect
+ * `import "./x.js"`, re-exports (`export {a} from` / `export * from`), and
+ * literal dynamic `import("./x.js")`. Only same-origin file specifiers
+ * (./ ../ or /-anchored) qualify — bare package specifiers cannot resolve in
+ * the browser and belong to the bundler, not the copy-through path.
+ */
+function extractStaticImportLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  const isFileSpecifier = (spec: string) =>
+    spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')
+
+  // import defaultName from "..." | import {a, b} from "..." |
+  // import * as ns from "..." | import "..." | export ... from "..."
+  const staticRe =
+    /\b(?:import|export)\b\s*(?:[\w$]+\s*,?\s*)?(?:\*(?:\s*as\s+[\w$]+)?\s*|\{[^}]*\}\s*)?(?:from\s*)?(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g
+  let match: RegExpExecArray | null
+  while ((match = staticRe.exec(code))) {
+    const spec = unescapeStringBody(match[2])
+    if (isFileSpecifier(spec)) literals.push(spec)
+  }
+
+  // Literal dynamic import("./x.js") inside the copied module.
+  const dynamicRe = /\bimport\s*\(/g
+  while ((match = dynamicRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+    const [first] = splitTopLevelArgs(args)
+    const literal = first == null ? null : pureStringLiteral(first)
+    if (literal != null && isFileSpecifier(literal)) literals.push(literal)
   }
 
   return literals
