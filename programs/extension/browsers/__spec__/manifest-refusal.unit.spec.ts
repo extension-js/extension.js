@@ -1,5 +1,8 @@
 import {describe, it, expect} from 'vitest'
-import {diagnoseChromiumManifestRefusal} from '../browsers-lib/manifest-refusal'
+import {
+  diagnoseChromiumManifestRefusal,
+  findInvalidMatchPatterns
+} from '../browsers-lib/manifest-refusal'
 
 // Launch-time honesty for manifest shapes Chromium refuses to load AT ALL:
 // the refusal surfaces as a native modal or as nothing (no console error, no
@@ -35,6 +38,46 @@ describe('diagnoseChromiumManifestRefusal', () => {
         background: {service_worker: 'sw.js', scripts: ['background.js']}
       })
     ).toBeNull()
+  })
+
+  it('flags match patterns with a query string, fragment, or port (wild: Ban-Checker, Better-Names)', () => {
+    const invalid = findInvalidMatchPatterns({
+      manifest_version: 3,
+      host_permissions: ['*://steamcommunity.com/*'],
+      content_scripts: [
+        {
+          matches: [
+            '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
+            'http://in.7fa4.cn:8888/review/*',
+            'https://example.com/page#section'
+          ],
+          js: ['content.js']
+        }
+      ],
+      web_accessible_resources: [
+        {resources: ['a.js'], matches: ['https://ok.example/*']}
+      ]
+    })
+    expect(invalid).toEqual([
+      '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
+      'http://in.7fa4.cn:8888/review/*',
+      'https://example.com/page#section'
+    ])
+  })
+
+  it('accepts valid patterns, <all_urls>, and IPs without ports', () => {
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [
+          '<all_urls>',
+          '*://steamcommunity.com/id/*/gcpd/730*tab=majors',
+          'http://10.210.57.10/*',
+          'file:///*'
+        ],
+        content_scripts: [{matches: ['https://*.example.com/deep/path*']}]
+      })
+    ).toEqual([])
+    expect(findInvalidMatchPatterns(undefined)).toEqual([])
   })
 
   it('accepts MV3 with no background and tolerates malformed shapes', () => {
