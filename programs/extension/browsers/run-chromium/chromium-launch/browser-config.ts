@@ -15,6 +15,7 @@ import {
 } from '../../browsers-types'
 import {
   filterBrowserFlags,
+  mergeChromiumFeatureSwitches,
   deriveDebugPortWithInstance,
   prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
@@ -83,6 +84,13 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disable the load extension command line switch
   // @ts-expect-error - this is a valid flag
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
+  // Chromium 152+ disables unpacked "developer" extensions (command-line
+  // loaded included) with DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the
+  // first runtime.reload() — which permanently kills the extension mid dev
+  // session (SW/manifest edits trigger exactly that reload). Older versions
+  // ignore unknown feature names, so this is safe across the family.
+  // @ts-expect-error - this is a valid flag
+  '--disable-features=ExtensionDisableUnsupportedDeveloper',
   // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
   // Required since Chrome 126+ for reliable CDP extension operations
   '--enable-unsafe-extension-debugging',
@@ -304,5 +312,7 @@ export function browserConfig(
     ...(configOptions.browserFlags || [])
   ]
 
-  return baseFlags
+  // Chromium only honors the last repeated --enable-features/--disable-features
+  // switch, so merge them (defaults + user browserFlags) into one of each.
+  return mergeChromiumFeatureSwitches(baseFlags)
 }
