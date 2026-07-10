@@ -52,6 +52,45 @@ describe('sanitizeFatalManifestShapes', () => {
     expect((manifest as any).action.default_icon).toEqual({'16': 'icon16.png'})
   })
 
+  it('repairs a non-numeric version string Chrome refuses (wild: MelonTranslate "x.y.z")', () => {
+    const {manifest, fixes} = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: 'MelonTranslate',
+      version: 'x.y.z'
+    } as unknown as Manifest)
+    expect(manifest.version).toBe('0.0.0')
+    expect(fixes).toHaveLength(1)
+    expect(fixes[0].field).toBe('version')
+  })
+
+  it('salvages the numeric parts of an almost-valid version', () => {
+    for (const [from, to] of [
+      ['1.0-beta', '1.0'],
+      ['v2.3', '2.3'],
+      ['1.2.3.4.5', '1.2.3.4'],
+      ['99999', '65535']
+    ]) {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: from
+      } as unknown as Manifest)
+      expect(manifest.version, `${from} -> ${to}`).toBe(to)
+      expect(fixes).toHaveLength(1)
+    }
+  })
+
+  it('keeps valid edge-case versions untouched', () => {
+    for (const version of ['0', '0.0.0', '65535.65535.65535.65535', '1']) {
+      const {fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version
+      } as unknown as Manifest)
+      expect(fixes, version).toHaveLength(0)
+    }
+  })
+
   it('fixes both shapes in one pass (wild subject shape)', () => {
     const {manifest, fixes} = sanitizeFatalManifestShapes({
       manifest_version: 3,
