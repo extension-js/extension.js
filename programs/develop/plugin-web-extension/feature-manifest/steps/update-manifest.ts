@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler, Compilation, sources} from '@rspack/core'
+import {Compiler, Compilation, sources, WebpackError} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename} from '../../shared/paths'
 import {
@@ -14,6 +14,7 @@ import {
   buildCanonicalManifest,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
+import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
 import {PluginInterface, Manifest, DevOptions} from '../../../types'
 
 // A single `content_scripts` entry as carried by the canonical `Manifest`
@@ -135,6 +136,22 @@ export class UpdateManifest {
               } catch {
                 // Ignore guard errors
               }
+            }
+
+            // Repair shapes Chrome refuses to load the extension over
+            // (numeric version, empty default_icon). --load-extension
+            // surfaces the refusal only as a native modal, wedging the dev
+            // session before CDP binds — so repair, and warn so the author
+            // fixes the source manifest.
+            const sanitized = sanitizeFatalManifestShapes(patchedManifest)
+            patchedManifest = sanitized.manifest
+            for (const fix of sanitized.fixes) {
+              const warn = new WebpackError(
+                messages.fatalManifestShapeFixed(fix.field, fix.detail)
+              ) as Error & {file?: string; name?: string}
+              warn.name = 'ManifestFatalShapeWarning'
+              warn.file = 'manifest.json'
+              compilation.warnings.push(warn)
             }
 
             const source = JSON.stringify(patchedManifest, null, 2)
