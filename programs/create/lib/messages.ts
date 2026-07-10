@@ -272,6 +272,18 @@ export function writingPackageJsonMetadataError(
   )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
+export function writingDenoJsonc() {
+  return `${statusPrefix} Writing ${colors.yellow('deno.jsonc')}...`
+}
+
+export function writingDenoJsoncError(projectName: string, error: any) {
+  return `${colors.red('Error')} Couldn't write ${colors.yellow(
+    'deno.jsonc'
+  )} for ${colors.blue(projectName)}.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check file permissions, then try again.')}`
+}
+
 export function writingManifestJsonMetadata() {
   return `${statusPrefix} Writing ${colors.yellow('manifest.json')}...`
 }

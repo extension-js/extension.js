@@ -49,6 +49,9 @@ export async function ensureUserProjectDependencies(
     // so one retry with it keeps the build alive; `--no-package-lock` avoids
     // dropping a lockfile the project's real manager never asked for.
     if (pm.name === 'npm') throw error
+    // A Deno project's dependencies live in deno.json(c) `npm:` imports —
+    // npm cannot install those (and may have no package.json to read at all).
+    if (pm.name === 'deno') throw error
     console.warn(messages.projectInstallFallbackToNpm(pm.name))
 
     const npmPm = resolveNpmPackageManager()

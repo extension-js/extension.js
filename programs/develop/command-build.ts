@@ -67,11 +67,10 @@ export async function extensionBuild(
 
     const debug = isAuthor
     // Guard: only error if user references managed deps in extension.config.js
-    if (projectStructure.packageJsonPath) {
-      assertNoManagedDependencyConflicts(
-        projectStructure.packageJsonPath,
-        manifestDir
-      )
+    const userManifestPath =
+      projectStructure.packageJsonPath || projectStructure.denoJsonPath
+    if (userManifestPath) {
+      assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
 
     const commandConfig = await loadCommandConfig(packageJsonDir, 'build')

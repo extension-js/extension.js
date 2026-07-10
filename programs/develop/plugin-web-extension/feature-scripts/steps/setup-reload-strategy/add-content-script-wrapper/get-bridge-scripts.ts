@@ -10,12 +10,17 @@ import path from 'path'
 import fs from 'fs'
 import type {FilepathList} from '../../../../../types'
 import {getCanonicalContentScriptEntryName} from '../../../contracts'
+import {PROJECT_MANIFEST_FILENAMES} from '../../../../../lib/project-manifest'
 import {stripBom} from '../../../../../lib/parse-json-safe'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
   for (let i = 0; i < 15; i++) {
-    if (fs.existsSync(path.join(current, 'package.json'))) {
+    if (
+      PROJECT_MANIFEST_FILENAMES.some((filename) =>
+        fs.existsSync(path.join(current, filename))
+      )
+    ) {
       return current
     }
     const parent = path.dirname(current)

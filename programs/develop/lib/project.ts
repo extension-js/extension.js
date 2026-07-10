@@ -10,12 +10,20 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from './messages'
 import {findNearestPackageJson, validatePackageJson} from './package-json'
+import {
+  findNearestDenoConfigSync,
+  validateDenoConfig
+} from './project-manifest'
 import {parseJsonSafe} from './parse-json-safe'
 
 export interface ProjectStructure {
   manifestPath: string
   // Optional in web-only mode (no package manager present)
   packageJsonPath?: string
+  // deno.json(c) when the project is (also) a Deno project. A project with
+  // only this manifest is a full project — not web-only mode: dependencies
+  // are declared as `npm:` imports and installed with `deno install`.
+  denoJsonPath?: string
 }
 
 const isUrl = (url: string) => {
@@ -338,13 +346,19 @@ export async function getProjectStructure(
     return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
   }
 
-  // Find nearest package.json from the project root (if any).
+  // Find nearest project manifest (package.json or deno.json(c)) from the
+  // project root (if any).
   const packageJsonPathFromProject = await findNearestPackageJson(
+    path.join(projectPath, 'manifest.json')
+  )
+  const denoJsonPathFromProject = findNearestDenoConfigSync(
     path.join(projectPath, 'manifest.json')
   )
   const packageJsonDirFromProject = packageJsonPathFromProject
     ? path.dirname(packageJsonPathFromProject)
-    : undefined
+    : denoJsonPathFromProject
+      ? path.dirname(denoJsonPathFromProject)
+      : undefined
 
   // Prefer conventional locations before recursive search:
   // - <root>/manifest.json
@@ -454,18 +468,27 @@ export async function getProjectStructure(
     }
   }
 
-  // Find nearest package.json, but allow web-only mode when absent or invalid
+  // Find nearest package.json and deno.json(c); web-only mode only applies
+  // when neither is present or valid.
   const packageJsonPath = await findNearestPackageJson(manifestPath)
   const packageJsonDir = packageJsonPath
     ? path.dirname(packageJsonPath)
     : undefined
 
+  const nearestDenoJsonPath = findNearestDenoConfigSync(manifestPath)
+  const denoJsonPath =
+    nearestDenoJsonPath && validateDenoConfig(nearestDenoJsonPath)
+      ? nearestDenoJsonPath
+      : undefined
+
   // Guard: never allow manifest.json to be resolved from <packageRoot>/public
-  if (packageJsonDir) {
-    const publicRoot = path.join(packageJsonDir, 'public')
+  const projectRootDir =
+    packageJsonDir ?? (denoJsonPath ? path.dirname(denoJsonPath) : undefined)
+  if (projectRootDir) {
+    const publicRoot = path.join(projectRootDir, 'public')
     if (isUnderDir(publicRoot, manifestPath)) {
-      const fallbackSrc = path.join(packageJsonDir, 'src', 'manifest.json')
-      const fallbackRoot = path.join(packageJsonDir, 'manifest.json')
+      const fallbackSrc = path.join(projectRootDir, 'src', 'manifest.json')
+      const fallbackRoot = path.join(projectRootDir, 'manifest.json')
       if (fs.existsSync(fallbackSrc)) {
         manifestPath = fallbackSrc
       } else if (fs.existsSync(fallbackRoot)) {
@@ -478,14 +501,18 @@ export async function getProjectStructure(
   }
 
   if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
-    // Web-only mode: proceed without a package.json
+    // No (valid) package.json: a Deno-manifest project is still a full
+    // project; only when no manifest exists at all do we fall back to
+    // web-only mode.
     return {
-      manifestPath
+      manifestPath,
+      ...(denoJsonPath ? {denoJsonPath} : {})
     }
   }
 
   return {
     manifestPath,
-    packageJsonPath
+    packageJsonPath,
+    ...(denoJsonPath ? {denoJsonPath} : {})
   }
 }
