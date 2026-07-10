@@ -34,6 +34,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "chromiumDryRunBinary: function(1)",
     "chromiumDryRunFlags: function(1)",
     "chromiumDryRunNotLaunching: function(0)",
+    "chromiumInvalidMatchPatterns: function(2)",
     "connectionClosedError: function(1)",
     "creatingUserProfile: function(1)",
     "devChannelSnapshotInUse: function(1)",

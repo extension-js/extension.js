@@ -30,7 +30,10 @@ import {
 } from '../../browsers-lib/banner'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
-import {diagnoseChromiumManifestRefusal} from '../../browsers-lib/manifest-refusal'
+import {
+  diagnoseChromiumManifestRefusal,
+  findInvalidMatchPatterns
+} from '../../browsers-lib/manifest-refusal'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
@@ -724,6 +727,16 @@ export class ChromiumLaunchPlugin {
           console.warn(
             messages.mv3BackgroundScriptsNotSupportedByChromium(
               String(extPath)
+            )
+          )
+        }
+        const invalidPatterns = findInvalidMatchPatterns(m)
+        if (invalidPatterns.length) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.chromiumInvalidMatchPatterns(
+              String(extPath),
+              invalidPatterns
             )
           )
         }
