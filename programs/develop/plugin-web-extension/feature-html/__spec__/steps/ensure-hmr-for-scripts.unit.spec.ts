@@ -31,6 +31,41 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toContain(src)
   })
 
+  it('injects the CJS module.hot guard into script-parsed (javascript/dynamic) modules', () => {
+    // A classic page script — e.g. any .js in a `"type": "commonjs"` package,
+    // which is what the classic-concat pipeline feeds through this loader —
+    // is parsed in script mode, where `import.meta` is a SyntaxError that
+    // fails the whole dev build (xposter, BUGS_TO_FIX #10).
+    const src = 'var I18N = {};'
+    const out = ensureHMRForScripts.call(
+      {
+        getOptions: () => ({manifestPath: '/m'}),
+        resourcePath: '/proj/i18n.js',
+        resourceQuery:
+          '?__extensionjs_classic_concat__=%7B%22feature%22%3A%22action%2Findex%22%7D',
+        _module: {type: 'javascript/dynamic'}
+      },
+      src
+    )
+    expect(out).toContain('module.hot')
+    expect(out).not.toContain('import.meta')
+    expect(out).toContain(src)
+  })
+
+  it('keeps import.meta.webpackHot for esm and auto parses', () => {
+    for (const type of ['javascript/esm', 'javascript/auto', undefined]) {
+      const out = ensureHMRForScripts.call(
+        {
+          getOptions: () => ({manifestPath: '/m'}),
+          resourcePath: '/proj/page.js',
+          _module: type ? {type} : undefined
+        },
+        'console.log("x")'
+      )
+      expect(out).toContain('import.meta.webpackHot')
+    }
+  })
+
   it('skips Vue SFC virtual modules', () => {
     const src = 'console.log("x")'
     const out = ensureHMRForScripts.call(
