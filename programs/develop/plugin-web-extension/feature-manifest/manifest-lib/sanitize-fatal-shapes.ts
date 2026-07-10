@@ -22,6 +22,10 @@ export interface FatalShapeFix {
  *
  * - `"version": 1.0` — JSON authors write a number; Chrome requires a string
  *   of 1-4 dot-separated integers. String() preserves the intent.
+ * - `"version": "x.y.z"` (any string that is not 1-4 dot-separated integers
+ *   0-65535) — a placeholder the author never filled in; Chrome refuses the
+ *   whole extension over it. Salvage the numeric parts when there are any,
+ *   fall back to "0.0.0" otherwise.
  * - `"default_icon": ""` (in action/browser_action/page_action) — an empty
  *   icon path rejects the extension. Empty means "no icon": drop the key.
  */
@@ -38,6 +42,18 @@ export function sanitizeFatalManifestShapes(manifest: Manifest): {
     fixes.push({
       field: 'version',
       detail: `coerced ${from} (${typeof JSON.parse(from)}) to the string "${out.version}" — Chrome rejects a non-string version`
+    })
+  }
+
+  if (
+    typeof out.version === 'string' &&
+    !isValidChromeVersion(out.version.trim())
+  ) {
+    const from = out.version
+    out.version = salvageVersion(out.version)
+    fixes.push({
+      field: 'version',
+      detail: `replaced "${from}" with "${out.version}" — Chrome requires 1-4 dot-separated integers (0-65535) and refuses the whole extension otherwise`
     })
   }
 
@@ -64,4 +80,22 @@ export function sanitizeFatalManifestShapes(manifest: Manifest): {
   }
 
   return {manifest: out as Manifest, fixes}
+}
+
+/** Chrome's manifest version grammar: 1-4 dot-separated integers 0-65535. */
+function isValidChromeVersion(version: string): boolean {
+  if (!version) return false
+  const parts = version.split('.')
+  if (parts.length > 4) return false
+  return parts.every((part) => /^\d{1,5}$/.test(part) && Number(part) <= 65535)
+}
+
+/**
+ * Salvage what numbers the author DID write ("1.0-beta" -> "1.0",
+ * "v2.3" -> "2.3"); a version with none ("x.y.z") becomes "0.0.0".
+ */
+function salvageVersion(version: string): string {
+  const digits = version.match(/\d{1,5}/g)?.slice(0, 4) ?? []
+  if (!digits.length) return '0.0.0'
+  return digits.map((digit) => String(Math.min(Number(digit), 65535))).join('.')
 }
