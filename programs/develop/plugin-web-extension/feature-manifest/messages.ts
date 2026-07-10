@@ -55,6 +55,16 @@ export function legacyManifestPathWarning(legacyPath: string) {
   return lines.join('\n')
 }
 
+export function fatalManifestShapeFixed(field: string, detail: string) {
+  const lines: string[] = []
+  lines.push(
+    `⚠ Repaired a manifest field Chrome refuses to load the extension over. Fix it in your manifest.json.`
+  )
+  lines.push('')
+  lines.push(`${colors.brightBlue('FIELD')} ${colors.underline(field)} — ${detail}`)
+  return lines.join('\n')
+}
+
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(
