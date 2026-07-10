@@ -286,6 +286,46 @@ export class ChromiumLaunchPlugin {
 
     browserBinaryLocation = resolveManagedBinary()
 
+    // Managed `chromium` installs are tip-of-tree snapshots (dev channel).
+    // Don't let one silently outrank an installed stable browser: swap to the
+    // system binary when there is one, unless the user opts into the snapshot.
+    if (browser === 'chromium' && browserBinaryLocation) {
+      let systemBinary: string | null = null
+      try {
+        // System scan only: drop the managed-cache env so the cache can't
+        // answer for itself, and reject cache-like paths in the chooser.
+        const env = {...process.env}
+        delete env.PUPPETEER_CACHE_DIR
+        systemBinary = normalizePath(locateChromium({env}) || null)
+      } catch {
+        // best-effort; the managed snapshot remains the fallback
+      }
+      const choice = utils.chooseChromiumBinaryPreferringStable({
+        managedSnapshotBinary: browserBinaryLocation,
+        systemBinary: isUsableBinary(systemBinary) ? systemBinary : null,
+        managedCacheRoot: String(
+          binariesResolver.computeBinariesBaseDir(compilation)
+        ),
+        preferManagedSnapshot:
+          String(process.env.EXTENSION_PREFER_CHROMIUM_SNAPSHOT || '')
+            .toLowerCase()
+            .trim() === 'true'
+      })
+      if (choice.swappedToSystem && choice.binary) {
+        // eslint-disable-next-line no-console
+        console.log(
+          messages.preferringSystemBrowserOverSnapshot(
+            choice.binary,
+            browserBinaryLocation
+          )
+        )
+        browserBinaryLocation = choice.binary
+      } else if (choice.usedManagedSnapshot) {
+        // eslint-disable-next-line no-console
+        console.log(messages.devChannelSnapshotInUse(browserBinaryLocation))
+      }
+    }
+
     let skipDetection = Boolean(browserBinaryLocation)
     if (!browserBinaryLocation && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native browser so the dev loop stays
@@ -435,9 +475,10 @@ export class ChromiumLaunchPlugin {
       case 'chromium': {
         if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
-        // Prefer explicit binary when provided
-        browserBinaryLocation = this.options?.chromiumBinary || null
-        // If user provided a binary, require it to exist
+        // Prefer explicit binary when provided; otherwise KEEP the binary
+        // already resolved above (managed/system choice) — overwriting it
+        // with null here would let the post-switch fallback re-resolve the
+        // managed snapshot and undo the stable-over-snapshot preference.
         if (this.options?.chromiumBinary) {
           const normalized = normalizePath(String(this.options.chromiumBinary))
           if (!normalized || !fs.existsSync(normalized)) {
@@ -634,6 +675,29 @@ export class ChromiumLaunchPlugin {
       }
     }
 
+    // Best-effort: derive a human-readable browser version line once; reused
+    // by the always-on line below and the dev/prod banners.
+    let browserVersionLine: string | undefined
+    try {
+      const vLine = getBrowserVersionLine(browserBinaryLocation)
+      if (vLine && vLine.trim().length > 0) {
+        browserVersionLine = vLine.trim()
+      }
+    } catch {
+      // ignore – banner will fall back to generic browser label
+    }
+
+    // Always name the exact binary this session runs (one line). A silently
+    // preferred cached snapshot must be visible in dev output.
+    // eslint-disable-next-line no-console
+    console.log(
+      messages.resolvedBrowserBinary(
+        browser,
+        browserBinaryLocation,
+        browserVersionLine
+      )
+    )
+
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
     publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
 
@@ -727,20 +791,6 @@ export class ChromiumLaunchPlugin {
     }
 
     try {
-      // Best-effort: derive a human-readable browser version line for dev/prod banners.
-      let browserVersionLine: string | undefined
-
-      try {
-        if (browserBinaryLocation && fs.existsSync(browserBinaryLocation)) {
-          const vLine = getBrowserVersionLine(browserBinaryLocation)
-          if (vLine && vLine.trim().length > 0) {
-            browserVersionLine = vLine.trim()
-          }
-        }
-      } catch {
-        // ignore – banner will fall back to generic browser label
-      }
-
       const mode = (compilation?.options?.mode || 'development') as string
 
       // Always print a manifest-based production summary once,
