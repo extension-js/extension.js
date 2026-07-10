@@ -131,12 +131,23 @@ export default function ensureHMRForScripts(
     )
   }
 
+  // `import.meta` is ONLY legal in module parses. A page script that rspack
+  // resolves as `javascript/dynamic` (classic script parse — e.g. any .js in
+  // a `"type": "commonjs"` package, which is exactly what the classic-concat
+  // pipeline feeds through here) must get the CJS `module.hot` API instead,
+  // or the injected guard itself is a parse error that fails the whole dev
+  // build. Module and auto parses keep `import.meta.webpackHot` (strict ESM
+  // provides no `module` binding).
+  const moduleType = String((this as any)?._module?.type || '')
+  const hot =
+    moduleType === 'javascript/dynamic' ? 'module.hot' : 'import.meta.webpackHot'
+
   const reloadCode = `
-if (import.meta.webpackHot) {
+if (${hot}) {
   try {
     // Accept updates for HTML-attached scripts and clear common containers
-    import.meta.webpackHot.accept();
-    import.meta.webpackHot.dispose(function() {
+    ${hot}.accept();
+    ${hot}.dispose(function() {
       try {
         var clear = function(el) {
           if (!el) return;
