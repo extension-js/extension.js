@@ -13,6 +13,7 @@ import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
 import {reportToCompilation} from '../html-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../types'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string
@@ -115,7 +116,7 @@ function manifestFieldForHtmlFeature(
 ): string {
   let manifest: Record<string, any> = {}
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   } catch {
     // fall through to positional labels
   }
