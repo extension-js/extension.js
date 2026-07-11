@@ -71,8 +71,46 @@ describe('webpack-config transpile packages watch behavior', () => {
       } as any
     )
 
-    const ignored = config.watchOptions?.ignored as RegExp
-    expect(ignored.test('/repo/node_modules/react/index.js')).toBe(true)
+    const ignored = config.watchOptions?.ignored as string[]
+    expect(ignored).toContain('**/node_modules/**')
+  })
+
+  it('ignores by path segment, not substring — a project path containing "dist" stays watched', () => {
+    // Regression: the ignore list was a substring regex (/dist|…/), so a
+    // checkout named e.g. "dedistract" matched and the ENTIRE project was
+    // unwatched — dev booted fine and then never recompiled any edit.
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(root, 'dist', 'chrome')
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const ignored = config.watchOptions?.ignored as string[]
+    expect(Array.isArray(ignored)).toBe(true)
+    const posixRoot = root.split(path.sep).join('/')
+    // The real output dir is ignored…
+    expect(ignored).toContain(`${posixRoot}/dist/chrome/**`)
+    expect(ignored).toContain(`${posixRoot}/dist/**`)
+    // …but no bare-substring pattern survives that could swallow a source
+    // path like /home/user/dedistract/shared.js.
+    for (const pattern of ignored) {
+      expect(pattern === 'dist' || pattern === '**dist**').toBe(false)
+      if (typeof pattern === 'string' && pattern.includes('dist')) {
+        expect(pattern.includes('/dist/') || pattern.endsWith('/dist/**')).toBe(
+          true
+        )
+      }
+    }
   })
 
   it('does not blanket-ignore node_modules when transpiled packages are auto-detected', () => {
@@ -97,11 +135,13 @@ describe('webpack-config transpile packages watch behavior', () => {
       } as any
     )
 
-    const ignored = config.watchOptions?.ignored as RegExp
-    expect(
-      ignored.test('/repo/node_modules/@workspace/ui/src/button.tsx')
-    ).toBe(false)
-    expect(ignored.test('/repo/dist/chrome/background.js')).toBe(true)
+    const ignored = config.watchOptions?.ignored as string[]
+    expect(ignored).not.toContain('**/node_modules/**')
+    const root = path
+      .dirname(projectStructure.manifestPath)
+      .split(path.sep)
+      .join('/')
+    expect(ignored).toContain(`${root}/dist/chrome/**`)
   })
 
   it('disables module concatenation in development to avoid react-refresh __webpack_module__ clash', () => {
