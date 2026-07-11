@@ -1,8 +1,12 @@
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, beforeEach, afterEach} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
-  findInvalidMatchPatterns
+  findInvalidMatchPatterns,
+  findUnloadableIconFiles
 } from '../browsers-lib/manifest-refusal'
 
 // Launch-time honesty for manifest shapes Chromium refuses to load AT ALL:
@@ -170,5 +174,51 @@ describe('findChromiumLoadBlockers', () => {
     expect(
       findChromiumLoadBlockers({commands: 'x', content_scripts: 'y'})
     ).toEqual([])
+  })
+})
+
+// Chrome refuses the whole extension over an icon it cannot load ("Could not
+// load icon '<file>'"), and with --load-extension that surfaces only on
+// stderr — dev printed an Extension ID for an extension the browser silently
+// never installed (wild: Speak2Type's 0-byte icon-128.png).
+describe('findUnloadableIconFiles', () => {
+  let dir: string
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-icons-'))
+    fs.mkdirSync(path.join(dir, 'icons'), {recursive: true})
+    fs.writeFileSync(path.join(dir, 'icons/empty.png'), '')
+    fs.writeFileSync(path.join(dir, 'icons/real.png'), 'png-bytes')
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('flags empty and missing icon files across icons and default_icon', () => {
+    const findings = findUnloadableIconFiles(
+      {
+        icons: {'16': 'icons/real.png', '128': 'icons/empty.png'},
+        action: {default_icon: 'icons/gone.png'},
+        browser_action: {default_icon: {'32': '/icons/empty.png'}}
+      },
+      dir
+    )
+    expect(findings).toEqual([
+      'icons.128: icon "icons/empty.png" is an empty file (0 bytes) — Chrome refuses the whole extension over an icon it cannot load.',
+      'action.default_icon: icon "icons/gone.png" is missing from the extension directory — Chrome refuses the whole extension over an icon it cannot load.',
+      'browser_action.default_icon.32: icon "/icons/empty.png" is an empty file (0 bytes) — Chrome refuses the whole extension over an icon it cannot load.'
+    ])
+  })
+
+  it('stays silent for loadable icons and malformed manifests', () => {
+    expect(
+      findUnloadableIconFiles({icons: {'16': 'icons/real.png'}}, dir)
+    ).toEqual([])
+    expect(findUnloadableIconFiles(undefined, dir)).toEqual([])
+    expect(
+      findUnloadableIconFiles({icons: 'x', action: {default_icon: 42}}, dir)
+    ).toEqual([])
+    expect(findUnloadableIconFiles({icons: {'16': ''}}, dir)).toEqual([])
   })
 })

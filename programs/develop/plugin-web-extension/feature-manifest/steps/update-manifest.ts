@@ -6,6 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as path from 'path'
 import {Compiler, Compilation, sources, WebpackError} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {
@@ -149,11 +150,14 @@ export class UpdateManifest {
             }
 
             // Repair shapes Chrome refuses to load the extension over
-            // (numeric version, empty default_icon). --load-extension
-            // surfaces the refusal only as a native modal, wedging the dev
-            // session before CDP binds — so repair, and warn so the author
-            // fixes the source manifest.
-            const sanitized = sanitizeFatalManifestShapes(patchedManifest)
+            // (numeric version, empty default_icon, icon paths that resolve
+            // to 0-byte files). --load-extension surfaces the refusal only
+            // as a native modal, wedging the dev session before CDP binds —
+            // so repair, and warn so the author fixes the source manifest.
+            const sanitized = sanitizeFatalManifestShapes(
+              patchedManifest,
+              path.dirname(this.manifestPath)
+            )
             patchedManifest = sanitized.manifest
             for (const fix of sanitized.fixes) {
               const warn = new WebpackError(
