@@ -501,6 +501,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (!chrome) return;
 
       var fullReload = function () {
+        // Leave a pending-reinject flag for the NEXT producer generation:
+        // Chrome never re-runs content scripts in tabs that were already open
+        // when the extension reloads, and runtime.reload() does NOT fire
+        // onInstalled (verified Chromium 146), so the boot-time heal below is
+        // the only thing that converges open tabs after a SW/full reload —
+        // without it a shared SW+content module edit restarts the SW while
+        // every open tab keeps the stale content world (family F).
+        try {
+          if (chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
+          }
+        } catch (e) {}
         // Deferred so any in-flight result/log frame — and the "Reloading…"
         // console announcement dispatched into tabs — flushes before the SW
         // dies. runtime.reload() restarts the whole extension; the devtools
@@ -756,6 +768,29 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               try { reinjectContentScripts(); } catch (e) {}
             }, 250);
           } catch (e) {}
+        });
+      }
+    } catch (e) {}
+
+    // runtime.reload() does NOT fire onInstalled (verified Chromium 146), so
+    // a dev-driven SW/full reload leaves the listener above silent and every
+    // open tab keeps the previous build's content world. fullReload() stamps
+    // __extjsDevPendingReinject into storage.local right before reloading;
+    // consume it here (fresh flags only — a stale one from a crashed session
+    // is dropped) and heal open tabs from the on-disk manifest. Idle-stop SW
+    // wakes never see the flag, so this cannot churn mounted UI.
+    try {
+      var stBoot = g.chrome;
+      if (stBoot && stBoot.storage && stBoot.storage.local) {
+        stBoot.storage.local.get("__extjsDevPendingReinject", function (res) {
+          noopLastError();
+          var ts = res && res.__extjsDevPendingReinject;
+          if (ts == null) return;
+          try { stBoot.storage.local.remove("__extjsDevPendingReinject", noopLastError); } catch (e) {}
+          if (typeof ts !== "number" || Date.now() - ts > 30000) return;
+          setTimeout(function () {
+            try { reinjectContentScripts(); } catch (e) {}
+          }, 250);
         });
       }
     } catch (e) {}

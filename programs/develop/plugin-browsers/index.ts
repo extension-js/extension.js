@@ -244,16 +244,27 @@ export function classifyReloadFromSources(opts: {
   const pageChanged: string[] = []
   const unknown: string[] = []
   for (const rel of changedSources) {
+    // A source can live in MORE than one chunk family (e.g. a shared module
+    // listed in both background.scripts and content_scripts[].js): record
+    // every membership, so the instruction below can fan out to both reload
+    // paths instead of silently dropping the content half.
+    let known = false
     if (index?.swSources.has(rel)) {
       swChanged.push(rel)
-    } else if (index?.contentEntriesBySource.has(rel)) {
+      known = true
+    }
+    if (index?.contentEntriesBySource.has(rel)) {
       contentChanged.push(rel)
       for (const entry of index.contentEntriesBySource.get(rel)!) {
         contentEntries.add(entry)
       }
-    } else if (index?.pageSources.has(rel)) {
+      known = true
+    }
+    if (!known && index?.pageSources.has(rel)) {
       pageChanged.push(rel)
-    } else {
+      known = true
+    }
+    if (!known) {
       unknown.push(rel)
     }
   }
@@ -271,10 +282,22 @@ export function classifyReloadFromSources(opts: {
     })
 
   if (swChanged.length > 0) {
+    // A shared module (SW chunk + content chunk) needs BOTH paths: the SW
+    // restart carries the instruction, and changedContentScriptEntries tells
+    // the producer which open-tab content scripts went stale — the restarted
+    // producer heals them from the pending-reinject flag it sets pre-reload.
     return {
       type: 'service-worker',
+      ...(contentEntries.size > 0
+        ? {changedContentScriptEntries: [...contentEntries].sort()}
+        : {}),
       changedAssets: changedSources,
-      label: formatReloadContextLabel('service_worker', swChanged)
+      label: formatReloadContextLabel(
+        contentEntries.size > 0
+          ? 'service_worker + content_script'
+          : 'service_worker',
+        swChanged
+      )
     }
   }
 
