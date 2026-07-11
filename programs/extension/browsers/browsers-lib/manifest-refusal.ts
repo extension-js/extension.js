@@ -39,18 +39,20 @@ export function diagnoseChromiumManifestRefusal(
 }
 
 /**
- * Match patterns Chrome's grammar refuses — a query string / fragment
- * (`?`, `#`) in the pattern. ONE invalid pattern in content_scripts
- * matches, host_permissions, or web_accessible_resources makes Chrome
- * refuse the WHOLE extension at load (wild: Ban-Checker's
- * `.../gcpd/730?tab=majors`). Loading the source unpacked fails
- * identically, so this is extension-own — but dev must say so instead of
- * printing an ID for an extension that never loads.
+ * Match patterns Chrome's grammar refuses. ONE invalid pattern in
+ * content_scripts matches, host_permissions, or web_accessible_resources
+ * makes Chrome refuse the WHOLE extension at load. The only shape verified
+ * to actually refuse is an invalid HOST WILDCARD (wild: CarbonWise's
+ * `*carbonwise*` — CDP loadUnpacked reports "Invalid host wildcard").
  *
- * Explicit ports are NOT flagged: Chromium's URLPattern accepts them
- * (verified live 2026-07-11 — `http://localhost:3000/*` and
- * `https://example.com:8888/*` install ENABLED; the wild memux subject
- * loads fine), so warning on them cried wolf on working extensions.
+ * NOT flagged, all verified live on Chrome 150 (2026-07-11, both CDP
+ * loadUnpacked and --load-extension, install ENABLED):
+ * - explicit ports (`http://localhost:3000/*`; wild memux loads fine)
+ * - query strings / fragments in the path (`?`, `#` are literal path
+ *   characters: `.../gcpd/730?tab=majors` and `/page#section` both load;
+ *   wild SN-Utils ships a query-string exclude_matches on the store) —
+ *   flagging them warned "the whole extension will not load" on extensions
+ *   that load fine.
  */
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, any> | null | undefined
@@ -79,9 +81,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
     (pattern): pattern is string =>
       typeof pattern === 'string' &&
       pattern !== '<all_urls>' &&
-      (pattern.includes('?') ||
-        pattern.includes('#') ||
-        hasInvalidHostWildcard(pattern))
+      hasInvalidHostWildcard(pattern)
   )
 
   return [...new Set(invalid)]
