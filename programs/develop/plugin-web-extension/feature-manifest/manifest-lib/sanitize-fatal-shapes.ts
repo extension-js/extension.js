@@ -6,6 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
+import * as path from 'path'
 import {type Manifest} from '../../../types'
 
 export interface FatalShapeFix {
@@ -28,8 +30,15 @@ export interface FatalShapeFix {
  *   fall back to "0.0.0" otherwise.
  * - `"default_icon": ""` (in action/browser_action/page_action) — an empty
  *   icon path rejects the extension. Empty means "no icon": drop the key.
+ * - An icon path (`icons`, `*_action.default_icon`) whose file exists but is
+ *   0 bytes (wild: Speak2Type ships an empty icon-128.png) — Chrome cannot
+ *   decode it and refuses the whole extension with "Could not load icon".
+ *   Requires `manifestDir` to resolve the paths; drop the entry.
  */
-export function sanitizeFatalManifestShapes(manifest: Manifest): {
+export function sanitizeFatalManifestShapes(
+  manifest: Manifest,
+  manifestDir?: string
+): {
   manifest: Manifest
   fixes: FatalShapeFix[]
 } {
@@ -76,6 +85,62 @@ export function sanitizeFatalManifestShapes(manifest: Manifest): {
         detail:
           'removed the empty default_icon — Chrome rejects the whole extension over it'
       })
+    }
+  }
+
+  if (manifestDir) {
+    const emptyIconDetail = (ref: string) =>
+      `removed "${ref}" — the file is empty (0 bytes) and Chrome refuses the whole extension over an icon it cannot load`
+
+    const isEmptyIconFile = (ref: unknown): ref is string => {
+      if (typeof ref !== 'string' || ref.trim() === '') return false
+      try {
+        const abs = path.join(manifestDir, ref.replace(/^\//, ''))
+        return fs.existsSync(abs) && fs.statSync(abs).size === 0
+      } catch {
+        return false
+      }
+    }
+
+    const icons = out.icons
+    if (icons && typeof icons === 'object' && !Array.isArray(icons)) {
+      let dropped = false
+      for (const [size, ref] of Object.entries(icons)) {
+        if (isEmptyIconFile(ref)) {
+          delete icons[size]
+          dropped = true
+          fixes.push({field: `icons.${size}`, detail: emptyIconDetail(ref)})
+        }
+      }
+      if (dropped && Object.keys(icons).length === 0) delete out.icons
+    }
+
+    for (const actionKey of ['action', 'browser_action', 'page_action']) {
+      const action = out[actionKey]
+      if (!action || typeof action !== 'object' || Array.isArray(action)) {
+        continue
+      }
+      const icon = action.default_icon
+      if (isEmptyIconFile(icon)) {
+        delete action.default_icon
+        fixes.push({
+          field: `${actionKey}.default_icon`,
+          detail: emptyIconDetail(icon)
+        })
+      } else if (icon && typeof icon === 'object' && !Array.isArray(icon)) {
+        let dropped = false
+        for (const [size, ref] of Object.entries(icon)) {
+          if (isEmptyIconFile(ref)) {
+            delete icon[size]
+            dropped = true
+            fixes.push({
+              field: `${actionKey}.default_icon.${size}`,
+              detail: emptyIconDetail(ref)
+            })
+          }
+        }
+        if (dropped && Object.keys(icon).length === 0) delete action.default_icon
+      }
     }
   }
 
