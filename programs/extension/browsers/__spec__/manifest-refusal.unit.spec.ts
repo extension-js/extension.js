@@ -45,7 +45,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
     ).toBeNull()
   })
 
-  it('flags match patterns with a query string, fragment, or port (wild: Ban-Checker, Better-Names)', () => {
+  it('flags match patterns with a query string or fragment (wild: Ban-Checker)', () => {
     const invalid = findInvalidMatchPatterns({
       manifest_version: 3,
       host_permissions: ['*://steamcommunity.com/*'],
@@ -53,7 +53,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
         {
           matches: [
             '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
-            'http://in.7fa4.cn:8888/review/*',
             'https://example.com/page#section'
           ],
           js: ['content.js']
@@ -65,12 +64,15 @@ describe('diagnoseChromiumManifestRefusal', () => {
     })
     expect(invalid).toEqual([
       '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
-      'http://in.7fa4.cn:8888/review/*',
       'https://example.com/page#section'
     ])
   })
 
-  it('accepts valid patterns, <all_urls>, and IPs without ports', () => {
+  it('accepts valid patterns, <all_urls>, IPs, and explicit ports (wild: memux loads fine with localhost:3000)', () => {
+    // Chromium's URLPattern ACCEPTS ports — verified live 2026-07-11: an
+    // extension declaring http://localhost:3000/* and example.com:8888/*
+    // installs ENABLED. Flagging them warned "the whole extension will not
+    // load" on extensions that load fine.
     expect(
       findInvalidMatchPatterns({
         host_permissions: [
@@ -79,7 +81,15 @@ describe('diagnoseChromiumManifestRefusal', () => {
           'http://10.210.57.10/*',
           'file:///*'
         ],
-        content_scripts: [{matches: ['https://*.example.com/deep/path*']}]
+        content_scripts: [
+          {
+            matches: [
+              'https://*.example.com/deep/path*',
+              'http://localhost:3000/*',
+              'https://example.com:8888/*'
+            ]
+          }
+        ]
       })
     ).toEqual([])
     expect(findInvalidMatchPatterns(undefined)).toEqual([])

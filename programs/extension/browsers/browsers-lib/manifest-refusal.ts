@@ -40,12 +40,17 @@ export function diagnoseChromiumManifestRefusal(
 
 /**
  * Match patterns Chrome's grammar refuses — a query string / fragment
- * (`?`, `#`) or an explicit port in the host. ONE invalid pattern in
- * content_scripts matches, host_permissions, or web_accessible_resources
- * makes Chrome refuse the WHOLE extension at load (wild: Ban-Checker's
- * `.../gcpd/730?tab=majors`, Better-Names' `host:8888/...`). Loading the
- * source unpacked fails identically, so this is extension-own — but dev
- * must say so instead of printing an ID for an extension that never loads.
+ * (`?`, `#`) in the pattern. ONE invalid pattern in content_scripts
+ * matches, host_permissions, or web_accessible_resources makes Chrome
+ * refuse the WHOLE extension at load (wild: Ban-Checker's
+ * `.../gcpd/730?tab=majors`). Loading the source unpacked fails
+ * identically, so this is extension-own — but dev must say so instead of
+ * printing an ID for an extension that never loads.
+ *
+ * Explicit ports are NOT flagged: Chromium's URLPattern accepts them
+ * (verified live 2026-07-11 — `http://localhost:3000/*` and
+ * `https://example.com:8888/*` install ENABLED; the wild memux subject
+ * loads fine), so warning on them cried wolf on working extensions.
  */
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, any> | null | undefined
@@ -76,7 +81,6 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
       pattern !== '<all_urls>' &&
       (pattern.includes('?') ||
         pattern.includes('#') ||
-        /^[a-zA-Z*]+:\/\/[^/]*:\d+(?:\/|$)/.test(pattern) ||
         hasInvalidHostWildcard(pattern))
   )
 
