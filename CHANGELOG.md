@@ -2,22 +2,50 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- Add EXTENSION_BROWSER_FLAGS env pass-through for launch flags ([9d574295](https://github.com/extension-js/extension.js/commit/9d5742953c6d9680df2a0c2717a1d5a98484e30f))
+- Add getURLDependencyMissing to the messages-catalog snapshot ([ea8a8859](https://github.com/extension-js/extension.js/commit/ea8a885927c2c4b125902a867f157453037eaf71))
+
 ### 🐛 Fixes
 
-- Resolve PostCSS config string plugins project-first so CLI installs outside the project can load them ([2d13a9dc](https://github.com/extension-js/extension.js/commit/2d13a9dc18ff1155580d4c918bb7b59be4d9731e))
-- Resolve .env files family-wide and make undefined env vars safe ([2c449344](https://github.com/extension-js/extension.js/commit/2c449344ef1518ffae54c9962a5f57a16025727c))
+- Stop flagging explicit ports in match patterns as launch refusals ([b62b33b8](https://github.com/extension-js/extension.js/commit/b62b33b830dc8a0fdb9e636548d16288c4735625))
+- Repair 0-byte manifest icons and diagnose unloadable icons at launch ([5776ac7e](https://github.com/extension-js/extension.js/commit/5776ac7ee9a9c8f32e714b77a3f23f0519c220b4))
+- Repair non-numeric manifest version strings at emission ([0d3f3aff](https://github.com/extension-js/extension.js/commit/0d3f3afff54992a8ae25806687d2f6fef65ac50d))
+- Resolve root-URL HTML refs against the manifest root, not dist ([d2c92f74](https://github.com/extension-js/extension.js/commit/d2c92f74db3c00001c8ce52861fbdd1b803aed07))
+- Repair manifest shapes Chrome refuses and diagnose MV2 on Chromium ([7c8399df](https://github.com/extension-js/extension.js/commit/7c8399df855636c54ec292e3a7142c5422a063b5))
+- Harden dev reload delivery: empty background, CSP origins, load errors ([3b06ccef](https://github.com/extension-js/extension.js/commit/3b06ccef09535529aaa0f9bcec63fc488ee427ee))
 
 <details>
-<summary>🧹 Other changes (8)</summary>
+<summary>🧹 Other changes (27)</summary>
 
-- Fail the build when manifest page surfaces (popup, options, overrides, devtools) point at missing files ([8f59a72e](https://github.com/extension-js/extension.js/commit/8f59a72e7b88c6c1e752c32ecb4b07f15274b551))
-- Trace runtime-fetched package files into dist and keep executeScript tracing alive past multi-KB template literals ([648d23f2](https://github.com/extension-js/extension.js/commit/648d23f2f01b6b17396ab9e8ffe7e850098c1413))
-- Confine project auto-install to the project dir and fall back to npm when the resolved package manager fails ([65f671af](https://github.com/extension-js/extension.js/commit/65f671af9c85efa14a3b572ed17519f0ad969cca))
-- Type ?inline stylesheet imports as asset/source so Vue custom-element styles resolve to CSS strings ([8bff845b](https://github.com/extension-js/extension.js/commit/8bff845baf58c465d2021c02443988b8c3d45a35))
-- Match link rel as a token list so shortcut icon assets stay static instead of becoming phantom stylesheet modules ([dd7d1aae](https://github.com/extension-js/extension.js/commit/dd7d1aae378ae9875c87e41fbb42f1b3ce8f90ab))
-- Update all *-location dependencies ([72533594](https://github.com/extension-js/extension.js/commit/72533594399c3c497a997db45b5be7ea94b6aebf))
-- Concatenate classic multi-script HTML pages into one shared scope ([8af0b2fb](https://github.com/extension-js/extension.js/commit/8af0b2fb5fbbdebc4c051d3a9a98cef40287bcb8))
-- Trace importScripts deps and executeScript file payloads into dist ([2cc9c9a9](https://github.com/extension-js/extension.js/commit/2cc9c9a97a85e7c3da7f9add275f5612063ccda1))
+- Fan shared SW+content module edits to both reload paths and heal tabs ([8e833828](https://github.com/extension-js/extension.js/commit/8e833828922b24af2ebfc6032b1ccc09c130da40))
+- Pick the HTML HMR API by the source's own module syntax ([17a6b852](https://github.com/extension-js/extension.js/commit/17a6b852785b95d3629849902b1bbb8fb9ba4b36))
+- Name the manifest shapes Chrome silently refuses at launch ([ce14782a](https://github.com/extension-js/extension.js/commit/ce14782a39690f4efa1f540963f65c4035ec55bc))
+- Strip the UTF-8 BOM before the manifest read in emit-html-file ([020715a2](https://github.com/extension-js/extension.js/commit/020715a24383d0b899c3dd4a2e0436cf894c97e0))
+- Ignore watch paths by segment instead of substring ([d19d070b](https://github.com/extension-js/extension.js/commit/d19d070b107719b5f0eb3a2646dbae32d957e791))
+- Warn at launch on match patterns with query, fragment, or port ([85e2669d](https://github.com/extension-js/extension.js/commit/85e2669d827f4a884a709391f7bf925c4a11b471))
+- Diagnose Firefox-style MV3 background.scripts at Chromium launch ([665d8cb2](https://github.com/extension-js/extension.js/commit/665d8cb2fb92208a40aa71e3c9b78cdd4ec570d0))
+- Inject module.hot into script-parsed page scripts, not import.meta ([41f23d2f](https://github.com/extension-js/extension.js/commit/41f23d2fa9c6589e5566f284010887b169694592))
+- Keep import(chrome.runtime.getURL(...)) native in emitted bundles ([cfb61f27](https://github.com/extension-js/extension.js/commit/cfb61f278bb8f0a1256feb3b1082732ff3e6c2d3))
+- Ship the static import closure of runtime-traced modules ([1f6043df](https://github.com/extension-js/extension.js/commit/1f6043df299d96f5c8667916cfeeeee47aef5f44))
+- Update messages-catalog snapshot for fatalManifestShapeFixed ([4c05318c](https://github.com/extension-js/extension.js/commit/4c05318ccd2f49abe0cd9c523e9ba4b560a7c9c1))
+- Fail the build when an emitted content script does not parse ([7d5ad766](https://github.com/extension-js/extension.js/commit/7d5ad7662e8dc7bb8f87de273b9875ac287683ad))
+- Honor exclude_matches in dev reinjection and re-registration ([7120bf70](https://github.com/extension-js/extension.js/commit/7120bf7085ce353d7e9d7073ff22c16f04a075c5))
+- Keep dev reloads deliverable to idle MV3 service workers ([1d8fb08e](https://github.com/extension-js/extension.js/commit/1d8fb08e97f2b16ea8cd353d612111ba577acf37))
+- Point css-only content_scripts groups at the emitted entry chunk ([76552107](https://github.com/extension-js/extension.js/commit/765521073b95a5adbb85994dffe459272979abeb))
+- Compare requested vs resolved dev-server ports numerically ([e3cf24cd](https://github.com/extension-js/extension.js/commit/e3cf24cd874cc5b76aa9dd9f900b4618ece68a64))
+- Name the resolved browser binary and stop stale snapshot outranking ([1e6fa66f](https://github.com/extension-js/extension.js/commit/1e6fa66f37a25cdc4741aa4ed6bc86c6f8a5a552))
+- Survive Chromium 152 dev reloads and merge repeated feature switches ([4d3dd33a](https://github.com/extension-js/extension.js/commit/4d3dd33a1dae1166957a0dc6b763fbc737f32b4b))
+- Bound the telemetry audit log with a size-cap rotation ([538c5cb3](https://github.com/extension-js/extension.js/commit/538c5cb3947aa144f53b39bcc87f053abbe8ae09))
+- Scaffold deno.jsonc and make the toolchain manifest-agnostic (#482) ([70385b8c](https://github.com/extension-js/extension.js/commit/70385b8cfb07d17ad293fda764f28a451ce8cef0))
+- Persist the dev control port outside dist for SW resync (#484) ([7bb0d820](https://github.com/extension-js/extension.js/commit/7bb0d820267db50240a8081a00a2854e39add1b6))
+- Classify dev reloads by chunk graph and clamp asset names to output dir ([860201f0](https://github.com/extension-js/extension.js/commit/860201f039e499bca3dc01d02e29a258d5666299))
+- Identify dev-server runtime modules by content, not require position ([e3a17b60](https://github.com/extension-js/extension.js/commit/e3a17b607d75893ac93f03666b60d10b60a30c12))
+- Fall back to manifest directory when a project has no package.json ([0e836d08](https://github.com/extension-js/extension.js/commit/0e836d08377f6f1047a6c4994facefa8a886f86a))
+- Always rebuild bundled companion extensions; fix CDP port from --port 0 ([b6c4ff3e](https://github.com/extension-js/extension.js/commit/b6c4ff3ef8c78cc9add40ae6b733127b219aef91))
+- Qualify content-script wrapper ownership by extension id ([cb16fcf6](https://github.com/extension-js/extension.js/commit/cb16fcf659d257a69cdc0e1ed78f14ae12db5bd3))
+- Trace chrome.runtime.getURL literal targets into dist ([9c1fcad1](https://github.com/extension-js/extension.js/commit/9c1fcad1854dfafd33be28a6c986903360abb7c0))
 </details>
 
 ## 3.18.0 (May 28, 2026)
