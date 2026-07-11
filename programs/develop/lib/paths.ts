@@ -53,6 +53,13 @@ export function asAbsolute(p: string): AbsolutePath {
   return (path.isAbsolute(p) ? p : path.resolve(p)) as AbsolutePath
 }
 
+// Watch-ignore globs are matched against forward-slash paths on every
+// platform, so Windows absolute paths must be normalized before being
+// embedded in a glob.
+export function toPosixPath(p: string): string {
+  return p.split(path.sep).join('/')
+}
+
 export function getDirs(struct: ProjectStructure): {
   manifestDir: AbsolutePath
   packageJsonDir: AbsolutePath

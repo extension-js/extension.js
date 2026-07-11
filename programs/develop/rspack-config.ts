@@ -13,7 +13,7 @@ import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import {stripBom} from './lib/parse-json-safe'
-import {asAbsolute, getDirs} from './lib/paths'
+import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import * as messages from './lib/messages'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
@@ -351,12 +351,19 @@ export default function webpackConfig(
       }
     },
     watchOptions: {
-      // When transpiling workspace packages from node_modules symlinks, avoid
-      // blanket node_modules ignore so edits from those packages can trigger HMR.
-      ignored:
-        transpilePackageDirs.length > 0
-          ? /dist|extension-js\/profiles/
-          : /node_modules|dist|extension-js\/profiles/,
+      // Ignore paths by SEGMENT, never by substring — a project that merely
+      // has "dist" somewhere in its absolute path (a checkout named
+      // "dedistract", a file named redistribute.js) must stay watched, or the
+      // dev session silently never recompiles. Only the real build output,
+      // installed deps, and browser profiles are exempt.
+      ignored: [
+        // When transpiling workspace packages from node_modules symlinks, avoid
+        // blanket node_modules ignore so edits from those packages can trigger HMR.
+        ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),
+        `${toPosixPath(primaryExtensionOutputDir)}/**`,
+        `${toPosixPath(path.join(packageJsonDir, 'dist'))}/**`,
+        '**/extension-js/profiles/**'
+      ],
       ...(process.env.EXTENSION_WATCH_POLL === 'true'
         ? {
             poll: parseInt(
