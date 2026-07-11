@@ -1,4 +1,7 @@
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, beforeEach, afterEach} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
 import {type Manifest} from '../../../types'
 
@@ -101,5 +104,90 @@ describe('sanitizeFatalManifestShapes', () => {
     expect(manifest.version).toBe('1')
     expect((manifest as any).action.default_icon).toBeUndefined()
     expect(fixes).toHaveLength(2)
+  })
+
+  describe('0-byte icon files (wild: Speak2Type)', () => {
+    let dir: string
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sanitize-icons-'))
+      fs.mkdirSync(path.join(dir, 'icons'), {recursive: true})
+      fs.writeFileSync(path.join(dir, 'icons/empty.png'), '')
+      fs.writeFileSync(path.join(dir, 'icons/real.png'), 'png-bytes')
+    })
+
+    afterEach(() => {
+      fs.rmSync(dir, {recursive: true, force: true})
+    })
+
+    it('drops icons entries whose file is empty; removes icons when none survive', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes(
+        {
+          manifest_version: 3,
+          name: 'x',
+          version: '1.0.0',
+          icons: {'16': 'icons/empty.png', '128': 'icons/empty.png'}
+        } as unknown as Manifest,
+        dir
+      )
+      expect((manifest as any).icons).toBeUndefined()
+      expect(fixes.map((f) => f.field)).toEqual(['icons.16', 'icons.128'])
+    })
+
+    it('keeps non-empty and missing icon files untouched', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes(
+        {
+          manifest_version: 3,
+          name: 'x',
+          version: '1.0.0',
+          icons: {
+            '16': 'icons/real.png',
+            '48': 'icons/does-not-exist.png',
+            '128': 'icons/empty.png'
+          }
+        } as unknown as Manifest,
+        dir
+      )
+      expect((manifest as any).icons).toEqual({
+        '16': 'icons/real.png',
+        '48': 'icons/does-not-exist.png'
+      })
+      expect(fixes.map((f) => f.field)).toEqual(['icons.128'])
+    })
+
+    it('drops an empty-file default_icon, string and per-size forms', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes(
+        {
+          manifest_version: 3,
+          name: 'x',
+          version: '1.0.0',
+          action: {
+            default_popup: 'index.html',
+            default_icon: {'16': 'icons/empty.png', '32': 'icons/real.png'}
+          },
+          browser_action: {default_icon: '/icons/empty.png'}
+        } as unknown as Manifest,
+        dir
+      )
+      expect((manifest as any).action.default_icon).toEqual({
+        '32': 'icons/real.png'
+      })
+      expect((manifest as any).browser_action.default_icon).toBeUndefined()
+      expect(fixes.map((f) => f.field)).toEqual([
+        'action.default_icon.16',
+        'browser_action.default_icon'
+      ])
+    })
+
+    it('does not touch icon entries when no manifestDir is given', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        icons: {'128': 'icons/empty.png'}
+      } as unknown as Manifest)
+      expect((manifest as any).icons).toEqual({'128': 'icons/empty.png'})
+      expect(fixes).toHaveLength(0)
+    })
   })
 })
