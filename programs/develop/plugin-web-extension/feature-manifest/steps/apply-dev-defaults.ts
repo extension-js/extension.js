@@ -113,6 +113,9 @@ export class ApplyDevDefaults {
               //     on save (chrome.scripting.executeScript).
               //   - tabs: chrome.tabs.query({url}) to find those tabs.
               //   - management: used by the bridge act verbs.
+              //   - storage: the producer's pending-reinject flag that survives
+              //     runtime.reload() (onInstalled does not fire for it), so the
+              //     restarted SW heals open tabs after a SW/full reload.
               // MV2 also needs the content-script host patterns IN `permissions`
               // (MV2 has no host_permissions key), or chrome.scripting.executeScript
               // fails with "Missing host permission for the tab" on Firefox.
@@ -123,6 +126,7 @@ export class ApplyDevDefaults {
                         'scripting',
                         'tabs',
                         'management',
+                        'storage',
                         ...(canonicalManifest.permissions || [])
                       ])
                     ]

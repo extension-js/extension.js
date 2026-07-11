@@ -870,6 +870,119 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(runtimeReloaded).toBe(true)
   })
 
+  it('reload broadcast (service-worker): stamps the pending-reinject flag BEFORE restarting', async () => {
+    // runtime.reload() does not fire onInstalled, so this flag is the only
+    // signal the NEXT producer generation gets to heal open tabs whose
+    // content world went stale (a shared SW+content module edit — the
+    // firefox-tab-switcher regression).
+    let runtimeReloaded = false
+    const stored: Record<string, unknown> = {}
+    const ws = setup({
+      runtime: {
+        reload: () => {
+          runtimeReloaded = true
+        }
+      },
+      storage: {
+        local: {
+          set: (items: Record<string, unknown>, cb?: () => void) => {
+            Object.assign(stored, items)
+            cb && cb()
+          }
+        }
+      }
+    })
+
+    ws.triggerMessage({type: 'reload', reloadType: 'service-worker'})
+
+    // The flag lands synchronously, before the deferred restart.
+    expect(typeof stored.__extjsDevPendingReinject).toBe('number')
+    expect(runtimeReloaded).toBe(false)
+    await new Promise((r) => setTimeout(r, 250))
+    expect(runtimeReloaded).toBe(true)
+  })
+
+  it('producer boot consumes a fresh pending-reinject flag and heals open tabs', async () => {
+    // The post-reload producer generation: no onInstalled ever fires for a
+    // dev-driven runtime.reload(), so the boot path must reinject from the
+    // storage flag — and clear it so idle-stop SW wakes stay no-ops.
+    const removed: string[] = []
+    const fetched: string[] = []
+    setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`
+        },
+        storage: {
+          local: {
+            get: (
+              key: string,
+              cb: (res: Record<string, unknown>) => void
+            ) => cb({[key]: Date.now()}),
+            remove: (key: string, cb?: () => void) => {
+              removed.push(key)
+              cb && cb()
+            }
+          }
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {}
+      },
+      {
+        fetch: (url: string) => {
+          fetched.push(String(url))
+          return Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+        }
+      }
+    )
+
+    await new Promise((r) => setTimeout(r, 400))
+    expect(removed).toEqual(['__extjsDevPendingReinject'])
+    expect(fetched).toContain('chrome-extension://abc/manifest.json')
+  })
+
+  it('producer boot drops a STALE pending-reinject flag without reinjecting', async () => {
+    // A flag left behind by a crashed session must not churn mounted UI on
+    // the next unrelated boot: clear it, reinject nothing.
+    const removed: string[] = []
+    const fetched: string[] = []
+    setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`
+        },
+        storage: {
+          local: {
+            get: (
+              key: string,
+              cb: (res: Record<string, unknown>) => void
+            ) => cb({[key]: Date.now() - 60_000}),
+            remove: (key: string, cb?: () => void) => {
+              removed.push(key)
+              cb && cb()
+            }
+          }
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {}
+      },
+      {
+        fetch: (url: string) => {
+          fetched.push(String(url))
+          return Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+        }
+      }
+    )
+
+    await new Promise((r) => setTimeout(r, 400))
+    expect(removed).toEqual(['__extjsDevPendingReinject'])
+    expect(fetched).toHaveLength(0)
+  })
+
   it('reload broadcast (content-scripts): falls back to a full reload when chrome.scripting is unavailable', async () => {
     let runtimeReloaded = false
     // No chrome.scripting (e.g. an MV2/Firefox build) -> can't re-inject in
