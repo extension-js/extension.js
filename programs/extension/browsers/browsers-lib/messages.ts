@@ -318,9 +318,9 @@ export function chromiumInvalidMatchPatterns(
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     shown.map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`).join('') +
     (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
-    `Match patterns cannot contain a query string, fragment, or port, and a host wildcard ` +
-    `must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')}. ` +
-    `Replace the invalid part with ${colors.blue('*')} (e.g. ${colors.blue('/page*')} instead of ${colors.blue('/page?id=*')}) in the source manifest.`
+    `A match pattern's host wildcard must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')} — ` +
+    `a wildcard anywhere else in the host is invalid. ` +
+    `Replace the host with ${colors.blue('*')} or ${colors.blue('*.domain.tld')} in the source manifest.`
   )
 }
 
