@@ -185,7 +185,11 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
     expect(result?.type).toBe('page')
   })
 
-  it('service-worker membership beats content membership in a mixed change', () => {
+  it('a shared SW+content source fans out to both reload paths (firefox-tab-switcher regression)', () => {
+    // A module listed in both background.scripts and content_scripts[].js
+    // used to classify SW-only — the SW restarted while every open tab kept
+    // the stale content world. The instruction stays 'service-worker' (the
+    // restart carries it) but must name the stale content entries and say so.
     const result = classifyReloadFromSources({
       changedSources: ['shared.js'],
       getContentScriptCount: count(1),
@@ -198,6 +202,22 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
         })
     })
     expect(result?.type).toBe('service-worker')
+    expect(result?.changedContentScriptEntries).toEqual([
+      'content_scripts/content-0'
+    ])
+    expect(result?.label).toBe('service_worker + content_script (shared.js)')
+  })
+
+  it('a SW-only change carries no content entries and keeps the plain label', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/background.ts'],
+      getContentScriptCount: count(1),
+      getSourceFeatureIndex: () =>
+        index({swSources: new Set(['src/background.ts'])})
+    })
+    expect(result?.type).toBe('service-worker')
+    expect(result?.changedContentScriptEntries).toBeUndefined()
+    expect(result?.label).toBe('service_worker (src/background.ts)')
   })
 
   it('falls back to the name heuristics when the index thunk throws', () => {
