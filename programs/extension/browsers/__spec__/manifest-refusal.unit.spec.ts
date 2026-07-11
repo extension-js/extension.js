@@ -45,7 +45,13 @@ describe('diagnoseChromiumManifestRefusal', () => {
     ).toBeNull()
   })
 
-  it('flags match patterns with a query string or fragment (wild: Ban-Checker)', () => {
+  it('does NOT flag query strings or fragments (verified live: Chrome 150 installs them ENABLED)', () => {
+    // `?` and `#` are literal path characters to Chrome's pattern parser —
+    // verified live 2026-07-11 via CDP loadUnpacked AND --load-extension:
+    // Ban-Checker's exact `.../gcpd/730?tab=majors` and `/page#section*`
+    // both install ENABLED, and the store-published SN-Utils (323★) ships
+    // `*://*/*?XML*` in exclude_matches. Flagging these warned "the whole
+    // extension will not load" on extensions that load fine.
     const invalid = findInvalidMatchPatterns({
       manifest_version: 3,
       host_permissions: ['*://steamcommunity.com/*'],
@@ -55,6 +61,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
             '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
             'https://example.com/page#section'
           ],
+          exclude_matches: ['*://*/*?XML*'],
           js: ['content.js']
         }
       ],
@@ -62,10 +69,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
         {resources: ['a.js'], matches: ['https://ok.example/*']}
       ]
     })
-    expect(invalid).toEqual([
-      '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
-      'https://example.com/page#section'
-    ])
+    expect(invalid).toEqual([])
   })
 
   it('accepts valid patterns, <all_urls>, IPs, and explicit ports (wild: memux loads fine with localhost:3000)', () => {
