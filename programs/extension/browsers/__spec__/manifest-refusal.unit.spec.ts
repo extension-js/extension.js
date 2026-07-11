@@ -1,6 +1,7 @@
 import {describe, it, expect} from 'vitest'
 import {
   diagnoseChromiumManifestRefusal,
+  findChromiumLoadBlockers,
   findInvalidMatchPatterns
 } from '../browsers-lib/manifest-refusal'
 
@@ -92,5 +93,82 @@ describe('diagnoseChromiumManifestRefusal', () => {
     expect(
       diagnoseChromiumManifestRefusal({manifest_version: 3, background: 'x'})
     ).toBeNull()
+  })
+})
+
+// Each shape below was proven against a wild subject with CDP
+// `Extensions.loadUnpacked`, which reports the reason --load-extension hides.
+describe('findChromiumLoadBlockers', () => {
+  it('flags a host wildcard Chrome refuses (CarbonWise: *://*carbonwise*/*)', () => {
+    expect(
+      findInvalidMatchPatterns({
+        content_scripts: [
+          {matches: ['*://*carbonwise*/*', 'https://*.zomato.com/*']}
+        ]
+      })
+    ).toEqual(['*://*carbonwise*/*'])
+  })
+
+  it('keeps legal host wildcards out of the invalid list', () => {
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: ['*://*/*', 'https://*.example.com/*'],
+        content_scripts: [{matches: ['<all_urls>', 'https://stake.com/*/*']}]
+      })
+    ).toEqual([])
+  })
+
+  it('flags more than 4 keyboard shortcuts (spotify-hotkeys ships 12)', () => {
+    const commands: Record<string, unknown> = {}
+    for (let i = 0; i < 5; i++) {
+      commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
+    }
+    expect(findChromiumLoadBlockers({commands})).toEqual([
+      'commands: 5 shortcuts declared with "suggested_key" — Chrome allows at most 4.'
+    ])
+  })
+
+  it('does not flag 4 shortcuts, nor commands without suggested_key', () => {
+    const commands: Record<string, unknown> = {
+      _execute_action: {description: 'no suggested_key — not a shortcut'}
+    }
+    for (let i = 0; i < 4; i++) {
+      commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
+    }
+    expect(findChromiumLoadBlockers({commands})).toEqual([])
+  })
+
+  it('flags a content_scripts group with neither js nor css (fayufox)', () => {
+    expect(
+      findChromiumLoadBlockers({
+        content_scripts: [
+          {matches: ['*://*.mozilla.org/*'], js: [], css: []},
+          {matches: ['*://*.example.com/*'], js: ['content.js']}
+        ]
+      })
+    ).toEqual([
+      'content_scripts[0]: declares neither "js" nor "css" — Chrome requires at least one.'
+    ])
+  })
+
+  it('flags a malformed base64 manifest key (queup) but accepts a valid one', () => {
+    expect(findChromiumLoadBlockers({key: 'MIIBIjANBgkqhkiG9w0BAQEF'})).toEqual(
+      []
+    )
+    expect(findChromiumLoadBlockers({key: 'not-base64!!'})).toEqual([
+      'key: not a valid base64 public key — Chrome refuses the extension.'
+    ])
+    // broken padding — queup's exact failure mode
+    expect(findChromiumLoadBlockers({key: 'MIIBIjANBgkqhkiG9w0BAQE'})).toEqual([
+      'key: not a valid base64 public key — Chrome refuses the extension.'
+    ])
+  })
+
+  it('tolerates malformed and empty manifests', () => {
+    expect(findChromiumLoadBlockers(undefined)).toEqual([])
+    expect(findChromiumLoadBlockers({})).toEqual([])
+    expect(
+      findChromiumLoadBlockers({commands: 'x', content_scripts: 'y'})
+    ).toEqual([])
   })
 })
