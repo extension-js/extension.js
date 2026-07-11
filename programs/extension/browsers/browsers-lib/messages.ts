@@ -318,8 +318,24 @@ export function chromiumInvalidMatchPatterns(
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     shown.map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`).join('') +
     (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
-    `Match patterns cannot contain a query string, fragment, or port. ` +
+    `Match patterns cannot contain a query string, fragment, or port, and a host wildcard ` +
+    `must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')}. ` +
     `Replace the invalid part with ${colors.blue('*')} (e.g. ${colors.blue('/page*')} instead of ${colors.blue('/page?id=*')}) in the source manifest.`
+  )
+}
+
+export function chromiumManifestLoadBlockers(
+  extensionPath: string,
+  blockers: string[]
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This manifest declares shapes Chrome refuses — the whole extension will not load.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    blockers
+      .map((blocker) => `${colors.gray('REASON')} ${colors.red(blocker)}\n`)
+      .join('') +
+    `Chrome rejects the extension at load, so no service worker or content script ever runs. ` +
+    `Fix these in the source manifest.`
   )
 }
 

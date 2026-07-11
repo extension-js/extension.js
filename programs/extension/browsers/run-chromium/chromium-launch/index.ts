@@ -32,6 +32,7 @@ import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
   diagnoseChromiumManifestRefusal,
+  findChromiumLoadBlockers,
   findInvalidMatchPatterns
 } from '../../browsers-lib/manifest-refusal'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
@@ -738,6 +739,13 @@ export class ChromiumLaunchPlugin {
               String(extPath),
               invalidPatterns
             )
+          )
+        }
+        const loadBlockers = findChromiumLoadBlockers(m)
+        if (loadBlockers.length) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.chromiumManifestLoadBlockers(String(extPath), loadBlockers)
           )
         }
       } catch {
