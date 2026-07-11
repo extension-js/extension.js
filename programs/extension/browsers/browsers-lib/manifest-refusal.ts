@@ -73,8 +73,85 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
       pattern !== '<all_urls>' &&
       (pattern.includes('?') ||
         pattern.includes('#') ||
-        /^[a-zA-Z*]+:\/\/[^/]*:\d+(?:\/|$)/.test(pattern))
+        /^[a-zA-Z*]+:\/\/[^/]*:\d+(?:\/|$)/.test(pattern) ||
+        hasInvalidHostWildcard(pattern))
   )
 
   return [...new Set(invalid)]
+}
+
+/**
+ * Chrome's host grammar allows `*`, `*.domain.tld`, or a literal host — a
+ * wildcard anywhere else in the host is invalid (wild: CarbonWise matches on
+ * a host of `*carbonwise*`). Chrome refuses the whole extension over it.
+ */
+function hasInvalidHostWildcard(pattern: string): boolean {
+  const match = /^[a-zA-Z*]+:\/\/([^/]*)/.exec(pattern)
+  const host = match?.[1]
+  if (!host || !host.includes('*')) return false
+  return host !== '*' && !/^\*\.[^*]+$/.test(host)
+}
+
+/**
+ * Other manifest shapes Chrome refuses outright, each proven against a wild
+ * subject with CDP `Extensions.loadUnpacked` (which, unlike --load-extension,
+ * reports the reason). All are extension-own — loading the source unpacked in
+ * real Chrome fails identically — but the refusal is silent, so dev must name
+ * it instead of printing an ID for an extension that never loads.
+ */
+export function findChromiumLoadBlockers(manifest: unknown): string[] {
+  const m = manifest as Record<string, any> | null | undefined
+  const blockers: string[] = []
+
+  // Chrome caps keyboard shortcuts at 4 ("Too many shortcuts specified for
+  // 'commands': The maximum is 4."). Firefox has no such cap, so ported
+  // Firefox extensions routinely trip it (wild: spotify-hotkeys, 12).
+  const commands = m?.commands
+  if (commands && typeof commands === 'object') {
+    const withKeys = Object.values(commands).filter(
+      (command: any) => command?.suggested_key
+    )
+    if (withKeys.length > 4) {
+      blockers.push(
+        `commands: ${withKeys.length} shortcuts declared with "suggested_key" — Chrome allows at most 4.`
+      )
+    }
+  }
+
+  // "At least one js or css file is required for 'content_scripts[N]'."
+  const contentScripts = Array.isArray(m?.content_scripts)
+    ? m.content_scripts
+    : []
+  contentScripts.forEach((group: any, index: number) => {
+    const js = Array.isArray(group?.js) ? group.js : []
+    const css = Array.isArray(group?.css) ? group.css : []
+    if (js.length === 0 && css.length === 0) {
+      blockers.push(
+        `content_scripts[${index}]: declares neither "js" nor "css" — Chrome requires at least one.`
+      )
+    }
+  })
+
+  // "Value 'key' is missing or invalid." — a manifest key must be a valid
+  // base64 public key (wild: queup ships one with broken padding).
+  const key = m?.key
+  if (key !== undefined) {
+    if (typeof key !== 'string' || !isValidBase64(key)) {
+      blockers.push(
+        `key: not a valid base64 public key — Chrome refuses the extension.`
+      )
+    }
+  }
+
+  return blockers
+}
+
+function isValidBase64(value: string): boolean {
+  if (value.length === 0 || value.length % 4 !== 0) return false
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false
+  try {
+    return Buffer.from(value, 'base64').toString('base64') === value
+  } catch {
+    return false
+  }
 }
