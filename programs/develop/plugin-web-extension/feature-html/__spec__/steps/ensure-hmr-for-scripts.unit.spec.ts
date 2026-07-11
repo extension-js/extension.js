@@ -11,6 +11,21 @@ function makeLoaderCtx(options: any) {
   } as any
 }
 
+// The loader is sync for known parse types and async (this.async()) for
+// javascript/auto, where it lexes the source before picking the HMR API.
+function runLoader(ctx: any, src: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let wentAsync = false
+    ctx.async = () => {
+      wentAsync = true
+      return (err: unknown, result?: string) =>
+        err ? reject(err) : resolve(result as string)
+    }
+    const out = ensureHMRForScripts.call(ctx, src)
+    if (!wentAsync) resolve(out as string)
+  })
+}
+
 describe('ensureHMRForScripts loader', () => {
   let tmpDir = ''
 
@@ -21,13 +36,10 @@ describe('ensureHMRForScripts loader', () => {
     }
   })
 
-  it('prepends HMR accept code', () => {
+  it('prepends HMR accept code', async () => {
     const src = 'console.log("x")'
-    const out = ensureHMRForScripts.call(
-      makeLoaderCtx({manifestPath: '/m'}),
-      src
-    )
-    expect(out).toContain('import.meta.webpackHot')
+    const out = await runLoader(makeLoaderCtx({manifestPath: '/m'}), src)
+    expect(out).toContain('.accept()')
     expect(out).toContain(src)
   })
 
@@ -52,18 +64,74 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toContain(src)
   })
 
-  it('keeps import.meta.webpackHot for esm and auto parses', () => {
-    for (const type of ['javascript/esm', 'javascript/auto', undefined]) {
-      const out = ensureHMRForScripts.call(
+  it('keeps import.meta.webpackHot for esm parses', () => {
+    const out = ensureHMRForScripts.call(
+      {
+        getOptions: () => ({manifestPath: '/m'}),
+        resourcePath: '/proj/page.js',
+        _module: {type: 'javascript/esm'}
+      },
+      'console.log("x")'
+    )
+    expect(out).toContain('import.meta.webpackHot')
+  })
+
+  it('keeps import.meta.webpackHot for auto parses whose source has module syntax', async () => {
+    for (const src of [
+      'import x from "./x"; console.log(x)',
+      'export const a = 1',
+      'console.log(import.meta.url)'
+    ]) {
+      const out = await runLoader(
         {
           getOptions: () => ({manifestPath: '/m'}),
           resourcePath: '/proj/page.js',
-          _module: type ? {type} : undefined
+          _module: {type: 'javascript/auto'}
         },
-        'console.log("x")'
+        src
       )
       expect(out).toContain('import.meta.webpackHot')
+      expect(out).toContain(src)
     }
+  })
+
+  it('injects module.hot into auto parses whose source is a classic script', async () => {
+    // `javascript/auto` infers module-vs-script from the source, so injecting
+    // `import.meta` into a script flips it to a strict ES-module parse. On a
+    // multi-MB one-line data script full of legacy octal escapes (\\1) that
+    // produced one strict-mode error PER ESCAPE, each rendering the whole
+    // line as a snippet — gigabytes of rspack diagnostics from one file
+    // (Rapid-Journal-Quality-Check, 2026-07-11 machine OOM).
+    for (const src of [
+      'console.log("x")',
+      'var data = "a\\1/NA\\2/NA";', // legacy octal escapes: sloppy-only
+      'import("./lazy.js")' // dynamic import is legal in classic scripts
+    ]) {
+      const out = await runLoader(
+        {
+          getOptions: () => ({manifestPath: '/m'}),
+          resourcePath: '/proj/page.js',
+          _module: {type: 'javascript/auto'}
+        },
+        src
+      )
+      expect(out).toContain('module.hot')
+      expect(out).not.toContain('import.meta.webpackHot')
+      expect(out).toContain(src)
+    }
+  })
+
+  it('falls back to module.hot when the source cannot be lexed as a module', async () => {
+    const out = await runLoader(
+      {
+        getOptions: () => ({manifestPath: '/m'}),
+        resourcePath: '/proj/page.js',
+        _module: {type: 'javascript/auto'}
+      },
+      'import {' // unlexable
+    )
+    expect(out).toContain('module.hot')
+    expect(out).not.toContain('import.meta.webpackHot')
   })
 
   it('skips Vue SFC virtual modules', () => {

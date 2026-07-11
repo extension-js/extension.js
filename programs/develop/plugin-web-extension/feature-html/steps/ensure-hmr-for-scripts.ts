@@ -8,6 +8,10 @@
 
 import fs from 'fs'
 import path from 'path'
+import {
+  init as esModuleLexerInit,
+  parse as esModuleLexerParse
+} from 'es-module-lexer'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import type {LoaderInterface} from '../../../types'
@@ -136,13 +140,48 @@ export default function ensureHMRForScripts(
   // a `"type": "commonjs"` package, which is exactly what the classic-concat
   // pipeline feeds through here) must get the CJS `module.hot` API instead,
   // or the injected guard itself is a parse error that fails the whole dev
-  // build. Module and auto parses keep `import.meta.webpackHot` (strict ESM
-  // provides no `module` binding).
+  // build. Strict ESM parses provide no `module` binding and keep
+  // `import.meta.webpackHot`.
   const moduleType = String((this as any)?._module?.type || '')
-  const hot =
-    moduleType === 'javascript/dynamic' ? 'module.hot' : 'import.meta.webpackHot'
 
-  const reloadCode = `
+  if (moduleType === 'javascript/dynamic') {
+    return `${buildReloadCode('module.hot')}${source}`
+  }
+  if (moduleType === 'javascript/esm') {
+    return `${buildReloadCode('import.meta.webpackHot')}${source}`
+  }
+
+  // `javascript/auto` infers module-vs-script FROM THE SOURCE SYNTAX, so the
+  // injected guard itself must not change the verdict: `import.meta` in the
+  // wrapper flips a classic script into a strict ES-module parse, turning
+  // every sloppy-mode construct in the user's own code into a build error —
+  // and a multi-MB one-line data script full of legacy octal escapes melts
+  // rspack's per-error snippet rendering into gigabytes (Rapid-Journal,
+  // 2026-07-11). Pick the API the source's own syntax already selects:
+  // static import/export or import.meta means module parse; anything else
+  // (including sources es-module-lexer cannot lex) stays a script.
+  const callback = this.async()
+  esModuleLexerInit
+    .then(() => {
+      let hasModuleSyntax = false
+      try {
+        const [, , , moduleSyntax] = esModuleLexerParse(source)
+        hasModuleSyntax = Boolean(moduleSyntax)
+      } catch {
+        // Not lexable as a module — the script parse keeps it alive.
+      }
+      callback(
+        null,
+        `${buildReloadCode(hasModuleSyntax ? 'import.meta.webpackHot' : 'module.hot')}${source}`
+      )
+    })
+    .catch(() => {
+      callback(null, `${buildReloadCode('module.hot')}${source}`)
+    })
+}
+
+function buildReloadCode(hot: string): string {
+  return `
 if (${hot}) {
   try {
     // Accept updates for HTML-attached scripts and clear common containers
@@ -172,6 +211,4 @@ if (${hot}) {
   }
 }
 `
-  // Minimal behavior: inject HMR accept wrapper for any handled script
-  return `${reloadCode}${source}`
 }
