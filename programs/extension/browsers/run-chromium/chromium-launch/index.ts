@@ -33,7 +33,8 @@ import * as messages from '../../browsers-lib/messages'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
-  findInvalidMatchPatterns
+  findInvalidMatchPatterns,
+  findUnloadableIconFiles
 } from '../../browsers-lib/manifest-refusal'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
@@ -741,7 +742,10 @@ export class ChromiumLaunchPlugin {
             )
           )
         }
-        const loadBlockers = findChromiumLoadBlockers(m)
+        const loadBlockers = [
+          ...findChromiumLoadBlockers(m),
+          ...findUnloadableIconFiles(m, String(extPath))
+        ]
         if (loadBlockers.length) {
           // eslint-disable-next-line no-console
           console.warn(

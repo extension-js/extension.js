@@ -6,6 +6,9 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
+import * as path from 'path'
+
 /**
  * Manifest shapes Chromium refuses to load AT ALL — the refusal surfaces
  * only as a native dialog (or nothing), never as a console error, so the
@@ -144,6 +147,63 @@ export function findChromiumLoadBlockers(manifest: unknown): string[] {
   }
 
   return blockers
+}
+
+/**
+ * Icon files Chrome cannot load — missing from the extension directory or
+ * present but empty (0 bytes, undecodable). Either one makes Chrome refuse
+ * the WHOLE extension at load with "Could not load icon '<file>'", surfaced
+ * only on stderr/a native dialog (wild: Speak2Type ships a 0-byte
+ * icon-128.png; the dev session printed an Extension ID for an extension the
+ * browser silently never installed). Checks the same manifest keys Chrome
+ * validates at install: `icons` and `*_action.default_icon`.
+ */
+export function findUnloadableIconFiles(
+  manifest: unknown,
+  extensionDir: string
+): string[] {
+  const m = manifest as Record<string, any> | null | undefined
+  const findings: string[] = []
+
+  const check = (field: string, ref: unknown) => {
+    if (typeof ref !== 'string' || ref.trim() === '') return
+    let reason: string | null = null
+    try {
+      const abs = path.join(extensionDir, ref.replace(/^\//, ''))
+      if (!fs.existsSync(abs)) {
+        reason = 'is missing from the extension directory'
+      } else if (fs.statSync(abs).size === 0) {
+        reason = 'is an empty file (0 bytes)'
+      }
+    } catch {
+      return
+    }
+    if (reason) {
+      findings.push(
+        `${field}: icon "${ref}" ${reason} — Chrome refuses the whole extension over an icon it cannot load.`
+      )
+    }
+  }
+
+  const icons = m?.icons
+  if (icons && typeof icons === 'object' && !Array.isArray(icons)) {
+    for (const [size, ref] of Object.entries(icons)) {
+      check(`icons.${size}`, ref)
+    }
+  }
+
+  for (const actionKey of ['action', 'browser_action', 'page_action']) {
+    const icon = m?.[actionKey]?.default_icon
+    if (typeof icon === 'string') {
+      check(`${actionKey}.default_icon`, icon)
+    } else if (icon && typeof icon === 'object' && !Array.isArray(icon)) {
+      for (const [size, ref] of Object.entries(icon)) {
+        check(`${actionKey}.default_icon.${size}`, ref)
+      }
+    }
+  }
+
+  return findings
 }
 
 function isValidBase64(value: string): boolean {
