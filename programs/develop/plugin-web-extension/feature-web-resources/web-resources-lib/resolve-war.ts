@@ -71,11 +71,9 @@ function emitDirectoryAsAssets(
 }
 
 function emitFileAsAsset(compilation: Compilation, absPath: string): string {
-  const mode = compilation.options?.mode || 'development'
-  const filenamePattern =
-    mode === 'production'
-      ? 'assets/[name].[contenthash:8][ext]'
-      : 'assets/[name][ext]'
+  // Content-hash in dev too: an unhashed `assets/[name][ext]` makes two assets
+  // that merely share a basename overwrite each other (see plugin-static-assets).
+  const filenamePattern = 'assets/[name].[contenthash:8][ext]'
 
   const ext = path.extname(absPath)
   const name = path.basename(absPath, ext)

@@ -27,7 +27,12 @@ describe('StaticAssetsPlugin', () => {
     vi.clearAllMocks()
   })
 
-  it('adds default asset rules with development filenames and SVG inline threshold', async () => {
+  // Dev content-hashes too: an unhashed `assets/[name][ext]` let two assets
+  // that merely share a basename overwrite each other, and rspack failed the
+  // compilation ("Multiple assets emit different content to the same filename")
+  // so `extension dev` never booted — while `build` was fine. This spec used to
+  // assert the unhashed name, i.e. it asserted the bug.
+  it('content-hashes asset filenames in development and keeps the SVG inline threshold', async () => {
     const compiler = createCompiler()
     const plugin = new StaticAssetsPlugin({
       manifestPath: '/project/manifest.json',
@@ -41,7 +46,7 @@ describe('StaticAssetsPlugin', () => {
     const svgRule = findRuleByTest(rules, /\.svg$/i)
     expect(svgRule).toBeTruthy()
     expect(svgRule.type).toBe('asset')
-    expect(svgRule.generator?.filename).toBe('assets/[name][ext]')
+    expect(svgRule.generator?.filename).toBe('assets/[name].[contenthash:8][ext]')
     expect(svgRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
 
     const imagesRule = findRuleByTest(
@@ -50,13 +55,13 @@ describe('StaticAssetsPlugin', () => {
     )
     expect(imagesRule).toBeTruthy()
     expect(imagesRule.type).toBe('asset')
-    expect(imagesRule.generator?.filename).toBe('assets/[name][ext]')
+    expect(imagesRule.generator?.filename).toBe('assets/[name].[contenthash:8][ext]')
     expect(imagesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
 
     const fontsRule = findRuleByTest(rules, /\.(woff|woff2|eot|ttf|otf)$/i)
     expect(fontsRule).toBeTruthy()
     expect(fontsRule.type).toBe('asset')
-    expect(fontsRule.generator?.filename).toBe('assets/[name][ext]')
+    expect(fontsRule.generator?.filename).toBe('assets/[name].[contenthash:8][ext]')
 
     const filesRule = findRuleByTest(
       rules,
@@ -64,7 +69,7 @@ describe('StaticAssetsPlugin', () => {
     )
     expect(filesRule).toBeTruthy()
     expect(filesRule.type).toBe('asset')
-    expect(filesRule.generator?.filename).toBe('assets/[name][ext]')
+    expect(filesRule.generator?.filename).toBe('assets/[name].[contenthash:8][ext]')
     expect(filesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
   })
 
