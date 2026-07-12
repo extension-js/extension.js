@@ -44,6 +44,7 @@ import {
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
+import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import type {
   BrowserLogger,
   BrowserType,
@@ -102,6 +103,32 @@ async function maybePrintDevBanner(args: {
   })
 }
 
+// Stamp an unexpected browser exit into ready.json (additive fields; the
+// develop-side writer preserves them across recompiles, like cdpPort) so
+// automation reading the contract sees the session is browserless instead of
+// trusting a "ready" status whose reloads go nowhere.
+export function stampReadyBrowserExited(
+  extensionOutputPath: string | undefined,
+  code: number | null
+) {
+  try {
+    if (!extensionOutputPath) return
+    const readyPath = path.join(
+      path.dirname(extensionOutputPath),
+      'extension-js',
+      path.basename(extensionOutputPath),
+      'ready.json'
+    )
+    if (!fs.existsSync(readyPath)) return
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    ready.browserExitedAt = new Date().toISOString()
+    ready.browserExitCode = code
+    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+  } catch {
+    // best-effort; never throw from a close handler
+  }
+}
+
 /**
  * ChromiumLaunchPlugin
  *
@@ -115,6 +142,12 @@ export class ChromiumLaunchPlugin {
   private didLaunch = false
   private didReportReady = false
   private logger!: BrowserLogger
+  // Set right before spawn so the child 'close' handler (which has no
+  // compilation in scope) can tell a dev session apart and find ready.json.
+  private closeHandlerContext: {
+    isDevMode: boolean
+    extensionOutputPath?: string
+  } | null = null
 
   constructor(
     private readonly options: ChromiumLaunchOptions,
@@ -802,6 +835,16 @@ export class ChromiumLaunchPlugin {
     }
 
     const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
+    this.closeHandlerContext = {
+      isDevMode: compilation.options.mode === 'development',
+      extensionOutputPath:
+        getExtensionOutputPath(
+          compilation,
+          chromiumConfig.find((flag: string) =>
+            flag.startsWith('--load-extension=')
+          )
+        ) || undefined
+    }
     const child = await this.launchWithDirectSpawn(
       browserBinaryLocation,
       chromiumConfig,
@@ -1001,6 +1044,21 @@ export class ChromiumLaunchPlugin {
       child.on('close', (code: number | null) => {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.logger.info(messages.chromeProcessExited(code || 0))
+        }
+        // An exit we didn't ask for means the dev browser died out from under
+        // a live session — compiles keep "succeeding" while every reload goes
+        // nowhere. Say so loudly and stamp ready.json so automation sees it
+        // too (previously this was silent outside EXTENSION_AUTHOR_MODE).
+        if (!wasTerminatedByUs(child) && this.closeHandlerContext?.isDevMode) {
+          this.logger.error(
+            `[browser] ${this.options.browser} exited mid-session (code ${
+              code ?? 'unknown'
+            }). The dev server is still running but reloads cannot be delivered — restart "extension dev" to relaunch the browser.`
+          )
+          stampReadyBrowserExited(
+            this.closeHandlerContext.extensionOutputPath,
+            code
+          )
         }
         disposeSignalHandlers?.()
 
