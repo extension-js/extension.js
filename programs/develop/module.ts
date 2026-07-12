@@ -6,6 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+// Must stay the first import: it has to run before anything transitively
+// loads @rspack/core (see lib/rust-min-stack.ts).
+import './lib/rust-min-stack'
 import {extensionBuild} from './command-build'
 import {extensionDev} from './command-dev'
 import {extensionPreview} from './command-preview'
