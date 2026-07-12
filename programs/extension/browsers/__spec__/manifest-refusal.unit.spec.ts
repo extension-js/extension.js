@@ -99,6 +99,30 @@ describe('diagnoseChromiumManifestRefusal', () => {
     expect(findInvalidMatchPatterns(undefined)).toEqual([])
   })
 
+  it('does NOT flag WILDCARD ports (verified live: chat-relay installs ENABLED with ws://localhost:*/)', () => {
+    // The port is not part of the host and may itself be a wildcard. The check
+    // used to test the whole authority, so `localhost:*` read as a mid-host
+    // wildcard and warned "the whole extension will not load" about an
+    // extension Chrome installs ENABLED with a running service worker
+    // (wild: BinaryBeastMaster/chat-relay, verified on Chrome 150).
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [
+          'ws://localhost:*/',
+          'wss://127.0.0.1:*/*',
+          'http://example.com:*/*'
+        ]
+      })
+    ).toEqual([])
+
+    // …while a genuine mid-host wildcard is still refused, port or not.
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: ['*://*carbonwise*:*/*']
+      })
+    ).toEqual(['*://*carbonwise*:*/*'])
+  })
+
   it('accepts MV3 with no background and tolerates malformed shapes', () => {
     expect(diagnoseChromiumManifestRefusal({manifest_version: 3})).toBeNull()
     expect(
