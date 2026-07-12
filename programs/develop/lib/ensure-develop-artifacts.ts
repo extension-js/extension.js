@@ -13,6 +13,7 @@ import * as messages from './messages'
 import {
   buildInstallCommand,
   execInstallCommand,
+  installScriptSuppression,
   projectInstallArgs,
   resolveNpmPackageManager,
   resolvePackageManager
@@ -32,15 +33,22 @@ export async function ensureUserProjectDependencies(
   if (!needsInstall(packageJsonDir)) return
 
   const pm = resolvePackageManager({cwd: packageJsonDir})
+  const suppression = installScriptSuppression(pm)
   const cmd = buildInstallCommand(pm, [
     'install',
+    ...suppression.args,
     ...projectInstallArgs(pm, packageJsonDir)
   ])
+
+  if (suppression.args.length || Object.keys(suppression.env).length) {
+    console.warn(messages.projectInstallScriptsDisabled(pm.name))
+  }
 
   try {
     await execInstallCommand(cmd.command, cmd.args, {
       cwd: packageJsonDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: suppression.env
     })
   } catch (error) {
     // The resolved manager can fail through no fault of the project's own
@@ -55,10 +63,16 @@ export async function ensureUserProjectDependencies(
     console.warn(messages.projectInstallFallbackToNpm(pm.name))
 
     const npmPm = resolveNpmPackageManager()
-    const npmCmd = buildInstallCommand(npmPm, ['install', '--no-package-lock'])
+    const npmSuppression = installScriptSuppression(npmPm)
+    const npmCmd = buildInstallCommand(npmPm, [
+      'install',
+      '--no-package-lock',
+      ...npmSuppression.args
+    ])
     await execInstallCommand(npmCmd.command, npmCmd.args, {
       cwd: packageJsonDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: npmSuppression.env
     })
   }
 }
