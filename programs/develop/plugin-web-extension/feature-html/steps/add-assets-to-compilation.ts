@@ -24,6 +24,7 @@ import {
   reportToCompilation
 } from '../html-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../types'
+import {resolveRootAbsoluteRef} from '../../shared/paths'
 
 function warnRemoteResourceReferences(params: {
   compilation: Compilation
@@ -113,6 +114,12 @@ function warnMissingPublicRootResources(params: {
     const publicRootAbs = path.join(publicRootForResource, trimmed)
     const outputRootAssetAbs = path.join(outputRoot, trimmed)
 
+    // A ref that exists at the extension root is valid (Chrome resolves '/'
+    // from there) and is copied into the output root by emitRootAbsoluteRefs.
+    if (resolveRootAbsoluteRef(publicRootUrl, projectRoot, publicRootForResource)) {
+      return
+    }
+
     if (!fs.existsSync(publicRootAbs) && !fs.existsSync(outputRootAssetAbs)) {
       const displayPath = path.join(outputRoot, trimmed)
 
@@ -149,7 +156,11 @@ function checkMissingLocalEntries(params: {
     if (!url || isHttpLike(url) || isSpecialScheme(url)) return
 
     // Treat root URLs as public-root references (handled elsewhere).
-    if (url.startsWith('/') && !path.isAbsolute(url)) return
+    // NOTE: this used to read `!path.isAbsolute(url)`, which is never true on
+    // POSIX — every '/'-prefixed string is absolute there — so root refs fell
+    // through to the existsSync() below and were reported as missing files.
+    // A root ref is a '/'-path that does NOT live inside the project.
+    if (url.startsWith('/') && !url.startsWith(projectRoot)) return
 
     if (!fs.existsSync(url)) {
       const displayFile = path.relative(manifestDir, resource)
