@@ -49,6 +49,73 @@ describe('ApplyDevDefaults patch helpers', () => {
     })
   })
 
+  describe('connect-src loosening follows the connectable host (§25)', () => {
+    const HOST_ENV = 'EXTENSION_DEV_SERVER_CONNECTABLE_HOST'
+    const restrictive = () =>
+      ({
+        manifest_version: 3,
+        content_security_policy: {
+          extension_pages: "script-src 'self'; connect-src 'self'"
+        }
+      }) as any
+
+    const withHost = (host: string | undefined, fn: () => void) => {
+      const prev = process.env[HOST_ENV]
+      if (host === undefined) delete process.env[HOST_ENV]
+      else process.env[HOST_ENV] = host
+      try {
+        fn()
+      } finally {
+        if (prev === undefined) delete process.env[HOST_ENV]
+        else process.env[HOST_ENV] = prev
+      }
+    }
+
+    it('loopback-only when no connectable host is exported', () => {
+      withHost(undefined, () => {
+        const csp = patchV3CSP(restrictive()).extension_pages
+        expect(csp).toContain('ws://127.0.0.1:*')
+        expect(csp).not.toContain('192.168.')
+      })
+    })
+
+    it('whitelists a non-loopback connectable host (HMR ws + control bridge dial it)', () => {
+      withHost('192.168.0.7', () => {
+        const csp = patchV3CSP(restrictive()).extension_pages
+        expect(csp).toContain('ws://192.168.0.7:*')
+        expect(csp).toContain('http://192.168.0.7:*')
+        // loopback entries stay — local surfaces still dial 127.0.0.1
+        expect(csp).toContain('ws://127.0.0.1:*')
+      })
+    })
+
+    it('adds no duplicate entries for a loopback connectable host', () => {
+      withHost('127.0.0.1', () => {
+        const csp = patchV3CSP(restrictive()).extension_pages
+        expect(csp.match(/ws:\/\/127\.0\.0\.1:\*/g)).toHaveLength(1)
+      })
+    })
+
+    it('brackets IPv6 literals (CSP host-source grammar)', () => {
+      withHost('fd00::42', () => {
+        const csp = patchV3CSP(restrictive()).extension_pages
+        expect(csp).toContain('ws://[fd00::42]:*')
+      })
+    })
+
+    it('extends default-src fallback with the connectable host too (v2 path)', () => {
+      withHost('10.0.0.5', () => {
+        const csp = patchV2CSP({
+          manifest_version: 2,
+          content_security_policy: "default-src 'self'"
+        } as any)
+        expect(csp).toContain('ws://10.0.0.5:*')
+        // default-src itself must stay untouched
+        expect(csp).toMatch(/default-src 'self';/)
+      })
+    })
+  })
+
   it('adds extension ids to externally_connectable when missing', () => {
     expect(
       patchExternallyConnectable({
