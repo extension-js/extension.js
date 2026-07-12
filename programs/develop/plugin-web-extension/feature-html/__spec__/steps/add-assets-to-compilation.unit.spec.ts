@@ -54,4 +54,71 @@ describe('AddAssetsToCompilation', () => {
     } as any).apply(c as any)
     expect((c as any).assets['favicon.png']).toBeUndefined()
   })
+
+  describe('missing local refs (§17: Chrome silently 404s them)', () => {
+    function makeCompilationWithDiagnostics() {
+      const assets: Record<string, any> = {}
+      const compilationObj: any = {
+        options: {mode: 'production'},
+        getAsset: (name: string) => assets[name],
+        assets,
+        errors: [] as any[],
+        warnings: [] as any[],
+        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+        emitAsset: function (name: string, src: any) {
+          assets[name] = {
+            source: {source: () => (src.source ? src.source() : src)}
+          }
+        }
+      }
+      const compiler = {
+        options: {mode: 'production'},
+        hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
+      }
+      return {compiler, compilation: compilationObj}
+    }
+
+    function writeDeadRefFixture(name: string) {
+      const tmp = path.join(__dirname, `.tmp-${name}`)
+      fs.rmSync(tmp, {recursive: true, force: true})
+      fs.mkdirSync(tmp, {recursive: true})
+      const manifestPath = path.join(tmp, 'manifest.json')
+      fs.writeFileSync(manifestPath, '{}', 'utf8')
+      const html = path.join(tmp, 'index.html')
+      fs.writeFileSync(
+        html,
+        `<html><body><script src="missing.js"></script></body></html>`
+      )
+      return {manifestPath, html}
+    }
+
+    it('warns (not errors) on a dead <script src> by default', () => {
+      const {manifestPath, html} = writeDeadRefFixture('dead-ref-warn')
+      const {compiler, compilation} = makeCompilationWithDiagnostics()
+      new AddAssetsToCompilation({
+        manifestPath,
+        includeList: {'feature/index': html}
+      } as any).apply(compiler as any)
+      expect(compilation.errors).toHaveLength(0)
+      expect(compilation.warnings).toHaveLength(1)
+      expect(String(compilation.warnings[0].message)).toContain('NOT FOUND')
+    })
+
+    it('errors on a dead <script src> under EXTENSION_STRICT_REFS=true', () => {
+      process.env.EXTENSION_STRICT_REFS = 'true'
+      try {
+        const {manifestPath, html} = writeDeadRefFixture('dead-ref-strict')
+        const {compiler, compilation} = makeCompilationWithDiagnostics()
+        new AddAssetsToCompilation({
+          manifestPath,
+          includeList: {'feature/index': html}
+        } as any).apply(compiler as any)
+        expect(compilation.warnings).toHaveLength(0)
+        expect(compilation.errors).toHaveLength(1)
+        expect(String(compilation.errors[0].message)).toContain('NOT FOUND')
+      } finally {
+        delete process.env.EXTENSION_STRICT_REFS
+      }
+    })
+  })
 })

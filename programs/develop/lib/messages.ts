@@ -170,6 +170,10 @@ export function projectInstallFallbackToNpm(pmName: string) {
   return `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed. Retrying once with npm so the build can continue.`
 }
 
+export function projectInstallScriptsDisabled(pmName: string) {
+  return `${getLoggingPrefix('info')} Installing project dependencies with ${pmName}. Lifecycle scripts are disabled for safety — set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
+}
+
 export function buildWebpack(
   projectDir: string,
   stats: any,

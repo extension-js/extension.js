@@ -1,7 +1,9 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 vi.mock('fs', () => ({
-  existsSync: vi.fn((p: string) => p === '/proj/page.html'),
+  existsSync: vi.fn((p: string) =>
+    ['/proj/page.html', '/proj/local.js', '/proj/local.css'].includes(p)
+  ),
   readFileSync: vi.fn()
 }))
 
@@ -14,7 +16,8 @@ vi.mock('../../html-lib/utils', async (orig) => {
         'https://cdn.example.com/lib.js',
         '//cdn.example.com/also.js',
         '/public/ignore-public.js',
-        '/proj/local.js'
+        '/proj/local.js',
+        '/proj/dead-ref.js'
       ],
       css: [
         'https://cdn.example.com/a.css',
@@ -53,5 +56,9 @@ describe('AddScriptsAndStylesToCompilation', () => {
       e.feature.import.some((x: string) => /cdn\.example\.com/.test(x))
     ).toBe(false)
     expect(e.feature.import.some((x: string) => /public\//.test(x))).toBe(false)
+    // A local ref with no file on disk must not become an rspack entry —
+    // Chrome 404s it silently at runtime, rspack would fail the whole build
+    // with "Module not found" (BUGS_TO_FIX §17).
+    expect(e.feature.import).not.toContain('/proj/dead-ref.js')
   })
 })

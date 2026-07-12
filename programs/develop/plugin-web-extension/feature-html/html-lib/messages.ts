@@ -23,7 +23,7 @@ function shortPath(p: string) {
 export function javaScriptError(
   errorSourcePath: string,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean}
+  opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
 ) {
   const lines: string[] = []
   lines.push(`Missing script file in ${colors.underline(errorSourcePath)}.`)
@@ -35,6 +35,11 @@ export function javaScriptError(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
     )
   }
+  if (opts?.deadRefHint) {
+    lines.push(
+      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    )
+  }
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
@@ -43,7 +48,7 @@ export function javaScriptError(
 export function cssError(
   errorSourcePath: string,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean}
+  opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
 ) {
   const lines: string[] = []
   lines.push(`Missing stylesheet in ${colors.underline(errorSourcePath)}.`)
@@ -55,6 +60,11 @@ export function cssError(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
     )
   }
+  if (opts?.deadRefHint) {
+    lines.push(
+      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    )
+  }
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
@@ -63,7 +73,7 @@ export function cssError(
 export function staticAssetError(
   errorSourcePath: string,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean; refLabel?: string}
+  opts?: {publicRootHint?: boolean; refLabel?: string; deadRefHint?: boolean}
 ) {
   const extname = path.extname(missingFilePath)
   const lines: string[] = []
@@ -77,6 +87,11 @@ export function staticAssetError(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
     )
   }
+  if (opts?.deadRefHint) {
+    lines.push(
+      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    )
+  }
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
@@ -85,7 +100,7 @@ export function staticAssetError(
 export function fileNotFound(
   errorSourcePath: string | undefined,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean; refLabel?: string}
+  opts?: {publicRootHint?: boolean; refLabel?: string; deadRefHint?: boolean}
 ) {
   if (!errorSourcePath) {
     throw new Error('This state should not occur. Please report a bug.')

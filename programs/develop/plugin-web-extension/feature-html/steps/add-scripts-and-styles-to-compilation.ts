@@ -61,11 +61,26 @@ export class AddScriptsAndStylesToCompilation {
         const looksLikePublicRootUrl = (p: string) =>
           p.startsWith('/public/') ||
           (p.startsWith('/') && !p.startsWith(projectRoot))
+        // Chrome loads an extension page whose <script src>/<link href>
+        // points at a nonexistent file — the reference silently 404s and the
+        // rest of the page runs. Handing the ref to rspack as an entry import
+        // instead fails the whole build with "Module not found", so a working
+        // wild extension can't build unmodified. Drop missing local files
+        // from the entry; AddAssetsToCompilation reports each one (warning by
+        // default, error under EXTENSION_STRICT_REFS=true).
+        const isMissingLocalFile = (p: string) =>
+          path.isAbsolute(p) && !fs.existsSync(p)
         const jsAssets = (htmlAssets?.js || []).filter(
-          (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
+          (asset) =>
+            !looksLikePublicRootUrl(asset) &&
+            !isRemoteUrl(asset) &&
+            !isMissingLocalFile(asset)
         )
         const cssAssets = (htmlAssets?.css || []).filter(
-          (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
+          (asset) =>
+            !looksLikePublicRootUrl(asset) &&
+            !isRemoteUrl(asset) &&
+            !isMissingLocalFile(asset)
         )
 
         // Multiple classic <script src> tags share one global scope in the
