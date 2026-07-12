@@ -48,6 +48,9 @@ export function diagnoseChromiumManifestRefusal(
  * NOT flagged, all verified live on Chrome 150 (2026-07-11, both CDP
  * loadUnpacked and --load-extension, install ENABLED):
  * - explicit ports (`http://localhost:3000/*`; wild memux loads fine)
+ * - WILDCARD ports (`ws://localhost:<star>` with a wildcard port; wild
+ *   BinaryBeastMaster/chat-relay installs ENABLED with a live service
+ *   worker) — the port is not part of the host
  * - query strings / fragments in the path (`?`, `#` are literal path
  *   characters: `.../gcpd/730?tab=majors` and `/page#section` both load;
  *   wild SN-Utils ships a query-string exclude_matches on the store) —
@@ -91,11 +94,32 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
  * Chrome's host grammar allows `*`, `*.domain.tld`, or a literal host — a
  * wildcard anywhere else in the host is invalid (wild: CarbonWise matches on
  * a host of `*carbonwise*`). Chrome refuses the whole extension over it.
+ *
+ * The PORT is not part of the host and may itself be a wildcard. This used to
+ * test the whole authority, so a wildcard-port host like `localhost:<star>`
+ * read as a mid-host wildcard
+ * and warned "the whole extension will not load" about an extension Chrome
+ * installs ENABLED (verified live on Chrome 150 via --load-extension: wild
+ * BinaryBeastMaster/chat-relay installs enabled with a running service worker).
+ * Explicit ports only ever passed by luck — `localhost:3000` contains no `*`
+ * to trip the check.
  */
 function hasInvalidHostWildcard(pattern: string): boolean {
   const match = /^[a-zA-Z*]+:\/\/([^/]*)/.exec(pattern)
-  const host = match?.[1]
-  if (!host || !host.includes('*')) return false
+  const authority = match?.[1]
+  if (!authority) return false
+
+  // Strip the port. IPv6 literals keep their brackets (`[::1]:*`).
+  let host = authority
+  if (authority.startsWith('[')) {
+    const end = authority.indexOf(']')
+    if (end !== -1) host = authority.slice(0, end + 1)
+  } else {
+    const colon = authority.indexOf(':')
+    if (colon !== -1) host = authority.slice(0, colon)
+  }
+
+  if (!host.includes('*')) return false
   return host !== '*' && !/^\*\.[^*]+$/.test(host)
 }
 
