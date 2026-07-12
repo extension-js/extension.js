@@ -34,8 +34,17 @@ export function isClassicScript(filePath: string): boolean {
  * (enabling watch-mode rebuilds) and generates a V3 source map.
  */
 export function classicConcatEntry(feature: string, jsFiles: string[]): string {
+  // Chrome DEDUPES a file listed twice in one content_scripts `js` array — it
+  // injects it exactly once (verified live on Chrome 150: the same file listed
+  // twice executes once, no error). Concatenating it twice instead redeclares
+  // its top-level bindings and makes the whole group a SyntaxError
+  // ("Identifier 'NativeSkipper' has already been declared"), so an extension
+  // that runs fine in Chrome failed to build — wild:
+  // ThomasTavernier/Improve-Crunchyroll lists .../skippers/skippers.js twice.
+  // First occurrence wins, preserving execution order.
+  const deduped = [...new Set(jsFiles)]
   const queryData = encodeURIComponent(
-    JSON.stringify({feature, js: jsFiles, css: []})
+    JSON.stringify({feature, js: deduped, css: []})
   )
-  return `${jsFiles[0]}?__extensionjs_classic_concat__=${queryData}`
+  return `${deduped[0]}?__extensionjs_classic_concat__=${queryData}`
 }
