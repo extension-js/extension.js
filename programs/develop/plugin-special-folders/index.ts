@@ -11,6 +11,7 @@ import * as fs from 'fs'
 import {type Compiler, type Compilation, rspack} from '@rspack/core'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 import {checkManifestInPublic} from './check-manifest-in-public'
+import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'
 
 interface SpecialFoldersPluginOptions {
@@ -39,6 +40,27 @@ export class SpecialFoldersPlugin {
     const {manifestPath} = this.options
     const context = compiler.options.context || path.dirname(manifestPath)
     const publicDir = path.join(context, 'public')
+
+    // Chrome resolves a leading '/' from the extension root, so a root-absolute
+    // ref that public/ does not satisfy is served from the source root instead.
+    // Runs whether or not public/ exists — projects with NO public/ dir are
+    // exactly the ones that were broken.
+    compiler.hooks.thisCompilation.tap(
+      SpecialFoldersPlugin.name,
+      (compilation: Compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
+            // Late enough that HTML and CSS assets exist to be scanned.
+            stage: (compilation.constructor as any)
+              .PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          () => {
+            emitRootAbsoluteRefs(compilation, context, publicDir)
+          }
+        )
+      }
+    )
 
     // If there is no exact 'public' directory, do nothing here.
     if (fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory()) {
