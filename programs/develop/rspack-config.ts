@@ -405,6 +405,19 @@ export default function webpackConfig(
               path.join(process.cwd(), 'node_modules')
             ]
           : ['node_modules', path.join(process.cwd(), 'node_modules')],
+      // Root-absolute requests that rspack itself resolves — notably `url(/img/x.png)`
+      // inside a COMPILED stylesheet, which the CSS parser treats as a module
+      // request and fails on ("Can't resolve '/img/x.png'"). `roots` is the
+      // purpose-built option for server-relative URLs: public/ first (it owns
+      // the output root), then the extension root, matching how Chrome resolves
+      // a leading '/'. Refs in HTML are handled separately — they never become
+      // rspack requests.
+      // The extension root is the MANIFEST dir, which is not always the
+      // package.json dir (noscript keeps its manifest in src/).
+      roots: [
+        path.join(packageJsonDir, 'public'),
+        path.dirname(manifestPath)
+      ],
       // TypeScript's NodeNext/ESM convention: the specifier names the EMITTED
       // file (`./env.js`) while the source on disk is `./env.ts`. Without this,
       // a standard strict-ESM TS extension fails with "Can't resolve './env.js'".
