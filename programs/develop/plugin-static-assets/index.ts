@@ -23,10 +23,15 @@ export class StaticAssetsPlugin {
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []
 
-    const filenamePattern =
-      this.mode === 'production'
-        ? 'assets/[name].[contenthash:8][ext]'
-        : 'assets/[name][ext]'
+    // Content-hash in DEV too. Dev used to emit `assets/[name][ext]`, so two
+    // assets with the same basename in different folders (wild: noscript ships
+    // both `img/ui-custom64.webp` and `img/vintage/ui-custom64.webp`) collided
+    // on one output name and rspack failed the compilation with "Conflict:
+    // Multiple assets emit different content to the same filename" — `build`
+    // was fine (it hashes) while `extension dev` never booted at all.
+    // Hashing, not `[path]`: a path-based name can escape the output dir and
+    // clobber sources in the watch loop.
+    const filenamePattern = 'assets/[name].[contenthash:8][ext]'
     // Define the default SVG rule
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
