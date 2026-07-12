@@ -314,6 +314,36 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(resolve?.byDependency?.esm?.conditionNames).toContain('import')
   })
 
+  it('resolves TypeScript NodeNext ".js" import specifiers to their TS source', () => {
+    // A TS file importing './env.js' where the source is env.ts is standard,
+    // correct TypeScript (the specifier names the EMITTED file). Without
+    // extensionAlias it dies with "Can't resolve './env.js'", which blocks
+    // every strict-ESM TS extension.
+    const projectStructure = createProjectStructure()
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        mode: 'development',
+        browser: 'chrome',
+        output: {
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      } as any
+    )
+
+    const resolve: any = config.resolve
+    expect(resolve?.extensionAlias?.['.js']).toContain('.ts')
+    expect(resolve?.extensionAlias?.['.js']).toContain('.tsx')
+    // a real .js sibling must still resolve when there is no TS source
+    expect(resolve?.extensionAlias?.['.js']).toContain('.js')
+    expect(resolve?.extensionAlias?.['.mjs']).toContain('.mts')
+  })
+
   it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(

@@ -33,8 +33,6 @@ export class AddScriptsAndStylesToCompilation {
     const htmlEntries = this.includeList || {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectRoot = (compiler.options.context as string) || manifestDir
-    const publicDir = path.join(projectRoot, 'public')
-    const hasPublicDir = fs.existsSync(publicDir)
     const devServerHmrImports =
       compiler.options.mode === 'development'
         ? getDevServerHmrImports(compiler)
@@ -53,9 +51,16 @@ export class AddScriptsAndStylesToCompilation {
         // exist on disk. Absolute filesystem paths must still be bundled.
         // Remote URLs are excluded as well
         const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
+        // A leading '/' is an EXTENSION-ROOT reference (Chrome semantics), never
+        // a module to bundle — regardless of whether a public/ dir exists. It
+        // used to require hasPublicDir, so a root-absolute ref in a project with
+        // no public/ was handed to rspack as an entry and died with
+        // "Module not found: Can't resolve '/nscl/main.js'". The file is served
+        // from the output root instead (public/, or copied from the extension
+        // root by emitRootAbsoluteRefs).
         const looksLikePublicRootUrl = (p: string) =>
           p.startsWith('/public/') ||
-          (p.startsWith('/') && !p.startsWith(projectRoot) && hasPublicDir)
+          (p.startsWith('/') && !p.startsWith(projectRoot))
         const jsAssets = (htmlAssets?.js || []).filter(
           (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
         )

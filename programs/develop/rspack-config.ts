@@ -405,6 +405,16 @@ export default function webpackConfig(
               path.join(process.cwd(), 'node_modules')
             ]
           : ['node_modules', path.join(process.cwd(), 'node_modules')],
+      // TypeScript's NodeNext/ESM convention: the specifier names the EMITTED
+      // file (`./env.js`) while the source on disk is `./env.ts`. Without this,
+      // a standard strict-ESM TS extension fails with "Can't resolve './env.js'".
+      // Source extensions come first so a `.js` specifier prefers the TS source,
+      // falling back to a real `.js` sibling when there is no TS source.
+      extensionAlias: {
+        '.js': ['.ts', '.tsx', '.js', '.jsx'],
+        '.mjs': ['.mts', '.mjs'],
+        '.cjs': ['.cts', '.cjs']
+      },
       extensions: [
         '.js',
         '.cjs',

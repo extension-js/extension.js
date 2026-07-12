@@ -53,6 +53,12 @@ const createFakeCompiler = (
               tap: (_opts: any, fn: () => void) => fn()
             }
           },
+          // The plugin also taps processAssets to copy root-absolute refs into
+          // the output root, so the double needs the assets API it reads.
+          getAssets: () => [],
+          getAsset: () => undefined,
+          emitAsset: () => {},
+          fileDependencies: new Set<string>(),
           compiler: {
             webpack: {WebpackError: class WebpackError extends Error {}}
           }
