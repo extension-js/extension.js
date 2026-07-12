@@ -42,18 +42,41 @@ const DEV_CONNECT_SOURCES = [
   'http://localhost:*'
 ]
 
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
+
+// Client sockets don't always dial loopback: under `--host <lan-ip>` or the
+// `--public-host` override (devcontainers, remote browsers) the HMR client and
+// the control-bridge producer dial the CONNECTABLE host the dev server
+// resolved and exported (dev-server/index.ts, same process, set before the
+// first compile). The loosened connect-src must whitelist that host too, or
+// the exact remote scenario the connectable-host machinery was built for is
+// the one where reload delivery silently dies (verified live: SW console
+// shows "Connecting to 'ws://<lan-ip>:<port>/extjs-control' violates …").
+function devConnectSources(): string[] {
+  const sources = [...DEV_CONNECT_SOURCES]
+  const raw = String(
+    process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || ''
+  ).trim()
+  if (!raw || LOOPBACK_HOSTS.has(raw)) return sources
+  // A CSP host-source with an IPv6 literal must be bracketed.
+  const host = raw.includes(':') && !raw.startsWith('[') ? `[${raw}]` : raw
+  sources.push(`ws://${host}:*`, `http://${host}:*`)
+  return sources
+}
+
 function loosenConnectSrcForDev(csp: Map<string, string[]>) {
+  const devSources = devConnectSources()
   const connectSrc = csp.get('connect-src')
   const defaultSrc = csp.get('default-src')
   if (connectSrc) {
-    for (const source of DEV_CONNECT_SOURCES) {
+    for (const source of devSources) {
       if (!connectSrc.includes(source)) connectSrc.push(source)
     }
     csp.set('connect-src', connectSrc)
   } else if (defaultSrc) {
     // No connect-src: connections fall back to default-src — extend a copy
     // as an explicit connect-src instead of loosening default-src itself.
-    csp.set('connect-src', [...defaultSrc, ...DEV_CONNECT_SOURCES])
+    csp.set('connect-src', [...defaultSrc, ...devSources])
   }
 }
 
