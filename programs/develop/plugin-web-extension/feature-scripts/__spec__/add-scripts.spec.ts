@@ -149,6 +149,46 @@ describe('AddScripts', () => {
     expect(data.feature).toBe('content_scripts/content-0')
   })
 
+  it('concatenates classic .ts members (§24) but never .mjs ones', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(manifestDir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+    const tsPath = path.join(manifestDir, 'bloomfilter.ts')
+    const jsPath = path.join(manifestDir, 'background.js')
+    const mjsPath = path.join(manifestDir, 'module-scoped.mjs')
+    // classic sources: no top-level import/export
+    fs.writeFileSync(tsPath, 'class BloomFilter { m: number = 1 }\n', 'utf8')
+    fs.writeFileSync(jsPath, 'var f = new BloomFilter()\n', 'utf8')
+    fs.writeFileSync(mjsPath, 'var x = 1\n', 'utf8')
+
+    // .ts + .js group concatenates (the loader type-strips the .ts member)
+    const compiler = createCompiler(projectDir)
+    new AddScripts({
+      manifestPath: path.join(manifestDir, 'manifest.json'),
+      includeList: {'background/scripts': [tsPath, jsPath]}
+    } as any).apply(compiler as any)
+    const tsEntry = String(
+      (compiler.options.entry as any)['background/scripts'].import[0]
+    )
+    expect(tsEntry).toContain('__extensionjs_classic_concat__')
+
+    // A .mjs member is module-scoped by definition: no concatenation
+    const compiler2 = createCompiler(projectDir)
+    new AddScripts({
+      manifestPath: path.join(manifestDir, 'manifest.json'),
+      includeList: {'background/scripts': [jsPath, mjsPath]}
+    } as any).apply(compiler2 as any)
+    const mjsEntry = String(
+      (compiler2.options.entry as any)['background/scripts'].import[0]
+    )
+    expect(mjsEntry).not.toContain('__extensionjs_classic_concat__')
+  })
+
   it('keeps CSS as a bare entry import for classic multi-file content scripts (G10)', () => {
     // Regression: a multi-JS content-script group with CSS used to embed the CSS
     // inside the concat module. Its issuer then resolved to a content-script JS
