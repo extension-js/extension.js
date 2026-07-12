@@ -12,6 +12,15 @@ import type {BrowserType} from '../browsers-types'
 
 export const FORCE_KILL_GRACE_MS = 5000
 
+// Children we asked to stop (signal handlers, auto-exit, dev-server teardown).
+// A 'close' on one of these is expected; a 'close' on any other child means the
+// browser died out from under a live dev session and must be surfaced loudly.
+const terminatedByUs = new WeakSet<ChildProcess>()
+
+export function wasTerminatedByUs(child: ChildProcess | null): boolean {
+  return !!child && terminatedByUs.has(child)
+}
+
 function authorLog(line: string | null): void {
   if (line && process.env.EXTENSION_AUTHOR_MODE === 'true') console.log(line)
 }
@@ -40,6 +49,7 @@ export function gracefulTerminateChild(
   browser: BrowserType
 ): void {
   if (!child || child.killed) return
+  terminatedByUs.add(child)
   killWindowsTree(child, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
   child.kill('SIGTERM')
@@ -62,6 +72,7 @@ export function forceKillChildOnExit(
   browser: BrowserType
 ): void {
   if (!child) return
+  terminatedByUs.add(child)
   killWindowsTree(child, true)
   try {
     authorLog(messages.enhancedProcessManagementForceKill(browser))

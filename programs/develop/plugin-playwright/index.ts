@@ -36,6 +36,10 @@ export type ReadyMetadata = {
   controlPath?: string
   logsPath?: string
   cdpPort?: number
+  // Stamped by the browser launcher when the browser exits mid-session
+  // without the dev server asking it to; preserved across recompiles.
+  browserExitedAt?: string
+  browserExitCode?: number | null
 }
 
 export type PlaywrightAutomationEvent = {
@@ -162,13 +166,22 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
-    // Preserve a cdpPort the chromium launcher wrote post-launch: ready.json is
+    // Preserve fields the browser launcher wrote post-launch: ready.json is
     // first written before the browser binds its debug port, so a recompile here
     // must not clobber the real CDP port (read by the MCP source-inspect tool).
+    // Likewise browserExitedAt/browserExitCode — the launcher stamps them when
+    // the browser dies out from under a live session, and a compile succeeding
+    // afterwards must not erase that evidence (compiles don't need a browser).
     try {
       if (fs.existsSync(readyPath)) {
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
+        if (typeof prev.browserExitedAt === 'string') {
+          ;(payload as Record<string, unknown>).browserExitedAt =
+            prev.browserExitedAt
+          ;(payload as Record<string, unknown>).browserExitCode =
+            prev.browserExitCode ?? null
+        }
       }
     } catch {
       // ignore
