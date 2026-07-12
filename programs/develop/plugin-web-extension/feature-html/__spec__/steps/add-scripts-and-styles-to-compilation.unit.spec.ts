@@ -39,6 +39,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       htmlPath,
       `<html><head><link rel="stylesheet" href="/styles.css"></head><body><script src="main.js"></script></body></html>`
     )
+    fs.writeFileSync(path.join(tmp, 'main.js'), '// main')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
     const compiler: any = {options: {mode: 'production', entry: {}}}
@@ -67,6 +68,29 @@ describe('AddScriptsAndStylesToCompilation', () => {
         p.endsWith('/styles.css')
       )
     ).toBe(false)
+  })
+
+  it('drops a <script src> whose file does not exist instead of failing the bundle (§17)', () => {
+    const tmp = makeTmp('steps-dead-ref')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(
+      htmlPath,
+      `<html><body><script src="exists.js"></script><script src="dead-ref.js"></script></body></html>`
+    )
+    fs.writeFileSync(path.join(tmp, 'exists.js'), '// exists')
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(manifestPath, '{}')
+    const compiler: any = {options: {mode: 'production', entry: {}}}
+    new AddScriptsAndStylesToCompilation({
+      manifestPath,
+      includeList: {'feature/index': htmlPath}
+    }).apply(compiler as any)
+    const imports = compiler.options.entry['feature/index'].import as string[]
+    // Chrome silently 404s dead-ref.js and runs the page; feeding it to
+    // rspack as an entry import fails the whole build with "Module not
+    // found". The existing script must still bundle.
+    expect(imports.some((p) => p.endsWith('exists.js'))).toBe(true)
+    expect(imports.some((p) => p.endsWith('dead-ref.js'))).toBe(false)
   })
 
   it('injects HMR minimum script in development mode', () => {

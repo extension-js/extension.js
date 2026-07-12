@@ -29,6 +29,7 @@ vi.mock('child_process', () => ({
 import {
   buildInstallCommand,
   execInstallCommand,
+  installScriptSuppression,
   projectInstallArgs,
   resolvePackageManager
 } from '../package-manager'
@@ -232,5 +233,37 @@ describe('package-manager execInstallCommand', () => {
       ['install'],
       expect.objectContaining({shell: true})
     )
+  })
+})
+
+describe('installScriptSuppression (§16: auto-install must not run wild lifecycle scripts)', () => {
+  afterEach(() => {
+    delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS
+  })
+
+  it.each(['npm', 'pnpm', 'bun'] as const)(
+    'passes --ignore-scripts to %s',
+    (name) => {
+      expect(installScriptSuppression({name})).toEqual({
+        args: ['--ignore-scripts'],
+        env: {}
+      })
+    }
+  )
+
+  it('uses env for yarn (Berry rejects the flag, yarn 1 reads npm_config_*)', () => {
+    expect(installScriptSuppression({name: 'yarn'})).toEqual({
+      args: [],
+      env: {YARN_ENABLE_SCRIPTS: 'false', npm_config_ignore_scripts: 'true'}
+    })
+  })
+
+  it('adds nothing for deno (deno install already refuses npm lifecycle scripts)', () => {
+    expect(installScriptSuppression({name: 'deno'})).toEqual({args: [], env: {}})
+  })
+
+  it('suppresses nothing when EXTENSION_ALLOW_INSTALL_SCRIPTS=true', () => {
+    process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS = 'true'
+    expect(installScriptSuppression({name: 'pnpm'})).toEqual({args: [], env: {}})
   })
 })

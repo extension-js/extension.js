@@ -152,6 +152,11 @@ function checkMissingLocalEntries(params: {
   const {compilation, compiler, resource, manifestDir, projectRoot, js, css} =
     params
 
+  // Chrome silently 404s a missing local ref and runs the page anyway, so a
+  // dead reference is a warning by default — likely dead code, not a broken
+  // build. EXTENSION_STRICT_REFS=true restores the failure for CI.
+  const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+
   const check = (url: string) => {
     if (!url || isHttpLike(url) || isSpecialScheme(url)) return
 
@@ -167,8 +172,10 @@ function checkMissingLocalEntries(params: {
       reportToCompilation(
         compilation,
         compiler,
-        messages.fileNotFound(displayFile, url),
-        'error',
+        messages.fileNotFound(displayFile, url, {
+          deadRefHint: !strictRefs
+        }),
+        strictRefs ? 'error' : 'warning',
         displayFile
       )
     }

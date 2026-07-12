@@ -27,6 +27,7 @@ export type PackageManagerResolution = {
 type ExecOptions = {
   cwd?: string
   stdio?: 'inherit' | 'ignore' | 'pipe'
+  env?: Record<string, string>
 }
 
 function normalizePackageManager(
@@ -348,6 +349,37 @@ export function projectInstallArgs(
 }
 
 /**
+ * Args/env that stop an auto-install from running lifecycle scripts
+ * (preinstall/postinstall/prepare) — the project being built was never
+ * vetted by the user typing an install command, so a wild package.json
+ * must not get code execution as a side effect of `extension dev/build`.
+ * Matches the pnpm 10 / Bun default. Opt back in with
+ * EXTENSION_ALLOW_INSTALL_SCRIPTS=true.
+ *
+ * yarn needs env instead of a flag: yarn 1 accepts --ignore-scripts but
+ * Berry rejects unknown flags outright, and the resolved binary's major
+ * is unknowable here. Berry maps YARN_ENABLE_SCRIPTS -> enableScripts;
+ * yarn 1 reads npm_config_* and ignores YARN_ENABLE_SCRIPTS. deno install
+ * already refuses npm lifecycle scripts unless --allow-scripts is passed.
+ */
+export function installScriptSuppression(pm: PackageManagerResolution): {
+  args: string[]
+  env: Record<string, string>
+} {
+  if (process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS === 'true') {
+    return {args: [], env: {}}
+  }
+  if (pm.name === 'deno') return {args: [], env: {}}
+  if (pm.name === 'yarn') {
+    return {
+      args: [],
+      env: {YARN_ENABLE_SCRIPTS: 'false', npm_config_ignore_scripts: 'true'}
+    }
+  }
+  return {args: ['--ignore-scripts'], env: {}}
+}
+
+/**
  * A hydrated npm resolution for fallback installs: PATH npm first, then the
  * npm CLI bundled with the running Node.
  */
@@ -405,7 +437,7 @@ export function execInstallCommand(
     const child = spawn(invocation.command, invocation.args, {
       cwd: options?.cwd,
       stdio,
-      env: env || process.env,
+      env: {...(env || process.env), ...options?.env},
       ...(useShell ? {shell: true} : {})
     })
 

@@ -39,7 +39,11 @@ describe('ensureUserProjectDependencies', () => {
 
     expect(execInstallCommand).toHaveBeenCalledTimes(2)
     const [, fallbackArgs] = execInstallCommand.mock.calls[1]
-    expect(fallbackArgs).toEqual(['install', '--no-package-lock'])
+    expect(fallbackArgs).toEqual([
+      'install',
+      '--no-package-lock',
+      '--ignore-scripts'
+    ])
   })
 
   it('does not retry when npm itself was the resolved manager', async () => {
@@ -62,6 +66,46 @@ describe('ensureUserProjectDependencies', () => {
 
     // package.json is unreadable at that path, so confinement still applies
     const [, args] = execInstallCommand.mock.calls[0]
-    expect(args).toEqual(['install', '--ignore-workspace'])
+    expect(args).toEqual(['install', '--ignore-scripts', '--ignore-workspace'])
+  })
+
+  it('suppresses lifecycle scripts by default (§16: auto-install must not run wild postinstall)', async () => {
+    resolvePackageManager.mockReturnValue({name: 'npm'})
+    execInstallCommand.mockResolvedValueOnce(undefined)
+
+    await ensureUserProjectDependencies('/nonexistent-project' as any)
+
+    const [, args] = execInstallCommand.mock.calls[0]
+    expect(args).toContain('--ignore-scripts')
+  })
+
+  it('suppresses yarn scripts via env (Berry rejects --ignore-scripts, yarn 1 reads npm_config_*)', async () => {
+    resolvePackageManager.mockReturnValue({name: 'yarn'})
+    execInstallCommand.mockResolvedValueOnce(undefined)
+
+    await ensureUserProjectDependencies('/nonexistent-project' as any)
+
+    const [, args, options] = execInstallCommand.mock.calls[0]
+    expect(args).not.toContain('--ignore-scripts')
+    expect(options.env).toMatchObject({
+      YARN_ENABLE_SCRIPTS: 'false',
+      npm_config_ignore_scripts: 'true'
+    })
+  })
+
+  it('runs lifecycle scripts when EXTENSION_ALLOW_INSTALL_SCRIPTS=true', async () => {
+    process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS = 'true'
+    try {
+      resolvePackageManager.mockReturnValue({name: 'npm'})
+      execInstallCommand.mockResolvedValueOnce(undefined)
+
+      await ensureUserProjectDependencies('/nonexistent-project' as any)
+
+      const [, args, options] = execInstallCommand.mock.calls[0]
+      expect(args).not.toContain('--ignore-scripts')
+      expect(options.env).toEqual({})
+    } finally {
+      delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS
+    }
   })
 })
