@@ -26,6 +26,12 @@ export default function initial() {
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'extension-js-devtools')
   rootDiv.className = 'extjs-overlay-host'
+  // Isolate the host from page styles (e.g. a page shipping div{opacity:.8}
+  // would fade the whole overlay): the shadow DOM only protects descendants;
+  // the host element itself still takes page CSS. Because all:initial also
+  // wipes the .extjs-overlay-host rules, re-assert them inline afterwards.
+  rootDiv.style.cssText =
+    'all: initial !important; position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; pointer-events: none !important; isolation: isolate !important'
   document.body.appendChild(rootDiv)
 
   // Injecting content_scripts inside a shadow dom
