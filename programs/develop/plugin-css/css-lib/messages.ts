@@ -83,3 +83,13 @@ export function cssParseErrorShippedVerbatim(
     'PostCSS/Tailwind processing was NOT applied to this file. Fix the CSS to re-enable it.'
   ].join('\n')
 }
+
+export function deadCssUrlRef(issuerPath: string, request: string) {
+  return [
+    `Missing file in ${colors.underline(issuerPath)}.`,
+    `The ${colors.yellow(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
+    `Chrome applies the rest of the stylesheet and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`,
+    '',
+    `${colors.red('NOT FOUND')} ${colors.underline(request)}`
+  ].join('\n')
+}

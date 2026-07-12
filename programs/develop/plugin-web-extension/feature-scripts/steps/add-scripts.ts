@@ -47,8 +47,14 @@ function createSequentialEntryModule(
   // (no top-level import/export), concatenate their sources into one module so they
   // share a scope — matching browser semantics and making vanilla multi-file content
   // scripts a true drop-in. CSS stays as module imports so rspack can extract it.
+  // Only .js/.cjs/.ts can concatenate: .mjs is module-scoped by definition,
+  // and .tsx/.jsx need a JSX transform the concat loader doesn't run. The
+  // loader type-strips .ts members before concatenation, so a tsc-compiled
+  // extension re-pointed at its TS sources keeps its shared-globals contract.
+  const concatEligible = (f: string) => /\.(js|cjs|ts)$/i.test(f)
   const concatenateClassic =
-    jsFiles.length > 1 && jsFiles.every(isClassicScript)
+    jsFiles.length > 1 &&
+    jsFiles.every((f) => concatEligible(f) && isClassicScript(f))
 
   if (concatenateClassic) {
     return classicConcatEntry(feature, jsFiles)

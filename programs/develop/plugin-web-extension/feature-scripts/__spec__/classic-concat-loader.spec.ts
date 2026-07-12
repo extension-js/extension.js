@@ -172,3 +172,37 @@ describe('classic-concat-loader', () => {
     expect(ctx.addDependency).not.toHaveBeenCalled()
   })
 })
+
+describe('classic-concat-loader TypeScript members (§24)', () => {
+  it('type-strips .ts files before concatenation so the group stays parseable', () => {
+    const dir = createTempProject()
+    const tsPath = path.join(dir, 'bloomfilter.ts')
+    const jsPath = path.join(dir, 'background.js')
+    fs.writeFileSync(
+      tsPath,
+      'class BloomFilter {\n  m: number;\n  constructor(m: number) { this.m = m }\n}\n',
+      'utf8'
+    )
+    fs.writeFileSync(jsPath, 'var f = new BloomFilter(8)\n', 'utf8')
+
+    const ctx = createLoaderContext(tsPath, {
+      feature: 'background/scripts',
+      js: [tsPath, jsPath],
+      css: []
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [err, output, sourceMap] = ctx.callback.mock.calls[0]
+    expect(err).toBeNull()
+    // Type annotations are gone, the class and its consumer share the scope.
+    expect(output).not.toContain('m: number')
+    expect(output).toContain('class BloomFilter')
+    expect(output).toContain('new BloomFilter(8)')
+    // Source map still references the ORIGINAL TS source.
+    expect(sourceMap.sources).toContain(tsPath)
+    expect(sourceMap.sourcesContent[0]).toContain('m: number')
+    // The concatenated output must be valid JavaScript.
+    expect(() => new Function(output)).not.toThrow()
+  })
+})
