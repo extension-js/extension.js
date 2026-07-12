@@ -719,31 +719,56 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Multi-context console forwarding: other contexts (content scripts, surface
     // pages) can't reliably open ws://127.0.0.1 (page CSP / connect-src), so they
-    // relay console via chrome.runtime.sendMessage to this SW, which owns the WS.
-    // We enrich with the real tabId/url from the message sender.
+    // relay console to this SW, which owns the WS. The relay travels a NAMED
+    // runtime.Port — never runtime.sendMessage — because port traffic is
+    // invisible to the extension's own onMessage listeners. With sendMessage, an
+    // extension whose SW echoes every message back to its tabs (wild newtube:
+    // onMessage → tabs.sendMessage(msg) to all tabs) turned each relayed log
+    // into a new tab message, whose subject-side console.log became another
+    // relayed envelope — a self-sustaining dev-only message storm (25k rows/10min
+    // observed) that starved the extension system and wedged Chromium's DevTools
+    // endpoint (family B). We enrich with the real tabId/url from the port sender.
+    function shipRelayedLog(ev, sender) {
+      try {
+        send({
+          type: "log",
+          event: {
+            v: 1,
+            id: nowId(),
+            timestamp: Date.now(),
+            level: ev.level || "log",
+            context: ev.context || "content",
+            messageParts: Array.isArray(ev.messageParts) ? ev.messageParts : [],
+            url: ev.url || (sender ? sender.url : undefined),
+            tabId: sender && sender.tab ? sender.tab.id : undefined,
+            frameId: sender ? sender.frameId : undefined,
+            runId: INSTANCE_ID
+          }
+        });
+      } catch (e) {}
+    }
+    try {
+      var rtPort = g.chrome;
+      if (rtPort && rtPort.runtime && rtPort.runtime.onConnect) {
+        rtPort.runtime.onConnect.addListener(function (port) {
+          if (!port || port.name !== "__extjs-bridge-log__") return;
+          try {
+            port.onMessage.addListener(function (msg) {
+              if (!msg || !msg.__extjsBridgeLog) return;
+              shipRelayedLog(msg.__extjsBridgeLog, port.sender);
+            });
+          } catch (e) {}
+        });
+      }
+    } catch (e) {}
+    // Legacy sendMessage path: kept for any surface still relaying the old way
+    // (harmless one-predicate listener; new relays never use it).
     try {
       var rt = g.chrome;
       if (rt && rt.runtime && rt.runtime.onMessage) {
         rt.runtime.onMessage.addListener(function (msg, sender) {
           if (!msg || !msg.__extjsBridgeLog) return;
-          var ev = msg.__extjsBridgeLog;
-          try {
-            send({
-              type: "log",
-              event: {
-                v: 1,
-                id: nowId(),
-                timestamp: Date.now(),
-                level: ev.level || "log",
-                context: ev.context || "content",
-                messageParts: Array.isArray(ev.messageParts) ? ev.messageParts : [],
-                url: ev.url || (sender ? sender.url : undefined),
-                tabId: sender && sender.tab ? sender.tab.id : undefined,
-                frameId: sender ? sender.frameId : undefined,
-                runId: INSTANCE_ID
-              }
-            });
-          } catch (e) {}
+          shipRelayedLog(msg.__extjsBridgeLog, sender);
           // No async response.
         });
       }
@@ -802,10 +827,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
 /**
  * Lightweight RELAY for non-SW contexts (content scripts, surface pages). It
- * patches console and forwards each call to the background SW via
- * chrome.runtime.sendMessage({__extjsBridgeLog}); the SW producer (above) stamps
+ * patches console and forwards each call to the background SW over a NAMED
+ * runtime.Port ({__extjsBridgeLog} frames); the SW producer (above) stamps
  * tabId/url and ships it over the control WS. No WebSocket, no executor here —
  * content scripts usually can't open ws://127.0.0.1 under the page's CSP.
+ * A Port — not runtime.sendMessage — so the subject extension's own onMessage
+ * listeners never see relay traffic: an SW that echoes messages back to tabs
+ * otherwise turns the relay into an infinite dev-only message storm (family B).
  */
 export const BRIDGE_RELAY_SOURCE = `;(function () {
   try {
@@ -814,7 +842,8 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
 
     var CONTEXT = "__EXTJS_CONTEXT__";
     var chrome = g.chrome;
-    if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") return;
+    if (!chrome || !chrome.runtime) return;
+    var canRelay = typeof chrome.runtime.connect === "function";
 
     g.__extjsBridgeRelayInstalled = true;
     var consoleRef = g.console || {};
@@ -836,14 +865,39 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
 
     function here() { try { return g.location ? g.location.href : undefined; } catch (e) { return undefined; } }
 
+    // Lazy named port to the SW producer. Connecting wakes an idle SW like
+    // sendMessage does, but port frames never reach the extension's own
+    // onMessage listeners (see the loop note above). Reconnect on demand: the
+    // SW idling out (or reloading) disconnects the port; the next log redials.
+    var logPort = null;
+    function getLogPort() {
+      if (!canRelay) return null;
+      if (logPort) return logPort;
+      try {
+        logPort = chrome.runtime.connect({name: "__extjs-bridge-log__"});
+        logPort.onDisconnect.addListener(function () {
+          try { void chrome.runtime.lastError; } catch (e) {}
+          logPort = null;
+        });
+      } catch (e) { logPort = null; }
+      return logPort;
+    }
+
     LEVELS.forEach(function (level) {
       var orig = typeof consoleRef[level] === "function" ? consoleRef[level].bind(consoleRef) : function () {};
       consoleRef[level] = function () {
         try {
-          chrome.runtime.sendMessage(
-            {__extjsBridgeLog: {level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()}},
-            function () { void chrome.runtime.lastError; } // swallow "no receiver" while the SW wakes
-          );
+          var p = getLogPort();
+          if (p) {
+            try {
+              p.postMessage({__extjsBridgeLog: {level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()}});
+            } catch (e) {
+              // stale port (SW restarted): drop it and redial once
+              logPort = null;
+              var p2 = getLogPort();
+              if (p2) { try { p2.postMessage({__extjsBridgeLog: {level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()}}); } catch (e2) {} }
+            }
+          }
         } catch (e) {}
         return orig.apply(consoleRef, arguments);
       };
