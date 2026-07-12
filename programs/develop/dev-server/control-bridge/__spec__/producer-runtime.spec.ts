@@ -614,14 +614,23 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(responded.value.summary.bodyChildCount).toBe(1)
   })
 
-  it('the relay (content) forwards console via chrome.runtime.sendMessage', () => {
+  it('the relay (content) forwards console over a NAMED runtime.Port, never sendMessage (echo-SW loop guard)', () => {
     const sent: any[] = []
+    const sendMessageCalls: any[] = []
+    let connectedName: string | null = null
     const fakeGlobal: Record<string, unknown> = {
       console: {warn: () => {}},
       location: {href: 'https://shop.example/checkout'},
       chrome: {
         runtime: {
-          sendMessage: (msg: any, _cb: any) => sent.push(msg),
+          connect: (opts: any) => {
+            connectedName = opts?.name || null
+            return {
+              postMessage: (msg: any) => sent.push(msg),
+              onDisconnect: {addListener: () => {}}
+            }
+          },
+          sendMessage: (msg: any, _cb: any) => sendMessageCalls.push(msg),
           lastError: undefined
         }
       }
@@ -630,6 +639,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(src).not.toContain('__EXTJS_CONTEXT__')
     run(src, fakeGlobal)
     ;(fakeGlobal.console as any).warn('hello from content', {a: 1})
+    // A subject SW that echoes every runtime MESSAGE back to its tabs must
+    // never see relay traffic — sendMessage would loop it forever (family B).
+    expect(sendMessageCalls).toHaveLength(0)
+    expect(connectedName).toBe('__extjs-bridge-log__')
     expect(sent).toHaveLength(1)
     expect(sent[0].__extjsBridgeLog).toMatchObject({
       level: 'warn',
@@ -640,6 +653,36 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       'hello from content',
       '{"a":1}'
     ])
+  })
+
+  it('the relay redials the port once when a stale port throws (SW restarted)', () => {
+    const sent: any[] = []
+    let connects = 0
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'https://x.test/'},
+      chrome: {
+        runtime: {
+          connect: () => {
+            connects++
+            const stale = connects === 1
+            return {
+              postMessage: (msg: any) => {
+                if (stale) throw new Error('Attempting to use a disconnected port object')
+                sent.push(msg)
+              },
+              onDisconnect: {addListener: () => {}}
+            }
+          },
+          lastError: undefined
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'content'}), fakeGlobal)
+    ;(fakeGlobal.console as any).log('after sw restart')
+    expect(connects).toBe(2)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].__extjsBridgeLog.messageParts).toEqual(['after sw restart'])
   })
 
   it('replies BadRequest for an unknown op', () => {
@@ -668,6 +711,52 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       ok: false,
       error: {name: 'Unsupported'}
     })
+  })
+
+  it('SW ships port-relayed content logs over the WS, stamping tabId from the port sender', () => {
+    const connectListeners: Array<(port: any) => void> = []
+    const ws = setup({
+      runtime: {
+        onConnect: {addListener: (fn: any) => connectListeners.push(fn)},
+        onMessage: {addListener: () => {}}
+      }
+    })
+    expect(connectListeners.length).toBe(1)
+    const portMessageListeners: Array<(msg: any) => void> = []
+    connectListeners[0]({
+      name: '__extjs-bridge-log__',
+      sender: {tab: {id: 7}, frameId: 2, url: 'https://y.test/'},
+      onMessage: {addListener: (fn: any) => portMessageListeners.push(fn)}
+    })
+    expect(portMessageListeners.length).toBe(1)
+    portMessageListeners[0]({
+      __extjsBridgeLog: {
+        level: 'log',
+        context: 'content',
+        messageParts: ['ported'],
+        url: 'https://y.test/'
+      }
+    })
+    const log = ws.sent.map((s) => JSON.parse(s)).find((f) => f.type === 'log')
+    expect(log.event).toMatchObject({
+      level: 'log',
+      context: 'content',
+      tabId: 7,
+      frameId: 2,
+      url: 'https://y.test/',
+      messageParts: ['ported']
+    })
+    // foreign ports are ignored
+    const before = ws.sent.length
+    connectListeners[0]({
+      name: 'someone-elses-port',
+      onMessage: {
+        addListener: () => {
+          throw new Error('must not listen on foreign ports')
+        }
+      }
+    })
+    expect(ws.sent.length).toBe(before)
   })
 
   it('SW relays a forwarded content-script log over the WS, stamping tabId from the sender', () => {
