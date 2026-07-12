@@ -56,12 +56,17 @@ describe('AddScriptsAndStylesToCompilation', () => {
         p.endsWith('main.js')
       )
     ).toBe(true)
-    // with no public/ dir, absolute url is included
+    // A root-absolute ref is an EXTENSION-ROOT reference (Chrome resolves '/'
+    // from the extension root), never a module to bundle — with or without a
+    // public/ dir. This used to assert the opposite: with no public/ dir the
+    // ref was bundled as an entry, which is exactly how a wild extension died
+    // with "Module not found: Can't resolve '/styles.css'" (BUGS_TO_FIX §18).
+    // It is served from the output root instead.
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.endsWith('/styles.css')
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('injects HMR minimum script in development mode', () => {
