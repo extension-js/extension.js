@@ -56,7 +56,13 @@ export class SpecialFoldersPlugin {
               .PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () => {
-            emitRootAbsoluteRefs(compilation, context, publicDir)
+            // Root refs resolve from the EXTENSION root (the manifest dir),
+            // which is not always the compiler context / package.json dir.
+            emitRootAbsoluteRefs(
+              compilation,
+              path.dirname(manifestPath),
+              publicDir
+            )
           }
         )
       }
