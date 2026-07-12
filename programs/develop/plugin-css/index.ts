@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {type Compiler, type RuleSetRule} from '@rspack/core'
+import {WebpackError, type Compiler, type RuleSetRule} from '@rspack/core'
 import * as messages from './css-lib/messages'
 import {hasDependency} from '../lib/has-dependency'
 import {maybeUseSass} from './css-tools/sass'
@@ -124,7 +124,88 @@ export class CssPlugin {
     }
   }
 
+  /**
+   * A stylesheet url() whose file exists nowhere in the project is a fatal
+   * "Module not found" to rspack's CSS parser, but Chrome applies the rest
+   * of the stylesheet and 404s the reference silently (wild:
+   * mozilla/contain-facebook ships url(/img/login_continue_*.png) with no
+   * such files anywhere — the extension is store-published and works).
+   * Cancel these requests before resolution and warn instead, mirroring the
+   * dead-HTML-ref policy; EXTENSION_STRICT_REFS=true keeps them fatal.
+   * Only unambiguous file refs are tolerated — '/x' (extension root),
+   * './x'/'../x' (issuer-relative), and bare paths with a non-CSS asset
+   * extension. Bare specifiers without one stay with the resolver so
+   * node_modules @imports keep failing loudly when genuinely broken.
+   */
+  private tolerateDeadUrlRefs(compiler: Compiler) {
+    const manifestDir = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || process.cwd()
+    const roots = [path.join(projectPath, 'public'), manifestDir]
+    const assetExt =
+      /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
+    let compilation: any = null
+    const warned = new Set<string>()
+
+    // Minimal/mock compilers in specs don't carry these hooks.
+    if (
+      !compiler.hooks?.thisCompilation?.tap ||
+      !(compiler.hooks as any)?.normalModuleFactory?.tap
+    ) {
+      return
+    }
+
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:dead-url`, (c) => {
+      compilation = c
+      warned.clear()
+    })
+
+    compiler.hooks.normalModuleFactory.tap(
+      `${CssPlugin.name}:dead-url`,
+      (nmf: any) => {
+        nmf.hooks.beforeResolve.tap(`${CssPlugin.name}:dead-url`, (data: any) => {
+          const issuer = String(data?.contextInfo?.issuer || '').split('?')[0]
+          if (!/\.(css|scss|sass|less)$/i.test(issuer)) return
+
+          const raw = String(data?.request || '')
+          const req = raw.split('?')[0].split('#')[0]
+          if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
+            return
+          }
+          if (req.startsWith('~') || req.startsWith('@')) return
+
+          const isRootRef = req.startsWith('/')
+          const isRelativeRef = req.startsWith('./') || req.startsWith('../')
+          const isBareAssetRef =
+            !isRootRef && !isRelativeRef && assetExt.test(req)
+          if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
+
+          const issuerDir = data?.context || path.dirname(issuer)
+          const candidates = isRootRef
+            ? roots.map((root) => path.join(root, req.slice(1)))
+            : [path.resolve(issuerDir, req), ...(isBareAssetRef ? roots.map((root) => path.join(root, req)) : [])]
+          if (candidates.some((candidate) => fs.existsSync(candidate))) return
+          if (process.env.EXTENSION_STRICT_REFS === 'true') return
+
+          const key = `${issuer}|${req}`
+          if (!warned.has(key) && compilation?.warnings) {
+            warned.add(key)
+            const warning = new WebpackError(
+              messages.deadCssUrlRef(
+                path.relative(manifestDir, issuer) || issuer,
+                raw
+              )
+            )
+            ;(warning as any).file = path.relative(manifestDir, issuer)
+            compilation.warnings.push(warning)
+          }
+          return false
+        })
+      }
+    )
+  }
+
   public async apply(compiler: Compiler) {
+    this.tolerateDeadUrlRefs(compiler)
     const mode = compiler.options.mode || 'development'
     if (mode === 'production') {
       // build runs via compiler.run(), which awaits beforeRun before reading rules.

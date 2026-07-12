@@ -19,6 +19,27 @@
 // trace back to the real file and line.
 
 import * as fs from 'fs'
+import {createRequire} from 'module'
+
+const requireModule = createRequire(import.meta.url)
+
+// A classic-concat group member may be a TypeScript source (a tsc-compiled
+// extension re-pointed at its sources: background.scripts [bloomfilter.ts,
+// background.ts]). Raw TS in the concatenated output is a JS parse error
+// ("Unexpected token `:`"), so strip types per file before concatenating —
+// single-file transpileModule keeps classic (non-module) semantics because
+// the concat gate already guarantees no top-level import/export. typescript
+// is loaded lazily so plain-JS groups never pay the compiler's startup cost.
+function transpileClassicTs(file: string, content: string): string {
+  const ts = requireModule('typescript')
+  return ts.transpileModule(content, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.ESNext
+    },
+    fileName: file
+  }).outputText
+}
 
 interface ClassicConcatLoaderContext {
   resourcePath: string
@@ -127,9 +148,12 @@ export default function classicConcatLoader(
   // Read and concatenate JS files
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
-    const content = fs.readFileSync(file, 'utf8')
+    const raw = fs.readFileSync(file, 'utf8')
+    // Line mappings for transpiled TS are approximate (tsc's emitter mostly
+    // preserves line positions, but removed type-only blocks shift them).
+    const content = /\.ts$/i.test(file) ? transpileClassicTs(file, raw) : raw
     sources.push(file)
-    sourcesContent.push(content)
+    sourcesContent.push(raw)
 
     // Per-file comment separator
     outputLines.push(`/* ${file} */`)
