@@ -22,6 +22,10 @@ export interface FatalShapeFix {
  * browser never binds its debug endpoint. Both shapes below were found in
  * the wild and are unambiguous to fix:
  *
+ * - `"name"` missing, empty, or not a string — Chrome refuses with
+ *   "Required value 'name' is missing or invalid" (verified live on Chrome
+ *   150 via CDP loadUnpacked for all three shapes). Coerce scalars,
+ *   fall back to "Unnamed Extension".
  * - `"version"` missing entirely — Chrome refuses with "Required value
  *   'version' is missing or invalid" (wild: Ananyakk71/javscript). Inject
  *   "0.0.0" so the session can attach.
@@ -51,6 +55,16 @@ export function sanitizeFatalManifestShapes(
 } {
   const out = manifest as Record<string, any>
   const fixes: FatalShapeFix[] = []
+
+  if (typeof out.name !== 'string' || out.name === '') {
+    const from = out.name
+    const isScalar = typeof from === 'number' || typeof from === 'boolean'
+    out.name = isScalar ? String(from) : 'Unnamed Extension'
+    fixes.push({
+      field: 'name',
+      detail: `replaced ${JSON.stringify(from)} with "${out.name}" — Chrome requires a non-empty string name and refuses the whole extension otherwise`
+    })
+  }
 
   if (out.version == null) {
     out.version = '0.0.0'
