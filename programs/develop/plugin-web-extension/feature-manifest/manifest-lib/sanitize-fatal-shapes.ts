@@ -22,6 +22,9 @@ export interface FatalShapeFix {
  * browser never binds its debug endpoint. Both shapes below were found in
  * the wild and are unambiguous to fix:
  *
+ * - `"version"` missing entirely — Chrome refuses with "Required value
+ *   'version' is missing or invalid" (wild: Ananyakk71/javscript). Inject
+ *   "0.0.0" so the session can attach.
  * - `"version": 1.0` — JSON authors write a number; Chrome requires a string
  *   of 1-4 dot-separated integers. String() preserves the intent.
  * - `"version": "x.y.z"` (any string that is not 1-4 dot-separated integers
@@ -34,6 +37,10 @@ export interface FatalShapeFix {
  *   0 bytes (wild: Speak2Type ships an empty icon-128.png) — Chrome cannot
  *   decode it and refuses the whole extension with "Could not load icon".
  *   Requires `manifestDir` to resolve the paths; drop the entry.
+ * - `'unsafe-inline'` in `content_security_policy.extension_pages`
+ *   script-src — Chrome refuses the whole extension with "Insecure CSP
+ *   value" (wild: zenwerk/tonikakuyare). MV3 never honors it, so stripping
+ *   it changes nothing but the refusal.
  */
 export function sanitizeFatalManifestShapes(
   manifest: Manifest,
@@ -44,6 +51,15 @@ export function sanitizeFatalManifestShapes(
 } {
   const out = manifest as Record<string, any>
   const fixes: FatalShapeFix[] = []
+
+  if (out.version == null) {
+    out.version = '0.0.0'
+    fixes.push({
+      field: 'version',
+      detail:
+        'added "0.0.0" — the required version key was missing and Chrome refuses the whole extension without it'
+    })
+  }
 
   if (out.version != null && typeof out.version !== 'string') {
     const from = JSON.stringify(out.version)
@@ -144,7 +160,49 @@ export function sanitizeFatalManifestShapes(
     }
   }
 
+  const csp = out.content_security_policy
+  if (
+    csp &&
+    typeof csp === 'object' &&
+    !Array.isArray(csp) &&
+    typeof csp.extension_pages === 'string'
+  ) {
+    const stripped = stripUnsafeInlineFromScriptSrc(csp.extension_pages)
+    if (stripped !== csp.extension_pages) {
+      csp.extension_pages = stripped
+      fixes.push({
+        field: 'content_security_policy.extension_pages',
+        detail:
+          "removed 'unsafe-inline' from script-src — Chrome refuses the whole extension over an insecure CSP value in extension pages"
+      })
+    }
+  }
+
   return {manifest: out as Manifest, fixes}
+}
+
+/**
+ * Drop `'unsafe-inline'` from the script-src directive only; every other
+ * directive passes through untouched. A script-src left with no sources
+ * would mean "allow nothing" and kill the extension's own pages, so it
+ * falls back to 'self'. Returns the input string when nothing changed.
+ */
+function stripUnsafeInlineFromScriptSrc(policy: string): string {
+  let changed = false
+  const rebuilt = policy
+    .split(';')
+    .map((segment) => {
+      const tokens = segment.trim().split(/\s+/).filter(Boolean)
+      if (tokens.length === 0) return null
+      if (tokens[0].toLowerCase() !== 'script-src') return tokens.join(' ')
+      const values = tokens
+        .slice(1)
+        .filter((value) => value.toLowerCase() !== "'unsafe-inline'")
+      if (values.length !== tokens.length - 1) changed = true
+      return ['script-src', ...(values.length ? values : ["'self'"])].join(' ')
+    })
+    .filter((segment): segment is string => segment !== null)
+  return changed ? rebuilt.join('; ') : policy
 }
 
 /** Chrome's manifest version grammar: 1-4 dot-separated integers 0-65535. */
