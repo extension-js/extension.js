@@ -114,9 +114,9 @@ test('formatMarkdown leads with highlights and folds other changes', () => {
     repoUrl: 'https://example.com/repo'
   })
   assert.match(md, /^- \*\*Big thing\*\* — does X/)
-  assert.match(md, /### 🚀 Features/)
-  assert.match(md, /### 🐛 Fixes/)
-  assert.match(md, /<details>\n<summary>🧹 Other changes \(1\)<\/summary>/)
+  assert.match(md, /### Features/)
+  assert.match(md, /### Fixes/)
+  assert.match(md, /<details>\n<summary>Other changes \(1\)<\/summary>/)
   assert.match(md, /\(\[feat123\]\(https:\/\/example\.com\/repo\/commit\//)
 })
 
@@ -145,7 +145,7 @@ test('formatDiscord uses highlights when present, else leads with features', () 
     notesUrl: 'https://example.com/notes'
   })
   assert.match(withHl, /^- Curated headline/)
-  assert.match(withHl, /🚀 4 features · 🐛 1 fixes/)
+  assert.match(withHl, /4 features · 1 fixes/)
   assert.match(
     withHl,
     /\[Full release notes\]\(https:\/\/example\.com\/notes\)/
