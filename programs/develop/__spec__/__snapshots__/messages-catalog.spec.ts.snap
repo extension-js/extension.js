@@ -32,6 +32,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "debugExtensionsToLoad: function(1)",
     "debugOutputPath: function(1)",
     "debugPreviewOutput: function(2)",
+    "devCommandFailed: function(1)",
     "downloadedProjectFolderNotFound: function(2)",
     "downloadingProjectPath: function(1)",
     "downloadingText: function(1)",
