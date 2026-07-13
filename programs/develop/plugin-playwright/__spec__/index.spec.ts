@@ -4,7 +4,9 @@ import * as os from 'os'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   createPlaywrightMetadataWriter,
-  getPlaywrightMetadataDir
+  formatStatsErrors,
+  getPlaywrightMetadataDir,
+  PlaywrightPlugin
 } from '../index'
 
 describe('plugin-playwright metadata writer', () => {
@@ -150,5 +152,120 @@ describe('plugin-playwright metadata writer', () => {
     expect(lines).toHaveLength(2)
     expect(lines[0].type).toBe('compile_start')
     expect(lines[1].type).toBe('compile_success')
+  })
+
+  it('formats stats errors: message extraction, ANSI strip, cap at 10', () => {
+    expect(formatStatsErrors(undefined)).toEqual([])
+    expect(formatStatsErrors('nope')).toEqual([])
+    expect(
+      formatStatsErrors([
+        {message: '\u001b[31mModule build failed\u001b[0m: bad token'},
+        'plain string error',
+        {message: '   '},
+        null
+      ])
+    ).toEqual(['Module build failed: bad token', 'plain string error'])
+    const many = Array.from({length: 15}, (_, i) => ({message: `error ${i}`}))
+    expect(formatStatsErrors(many)).toHaveLength(10)
+  })
+
+  it('writes real compile-error text into ready.json and the compile_error event', () => {
+    const projectRoot = createTempProject()
+    const plugin = new PlaywrightPlugin({
+      packageJsonDir: projectRoot,
+      browser: 'chromium',
+      mode: 'development',
+      outputPath: path.join(projectRoot, 'dist', 'chromium'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: 8080
+    })
+
+    const taps: Record<string, (arg?: unknown) => void> = {}
+    const hook = (name: string) => ({
+      tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
+        taps[name] = fn
+      }
+    })
+    plugin.apply({
+      hooks: {
+        compile: hook('compile'),
+        done: hook('done'),
+        failed: hook('failed'),
+        watchClose: hook('watchClose')
+      }
+    } as any)
+
+    taps.done({
+      compilation: {startTime: 0, endTime: 25},
+      hasErrors: () => true,
+      toJson: () => ({
+        errors: [
+          {
+            message:
+              '\u001b[31m× Module build failed\u001b[0m: Unterminated string constant'
+          }
+        ]
+      })
+    })
+
+    const dir = getPlaywrightMetadataDir(projectRoot, 'chromium')
+    const ready = JSON.parse(
+      fs.readFileSync(path.join(dir, 'ready.json'), 'utf8')
+    )
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('compile_error')
+    expect(ready.errors).toEqual([
+      '× Module build failed: Unterminated string constant'
+    ])
+
+    const events = fs
+      .readFileSync(path.join(dir, 'events.ndjson'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+    const errorEvent = events.find((event) => event.type === 'compile_error')
+    expect(errorEvent.errorCount).toBe(1)
+    expect(errorEvent.errors).toEqual([
+      '× Module build failed: Unterminated string constant'
+    ])
+  })
+
+  it('falls back to the errors: N placeholder when stats carry no messages', () => {
+    const projectRoot = createTempProject()
+    const plugin = new PlaywrightPlugin({
+      packageJsonDir: projectRoot,
+      browser: 'chromium',
+      mode: 'development',
+      outputPath: path.join(projectRoot, 'dist', 'chromium'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: 8080
+    })
+
+    const taps: Record<string, (arg?: unknown) => void> = {}
+    const hook = (name: string) => ({
+      tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
+        taps[name] = fn
+      }
+    })
+    plugin.apply({
+      hooks: {
+        compile: hook('compile'),
+        done: hook('done'),
+        failed: hook('failed'),
+        watchClose: hook('watchClose')
+      }
+    } as any)
+
+    taps.done({
+      compilation: {startTime: 0, endTime: 25},
+      hasErrors: () => true,
+      toJson: () => ({errors: [{message: ''}, {message: '   '}]})
+    })
+
+    const dir = getPlaywrightMetadataDir(projectRoot, 'chromium')
+    const ready = JSON.parse(
+      fs.readFileSync(path.join(dir, 'ready.json'), 'utf8')
+    )
+    expect(ready.errors).toEqual(['errors: 2'])
   })
 })

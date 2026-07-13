@@ -49,6 +49,7 @@ export type PlaywrightAutomationEvent = {
   browser: string
   durationMs?: number
   errorCount?: number
+  errors?: string[]
 }
 
 type WriterOptions = {
@@ -82,6 +83,27 @@ type PluginOptions = {
 
 function nowISO() {
   return new Date().toISOString()
+}
+
+const MAX_CONTRACT_ERRORS = 10
+
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
+
+// ready.json/events.ndjson are machine contracts (--wait, --attach, MCP);
+// error text must be plain so consumers never have to ANSI-strip.
+export function formatStatsErrors(errors: unknown): string[] {
+  if (!Array.isArray(errors)) return []
+  return errors
+    .slice(0, MAX_CONTRACT_ERRORS)
+    .map((error) => {
+      const message =
+        error && typeof error === 'object'
+          ? String((error as {message?: unknown}).message ?? '')
+          : String(error ?? '')
+      return message.replace(ANSI_PATTERN, '').trim()
+    })
+    .filter(Boolean)
 }
 
 function createRunId(): string {
@@ -269,17 +291,24 @@ export class PlaywrightPlugin {
         : 0
 
       if (hasErrors) {
+        const errorMessages = formatStatsErrors(errorsJson?.errors)
+        const contractErrors = errorMessages.length
+          ? errorMessages
+          : [`errors: ${String(errorsCount || 1)}`]
         this.writer.appendEvent({
           type: 'compile_error',
           ts: nowISO(),
           command: this.command,
           browser: this.browser,
           durationMs: Number.isFinite(durationMs) ? durationMs : undefined,
-          errorCount: Number.isFinite(errorsCount) ? errorsCount : 1
+          errorCount: Number.isFinite(errorsCount) ? errorsCount : 1,
+          errors: contractErrors
         })
-        this.writer.writeError('compile_error', 'Compilation failed', [
-          `errors: ${String(errorsCount || 1)}`
-        ])
+        this.writer.writeError(
+          'compile_error',
+          'Compilation failed',
+          contractErrors
+        )
         return
       }
 
