@@ -2,25 +2,18 @@
 
 ## Unreleased
 
-### 🐛 Fixes
+### Fixes
 
-- Stop killing the dev browser on CDP stalls; surface its death ([6cb4c8b7](https://github.com/extension-js/extension.js/commit/6cb4c8b7b36dd4179bd6a4ea57a06ae00fafb8ee))
-- Stop flagging wildcard ports in match patterns as launch refusals ([e3b26c2f](https://github.com/extension-js/extension.js/commit/e3b26c2fbc7ed6b294fd55287014029544a15d59))
-- Resolve root-absolute CSS url() from the extension root ([a86e86c6](https://github.com/extension-js/extension.js/commit/a86e86c67fcebe0bf82ecd080ffe4826c6616491))
-- Resolve root-absolute refs and TS NodeNext .js import specifiers ([aeb6c6fc](https://github.com/extension-js/extension.js/commit/aeb6c6fc420c4df130167bd90b0dedefb467ca6f))
-- Stop flagging query strings and fragments as launch refusals ([ed30159b](https://github.com/extension-js/extension.js/commit/ed30159bfabf28f45b06eb79b9be252696fe12a3))
+- Stop emitting assets on errored compiles so dist keeps last-good ([57a18b1c](https://github.com/extension-js/extension.js/commit/57a18b1c5b490274b18efa4a021d4170241e9c57))
 
 <details>
-<summary>🧹 Other changes (8)</summary>
+<summary>Other changes (5)</summary>
 
-- Loosen dev connect-src for the resolved connectable host ([3c5474d0](https://github.com/extension-js/extension.js/commit/3c5474d0e3a70e807059a5c69dcea2db09293797))
-- Tolerate dead CSS url() refs; type-strip TS in classic-concat ([268a23d7](https://github.com/extension-js/extension.js/commit/268a23d7aa18e90a96b09cbb1b41bda64d9af9b8))
-- Ship console-relay logs over a named Port to kill message loops ([6a148b4b](https://github.com/extension-js/extension.js/commit/6a148b4bbbd01ef0d9691744825f9c97ce873d26))
-- Auto-install with --ignore-scripts; warn on dead HTML refs ([fb24279c](https://github.com/extension-js/extension.js/commit/fb24279cfdf8a903136ce82df62f142bbb6f82b2))
-- Isolate devtools overlay shadow host from page styles ([639e1c53](https://github.com/extension-js/extension.js/commit/639e1c53cf4d1b6f167b2324b97a0ac9fd8d1b1f))
-- Raise RUST_MIN_STACK to 256MB so deep ASTs do not SIGILL rspack ([8d05d544](https://github.com/extension-js/extension.js/commit/8d05d5444a25a13e3a62664d776f53ac0104781a))
-- Dedupe files listed twice in one content_scripts js array ([b2cfc1e5](https://github.com/extension-js/extension.js/commit/b2cfc1e5886983cbb94d49395fdc0d4e7d4c8f4b))
-- Content-hash dev asset names to stop same-basename collisions ([78c2dce6](https://github.com/extension-js/extension.js/commit/78c2dce6a0853171279c2baa213d234ea3f80b21))
+- Strip emojis from generated release notes ([1c3f4be8](https://github.com/extension-js/extension.js/commit/1c3f4be83ea4df17152edb83f194652c5a729115))
+- Ship real compile-error text in ready.json and events.ndjson ([8f7bd584](https://github.com/extension-js/extension.js/commit/8f7bd5846e2e78e354132b169e9e1830f6e74b3b))
+- Print dev command failures cleanly without a stack trace ([f8433602](https://github.com/extension-js/extension.js/commit/f84336022810e2a0355fc32d47d9cadb90f0954a))
+- Latch content-script reloads until the SW acks, replay on hello ([a194db39](https://github.com/extension-js/extension.js/commit/a194db398e743027493a23bc70a45d3419c78812))
+- Warn per file when scss/less ship uncompiled without their compiler ([53c68dba](https://github.com/extension-js/extension.js/commit/53c68dba70f4324fd5a8cec8141afbb84f9e606f))
 </details>
 
 ## 3.18.0 (May 28, 2026)
