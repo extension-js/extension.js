@@ -222,7 +222,7 @@ export function isProjectStale(config: SafariBuildConfig): boolean {
 // Xcode user-settings preservation across project regeneration
 // ---------------------------------------------------------------------------
 
-const PRESERVED_SETTINGS = [
+export const PRESERVED_SETTINGS = [
   'DEVELOPMENT_TEAM',
   'CODE_SIGN_STYLE',
   'PROVISIONING_PROFILE_SPECIFIER'
