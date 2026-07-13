@@ -22,6 +22,18 @@ CHROME_BIN="$HOME/.cache/puppeteer/chrome/mac_arm-<ver>/chrome-mac-arm64/Google 
 FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox" node verify-firefox.mjs
 ```
 
+## Safari (xcrun safari-web-extension-converter)
+
+```bash
+node verify-safari-converter.mjs   # needs full Xcode; run make-fixtures first
+```
+
+Finding (2026-07-13, macOS 15.7.7): the converter CONVERTS every refusal fixture
+with exit 0 — it is NOT a refusal surface. Do not gate Safari on manifest shapes;
+its real refusals happen at runtime inside Safari, which has no scriptable
+install path to verify against. Converter/xcodebuild exit codes only signal
+toolchain failures.
+
 Last full run: 2026-07-13 on Chrome for Testing 150.0.7871.24 and Firefox 147.0.3.
 Outcomes (exact error strings included) are encoded as comments and specs next to
 each check; `SURPRISE` rows in the output are shapes whose expectation was wrong —
