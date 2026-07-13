@@ -34,6 +34,8 @@ import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
+  findLocaleLoadBlockers,
+  findMissingManagedSchema,
   findUnloadableIconFiles
 } from '../../browsers-lib/manifest-refusal'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
@@ -741,6 +743,12 @@ export class ChromiumLaunchPlugin {
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
     publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
 
+    // Dotted version of the resolved binary ("Google Chrome 150.0.7871.24"
+    // -> "150.0.7871.24") for the minimum_chrome_version blocker check.
+    const resolvedBrowserVersion = /(\d+(?:\.\d+){0,3})/.exec(
+      browserVersionLine || ''
+    )?.[1]
+
     // Manifest shapes modern Chromium refuses outright (MV2, Firefox-style
     // MV3 background.scripts): the refusal surfaces only as a native modal —
     // or nothing at all — and the session wedges with no error and no CDP
@@ -784,8 +792,10 @@ export class ChromiumLaunchPlugin {
           )
         }
         const loadBlockers = [
-          ...findChromiumLoadBlockers(m),
-          ...findUnloadableIconFiles(m, String(extPath))
+          ...findChromiumLoadBlockers(m, resolvedBrowserVersion),
+          ...findUnloadableIconFiles(m, String(extPath)),
+          ...findLocaleLoadBlockers(m, String(extPath)),
+          ...findMissingManagedSchema(m, String(extPath))
         ]
         if (loadBlockers.length) {
           // eslint-disable-next-line no-console

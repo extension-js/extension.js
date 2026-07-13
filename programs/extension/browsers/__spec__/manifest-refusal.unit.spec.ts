@@ -6,6 +6,8 @@ import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
+  findLocaleLoadBlockers,
+  findMissingManagedSchema,
   findUnloadableIconFiles
 } from '../browsers-lib/manifest-refusal'
 
@@ -175,12 +177,14 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([])
   })
 
+  const valid = {manifest_version: 3, name: 'x', version: '1.0'}
+
   it('flags more than 4 keyboard shortcuts (spotify-hotkeys ships 12)', () => {
     const commands: Record<string, unknown> = {}
     for (let i = 0; i < 5; i++) {
       commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
     }
-    expect(findChromiumLoadBlockers({commands})).toEqual([
+    expect(findChromiumLoadBlockers({...valid, commands})).toEqual([
       'commands: 5 shortcuts declared with "suggested_key" — Chrome allows at most 4.'
     ])
   })
@@ -192,12 +196,13 @@ describe('findChromiumLoadBlockers', () => {
     for (let i = 0; i < 4; i++) {
       commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
     }
-    expect(findChromiumLoadBlockers({commands})).toEqual([])
+    expect(findChromiumLoadBlockers({...valid, commands})).toEqual([])
   })
 
   it('flags a content_scripts group with neither js nor css (fayufox)', () => {
     expect(
       findChromiumLoadBlockers({
+        ...valid,
         content_scripts: [
           {matches: ['*://*.mozilla.org/*'], js: [], css: []},
           {matches: ['*://*.example.com/*'], js: ['content.js']}
@@ -209,24 +214,294 @@ describe('findChromiumLoadBlockers', () => {
   })
 
   it('flags a malformed base64 manifest key (queup) but accepts a valid one', () => {
-    expect(findChromiumLoadBlockers({key: 'MIIBIjANBgkqhkiG9w0BAQEF'})).toEqual(
-      []
-    )
-    expect(findChromiumLoadBlockers({key: 'not-base64!!'})).toEqual([
+    expect(
+      findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQEF'})
+    ).toEqual([])
+    expect(findChromiumLoadBlockers({...valid, key: 'not-base64!!'})).toEqual([
       'key: not a valid base64 public key — Chrome refuses the extension.'
     ])
     // broken padding — queup's exact failure mode
-    expect(findChromiumLoadBlockers({key: 'MIIBIjANBgkqhkiG9w0BAQE'})).toEqual([
+    expect(
+      findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQE'})
+    ).toEqual([
       'key: not a valid base64 public key — Chrome refuses the extension.'
     ])
   })
 
-  it('tolerates malformed and empty manifests', () => {
-    expect(findChromiumLoadBlockers(undefined)).toEqual([])
-    expect(findChromiumLoadBlockers({})).toEqual([])
+  it('flags missing/empty/non-string name (fixtures 01/02/26, Chrome 150)', () => {
+    for (const manifest of [
+      {manifest_version: 3, version: '1.0'},
+      {manifest_version: 3, name: '', version: '1.0'},
+      {manifest_version: 3, name: 42, version: '1.0'}
+    ]) {
+      const blockers = findChromiumLoadBlockers(manifest)
+      expect(blockers.some((b) => b.startsWith('name:')), JSON.stringify(manifest)).toBe(true)
+    }
+    expect(findChromiumLoadBlockers(valid)).toEqual([])
+  })
+
+  it('flags a missing or out-of-grammar version', () => {
+    for (const manifest of [
+      {manifest_version: 3, name: 'x'},
+      {manifest_version: 3, name: 'x', version: 'x.y.z'},
+      {manifest_version: 3, name: 'x', version: 1}
+    ]) {
+      const blockers = findChromiumLoadBlockers(manifest)
+      expect(blockers.some((b) => b.startsWith('version:')), JSON.stringify(manifest)).toBe(true)
+    }
+  })
+
+  it('flags MV3 WAR shape errors but not the MV2 string form (fixtures 06/07/08/23)', () => {
     expect(
-      findChromiumLoadBlockers({commands: 'x', content_scripts: 'y'})
+      findChromiumLoadBlockers({...valid, web_accessible_resources: ['img.png']})
+    ).toEqual([
+      'web_accessible_resources[0]: MV2-style entry — MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.'
+    ])
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [{resources: ['img.png']}]
+      })
+    ).toEqual([
+      "web_accessible_resources[0]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources — Chrome refuses the extension without it."
+    ])
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [{matches: ['https://example.com/*']}]
+      })
+    ).toEqual([
+      "web_accessible_resources[0]: 'resources' is required — Chrome refuses the extension without it."
+    ])
+    // use_dynamic_url alone satisfies "one other valid key" (verified live)
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [
+          {resources: ['img.png'], use_dynamic_url: true}
+        ]
+      })
     ).toEqual([])
+    // MV2 string-array WAR is legal on MV2 — never flag it there
+    expect(
+      findChromiumLoadBlockers({
+        manifest_version: 2,
+        name: 'x',
+        version: '1.0',
+        web_accessible_resources: ['img.png']
+      })
+    ).toEqual([])
+  })
+
+  it('flags content_scripts grammar Chrome refuses (fixtures 09/10/17/18/27)', () => {
+    const cs = (group: Record<string, unknown>) =>
+      findChromiumLoadBlockers({...valid, content_scripts: [group]})
+    expect(cs({js: ['c.js']})).toEqual([
+      "content_scripts[0]: 'matches' is required — Chrome refuses the extension without it."
+    ])
+    expect(cs({matches: [], js: ['c.js']})).toEqual([
+      'content_scripts[0].matches: there must be at least one match — Chrome refuses the extension over an empty list.'
+    ])
+    expect(cs({matches: ['<all_urls>'], js: [42]})).toEqual([
+      'content_scripts[0].js[0]: expected a string, got number — Chrome refuses the extension.'
+    ])
+    expect(
+      cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 'document_ready'})
+    ).toEqual([
+      'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got "document_ready" — Chrome refuses the extension.'
+    ])
+    expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 3})).toEqual([
+      'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got 3 — Chrome refuses the extension.'
+    ])
+    for (const run_at of ['document_start', 'document_end', 'document_idle']) {
+      expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at})).toEqual([])
+    }
+  })
+
+  it('flags minimum_chrome_version above the browser or out of grammar (fixtures 11/31/32)', () => {
+    expect(
+      findChromiumLoadBlockers(
+        {...valid, minimum_chrome_version: '999.0'},
+        '150.0.7871.24'
+      )
+    ).toEqual([
+      'minimum_chrome_version: requires 999.0 but the resolved browser is 150.0.7871.24 — the browser refuses the extension.'
+    ])
+    expect(
+      findChromiumLoadBlockers({...valid, minimum_chrome_version: 'banana'})
+    ).toEqual(['minimum_chrome_version: invalid value "banana" — Chrome refuses the extension.'])
+    // below the browser: loads (fixture 31); unknown browser version: silent
+    expect(
+      findChromiumLoadBlockers(
+        {...valid, minimum_chrome_version: '100'},
+        '150.0.7871.24'
+      )
+    ).toEqual([])
+    expect(
+      findChromiumLoadBlockers({...valid, minimum_chrome_version: '999.0'})
+    ).toEqual([])
+  })
+
+  it('never flags shapes verified to LOAD on Chrome 150 (the temptation list)', () => {
+    // MV3 background.page and background.persistent both install fine.
+    expect(
+      findChromiumLoadBlockers({...valid, background: {page: 'bg.html'}})
+    ).toEqual([])
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        background: {service_worker: 'sw.js', persistent: true}
+      })
+    ).toEqual([])
+    expect(
+      diagnoseChromiumManifestRefusal({...valid, background: {page: 'bg.html'}})
+    ).toBeNull()
+  })
+
+  it('tolerates malformed manifests; an empty one is truthfully flagged', () => {
+    expect(findChromiumLoadBlockers(undefined)).toEqual([])
+    // {} genuinely refuses on Chrome (no name, no version) — say so.
+    const empty = findChromiumLoadBlockers({})
+    expect(empty.some((b) => b.startsWith('name:'))).toBe(true)
+    expect(empty.some((b) => b.startsWith('version:'))).toBe(true)
+    const malformed = findChromiumLoadBlockers({
+      ...valid,
+      commands: 'x',
+      content_scripts: 'y',
+      web_accessible_resources: 'z'
+    })
+    expect(malformed).toEqual([])
+  })
+})
+
+// The locale family — every shape verified live on Chrome 150 (2026-07-13,
+// CDP loadUnpacked): missing catalogs, missing default_locale, unparseable
+// catalogs, and unresolved __MSG__ variables all refuse the whole extension.
+describe('findLocaleLoadBlockers', () => {
+  let dir: string
+  const valid = {manifest_version: 3, name: 'x', version: '1.0'}
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-locales-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  const writeCatalog = (locale: string, content: string) => {
+    const catalogDir = path.join(dir, '_locales', locale)
+    fs.mkdirSync(catalogDir, {recursive: true})
+    fs.writeFileSync(path.join(catalogDir, 'messages.json'), content)
+  }
+
+  it('flags default_locale with no catalog — missing tree or missing locale (fixtures 03/20)', () => {
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: "en" is declared but _locales/en/messages.json is missing — Chrome refuses the whole extension.'
+    ])
+    writeCatalog('fr', JSON.stringify({greeting: {message: 'salut'}}))
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: "en" is declared but _locales/en/messages.json is missing — Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('flags a populated _locales tree with no default_locale (fixture 04)', () => {
+    writeCatalog('en', JSON.stringify({greeting: {message: 'hi'}}))
+    expect(findLocaleLoadBlockers(valid, dir)).toEqual([
+      '_locales: a locales tree exists but the manifest declares no default_locale — Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('flags an unparseable default catalog (fixture 22), tolerates an empty one (fixture 21)', () => {
+    writeCatalog('en', '{oops')
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: _locales/en/messages.json is not valid JSON — Chrome refuses the whole extension.'
+    ])
+    writeCatalog('en', '{}')
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([])
+  })
+
+  it('flags unresolved __MSG__ variables in name and description (fixtures 05/29)', () => {
+    writeCatalog('en', JSON.stringify({other: {message: 'x'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_appName__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([
+      '__MSG_appName__: used in the manifest but not defined in _locales/en/messages.json — Chrome refuses the whole extension.'
+    ])
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, description: '__MSG_missing__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([
+      '__MSG_missing__: used in the manifest but not defined in _locales/en/messages.json — Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('honors the verified tolerances: case-insensitive keys and @@predefined (fixtures 24/25/30)', () => {
+    writeCatalog('en', JSON.stringify({appName: {message: 'Cased'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_APPNAME__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_@@ui_locale__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_appName__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+  })
+
+  it('stays silent without _locales and without default_locale, and on malformed input', () => {
+    expect(findLocaleLoadBlockers(valid, dir)).toEqual([])
+    expect(findLocaleLoadBlockers(undefined, dir)).toEqual([])
+    expect(findLocaleLoadBlockers({...valid, default_locale: 42}, dir)).toEqual(
+      []
+    )
+  })
+})
+
+// "File does not exist: <path>" — storage.managed_schema pointing nowhere
+// refuses the whole extension (fixture 19, Chrome 150).
+describe('findMissingManagedSchema', () => {
+  let dir: string
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-schema-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('flags a missing schema file and accepts a present one', () => {
+    const manifest = {storage: {managed_schema: 'schema.json'}}
+    expect(findMissingManagedSchema(manifest, dir)).toEqual([
+      'storage.managed_schema: "schema.json" does not exist in the extension directory — Chrome refuses the whole extension.'
+    ])
+    fs.writeFileSync(path.join(dir, 'schema.json'), '{}')
+    expect(findMissingManagedSchema(manifest, dir)).toEqual([])
+    expect(findMissingManagedSchema({}, dir)).toEqual([])
+    expect(findMissingManagedSchema(undefined, dir)).toEqual([])
   })
 })
 
