@@ -9,6 +9,7 @@
 import type {RuleSetRule} from '@rspack/core'
 import {commonStyleLoaders} from '../common-style-loaders'
 import {createSassLoaderOptions} from '../css-tools/sass'
+import {resolveDevelopDistFile} from '../../lib/develop-context'
 import type {DevOptions} from '../../types'
 
 export interface PreprocessorUsage {
@@ -37,6 +38,7 @@ export async function buildCssRules(
     exclude?: RegExp
     type: string
     loader: 'sass-loader' | 'less-loader' | null
+    missingTool?: 'sass' | 'less'
   }> = [
     {test: /\.module\.css$/, type: 'css/module', loader: null},
     {
@@ -63,16 +65,23 @@ export async function buildCssRules(
         // Chrome loads a manifest-declared `.scss` stylesheet by injecting
         // its raw text as CSS (dropping invalid rules), so with no rule here
         // the file used to fall through to rspack's default JS parser and
-        // hard-fail a build the browser accepts. Uncompilable content then
-        // flows through the invalid-CSS warn-and-ship-verbatim path.
+        // hard-fail a build the browser accepts. Shipping raw preprocessor
+        // source is knowingly-broken CSS, so each file also emits a loud
+        // install-the-compiler warning via the passthrough loader.
         [
           {
             test: /\.(sass|scss)$/,
             exclude: /\.module\.(sass|scss)$/,
             type: nonModuleType,
-            loader: null
+            loader: null,
+            missingTool: 'sass' as const
           },
-          {test: /\.module\.(sass|scss)$/, type: 'css/module', loader: null}
+          {
+            test: /\.module\.(sass|scss)$/,
+            type: 'css/module',
+            loader: null,
+            missingTool: 'sass' as const
+          }
         ]),
     ...(useLess
       ? [
@@ -93,14 +102,20 @@ export async function buildCssRules(
             test: /\.less$/,
             exclude: /\.module\.less$/,
             type: nonModuleType,
-            loader: null
+            loader: null,
+            missingTool: 'less' as const
           },
-          {test: /\.module\.less$/, type: 'css/module', loader: null}
+          {
+            test: /\.module\.less$/,
+            type: 'css/module',
+            loader: null,
+            missingTool: 'less' as const
+          }
         ])
   ]
 
   return Promise.all(
-    fileTypes.map(async ({test, exclude, type, loader}) => {
+    fileTypes.map(async ({test, exclude, type, loader, missingTool}) => {
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
@@ -118,6 +133,12 @@ export async function buildCssRules(
         : await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production'
           })
+
+      if (missingTool) {
+        ;(use as any[]).push({
+          loader: resolveDevelopDistFile('preprocessor-passthrough-loader')
+        })
+      }
 
       return {test, exclude, type, issuer, use} as RuleSetRule
     })
