@@ -42,33 +42,64 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function runTool(bin: string, args: string[]): Promise<boolean> {
-  const inheritOutput = process.env.EXTENSION_AUTHOR_MODE === 'true'
+// xcodebuild output for a full app build easily reaches megabytes; keep only a
+// bounded tail so failure diagnostics stay useful without unbounded memory.
+const TOOL_TAIL_LINES = 50
+const TOOL_TAIL_BYTES = 8 * 1024
+
+export function toolOutputTail(output: string): string {
+  const lines = output
+    .slice(-TOOL_TAIL_BYTES * 4)
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+  const tail = lines.slice(-TOOL_TAIL_LINES).join('\n')
+  return tail.length > TOOL_TAIL_BYTES ? tail.slice(-TOOL_TAIL_BYTES) : tail
+}
+
+interface ToolResult {
+  ok: boolean
+  code: number | null
+  output: string
+}
+
+function runTool(
+  bin: string,
+  args: string[],
+  opts?: {quiet?: boolean}
+): Promise<ToolResult> {
+  const streamOutput =
+    process.env.EXTENSION_AUTHOR_MODE === 'true' && !opts?.quiet
 
   return new Promise((resolve) => {
-    const child = spawn(bin, args, {
-      stdio: inheritOutput ? 'inherit' : 'ignore'
-    })
+    let output = ''
+    const child = spawn(bin, args, {stdio: ['ignore', 'pipe', 'pipe']})
 
-    child.on('error', () => resolve(false))
-    child.on('close', (code) => resolve(code === 0))
+    const onChunk = (chunk: unknown) => {
+      const text = String(chunk)
+      output += text
+      if (output.length > TOOL_TAIL_BYTES * 8) {
+        output = output.slice(-TOOL_TAIL_BYTES * 4)
+      }
+      if (streamOutput) process.stdout.write(text)
+    }
+
+    child.stdout?.on('data', onChunk)
+    child.stderr?.on('data', onChunk)
+    child.on('error', (error) =>
+      resolve({ok: false, code: null, output: `${output}${String(error)}`})
+    )
+    child.on('close', (code) => resolve({ok: code === 0, code, output}))
   })
 }
 
-function runToolCapture(
-  bin: string,
-  args: string[]
-): Promise<{ok: boolean; stdout: string}> {
-  return new Promise((resolve) => {
-    let stdout = ''
-    const child = spawn(bin, args, {stdio: ['ignore', 'pipe', 'pipe']})
-
-    child.stdout?.on('data', (chunk) => {
-      stdout += String(chunk)
-    })
-    child.on('error', () => resolve({ok: false, stdout}))
-    child.on('close', (code) => resolve({ok: code === 0, stdout}))
-  })
+function converterWarnings(output: string): string[] {
+  // safari-web-extension-converter prints per-key compatibility warnings
+  // ("Warning: ...") on success — the closest thing to a Safari manifest lint.
+  return output
+    .split(/\r?\n/)
+    .filter((line) => /warning/i.test(line))
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 }
 
 async function confirmRegisteredWithSafari(
@@ -77,9 +108,9 @@ async function confirmRegisteredWithSafari(
   const needle = `${bundleIdentifier}.Extension`
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const {ok, stdout} = await runToolCapture('pluginkit', ['-m'])
+    const {ok, output} = await runTool('pluginkit', ['-m'], {quiet: true})
 
-    if (ok && stdout.includes(needle)) return true
+    if (ok && output.includes(needle)) return true
 
     // Spread attempts over ~5s without blocking the event loop.
     await delay(800)
@@ -102,6 +133,42 @@ export function safariPreflightError(): string | null {
   }
 
   return null
+}
+
+export interface SafariBuildPreflight {
+  severity: 'ok' | 'skip' | 'fatal'
+  message?: string
+}
+
+/**
+ * Preflight for `build`: a non-macOS host is not an error — the web-extension
+ * bundle is still produced and can be packaged later on a Mac — so packaging
+ * is skipped with a warning. A macOS host with a broken/missing Xcode stays
+ * fatal because the user can act on it locally. `dev` keeps the stricter
+ * safariPreflightError(): a Safari dev loop without packaging is pointless.
+ */
+export function safariBuildPreflight(): SafariBuildPreflight {
+  const tc = detectSafariToolchain()
+
+  if (!tc.platformOk) {
+    return {
+      severity: 'skip',
+      message: messages.safariPackagingSkippedNonMac(process.platform)
+    }
+  }
+
+  if (!tc.ok) {
+    return {
+      severity: 'fatal',
+      message: tc.needsFullXcode
+        ? messages.safariXcodeRequired(tc.developerDir)
+        : messages.safariToolchainMissing(
+            !tc.converter ? 'safari-web-extension-converter' : 'xcodebuild'
+          )
+    }
+  }
+
+  return {severity: 'ok'}
 }
 
 async function runSafariPipeline(
@@ -159,14 +226,24 @@ async function runSafariPipeline(
 
     logger.info?.(messages.safariConverting(config.extensionDir))
 
-    if (!(await runTool('xcrun', converterArgs))) {
+    const converted = await runTool('xcrun', converterArgs)
+    if (!converted.ok) {
+      const tail = toolOutputTail(converted.output)
       logger.error?.(
-        messages.safariFailed(
-          new Error('safari-web-extension-converter failed')
+        messages.safariToolFailed(
+          'safari-web-extension-converter',
+          converted.code,
+          tail
         )
       )
+      throw new Error(
+        `safari-web-extension-converter failed (exit ${converted.code})\n${tail}`
+      )
+    }
 
-      return
+    const warnings = converterWarnings(converted.output)
+    if (warnings.length > 0) {
+      logger.warn?.(messages.safariConverterWarnings(warnings))
     }
 
     restore()
@@ -185,9 +262,11 @@ async function runSafariPipeline(
   if (mode === 'full')
     logger.info?.(messages.safariBuilding(macOsSchemeName(config)))
 
-  if (!(await runTool('xcodebuild', xcodebuildArgs))) {
-    logger.error?.(messages.safariFailed(new Error('xcodebuild failed')))
-    return
+  const built = await runTool('xcodebuild', xcodebuildArgs)
+  if (!built.ok) {
+    const tail = toolOutputTail(built.output)
+    logger.error?.(messages.safariToolFailed('xcodebuild', built.code, tail))
+    throw new Error(`xcodebuild failed (exit ${built.code})\n${tail}`)
   }
 
   const appPath = builtAppPath(config)
@@ -200,16 +279,21 @@ async function runSafariPipeline(
 
   logger.info?.(messages.safariBuilt(appPath))
 
-  if (config.open) {
-    const target = fs.existsSync(appPath) ? appPath : xcodeProjectPath(config)
+  if (!config.open) {
+    // Registration with macOS only happens once the app has been launched, so
+    // polling pluginkit here would just warn spuriously. Point at the app.
+    logger.info?.(messages.safariOpenHint(appPath, config.appName))
+    return
+  }
 
-    logger.info?.(messages.safariOpening(target))
+  const target = fs.existsSync(appPath) ? appPath : xcodeProjectPath(config)
 
-    await runTool('open', [target])
+  logger.info?.(messages.safariOpening(target))
 
-    if (config.safariBinary) {
-      await runTool('open', ['-a', config.safariBinary])
-    }
+  await runTool('open', [target])
+
+  if (config.safariBinary) {
+    await runTool('open', ['-a', config.safariBinary])
   }
 
   logger.info?.(messages.safariNextSteps(config.appName))

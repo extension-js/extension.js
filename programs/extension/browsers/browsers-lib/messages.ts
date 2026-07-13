@@ -616,9 +616,18 @@ function prettyPlatform(platform: string) {
 export function safariRequiresMacOS(platform: string) {
   return (
     `${getLoggingPrefix('warn')} Safari extensions can only be built on macOS.\n` +
-    `Detected ${colors.gray(prettyPlatform(platform))} — skipping Safari packaging. ` +
+    `Detected ${colors.gray(prettyPlatform(platform))}. Target another browser via ` +
+    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}, or run this ` +
+    `command on a Mac with Xcode.`
+  )
+}
+
+export function safariPackagingSkippedNonMac(platform: string) {
+  return (
+    `${getLoggingPrefix('warn')} Safari packaging needs macOS with Xcode — detected ` +
+    `${colors.gray(prettyPlatform(platform))}, so the Xcode packaging step is skipped.\n` +
     `The web-extension build in ${colors.yellow('dist/safari')} is still complete and can be ` +
-    `packaged later on a Mac with Xcode.`
+    `packaged later on a Mac with ${colors.blue('extension build --browser=safari')}.`
   )
 }
 
@@ -668,8 +677,37 @@ export function safariOpening(target: string) {
   return `${getLoggingPrefix('info')} Opening ${colors.underline(target)}`
 }
 
-export function safariFailed(error: unknown) {
-  return `${getLoggingPrefix('error')} Safari build failed:\n${colors.red(errorDetail(error))}`
+export function safariToolFailed(
+  tool: string,
+  exitCode: number | null,
+  outputTail: string
+) {
+  const code = exitCode === null ? 'no exit code' : `exit ${exitCode}`
+  const tail = outputTail.trim().length
+    ? `\n${colors.gray('── last output ──')}\n${outputTail}`
+    : `\n${colors.gray('(no output captured)')}`
+  return (
+    `${getLoggingPrefix('error')} Safari packaging tool ${colors.underline(tool)} ` +
+    `failed (${colors.red(code)}).${tail}`
+  )
+}
+
+export function safariConverterWarnings(warnings: string[]) {
+  return (
+    `${getLoggingPrefix('warn')} safari-web-extension-converter reported ` +
+    `${colors.yellow(String(warnings.length))} warning(s) — some manifest keys/APIs ` +
+    `may not be supported by Safari:\n` +
+    warnings.map((line) => `  ${colors.gray('•')} ${line}`).join('\n')
+  )
+}
+
+export function safariOpenHint(appPath: string, appName: string) {
+  return (
+    `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +
+    `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n` +
+    `Then enable ${colors.brightBlue(appName)} via Safari ▸ Develop ▸ ` +
+    `${colors.yellow('Allow Unsigned Extensions')} and Safari ▸ Settings ▸ Extensions.`
+  )
 }
 
 export function safariDryRunNotBuilding() {

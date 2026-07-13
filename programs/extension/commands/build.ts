@@ -20,7 +20,7 @@ import {
 } from '../helpers/vendors'
 import {
   packageSafariExtension,
-  safariPreflightError
+  safariBuildPreflight
 } from '../browsers/run-safari/safari-launch'
 
 type BuildOptions = {
@@ -33,6 +33,7 @@ type BuildOptions = {
   install?: boolean
   extensions?: string
   mode?: string
+  open?: boolean
 }
 
 export function registerBuildCommand(program: Command) {
@@ -83,6 +84,11 @@ export function registerBuildCommand(program: Command) {
       'bundler mode override (also sets NODE_ENV). Defaults to `production`'
     )
     .option(
+      '--open [boolean]',
+      'open the built Safari app after packaging (safari targets only). Defaults to `false`',
+      parseOptionalBoolean
+    )
+    .option(
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
@@ -119,13 +125,23 @@ export function registerBuildCommand(program: Command) {
         }
       }
 
+      // Safari packaging preflight. Non-macOS is a warn-and-skip (the
+      // web-extension bundle in dist/safari still builds and can be packaged
+      // later on a Mac); a macOS host with a broken/missing Xcode is fatal.
+      let safariPackagingEnabled = true
       if (list.some(isSafariVendor)) {
-        const issue = safariPreflightError()
+        const preflight = safariBuildPreflight()
 
-        if (issue) {
+        if (preflight.severity === 'fatal') {
           // eslint-disable-next-line no-console
-          console.error(issue)
+          console.error(preflight.message)
           process.exit(1)
+        }
+
+        if (preflight.severity === 'skip') {
+          safariPackagingEnabled = false
+          // eslint-disable-next-line no-console
+          console.warn(preflight.message)
         }
       }
 
@@ -143,22 +159,23 @@ export function registerBuildCommand(program: Command) {
           install: buildOptions.install,
           extensions: parseExtensionsList((buildOptions as any).extensions),
           mode,
-          safariPackager: async (
-            distPath: string,
-            packagerMode: 'full' | 'resync'
-          ) => {
-            await packageSafariExtension(
-              {
-                extension: [distPath],
-                browser: vendor as Browser,
-                noOpen: !!buildOptions.silent,
-                dryRun: false
-              },
-              distPath,
-              undefined,
-              packagerMode
-            )
-          }
+          safariPackager: safariPackagingEnabled
+            ? async (distPath: string, packagerMode: 'full' | 'resync') => {
+                await packageSafariExtension(
+                  {
+                    extension: [distPath],
+                    browser: vendor as Browser,
+                    // build is a packaging command: never open the app unless
+                    // explicitly asked (--open). dev keeps open-by-default.
+                    noOpen: buildOptions.open !== true,
+                    dryRun: false
+                  },
+                  distPath,
+                  undefined,
+                  packagerMode
+                )
+              }
+            : undefined
         })
       }
     })
