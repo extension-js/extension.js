@@ -107,7 +107,7 @@ const IGNORED_PATTERNS = [
 const CATEGORIES = [
   {
     key: 'features',
-    title: '🚀 Features',
+    title: 'Features',
     patterns: [
       /^Add\b/i,
       /^Introduce\b/i,
@@ -125,7 +125,7 @@ const CATEGORIES = [
   },
   {
     key: 'fixes',
-    title: '🐛 Fixes',
+    title: 'Fixes',
     patterns: [
       /^Fix\b/i,
       /^Resolve\b/i,
@@ -147,7 +147,7 @@ const CATEGORIES = [
   }
 ]
 
-const OTHER_TITLE = '🧹 Other changes'
+const OTHER_TITLE = 'Other changes'
 
 function categorize(commits) {
   const buckets = {features: [], fixes: [], other: []}
@@ -233,15 +233,15 @@ function formatDiscord({highlights, buckets, notesUrl}) {
   }
 
   const summary = [
-    buckets.features.length ? `🚀 ${buckets.features.length} features` : '',
-    buckets.fixes.length ? `🐛 ${buckets.fixes.length} fixes` : '',
-    buckets.other.length ? `🧹 ${buckets.other.length} other` : ''
+    buckets.features.length ? `${buckets.features.length} features` : '',
+    buckets.fixes.length ? `${buckets.fixes.length} fixes` : '',
+    buckets.other.length ? `${buckets.other.length} other` : ''
   ]
     .filter(Boolean)
     .join(' · ')
   if (summary) parts.push(summary)
 
-  if (notesUrl) parts.push(`📖 [Full release notes](${notesUrl})`)
+  if (notesUrl) parts.push(`[Full release notes](${notesUrl})`)
 
   return parts.length > 0 ? parts.join('\n\n') : 'No changes listed.'
 }
@@ -257,7 +257,7 @@ function buildTweet({version, highlights, buckets, notesUrl}) {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/[`*_]/g, '')
     .trim()
-  const lead = `🧩 Extension.js v${version} is out!`
+  const lead = `Extension.js v${version} is out!`
   const body = plain.length > 180 ? `${plain.slice(0, 177)}...` : plain
   const url = notesUrl ? `\n\n${notesUrl}` : ''
   return `${lead}\n\n${body}${url}`
