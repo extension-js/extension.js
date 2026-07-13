@@ -17,6 +17,30 @@ describe('sanitizeFatalManifestShapes', () => {
     expect(fixes[0].field).toBe('version')
   })
 
+  it('repairs a missing, empty, or non-string name (fixtures 01/02/26, Chrome 150)', () => {
+    const missing = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      version: '1.0'
+    } as unknown as Manifest)
+    expect(missing.manifest.name).toBe('Unnamed Extension')
+    expect(missing.fixes.map((f) => f.field)).toEqual(['name'])
+
+    const empty = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: '',
+      version: '1.0'
+    } as unknown as Manifest)
+    expect(empty.manifest.name).toBe('Unnamed Extension')
+
+    // scalars keep their intent, like the numeric-version coercion
+    const numeric = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: 42,
+      version: '1.0'
+    } as unknown as Manifest)
+    expect(numeric.manifest.name).toBe('42')
+  })
+
   it('injects "0.0.0" when the required version key is missing (wild: Ananyakk71/javscript)', () => {
     const {manifest, fixes} = sanitizeFatalManifestShapes({
       manifest_version: 3,
