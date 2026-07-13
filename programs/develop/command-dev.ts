@@ -143,8 +143,14 @@ export async function extensionDev(
 
     return emitter
   } catch (error) {
-    // Always surface a minimal error so users aren't left with a silent exit
-    console.error(error)
+    // Always surface a minimal error so users aren't left with a silent exit.
+    // Contract errors (missing tsconfig, bad manifest, …) print once, clean,
+    // no stack — author mode keeps the full trace.
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.error(error)
+    } else {
+      console.error(messages.devCommandFailed(error))
+    }
     process.exit(1)
   }
 }
