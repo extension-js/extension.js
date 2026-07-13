@@ -343,6 +343,82 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     expect(late.sent).toHaveLength(0)
   })
 
+  it('latches a DELIVERED content-scripts reload until the producer acks (bug 27)', () => {
+    // A socket write is not delivery: a wedged-but-connected SW receives the
+    // frame at the socket layer while its message pump never runs the
+    // reinjection. The reload must replay to the next (healthy) producer
+    // hello instead of being lost.
+    const b = new BridgeBroker(opts)
+    const wedged = new FakeConn('wedged')
+    hello(b, wedged, 'producer')
+
+    expect(
+      b.broadcastReload({
+        type: 'content-scripts',
+        label: 'content_script (content/index.ts)'
+      })
+    ).toBe(1)
+
+    // No ack came back — a fresh producer hello gets the replay.
+    const fresh = new FakeConn('fresh')
+    hello(b, fresh, 'producer')
+    expect(fresh.sent).toHaveLength(1)
+    expect(fresh.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      label: 'content_script (content/index.ts)'
+    })
+
+    // Replay is once-only.
+    const later = new FakeConn('later')
+    hello(b, later, 'producer')
+    expect(later.sent).toHaveLength(0)
+  })
+
+  it('reload-ack releases the content-scripts latch (no replay on next hello)', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+
+    b.broadcastReload({type: 'content-scripts', label: 'content_script'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'content-scripts',
+      label: 'content_script'
+    })
+
+    const fresh = new FakeConn('fresh')
+    hello(b, fresh, 'producer')
+    expect(fresh.sent).toHaveLength(0)
+  })
+
+  it('ignores a reload-ack from a non-producer connection', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    const cons = new FakeConn('c')
+    hello(b, prod, 'producer')
+    hello(b, cons, 'consumer')
+
+    b.broadcastReload({type: 'content-scripts'})
+    b.onFrame(cons, {type: 'reload-ack', reloadType: 'content-scripts'})
+
+    const fresh = new FakeConn('fresh')
+    hello(b, fresh, 'producer')
+    expect(fresh.sent).toHaveLength(1)
+  })
+
+  it('delivered full reloads still clear the latch (replaying one would loop the restart)', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(1)
+
+    const fresh = new FakeConn('fresh')
+    hello(b, fresh, 'producer')
+    expect(fresh.sent).toHaveLength(0)
+  })
+
   it('pings connected producers only (SW keepalive)', () => {
     const b = new BridgeBroker(opts)
     const prod = new FakeConn('p')

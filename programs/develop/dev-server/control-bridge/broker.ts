@@ -90,10 +90,13 @@ export class BridgeBroker {
   private readonly pending = new Map<string, Pending>()
   private staleResyncTimes: number[] = []
   /**
-   * Latest reload broadcast that reached zero producers (the SW wasn't
-   * connected — not started yet, or stopped after idling out). Delivered
-   * once to the next producer that says hello, so an edit made while the
-   * SW was away still applies instead of silently reloading nothing.
+   * Latest reload broadcast not yet provably delivered. Latched when the
+   * broadcast reached zero producers (SW not started yet, or stopped after
+   * idling out) and, for content-scripts reloads, until a producer confirms
+   * reinjection ran with a `reload-ack` — a successful socket write proves
+   * nothing when the SW is wedged-but-connected (bug 27). Delivered once to
+   * the next producer that says hello, so an edit made while the SW was away
+   * (or dead at the pump) still applies instead of silently reloading nothing.
    */
   private pendingReload?: ReloadFrame
 
@@ -148,6 +151,16 @@ export class BridgeBroker {
         // Only the executor (a producer connection) resolves commands.
         if (this.roles.get(conn) === 'producer') {
           this.onResult(frame)
+        }
+        return
+      case 'reload-ack':
+        // Reinjection provably ran in the SW: release the delivery latch so
+        // the next producer hello doesn't replay an already-applied reload.
+        if (
+          this.roles.get(conn) === 'producer' &&
+          this.pendingReload?.reloadType === frame.reloadType
+        ) {
+          this.pendingReload = undefined
         }
         return
       default:
@@ -208,10 +221,19 @@ export class BridgeBroker {
       }
     }
 
-    // Nobody was listening: latch the newest instruction so the next
-    // producer hello (SW started late, or woken after an idle stop) still
-    // applies it. Delivered broadcasts clear the latch — they supersede it.
-    this.pendingReload = notified === 0 ? frame : undefined
+    // Latch the newest instruction so the next producer hello (SW started
+    // late, woken after an idle stop, or restarted after wedging) still
+    // applies it. A write to a connected socket is NOT delivery: a
+    // content-scripts reload stays latched until the producer's reload-ack
+    // confirms reinjection actually ran (bug 27) — real reinjection acks
+    // within milliseconds, and re-running a content script on replay is no
+    // worse than two quick edits. Full/SW reloads can't ack (runtime.reload()
+    // kills the worker, and replaying one on hello would loop the restart),
+    // so for those a successful write still clears the latch.
+    this.pendingReload =
+      notified === 0 || frame.reloadType === 'content-scripts'
+        ? frame
+        : undefined
 
     return notified
   }
