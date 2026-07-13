@@ -29,6 +29,7 @@ describe('UpdateManifest', () => {
     const updated: Record<string, string> = {}
     const compilation: any = {
       errors: [],
+      warnings: [],
       options: {mode},
       assets,
       getAsset: (n: string) =>
@@ -110,6 +111,7 @@ describe('UpdateManifest', () => {
     const emitted: Record<string, string> = {}
     const compilation: any = {
       errors: [],
+      warnings: [],
       assets: {},
       getAsset: () => undefined,
       hooks: {
