@@ -608,6 +608,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         return;
       }
 
+      // Delivery ack for the broker: proves this SW's message pump actually
+      // processed the frame — a successful socket WRITE proves nothing when
+      // the worker is wedged-but-connected (bug 27). The broker latches a
+      // content-scripts reload until this ack and replays it to the next
+      // producer hello, so an edit that landed on a dead pump still converges.
+      // Sent on receipt (not after reinjection): the scripting-unavailable
+      // fallback restarts the whole extension, and an unacked latch would
+      // replay into the fresh SW and restart it a second time.
+      send({type: "reload-ack", reloadType: kind, label: label});
+
       announceReloadInTabs(announced);
       performDevReload(kind, function () {
         // Only the content-scripts path confirms from here (reinjection ran to

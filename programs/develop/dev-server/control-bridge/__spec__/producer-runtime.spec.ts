@@ -875,6 +875,60 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(results(ws)).toHaveLength(0)
   })
 
+  it('reload broadcast (content-scripts): acks receipt over the WS so the broker releases its delivery latch (bug 27)', async () => {
+    const ws = setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          lastError: undefined
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {executeScript: (_o: unknown, cb?: () => void) => cb && cb()}
+      },
+      {
+        fetch: (_url: string) =>
+          Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+      }
+    )
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      label: 'content_script (src/content/scripts.ts)'
+    })
+    await new Promise((r) => setTimeout(r, 20))
+
+    const ack = ws.sent
+      .map((s) => JSON.parse(s))
+      .find((f) => f.type === 'reload-ack')
+    expect(ack).toMatchObject({
+      type: 'reload-ack',
+      reloadType: 'content-scripts',
+      label: 'content_script (src/content/scripts.ts)'
+    })
+  })
+
+  it('reload broadcast (page): notify-only, no ack (nothing was latched)', async () => {
+    const ws = setup({
+      runtime: {lastError: undefined},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'page',
+      label: 'popup page (src/popup/index.tsx)'
+    })
+    await new Promise((r) => setTimeout(r, 20))
+
+    const ack = ws.sent
+      .map((s) => JSON.parse(s))
+      .find((f) => f.type === 'reload-ack')
+    expect(ack).toBeUndefined()
+  })
+
   it('reload broadcast (content-scripts): re-registers dynamic content scripts so NEW tabs get the fresh build', async () => {
     const registered: any[] = []
     const updated: any[] = []
