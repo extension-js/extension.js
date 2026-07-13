@@ -1,0 +1,74 @@
+name: CI – Safari Nightly
+
+# The only real-toolchain guard for the Safari target: Apple moves
+# safari-web-extension-converter and the generated project shape with every
+# Xcode release, and unit tests never shell out to xcrun/xcodebuild. This runs
+# the full bundle → convert → xcodebuild pipeline on a macOS runner nightly.
+# macOS minutes are expensive — keep this off the per-push path.
+
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safari-smoke:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      # Stream converter/xcodebuild output into the job log so a toolchain
+      # drift failure is self-diagnosing.
+      EXTENSION_AUTHOR_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: safari-nightly-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            safari-nightly-${{ runner.os }}-20-
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+      - name: Log Xcode toolchain
+        # The runner's Xcode version IS the variable under test — record it.
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun --find safari-web-extension-converter
+      - name: Compile
+        run: pnpm compile
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+      - name: Build Safari app (bundle → convert → xcodebuild)
+        run: |
+          pnpm extension build templates/typescript --browser safari 2>&1 | tee safari-build.log
+      - name: Assert pipeline outputs
+        run: |
+          set -euo pipefail
+          dist="templates/typescript/dist/safari"
+          xcode="templates/typescript/dist/safari-xcode"
+
+          test -f "$dist/manifest.json" || { echo "::error::missing $dist/manifest.json"; exit 1; }
+
+          proj="$(find "$xcode" -maxdepth 2 -name '*.xcodeproj' -print -quit)"
+          test -n "$proj" || { echo "::error::no .xcodeproj generated under $xcode"; exit 1; }
+          echo "xcodeproj: $proj"
+
+          app="$(find "$xcode/.derived/Build/Products/Release" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app" || { echo "::error::no built .app under $xcode/.derived"; exit 1; }
+          echo "app: $app"
+
+          appex="$(find "$app/Contents/PlugIns" -maxdepth 1 -name '*.appex' -print -quit)"
+          test -n "$appex" || { echo "::error::no embedded .appex inside $app"; exit 1; }
+          echo "appex: $appex"
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-build-log
+          path: safari-build.log
+          if-no-files-found: ignore
