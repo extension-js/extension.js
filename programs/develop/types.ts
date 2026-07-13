@@ -145,6 +145,25 @@ export interface GeckoOptions extends BrowserOptionsBase {
 export interface SafariOptions extends BrowserOptionsBase {
   browser: 'webkit-based'
   safariBinary?: string
+  /** Override the Safari app name (defaults to the manifest name). */
+  appName?: string
+  /** User-owned bundle identifier (defaults to a dev.extensionjs.* id). */
+  bundleId?: string
+  /** Generate the macOS-only Xcode project (default true). */
+  macOsOnly?: boolean
+}
+
+/**
+ * Safari identity/packaging options resolved by develop (CLI flags merged
+ * with extension.config.js `browser.safari`) and forwarded to the packager
+ * the CLI injects.
+ */
+export interface SafariPackagerOverrides {
+  appName?: string
+  bundleId?: string
+  macOsOnly?: boolean
+  forceRegenerate?: boolean
+  safariBinary?: string
 }
 
 export interface NonBinaryOptions extends BrowserOptionsBase {
@@ -209,7 +228,16 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
-  safariPackager?: (distPath: string, mode: 'full' | 'resync') => Promise<void>
+  // Safari identity/packaging inputs (safari/webkit-based targets only)
+  appName?: SafariOptions['appName']
+  bundleId?: SafariOptions['bundleId']
+  macOsOnly?: SafariOptions['macOsOnly']
+  forceRegenerate?: boolean
+  safariPackager?: (
+    distPath: string,
+    mode: 'full' | 'resync',
+    overrides?: SafariPackagerOverrides
+  ) => Promise<void>
 }
 
 export interface BuildOptions {
@@ -244,7 +272,16 @@ export interface BuildOptions {
   // When false, extensionBuild rejects on error instead of exiting the process.
   // Defaults to true for CLI usage.
   exitOnError?: boolean
-  safariPackager?: (distPath: string, mode: 'full' | 'resync') => Promise<void>
+  // Safari identity/packaging inputs (safari/webkit-based targets only)
+  appName?: SafariOptions['appName']
+  bundleId?: SafariOptions['bundleId']
+  macOsOnly?: SafariOptions['macOsOnly']
+  forceRegenerate?: boolean
+  safariPackager?: (
+    distPath: string,
+    mode: 'full' | 'resync',
+    overrides?: SafariPackagerOverrides
+  ) => Promise<void>
 }
 
 export interface PreviewOptions extends BrowserOptionsBase {
@@ -362,6 +399,11 @@ export interface BrowserConfig extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  safariBinary?: SafariOptions['safariBinary']
+  // Safari identity/packaging inputs (browser.safari config)
+  appName?: SafariOptions['appName']
+  bundleId?: SafariOptions['bundleId']
+  macOsOnly?: SafariOptions['macOsOnly']
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.

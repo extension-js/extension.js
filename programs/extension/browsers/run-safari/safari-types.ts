@@ -15,6 +15,7 @@ export type SafariPluginLike = Pick<
   browser: PluginInterface['browser']
   safariBinary?: string
   appName?: string
+  bundleId?: string
   macOsOnly?: boolean
   forceRegenerate?: boolean
 }
@@ -24,6 +25,8 @@ export interface SafariBuildConfig {
   projectLocation: string
   appName: string
   bundleIdentifier: string
+  /** True when the bundle id was derived (dev.extensionjs.*), not user-set. */
+  bundleIdDerived: boolean
   macOsOnly: boolean
   language: 'swift' | 'objc'
   open: boolean

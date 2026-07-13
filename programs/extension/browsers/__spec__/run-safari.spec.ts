@@ -15,7 +15,8 @@ import {
   pbxprojPath,
   extractXcodeUserSettings,
   applyXcodeUserSettings,
-  backupAndRestoreXcodeSettings
+  backupAndRestoreXcodeSettings,
+  isValidBundleId
 } from '../run-safari/safari-launch/safari-config'
 import {
   detectSafariToolchain,
@@ -64,6 +65,38 @@ describe('run-safari config', () => {
     expect(config.projectLocation).toBe(`${distDir}-xcode`)
     expect(config.macOsOnly).toBe(true)
     expect(config.open).toBe(true)
+  })
+
+  it('honors a user-provided bundle id over the derived one', () => {
+    writeManifest(distDir, {name: 'My Cool Extension', version: '1.0.0'})
+    const config = resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari',
+      bundleId: 'com.example.mine'
+    } as any)
+
+    expect(config.bundleIdentifier).toBe('com.example.mine')
+    expect(config.bundleIdDerived).toBe(false)
+  })
+
+  it('marks the derived bundle id so the pipeline can hint --bundle-id', () => {
+    writeManifest(distDir, {name: 'My Cool Extension', version: '1.0.0'})
+    const config = resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari'
+    } as any)
+
+    expect(config.bundleIdDerived).toBe(true)
+  })
+
+  it('validates bundle identifiers as reverse-DNS', () => {
+    expect(isValidBundleId('com.example.my-extension')).toBe(true)
+    expect(isValidBundleId('dev.extensionjs.My-Cool-Extension')).toBe(true)
+    expect(isValidBundleId('single-segment')).toBe(false)
+    expect(isValidBundleId('com..double-dot')).toBe(false)
+    expect(isValidBundleId('com.1starts-with-digit')).toBe(false)
+    expect(isValidBundleId('com.example.')).toBe(false)
+    expect(isValidBundleId('')).toBe(false)
   })
 
   it('falls back to a default app name when the manifest has none', () => {
@@ -320,6 +353,52 @@ describe('manifest fingerprinting', () => {
   it('reports NOT stale after fingerprint is saved with unchanged manifest', () => {
     writeManifest(distDir, {name: 'Stable', permissions: ['storage']})
     const config = configFor(distDir)
+    saveManifestFingerprint(config)
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  it('reports stale when the bundle id changes (identity in fingerprint)', () => {
+    writeManifest(distDir, {name: 'Identity', manifest_version: 3})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+    expect(isProjectStale(config)).toBe(false)
+
+    const rebranded = resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari',
+      bundleId: 'com.example.identity'
+    } as any)
+    expect(isProjectStale(rebranded)).toBe(true)
+  })
+
+  it('reports stale when the app name changes (identity in fingerprint)', () => {
+    writeManifest(distDir, {name: 'Identity', manifest_version: 3})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    const renamed = resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari',
+      appName: 'Renamed App'
+    } as any)
+    expect(isProjectStale(renamed)).toBe(true)
+  })
+
+  it('treats a v1 (manifest-only) fingerprint as stale so it migrates once', () => {
+    writeManifest(distDir, {name: 'Legacy', manifest_version: 3})
+    const config = configFor(distDir)
+
+    // v1 files stored the normalized manifest string with no JSON envelope.
+    fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {
+      recursive: true
+    })
+    fs.writeFileSync(
+      manifestFingerprintPath(config),
+      '{"manifest_version":3,"name":"Legacy"}',
+      'utf8'
+    )
+
+    expect(isProjectStale(config)).toBe(true)
     saveManifestFingerprint(config)
     expect(isProjectStale(config)).toBe(false)
   })
