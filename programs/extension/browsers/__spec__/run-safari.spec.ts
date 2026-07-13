@@ -16,7 +16,8 @@ import {
   extractXcodeUserSettings,
   applyXcodeUserSettings,
   backupAndRestoreXcodeSettings,
-  isValidBundleId
+  isValidBundleId,
+  alignBundleIdentifiers
 } from '../run-safari/safari-launch/safari-config'
 import {
   detectSafariToolchain,
@@ -87,6 +88,34 @@ describe('run-safari config', () => {
     } as any)
 
     expect(config.bundleIdDerived).toBe(true)
+  })
+
+  it('aligns app and appex PRODUCT_BUNDLE_IDENTIFIERs to the configured id', () => {
+    // Real converter output shape (Xcode 26): the appex id honors
+    // --bundle-identifier but the parent-app id is derived from the app name.
+    const pbxproj = [
+      'buildSettings = {',
+      '  PRODUCT_BUNDLE_IDENTIFIER = "com.example.safari-smoke.Extension";',
+      '};',
+      'buildSettings = {',
+      '  PRODUCT_BUNDLE_IDENTIFIER = "com.example.Safari-Smoke";',
+      '};',
+      'buildSettings = {',
+      '  PRODUCT_BUNDLE_IDENTIFIER = dev.extensionjs.Unquoted;',
+      '};'
+    ].join('\n')
+
+    const aligned = alignBundleIdentifiers(pbxproj, 'com.example.safari-smoke')
+
+    expect(aligned).toContain(
+      'PRODUCT_BUNDLE_IDENTIFIER = "com.example.safari-smoke.Extension";'
+    )
+    expect(aligned).not.toContain('Safari-Smoke')
+    expect(aligned).not.toContain('Unquoted')
+    const appIds = aligned.match(
+      /PRODUCT_BUNDLE_IDENTIFIER = "com\.example\.safari-smoke";/g
+    )
+    expect(appIds).toHaveLength(2)
   })
 
   it('validates bundle identifiers as reverse-DNS', () => {
