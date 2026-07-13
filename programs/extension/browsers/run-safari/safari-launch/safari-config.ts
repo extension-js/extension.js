@@ -31,6 +31,14 @@ function deriveBundleId(appName: string) {
   return `dev.extensionjs.${bundleSegment(appName)}`
 }
 
+/**
+ * Apple bundle identifiers: dot-separated segments of alphanumerics and
+ * hyphens, each starting with a letter, at least two segments (reverse-DNS).
+ */
+export function isValidBundleId(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z][A-Za-z0-9-]*)+$/.test(value)
+}
+
 function readManifest(extensionDir: string): Record<string, any> {
   try {
     const manifestPath = path.join(extensionDir, 'manifest.json')
@@ -52,7 +60,11 @@ export function resolveSafariBuildConfig(
   const appName = sanitizeAppName(
     String(host.appName || manifest?.name || 'Extension')
   )
-  const bundleIdentifier = deriveBundleId(appName)
+  const userBundleId = String(host.bundleId || '').trim()
+  const bundleIdDerived = !userBundleId
+  const bundleIdentifier = bundleIdDerived
+    ? deriveBundleId(appName)
+    : userBundleId
   const projectLocation = `${extensionDir.replace(/[\\/]+$/, '')}-xcode`
 
   return {
@@ -60,6 +72,7 @@ export function resolveSafariBuildConfig(
     projectLocation,
     appName,
     bundleIdentifier,
+    bundleIdDerived,
     macOsOnly: host.macOsOnly !== false,
     language: 'swift',
     open: !host.noOpen,
@@ -170,18 +183,39 @@ function normalizeManifest(raw: string): string {
   }
 }
 
+/**
+ * v2 fingerprint: manifest content PLUS the identity inputs baked into the
+ * generated Xcode project (app name, bundle id, platform). An identity change
+ * must re-run the converter or the project keeps shipping the old identity.
+ * A v1 fingerprint (raw normalized manifest, no JSON envelope) never matches
+ * this shape, so old projects regenerate once and migrate automatically.
+ */
+export function composeProjectFingerprint(config: SafariBuildConfig): string {
+  return JSON.stringify({
+    v: 2,
+    identity: {
+      appName: config.appName,
+      bundleId: config.bundleIdentifier,
+      macOsOnly: config.macOsOnly
+    },
+    manifest: normalizeManifest(readManifestRaw(config.extensionDir))
+  })
+}
+
 export function saveManifestFingerprint(config: SafariBuildConfig): void {
-  const raw = readManifestRaw(config.extensionDir)
   fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {recursive: true})
-  fs.writeFileSync(manifestFingerprintPath(config), normalizeManifest(raw), 'utf8')
+  fs.writeFileSync(
+    manifestFingerprintPath(config),
+    composeProjectFingerprint(config),
+    'utf8'
+  )
 }
 
 export function isProjectStale(config: SafariBuildConfig): boolean {
   const fpPath = manifestFingerprintPath(config)
   if (!fs.existsSync(fpPath)) return true
   const stored = fs.readFileSync(fpPath, 'utf8')
-  const current = normalizeManifest(readManifestRaw(config.extensionDir))
-  return stored !== current
+  return stored !== composeProjectFingerprint(config)
 }
 
 // ---------------------------------------------------------------------------

@@ -701,6 +701,14 @@ export function safariConverterWarnings(warnings: string[]) {
   )
 }
 
+export function safariDefaultBundleIdNote(bundleId: string) {
+  return (
+    `${getLoggingPrefix('info')} Using the generated bundle id ${colors.gray(bundleId)}. ` +
+    `For an app you plan to distribute, set your own with ${colors.blue('--bundle-id')} ` +
+    `now — changing it later makes Safari treat the extension as a new identity.`
+  )
+}
+
 export function safariOpenHint(appPath: string, appName: string) {
   return (
     `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +

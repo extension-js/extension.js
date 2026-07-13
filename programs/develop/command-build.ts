@@ -9,7 +9,11 @@
 import type {Configuration} from '@rspack/core'
 import * as fs from 'fs'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
-import {loadCommandConfig, loadCustomConfig} from './lib/config-loader'
+import {
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadCustomConfig
+} from './lib/config-loader'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
@@ -231,12 +235,21 @@ export async function extensionBuild(
 
     // Safari is packaged from the freshly built dist (convert + xcodebuild).
     // The packager is injected by the CLI so develop stays decoupled from the
-    // browser-runner package
+    // browser-runner package. Identity/packaging inputs: CLI flags win over
+    // extension.config.js `browser.safari`.
     if (
       (browser === 'safari' || browser === 'webkit-based') &&
       buildOptions?.safariPackager
     ) {
-      await buildOptions.safariPackager(distPath, 'full')
+      const safariConfig = await loadBrowserConfig(packageJsonDir, browser)
+
+      await buildOptions.safariPackager(distPath, 'full', {
+        appName: buildOptions.appName ?? safariConfig.appName,
+        bundleId: buildOptions.bundleId ?? safariConfig.bundleId,
+        macOsOnly: buildOptions.macOsOnly ?? safariConfig.macOsOnly,
+        forceRegenerate: buildOptions.forceRegenerate,
+        safariBinary: buildOptions.safariBinary ?? safariConfig.safariBinary
+      })
     }
 
     return summary
