@@ -22,7 +22,11 @@ import {
   isMacOS
 } from '../run-safari/safari-launch/toolchain'
 import {launchBrowser} from '../index'
-import {safariPreflightError} from '../run-safari/safari-launch'
+import {
+  safariPreflightError,
+  safariBuildPreflight,
+  toolOutputTail
+} from '../run-safari/safari-launch'
 import * as messages from '../browsers-lib/messages'
 
 function makeCompilation(out: string) {
@@ -153,11 +157,47 @@ describe('run-safari toolchain', () => {
 })
 
 describe('run-safari messages', () => {
-  it('flags non-macOS platforms and reassures the dist is intact', () => {
+  it('flags non-macOS platforms with actionable alternatives', () => {
     const msg = messages.safariRequiresMacOS('linux')
     expect(msg).toMatch(/only be built on macOS/)
     expect(msg).toMatch(/Linux/)
+    expect(msg).toMatch(/--browser/)
+  })
+
+  it('reassures the dist is intact when packaging is skipped off-macOS', () => {
+    const msg = messages.safariPackagingSkippedNonMac('win32')
+    expect(msg).toMatch(/skipped/)
+    expect(msg).toMatch(/Windows/)
     expect(msg).toMatch(/dist\/safari/)
+    expect(msg).toMatch(/still complete/)
+  })
+
+  it('reports a failed packaging tool with exit code and output tail', () => {
+    const msg = messages.safariToolFailed('xcodebuild', 65, 'error: signing')
+    expect(msg).toMatch(/xcodebuild/)
+    expect(msg).toMatch(/exit 65/)
+    expect(msg).toMatch(/error: signing/)
+  })
+
+  it('notes when a failed tool produced no output', () => {
+    const msg = messages.safariToolFailed('xcrun', null, '   ')
+    expect(msg).toMatch(/no exit code/)
+    expect(msg).toMatch(/no output captured/)
+  })
+
+  it('lists converter compatibility warnings', () => {
+    const msg = messages.safariConverterWarnings([
+      'Warning: persistent background pages are not supported'
+    ])
+    expect(msg).toMatch(/1/)
+    expect(msg).toMatch(/persistent background pages/)
+  })
+
+  it('hints how to launch and enable the app when not opening it', () => {
+    const msg = messages.safariOpenHint('/tmp/My App.app', 'My App')
+    expect(msg).toMatch(/open/)
+    expect(msg).toMatch(/My App\.app/)
+    expect(msg).toMatch(/Allow Unsigned Extensions/)
   })
 
   it('guides installing the full Xcode app when only CLT is active', () => {
@@ -201,6 +241,30 @@ describe('run-safari preflight', () => {
     const issue = safariPreflightError()
     expect(issue).toBeTruthy()
     expect(String(issue)).toMatch(/only be built on macOS/)
+  })
+
+  it('build preflight downgrades non-macOS to a warn-and-skip', () => {
+    Object.defineProperty(process, 'platform', {value: 'linux'})
+    const preflight = safariBuildPreflight()
+    expect(preflight.severity).toBe('skip')
+    expect(String(preflight.message)).toMatch(/dist\/safari/)
+  })
+})
+
+describe('tool output tail', () => {
+  it('keeps only the last lines and drops blank ones', () => {
+    const output = Array.from({length: 200}, (_, i) => `line ${i}`)
+      .join('\n\n')
+      .concat('\n')
+    const tail = toolOutputTail(output)
+    expect(tail).toContain('line 199')
+    expect(tail).not.toContain('line 100')
+    expect(tail.split('\n').length).toBeLessThanOrEqual(50)
+  })
+
+  it('caps pathological single-line output by bytes', () => {
+    const tail = toolOutputTail('x'.repeat(1024 * 1024))
+    expect(tail.length).toBeLessThanOrEqual(8 * 1024)
   })
 })
 
