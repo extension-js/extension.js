@@ -17,6 +17,67 @@ describe('sanitizeFatalManifestShapes', () => {
     expect(fixes[0].field).toBe('version')
   })
 
+  it('injects "0.0.0" when the required version key is missing (wild: Ananyakk71/javscript)', () => {
+    const {manifest, fixes} = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: 'x'
+    } as unknown as Manifest)
+    expect(manifest.version).toBe('0.0.0')
+    expect(fixes).toHaveLength(1)
+    expect(fixes[0].field).toBe('version')
+  })
+
+  it("strips 'unsafe-inline' from extension_pages script-src (wild: zenwerk/tonikakuyare)", () => {
+    const {manifest, fixes} = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0',
+      content_security_policy: {
+        extension_pages: "script-src 'self' 'unsafe-inline'; object-src 'self'"
+      }
+    } as unknown as Manifest)
+    expect((manifest as any).content_security_policy.extension_pages).toBe(
+      "script-src 'self'; object-src 'self'"
+    )
+    expect(fixes).toHaveLength(1)
+    expect(fixes[0].field).toBe('content_security_policy.extension_pages')
+  })
+
+  it("falls back to 'self' when 'unsafe-inline' was the only script-src source", () => {
+    const {manifest, fixes} = sanitizeFatalManifestShapes({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0',
+      content_security_policy: {
+        extension_pages: "script-src 'unsafe-inline'"
+      }
+    } as unknown as Manifest)
+    expect((manifest as any).content_security_policy.extension_pages).toBe(
+      "script-src 'self'"
+    )
+    expect(fixes).toHaveLength(1)
+  })
+
+  it("leaves CSPs without script-src 'unsafe-inline' byte-identical", () => {
+    for (const extension_pages of [
+      "script-src 'self'; object-src 'self'",
+      // 'unsafe-inline' is legal in style-src — only script-src is refused
+      "script-src 'self'; style-src 'unsafe-inline'"
+    ]) {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        content_security_policy: {extension_pages}
+      } as unknown as Manifest)
+      expect(
+        (manifest as any).content_security_policy.extension_pages,
+        extension_pages
+      ).toBe(extension_pages)
+      expect(fixes, extension_pages).toHaveLength(0)
+    }
+  })
+
   it('removes an empty-string default_icon from action', () => {
     const {manifest, fixes} = sanitizeFatalManifestShapes({
       manifest_version: 3,

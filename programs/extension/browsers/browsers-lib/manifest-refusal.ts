@@ -15,7 +15,11 @@ import * as path from 'path'
  * dev session just wedges with no CDP target. Diagnose them before spawn
  * and say why, like the resolved-binary line.
  */
-export type ChromiumManifestRefusal = 'mv2' | 'mv3-background-scripts' | null
+export type ChromiumManifestRefusal =
+  | 'mv2'
+  | 'mv3-background-scripts'
+  | 'unsupported-manifest-version'
+  | null
 
 export function diagnoseChromiumManifestRefusal(
   manifest: unknown
@@ -33,6 +37,20 @@ export function diagnoseChromiumManifestRefusal(
     !m?.background?.service_worker
   ) {
     return 'mv3-background-scripts'
+  }
+
+  // Any other declared value — missing (Chrome treats it as MV1), 1, or a
+  // number above 3 — is refused with "Cannot install extension because it
+  // uses an unsupported manifest version" (wild: Custom-salesforce-inspector).
+  // Only diagnose real manifest objects; malformed input is the browser's
+  // problem to report.
+  if (
+    m &&
+    typeof m === 'object' &&
+    !Array.isArray(m) &&
+    Number(m.manifest_version) !== 3
+  ) {
+    return 'unsupported-manifest-version'
   }
 
   return null
