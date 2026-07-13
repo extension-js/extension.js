@@ -142,15 +142,139 @@ function hasInvalidHostWildcard(pattern: string): boolean {
 }
 
 /**
- * Other manifest shapes Chrome refuses outright, each proven against a wild
- * subject with CDP `Extensions.loadUnpacked` (which, unlike --load-extension,
- * reports the reason). All are extension-own — loading the source unpacked in
- * real Chrome fails identically — but the refusal is silent, so dev must name
- * it instead of printing an ID for an extension that never loads.
+ * Other manifest shapes Chrome refuses outright, each proven with CDP
+ * `Extensions.loadUnpacked` (which, unlike --load-extension, reports the
+ * reason) — the wild-subject shapes on Chrome 150 (2026-07-11) and the
+ * fixture batch on Chrome 150 (2026-07-13). The refusal is silent under
+ * --load-extension, so dev must name it instead of printing an ID for an
+ * extension that never loads.
+ *
+ * NOT refusals — verified to LOAD on Chrome 150 (2026-07-13, CDP
+ * loadUnpacked); do NOT add these however fatal they look:
+ * - MV3 `background.page`; `background.persistent` true or false
+ * - icon files with undecodable bytes, and SVG icons — only a MISSING or
+ *   0-byte icon file refuses
+ * - unknown `permissions` entries; MV2 keys like `browser_action` under MV3
+ * - a WAR dictionary with only `use_dynamic_url` beside `resources`
+ * - `__MSG_@@predefined__` variables; catalog-key case differences (message
+ *   lookup is case-insensitive)
+ * And on Firefox 147 (2026-07-13, RDP installTemporaryAddon): explicit AND
+ * wildcard ports in match patterns install fine — the old "host must not
+ * include a port" grammar is gone; do not resurrect it for gecko.
+ *
+ * `browserVersion` (when known) enables the minimum_chrome_version compare.
  */
-export function findChromiumLoadBlockers(manifest: unknown): string[] {
+export function findChromiumLoadBlockers(
+  manifest: unknown,
+  browserVersion?: string
+): string[] {
   const m = manifest as Record<string, any> | null | undefined
   const blockers: string[] = []
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
+
+  // "Required value 'name' is missing or invalid." — missing, empty-string,
+  // and non-string names all refuse (fixtures 01/02/26). The develop
+  // pipeline repairs these at emission; this names it for external dists.
+  if (typeof m.name !== 'string' || m.name === '') {
+    blockers.push(
+      `name: missing, empty, or not a string — Chrome requires a non-empty string name and refuses the extension.`
+    )
+  }
+
+  // "Required value 'version' is missing or invalid. It must be between 1-4
+  // dot-separated integers each between 0 and 65536" (wild stderr:
+  // Ananyakk71/javscript). Same grammar the emission sanitizer repairs.
+  if (typeof m.version !== 'string' || !isValidDottedVersion(m.version)) {
+    blockers.push(
+      `version: missing or invalid — Chrome requires 1-4 dot-separated integers (0-65535) and refuses the extension.`
+    )
+  }
+
+  // MV3 web_accessible_resources grammar (fixtures 06/07/08): entries must
+  // be dictionaries with `resources` plus at least one of `matches`,
+  // `extension_ids`, or `use_dynamic_url`. MV2's string-array form is legal
+  // on MV2, so this is gated on manifest_version 3.
+  if (
+    Number(m.manifest_version) === 3 &&
+    Array.isArray(m.web_accessible_resources)
+  ) {
+    m.web_accessible_resources.forEach((entry: any, index: number) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        blockers.push(
+          `web_accessible_resources[${index}]: MV2-style entry — MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
+        )
+        return
+      }
+      if (entry.resources === undefined) {
+        blockers.push(
+          `web_accessible_resources[${index}]: 'resources' is required — Chrome refuses the extension without it.`
+        )
+      }
+      if (
+        entry.matches === undefined &&
+        entry.extension_ids === undefined &&
+        entry.use_dynamic_url === undefined
+      ) {
+        blockers.push(
+          `web_accessible_resources[${index}]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources — Chrome refuses the extension without it.`
+        )
+      }
+    })
+  }
+
+  // content_scripts grammar Chrome refuses over (fixtures 09/10/17/18/27):
+  // 'matches' is required and must be non-empty; js/css entries must be
+  // strings; run_at allows exactly three values.
+  const CS_RUN_AT = ['document_start', 'document_end', 'document_idle']
+  const csGroups = Array.isArray(m.content_scripts) ? m.content_scripts : []
+  csGroups.forEach((group: any, index: number) => {
+    if (!group || typeof group !== 'object') return
+    if (group.matches === undefined) {
+      blockers.push(
+        `content_scripts[${index}]: 'matches' is required — Chrome refuses the extension without it.`
+      )
+    } else if (Array.isArray(group.matches) && group.matches.length === 0) {
+      blockers.push(
+        `content_scripts[${index}].matches: there must be at least one match — Chrome refuses the extension over an empty list.`
+      )
+    }
+    for (const listKey of ['js', 'css']) {
+      const list = group[listKey]
+      if (!Array.isArray(list)) continue
+      list.forEach((entry: any, entryIndex: number) => {
+        if (typeof entry !== 'string') {
+          blockers.push(
+            `content_scripts[${index}].${listKey}[${entryIndex}]: expected a string, got ${typeof entry} — Chrome refuses the extension.`
+          )
+        }
+      })
+    }
+    if (group.run_at !== undefined && !CS_RUN_AT.includes(group.run_at)) {
+      blockers.push(
+        `content_scripts[${index}].run_at: expected "document_start", "document_end" or "document_idle", got ${JSON.stringify(group.run_at)} — Chrome refuses the extension.`
+      )
+    }
+  })
+
+  // minimum_chrome_version (fixtures 11/31/32): invalid grammar refuses
+  // outright; a valid value above the running browser refuses with "This
+  // extension requires ... version N or greater" — same silent wedge.
+  const minVersion = m.minimum_chrome_version
+  if (minVersion !== undefined) {
+    if (typeof minVersion !== 'string' || !isValidDottedVersion(minVersion)) {
+      blockers.push(
+        `minimum_chrome_version: invalid value ${JSON.stringify(minVersion)} — Chrome refuses the extension.`
+      )
+    } else if (
+      browserVersion &&
+      isValidDottedVersion(browserVersion) &&
+      compareDottedVersions(minVersion, browserVersion) > 0
+    ) {
+      blockers.push(
+        `minimum_chrome_version: requires ${minVersion} but the resolved browser is ${browserVersion} — the browser refuses the extension.`
+      )
+    }
+  }
 
   // Chrome caps keyboard shortcuts at 4 ("Too many shortcuts specified for
   // 'commands': The maximum is 4."). Firefox has no such cap, so ported
@@ -250,6 +374,143 @@ export function findUnloadableIconFiles(
   }
 
   return findings
+}
+
+/**
+ * The locale shapes Chrome refuses the whole extension over, all verified
+ * live on Chrome 150 (2026-07-13, CDP loadUnpacked; fixtures 03/04/05/20/
+ * 22/29). Common in converted/repacked extensions that lost their _locales
+ * tree. Verified tolerances: an EMPTY messages.json loads; message-key
+ * lookup is case-insensitive; `__MSG_@@predefined__` never needs a catalog.
+ */
+export function findLocaleLoadBlockers(
+  manifest: unknown,
+  extensionDir: string
+): string[] {
+  const m = manifest as Record<string, any> | null | undefined
+  const blockers: string[] = []
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
+
+  const localesDir = path.join(extensionDir, '_locales')
+  const defaultLocale = m.default_locale
+
+  if (typeof defaultLocale === 'string' && defaultLocale.trim() !== '') {
+    const catalogPath = path.join(localesDir, defaultLocale, 'messages.json')
+    let catalogKeys: Set<string> | null = null
+    try {
+      if (!fs.existsSync(catalogPath)) {
+        blockers.push(
+          `default_locale: "${defaultLocale}" is declared but _locales/${defaultLocale}/messages.json is missing — Chrome refuses the whole extension.`
+        )
+      } else {
+        try {
+          const raw = fs
+            .readFileSync(catalogPath, 'utf8')
+            .replace(/^\uFEFF/, '')
+          const catalog = JSON.parse(raw)
+          catalogKeys = new Set(
+            Object.keys(catalog || {}).map((key) => key.toLowerCase())
+          )
+        } catch {
+          blockers.push(
+            `default_locale: _locales/${defaultLocale}/messages.json is not valid JSON — Chrome refuses the whole extension.`
+          )
+        }
+      }
+    } catch {
+      return blockers
+    }
+
+    // "Variable __MSG_x__ used but not defined." — only whole-string
+    // references are flagged (the verified shape), @@predefined variables
+    // are exempt, and the key match is case-insensitive like Chrome's.
+    if (catalogKeys) {
+      const refs = new Set<string>()
+      collectMsgRefs(m, refs)
+      for (const ref of refs) {
+        if (!catalogKeys.has(ref.toLowerCase())) {
+          blockers.push(
+            `__MSG_${ref}__: used in the manifest but not defined in _locales/${defaultLocale}/messages.json — Chrome refuses the whole extension.`
+          )
+        }
+      }
+    }
+  } else {
+    // "Localization used, but default_locale wasn't specified in the
+    // manifest." — a populated _locales tree with no default_locale.
+    try {
+      if (fs.existsSync(localesDir)) {
+        const hasCatalog = fs
+          .readdirSync(localesDir)
+          .some((entry) =>
+            fs.existsSync(path.join(localesDir, entry, 'messages.json'))
+          )
+        if (hasCatalog) {
+          blockers.push(
+            `_locales: a locales tree exists but the manifest declares no default_locale — Chrome refuses the whole extension.`
+          )
+        }
+      }
+    } catch {
+      // unreadable dir — the browser will complain on its own
+    }
+  }
+
+  return blockers
+}
+
+/**
+ * "File does not exist: <path>/schema.json" — a storage.managed_schema
+ * pointing at a file that is not in the extension directory refuses the
+ * whole extension (fixture 19, Chrome 150).
+ */
+export function findMissingManagedSchema(
+  manifest: unknown,
+  extensionDir: string
+): string[] {
+  const m = manifest as Record<string, any> | null | undefined
+  const schema = m?.storage?.managed_schema
+  if (typeof schema !== 'string' || schema.trim() === '') return []
+  try {
+    const abs = path.join(extensionDir, schema.replace(/^\//, ''))
+    if (!fs.existsSync(abs)) {
+      return [
+        `storage.managed_schema: "${schema}" does not exist in the extension directory — Chrome refuses the whole extension.`
+      ]
+    }
+  } catch {
+    // unreadable — the browser will complain on its own
+  }
+  return []
+}
+
+function collectMsgRefs(value: unknown, out: Set<string>): void {
+  if (typeof value === 'string') {
+    const match = /^__MSG_(.+)__$/.exec(value.trim())
+    if (match && !match[1].startsWith('@@')) out.add(match[1])
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectMsgRefs(item, out)
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) collectMsgRefs(item, out)
+  }
+}
+
+/** Chrome's version grammar: 1-4 dot-separated integers 0-65535. */
+function isValidDottedVersion(version: string): boolean {
+  if (!version) return false
+  const parts = version.split('.')
+  if (parts.length > 4) return false
+  return parts.every((part) => /^\d{1,5}$/.test(part) && Number(part) <= 65535)
+}
+
+function compareDottedVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < 4; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
 }
 
 function isValidBase64(value: string): boolean {
