@@ -764,6 +764,14 @@ export class ChromiumLaunchPlugin {
               String(extPath)
             )
           )
+        } else if (refusal === 'unsupported-manifest-version') {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.unsupportedManifestVersionOnChromium(
+              String(extPath),
+              m?.manifest_version
+            )
+          )
         }
         const invalidPatterns = findInvalidMatchPatterns(m)
         if (invalidPatterns.length) {

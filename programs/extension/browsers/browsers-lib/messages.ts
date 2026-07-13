@@ -307,6 +307,22 @@ export function mv3BackgroundScriptsNotSupportedByChromium(
   )
 }
 
+export function unsupportedManifestVersionOnChromium(
+  extensionPath: string,
+  declared: unknown
+) {
+  const value =
+    declared === undefined
+      ? 'no manifest_version'
+      : `manifest_version ${JSON.stringify(declared)}`
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses as an unsupported manifest version.`)}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `The browser rejects it at launch (a native dialog, not a console error), so the dev session cannot attach.\n` +
+    `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
+  )
+}
+
 export function chromiumInvalidMatchPatterns(
   extensionPath: string,
   patterns: string[]

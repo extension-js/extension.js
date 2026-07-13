@@ -19,6 +19,21 @@ describe('diagnoseChromiumManifestRefusal', () => {
     expect(diagnoseChromiumManifestRefusal({manifest_version: 2})).toBe('mv2')
   })
 
+  it('flags missing, MV1, and above-3 manifest_version as unsupported (wild: Custom-salesforce-inspector)', () => {
+    // Chrome treats a missing manifest_version as MV1 and refuses with
+    // "Cannot install extension because it uses an unsupported manifest
+    // version" — same native-dialog wedge as MV2.
+    expect(diagnoseChromiumManifestRefusal({name: 'x'})).toBe(
+      'unsupported-manifest-version'
+    )
+    expect(diagnoseChromiumManifestRefusal({manifest_version: 1})).toBe(
+      'unsupported-manifest-version'
+    )
+    expect(diagnoseChromiumManifestRefusal({manifest_version: 4})).toBe(
+      'unsupported-manifest-version'
+    )
+  })
+
   it('flags MV3 with Firefox-style background.scripts and no service_worker', () => {
     expect(
       diagnoseChromiumManifestRefusal({
