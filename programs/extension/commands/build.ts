@@ -22,6 +22,7 @@ import {
   packageSafariExtension,
   safariBuildPreflight
 } from '../browsers/run-safari/safari-launch'
+import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 
 type BuildOptions = {
   browser?: Browser | 'all'
@@ -34,6 +35,9 @@ type BuildOptions = {
   extensions?: string
   mode?: string
   open?: boolean
+  appName?: string
+  bundleId?: string
+  forceRegenerate?: boolean
 }
 
 export function registerBuildCommand(program: Command) {
@@ -89,6 +93,18 @@ export function registerBuildCommand(program: Command) {
       parseOptionalBoolean
     )
     .option(
+      '--app-name <name>',
+      'override the Safari app name (safari targets only). Defaults to the manifest `name`'
+    )
+    .option(
+      '--bundle-id <reverse.dns>',
+      'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+    )
+    .option(
+      '--force-regenerate',
+      'regenerate the Safari Xcode project even when up to date (safari targets only)'
+    )
+    .option(
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
@@ -125,6 +141,31 @@ export function registerBuildCommand(program: Command) {
         }
       }
 
+      // Safari-only options are rejected for other targets so typos don't
+      // silently no-op; a malformed bundle id fails before any build.
+      const safariOnlyFlags = [
+        ['--open', buildOptions.open],
+        ['--app-name', buildOptions.appName],
+        ['--bundle-id', buildOptions.bundleId],
+        ['--force-regenerate', buildOptions.forceRegenerate]
+      ].filter(([, value]) => value !== undefined && value !== false)
+
+      if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
+        // eslint-disable-next-line no-console
+        console.error(
+          messages.safariOnlyOption(
+            safariOnlyFlags.map(([flag]) => flag as string)
+          )
+        )
+        process.exit(1)
+      }
+
+      if (buildOptions.bundleId && !isValidBundleId(buildOptions.bundleId)) {
+        // eslint-disable-next-line no-console
+        console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
+        process.exit(1)
+      }
+
       // Safari packaging preflight. Non-macOS is a warn-and-skip (the
       // web-extension bundle in dist/safari still builds and can be packaged
       // later on a Mac); a macOS host with a broken/missing Xcode is fatal.
@@ -159,8 +200,15 @@ export function registerBuildCommand(program: Command) {
           install: buildOptions.install,
           extensions: parseExtensionsList((buildOptions as any).extensions),
           mode,
+          appName: buildOptions.appName,
+          bundleId: buildOptions.bundleId,
+          forceRegenerate: buildOptions.forceRegenerate,
           safariPackager: safariPackagingEnabled
-            ? async (distPath: string, packagerMode: 'full' | 'resync') => {
+            ? async (
+                distPath: string,
+                packagerMode: 'full' | 'resync',
+                overrides?: Record<string, unknown>
+              ) => {
                 await packageSafariExtension(
                   {
                     extension: [distPath],
@@ -168,7 +216,8 @@ export function registerBuildCommand(program: Command) {
                     // build is a packaging command: never open the app unless
                     // explicitly asked (--open). dev keeps open-by-default.
                     noOpen: buildOptions.open !== true,
-                    dryRun: false
+                    dryRun: false,
+                    ...overrides
                   },
                   distPath,
                   undefined,

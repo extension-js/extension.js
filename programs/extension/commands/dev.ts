@@ -16,6 +16,7 @@ import {
   packageSafariExtension,
   safariPreflightError
 } from '../browsers/run-safari/safari-launch'
+import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {
   vendors,
   validateVendorsOrExit,
@@ -77,6 +78,22 @@ export function registerDevCommand(program: Command) {
     .option(
       '--gecko-binary, --firefox-binary <path-to-binary>',
       'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
+    )
+    .option(
+      '--safari-binary <path-to-binary>',
+      'specify the Safari binary to open after packaging (safari targets only)'
+    )
+    .option(
+      '--app-name <name>',
+      'override the Safari app name (safari targets only). Defaults to the manifest `name`'
+    )
+    .option(
+      '--bundle-id <reverse.dns>',
+      'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+    )
+    .option(
+      '--force-regenerate',
+      'regenerate the Safari Xcode project even when up to date (safari targets only)'
     )
     .option(
       '--polyfill [boolean]',
@@ -172,6 +189,35 @@ export function registerDevCommand(program: Command) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
+      // Safari-only options are rejected for other targets so typos don't
+      // silently no-op; a malformed bundle id fails before any build.
+      const opts = devOptions as unknown as {
+        safariBinary?: string
+        appName?: string
+        bundleId?: string
+        forceRegenerate?: boolean
+      }
+      const safariOnlyFlags = [
+        ['--safari-binary', opts.safariBinary],
+        ['--app-name', opts.appName],
+        ['--bundle-id', opts.bundleId],
+        ['--force-regenerate', opts.forceRegenerate]
+      ].filter(([, value]) => value !== undefined && value !== false)
+
+      if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
+        // eslint-disable-next-line no-console
+        console.error(
+          messages.safariOnlyOption(safariOnlyFlags.map(([flag]) => flag as string))
+        )
+        process.exit(1)
+      }
+
+      if (opts.bundleId && !isValidBundleId(opts.bundleId)) {
+        // eslint-disable-next-line no-console
+        console.error(messages.safariInvalidBundleId(opts.bundleId))
+        process.exit(1)
+      }
+
       // Safari: fail fast on a missing toolchain *before* the bundle, so the
       // user isn't surprised after a build. (dev rides the watch compiler and
       // repackages the Safari app on each rebuild)
@@ -250,14 +296,21 @@ export function registerDevCommand(program: Command) {
           // on first compile; browser lifecycle is managed by the plugin.
           launcher: noBrowser ? undefined : launchBrowser,
           // Inject the Safari packager — SafariDevPlugin calls it on each
-          // rebuild (full first, then incremental resync).
-          safariPackager: async (distPath: string, mode: 'full' | 'resync') => {
+          // rebuild (full first, then incremental resync). Identity overrides
+          // arrive from develop with CLI flags already winning over
+          // extension.config.js `browser.safari`.
+          safariPackager: async (
+            distPath: string,
+            mode: 'full' | 'resync',
+            overrides?: Record<string, unknown>
+          ) => {
             await packageSafariExtension(
               {
                 extension: [distPath],
                 browser: vendor as Browser,
                 noOpen: devOptions.open === false,
-                dryRun: false
+                dryRun: false,
+                ...overrides
               },
               distPath,
               undefined,

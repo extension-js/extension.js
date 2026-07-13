@@ -242,6 +242,22 @@ export function unsupportedBrowserFlag(value: string, supported: string[]) {
   return `${getLoggingPrefix('error')} Unsupported --browser value: ${value}. Supported: ${supported.join(', ')}.`
 }
 
+export function safariOnlyOption(flags: string[]) {
+  return (
+    `${getLoggingPrefix('error')} ${flags.map(code).join(', ')} ` +
+    `only appl${flags.length === 1 ? 'ies' : 'y'} to Safari targets. ` +
+    `Add ${code('--browser safari')} (or ${code('webkit-based')}).`
+  )
+}
+
+export function safariInvalidBundleId(bundleId: string) {
+  return (
+    `${getLoggingPrefix('error')} Invalid bundle identifier: ${code(bundleId)}\n` +
+    `Use reverse-DNS form — dot-separated segments of letters, digits and hyphens, ` +
+    `each starting with a letter (e.g. ${code('com.example.my-extension')}).`
+  )
+}
+
 export function safariCommandNotSupported(
   command: 'dev' | 'preview' | 'start'
 ) {
