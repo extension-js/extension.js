@@ -93,7 +93,19 @@ export async function extensionDev(
       !devOptions.noBrowser &&
       devOptions.safariPackager
     ) {
-      browsersPlugin = new SafariDevPlugin(devOptions.safariPackager)
+      // Identity/packaging inputs: CLI flags win over extension.config.js
+      // `browser.safari` (already merged CLI-last above).
+      const safariPackager = devOptions.safariPackager
+      const safariOverrides = {
+        appName: merged.appName,
+        bundleId: merged.bundleId,
+        macOsOnly: merged.macOsOnly,
+        forceRegenerate: merged.forceRegenerate,
+        safariBinary: merged.safariBinary
+      }
+      browsersPlugin = new SafariDevPlugin((distPath, packagerMode) =>
+        safariPackager(distPath, packagerMode, safariOverrides)
+      )
       emitter = browsersPlugin.emitter
     } else if (devOptions.launcher && !devOptions.noBrowser) {
       browsersPlugin = new BrowsersPlugin({
