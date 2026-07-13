@@ -793,6 +793,17 @@ export function buildCommandFailed(error: unknown) {
   )
 }
 
+export function devCommandFailed(error: unknown) {
+  const message = (() => {
+    if (error instanceof Error && error.message) return error.message
+    return String(error || 'Unknown error')
+  })()
+  return (
+    `${getLoggingPrefix('error')} Dev mode failed.\n` +
+    `${colors.red(fmt.truncate(message, 1200))}`
+  )
+}
+
 export function managedDependencyConflict(
   duplicates: string[],
   userPackageJsonPath: string

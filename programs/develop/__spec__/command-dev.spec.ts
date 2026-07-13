@@ -171,6 +171,36 @@ describe('webpack/command-dev', () => {
     expect(browserOptions.profile).toBe('/from/cli')
   })
 
+  it('prints contract errors once, clean, without a stack trace (bug 28)', async () => {
+    const localErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      // @ts-ignore
+      .mockImplementation(() => {
+        throw new Error('exit 1')
+      })
+
+    ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
+      throw new Error(
+        '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
+      )
+    })
+
+    await expect(
+      extensionDev('/proj', {browser: 'chrome'} as any)
+    ).rejects.toThrow('exit 1')
+
+    expect(localErrorSpy).toHaveBeenCalledTimes(1)
+    const printed = localErrorSpy.mock.calls[0][0]
+    // A formatted string, not the raw Error object (which prints its stack).
+    expect(typeof printed).toBe('string')
+    expect(printed).toMatch(/Missing tsconfig\.json/)
+    expect(printed).not.toMatch(/\n\s+at /)
+    exitSpy.mockRestore()
+  })
+
   it('exits process(1) on unexpected error', async () => {
     const exitSpy = vi
       .spyOn(process, 'exit')
