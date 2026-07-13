@@ -190,6 +190,33 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(prodConfig.optimization?.concatenateModules).toBe(true)
   })
 
+  it('never emits assets for errored compiles, in dev and prod', () => {
+    // Regression guard for §29: rspack defaults emitOnErrors to true
+    // (webpack 5 flipped to false), so a failed watch compile overwrote the
+    // last-good dist with error-stub modules and bricked unpacked consumers.
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const projectStructure = createProjectStructure()
+    for (const mode of ['development', 'production'] as const) {
+      const config = webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode,
+          output: {
+            clean: false,
+            path: path.join(
+              path.dirname(projectStructure.manifestPath),
+              'dist',
+              'chrome'
+            )
+          },
+          noBrowser: true
+        } as any
+      )
+      expect(config.optimization?.emitOnErrors).toBe(false)
+    }
+  })
+
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([
