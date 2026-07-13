@@ -16,6 +16,11 @@ describe('browser target normalization', () => {
   })
 
   it('throws for unsupported names', () => {
-    expect(() => normalizeBrowserName('safari')).toThrow(/Unsupported browser/)
+    expect(() => normalizeBrowserName('brave')).toThrow(/Unsupported browser/)
+  })
+
+  it('explains that Safari needs Xcode, not a browser install', () => {
+    expect(() => normalizeBrowserName('safari')).toThrow(/ships with macOS/)
+    expect(() => normalizeBrowserName('webkit-based')).toThrow(/Xcode/)
   })
 })
