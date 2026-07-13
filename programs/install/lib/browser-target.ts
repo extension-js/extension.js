@@ -18,6 +18,14 @@ export function normalizeBrowserName(input: string): InstallBrowserTarget {
 
   if (resolved) return resolved
 
+  if (value === 'safari' || value === 'webkit-based') {
+    throw new Error(
+      `There is no Safari binary to install — Safari ships with macOS. ` +
+        `Safari builds need the full Xcode app instead (Mac App Store), then ` +
+        `run \`extension build --browser safari\`.`
+    )
+  }
+
   throw new Error(
     `Unsupported browser "${value}". Supported values: ${Object.keys(BROWSER_ALIASES).join(', ')}`
   )
