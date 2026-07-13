@@ -172,6 +172,23 @@ export interface ReloadFrame {
 }
 
 /**
+ * Producer → server receipt confirmation for a {@link ReloadFrame}: the SW's
+ * message pump actually processed the frame. A successful socket write proves
+ * nothing when the worker is wedged-but-connected (bug 27: the server printed
+ * "Reloading content_script…" while no scripting.executeScript ever left the
+ * producer). The broker latches a content-scripts reload until this ack
+ * arrives and replays the latch to the next producer hello, so an edit that
+ * landed on a dead pump still converges on the next SW start. Full/SW reloads
+ * are not latched-until-ack (replaying a restart would loop it); their
+ * convergence is the boot-time pending-reinject heal.
+ */
+export interface ReloadAckFrame {
+  type: 'reload-ack'
+  reloadType: DevReloadKind
+  label?: string
+}
+
+/**
  * Server → producer keepalive. An MV3 service worker idles out after ~30s
  * without events, and a stopped SW holds no control socket — reload
  * broadcasts would reach zero producers and silently apply to nothing
@@ -184,7 +201,7 @@ export interface PingFrame {
   type: 'ping'
 }
 
-export type ClientFrame = HelloFrame | LogFrame | CommandFrame
+export type ClientFrame = HelloFrame | LogFrame | CommandFrame | ReloadAckFrame
 export type ServerFrame =
   | ReadyFrame
   | LogFrame
