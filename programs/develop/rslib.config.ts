@@ -94,6 +94,10 @@ const nodeEntries = {
   'css-parse-guard-loader': path.resolve(
     __dirname,
     './plugin-css/css-parse-guard-loader.ts'
+  ),
+  'preprocessor-passthrough-loader': path.resolve(
+    __dirname,
+    './plugin-css/preprocessor-passthrough-loader.ts'
   )
 }
 

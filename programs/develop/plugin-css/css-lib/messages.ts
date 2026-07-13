@@ -84,6 +84,18 @@ export function cssParseErrorShippedVerbatim(
   ].join('\n')
 }
 
+export function preprocessorShippedUncompiled(
+  resourcePath: string,
+  tool: 'sass' | 'less'
+) {
+  const pkg = tool === 'sass' ? 'sass' : 'less'
+  return [
+    `${colors.yellow('⏵⏵⏵')} ${colors.underline(resourcePath)} shipped UNCOMPILED — ${colors.brightBlue(`"${pkg}"`)} is not installed in this project.`,
+    `The raw ${tool === 'sass' ? 'Sass/SCSS' : 'Less'} source was copied as-is into the output .css, which browsers will treat as broken CSS (unstyled surfaces).`,
+    `Install it to compile this file, for example: ${colors.gray(`npm install --save-dev ${pkg}`)}`
+  ].join('\n')
+}
+
 export function deadCssUrlRef(issuerPath: string, request: string) {
   return [
     `Missing file in ${colors.underline(issuerPath)}.`,
