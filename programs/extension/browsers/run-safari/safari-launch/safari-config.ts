@@ -222,6 +222,28 @@ export function isProjectStale(config: SafariBuildConfig): boolean {
 // Xcode user-settings preservation across project regeneration
 // ---------------------------------------------------------------------------
 
+/**
+ * The converter does not honor --bundle-identifier verbatim: it writes the
+ * appex id as `<identifier>.Extension` but derives the PARENT app id from the
+ * identifier's namespace plus the app-name segment (observed on Xcode 16/26).
+ * With a user-provided id whose last segment differs from the app name, the
+ * prefixes mismatch and ValidateEmbeddedBinary fails the build. Rewrite both
+ * PRODUCT_BUNDLE_IDENTIFIERs so the project always carries exactly the
+ * configured identity: app = <bundleId>, appex = <bundleId>.Extension.
+ */
+export function alignBundleIdentifiers(
+  pbxprojContent: string,
+  bundleId: string
+): string {
+  return pbxprojContent.replace(
+    /PRODUCT_BUNDLE_IDENTIFIER = ("?)([^;"]+)\1;/g,
+    (_match, _quote, value) =>
+      /\.Extension$/.test(String(value))
+        ? `PRODUCT_BUNDLE_IDENTIFIER = "${bundleId}.Extension";`
+        : `PRODUCT_BUNDLE_IDENTIFIER = "${bundleId}";`
+  )
+}
+
 export const PRESERVED_SETTINGS = [
   'DEVELOPMENT_TEAM',
   'CODE_SIGN_STYLE',

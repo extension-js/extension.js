@@ -14,12 +14,14 @@ import type {SafariPluginLike} from '../safari-types'
 import {detectSafariToolchain} from './toolchain'
 import {logSafariDryRun} from './dry-run'
 import {
+  alignBundleIdentifiers,
   backupAndRestoreXcodeSettings,
   builtAppPath,
   composeConverterArgs,
   composeXcodebuildArgs,
   isProjectStale,
   macOsSchemeName,
+  pbxprojPath,
   PRESERVED_SETTINGS,
   resolveSafariBuildConfig,
   saveManifestFingerprint,
@@ -254,6 +256,21 @@ async function runSafariPipeline(
     const warnings = converterWarnings(converted.output)
     if (warnings.length > 0) {
       logger.warn?.(messages.safariConverterWarnings(warnings))
+    }
+
+    // The converter derives the parent-app id from the app name, not from
+    // --bundle-identifier — align both targets to the configured identity or
+    // ValidateEmbeddedBinary fails when a user-set id doesn't match the name.
+    const projFile = pbxprojPath(config)
+    if (fs.existsSync(projFile)) {
+      fs.writeFileSync(
+        projFile,
+        alignBundleIdentifiers(
+          fs.readFileSync(projFile, 'utf8'),
+          config.bundleIdentifier
+        ),
+        'utf8'
+      )
     }
 
     restore()
