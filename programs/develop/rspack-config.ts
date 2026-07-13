@@ -526,6 +526,10 @@ export default function webpackConfig(
       hints: false
     },
     optimization: {
+      // A failed compile must not overwrite the last-good build on disk:
+      // rspack defaults to true (webpack 5 flipped to false), which shipped
+      // error-stub modules into dist/ and bricked unpacked-dist consumers.
+      emitOnErrors: false,
       // Minify only in production to reduce bundle size
       minimize: devOptions.mode === 'production',
       // Honor package.json sideEffects for better tree-shaking
