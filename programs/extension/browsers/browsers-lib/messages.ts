@@ -753,7 +753,20 @@ export function safariRebuilt(appName: string) {
 }
 
 export function safariProjectStale() {
-  return `${getLoggingPrefix('info')} manifest.json changed since the Xcode project was generated — regenerating project.`
+  return `${getLoggingPrefix('info')} manifest.json or identity options changed since the Xcode project was generated — regenerating project.`
+}
+
+export function safariForcedRegeneration() {
+  return `${getLoggingPrefix('info')} --force-regenerate set — regenerating the Xcode project.`
+}
+
+export function safariRegenerationDiscards(preservedKeys: string[]) {
+  return (
+    `${getLoggingPrefix('warn')} Regenerating replaces the Xcode project: customizations ` +
+    `made in Xcode (entitlements, capabilities, added files/targets) are ${colors.red('discarded')}.\n` +
+    `Preserved automatically: ${colors.yellow(preservedKeys.join(', '))}. ` +
+    `If you customized the project, back it up before continuing.`
+  )
 }
 
 export function safariSettingsPreserved(keys: string[]) {

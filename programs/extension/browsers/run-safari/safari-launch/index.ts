@@ -20,6 +20,7 @@ import {
   composeXcodebuildArgs,
   isProjectStale,
   macOsSchemeName,
+  PRESERVED_SETTINGS,
   resolveSafariBuildConfig,
   saveManifestFingerprint,
   xcodeProjectPath
@@ -217,7 +218,16 @@ async function runSafariPipeline(
 
   if (needsConversion) {
     if (projectExists) {
-      logger.info?.(messages.safariProjectStale())
+      logger.info?.(
+        host.forceRegenerate
+          ? messages.safariForcedRegeneration()
+          : messages.safariProjectStale()
+      )
+      // Regeneration replaces the whole project — be loud about what does
+      // and does not survive, BEFORE the converter overwrites it.
+      logger.warn?.(
+        messages.safariRegenerationDiscards([...PRESERVED_SETTINGS])
+      )
     }
 
     // Preserve user-configured Xcode build settings (signing team, etc.)

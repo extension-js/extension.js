@@ -226,6 +226,21 @@ describe('run-safari messages', () => {
     expect(msg).toMatch(/persistent background pages/)
   })
 
+  it('warns loudly about what regeneration discards and preserves', () => {
+    const msg = messages.safariRegenerationDiscards([
+      'DEVELOPMENT_TEAM',
+      'CODE_SIGN_STYLE'
+    ])
+    expect(msg).toMatch(/discarded/)
+    expect(msg).toMatch(/entitlements/)
+    expect(msg).toMatch(/DEVELOPMENT_TEAM, CODE_SIGN_STYLE/)
+  })
+
+  it('distinguishes forced regeneration from staleness', () => {
+    expect(messages.safariForcedRegeneration()).toMatch(/--force-regenerate/)
+    expect(messages.safariProjectStale()).toMatch(/identity options/)
+  })
+
   it('hints how to launch and enable the app when not opening it', () => {
     const msg = messages.safariOpenHint('/tmp/My App.app', 'My App')
     expect(msg).toMatch(/open/)
