@@ -162,6 +162,14 @@ function hasInvalidHostWildcard(pattern: string): boolean {
  * wildcard ports in match patterns install fine — the old "host must not
  * include a port" grammar is gone; do not resurrect it for gecko.
  *
+ * Safari (2026-07-13, macOS 15.7.7): safari-web-extension-converter
+ * CONVERTS every one of these shapes with exit 0 — missing name, bad locale
+ * catalogs, all of it. The converter is not a refusal surface and must not
+ * be gated on manifest shapes; Safari's real refusals happen at runtime
+ * inside Safari, which has no scriptable install path to verify against.
+ * Converter/xcodebuild exit codes still matter (toolchain failures), but
+ * they say nothing about manifest validity.
+ *
  * `browserVersion` (when known) enables the minimum_chrome_version compare.
  */
 export function findChromiumLoadBlockers(
