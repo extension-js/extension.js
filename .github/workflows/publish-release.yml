@@ -40,6 +40,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The bundled `javascript` template ships in the npm package as the
+      # offline fast-path for `extension create`; gate releases on it being
+      # in sync with the extension-js/examples source of truth. Escape hatch
+      # for an urgent release: EXTENSION_SKIP_TEMPLATE_DRIFT=1.
+      - name: Check bundled create template drift
+        run: bash scripts/check-bundled-template-drift.sh
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
         with:
