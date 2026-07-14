@@ -139,3 +139,14 @@ jobs:
           pnpm extension build templates/vue --browser firefox --silent true
       - name: Dev smoke – firefox (Gecko)
         run: pnpm extension dev templates/typescript --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --no-open --port 0
+
+  bundled-template-drift:
+    # Early warning for discussion #478: the bundled `javascript` template
+    # (programs/create/templates/javascript) must track extension-js/examples.
+    # publish-release.yml runs the same check as a hard release gate.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check bundled create template drift
+        run: bash scripts/check-bundled-template-drift.sh
