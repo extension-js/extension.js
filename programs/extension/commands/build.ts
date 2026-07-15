@@ -192,6 +192,9 @@ export function registerBuildCommand(program: Command) {
       for (const vendor of list) {
         await extensionBuild(pathOrRemoteUrl, {
           browser: vendor as BuildOptions['browser'],
+          // CLI surface: a failed build ends this process with the clean
+          // error line. Library imports of extensionBuild reject instead.
+          exitOnError: true,
           polyfill: buildOptions.polyfill,
           zip: buildOptions.zip,
           zipSource: buildOptions.zipSource,
