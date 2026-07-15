@@ -45,6 +45,11 @@ export interface FatalShapeFix {
  *   script-src — Chrome refuses the whole extension with "Insecure CSP
  *   value" (wild: zenwerk/tonikakuyare). MV3 never honors it, so stripping
  *   it changes nothing but the refusal.
+ * - A named (non-`_execute_*`) command whose `description` is missing,
+ *   empty, or not a string — Chrome refuses the whole extension with
+ *   "Invalid value for 'commands[N].description'" (seen live loading a
+ *   built extension). Fall back to the command name so the shortcut stays
+ *   registered and the session can attach.
  */
 export function sanitizeFatalManifestShapes(
   manifest: Manifest,
@@ -188,6 +193,28 @@ export function sanitizeFatalManifestShapes(
         field: 'content_security_policy.extension_pages',
         detail:
           "removed 'unsafe-inline' from script-src — Chrome refuses the whole extension over an insecure CSP value in extension pages"
+      })
+    }
+  }
+
+  const commands = out.commands
+  if (commands && typeof commands === 'object' && !Array.isArray(commands)) {
+    for (const [name, command] of Object.entries(commands)) {
+      // `_execute_action` and friends are the only commands Chrome allows
+      // to omit the description.
+      if (name.startsWith('_execute_')) continue
+      if (!command || typeof command !== 'object' || Array.isArray(command)) {
+        continue
+      }
+      const entry = command as Record<string, any>
+      if (typeof entry.description === 'string' && entry.description.trim()) {
+        continue
+      }
+      const from = entry.description
+      entry.description = name
+      fixes.push({
+        field: `commands.${name}.description`,
+        detail: `replaced ${JSON.stringify(from)} with "${name}" — Chrome requires a non-empty string description on named commands and refuses the whole extension otherwise`
       })
     }
   }
