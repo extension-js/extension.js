@@ -367,7 +367,8 @@ ${'Framework-Specific Configuration'}
 ${'Hot Module Replacement (HMR)'}
 - Automatically enabled in development mode
 - CSS changes trigger automatic style updates
-- React/Preact/Vue/Svelte components hot reload
+- React components fast-refresh; Svelte components hot-update
+- Preact and Vue rebuild with a live reload (component state resets)
 - Content scripts automatically re-inject on changes
 - Service workers, _locales and manifest changes reload the extension
 
