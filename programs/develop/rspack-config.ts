@@ -109,6 +109,25 @@ export default function webpackConfig(
   // ships without every referenced asset should not block the build.
   const missingCssAssets = new Set<string>()
 
+  // Bare CommonJS `require()` calls that resolve to no module — vendored,
+  // pre-bundled scripts commonly carry dead server-runtime branches
+  // (handlebars 1.0's Rhino/Narwhal-era `require('file')`/`require('system')`).
+  // Chrome runs such a classic script as-is; the call only throws if that code
+  // path ever executes. Collected by the `externals` resolver below and
+  // surfaced as warnings; the require is left verbatim in the output.
+  // Keyed by request → first issuer seen (one warning per request).
+  const unresolvedBareRequires = new Map<string, string>()
+
+  // Node builtins stubbed to empty modules via `resolve.fallback` below. The
+  // raw resolver the externals function gets does NOT apply fallback (`false`
+  // is handled by the module factory as an ignored module), so the bare-require
+  // tolerance must skip these or it would shadow the configured stubs.
+  const nodeFallbacks: Record<string, false> = {
+    crypto: false,
+    fs: false,
+    path: false
+  }
+
   const plugins: NonNullable<Configuration['plugins']> = [
     new CompilationPlugin({
       manifestPath,
@@ -177,6 +196,33 @@ export default function webpackConfig(
               compilation.warnings.push(warning)
             }
             missingCssAssets.clear()
+          }
+        )
+      }
+    } as unknown as NonNullable<Configuration['plugins']>[number],
+    // Warn (don't fail) for bare require() calls that resolve nowhere. The
+    // require is preserved verbatim in the emitted bundle via the `externals`
+    // resolver below, matching how Chrome loads the script.
+    {
+      apply(compiler: any) {
+        compiler.hooks.afterCompile.tap(
+          'warn-unresolved-bare-requires',
+          (compilation: any) => {
+            if (unresolvedBareRequires.size === 0) return
+            const ErrorCtor = compiler.rspack?.WebpackError || Error
+            for (const [request, issuer] of unresolvedBareRequires) {
+              const warning = new ErrorCtor(
+                `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
+                  `resolve to any module; the call is left verbatim in the output. ` +
+                  `Chrome loads the script anyway — it only throws if that code path ` +
+                  `runs (vendored pre-bundled libraries often carry dead require() ` +
+                  `branches). Install the package if it's a real dependency, or set ` +
+                  `EXTENSION_STRICT_REFS=true to make this fail the build.`
+              )
+              warning.name = 'UnresolvedBareRequireWarning'
+              compilation.warnings.push(warning)
+            }
+            unresolvedBareRequires.clear()
           }
         )
       }
@@ -272,8 +318,20 @@ export default function webpackConfig(
         {
           request,
           dependencyType,
-          context
-        }: {request?: string; dependencyType?: string; context?: string},
+          context,
+          contextInfo,
+          getResolve
+        }: {
+          request?: string
+          dependencyType?: string
+          context?: string
+          contextInfo?: {issuer: string}
+          getResolve?: () => (
+            context: string,
+            request: string,
+            callback: (err?: Error | null, result?: string | false) => void
+          ) => void
+        },
         callback: (err?: null, result?: string, type?: string) => void
       ) => {
         if (typeof request !== 'string') return callback()
@@ -309,6 +367,43 @@ export default function webpackConfig(
           } catch {
             // Fall through to default resolution on any fs error.
           }
+        }
+
+        // A bare CommonJS require() that resolves nowhere: vendored,
+        // pre-bundled scripts carry dead server-runtime branches — handlebars
+        // 1.0's Rhino/Narwhal-era require('file')/require('system') — that
+        // never execute in a browser. Chrome loads the script as-is, so
+        // failing the whole build over them is bundler-only semantics
+        // (4.0.3 force-parsed every file as strict ESM and shipped the
+        // require verbatim by accident; isModule:'unknown' made these real
+        // CJS dependencies). Externalize as 'commonjs' so the emitted bundle
+        // keeps `require("…")` verbatim — it throws only if the dead branch
+        // ever runs, exactly like the unbundled script in Chrome. Relative
+        // and absolute requests stay fatal (a typo'd local path is a real
+        // authoring bug), and EXTENSION_STRICT_REFS=true restores the error.
+        if (
+          dependencyType === 'commonjs' &&
+          context &&
+          typeof getResolve === 'function' &&
+          process.env.EXTENSION_STRICT_REFS !== 'true' &&
+          !(request in nodeFallbacks) && // resolve.fallback owns these
+          !/^[a-z][\w+.-]*:/i.test(request) && // no scheme (node:, data:, …)
+          !request.startsWith('.') &&
+          !request.startsWith('/') &&
+          !path.isAbsolute(request)
+        ) {
+          const resolve = getResolve()
+          resolve(context, request, (err, result) => {
+            if (err || !result) {
+              if (!unresolvedBareRequires.has(request)) {
+                unresolvedBareRequires.set(request, contextInfo?.issuer || '')
+              }
+              callback(null, request, 'commonjs')
+            } else {
+              callback()
+            }
+          })
+          return
         }
 
         callback()
@@ -392,11 +487,7 @@ export default function webpackConfig(
         }
       },
       aliasFields: ['browser'],
-      fallback: {
-        crypto: false,
-        fs: false,
-        path: false
-      },
+      fallback: nodeFallbacks,
       modules:
         projectStructure.packageJsonPath || projectStructure.denoJsonPath
           ? [
