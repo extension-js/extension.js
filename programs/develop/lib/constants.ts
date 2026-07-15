@@ -28,6 +28,33 @@ export const SUPPORTED_BROWSERS = [
   ...GECKO_BASED_BROWSERS
 ]
 
+// Canonical "supported X" lists. README/docs enumerations are asserted against
+// these in __spec__/supported-surface.spec.ts — extend the list first, then the
+// docs, or the drift guard fails.
+export const SUPPORTED_PACKAGE_MANAGERS = [
+  'npm',
+  'pnpm',
+  'yarn',
+  'bun',
+  'deno'
+] as const
+
+export const SUPPORTED_UI_FRAMEWORKS = [
+  'react',
+  'preact',
+  'vue',
+  'svelte'
+] as const
+
+export const SUPPORTED_CSS_TECH = [
+  'css',
+  'css-modules',
+  'sass',
+  'less',
+  'postcss',
+  'tailwind'
+] as const
+
 // Single source of truth for engine-family classification. Fork browsers inherit
 // their family's chrome:/firefox: scoped manifest keys; the generic
 // '*-based'/'chromium'/'gecko' aliases are matched by substring.
