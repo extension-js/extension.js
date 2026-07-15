@@ -1,4 +1,4 @@
-import {describe, it, expect, vi} from 'vitest'
+import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
@@ -10,7 +10,7 @@ function makeTempDir(prefix: string) {
 }
 
 describe('assertNoManagedDependencyConflicts', () => {
-  it('exits when user config imports a managed dependency', () => {
+  it('throws when user config imports a managed dependency (never process.exit — library hosts embed this path)', () => {
     const project = makeTempDir('extjs-conflict-')
     const pkgPath = path.join(project, 'package.json')
     fs.writeFileSync(
@@ -22,21 +22,16 @@ describe('assertNoManagedDependencyConflicts', () => {
       "const p = require('pintor')\nmodule.exports = {config: (c) => c}"
     )
 
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      // do not actually exit the process
-      .mockImplementation(((_code?: number) => undefined) as any)
-
-    assertNoManagedDependencyConflicts(pkgPath, project)
-    expect(exitSpy).toHaveBeenCalledWith(1)
-    exitSpy.mockRestore()
+    expect(() =>
+      assertNoManagedDependencyConflicts(pkgPath, project)
+    ).toThrowError(/pintor/)
 
     try {
       fs.rmSync(project, {recursive: true, force: true})
     } catch {}
   })
 
-  it('does not exit when a managed dependency is only mentioned in a comment', () => {
+  it('does not throw when a managed dependency is only mentioned in a comment', () => {
     const project = makeTempDir('extjs-comment-')
     const pkgPath = path.join(project, 'package.json')
     fs.writeFileSync(
@@ -48,20 +43,16 @@ describe('assertNoManagedDependencyConflicts', () => {
       'module.exports = {config: (c) => c, /* pintor */ }'
     )
 
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      .mockImplementation(((_code?: number) => undefined) as any)
-
-    assertNoManagedDependencyConflicts(pkgPath, project)
-    expect(exitSpy).not.toHaveBeenCalled()
-    exitSpy.mockRestore()
+    expect(() =>
+      assertNoManagedDependencyConflicts(pkgPath, project)
+    ).not.toThrow()
 
     try {
       fs.rmSync(project, {recursive: true, force: true})
     } catch {}
   })
 
-  it('does not exit when a managed name is only a substring of another package', () => {
+  it('does not throw when a managed name is only a substring of another package', () => {
     const project = makeTempDir('extjs-substring-')
     const pkgPath = path.join(project, 'package.json')
     // `pintor` is managed; the project depends on a hypothetical
@@ -77,13 +68,9 @@ describe('assertNoManagedDependencyConflicts', () => {
       "const e = require('pintor-extras')\nmodule.exports = {config: (c) => c}"
     )
 
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      .mockImplementation(((_code?: number) => undefined) as any)
-
-    assertNoManagedDependencyConflicts(pkgPath, project)
-    expect(exitSpy).not.toHaveBeenCalled()
-    exitSpy.mockRestore()
+    expect(() =>
+      assertNoManagedDependencyConflicts(pkgPath, project)
+    ).not.toThrow()
 
     try {
       fs.rmSync(project, {recursive: true, force: true})

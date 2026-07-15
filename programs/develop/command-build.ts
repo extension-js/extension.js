@@ -38,7 +38,13 @@ export async function extensionBuild(
 ): Promise<BuildSummary> {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
-  const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
+  // exitOnError is a CLI affordance: the CLI wrapper passes true so a failed
+  // build ends its own process after the clean error line. As a library
+  // import (`extensionBuild` from extension-develop), a failed build must be
+  // a rejected promise — the old `?? true` default process.exit(1)'d inside
+  // embedding hosts (@extension.dev/mcp's server died mid-session on any
+  // sample whose build legitimately fails).
+  const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest
   const browser = normalizeBrowser(
     buildOptions?.browser || 'chrome',
     buildOptions?.chromiumBinary,

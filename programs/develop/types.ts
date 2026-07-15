@@ -269,8 +269,9 @@ export interface BuildOptions {
   install?: boolean
   // When true, treat warnings as build failures
   failOnWarning?: boolean
-  // When false, extensionBuild rejects on error instead of exiting the process.
-  // Defaults to true for CLI usage.
+  // When true, a failed build calls process.exit(1) after the clean error
+  // line — the CLI wrapper passes this. Defaults to false: as a library
+  // import, a failed build is a rejected promise, never a dead host process.
   exitOnError?: boolean
   // Safari identity/packaging inputs (safari/webkit-based targets only)
   appName?: SafariOptions['appName']
