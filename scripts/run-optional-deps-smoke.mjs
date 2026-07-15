@@ -13,13 +13,21 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.resolve(__dirname, '..')
 
-const supportedManagers = new Set(['pnpm', 'npm', 'yarn', 'bun'])
+const supportedManagers = new Set(['pnpm', 'npm', 'yarn', 'bun', 'deno'])
 const pmIndex = process.argv.indexOf('--pm')
 const cliPackageManager = pmIndex >= 0 ? process.argv[pmIndex + 1] : undefined
 const scenarioIndex = process.argv.indexOf('--scenario')
 const cliScenario =
   scenarioIndex >= 0 ? process.argv[scenarioIndex + 1] : 'default'
 const packageManager = cliPackageManager || 'npm'
+// Optional fork/engine build target. When set, the smoke runs one extra
+// `extension build --browser=<target>` after the default build and asserts a
+// non-empty `dist/<target>`. This exercises the Chromium/Gecko family routing
+// and the dist-target contract for forks (brave/opera/waterfox/librewolf/…)
+// without requiring the fork's binary to be installed on the runner.
+const browserIndex = process.argv.indexOf('--browser')
+const cliBrowserTarget =
+  browserIndex >= 0 ? process.argv[browserIndex + 1] : undefined
 
 // `default` (the implicit value) runs the standard fixture AND the React
 // content-dev fixture — the latter is the only smoke that exercises the
@@ -36,13 +44,13 @@ const supportedScenarios = new Set([
 function assertValidCliArgs(pm, scenario) {
   if (!pm || !supportedManagers.has(pm)) {
     throw new Error(
-      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun>'
+      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun|deno>'
     )
   }
 
   if (!supportedScenarios.has(scenario)) {
     throw new Error(
-      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun> [--scenario <default|default-only|react-content-dev>]'
+      'Usage: node scripts/run-optional-deps-smoke.mjs --pm <pnpm|npm|yarn|bun|deno> [--scenario <default|default-only|react-content-dev>] [--browser <target>]'
     )
   }
 }
@@ -55,7 +63,10 @@ const baseEnv = {
 }
 
 function shouldUsePackedExtensionForSmoke(pm) {
-  return pm === 'bun' || pm === 'yarn'
+  // deno joins bun/yarn here: it resolves npm-style specifiers, not the
+  // workspace:*/file-linked layout pnpm/npm can consume directly, so it
+  // installs freshly packed tarballs of the same commit instead.
+  return pm === 'bun' || pm === 'yarn' || pm === 'deno'
 }
 
 function wait(ms) {
@@ -164,6 +175,7 @@ function commandFor(tool) {
   if (tool === 'npm') return 'npm.cmd'
   if (tool === 'yarn') return 'yarn.cmd'
   if (tool === 'bun') return 'bun.exe'
+  if (tool === 'deno') return 'deno.exe'
   return tool
 }
 
@@ -786,6 +798,29 @@ function installAndBuild(workdir, pm) {
       run('bun', ['install'], workdir, smokeEnv)
     }
     run('bun', ['run', 'build:production'], workdir, smokeEnv)
+    return
+  }
+
+  if (pm === 'deno') {
+    // Mirror how `extension create` scaffolds a Deno project: a deno.jsonc with
+    // nodeModulesDir enabled and tasks that call the local `extension` bin
+    // (deno task puts node_modules/.bin on PATH), then `deno install` +
+    // `deno task build:production`. The npm-style package.json the fixture
+    // already wrote coexists with this companion manifest, matching the
+    // non-primary Deno scaffold. Runs in a non-blocking CI lane until proven.
+    const denoManifest = {
+      nodeModulesDir: 'auto',
+      tasks: {
+        build: 'extension build',
+        'build:production': 'extension build'
+      }
+    }
+    fsSync.writeFileSync(
+      path.join(workdir, 'deno.jsonc'),
+      `${JSON.stringify(denoManifest, null, 2)}\n`
+    )
+    run('deno', ['install'], workdir, smokeEnv)
+    run('deno', ['task', 'build:production'], workdir, smokeEnv)
   }
 }
 
@@ -956,6 +991,42 @@ async function main() {
     )
     await rewriteConsumerPackageJson(workdir, packageManager, packedTarballs)
     installAndBuild(workdir, packageManager)
+
+    // Optional fork/engine build-target assertion. Builds one non-default
+    // target through the local CLI (PM-independent — the Chromium/Gecko family
+    // routing and dist-target contract do not vary by package manager) and
+    // asserts a non-empty dist/<target>. No fork binary is required: `build`
+    // only emits artifacts, it does not launch a browser.
+    if (cliBrowserTarget) {
+      const forkEnv = {
+        ...buildSmokeEnv(packageManager),
+        EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
+      }
+      run(
+        process.execPath,
+        [localCliPath(), 'build', `--browser=${cliBrowserTarget}`],
+        workdir,
+        forkEnv
+      )
+      const forkDistDir = path.join(workdir, 'dist', cliBrowserTarget)
+      if (!(await pathExists(forkDistDir))) {
+        throw new Error(
+          `Expected dist/${cliBrowserTarget} after fork build target, but it is missing.`
+        )
+      }
+      const forkDistEntries = await fs.readdir(forkDistDir)
+      if (forkDistEntries.length === 0) {
+        throw new Error(
+          `Fork build target produced an empty dist/${cliBrowserTarget}.`
+        )
+      }
+      console.log(
+        `\nFork build target dist/${cliBrowserTarget} produced ` +
+          `${forkDistEntries.length} entr${
+            forkDistEntries.length === 1 ? 'y' : 'ies'
+          }.`
+      )
+    }
 
     // The React content-script dev smoke is the part of the build graph that
     // pulls in `feature-scripts-content-script-wrapper` + browser-runtime
