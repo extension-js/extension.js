@@ -275,4 +275,47 @@ describe('sanitizeFatalManifestShapes', () => {
       expect(fixes).toHaveLength(0)
     })
   })
+
+  describe('named commands without a description (Chrome: "Invalid value for commands[N].description")', () => {
+    it('backfills missing, empty, and non-string descriptions with the command name', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        commands: {
+          'toggle-feature': {suggested_key: {default: 'Ctrl+Shift+Y'}},
+          annotate: {description: '', suggested_key: {default: 'Ctrl+Shift+U'}},
+          highlight: {description: 42}
+        }
+      } as unknown as Manifest)
+      const commands = (manifest as any).commands
+      expect(commands['toggle-feature'].description).toBe('toggle-feature')
+      expect(commands.annotate.description).toBe('annotate')
+      expect(commands.highlight.description).toBe('highlight')
+      expect(fixes.map((f) => f.field)).toEqual([
+        'commands.toggle-feature.description',
+        'commands.annotate.description',
+        'commands.highlight.description'
+      ])
+    })
+
+    it('leaves _execute_* commands and valid descriptions untouched', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        commands: {
+          _execute_action: {suggested_key: {default: 'Ctrl+Shift+E'}},
+          annotate: {
+            description: 'Annotate the page',
+            suggested_key: {default: 'Ctrl+Shift+U'}
+          }
+        }
+      } as unknown as Manifest)
+      const commands = (manifest as any).commands
+      expect(commands._execute_action.description).toBeUndefined()
+      expect(commands.annotate.description).toBe('Annotate the page')
+      expect(fixes).toHaveLength(0)
+    })
+  })
 })
