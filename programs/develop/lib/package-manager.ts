@@ -15,7 +15,9 @@ export {buildExecEnv}
 
 const require = createRequire(import.meta.url)
 
-export type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun' | 'deno'
+import {SUPPORTED_PACKAGE_MANAGERS} from './constants'
+
+export type PackageManagerName = (typeof SUPPORTED_PACKAGE_MANAGERS)[number]
 
 export type PackageManagerResolution = {
   name: PackageManagerName
