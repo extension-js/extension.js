@@ -85,6 +85,15 @@ jobs:
             pm: pnpm
           - os: windows-latest
             pm: npm
+          # Fork/engine build-target lanes. `build` only emits artifacts (no
+          # browser is launched), so these assert the Chromium/Gecko family
+          # routing + dist-target contract without the fork binary installed.
+          - os: ubuntu-latest
+            pm: pnpm
+            browser: brave
+          - os: ubuntu-latest
+            pm: pnpm
+            browser: waterfox
 
     steps:
       - name: Checkout
@@ -118,7 +127,7 @@ jobs:
         run: node --test scripts/__spec__/run-optional-deps-smoke.spec.mjs
 
       - name: Run optional deps smoke
-        run: node scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}
+        run: node scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }} ${{ matrix.browser && format('--browser {0}', matrix.browser) || '' }}
 
       - name: Compile local Extension.js packages for workspace first-dev check
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
@@ -127,3 +136,45 @@ jobs:
       - name: Verify first dev content-react contract (Windows npm)
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
         run: node scripts/verify-content-template-first-dev.mjs --templates content-react --use-default-cache --use-workspace-package
+
+  # Deno smoke lane. Incubating: it runs on the nightly schedule and manual
+  # dispatch only — NOT on every PR — so an unproven runtime lane cannot gate
+  # contributor PRs before it is stable. Once it is reliably green here, fold a
+  # `pm: deno` entry into `optional-deps-smoke` above to gate PRs on it too.
+  optional-deps-smoke-deno:
+    name: smoke deno (${{ matrix.os }}) [nightly, non-blocking]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.28.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test optional deps smoke helpers
+        run: node --test scripts/__spec__/run-optional-deps-smoke.spec.mjs
+
+      - name: Run optional deps smoke (deno)
+        run: node scripts/run-optional-deps-smoke.mjs --pm deno
