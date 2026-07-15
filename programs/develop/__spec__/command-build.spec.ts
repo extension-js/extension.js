@@ -392,6 +392,40 @@ describe('webpack/command-build', () => {
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
   })
 
+  it('rejects (never process.exit) on build errors BY DEFAULT — library hosts embed extensionBuild (§37)', async () => {
+    // Prove the default path, not the vitest escape hatch: with VITEST unset
+    // and no exitOnError option, a failed build must reject the promise. The
+    // old `exitOnError ?? true` default killed embedding hosts
+    // (@extension.dev/mcp's server died mid-session on failing builds).
+    const priorVitest = process.env.VITEST
+    delete process.env.VITEST
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(((_code?: number) => undefined) as any)
+    try {
+      ;(fs.existsSync as any).mockReturnValue(false)
+      ;(fs.readdirSync as any).mockReturnValue([])
+
+      const stats = {
+        hasErrors: () => true,
+        toString: () => 'Rspack: ModuleBuildError:\n\n\n'
+      }
+      rspackMock.mockReturnValue(makeCompiler(stats))
+
+      await expect(
+        extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true
+        })
+      ).rejects.toThrow(/Build failed with errors/)
+
+      expect(exitSpy).not.toHaveBeenCalled()
+    } finally {
+      exitSpy.mockRestore()
+      process.env.VITEST = priorVitest
+    }
+  })
+
   it('prints a build error when setup fails in non-author mode', async () => {
     const localErrorSpy = vi
       .spyOn(console, 'error')
