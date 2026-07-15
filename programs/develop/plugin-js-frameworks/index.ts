@@ -544,9 +544,10 @@ export class JsFrameworksPlugin {
         messages.jsFrameworksConfigsDetected(tsConfigPath, tsRoot, targets)
       )
 
+      // Preact is deliberately absent: its fast-refresh is disabled (broken
+      // upstream plugin) so it runs on live reload, like Vue's remount.
       const hmrFrameworks: string[] = []
       if (maybeInstallReact) hmrFrameworks.push('React')
-      if (maybeInstallPreact) hmrFrameworks.push('Preact')
       if (maybeInstallSvelte) hmrFrameworks.push('Svelte')
 
       console.log(
