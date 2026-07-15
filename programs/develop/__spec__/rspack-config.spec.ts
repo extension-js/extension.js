@@ -486,4 +486,100 @@ describe('webpack-config transpile packages watch behavior', () => {
     // Non-url dependency types are never treated as CSS assets.
     expect(run('images/missing.png', 'esm')).toEqual([undefined, undefined])
   })
+
+  it('leaves an unresolvable bare require() verbatim as a commonjs external (§36), fatal under EXTENSION_STRICT_REFS', () => {
+    const projectStructure = createProjectStructure()
+    const makeExternalFn = () => {
+      const config = webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'production',
+          output: {
+            clean: false,
+            path: path.join(
+              path.dirname(projectStructure.manifestPath),
+              'dist',
+              'chrome'
+            )
+          },
+          noBrowser: true
+        } as any
+      )
+      return (config.externals as any[])[0] as (
+        data: {
+          request?: string
+          dependencyType?: string
+          context?: string
+          contextInfo?: {issuer: string}
+          getResolve?: () => (
+            context: string,
+            request: string,
+            cb: (err?: Error | null, result?: string | false) => void
+          ) => void
+        },
+        cb: (err?: null, result?: string, type?: string) => void
+      ) => void
+    }
+    const externalFn = makeExternalFn()
+
+    // Fake resolver: only 'resolvable-pkg' resolves.
+    const getResolve =
+      () =>
+      (
+        _context: string,
+        request: string,
+        cb: (err?: Error | null, result?: string | false) => void
+      ) => {
+        if (request === 'resolvable-pkg') cb(null, '/fake/node_modules/x.js')
+        else cb(new Error(`Can't resolve '${request}'`))
+      }
+
+    const run = (request: string, dependencyType = 'commonjs') => {
+      let captured: [string | undefined, string | undefined] = [
+        undefined,
+        undefined
+      ]
+      externalFn(
+        {
+          request,
+          dependencyType,
+          context: '/some/project',
+          contextInfo: {issuer: '/some/project/vendored.js'},
+          getResolve
+        },
+        (_e, result, type) => {
+          captured = [result, type]
+        }
+      )
+      return captured
+    }
+
+    // A dead Rhino/Narwhal-era require in a vendored pre-bundled script
+    // (handlebars 1.0's require('file')/require('system')) must not fail the
+    // build: externalized as `commonjs`, the emitted bundle keeps the call
+    // verbatim, throwing only if the dead branch ever runs — same as the
+    // unbundled script in Chrome (regression: built fine on 4.0.3).
+    expect(run('file')).toEqual(['file', 'commonjs'])
+    expect(run('system')).toEqual(['system', 'commonjs'])
+    // A bare require that DOES resolve bundles normally.
+    expect(run('resolvable-pkg')).toEqual([undefined, undefined])
+    // Relative/absolute requests stay fatal — a typo'd local path is a real
+    // authoring bug, not a vendored dead branch.
+    expect(run('./missing-local')).toEqual([undefined, undefined])
+    expect(run('/abs/missing')).toEqual([undefined, undefined])
+    // resolve.fallback owns the node builtins stubbed to empty modules.
+    expect(run('fs')).toEqual([undefined, undefined])
+    expect(run('path')).toEqual([undefined, undefined])
+    // ESM imports are module syntax — Chrome would refuse them too; fatal.
+    expect(run('file', 'esm')).toEqual([undefined, undefined])
+
+    // EXTENSION_STRICT_REFS=true restores the hard error (no interception).
+    process.env.EXTENSION_STRICT_REFS = 'true'
+    try {
+      expect(run('file')).toEqual([undefined, undefined])
+    } finally {
+      delete process.env.EXTENSION_STRICT_REFS
+    }
+  })
 })
