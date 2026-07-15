@@ -65,8 +65,13 @@ function copyIfDifferentContent(sourceContent: string, target: string): void {
 }
 
 function transformReadme(content: string): string {
-  // 1) Reduce right-aligned logo image width from 20% to 15.5%
-  let out = content.replace(/width="20%"/g, 'width="15.5%"')
+  // 1) Shrink the right-aligned logo for npm's narrower layout. Match the
+  // Logo tag rather than the exact width so GitHub-side size tweaks in the
+  // root README can't silently break this rewrite.
+  let out = content.replace(
+    /(<img alt="Logo"[^>]*width=")[\d.]+%(")/g,
+    '$114.1%$2'
+  )
 
   // 2) Remove the "Downloads" badge from the heading and its reference definitions
   // Remove inline badge usage
