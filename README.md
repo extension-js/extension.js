@@ -15,7 +15,7 @@
 
 > The cross-browser extension framework. Build for Chrome, Edge, and Firefox with no build config required.
 
-<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20%" />
+<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20.25%" />
 
 ```bash
 npx extension@latest create my-extension
@@ -23,7 +23,7 @@ cd my-extension
 npm run dev
 ```
 
-Works with `npm`, `pnpm`, `yarn`, and `bun`.
+Works with `npm`, `pnpm`, `yarn`, and `bun`. Deno is supported too (run the CLI with `deno run -A npm:extension@latest ...`); treat it as experimental.
 
 [Documentation](https://extension.js.org) · [Templates](https://templates.extension.dev) · [Examples](https://github.com/extension-js/examples) · [Discord](https://discord.gg/v9h2RgeTSN)
 
