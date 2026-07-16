@@ -4,6 +4,8 @@ import {
   CERTIFICATE_DESTINATION_PATH,
   CHROMIUM_BASED_BROWSERS,
   GECKO_BASED_BROWSERS,
+  CHROMIUM_FAMILY_ALIASES,
+  GECKO_FAMILY_ALIASES,
   SUPPORTED_BROWSERS,
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
@@ -39,6 +41,19 @@ describe('constants', () => {
       'waterfox',
       'librewolf'
     ])
+  })
+
+  it('classifies every family alias with its own predicate', () => {
+    // The alias arrays feed env-file resolution and the cross-package
+    // alignment spec — an alias a predicate rejects is unreachable there.
+    for (const name of CHROMIUM_FAMILY_ALIASES) {
+      expect(isChromiumBasedBrowser(name), name).toBe(true)
+      expect(isGeckoBasedBrowser(name), name).toBe(false)
+    }
+    for (const name of GECKO_FAMILY_ALIASES) {
+      expect(isGeckoBasedBrowser(name), name).toBe(true)
+      expect(isChromiumBasedBrowser(name), name).toBe(false)
+    }
   })
 
   it('classifies fork browsers by engine family', () => {

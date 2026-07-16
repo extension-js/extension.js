@@ -12,6 +12,7 @@ import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './lib/project'
 import {makeSanitizedConsole} from './lib/branding'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
+import {isChromiumBasedBrowser} from './lib/constants'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
@@ -233,8 +234,8 @@ export default function webpackConfig(
     {
       apply(compiler: any) {
         const target = String(devOptions.browser)
-        const isChromiumTarget =
-          ['chrome', 'edge'].includes(target) || target.includes('chromium')
+        // Family classification: brave/opera/vivaldi/yandex drop MV2 too.
+        const isChromiumTarget = isChromiumBasedBrowser(target)
         if ((manifest as any)?.manifest_version !== 2 || !isChromiumTarget)
           return
         compiler.hooks.thisCompilation.tap(
