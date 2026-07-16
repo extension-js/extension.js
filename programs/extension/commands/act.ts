@@ -149,7 +149,9 @@ async function runCommand(input: RunInput): Promise<void> {
     )
   }
 
-  const token = input.needsToken ? readControlToken(projectPath) : undefined
+  const token = input.needsToken
+    ? readControlToken(projectPath, browser)
+    : undefined
   const controller = new BridgeController({
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,

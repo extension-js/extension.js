@@ -24,6 +24,11 @@ export {
   controlTokenPath
 } from './dev-server/control-bridge/session-token'
 
+export {
+  readPersistedControlPort,
+  controlPortFilePath
+} from './dev-server/control-bridge/control-port-store'
+
 export type {
   LogEvent,
   LogLevel,

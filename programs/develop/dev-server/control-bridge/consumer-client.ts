@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as fs from 'fs'
-import * as path from 'path'
 import {WebSocket} from 'ws'
+import {readyContractPath} from '../../lib/session-paths'
 import {
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
@@ -24,19 +24,22 @@ export interface ReadyContractInfo {
   runId: string
   logsPath?: string
   status?: string
+  /** Dev-server pid; absent in pre-4.1 contracts. */
+  pid?: number
+  /** Browser CDP port, stamped post-launch — may lag `status: 'ready'`. */
+  cdpPort?: number
+  /** Stamped when the launched browser exits while the server keeps running. */
+  browserExitedAt?: string
+  browserExitCode?: number
+  /** Last contract write time (ISO). */
+  ts?: string
 }
 
 export function readReadyContract(
   projectPath: string,
   browser = 'chrome'
 ): ReadyContractInfo | null {
-  const readyPath = path.resolve(
-    projectPath,
-    'dist',
-    'extension-js',
-    browser,
-    'ready.json'
-  )
+  const readyPath = readyContractPath(projectPath, browser)
 
   try {
     const c = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
@@ -47,7 +50,14 @@ export function readReadyContract(
       instanceId: String(c.instanceId),
       runId: String(c.runId || ''),
       logsPath: c.logsPath,
-      status: c.status
+      status: c.status,
+      pid: typeof c.pid === 'number' ? c.pid : undefined,
+      cdpPort: typeof c.cdpPort === 'number' ? c.cdpPort : undefined,
+      browserExitedAt:
+        typeof c.browserExitedAt === 'string' ? c.browserExitedAt : undefined,
+      browserExitCode:
+        typeof c.browserExitCode === 'number' ? c.browserExitCode : undefined,
+      ts: typeof c.ts === 'string' ? c.ts : undefined
     }
   } catch {
     return null

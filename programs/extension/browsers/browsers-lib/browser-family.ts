@@ -20,7 +20,7 @@ import type {BrowserType} from '../browsers-types'
 // Safari/webkit are intentionally NOT in either family here — they have their
 // own run-safari launch path.
 
-const CHROMIUM_BROWSERS: ReadonlySet<string> = new Set([
+export const CHROMIUM_BROWSERS: ReadonlySet<string> = new Set([
   'chrome',
   'edge',
   'chromium',
@@ -31,7 +31,7 @@ const CHROMIUM_BROWSERS: ReadonlySet<string> = new Set([
   'chromium-based'
 ])
 
-const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
+export const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
   'firefox',
   'waterfox',
   'librewolf',

@@ -25,6 +25,7 @@ import {registerActCommands} from './commands/act'
 import {registerPublishCommand} from './commands/publish'
 import {registerInstallCommand} from './commands/install'
 import {registerTelemetryCommand} from './commands/telemetry'
+import {registerDoctorCommand} from './commands/doctor'
 
 // Public type surface for `extension.config.js`. Re-exported from the root so
 // consumers can annotate their config with `import('extension').FileConfig`.
@@ -150,6 +151,7 @@ registerActCommands(extensionJs)
 registerPublishCommand(extensionJs)
 registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
+registerDoctorCommand(extensionJs)
 
 extensionJs.on('option:ai-help', function () {
   const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()
