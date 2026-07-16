@@ -20,6 +20,9 @@ const CLASSIC_ROOT = fs.mkdtempSync(
 const MODULE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-html-module-')
 )
+const INLINE_CONSUMER_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-html-inline-')
+)
 
 function writePackageJson(root: string, name: string) {
   fs.writeFileSync(
@@ -114,6 +117,54 @@ function writeModuleFixture() {
   )
 }
 
+// The chrome-extensions-samples sandbox shape (BUGS_TO_FIX §38): ONE classic
+// library <script src> in <head> declaring a top-level global, consumed at
+// parse time by an INLINE <script> in <body>. In the browser the library's
+// top-level `var` lands on window before the inline script runs; bundling it
+// as an ES module scopes it inside the webpack closure and the inline
+// consumer throws `ReferenceError: Handlebars is not defined`.
+function writeInlineConsumerFixture() {
+  writePackageJson(INLINE_CONSUMER_ROOT, 'extjs-build-html-inline-spec')
+
+  fs.writeFileSync(
+    path.join(INLINE_CONSUMER_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — classic script + inline consumer',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(INLINE_CONSUMER_ROOT, 'popup.html'),
+    [
+      '<html>',
+      '<head><script src="handlebars.js"></script></head>',
+      '<body>',
+      '<script>document.title = Handlebars.compile("greeting")();</script>',
+      '</body></html>',
+      ''
+    ].join('\n')
+  )
+
+  // Minimal stand-in for a vendored classic lib: top-level `var` global.
+  fs.writeFileSync(
+    path.join(INLINE_CONSUMER_ROOT, 'handlebars.js'),
+    [
+      'var Handlebars = {};',
+      'Handlebars.compile = function (source) {',
+      '  return function () { return "compiled:" + source; };',
+      '};',
+      ''
+    ].join('\n')
+  )
+}
+
 async function buildFixture(root: string) {
   const {extensionBuild} = await import('../command-build')
 
@@ -147,11 +198,13 @@ async function buildFixture(root: string) {
 beforeAll(() => {
   writeClassicFixture()
   writeModuleFixture()
+  writeInlineConsumerFixture()
 }, 30_000)
 
 afterAll(() => {
   fs.rmSync(CLASSIC_ROOT, {recursive: true, force: true})
   fs.rmSync(MODULE_ROOT, {recursive: true, force: true})
+  fs.rmSync(INLINE_CONSUMER_ROOT, {recursive: true, force: true})
 })
 
 describe('build: HTML pages with multiple classic scripts (real rspack)', () => {
@@ -188,5 +241,40 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
 
     const distDir = path.join(MODULE_ROOT, 'dist', 'chrome')
     expect(fs.existsSync(path.join(distDir, 'action', 'index.js'))).toBe(true)
+  }, 120_000)
+
+  it('keeps an inline <script> consumer of a classic library global working', async () => {
+    const summary = await buildFixture(INLINE_CONSUMER_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(INLINE_CONSUMER_ROOT, 'dist', 'chrome')
+    const html = fs.readFileSync(
+      path.join(distDir, 'action', 'index.html'),
+      'utf8'
+    )
+
+    // The bundle tag must replace the library tag IN PLACE (head), not be
+    // appended at the end of body — the inline consumer runs at parse time.
+    const bundleTagIndex = html.indexOf('/action/index.js')
+    const inlineIndex = html.indexOf('Handlebars.compile')
+    expect(bundleTagIndex).toBeGreaterThan(-1)
+    expect(inlineIndex).toBeGreaterThan(-1)
+    expect(bundleTagIndex).toBeLessThan(inlineIndex)
+
+    // Execute the page the way the browser would: bundle first (its tag
+    // comes first), then the inline script. Before the fix the inline
+    // script throws `ReferenceError: Handlebars is not defined`.
+    const context = vm.createContext({document: {title: ''}})
+    vm.runInContext(
+      fs.readFileSync(path.join(distDir, 'action', 'index.js'), 'utf8'),
+      context,
+      {filename: 'action/index.js'}
+    )
+    expect((context as any).Handlebars).toBeDefined()
+
+    const inlineMatch = html.match(/<script>([\s\S]*?)<\/script>/)
+    expect(inlineMatch).not.toBeNull()
+    vm.runInContext(inlineMatch![1], context, {filename: 'inline-script'})
+    expect((context as any).document.title).toBe('compiled:greeting')
   }, 120_000)
 })

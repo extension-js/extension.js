@@ -205,4 +205,70 @@ describe('classic-concat-loader TypeScript members (§24)', () => {
     // The concatenated output must be valid JavaScript.
     expect(() => new Function(output)).not.toThrow()
   })
+
+  it('bridges top-level classic declarations onto globalThis (browser parity)', () => {
+    const dir = createTempProject()
+    const libPath = path.join(dir, 'handlebars.js')
+    fs.writeFileSync(
+      libPath,
+      [
+        'var Handlebars = {};',
+        'function helper() { return 1 }',
+        'class Renderer {}',
+        'let mode = "page";',
+        'if (true) { var hoisted = 2; }',
+        'function inner() { var local = 3; }',
+        ''
+      ].join('\n'),
+      'utf8'
+    )
+
+    const ctx = createLoaderContext(libPath, {
+      feature: 'action/index',
+      js: [libPath],
+      css: []
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [err, output] = ctx.callback.mock.calls[0]
+    expect(err).toBeNull()
+
+    // Top-level declarations (and block-hoisted vars) are exposed; names
+    // scoped inside functions are not.
+    for (const name of ['Handlebars', 'helper', 'Renderer', 'mode', 'hoisted']) {
+      expect(output).toContain(`globalThis[${JSON.stringify(name)}] = ${name}`)
+    }
+    expect(output).not.toContain('globalThis["local"]')
+
+    // The bridge actually lands the values on the global at runtime.
+    const sandbox: Record<string, unknown> = {}
+    new Function('globalThis', output)(sandbox)
+    expect(sandbox.Handlebars).toBeDefined()
+    expect((sandbox as any).helper()).toBe(1)
+    expect(sandbox.hoisted).toBe(2)
+  })
+
+  it('never bridges the UMD-shadowing wrapper params', () => {
+    const dir = createTempProject()
+    const libPath = path.join(dir, 'umd.js')
+    fs.writeFileSync(
+      libPath,
+      'var module = {exports: {}};\nvar lib = {ok: true};\n',
+      'utf8'
+    )
+
+    const ctx = createLoaderContext(libPath, {
+      feature: 'action/index',
+      js: [libPath],
+      css: []
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [err, output] = ctx.callback.mock.calls[0]
+    expect(err).toBeNull()
+    expect(output).toContain('globalThis["lib"] = lib')
+    expect(output).not.toContain('globalThis["module"]')
+  })
 })
