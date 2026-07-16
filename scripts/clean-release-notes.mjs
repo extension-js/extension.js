@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
+// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
+// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
+// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
+// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
+// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 /**
  * Retroactively clean GitHub release bodies by removing release-machinery commit
  * lines: chore(release):... and release(...):...

@@ -1,3 +1,11 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import {createRequire} from 'module'
 import {type Compiler} from '@rspack/core'
 import {resolveConnectableHost} from '../dev-server/connectable-host'

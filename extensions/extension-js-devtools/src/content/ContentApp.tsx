@@ -1,3 +1,11 @@
+// ██████╗ ███████╗██╗   ██╗████████╗ ██████╗  ██████╗ ██╗     ███████╗
+// ██╔══██╗██╔════╝██║   ██║╚══██╔══╝██╔═══██╗██╔═══██╗██║     ██╔════╝
+// ██║  ██║█████╗  ██║   ██║   ██║   ██║   ██║██║   ██║██║     ███████╗
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝   ██║   ██║   ██║██║   ██║██║     ╚════██║
+// ██████╔╝███████╗ ╚████╔╝    ██║   ╚██████╔╝╚██████╔╝███████╗███████║
+// ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import {useEffect, useMemo, useRef, useState} from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {Button} from '@/components/ui/button'

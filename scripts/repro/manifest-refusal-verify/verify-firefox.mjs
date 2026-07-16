@@ -1,3 +1,11 @@
+// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
+// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
+// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
+// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
+// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
+// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 // Verify match-pattern refusals on real Firefox via RDP installTemporaryAddon,
 // which returns the refusal reason in-protocol. Headless, throwaway profile.
 import {spawn} from 'child_process'

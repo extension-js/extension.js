@@ -1,3 +1,11 @@
+// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
+// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
+// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
+// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
+// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
+// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 /**
  * Runs biome format with the same Node as the current process on PATH,
  * so child processes use a consistent Node (cross-platform fix for Windows/WSL).
