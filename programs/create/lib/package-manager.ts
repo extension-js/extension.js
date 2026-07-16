@@ -1,3 +1,11 @@
+//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 // Package-manager detection is provided by the standalone `prefers-yarn`
 // package (extracted from this logic). Re-exported here under the names the
 // create steps already import.

@@ -1,3 +1,11 @@
+//  ██╗███╗   ██╗███████╗████████╗ █████╗ ██╗     ██╗
+//  ██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██║     ██║
+//  ██║██╔██╗ ██║███████╗   ██║   ███████║██║     ██║
+//  ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ██║
+//  ██║██║ ╚████║███████║   ██║   ██║  ██║███████╗███████╗
+//  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import path from 'node:path'
 import fs from 'node:fs'
 import {spawnSync} from 'node:child_process'

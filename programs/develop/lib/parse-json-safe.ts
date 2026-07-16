@@ -1,3 +1,11 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 /**
  * Strips the UTF-8 BOM (0xFEFF) that some editors prepend to JSON files.
  * Chrome tolerates the BOM in every extension JSON it reads (manifest.json,
