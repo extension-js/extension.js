@@ -67,6 +67,15 @@ export function patchHtml(
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
   let firstLinkAttrs: Array<{name: string; value: string}> | undefined
+  // Bundled <script src> tags collected during the walk. The bundle tag
+  // replaces the LAST of them IN PLACE (instead of an end-of-body append):
+  // classic scripts execute at their tag's position, so an inline <script>
+  // consumer below a head-positioned library tag (Handlebars.compile beside
+  // a <script src> handlebars) must find the bundle already executed. When
+  // the last original tag already sits at the end of body this changes
+  // nothing.
+  const bundledScriptNodes: any[] = []
+  let bodyNode: any
 
   for (let node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -111,7 +120,7 @@ export function patchHtml(
                     ? [...(thisChildNode as any).attrs]
                     : []
                 }
-                thisChildNode = parse5utilities.remove(thisChildNode)
+                bundledScriptNodes.push(thisChildNode)
                 hasJsEntry = true
               }
               break
@@ -175,14 +184,31 @@ export function patchHtml(
         }
       }
 
-      // Create the script tag for the JS bundle
       if (htmlChildNode.nodeName === 'body') {
-        // We want a single JS entry point for the extension even
-        // during development, so we only add the script tag if the
-        // user has not already added one.
-        if (hasJsEntry || compilation.options.mode !== 'production') {
-          injectJsScript(htmlChildNode, feature, firstScriptAttrs)
+        bodyNode = htmlChildNode
+      }
+    }
+
+    // Create the script tag for the JS bundle. We want a single JS entry
+    // point for the extension even during development.
+    if (hasJsEntry || compilation.options.mode !== 'production') {
+      if (bundledScriptNodes.length > 0) {
+        // Swap the last original tag for the bundle tag in place; drop the
+        // rest. Execution order relative to inline scripts and preserved
+        // (root-absolute) tags stays the author's.
+        for (const scriptNode of bundledScriptNodes.slice(0, -1)) {
+          parse5utilities.remove(scriptNode)
         }
+        const lastScriptNode = bundledScriptNodes[bundledScriptNodes.length - 1]
+        const propagateScriptAttrs = new Set(['type', 'defer', 'async'])
+        lastScriptNode.attrs = [
+          {name: 'src', value: getFilePath(feature, '.js', true)},
+          ...(firstScriptAttrs || []).filter((attr) =>
+            propagateScriptAttrs.has(attr.name)
+          )
+        ]
+      } else if (bodyNode) {
+        injectJsScript(bodyNode, feature, firstScriptAttrs)
       }
     }
 
