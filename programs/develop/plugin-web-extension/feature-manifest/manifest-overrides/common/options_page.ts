@@ -7,19 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {getFilename} from '../../../shared/paths'
-import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 import {type Manifest} from '../../../../types'
 
-export function optionsPage(manifest: Manifest) {
+export function optionsPage(manifest: Manifest, manifestPath?: string) {
   return (
     manifest.options_page && {
       options_page: (() => {
         const raw = String(manifest.options_page)
-        const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
-        const target = isPublic
-          ? normalizeManifestOutputPath(raw)
-          : 'options/index.html'
-        return getFilename(target, raw)
+        return getFilename(
+          manifestPageOutputTarget(raw, 'options/index.html', manifestPath),
+          raw
+        )
       })()
     }
   )

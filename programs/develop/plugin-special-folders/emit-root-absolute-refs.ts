@@ -20,6 +20,10 @@ import {
   collectRootAbsoluteRefs,
   resolveRootAbsoluteRef
 } from '../plugin-web-extension/shared/paths'
+import {
+  extractStaticImportLiterals,
+  resolveExtensionPath
+} from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 
 export function emitRootAbsoluteRefs(
   compilation: Compilation,
@@ -27,6 +31,11 @@ export function emitRootAbsoluteRefs(
   publicDir: string
 ) {
   const scanned = new Set<string>()
+  // JS modules copied verbatim by this pass keep their static import graph —
+  // Chrome resolves those specifiers against the module's own URL, so the
+  // closure must ship too or the import fetch 404s (the root-absolute sibling
+  // of the getURL static-import trace in trace-runtime-loaded-files).
+  let pendingJs: Array<{name: string; content: string}> = []
 
   // Fixed point: a CSS file we copy in for a root ref can itself carry root
   // refs (`/css/opt.css` -> `url(/img/warn.svg)`). It is not an asset yet when
@@ -49,6 +58,14 @@ export function emitRootAbsoluteRefs(
       for (const ref of collectRootAbsoluteRefs(source)) refs.add(ref)
     }
 
+    for (const item of pendingJs) {
+      for (const literal of extractStaticImportLiterals(item.content)) {
+        const distRel = resolveExtensionPath(literal, item.name)
+        if (distRel) refs.add('/' + distRel)
+      }
+    }
+    pendingJs = []
+
     if (refs.size === 0) return
 
     let emitted = 0
@@ -61,13 +78,14 @@ export function emitRootAbsoluteRefs(
       if (!sourcePath) continue
 
       try {
-        compilation.emitAsset(
-          outputName,
-          new rspack.sources.RawSource(fs.readFileSync(sourcePath))
-        )
+        const buffer = fs.readFileSync(sourcePath)
+        compilation.emitAsset(outputName, new rspack.sources.RawSource(buffer))
         // Keep watch mode honest: editing the file should rebuild.
         compilation.fileDependencies.add(sourcePath)
         emitted++
+        if (/\.(?:js|mjs)$/i.test(outputName)) {
+          pendingJs.push({name: outputName, content: buffer.toString()})
+        }
       } catch {
         // A file we cannot read is not worth failing the whole build over; the
         // existing missing-file reporting still surfaces the broken ref.

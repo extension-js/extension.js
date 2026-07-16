@@ -491,7 +491,7 @@ function unixify(filePath: string): string {
  * output path, or null for anything that isn't a same-origin file reference
  * (remote URLs, other schemes, protocol-relative URLs).
  */
-function resolveExtensionPath(
+export function resolveExtensionPath(
   literal: string,
   basePath: string
 ): string | null {
@@ -599,7 +599,7 @@ function extractHtmlSubresourceLiterals(html: string): string[] {
  * (./ ../ or /-anchored) qualify — bare package specifiers cannot resolve in
  * the browser and belong to the bundler, not the copy-through path.
  */
-function extractStaticImportLiterals(source: string): string[] {
+export function extractStaticImportLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
   const isFileSpecifier = (spec: string) =>

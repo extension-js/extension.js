@@ -7,41 +7,50 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {getFilename} from '../../../shared/paths'
-import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 import {type Manifest} from '../../../../types'
 
-export function chromeUrlOverrides(manifest: Manifest) {
+export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
   return (
     manifest.chrome_url_overrides && {
       chrome_url_overrides: {
         ...(manifest.chrome_url_overrides.bookmarks && {
           bookmarks: (() => {
             const raw = String(manifest.chrome_url_overrides.bookmarks)
-            const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
-            const target = isPublic
-              ? normalizeManifestOutputPath(raw)
-              : 'chrome_url_overrides/bookmarks.html'
-            return getFilename(target, raw)
+            return getFilename(
+              manifestPageOutputTarget(
+                raw,
+                'chrome_url_overrides/bookmarks.html',
+                manifestPath
+              ),
+              raw
+            )
           })()
         }),
         ...(manifest.chrome_url_overrides.history && {
           history: (() => {
             const raw = String(manifest.chrome_url_overrides.history)
-            const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
-            const target = isPublic
-              ? normalizeManifestOutputPath(raw)
-              : 'chrome_url_overrides/history.html'
-            return getFilename(target, raw)
+            return getFilename(
+              manifestPageOutputTarget(
+                raw,
+                'chrome_url_overrides/history.html',
+                manifestPath
+              ),
+              raw
+            )
           })()
         }),
         ...(manifest.chrome_url_overrides.newtab && {
           newtab: (() => {
             const raw = String(manifest.chrome_url_overrides.newtab)
-            const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
-            const target = isPublic
-              ? normalizeManifestOutputPath(raw)
-              : 'chrome_url_overrides/newtab.html'
-            return getFilename(target, raw)
+            return getFilename(
+              manifestPageOutputTarget(
+                raw,
+                'chrome_url_overrides/newtab.html',
+                manifestPath
+              ),
+              raw
+            )
           })()
         })
       }

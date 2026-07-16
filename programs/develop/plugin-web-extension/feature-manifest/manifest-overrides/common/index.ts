@@ -27,14 +27,14 @@ import {type Manifest} from '../../../../types'
 export function manifestCommon(manifest: Manifest, manifestPath?: string) {
   return {
     ...backgroundPage(manifest),
-    ...chromeUrlOverrides(manifest),
+    ...chromeUrlOverrides(manifest, manifestPath),
     ...contentScripts(manifest, manifestPath),
-    ...devtoolsPage(manifest),
+    ...devtoolsPage(manifest, manifestPath),
     ...icons(manifest),
     ...commands(manifest),
     ...permissions(manifest),
-    ...optionsPage(manifest),
-    ...optionsUi(manifest),
+    ...optionsPage(manifest, manifestPath),
+    ...optionsUi(manifest, manifestPath),
     ...sandbox(manifest),
     ...storage(manifest),
     ...theme(manifest),

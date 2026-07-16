@@ -116,7 +116,17 @@ function warnMissingPublicRootResources(params: {
 
     // A ref that exists at the extension root is valid (Chrome resolves '/'
     // from there) and is copied into the output root by emitRootAbsoluteRefs.
-    if (resolveRootAbsoluteRef(publicRootUrl, projectRoot, publicRootForResource)) {
+    // Resolve against the manifest dir like emitRootAbsoluteRefs does — the
+    // compiler context can sit above the extension root (monorepo layouts),
+    // and checking there misses the file and warns about a ref that ships.
+    if (
+      resolveRootAbsoluteRef(
+        publicRootUrl,
+        manifestDir,
+        publicRootForResource
+      ) ||
+      resolveRootAbsoluteRef(publicRootUrl, projectRoot, publicRootForResource)
+    ) {
       return
     }
 
