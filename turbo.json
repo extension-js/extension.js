@@ -20,16 +20,10 @@
     "test:build": {},
     "test:cli": {},
     "test:dev": {},
-    "test:watch": {
-      "cache": false
-    },
     "lint": {
       "outputs": []
     },
     "clean": {
-      "cache": false
-    },
-    "postinstall": {
       "cache": false
     }
   }
