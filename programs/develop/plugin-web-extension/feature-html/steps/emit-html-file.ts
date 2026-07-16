@@ -49,6 +49,18 @@ export class EmitHtmlFile {
                 : path.join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
+              // A root-absolute ref that public/ owns is served verbatim at
+              // the output root by the special-folders pipeline — nothing to
+              // compile here and nothing missing.
+              const relToProject = path.relative(projectDir, resolved)
+              if (
+                relToProject &&
+                !relToProject.startsWith('..') &&
+                !path.isAbsolute(relToProject) &&
+                fs.existsSync(path.join(projectDir, 'public', relToProject))
+              ) {
+                continue
+              }
               if (featureName.startsWith('pages/')) {
                 // Non-entrypoint HTML (special pages/*) only warns.
                 reportToCompilation(
