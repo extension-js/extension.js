@@ -50,7 +50,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "enhancedProcessManagementTerminating: function(1)",
     "enhancedProcessManagementUncaughtException: function(2)",
     "enhancedProcessManagementUnhandledRejection: function(2)",
-    "errorConnectingToBrowser: function(1)",
+    "errorConnectingToBrowser: function(2)",
     "firefoxBinaryArgsExtracted: function(1)",
     "firefoxDryRunBinary: function(1)",
     "firefoxDryRunConfig: function(1)",
@@ -114,6 +114,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "targetActorHasActiveRequestError: function(2)",
     "unsupportedManifestVersionOnChromium: function(2)",
     "usingManagedChromiumFamilyFallback: function(3)",
+    "waitingForBrowserDebugger: function(4)",
   ],
   "messages.ts": [
     "checkUpdates: function(2)",
