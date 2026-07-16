@@ -31,6 +31,7 @@ import {deriveMozExtensionId} from './moz-id'
 
 const MAX_RETRIES = RDP_MAX_RETRIES
 const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
+const RETRY_LOG_EVERY_N_ATTEMPTS = 10
 
 export class RemoteFirefox {
   private readonly options: PluginInterface & {
@@ -112,8 +113,7 @@ export class RemoteFirefox {
   private async connectClient(port: number) {
     let lastError
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for (const _ of Array.from({length: MAX_RETRIES})) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const client = new MessagingClient()
         await client.connect(port)
@@ -129,8 +129,23 @@ export class RemoteFirefox {
         return client
       } catch (error: unknown) {
         if (isErrorWithCode('ECONNREFUSED', error)) {
-          await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
           lastError = error
+          // ECONNREFUSED is the expected "server not up yet" case, but a fully
+          // silent loop makes a dead port (wrong port, firewall, crashed
+          // Firefox) indistinguishable from a normal slow start for the whole
+          // retry budget (~150s by default). Name the port periodically so
+          // connect-side failures are diagnosable while they happen.
+          if (attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
+            console.log(
+              messages.waitingForBrowserDebugger(
+                this.options.browser,
+                port,
+                attempt,
+                MAX_RETRIES
+              )
+            )
+          }
+          await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
           console.error(
@@ -144,7 +159,7 @@ export class RemoteFirefox {
       }
     }
 
-    console.error(messages.errorConnectingToBrowser(this.options.browser))
+    console.error(messages.errorConnectingToBrowser(this.options.browser, port))
     throw lastError
   }
 
@@ -302,7 +317,6 @@ export class RemoteFirefox {
       )
     }
   }
-
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)
   // Emits LogEvent-like lines to stdout according to filters/format
