@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 'use strict'
 
 const fs = require('fs')
