@@ -34,6 +34,12 @@ const FETCH_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-fetch-'))
 const GETURL_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-geturl-')
 )
+const WEBPACK_CHUNKS_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-webpack-chunks-')
+)
+const RUNTIME_SURFACE_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-runtime-surface-')
+)
 
 function writePackageJson(root: string, name: string) {
   fs.writeFileSync(
@@ -363,6 +369,128 @@ function writeGetURLFixture() {
   )
 }
 
+// Mirrors the corpus repro `i-webpack-numeric-chunks` (bug 40): a prebuilt
+// webpack5 bundle loads lazy chunks by NUMERIC id through publicPath
+// concatenation (id + ".js" / id + ".css"), so the chunk filenames never
+// exist as string literals — literal tracing is blind by construction. The
+// runtime SHAPE must trigger a verbatim copy of numeric siblings instead.
+function writeWebpackChunksFixture() {
+  writePackageJson(WEBPACK_CHUNKS_ROOT, 'extjs-build-webpack-chunks-spec')
+
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — webpack numeric chunks',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, 'popup.html'),
+    '<html><body><div id="root"></div><script src="popup.js"></script></body></html>\n'
+  )
+
+  // Minimal webpack5-shaped runtime: numeric-id URL construction with the
+  // runtime's own ChunkLoadError literal (which survives minification when
+  // the __webpack_require__ identifier does not).
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, 'popup.js'),
+    [
+      'var __webpack_require__ = {p: ""}',
+      '__webpack_require__.u = (chunkId) => chunkId + ".js"',
+      '__webpack_require__.miniCssF = (chunkId) => chunkId + ".css"',
+      'var loadChunk = (chunkId) =>',
+      '  new Promise((resolve, reject) => {',
+      '    var url = __webpack_require__.p + __webpack_require__.u(chunkId)',
+      '    var s = document.createElement("script")',
+      '    s.src = url',
+      '    s.onload = resolve',
+      '    s.onerror = () =>',
+      '      reject(new Error("ChunkLoadError: Loading chunk " + chunkId + " failed."))',
+      '    document.head.appendChild(s)',
+      '  })',
+      'loadChunk(311).then(() => {',
+      '  document.getElementById("root").textContent = "chunk 311: " + window.__chunk311',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, '311.js'),
+    'window.__chunk311 = "loaded";\n'
+  )
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, '311.js.map'),
+    '{"version":3,"sources":[],"mappings":""}\n'
+  )
+  fs.writeFileSync(
+    path.join(WEBPACK_CHUNKS_ROOT, '812.css'),
+    'body { background: papayawhip; }\n'
+  )
+}
+
+// Mirrors the corpus repro `j-setpopup-html` (bug 41): a worker sets an HTML
+// surface at runtime (chrome.action.setPopup / chrome.sidePanel.setOptions).
+// The literal survives into the dist worker, but the page is not a manifest
+// ref — untraced, the file (and its script closure) vanished from dist with
+// zero warnings and the popup opened a 404 panel.
+function writeRuntimeSurfaceFixture() {
+  writePackageJson(RUNTIME_SURFACE_ROOT, 'extjs-build-runtime-surface-spec')
+
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Build Spec — runtime-set HTML surfaces',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        background: {service_worker: 'sw.js'},
+        permissions: ['sidePanel']
+      },
+      null,
+      2
+    )
+  )
+
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'popup.html'),
+    '<html><body><p>manifest popup</p></body></html>\n'
+  )
+
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'sw.js'),
+    [
+      'chrome.action.setPopup({popup: "Alt.html"})',
+      'chrome.sidePanel.setOptions({path: "Panel.html"})',
+      '// removing the popup is not a file reference:',
+      'chrome.action.setPopup({popup: ""})',
+      'chrome.action.setPopup({popup: "Missing.html"})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'Alt.html'),
+    '<html><body><p>runtime-set popup</p><script src="alt.js"></script></body></html>\n'
+  )
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'alt.js'),
+    'document.body.dataset.altLoaded = "yes";\n'
+  )
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'Panel.html'),
+    '<html><body><p>runtime-set panel</p></body></html>\n'
+  )
+}
+
 async function buildFixture(root: string) {
   const {extensionBuild} = await import('../command-build')
 
@@ -400,10 +528,14 @@ beforeAll(() => {
   writeTemplateLiteralFixture()
   writeFetchFixture()
   writeGetURLFixture()
+  writeWebpackChunksFixture()
+  writeRuntimeSurfaceFixture()
 }, 30_000)
 
 afterAll(() => {
   fs.rmSync(GETURL_ROOT, {recursive: true, force: true})
+  fs.rmSync(WEBPACK_CHUNKS_ROOT, {recursive: true, force: true})
+  fs.rmSync(RUNTIME_SURFACE_ROOT, {recursive: true, force: true})
   fs.rmSync(IMPORTSCRIPTS_ROOT, {recursive: true, force: true})
   fs.rmSync(EXECUTESCRIPT_ROOT, {recursive: true, force: true})
   fs.rmSync(MISSING_DEP_ROOT, {recursive: true, force: true})
@@ -527,6 +659,58 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     // silent.
     expect(summary.warnings_count).toBeGreaterThan(0)
     expect(fs.existsSync(path.join(distDir, 'nope.js'))).toBe(false)
+  }, 120_000)
+
+  it('copies numeric lazy chunks of a prebuilt webpack bundle — no literal exists to trace (bug 40)', async () => {
+    const summary = await buildFixture(WEBPACK_CHUNKS_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(WEBPACK_CHUNKS_ROOT, 'dist', 'chrome')
+
+    // publicPath "" resolves against the RELOCATED page URL (action/), and
+    // publicPath "/" against the root — the chunks must exist at both.
+    for (const rel of [
+      '311.js',
+      '311.js.map',
+      '812.css',
+      'action/311.js',
+      'action/311.js.map',
+      'action/812.css'
+    ]) {
+      const abs = path.join(distDir, rel)
+      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+    }
+    // Chunks are prebuilt artifacts — the copy must be verbatim.
+    expect(fs.readFileSync(path.join(distDir, '311.js'), 'utf8')).toBe(
+      'window.__chunk311 = "loaded";\n'
+    )
+  }, 120_000)
+
+  it('ships runtime-set HTML surfaces (setPopup/setOptions) with their script closure, and warns on missing ones (bug 41)', async () => {
+    const summary = await buildFixture(RUNTIME_SURFACE_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(RUNTIME_SURFACE_ROOT, 'dist', 'chrome')
+
+    // The literal survives in the emitted worker; the page and its
+    // subresource closure must survive in dist alongside it.
+    const worker = fs.readFileSync(
+      path.join(distDir, 'background', 'service_worker.js'),
+      'utf8'
+    )
+    expect(worker).toContain('Alt.html')
+
+    for (const rel of ['Alt.html', 'alt.js', 'Panel.html']) {
+      const abs = path.join(distDir, rel)
+      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+    }
+    expect(fs.readFileSync(path.join(distDir, 'Alt.html'), 'utf8')).toContain(
+      'runtime-set popup'
+    )
+
+    // A runtime-set surface that exists nowhere must warn, not stay silent.
+    expect(summary.warnings_count).toBeGreaterThan(0)
+    expect(fs.existsSync(path.join(distDir, 'Missing.html'))).toBe(false)
   }, 120_000)
 
   it('warns (instead of silently breaking) when an importScripts dep is missing', async () => {

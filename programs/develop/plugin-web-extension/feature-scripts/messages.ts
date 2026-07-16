@@ -93,6 +93,23 @@ export function getURLDependencyMissing(
   )
 }
 
+export function runtimeSetSurfaceDependencyMissing(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return (
+    `${colors.yellow(assetName)} sets ${colors.yellow(
+      `'${literal}'`
+    )} as a runtime surface (setPopup/setOptions), but ${colors.yellow(
+      expectedPath
+    )} is not part of the output. The surface will open a 404 at runtime.\n` +
+    `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
+      'public/'
+    )}) so it ships with the extension.`
+  )
+}
+
 export function staticImportDependencyMissing(
   assetName: string,
   literal: string,
