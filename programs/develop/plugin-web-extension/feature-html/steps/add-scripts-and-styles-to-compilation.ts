@@ -92,9 +92,33 @@ export class AddScriptsAndStylesToCompilation {
         // as multi-file content_scripts) so their sources concatenate into
         // one shared scope, in tag order. CSS stays as bare entry imports so
         // rspack extracts it to the canonical <feature>.css.
+        //
+        // A SINGLE classic script takes the same route when the page also
+        // carries inline <script> content: in the browser the classic file's
+        // top-level declarations land on the page global and the inline
+        // script consumes them (`Handlebars.compile(...)` beside a
+        // <script src> handlebars). Bundling it as an ES module scopes the
+        // declarations inside the webpack closure and the inline consumer
+        // throws ReferenceError — the concat loader bridges the declarations
+        // back onto globalThis. Pages without inline consumers keep the
+        // plain bundling path unchanged.
         const moduleJsAssets = new Set(htmlAssets?.moduleJs || [])
+        const hasInlineScript = (() => {
+          try {
+            const html = fs.readFileSync(resource as string, 'utf8')
+            const inlineRe =
+              /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi
+            let match: RegExpExecArray | null
+            while ((match = inlineRe.exec(html))) {
+              if (match[1] && match[1].trim()) return true
+            }
+          } catch {
+            // Unreadable page: keep the default bundling path.
+          }
+          return false
+        })()
         const concatenateClassic =
-          jsAssets.length > 1 &&
+          (jsAssets.length > 1 || (jsAssets.length === 1 && hasInlineScript)) &&
           jsAssets.every(
             (asset) =>
               !moduleJsAssets.has(asset) &&

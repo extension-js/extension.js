@@ -41,6 +41,103 @@ function transpileClassicTs(file: string, content: string): string {
   }).outputText
 }
 
+// Names that must never be bridged onto the global: the four UMD-shadowing
+// wrapper params (bridging them would undo the module-system neutralization
+// above) plus the global aliases themselves.
+const EXPOSE_SKIP = new Set([
+  'module',
+  'exports',
+  'define',
+  'require',
+  'globalThis',
+  'window',
+  'self',
+  'this'
+])
+
+/**
+ * Collect the declarations a classic script hangs on the page's global scope:
+ * top-level `var`/`function`/`class`/`let`/`const`, plus `var` hoisted out of
+ * nested blocks (if/for/try) — function and class bodies don't leak. The
+ * concat wrapper turns all of these into function-scoped locals, so without a
+ * bridge an INLINE <script> consumer (`Handlebars.compile(...)` beside a
+ * <script src> handlebars) throws ReferenceError in the built page while the
+ * same page works in Chrome unbundled.
+ */
+function collectClassicGlobalNames(file: string, content: string): string[] {
+  const ts = requireModule('typescript')
+  const sourceFile = ts.createSourceFile(
+    file,
+    content,
+    ts.ScriptTarget.ESNext,
+    false,
+    ts.ScriptKind.JS
+  )
+  const names: string[] = []
+
+  const addBindingNames = (name: any) => {
+    if (ts.isIdentifier(name)) {
+      names.push(String(name.text))
+    } else if (
+      ts.isObjectBindingPattern(name) ||
+      ts.isArrayBindingPattern(name)
+    ) {
+      for (const element of name.elements) {
+        if (element && ts.isBindingElement(element)) {
+          addBindingNames(element.name)
+        }
+      }
+    }
+  }
+
+  const visit = (node: any, topLevel: boolean) => {
+    if (ts.isVariableStatement(node)) {
+      const isVar =
+        (node.declarationList.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) === 0
+      // let/const are lexical: only top-level ones are visible to later
+      // scripts; a nested var hoists to the global like Chrome does.
+      if (topLevel || isVar) {
+        for (const decl of node.declarationList.declarations) {
+          addBindingNames(decl.name)
+        }
+      }
+      return
+    }
+    if (ts.isVariableDeclarationList(node)) {
+      // A for/for-in/for-of head (`for (var i = 0; ...)`): its `var`
+      // bindings hoist to the global like any other var.
+      const isVar =
+        (node.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) === 0
+      if (isVar) {
+        for (const decl of node.declarations) {
+          addBindingNames(decl.name)
+        }
+      }
+      return
+    }
+    if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) {
+      if (topLevel && node.name) names.push(String(node.name.text))
+      // Never descend into function/class bodies — their vars stay local.
+      return
+    }
+    if (
+      ts.isArrowFunction(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isClassExpression(node) ||
+      ts.isMethodDeclaration(node)
+    ) {
+      return
+    }
+    ts.forEachChild(node, (child: any) => visit(child, false))
+  }
+
+  for (const statement of sourceFile.statements) {
+    visit(statement, true)
+  }
+
+  return names
+}
+
 interface ClassicConcatLoaderContext {
   resourcePath: string
   resourceQuery: string
@@ -146,12 +243,19 @@ export default function classicConcatLoader(
   }
 
   // Read and concatenate JS files
+  const globalNames: string[] = []
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
     const raw = fs.readFileSync(file, 'utf8')
     // Line mappings for transpiled TS are approximate (tsc's emitter mostly
     // preserves line positions, but removed type-only blocks shift them).
     const content = /\.ts$/i.test(file) ? transpileClassicTs(file, raw) : raw
+    try {
+      globalNames.push(...collectClassicGlobalNames(file, content))
+    } catch {
+      // A file the parser chokes on still concatenates; it just gets no
+      // global bridge.
+    }
     sources.push(file)
     sourcesContent.push(raw)
 
@@ -169,6 +273,29 @@ export default function classicConcatLoader(
     // Semicolon guard between files to prevent ASI issues
     if (fileIdx < jsFiles.length - 1) {
       outputLines.push(';')
+      lineMappings.push(null)
+    }
+  }
+
+  // In the browser these files run as classic scripts, so their top-level
+  // declarations land on the page's global — an inline <script> on the same
+  // page (or any later non-bundled script) consumes them from there. The
+  // wrapper above made them function-scoped, so bridge each collected name
+  // back onto globalThis before the wrapper closes. Property assignment
+  // survives minification (the local identifier renames consistently; the
+  // property name is quoted).
+  const exposedNames = [...new Set(globalNames)].filter(
+    (name) => !EXPOSE_SKIP.has(name) && /^[A-Za-z_$][\w$]*$/.test(name)
+  )
+  if (exposedNames.length > 0) {
+    outputLines.push(
+      '/* extension.js: classic top-level declarations land on the global (browser parity) */'
+    )
+    lineMappings.push(null)
+    for (const name of exposedNames) {
+      outputLines.push(
+        `try { globalThis[${JSON.stringify(name)}] = ${name}; } catch (_e) {}`
+      )
       lineMappings.push(null)
     }
   }
