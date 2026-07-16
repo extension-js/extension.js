@@ -271,6 +271,7 @@ async function assertLocalWorkspacePackagesExist(
 }
 
 const PACKED_TARBALL_DIR = '.smoke-tarballs'
+const DENO_LINKS_DIR = '.smoke-links'
 
 function readPackageIdentity(pkgDir) {
   const pkg = JSON.parse(
@@ -306,7 +307,23 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
       )
     }
 
-    specifiers[name] = `file:./${PACKED_TARBALL_DIR}/${tarballName}`
+    if (pm === 'deno') {
+      // `deno install` SILENTLY IGNORES `file:` dependencies in package.json —
+      // both tarball and directory forms (verified on deno 2.9: no error, no
+      // node_modules entry, no bin). Deno's mechanism for local npm packages
+      // is the deno.json `links` field, which needs an extracted DIRECTORY.
+      // Declare the dep by exact version and link the extracted tarball.
+      const linkDir = path.join(workdir, DENO_LINKS_DIR, name)
+      await fs.mkdir(linkDir, {recursive: true})
+      run(
+        'tar',
+        ['-xzf', tarballPath, '-C', linkDir, '--strip-components', '1'],
+        ROOT_DIR
+      )
+      specifiers[name] = version
+    } else {
+      specifiers[name] = `file:./${PACKED_TARBALL_DIR}/${tarballName}`
+    }
   }
 
   return specifiers
@@ -673,10 +690,12 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
   if (usePackedExtension) {
     // Bun and Yarn classic cannot resolve workspace:* ranges inside a
     // file-linked CLI package, so install every local package from its freshly
-    // packed tarball. The tarballs carry concrete versions for the sibling
-    // `extension-*` packages, so listing all four as top-level file: deps
-    // satisfies extension's transitive requirements with no workspace context
-    // and no dependency on a floating, separately-published `canary` tag.
+    // packed tarball (deno: by exact version, content supplied via deno.jsonc
+    // `links` to the extracted tarball — deno ignores file: deps entirely).
+    // The tarballs carry concrete versions for the sibling `extension-*`
+    // packages, so listing all four as top-level deps satisfies extension's
+    // transitive requirements with no workspace context and no dependency on
+    // a floating, separately-published `canary` tag.
     if (!packedTarballs) {
       throw new Error(
         `Packed workspace tarballs are required for the ${pm} smoke lane but were not provided. ` +
@@ -802,14 +821,27 @@ function installAndBuild(workdir, pm) {
   }
 
   if (pm === 'deno') {
-    // Mirror how `extension create` scaffolds a Deno project: a deno.jsonc with
-    // nodeModulesDir enabled and tasks that call the local `extension` bin
-    // (deno task puts node_modules/.bin on PATH), then `deno install` +
-    // `deno task build:production`. The npm-style package.json the fixture
-    // already wrote coexists with this companion manifest, matching the
-    // non-primary Deno scaffold. Runs in a non-blocking CI lane until proven.
+    // Mirror how `extension create` scaffolds a Deno project: a deno.jsonc
+    // with nodeModulesDir enabled and tasks that call the `extension` bin,
+    // then `deno install` + `deno task build:production`. The npm-style
+    // package.json the fixture already wrote coexists with this companion
+    // manifest, matching the non-primary Deno scaffold.
+    //
+    // The local workspace packages reach deno via the `links` field pointing
+    // at the extracted pack tarballs (see packLocalWorkspacePackagesForSmoke):
+    // `deno install` silently ignores `file:` deps in package.json, so the
+    // pre-links version of this lane never installed the CLI at all — it only
+    // passed on machines where a GLOBAL `extension` bin sat on PATH (the
+    // "validated locally" trap; CI runners have none and failed exit 127).
+    const linksRoot = path.join(workdir, DENO_LINKS_DIR)
+    const links = fsSync
+      .readdirSync(linksRoot, {withFileTypes: true})
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => `./${DENO_LINKS_DIR}/${dirent.name}`)
+      .sort()
     const denoManifest = {
       nodeModulesDir: 'auto',
+      links,
       tasks: {
         build: 'extension build',
         'build:production': 'extension build'
