@@ -180,6 +180,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "importScriptsDependencyMissing: function(4)",
     "injectedFileDependencyMissing: function(4)",
     "reservedScriptsFolder: function(2)",
+    "runtimeSetSurfaceDependencyMissing: function(3)",
     "staticImportDependencyMissing: function(3)",
   ],
   "plugin-web-extension/feature-web-resources/web-resources-lib/messages.ts": [
