@@ -332,7 +332,9 @@ export function chromiumInvalidMatchPatterns(
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares match patterns Chrome refuses — the whole extension will not load.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    shown.map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`).join('') +
+    shown
+      .map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`)
+      .join('') +
     (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
     `A match pattern's host wildcard must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')} — ` +
     `a wildcard anywhere else in the host is invalid. ` +
@@ -420,8 +422,18 @@ export function generalBrowserError(browser: Browser, error: unknown) {
   )
 }
 
-export function errorConnectingToBrowser(browser: Browser) {
-  return `${getLoggingPrefix('error')} Unable to connect to ${capitalizedBrowserName(browser)}. Too many retries.`
+export function errorConnectingToBrowser(browser: Browser, port?: number) {
+  const where = typeof port === 'number' ? ` on port ${port}` : ''
+  return `${getLoggingPrefix('error')} Unable to connect to ${capitalizedBrowserName(browser)}${where}. Too many retries.`
+}
+
+export function waitingForBrowserDebugger(
+  browser: Browser,
+  port: number,
+  attempt: number,
+  maxRetries: number
+) {
+  return `${getLoggingPrefix('info')} Waiting for the ${capitalizedBrowserName(browser)} debugger server on port ${port} (attempt ${attempt}/${maxRetries})...`
 }
 
 export function addonInstallError(browser: Browser, message: string) {
@@ -852,7 +864,10 @@ export function firefoxRdpReinjectListAddonsFailed(error: string) {
   return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not list addons: ${colors.red(error)}`
 }
 
-export function firefoxRdpReinjectNoDescriptor(addonId: string, addons: string) {
+export function firefoxRdpReinjectNoDescriptor(
+  addonId: string,
+  addons: string
+) {
   return `${getLoggingPrefix('warn')} Firefox runtime reinjection found no descriptor for addon ${colors.gray(addonId)}; addons=${colors.gray(addons)}`
 }
 
