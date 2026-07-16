@@ -35,7 +35,8 @@ describe('programAIHelp', () => {
       'publish',
       'install',
       'uninstall',
-      'telemetry'
+      'telemetry',
+      'doctor'
     ])
     expect(help.capabilities.logger.formats).toEqual([
       'pretty',

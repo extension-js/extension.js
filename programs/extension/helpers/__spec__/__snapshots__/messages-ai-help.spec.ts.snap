@@ -156,6 +156,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "summary": "Manage anonymous telemetry consent (enable, disable, or show status)",
       "supportsSourceInspection": false,
     },
+    {
+      "name": "doctor",
+      "summary": "Diagnoses a dev session: ready contract, control channel, token, executor, browser",
+      "supportsSourceInspection": false,
+    },
   ],
   "examples": [
     "extension --ai-help",

@@ -25,7 +25,7 @@ export default defineConfig({
     teardownTimeout: 120_000,
     include: [
       'helpers/**/__spec__/**/*.spec.ts',
-      '__spec__/(dynamic-install|cache-reuse-offline|dlx-pnpm|telemetry-default|public-config-types).spec.ts',
+      '__spec__/(dynamic-install|cache-reuse-offline|dlx-pnpm|telemetry-default|public-config-types|doctor|browser-family-alignment).spec.ts',
       '__spec__/exec/**/*.spec.ts',
       'browsers/__spec__/**/*.spec.ts'
     ],

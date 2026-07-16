@@ -19,7 +19,12 @@ import {
 import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../types'
 import * as messages from './compilation-lib/messages'
-import {isChromiumBasedBrowser, isGeckoBasedBrowser} from '../lib/constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  CHROMIUM_FAMILY_ALIASES,
+  GECKO_FAMILY_ALIASES
+} from '../lib/constants'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 
 function resolveProcessShim(): string | undefined {
@@ -102,9 +107,9 @@ export function getEnvFileCandidates(
     browserName.includes('webkit')
 
   const familyNames = isChromiumTarget
-    ? ['chromium', 'chrome', 'edge', 'chromium-based']
+    ? CHROMIUM_FAMILY_ALIASES
     : isGeckoBasedBrowser(browserName)
-      ? ['firefox', 'gecko-based']
+      ? GECKO_FAMILY_ALIASES
       : []
   const names = [
     browserName,

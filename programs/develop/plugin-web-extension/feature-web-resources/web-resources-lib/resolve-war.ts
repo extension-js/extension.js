@@ -10,6 +10,7 @@ import {Compilation, sources, WebpackError} from '@rspack/core'
 import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
@@ -120,7 +121,9 @@ function findSourceSibling(absOutputPath: string): string | undefined {
 }
 
 function isFirefox(browser?: string) {
-  return !!browser && browser.toLowerCase().includes('firefox')
+  // Family classification, not binary selection: waterfox/librewolf must get
+  // firefox-shaped web_accessible_resources too.
+  return !!browser && isGeckoBasedBrowser(browser.toLowerCase())
 }
 
 function isValidChromeMatchPattern(pattern: string): boolean {

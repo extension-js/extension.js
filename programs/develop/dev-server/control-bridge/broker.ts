@@ -64,6 +64,61 @@ const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
   'inspect'
 ])
 
+/**
+ * Why a controller's eval is (or isn't) permitted, decided once at hello.
+ * Anything but 'ok' denies with a cause-specific message — the catch-all
+ * "requires --allow-eval and a valid token" made every leg (flag missing,
+ * token unreadable, token stale) look identical to the caller.
+ */
+type EvalGate = 'ok' | 'eval-disabled' | 'no-token' | 'token-mismatch'
+
+const EVAL_DENIED: Record<Exclude<EvalGate, 'ok'>, string> = {
+  'eval-disabled':
+    'eval is disabled for this session: restart the dev session with --allow-eval',
+  'no-token':
+    'eval session token missing from the hello: the controller could not ' +
+    'read the session token under .extension-js/ — run the command against ' +
+    'the same project root the dev session was started in',
+  'token-mismatch':
+    'eval session token mismatch: the token on disk belongs to another ' +
+    'session — reconnect the controller, or restart the dev session'
+}
+
+/**
+ * Why no executor (producer) is connected, in priority order. Like EVAL_DENIED
+ * this splits a catch-all — "is the dev session running?" made a stale cached
+ * SW mid-resync, a never-started browser, and an idled-out worker all look
+ * identical, and each has a different remediation. Builders take elapsed
+ * seconds where a timestamp exists. The 'no executor connected' prefix is
+ * load-bearing: specs and downstream matchers key on it.
+ */
+type ExecutorAbsence =
+  | 'stale-resync-pending'
+  | 'never-connected'
+  | 'recently-disconnected'
+
+const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
+  'stale-resync-pending': (secs) =>
+    'no executor connected: a service worker from a previous dev session ' +
+    `dialed in ${secs}s ago and was told to full-reload; the resynced ` +
+    'worker should connect shortly — retry in a few seconds',
+  'never-connected': () =>
+    'no executor connected: no extension service worker has connected since ' +
+    'this dev session started — the browser may still be launching, the ' +
+    "profile's cached service worker may predate this session, or the " +
+    'session runs with --no-browser; check ready.json status and retry',
+  'recently-disconnected': (secs) =>
+    "no executor connected: the extension's service worker disconnected" +
+    `${secs != null ? ` ${secs}s ago` : ''} — MV3 workers idle out and ` +
+    'reconnect on their own, or the browser may have exited (see ' +
+    'browserExitedAt in dist/extension-js/<browser>/ready.json); retry, and ' +
+    'if it persists reload the extension or restart the dev session'
+}
+
+/** Stale-resync hint window: a full-reload resync lands within seconds, so
+ * past this the stale hello no longer explains the absence. */
+const STALE_RESYNC_HINT_MS = 30_000
+
 interface Pending {
   controller: BridgeConnection
   op: CommandOp
@@ -94,9 +149,19 @@ export class BridgeBroker {
     ms: number
   ) => ReturnType<typeof setTimeout>
   private readonly clearTimer: (handle: ReturnType<typeof setTimeout>) => void
-  private readonly evalAllowed = new Map<BridgeConnection, boolean>()
+  private readonly evalGate = new Map<BridgeConnection, EvalGate>()
   private readonly pending = new Map<string, Pending>()
   private staleResyncTimes: number[] = []
+  /** True once any producer hello has been accepted this run. */
+  private producerEverConnected = false
+  /** When the last accepted producer's socket closed (broker clock). */
+  private lastProducerDisconnectedAt: number | null = null
+  /**
+   * When the last stale-instance producer hello arrived. Unlike
+   * staleResyncTimes (rate limiting, pruned to 60s) this is diagnosis state
+   * and is stamped even for rate-limited hellos.
+   */
+  private lastStaleHelloAt: number | null = null
   /**
    * Latest reload broadcast not yet provably delivered. Latched when the
    * broadcast reached zero producers (SW not started yet, or stopped after
@@ -177,8 +242,13 @@ export class BridgeBroker {
   }
 
   onClose(conn: BridgeConnection): void {
+    const role = this.roles.get(conn)
     this.roles.delete(conn)
-    this.evalAllowed.delete(conn)
+    this.evalGate.delete(conn)
+
+    if (role === 'producer') {
+      this.lastProducerDisconnectedAt = this.now()
+    }
 
     // Drop any commands this controller was awaiting (no result to route).
     for (const [cmdId, p] of this.pending) {
@@ -314,17 +384,23 @@ export class BridgeBroker {
       // so a persistent mismatch (e.g. a second project pointed at this
       // port) can't reload-cycle an extension forever. Controllers/consumers
       // are simply rejected — they are not the extension.
-      if (hello.role === 'producer' && this.allowStaleProducerResync()) {
-        if (this.authorMode) {
-          console.log(
-            `[control-bridge] stale producer (instance ${hello.instanceId}) → full-reload resync`
-          )
+      if (hello.role === 'producer') {
+        // Diagnosis state, stamped even when the resync below is rate-limited:
+        // a stale hello explains a later "no executor connected" either way.
+        this.lastStaleHelloAt = this.now()
+
+        if (this.allowStaleProducerResync()) {
+          if (this.authorMode) {
+            console.log(
+              `[control-bridge] stale producer (instance ${hello.instanceId}) → full-reload resync`
+            )
+          }
+          conn.send({
+            type: 'reload',
+            reloadType: 'full',
+            label: 'extension (resyncing previous dev session)'
+          })
         }
-        conn.send({
-          type: 'reload',
-          reloadType: 'full',
-          label: 'extension (resyncing previous dev session)'
-        })
       }
       conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
       return
@@ -340,14 +416,10 @@ export class BridgeBroker {
 
       this.roles.set(conn, 'controller')
 
-      // eval is gated independently: it needs --allow-eval AND a token match
-      this.evalAllowed.set(
-        conn,
-        this.allowEval &&
-          !!hello.token &&
-          !!this.controlToken &&
-          hello.token === this.controlToken
-      )
+      // eval is gated independently: it needs --allow-eval AND a token match.
+      // The failing leg is recorded per connection so a later eval denial can
+      // name the actual cause instead of a catch-all.
+      this.evalGate.set(conn, this.gateEval(hello.token))
       conn.send(this.controllerReady())
       return
     }
@@ -358,6 +430,10 @@ export class BridgeBroker {
     }
 
     this.roles.set(conn, hello.role)
+
+    if (hello.role === 'producer') {
+      this.producerEverConnected = true
+    }
 
     if (hello.role === 'producer' && this.pendingReload) {
       // An edit landed while no SW was connected (idle-stopped or not yet
@@ -382,6 +458,47 @@ export class BridgeBroker {
         conn.send({type: 'log', event})
       }
     }
+  }
+
+  /**
+   * Name WHY no producer is connected right now. Priority: a fresh
+   * stale-instance hello (resync in flight — strictly more actionable than
+   * either other cause) > nothing ever connected this run > a producer was
+   * here and left.
+   */
+  private diagnoseExecutorAbsence(): string {
+    const now = this.now()
+
+    if (
+      this.lastStaleHelloAt != null &&
+      now - this.lastStaleHelloAt < STALE_RESYNC_HINT_MS
+    ) {
+      return EXECUTOR_ABSENT['stale-resync-pending'](
+        Math.round((now - this.lastStaleHelloAt) / 1000)
+      )
+    }
+
+    if (!this.producerEverConnected) {
+      return EXECUTOR_ABSENT['never-connected']()
+    }
+
+    return EXECUTOR_ABSENT['recently-disconnected'](
+      this.lastProducerDisconnectedAt != null
+        ? Math.round((now - this.lastProducerDisconnectedAt) / 1000)
+        : undefined
+    )
+  }
+
+  private gateEval(token: string | undefined): EvalGate {
+    if (!this.allowEval) return 'eval-disabled'
+    if (!token) return 'no-token'
+    // No server-side token with --allow-eval set shouldn't happen (the dev
+    // server writes one whenever eval is enabled) — treat it as a mismatch,
+    // since no presented token can be valid.
+    if (!this.controlToken || token !== this.controlToken) {
+      return 'token-mismatch'
+    }
+    return 'ok'
   }
 
   private controllerReady(): ReadyFrame {
@@ -442,17 +559,15 @@ export class BridgeBroker {
       deny('BadRequest', `unknown op: ${String(cmd.op)}`)
       return
     }
-    if (isEval && !this.evalAllowed.get(controller)) {
-      deny(
-        'Forbidden',
-        'eval requires --allow-eval and a valid session token in the hello'
-      )
+    const evalGate = this.evalGate.get(controller) ?? 'eval-disabled'
+    if (isEval && evalGate !== 'ok') {
+      deny('Forbidden', EVAL_DENIED[evalGate])
       return
     }
 
     const executor = this.firstExecutor()
     if (!executor) {
-      deny('Unavailable', 'no executor connected (is the dev session running?)')
+      deny('Unavailable', this.diagnoseExecutorAbsence())
       return
     }
 

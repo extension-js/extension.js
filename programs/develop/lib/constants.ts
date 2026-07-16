@@ -23,6 +23,18 @@ export const CHROMIUM_BASED_BROWSERS = [
 ]
 export const GECKO_BASED_BROWSERS = ['firefox', 'waterfox', 'librewolf']
 
+// Family alias names accepted anywhere a browser NAME selects an engine
+// family (env-file resolution, manifest prefixes, launch targets). Kept next
+// to the fork lists above so alignment specs derive both vocabularies from
+// one place instead of each call site growing its own copy.
+export const CHROMIUM_FAMILY_ALIASES = [
+  'chromium',
+  'chrome',
+  'edge',
+  'chromium-based'
+]
+export const GECKO_FAMILY_ALIASES = ['firefox', 'gecko-based']
+
 export const SUPPORTED_BROWSERS = [
   ...CHROMIUM_BASED_BROWSERS,
   ...GECKO_BASED_BROWSERS

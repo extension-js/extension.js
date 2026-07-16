@@ -73,7 +73,9 @@ export const commandDescriptions = {
   install: 'Installs a managed browser binary into Extension.js cache',
   uninstall: 'Removes managed browser binaries from Extension.js cache',
   telemetry:
-    'Manage anonymous telemetry consent (enable, disable, or show status)'
+    'Manage anonymous telemetry consent (enable, disable, or show status)',
+  doctor:
+    'Diagnoses a dev session: ready contract, control channel, token, executor, browser'
 } as const
 
 export function unhandledError(err: unknown) {
@@ -428,6 +430,7 @@ export type ProgramAIHelpJSON = {
       | 'install'
       | 'uninstall'
       | 'telemetry'
+      | 'doctor'
     summary: string
     supportsSourceInspection: boolean
   }>
@@ -543,6 +546,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       {
         name: 'telemetry',
         summary: commandDescriptions.telemetry,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'doctor',
+        summary: commandDescriptions.doctor,
         supportsSourceInspection: false
       }
     ],
