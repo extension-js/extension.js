@@ -80,6 +80,9 @@ test('shouldUsePackedExtensionForSmoke packs yarn/bun from the source under test
   assert.equal(shouldUsePackedExtensionForSmoke('npm'), false)
   assert.equal(shouldUsePackedExtensionForSmoke('yarn'), true)
   assert.equal(shouldUsePackedExtensionForSmoke('bun'), true)
+  // deno packs too, but consumes the packages via deno.jsonc `links` to the
+  // extracted tarballs — `deno install` silently ignores file: specifiers.
+  assert.equal(shouldUsePackedExtensionForSmoke('deno'), true)
 })
 
 test('fileSpecifier keeps same-drive Windows paths relative', () => {
