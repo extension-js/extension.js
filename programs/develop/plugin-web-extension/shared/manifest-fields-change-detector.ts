@@ -1,3 +1,11 @@
+// ███████╗██╗  ██╗ █████╗ ██████╗ ███████╗██████╗
+// ██╔════╝██║  ██║██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ███████╗███████║███████║██████╔╝█████╗  ██║  ██║
+// ╚════██║██╔══██║██╔══██║██╔══██╗██╔══╝  ██║  ██║
+// ███████║██║  ██║██║  ██║██║  ██║███████╗██████╔╝
+// ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 // Unified manifest-fields change detector.
 //
 // Replaces five independent ThrowIf* plugins that each registered their own

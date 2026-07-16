@@ -1,3 +1,11 @@
+//  ██╗███╗   ██╗███████╗████████╗ █████╗ ██╗     ██╗
+//  ██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██║     ██║
+//  ██║██╔██╗ ██║███████╗   ██║   ███████║██║     ██║
+//  ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ██║
+//  ██║██║ ╚████║███████║   ██║   ██║  ██║███████╗███████╗
+//  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 export type InstallBrowserTarget = 'chrome' | 'chromium' | 'edge' | 'firefox'
 
 const BROWSER_ALIASES: Record<string, InstallBrowserTarget> = {
