@@ -43,6 +43,7 @@ export class TraceRuntimeLoadedFiles {
             this.traceInjectedFilePayloads(compilation)
             this.traceFetchedFiles(compilation, compiler)
             this.traceGetURLFiles(compilation)
+            this.traceWebpackChunkSiblings(compilation, compiler)
           }
         )
       }
@@ -125,29 +126,11 @@ export class TraceRuntimeLoadedFiles {
     const manifestDir = path.dirname(this.manifestPath)
     const seen = new Set<string>()
 
-    // Entry name -> directory of its first filesystem import. fetch() and
-    // friends resolve against the PAGE URL, and pages get relocated in dist
-    // (popup.html -> action/index.html), so the author's relative base is
-    // gone from the emitted layout. The entry's source dir approximates it
-    // for the common page-keeps-its-files-beside-it layouts.
-    const entrySourceDirs = new Map<string, string>()
-    const entryOption = compiler.options.entry
-    if (entryOption && typeof entryOption === 'object') {
-      for (const [name, desc] of Object.entries(entryOption)) {
-        const imports: unknown[] = Array.isArray((desc as any)?.import)
-          ? (desc as any).import
-          : typeof desc === 'string'
-            ? [desc]
-            : []
-        const fsImport = imports.find(
-          (imp): imp is string =>
-            typeof imp === 'string' &&
-            !imp.startsWith('data:') &&
-            path.isAbsolute(imp)
-        )
-        if (fsImport) entrySourceDirs.set(name, path.dirname(fsImport))
-      }
-    }
+    // fetch() and friends resolve against the PAGE URL, and pages get
+    // relocated in dist (popup.html -> action/index.html), so the author's
+    // relative base is gone from the emitted layout. The entry's source dir
+    // approximates it for the common page-keeps-its-files-beside-it layouts.
+    const entrySourceDirs = collectEntrySourceDirs(compiler)
 
     // Content scripts (and scripts/ folder helpers, which are injected into
     // pages) run inside web pages, where a relative fetch() resolves against
@@ -258,7 +241,12 @@ export class TraceRuntimeLoadedFiles {
       const next: PendingScan[] = []
 
       for (const item of pending) {
-        type Ref = {literal: string; baseRel: string; isStaticImport?: boolean}
+        type Ref = {
+          literal: string
+          baseRel: string
+          isStaticImport?: boolean
+          isRuntimeSurface?: boolean
+        }
         const refs: Ref[] =
           item.kind === 'js'
             ? [
@@ -266,6 +254,16 @@ export class TraceRuntimeLoadedFiles {
                   literal,
                   baseRel: ''
                 })),
+                // Runtime-set HTML surfaces (setPopup/setOptions) resolve
+                // against the extension root exactly like getURL, but are
+                // not manifest refs, so the page pipeline never sees them.
+                ...extractRuntimeSurfaceLiterals(item.content).map(
+                  (literal) => ({
+                    literal,
+                    baseRel: '',
+                    isRuntimeSurface: true
+                  })
+                ),
                 // Only files WE copied verbatim: emitted bundles had their
                 // static imports resolved by the bundler already.
                 ...(item.copied
@@ -283,7 +281,7 @@ export class TraceRuntimeLoadedFiles {
                 baseRel: item.baseRel
               }))
 
-        for (const {literal, baseRel, isStaticImport} of refs) {
+        for (const {literal, baseRel, isStaticImport, isRuntimeSurface} of refs) {
           const distRel = resolveExtensionPath(literal, baseRel)
           if (!distRel || seen.has(distRel)) continue
           seen.add(distRel)
@@ -340,15 +338,23 @@ export class TraceRuntimeLoadedFiles {
                     literal,
                     distRel
                   )
-                : messages.getURLDependencyMissing(
-                    item.assetName,
-                    literal,
-                    distRel
-                  )
+                : isRuntimeSurface
+                  ? messages.runtimeSetSurfaceDependencyMissing(
+                      item.assetName,
+                      literal,
+                      distRel
+                    )
+                  : messages.getURLDependencyMissing(
+                      item.assetName,
+                      literal,
+                      distRel
+                    )
             ) as Error & {file?: string; name?: string}
             warn.name = isStaticImport
               ? 'RuntimeStaticImportFileMissing'
-              : 'RuntimeGetURLFileMissing'
+              : isRuntimeSurface
+                ? 'RuntimeSetSurfaceFileMissing'
+                : 'RuntimeGetURLFileMissing'
             warn.file = item.assetName
             compilation.warnings ||= []
             compilation.warnings.push(warn)
@@ -357,6 +363,57 @@ export class TraceRuntimeLoadedFiles {
       }
 
       pending = next
+    }
+  }
+
+  private traceWebpackChunkSiblings(
+    compilation: Compilation,
+    compiler: Compiler
+  ) {
+    const manifestDir = path.dirname(this.manifestPath)
+    const entrySourceDirs = collectEntrySourceDirs(compiler)
+
+    const jsAssets = compilation
+      .getAssets()
+      .filter((asset) => /\.js$/i.test(asset.name))
+
+    for (const asset of jsAssets) {
+      const content = asset.source.source().toString()
+      if (!hasWebpackChunkLoadingRuntime(content)) continue
+
+      // Prebuilt webpack bundles address lazy chunks by NUMERIC id through
+      // publicPath concatenation (`__webpack_require__.p + id + ".js"` and
+      // the miniCss twin), so the chunk filenames never exist as literals
+      // anywhere — literal tracing is blind to them by construction. Numeric
+      // js/css siblings of the bundle's source dir ARE those chunks; copy
+      // them through verbatim (plus .map twins).
+      const assetDirRel = path.posix.dirname(unixify(asset.name))
+      const sourceDirs = new Set<string>()
+      const entryDir = entrySourceDirs.get(asset.name.replace(/\.js$/i, ''))
+      if (entryDir) sourceDirs.add(entryDir)
+      // Copied-verbatim assets keep their source-relative path in dist.
+      sourceDirs.add(path.dirname(path.join(manifestDir, asset.name)))
+
+      for (const sourceDir of sourceDirs) {
+        if (path.relative(manifestDir, sourceDir).startsWith('..')) continue
+        let siblings: string[]
+        try {
+          siblings = fs.readdirSync(sourceDir)
+        } catch {
+          continue
+        }
+
+        for (const file of siblings) {
+          if (!/^\d+\.(?:js|css)(?:\.map)?$/.test(file)) continue
+          const abs = path.join(sourceDir, file)
+          // publicPath is "" (page-relative) in some prebuilt bundles and
+          // "/" (root-anchored) in others — emit at both resolutions.
+          copyIfExists(compilation, abs, file)
+          if (assetDirRel && assetDirRel !== '.') {
+            copyIfExists(compilation, abs, `${assetDirRel}/${file}`)
+          }
+        }
+      }
     }
   }
 
@@ -395,6 +452,47 @@ export class TraceRuntimeLoadedFiles {
       }
     }
   }
+}
+
+/**
+ * Entry name -> directory of the entry's first filesystem import, for
+ * approximating where a relocated page's source files live.
+ */
+function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
+  const entrySourceDirs = new Map<string, string>()
+  const entryOption = compiler.options.entry
+  if (entryOption && typeof entryOption === 'object') {
+    for (const [name, desc] of Object.entries(entryOption)) {
+      const imports: unknown[] = Array.isArray((desc as any)?.import)
+        ? (desc as any).import
+        : typeof desc === 'string'
+          ? [desc]
+          : []
+      const fsImport = imports.find(
+        (imp): imp is string =>
+          typeof imp === 'string' &&
+          !imp.startsWith('data:') &&
+          path.isAbsolute(imp)
+      )
+      if (fsImport) entrySourceDirs.set(name, path.dirname(fsImport))
+    }
+  }
+  return entrySourceDirs
+}
+
+/**
+ * True when the code carries the webpack chunk-loading runtime shape:
+ * the webpackChunk/webpackJsonp global arrays, the runtime's own
+ * ChunkLoadError literal (survives minification, unlike the mangled
+ * __webpack_require__ identifier), or an unminified publicPath
+ * concatenation.
+ */
+function hasWebpackChunkLoadingRuntime(source: string): boolean {
+  return (
+    /\bwebpackChunk|\bwebpackJsonp\b/.test(source) ||
+    source.includes('ChunkLoadError') ||
+    (source.includes('__webpack_require__') && /\.p\s*\+/.test(source))
+  )
 }
 
 /** Copy a file through verbatim when it exists; no warning otherwise. */
@@ -569,6 +667,48 @@ function extractGetURLLiterals(source: string): string[] {
     const [first] = splitTopLevelArgs(args)
     const literal = first == null ? null : pureStringLiteral(first)
     if (literal != null) literals.push(literal)
+  }
+
+  return literals
+}
+
+/**
+ * Extract HTML surface paths set at runtime: chrome.action.setPopup(
+ * {popup: "Alt.html"}) (plus browserAction/pageAction MV2 variants) and
+ * chrome.sidePanel.setOptions({path: "panel.html"}). Chrome resolves these
+ * against the extension root, but they are not manifest refs, so the page
+ * pipeline never compiles them — untraced they silently vanish from dist and
+ * the surface opens a 404 panel. Matching on the member chain
+ * (`action.setPopup(`) keeps user-defined functions out while surviving
+ * minification, mirroring extractGetURLLiterals.
+ */
+export function extractRuntimeSurfaceLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  const calls = [
+    {
+      callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setPopup\s*\(/g,
+      prop: 'popup'
+    },
+    {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'}
+  ]
+
+  for (const {callRe, prop} of calls) {
+    let match: RegExpExecArray | null
+    while ((match = callRe.exec(code))) {
+      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      if (args == null) continue
+      const propRe = new RegExp(
+        `["']?${prop}["']?\\s*:\\s*(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`,
+        'g'
+      )
+      let propMatch: RegExpExecArray | null
+      while ((propMatch = propRe.exec(args))) {
+        // An empty string is Chrome's "remove the popup" idiom, not a file.
+        const literal = unescapeStringBody(propMatch[2])
+        if (literal.trim()) literals.push(literal)
+      }
+    }
   }
 
   return literals
