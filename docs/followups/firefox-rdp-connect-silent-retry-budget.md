@@ -26,7 +26,7 @@ timeout with no clue.
 
 ## Where
 
-`programs/extension/browsers/run-firefox/firefox-source-inspection/remote-firefox/index.ts`
+`programs/extension/browsers/run-firefox/rdp/remote-firefox/index.ts`
 — `connectClient(port)`:
 
 ```ts

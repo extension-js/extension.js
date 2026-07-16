@@ -14,7 +14,10 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 Related workspaces:
 
 - `extensions/*` — built-in extensions loaded by Extension.js
-- `templates/*` — templates used by `extension create`
+
+Templates used by `extension create` live in the external
+[extension-js/examples](https://github.com/extension-js/examples) repo; CI hydrates
+them into a local `templates/` directory via `scripts/hydrate-templates-from-examples.sh`.
 
 ## Prerequisites
 
@@ -63,8 +66,8 @@ pnpm extension <command> [args] [flags]
 Examples:
 
 ```sh
-# Run dev against a built-in example
-pnpm extension dev ./extensions/browser-extension
+# Run dev against a built-in extension
+pnpm extension dev ./extensions/extension-js-devtools
 
 # Create a brand-new extension from templates
 pnpm extension create my-extension
@@ -79,13 +82,13 @@ cd my-extension && pnpm dev
 - `pnpm test` — Run all tests across packages via Turbo
 - `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build` — Focused test groups
 - `pnpm test:e2e` — Playwright end-to-end tests
-- `pnpm lint` — ESLint (config in `eslint.config.mjs`)
-- `pnpm format` — Prettier write
+- `pnpm lint` — Biome lint (config in `biome.json`)
+- `pnpm format` — Biome format write
 
 Tip: run a single package’s script with Turbo filters, e.g.:
 
 ```sh
-pnpm -w turbo run test --filter=./programs/cli
+pnpm -w turbo run test --filter=./programs/extension
 ```
 
 Playwright note: if the first E2E run asks for browsers, install them via:
@@ -97,7 +100,7 @@ pnpm exec playwright install
 ## Coding guidelines
 
 - TypeScript-first where applicable; otherwise modern ESNext.
-- ESLint 9 + Prettier 3 are enforced. Run `pnpm lint` and `pnpm format` before pushing.
+- Biome (lint + format) is enforced. Run `pnpm lint` and `pnpm format` before pushing.
 - Keep code small, composable, and dependency-light. Prefer standard APIs.
 - Handle errors meaningfully; avoid silent catches.
 - Security: minimize browser permissions; sanitize inputs; validate cross-process messages.

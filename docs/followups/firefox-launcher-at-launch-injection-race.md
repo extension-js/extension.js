@@ -42,9 +42,9 @@ the launcher hands the controller the concrete launched port and it is used
 verbatim, never re-derived. The instance-registry override still wins when an
 `instanceId` is registered (per-instance faithfulness preserved).
 
-- `programs/extension/browsers/run-firefox/firefox-source-inspection/remote-firefox/index.ts`
+- `programs/extension/browsers/run-firefox/rdp/remote-firefox/index.ts`
   — new `resolvedRdpPort` option + short-circuit in `resolveRdpPort`.
-- `programs/extension/browsers/run-firefox/firefox-source-inspection/rdp-extension-controller/index.ts`
+- `programs/extension/browsers/run-firefox/rdp/rdp-extension-controller/index.ts`
   — pass the concrete `debugPort` as `resolvedRdpPort`.
 - `programs/extension/browsers/__spec__/instance-port-fidelity.unit.spec.ts`
   — 3 regression tests (pinned port used verbatim; not re-derived; registry still
