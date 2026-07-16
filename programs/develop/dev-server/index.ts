@@ -25,6 +25,11 @@ import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import {LogRingBuffer} from './control-bridge/ring-buffer'
 import {LogsFileWriter} from './control-bridge/logs-file'
 import {ActionsFileWriter} from './control-bridge/actions-file'
+import {
+  logsPath as sessionLogsPath,
+  actionsPath as sessionActionsPath
+} from '../lib/session-paths'
+import {isGeckoBasedBrowser} from '../lib/constants'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {
@@ -363,14 +368,11 @@ export async function devServer(
   // --- Agent bridge (Slice 1): dedicated control WS + logs.ndjson ---
   // Best-effort and local-only. Runs alongside (never blocks) the dev server.
   const browserName = String(devOptions.browser || 'chromium')
-  const bridgeLogsRelPath = path.join(
-    'dist',
-    'extension-js',
-    browserName,
-    'logs.ndjson'
-  )
+  const bridgeLogsAbsPath = sessionLogsPath(packageJsonDir, browserName)
+  // The ready contract publishes it project-relative.
+  const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
   const bridgeLogFile = new LogsFileWriter({
-    filePath: path.join(packageJsonDir, bridgeLogsRelPath),
+    filePath: bridgeLogsAbsPath,
     runId: currentInstance.instanceId
   })
 
@@ -381,26 +383,19 @@ export async function devServer(
     process.env.EXTENSION_AUTHOR_MODE === 'development'
   const bridgeActionsFile = allowControl
     ? new ActionsFileWriter({
-        filePath: path.join(
-          packageJsonDir,
-          'dist',
-          'extension-js',
-          browserName,
-          'actions.ndjson'
-        )
+        filePath: sessionActionsPath(packageJsonDir, browserName)
       })
     : undefined
 
   // The eval token is written 0600 OUTSIDE dist/ only when eval is enabled.
   const bridgeControlToken =
-    allowControl && allowEval ? writeControlToken(packageJsonDir) : undefined
+    allowControl && allowEval
+      ? writeControlToken(packageJsonDir, browserName)
+      : undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: currentInstance.instanceId,
-    engine:
-      browserName.includes('firefox') || browserName.includes('gecko')
-        ? 'firefox'
-        : 'chromium',
+    engine: isGeckoBasedBrowser(browserName) ? 'firefox' : 'chromium',
     ring: new LogRingBuffer(),
     file: bridgeLogFile,
     allowControl,
@@ -484,7 +479,7 @@ export async function devServer(
     }
     // Never leave a usable eval token behind after the session ends.
     if (bridgeControlToken) {
-      clearControlToken(packageJsonDir)
+      clearControlToken(packageJsonDir, browserName)
     }
   })
 

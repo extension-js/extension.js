@@ -27,31 +27,14 @@ import * as path from 'path'
  * port with no resync path (issue #484: permanent "no executor connected"
  * against a live, awake SW). The port must live at least as long as any
  * profile that may have it baked in.
+ *
+ * Paths are owned by lib/session-paths (re-exported here for the existing
+ * import surface); only the read/write logic lives in this file.
  */
-export function controlPortFilePath(
-  packageJsonDir: string,
-  browser: string
-): string {
-  return path.join(packageJsonDir, '.extension-js', `control-port-${browser}`)
-}
-
-/**
- * Pre-fix location (shared dist/'s lifetime — the #484 hole). Still read as a
- * fallback so the first run after an upgrade rebinds the port that a 4.0.6-era
- * profile has baked into its cached SW.
- */
-export function legacyControlPortFilePath(
-  packageJsonDir: string,
-  browser: string
-): string {
-  return path.join(
-    packageJsonDir,
-    'dist',
-    'extension-js',
-    browser,
-    'control-port'
-  )
-}
+export {
+  controlPortFilePath,
+  legacyControlPortFilePath
+} from '../../lib/session-paths'
 
 export function readPersistedControlPort(filePath: string): number | null {
   try {

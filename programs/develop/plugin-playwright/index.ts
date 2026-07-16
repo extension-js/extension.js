@@ -10,6 +10,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {asAbsolute, type AbsolutePath} from '../lib/paths'
+import {
+  browserArtifactsDir,
+  readyContractPath,
+  eventsPath as sessionEventsPath
+} from '../lib/session-paths'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview'
 export type ReadyStatus = 'starting' | 'ready' | 'error'
@@ -132,7 +137,7 @@ export function getPlaywrightMetadataDir(
   packageJsonDir: string,
   browser: string
 ): AbsolutePath {
-  return asAbsolute(path.join(packageJsonDir, 'dist', 'extension-js', browser))
+  return asAbsolute(browserArtifactsDir(packageJsonDir, browser))
 }
 
 export function createPlaywrightMetadataWriter(options: WriterOptions) {
@@ -140,8 +145,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     options.packageJsonDir,
     options.browser
   )
-  const readyPath = asAbsolute(path.join(metadataDir, 'ready.json'))
-  const eventsPath = asAbsolute(path.join(metadataDir, 'events.ndjson'))
+  const readyPath = asAbsolute(
+    readyContractPath(options.packageJsonDir, options.browser)
+  )
+  const eventsPath = asAbsolute(
+    sessionEventsPath(options.packageJsonDir, options.browser)
+  )
 
   const toPort = (value: number | string | null | undefined): number | null => {
     if (typeof value === 'number' && Number.isFinite(value)) return value

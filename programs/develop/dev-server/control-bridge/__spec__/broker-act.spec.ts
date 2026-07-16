@@ -222,14 +222,114 @@ describe('BridgeBroker (Slice 2: act)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
-    expect(ctl.sent[0]).toMatchObject({
+    const result = ctl.sent[0] as any
+    expect(result).toMatchObject({
       type: 'result',
       ok: false,
       error: {name: 'Unavailable'}
     })
+    // No producer has ever said hello → the never-connected diagnosis.
+    expect(result.error.message).toContain('no executor connected')
+    expect(result.error.message).toContain('no extension service worker has connected')
     expect(actions.records[0]).toMatchObject({
       ok: false,
       errorName: 'Unavailable'
+    })
+  })
+
+  describe('executor-absence diagnosis', () => {
+    const denyMessage = (b: BridgeBroker, ctl: FakeConn): string => {
+      ctl.sent = []
+      b.onFrame(ctl, {
+        type: 'command',
+        cmdId: `c-${Math.random().toString(36).slice(2)}`,
+        op: 'reload',
+        target: {context: 'background'}
+      })
+      const result = ctl.sent[0] as any
+      expect(result).toMatchObject({ok: false, error: {name: 'Unavailable'}})
+      expect(result.error.message).toContain('no executor connected')
+      return result.error.message
+    }
+
+    const staleProducerHello = (b: BridgeBroker, conn: FakeConn) => {
+      b.onFrame(conn, {
+        type: 'hello',
+        v: 1,
+        role: 'producer',
+        instanceId: 'inst-STALE'
+      })
+    }
+
+    it('names recently-disconnected with elapsed seconds', () => {
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      const exec = new FakeConn('exec')
+      helloProducer(b, exec)
+      b.onClose(exec)
+      t += 7000
+
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      expect(denyMessage(b, ctl)).toContain('disconnected 7s ago')
+    })
+
+    it('names stale-resync-pending after a stale producer hello', () => {
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      staleProducerHello(b, new FakeConn('stale'))
+      t += 4000
+
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const msg = denyMessage(b, ctl)
+      // Wins over never-connected: no producer was ever accepted here.
+      expect(msg).toContain('told to full-reload')
+      expect(msg).toContain('4s ago')
+    })
+
+    it('records the stale hello even when the resync is rate-limited', () => {
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      // 3/min resync cap: the 4th stale hello gets no reload frame but must
+      // still be stamped for diagnosis.
+      for (let i = 0; i < 4; i++) {
+        t += 1000
+        staleProducerHello(b, new FakeConn(`stale-${i}`))
+      }
+      t += 5000
+
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      expect(denyMessage(b, ctl)).toContain('told to full-reload')
+    })
+
+    it('does not stamp producer-disconnect on a controller close', () => {
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      const ctl1 = new FakeConn('ctl1')
+      helloController(b, ctl1)
+      b.onClose(ctl1)
+      t += 5000
+
+      const ctl2 = new FakeConn('ctl2')
+      helloController(b, ctl2)
+      expect(denyMessage(b, ctl2)).toContain(
+        'no extension service worker has connected'
+      )
+    })
+
+    it('stale-resync hint expires back to never-connected after 30s', () => {
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      staleProducerHello(b, new FakeConn('stale'))
+      t += 31_000
+
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      expect(denyMessage(b, ctl)).toContain(
+        'no extension service worker has connected'
+      )
     })
   })
 
@@ -276,6 +376,42 @@ describe('BridgeBroker (Slice 2: act)', () => {
     expect(
       exec.sent.find((f: any) => f.type === 'command' && f.cmdId === 'e2')
     ).toBeDefined()
+  })
+
+  it('names the failing eval gate leg in the Forbidden message', () => {
+    const evalDeny = (
+      brokerOpts: Record<string, unknown>,
+      helloToken?: string
+    ): string => {
+      const b = new BridgeBroker(base(brokerOpts))
+      helloProducer(b, new FakeConn('exec'))
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl, helloToken)
+      ctl.sent = []
+      b.onFrame(ctl, {
+        type: 'command',
+        cmdId: 'e-gate',
+        op: 'eval',
+        target: {context: 'background'},
+        args: {expression: '1'}
+      })
+      const result = ctl.sent[0] as any
+      expect(result).toMatchObject({ok: false, error: {name: 'Forbidden'}})
+      return result.error.message
+    }
+
+    // --allow-eval not set: says so, even when a token is presented.
+    expect(evalDeny({allowEval: false}, 'anything')).toContain('--allow-eval')
+
+    // Enabled but the hello carried no token: points at the token file read.
+    expect(evalDeny({allowEval: true, controlToken: 'secret'})).toContain(
+      'token missing'
+    )
+
+    // Enabled with the wrong token: stale-token mismatch.
+    expect(
+      evalDeny({allowEval: true, controlToken: 'secret'}, 'WRONG')
+    ).toContain('token mismatch')
   })
 
   it('writes the raw eval source only in author mode', () => {

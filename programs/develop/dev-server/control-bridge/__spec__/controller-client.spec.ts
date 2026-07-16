@@ -60,10 +60,10 @@ describe('session-token', () => {
   afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
 
   it('writes a 0600 token outside dist/ and reads it back', () => {
-    const token = writeControlToken(dir)
+    const token = writeControlToken(dir, 'chrome')
     expect(token).toMatch(/^[0-9a-f]{64}$/)
-    expect(readControlToken(dir)).toBe(token)
-    const p = controlTokenPath(dir)
+    expect(readControlToken(dir, 'chrome')).toBe(token)
+    const p = controlTokenPath(dir, 'chrome')
     expect(p.includes(`${path.sep}dist${path.sep}`)).toBe(false)
     if (process.platform !== 'win32') {
       expect(fs.statSync(p).mode & 0o777).toBe(0o600)
@@ -71,9 +71,40 @@ describe('session-token', () => {
   })
 
   it('clears the token and reads null afterward', () => {
-    writeControlToken(dir)
-    clearControlToken(dir)
-    expect(readControlToken(dir)).toBeNull()
+    writeControlToken(dir, 'chrome')
+    clearControlToken(dir, 'chrome')
+    expect(readControlToken(dir, 'chrome')).toBeNull()
+  })
+
+  it('keeps per-browser tokens independent across sessions', () => {
+    // The pre-fix single-slot file made a second-browser session clobber the
+    // first session's token, and either shutdown deleted it for both.
+    const chrome = writeControlToken(dir, 'chrome')
+    const chromium = writeControlToken(dir, 'chromium')
+    expect(readControlToken(dir, 'chrome')).toBe(chrome)
+    expect(readControlToken(dir, 'chromium')).toBe(chromium)
+
+    clearControlToken(dir, 'chromium')
+    expect(readControlToken(dir, 'chromium')).toBeNull()
+    expect(readControlToken(dir, 'chrome')).toBe(chrome)
+  })
+
+  it('falls back to the legacy shared slot written by older dev servers', () => {
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+    fs.mkdirSync(path.dirname(legacy), {recursive: true})
+    fs.writeFileSync(legacy, 'legacy-token')
+    expect(readControlToken(dir, 'chrome')).toBe('legacy-token')
+  })
+
+  it('clear removes the legacy mirror only when it is this session token', () => {
+    writeControlToken(dir, 'chrome')
+    const chromium = writeControlToken(dir, 'chromium') // re-mirrors legacy
+    clearControlToken(dir, 'chrome') // legacy now holds chromium's token
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+    expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(chromium)
+
+    clearControlToken(dir, 'chromium')
+    expect(fs.existsSync(legacy)).toBe(false)
   })
 })
 
@@ -172,7 +203,7 @@ describe('BridgeController (integration)', () => {
   })
 
   it('eval succeeds with --allow-eval and the matching token', async () => {
-    const token = writeControlToken(dir)
+    const token = writeControlToken(dir, 'chrome')
     const broker = makeServer({allowEval: true, controlToken: token})
     server = await startControlServer({broker})
     executor = await startFakeExecutor(server.port, () => ({
@@ -183,7 +214,7 @@ describe('BridgeController (integration)', () => {
     controller = new BridgeController({
       controlPort: server.port,
       instanceId: 'inst-1',
-      token: readControlToken(dir) ?? undefined
+      token: readControlToken(dir, 'chrome') ?? undefined
     })
     const result = await controller.command({
       op: 'eval',
