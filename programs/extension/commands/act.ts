@@ -337,7 +337,7 @@ export function registerActCommands(program: Command): void {
       .command('inspect')
       .arguments('[project-path]')
       .description(
-        'Inspect a page/content DOM via the agent bridge (CDP-free; requires --allow-control). For closed shadow roots use dev --source --deep-dom.'
+        'Inspect a page/content DOM via the agent bridge (CDP-free; requires --allow-control). For closed shadow roots use CDP-based inspection against the ready.json cdpPort.'
       )
       .option(
         '--context <content|page|popup|options|sidebar|devtools>',

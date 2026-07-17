@@ -76,6 +76,7 @@ export function registerStartCommand(program: Command) {
       'whether or not to apply the cross-browser polyfill. Defaults to `true`',
       parseOptionalBoolean
     )
+    .option('--no-polyfill', 'disable the cross-browser polyfill')
     .option(
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'

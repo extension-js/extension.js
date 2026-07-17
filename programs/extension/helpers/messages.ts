@@ -391,7 +391,7 @@ ${'Troubleshooting'}
 ${'Non-Interactive / Auto Mode (CI)'}
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
   Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
-  Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --source ${arg('https://example.com')}
+  Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --starting-url ${arg('https://example.com')}
 - Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback (defaults to auto-exit + 4000).
 
 ${'Docker / Devcontainers / Codespaces'}
