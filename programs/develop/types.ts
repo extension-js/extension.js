@@ -273,6 +273,12 @@ export interface BuildOptions {
   // line — the CLI wrapper passes this. Defaults to false: as a library
   // import, a failed build is a rejected promise, never a dead host process.
   exitOnError?: boolean
+  /**
+   * Internal: the command stamped into ready.json/events.ndjson. Defaults to
+   * 'build'; `extension start` passes 'start' for its build phase so the
+   * receipt names the command the user actually ran.
+   */
+  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   // Safari identity/packaging inputs (safari/webkit-based targets only)
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
@@ -290,8 +296,10 @@ export interface PreviewOptions extends BrowserOptionsBase {
   outputPath?: string
   /**
    * Internal metadata command override used by start->preview delegation.
+   * (Full command union so the WebpackConfigOptions intersection with
+   * BuildOptions.metadataCommand doesn't narrow the field.)
    */
-  metadataCommand?: 'preview' | 'start'
+  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']

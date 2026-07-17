@@ -287,6 +287,9 @@ export default function webpackConfig(
       packageJsonDir,
       browser: devOptions.browser,
       mode: devOptions.mode,
+      // Real command provenance: without it a one-shot `extension build`
+      // receipt claims "start" (derived from mode: production).
+      command: devOptions.metadataCommand,
       outputPath: primaryExtensionOutputDir,
       manifestPath,
       port: devOptions.port,
