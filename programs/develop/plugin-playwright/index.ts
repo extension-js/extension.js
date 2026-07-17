@@ -9,14 +9,16 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
+import packageJson from '../package.json'
 import {asAbsolute, type AbsolutePath} from '../lib/paths'
+import {parseJsonSafe} from '../lib/parse-json-safe'
 import {
   browserArtifactsDir,
   readyContractPath,
   eventsPath as sessionEventsPath
 } from '../lib/session-paths'
 
-export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview'
+export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
 export type ReadyStatus = 'starting' | 'ready' | 'error'
 
 export type ReadyMetadata = {
@@ -41,6 +43,12 @@ export type ReadyMetadata = {
   controlPath?: string
   logsPath?: string
   cdpPort?: number
+  // Provenance: which toolchain produced this tree, for which extension.
+  // ready.json doubles as a build receipt for one-shot `extension build`,
+  // so "what produced this, with what" must survive the terminal scrollback.
+  toolchainVersion: string
+  extensionName?: string
+  extensionVersion?: string
   // Stamped by the browser launcher when the browser exits mid-session
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
@@ -52,6 +60,7 @@ export type PlaywrightAutomationEvent = {
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
+  runId?: string
   durationMs?: number
   errorCount?: number
   errors?: string[]
@@ -115,6 +124,36 @@ function createRunId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+// One runId per (project, browser) per process: the compiler plugin and the
+// dev-server create separate writers for the same session, and events.ndjson
+// entries must attribute to ONE run for consumers to build a timeline.
+const runIdByMetadataDir = new Map<string, string>()
+
+function getRunIdForSession(metadataDir: string): string {
+  const existing = runIdByMetadataDir.get(metadataDir)
+  if (existing) return existing
+  const runId = createRunId()
+  runIdByMetadataDir.set(metadataDir, runId)
+  return runId
+}
+
+function readManifestProvenance(manifestPath: string): {
+  extensionName?: string
+  extensionVersion?: string
+} {
+  try {
+    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    return {
+      extensionName:
+        typeof manifest?.name === 'string' ? manifest.name : undefined,
+      extensionVersion:
+        typeof manifest?.version === 'string' ? manifest.version : undefined
+    }
+  } catch {
+    return {}
+  }
+}
+
 function ensureDirSync(dirPath: string) {
   try {
     fs.mkdirSync(dirPath, {recursive: true})
@@ -165,7 +204,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     schemaVersion: 2 as const,
     command: options.command,
     browser: options.browser,
-    runId: createRunId(),
+    runId: getRunIdForSession(metadataDir),
     startedAt: nowISO(),
     distPath: options.distPath,
     manifestPath: options.manifestPath,
@@ -174,7 +213,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     instanceId: options.instanceId,
     controlPort: toPort(options.controlPort),
     controlPath: options.controlPath,
-    logsPath: options.logsPath
+    logsPath: options.logsPath,
+    toolchainVersion: packageJson.version,
+    ...readManifestProvenance(options.manifestPath)
   }
 
   function writeReady(
@@ -223,7 +264,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   function appendEvent(event: PlaywrightAutomationEvent) {
     ensureDirSync(metadataDir)
     try {
-      fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8')
+      fs.appendFileSync(
+        eventsPath,
+        `${JSON.stringify({...event, runId: event.runId ?? base.runId})}\n`,
+        'utf-8'
+      )
     } catch {
       // best-effort only
     }
@@ -234,6 +279,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     readyPath,
     eventsPath,
     writeStarting() {
+      // A new run is the only truth (matching ready.json): reset the
+      // timeline so entries from prior runs don't interleave and a
+      // long-lived session can't grow the file unboundedly.
+      ensureDirSync(metadataDir)
+      try {
+        fs.writeFileSync(eventsPath, '', 'utf-8')
+      } catch {
+        // best-effort only
+      }
       writeReady('starting')
     },
     writeReady(compiledAt?: string | null) {
