@@ -54,12 +54,10 @@ export type CdpEvent =
   | LogEntryAddedEvent
   | {method: string; params?: unknown}
 
-export type PendingReason = 'manifest' | 'locales' | 'sw'
-
 export type Logger = BrowserLogger
 
 /**
- * Options consumed by Chromium plugins (launch/logger/reload/inspection).
+ * Options consumed by Chromium plugins (launch/logger/inspection).
  * Narrowed from PluginInterface and specialized for Chromium path.
  */
 export interface ChromiumLaunchOptions
@@ -257,17 +255,4 @@ export type ExtensionRootTreeResult = {
   nodeLimit: number
   truncated: boolean
   tree: unknown
-}
-
-declare global {
-  /**
-   * Dev-only hooks the Chromium inspection flow installs on `globalThis` to
-   * coordinate content-reload snapshots across the watch loop.
-   */
-  // eslint-disable-next-line no-var
-  var __EXTJS_ON_CHROMIUM_CONTENT_RELOADED__:
-    | (() => Promise<void> | void)
-    | undefined
-  // eslint-disable-next-line no-var
-  var __EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__: unknown
 }

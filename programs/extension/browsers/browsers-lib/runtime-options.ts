@@ -103,20 +103,3 @@ export function toExtensionLoadList(
 ): string[] {
   return Array.isArray(extension) ? [...extension] : [extension]
 }
-
-export function publishUserExtensionRoot(
-  extension: PluginInterface['extension'],
-  setExtensionRoot?: (root?: string) => void
-) {
-  try {
-    const root = [...toExtensionLoadList(extension)]
-      .reverse()
-      .find((entry) => typeof entry === 'string')
-
-    if (root && setExtensionRoot) {
-      setExtensionRoot(String(root))
-    }
-  } catch {
-    // Ignore best-effort root publication failures.
-  }
-}
