@@ -123,7 +123,8 @@ export class ManifestFieldsChangeDetector {
 
     // Include bridge scripts for MAIN world content scripts
     const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
-      this.manifestPath
+      this.manifestPath,
+      this.browser
     )
     for (const val of Object.values(bridgeScripts)) {
       if (Array.isArray(val)) scripts.push(...(val.filter(Boolean) as string[]))

@@ -49,7 +49,8 @@ export class ScriptsPlugin {
 
     new AddScripts({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {}
+      includeList: this.includeList || {},
+      browser: this.browser
     }).apply(compiler)
 
     // Runtime-loaded files the module graph cannot see: classic worker

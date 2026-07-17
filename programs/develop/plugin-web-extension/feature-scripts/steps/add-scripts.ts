@@ -16,7 +16,11 @@ import {
 } from '../../shared/classic-concat'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
-import {type FilepathList, type PluginInterface} from '../../../types'
+import {
+  type DevOptions,
+  type FilepathList,
+  type PluginInterface
+} from '../../../types'
 import {stripBom} from '../../../lib/parse-json-safe'
 
 const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
@@ -73,15 +77,18 @@ function createSequentialEntryModule(
 export class AddScripts {
   public readonly manifestPath: string
   public readonly includeList: FilepathList
+  public readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList || {}
+    this.browser = options.browser || 'chrome'
   }
 
   public apply(compiler: Compiler): void {
     const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
-      this.manifestPath
+      this.manifestPath,
+      this.browser
     )
     const scriptFields: FilepathList = {
       ...this.includeList,

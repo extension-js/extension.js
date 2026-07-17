@@ -22,8 +22,11 @@ import type {
 } from '../../../../types'
 
 export class AddContentScriptWrapper {
-  public static getBridgeScripts(manifestPath: string): FilepathList {
-    return getMainWorldBridgeScripts(manifestPath)
+  public static getBridgeScripts(
+    manifestPath: string,
+    browser: DevOptions['browser'] = 'chrome'
+  ): FilepathList {
+    return getMainWorldBridgeScripts(manifestPath, browser)
   }
 
   private readonly manifestPath: string

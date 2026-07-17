@@ -86,4 +86,50 @@ describe('main-world bridge helpers', () => {
       path.basename(String(bridgeScripts['content_scripts/content-2']))
     ).toBe('main-world-bridge.js')
   })
+
+  it('resolves browser-prefixed world keys before scanning (bug 42)', () => {
+    const projectDir = createTempDir('extjs-bridge-prefixed-')
+    const srcDir = path.join(projectDir, 'src')
+    const distDir = path.join(projectDir, 'dist')
+    fs.mkdirSync(srcDir, {recursive: true})
+    fs.mkdirSync(distDir, {recursive: true})
+
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      '{"name":"fixture"}\n'
+    )
+    fs.writeFileSync(
+      path.join(distDir, 'main-world-bridge.js'),
+      'export default function bridge() {}\n',
+      'utf8'
+    )
+
+    const manifestPath = path.join(srcDir, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content/main.js'],
+            'chromium:world': 'MAIN'
+          }
+        ]
+      }),
+      'utf8'
+    )
+
+    // Chromium family targets resolve chromium:world -> world: MAIN, so the
+    // bridge entry MUST be compiled (the emitted manifest references it).
+    for (const browser of ['chrome', 'edge', 'chromium-based'] as const) {
+      const bridgeScripts = getMainWorldBridgeScripts(manifestPath, browser)
+      expect(Object.keys(bridgeScripts)).toEqual(['content_scripts/content-1'])
+    }
+
+    // Firefox drops the chromium: prefix entirely — no world key, no bridge.
+    expect(
+      Object.keys(getMainWorldBridgeScripts(manifestPath, 'firefox'))
+    ).toEqual([])
+  })
 })
