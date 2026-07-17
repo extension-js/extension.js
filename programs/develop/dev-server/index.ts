@@ -674,7 +674,7 @@ export async function devServer(
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    // Rspack must inject `module.hot` so `webpack/hot/dev-server` (prepended to
+    // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` (prepended to
     // HTML entry chains in development) does not throw. Content scripts do not
     // rely on that client: StripContentScriptDevServerRuntime strips HMR startup
     // from `content_scripts/content-*.js` bundles, so re-enabling liveReload no
