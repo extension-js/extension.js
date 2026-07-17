@@ -1,21 +1,21 @@
-// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
-// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
-// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
-// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
-// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
-// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler} from '@rspack/core'
-import * as featureScriptMessages from '../../messages'
-import {reportToCompilation} from '../../scripts-lib/utils'
-import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
-import {type DevOptions, type Manifest} from '../../../../types'
-import {resolveDevelopDistFile} from '../../../../lib/develop-context'
-import {isGeckoBasedBrowser} from '../../../../lib/constants'
-import {stripBom} from '../../../../lib/parse-json-safe'
+import * as featureScriptMessages from '../../../plugin-web-extension/feature-scripts/messages'
+import {reportToCompilation} from '../../../plugin-web-extension/feature-scripts/scripts-lib/utils'
+import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-scripts/scripts-lib/manifest'
+import {type DevOptions, type Manifest} from '../../../types'
+import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 export class SetupBackgroundEntry {
   private manifestPath: string

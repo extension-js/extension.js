@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import classicConcatLoader from '../steps/setup-reload-strategy/add-content-script-wrapper/classic-concat-loader'
+import classicConcatLoader from '../steps/add-content-script-wrapper/classic-concat-loader'
 
 const tempDirs: string[] = []
 

@@ -1,13 +1,13 @@
-// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
-// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
-// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
-// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
-// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
-// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {buildBridgeProducerSource} from '../../../../dev-server/control-bridge/producer-runtime'
+import {buildBridgeProducerSource} from '../../dev-server/control-bridge/producer-runtime'
 
 // Matches the compiled background entry across engines: Chromium emits
 // background/service_worker.js; Firefox (background.scripts) emits

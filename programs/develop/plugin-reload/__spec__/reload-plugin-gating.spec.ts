@@ -1,0 +1,104 @@
+// Regression: the reload pipeline is dev-only. ReloadPlugin must apply its
+// steps in development, and apply NOTHING in production or when the user
+// opts out with EXTENSION_NO_RELOAD=true (--no-reload). This gate used to
+// live inside feature-scripts' ScriptsPlugin; it moved here with the
+// plugin-reload extraction and this spec pins it in its new home.
+
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import * as path from 'path'
+
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<any>('fs')
+  return {
+    ...actual,
+    existsSync: vi.fn(() => true),
+    lstatSync: vi.fn(() => ({isFile: () => true}))
+  }
+})
+
+// Constructable mocks: `new ReloadPlugin(...).apply(compiler)` instantiates
+// the inner steps via `new`, so each mock must be a real constructor.
+const setupReloadStrategyCtor = vi.hoisted(() =>
+  vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+)
+const stripCtor = vi.hoisted(() =>
+  vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+)
+vi.mock('../steps/setup-reload-strategy', () => ({
+  SetupReloadStrategy: setupReloadStrategyCtor
+}))
+vi.mock('../steps/strip-content-script-dev-server-runtime', () => ({
+  StripContentScriptDevServerRuntime: stripCtor
+}))
+vi.mock('../steps/inject-scripts-replay-shim', () => ({
+  InjectScriptsReplayShim: vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+}))
+vi.mock('../steps/inject-bridge-producer', () => ({
+  InjectBridgeProducer: vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+}))
+vi.mock('../steps/inject-bridge-relay', () => ({
+  InjectBridgeRelay: vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+}))
+
+import {ReloadPlugin} from '../index'
+
+function makeCompiler(mode: 'development' | 'production' | 'none') {
+  return {
+    options: {
+      mode,
+      module: {rules: []}
+    }
+  } as any
+}
+
+const fixtureManifest = path.join(__dirname, '__fixtures__', 'manifest.json')
+
+describe('ReloadPlugin dev-only gating', () => {
+  beforeEach(() => {
+    setupReloadStrategyCtor.mockClear()
+    stripCtor.mockClear()
+  })
+
+  afterEach(() => {
+    delete process.env.EXTENSION_NO_RELOAD
+    vi.restoreAllMocks()
+  })
+
+  it('applies the reload strategy in development mode', () => {
+    new ReloadPlugin({
+      manifestPath: fixtureManifest,
+      browser: 'chromium'
+    } as any).apply(makeCompiler('development'))
+    expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
+    expect(stripCtor).toHaveBeenCalledTimes(1)
+  })
+
+  it('applies nothing in production mode', () => {
+    new ReloadPlugin({
+      manifestPath: fixtureManifest,
+      browser: 'chromium'
+    } as any).apply(makeCompiler('production'))
+    expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
+    expect(stripCtor).not.toHaveBeenCalled()
+  })
+
+  it('applies nothing when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
+    process.env.EXTENSION_NO_RELOAD = 'true'
+    new ReloadPlugin({
+      manifestPath: fixtureManifest,
+      browser: 'chromium'
+    } as any).apply(makeCompiler('development'))
+    expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
+    expect(stripCtor).not.toHaveBeenCalled()
+  })
+})

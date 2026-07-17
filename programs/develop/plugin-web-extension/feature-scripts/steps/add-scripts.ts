@@ -15,7 +15,7 @@ import {
   classicConcatEntry
 } from '../../shared/classic-concat'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
-import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
+import {AddContentScriptWrapper} from './add-content-script-wrapper'
 import {type FilepathList, type PluginInterface} from '../../../types'
 import {stripBom} from '../../../lib/parse-json-safe'
 

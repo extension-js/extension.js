@@ -1,13 +1,13 @@
-// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
-// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
-// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
-// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
-// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
-// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {buildBridgeRelaySource} from '../../../../dev-server/control-bridge/producer-runtime'
+import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 
 // Map an output-asset entry to the bridge context it runs in. Extension.js emits
 // surfaces under canonical dirs (action=popup, options, sidebar=side_panel,

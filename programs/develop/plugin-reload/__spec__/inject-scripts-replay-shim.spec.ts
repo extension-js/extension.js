@@ -6,7 +6,7 @@
 
 import {describe, it, expect, vi} from 'vitest'
 import {sources, Compilation} from '@rspack/core'
-import {InjectScriptsReplayShim} from '../steps/setup-reload-strategy/inject-scripts-replay-shim'
+import {InjectScriptsReplayShim} from '../steps/inject-scripts-replay-shim'
 
 function makeCompiler() {
   const processAssetsTaps: Array<{cb: () => void; opts: any}> = []

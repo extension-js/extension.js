@@ -8,10 +8,10 @@
 
 import path from 'path'
 import fs from 'fs'
-import type {FilepathList} from '../../../../../types'
-import {getCanonicalContentScriptEntryName} from '../../../contracts'
-import {PROJECT_MANIFEST_FILENAMES} from '../../../../../lib/project-manifest'
-import {stripBom} from '../../../../../lib/parse-json-safe'
+import type {FilepathList} from '../../../../types'
+import {getCanonicalContentScriptEntryName} from '../../contracts'
+import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
+import {stripBom} from '../../../../lib/parse-json-safe'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
@@ -63,7 +63,7 @@ export function resolveMainWorldBridgeSourcePath(options?: {
     packageRoot
       ? path.resolve(
           packageRoot,
-          'plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge'
+          'plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/main-world-bridge'
         )
       : undefined,
     // Published/compiled package fallback.

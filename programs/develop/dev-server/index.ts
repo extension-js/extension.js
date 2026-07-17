@@ -45,7 +45,7 @@ import {
   readContentScriptCount,
   createChangedSourcesTracker,
   dispatchReload
-} from '../plugin-browsers'
+} from '../plugin-reload'
 import {resolveConnectableHost} from './connectable-host'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
