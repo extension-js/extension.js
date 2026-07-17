@@ -8,9 +8,10 @@
 
 import path from 'path'
 import fs from 'fs'
-import type {FilepathList} from '../../../../types'
+import type {DevOptions, FilepathList} from '../../../../types'
 import {getCanonicalContentScriptEntryName} from '../../contracts'
 import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
+import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
 
 function findPackageRoot(startDir: string): string | undefined {
@@ -73,13 +74,21 @@ export function resolveMainWorldBridgeSourcePath(options?: {
   ])
 }
 
-export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
+export function getMainWorldBridgeScripts(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
   const bridgeScripts: FilepathList = {}
 
   try {
     const raw = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
-    const contentScripts: any[] = Array.isArray(raw?.content_scripts)
-      ? raw.content_scripts
+    // Resolve browser-prefixed keys (`chromium:world`, `firefox:world`, …)
+    // before scanning: the emitted manifest inserts bridges against the
+    // FILTERED manifest, so the entries compiled here must key off the same
+    // shape or the manifest references bridge bundles that never build.
+    const resolved = filterKeysForThisBrowser(raw, browser)
+    const contentScripts: any[] = Array.isArray(resolved?.content_scripts)
+      ? resolved.content_scripts
       : []
     const originalCount = contentScripts.length
 
