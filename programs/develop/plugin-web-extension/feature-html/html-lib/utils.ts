@@ -8,47 +8,9 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import type {Compilation, Compiler} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import {parseHtml} from './parse-html'
 import {type FilepathList} from '../../../types'
-
-export type IssueType = 'error' | 'warning'
-
-export function createIssue(
-  compiler: Compiler,
-  message: string,
-  type: IssueType = 'error'
-) {
-  const ErrorCtor = compiler?.rspack?.WebpackError || Error
-  const issue = new ErrorCtor(message) as Error & {name?: string}
-  issue.name = type === 'warning' ? 'ExtensionWarning' : 'ExtensionError'
-  return issue
-}
-
-export function reportToCompilation(
-  compilation: Compilation,
-  compiler: Compiler,
-  message: string,
-  type: IssueType = 'error',
-  file?: string
-) {
-  const issue = createIssue(compiler, message, type) as Error & {
-    file?: string
-  }
-  if (file) issue.file = file
-  const bucket = type === 'warning' ? 'warnings' : 'errors'
-  compilation[bucket] ||= []
-  // de-dupe by file + message text
-  const already = (compilation[bucket] as any[]).some((e: any) => {
-    return (
-      (e?.file || '') === (issue.file || '') &&
-      String(e?.message) === String(issue.message)
-    )
-  })
-  if (already) return
-  compilation[bucket].push(issue)
-}
 
 export interface ParsedHtmlAsset {
   css?: string[]

@@ -9,9 +9,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler} from '@rspack/core'
-import * as featureScriptMessages from '../../../plugin-web-extension/feature-scripts/messages'
-import {reportToCompilation} from '../../../plugin-web-extension/feature-scripts/scripts-lib/utils'
-import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-scripts/scripts-lib/manifest'
+import * as reloadMessages from '../../messages'
+import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
+import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {type DevOptions, type Manifest} from '../../../types'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
@@ -37,7 +37,7 @@ export class SetupBackgroundEntry {
         patched.manifest_version === 3
           ? 'background/service_worker'
           : 'background/scripts'
-      return featureScriptMessages.backgroundIsRequiredMessageOnly(fieldKey)
+      return reloadMessages.backgroundIsRequiredMessageOnly(fieldKey)
     }
     return undefined
   }

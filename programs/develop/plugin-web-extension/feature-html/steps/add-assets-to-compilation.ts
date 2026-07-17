@@ -20,9 +20,9 @@ import {
   cleanLeading,
   computePosixRelative,
   joinEmittedAssetName,
-  resolveAbsoluteFsPath,
-  reportToCompilation
+  resolveAbsoluteFsPath
 } from '../html-lib/utils'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import {type FilepathList, type PluginInterface} from '../../../types'
 import {resolveRootAbsoluteRef} from '../../shared/paths'
 

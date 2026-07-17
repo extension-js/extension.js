@@ -9,7 +9,7 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
-import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-scripts/scripts-lib/manifest'
+import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {getCanonicalContentScriptJsAssetName} from '../../../plugin-web-extension/feature-scripts/contracts'

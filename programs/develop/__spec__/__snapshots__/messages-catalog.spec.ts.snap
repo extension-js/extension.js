@@ -108,6 +108,9 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-perf-budgets/messages.ts": [
     "perfBudgetWarning: function(1)",
   ],
+  "plugin-reload/messages.ts": [
+    "backgroundIsRequiredMessageOnly: function(1)",
+  ],
   "plugin-special-folders/messages.ts": [
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
@@ -174,7 +177,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "serverRestartRequiredFromManifestError: function(2)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
-    "backgroundIsRequiredMessageOnly: function(1)",
     "fetchedFileDependencyMissing: function(3)",
     "getURLDependencyMissing: function(3)",
     "importScriptsDependencyMissing: function(4)",
