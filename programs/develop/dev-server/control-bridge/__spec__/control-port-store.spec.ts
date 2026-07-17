@@ -30,7 +30,7 @@ function makeTmpDir(): string {
 describe('control-port-store', () => {
   it('resolves the file under .extension-js/, outside dist/', () => {
     expect(controlPortFilePath('/proj', 'chromium')).toBe(
-      path.join('/proj', '.extension-js', 'control-port-chromium')
+      path.resolve('/proj', '.extension-js', 'control-port-chromium')
     )
   })
 
@@ -42,7 +42,7 @@ describe('control-port-store', () => {
 
   it('resolves the legacy (pre-#484) file under dist/extension-js/<browser>/', () => {
     expect(legacyControlPortFilePath('/proj', 'chromium')).toBe(
-      path.join('/proj', 'dist', 'extension-js', 'chromium', 'control-port')
+      path.resolve('/proj', 'dist', 'extension-js', 'chromium', 'control-port')
     )
   })
 
