@@ -89,7 +89,6 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
-  close(): Promise<void>
 }
 
 export type BrowserLauncherFn = (

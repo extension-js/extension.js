@@ -23,7 +23,7 @@ cd my-extension
 npm run dev
 ```
 
-Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno` (run the CLI with `deno run -A npm:extension@latest ...`).
+Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
 [Documentation](https://extension.js.org) · [Templates](https://templates.extension.dev) · [Examples](https://github.com/extension-js/examples) · [Discord](https://discord.gg/v9h2RgeTSN)
 

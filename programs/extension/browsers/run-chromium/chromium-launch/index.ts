@@ -42,7 +42,6 @@ import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   pickSharedBrowserRuntimeOptions,
-  publishUserExtensionRoot,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
@@ -741,7 +740,6 @@ export class ChromiumLaunchPlugin {
     )
 
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
-    publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
 
     // Dotted version of the resolved binary ("Google Chrome 150.0.7871.24"
     // -> "150.0.7871.24") for the minimum_chrome_version blocker check.
@@ -980,8 +978,7 @@ export class ChromiumLaunchPlugin {
 
         if (cdpConfig.cdpController) {
           this.ctx.setController(
-            cdpConfig.cdpController as CDPExtensionController,
-            selectedPort
+            cdpConfig.cdpController as CDPExtensionController
           )
         }
       }

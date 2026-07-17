@@ -47,7 +47,6 @@ export class RemoteFirefox {
   private client: MessagingClient | null = null
   private loggingAttached = false
   private cachedAddonsActor: string | undefined
-  private cachedSupportsReload: boolean | null = null
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
 
@@ -170,7 +169,6 @@ export class RemoteFirefox {
    */
   private invalidateConnectionScopedCaches(): void {
     this.cachedAddonsActor = undefined
-    this.cachedSupportsReload = null
   }
 
   public async installAddons(compilation: CompilationLike) {
