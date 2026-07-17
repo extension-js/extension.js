@@ -208,6 +208,8 @@ export function registerStartCommand(program: Command) {
           // CLI surface: a failed build ends this process with the clean
           // error line. Library imports of extensionBuild reject instead.
           exitOnError: true,
+          // The build-phase receipt should name the command the user ran.
+          metadataCommand: 'start',
           polyfill: startOptions.polyfill?.toString() !== 'false',
           install: startOptions.install,
           extensions: parseExtensionsList(startOptions.extensions),
