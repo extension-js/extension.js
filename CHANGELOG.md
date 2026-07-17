@@ -2,26 +2,38 @@
 
 ## Unreleased
 
-### Features
-
-- Add nightly macOS smoke for the real Safari toolchain pipeline ([3ce254d4](https://github.com/extension-js/extension.js/commit/3ce254d4dddb91306389987b63284483497c6e30))
-- Surface Safari xcrun/xcodebuild output; build skips packaging off-macOS ([ed40d809](https://github.com/extension-js/extension.js/commit/ed40d809f459ba1a2b209f1469c229f2ad85d5f6))
+- **`extension doctor`** — one command that walks a dev session's control-channel legs (ready contract, server process, ports, token, executor, browser) and names the first failing one with a fix. Agents get `--output json`.
+- **Fork-browser fixes** — waterfox/librewolf now get Firefox-shaped `web_accessible_resources`, and brave/opera/vivaldi/yandex now get the MV2-deprecation warning Chromium targets already had.
+- **Clearer control-channel errors** — "no executor connected" and eval "Forbidden" now say *why* (stale service worker mid-resync, browser still launching, missing/mismatched eval token) instead of a catch-all.
 
 ### Fixes
 
-- Guard bundled javascript template against examples drift ([dc729329](https://github.com/extension-js/extension.js/commit/dc72932947d84a12ff2c0c873bab5854930eaa97))
-- Resolve safari:/webkit: manifest prefixes; warn before project regen ([72a5da8d](https://github.com/extension-js/extension.js/commit/72a5da8dcab9aacdb2f1ad0825340668ca3e5a79))
-- Repair missing version and CSP unsafe-inline; diagnose unsupported MV ([dd9845b4](https://github.com/extension-js/extension.js/commit/dd9845b45188e9a05551476730d945caf516d2d9))
+- Fix control-port spec: resolve() adds drive letter on Windows ([d4bc93b9](https://github.com/extension-js/extension.js/commit/d4bc93b940f8c375eeb87e967046a60c6c70e282))
+- Prevent #484 class: per-browser token, doctor verb, session smoke CI ([68511174](https://github.com/extension-js/extension.js/commit/685111743b7ebcd6da3d8d5b2a62ff7d6abcd3a1))
+- Fix deno smoke lane: deno install ignores file: deps; use links field ([0a753eae](https://github.com/extension-js/extension.js/commit/0a753eae905c6a02fe582f06cba4c5431cd3e9fe))
+- Stop claiming Preact HMR in author-mode summary and dev help ([e0c0c26e](https://github.com/extension-js/extension.js/commit/e0c0c26e4e2f2ff2eadc70f9203d4659463340b2))
+- Fix npm README logo rewrite regex; resync generated mirror ([8038d0d5](https://github.com/extension-js/extension.js/commit/8038d0d58b5fcbb7be2df7ad1e8843c3ea3f757b))
+- Repair named commands missing descriptions Chrome refuses to load ([047e2209](https://github.com/extension-js/extension.js/commit/047e22091e556e3e6ac2a6099dadaadc9668cf6d))
 
 <details>
-<summary>Other changes (6)</summary>
+<summary>Other changes (16)</summary>
 
-- Resync bundled javascript template with examples repo ([1fc0f7fb](https://github.com/extension-js/extension.js/commit/1fc0f7fba3b2977c72632333961372d1ab7f7be7))
-- Align Safari app/appex bundle ids to --bundle-id after conversion ([b0e86e4f](https://github.com/extension-js/extension.js/commit/b0e86e4f1ada60647b2ef0e1899867f6254a052b))
-- Safari status to Alpha; install explains Xcode instead of a binary ([9fad813b](https://github.com/extension-js/extension.js/commit/9fad813b4dc579c7770a393c17c6b3a1cd8ea55c))
-- Wire Safari identity options: --bundle-id/--app-name + config support ([311967f6](https://github.com/extension-js/extension.js/commit/311967f6e0045dc39ddbde104b812c811e8d9d59))
-- Record Safari converter as a non-surface for manifest refusals ([3036e779](https://github.com/extension-js/extension.js/commit/3036e77967324b6938db9773a8a6c1e5031dc553))
-- Diagnose live-verified Chrome manifest refusals; repair bad names ([8315a492](https://github.com/extension-js/extension.js/commit/8315a4922eaf3f96c85bdaa96bebd51b63f70c3e))
+- Extract inline script by string index, not regex (CodeQL #73) ([e788ecee](https://github.com/extension-js/extension.js/commit/e788eceef30af88b5ce32bd700908b2bbff502d4))
+- Trace webpack numeric chunks + runtime-set HTML surfaces into dist ([29489317](https://github.com/extension-js/extension.js/commit/29489317159d4d9e9566cdb65982e3db08f46db8))
+- Normalize folder ASCII banners: add 113 missing, fix 20 wrong ([e1a5b0d2](https://github.com/extension-js/extension.js/commit/e1a5b0d2bba79cdb5cfd76ed77dbe129420ec7a0))
+- Remove resolved docs/followups and dead vitest.workspace.ts ([965a9043](https://github.com/extension-js/extension.js/commit/965a90434d67c891b50cf8079802404c4503e563))
+- Log Firefox RDP connect retries and name the port on give-up ([e3d3b799](https://github.com/extension-js/extension.js/commit/e3d3b7993d808e3f346f273f185181b3b9b0103b))
+- Repo hygiene: drop dead files, fix docs drift, sync test workspace ([96ef5038](https://github.com/extension-js/extension.js/commit/96ef5038e23d4d788e19be58f021201170652934))
+- Bridge classic page-script globals to window for inline consumers ([9ffaa3e6](https://github.com/extension-js/extension.js/commit/9ffaa3e6d56dfc1f0c679ca8496e8ac134c86312))
+- Root-absolute refs: ship JS import closure, fix manifest page targets ([fd820dca](https://github.com/extension-js/extension.js/commit/fd820dca3b10de19fdb825950933e7408624402a))
+- Resync generated npm README mirror (Safari status Alpha) ([5105e379](https://github.com/extension-js/extension.js/commit/5105e37992a0a6ca65617ee390e9f3e7c86dc2b4))
+- Resync bundled javascript template: top-level setPanelBehavior fix ([58d6a8f2](https://github.com/extension-js/extension.js/commit/58d6a8f2cc44bed98eb3858eba4b3f6c43bc8117))
+- Reject failed builds as promises; process.exit(1) only via CLI opt-in ([f5c3c649](https://github.com/extension-js/extension.js/commit/f5c3c64958d0249f6715684bd3839bdf02a1d764))
+- Leave unresolvable bare require() verbatim instead of failing the build ([c5ca4225](https://github.com/extension-js/extension.js/commit/c5ca4225fe7a7a7dcecf1650848dbc78279a2616))
+- Canonicalize supported-surface lists; promote deno to full peer ([2a78f2ed](https://github.com/extension-js/extension.js/commit/2a78f2edd58ebb9b6c547f4201a24e7b9fc58334))
+- CI: promote Deno to PR-gating smoke lane (validated locally) ([d50b5ecf](https://github.com/extension-js/extension.js/commit/d50b5ecf231d177f954ad09351e560f3a15857dd))
+- CI: smoke fork build targets; add non-blocking nightly Deno lane ([0d5a6cbb](https://github.com/extension-js/extension.js/commit/0d5a6cbbf1e42e35a8afecfee4f75e16bbd9d176))
+- README: note Deno support alongside npm/pnpm/yarn/bun ([aaed6e47](https://github.com/extension-js/extension.js/commit/aaed6e47a2afe19d83ff6a0bd50151b9d95fee72))
 </details>
 
 ## 3.18.0 (May 28, 2026)
