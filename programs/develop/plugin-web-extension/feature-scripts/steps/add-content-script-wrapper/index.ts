@@ -8,18 +8,18 @@
 
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {findNearestProjectManifestSync} from '../../../../../lib/project-manifest'
-import {resolveDevelopDistFile} from '../../../../../lib/develop-context'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
+import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {
   canonicalizeDir,
   isResourceUnderDirs
-} from '../../../../../lib/resource-path'
+} from '../../../../lib/resource-path'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 import type {
   PluginInterface,
   DevOptions,
   FilepathList
-} from '../../../../../types'
+} from '../../../../types'
 
 export class AddContentScriptWrapper {
   public static getBridgeScripts(manifestPath: string): FilepathList {

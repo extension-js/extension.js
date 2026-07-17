@@ -15,11 +15,8 @@
 
 import * as path from 'path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {
-  type BrowserController,
-  BrowsersPlugin,
-  type ReloadInstruction
-} from '../index'
+import {type BrowserController, BrowsersPlugin} from '../index'
+import {type ReloadInstruction} from '../../plugin-reload'
 
 // -----------------------------------------------------------------------------
 // Fake Compiler harness

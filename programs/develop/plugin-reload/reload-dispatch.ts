@@ -1,15 +1,15 @@
-// ██████╗ ██████╗  ██████╗ ██╗    ██╗███████╗███████╗██████╗ ███████╗
-// ██╔══██╗██╔══██╗██╔═══██╗██║    ██║██╔════╝██╔════╝██╔══██╗██╔════╝
-// ██████╔╝██████╔╝██║   ██║██║ █╗ ██║███████╗█████╗  ██████╔╝███████╗
-// ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
-// ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
-// ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as path from 'path'
 import colors from 'pintor'
-import type {ReloadInstruction} from './index'
+import type {ReloadInstruction} from './classify-reload'
 
 // Every dev mode — launched (Chromium CDP / Firefox RDP) and `--no-browser` —
 // reloads through the control-bridge `broker` (the in-extension SW producer's

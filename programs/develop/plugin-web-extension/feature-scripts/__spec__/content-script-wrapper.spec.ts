@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import contentScriptWrapper from '../steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper'
+import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
 
 const tempDirs: string[] = []
 

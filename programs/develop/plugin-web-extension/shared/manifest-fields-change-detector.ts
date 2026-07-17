@@ -16,7 +16,7 @@
 
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
-import {AddContentScriptWrapper} from '../feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper'
+import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
 import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
 import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'

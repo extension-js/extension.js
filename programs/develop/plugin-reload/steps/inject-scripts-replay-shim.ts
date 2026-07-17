@@ -1,13 +1,13 @@
-// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
-// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
-// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
-// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
-// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
-// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../../scripts-lib/scripts-replay-shim'
+import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
 

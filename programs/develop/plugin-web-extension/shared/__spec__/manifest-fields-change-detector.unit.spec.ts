@@ -7,7 +7,7 @@ vi.mock('browser-extension-manifest-fields', () => ({
 }))
 
 vi.mock(
-  '../../feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper',
+  '../../feature-scripts/steps/add-content-script-wrapper',
   () => ({
     AddContentScriptWrapper: {
       getBridgeScripts: () => ({})

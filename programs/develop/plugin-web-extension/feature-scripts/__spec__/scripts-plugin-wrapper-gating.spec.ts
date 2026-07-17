@@ -5,8 +5,8 @@
 // the entry chunk as a side-effect-free module exporting an unused default
 // and tree-shakes the entire body — content scripts ship empty in
 // production. EXTENSION_NO_RELOAD opts out of the dev reload strategy
-// (SetupReloadStrategy + StripContentScriptDevServerRuntime), not the
-// wrapper itself.
+// (plugin-reload), not the wrapper itself — the wrapper is unconditional
+// in ScriptsPlugin.
 
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
@@ -28,7 +28,7 @@ const wrapperCtor = vi.hoisted(() =>
     this.apply = () => {}
   })
 )
-vi.mock('../steps/setup-reload-strategy/add-content-script-wrapper', () => ({
+vi.mock('../steps/add-content-script-wrapper', () => ({
   AddContentScriptWrapper: wrapperCtor
 }))
 vi.mock('../steps/add-scripts', () => ({
@@ -36,23 +36,8 @@ vi.mock('../steps/add-scripts', () => ({
     this.apply = () => {}
   })
 }))
-vi.mock('../steps/setup-reload-strategy', () => ({
-  SetupReloadStrategy: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
-vi.mock('../steps/strip-content-script-dev-server-runtime', () => ({
-  StripContentScriptDevServerRuntime: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
 vi.mock('../steps/add-public-path-runtime-module', () => ({
   AddPublicPathRuntimeModule: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
-vi.mock('../steps/setup-reload-strategy/inject-scripts-replay-shim', () => ({
-  InjectScriptsReplayShim: vi.fn(function (this: any) {
     this.apply = () => {}
   })
 }))
@@ -63,7 +48,7 @@ vi.mock('../steps/trace-runtime-loaded-files', () => ({
 }))
 
 import {ScriptsPlugin} from '../index'
-import {AddContentScriptWrapper} from '../steps/setup-reload-strategy/add-content-script-wrapper'
+import {AddContentScriptWrapper} from '../steps/add-content-script-wrapper'
 
 function makeCompiler(mode: 'development' | 'production' | 'none') {
   return {

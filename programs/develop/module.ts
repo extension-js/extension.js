@@ -23,12 +23,11 @@ import {
   BuildEmitter,
   type CompiledEvent,
   type BuildErrorEvent,
-  type ReloadType,
-  type ReloadInstruction,
   type BrowserLauncherFn,
   type BrowserLaunchOptions,
   type BrowserController
 } from './plugin-browsers'
+import {type ReloadType, type ReloadInstruction} from './plugin-reload'
 
 export {
   extensionBuild,

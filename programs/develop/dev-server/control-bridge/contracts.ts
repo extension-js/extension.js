@@ -78,9 +78,10 @@ export type CommandOp =
 
 /**
  * Granularity of a dev-loop reload. Mirrors `ReloadType` in
- * plugin-browsers/index.ts: the launched-browser path feeds this decision to
- * the CDP controller; the `--no-browser` path feeds the same decision to the
- * broker, which broadcasts a {@link ReloadFrame} to the SW producer.
+ * plugin-reload/classify-reload.ts: the launched-browser path feeds this
+ * decision to the CDP controller; the `--no-browser` path feeds the same
+ * decision to the broker, which broadcasts a {@link ReloadFrame} to the SW
+ * producer.
  */
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
