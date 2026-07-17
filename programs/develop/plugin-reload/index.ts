@@ -13,6 +13,7 @@ import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-d
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
+import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
 import type {PluginInterface, DevOptions} from '../types'
 
 export {
@@ -102,5 +103,10 @@ export class ReloadPlugin {
     // Forward content-script console to the SW relay (multi-context logs).
     // No-ops when the control bridge is unavailable.
     new InjectBridgeRelay().apply(compiler)
+
+    // Hot chunks are fetched from the extension origin (disk), so they live
+    // in the loadable dist — prune superseded generations so a long editing
+    // session doesn't accumulate hundreds of stale files in "what ships".
+    new PruneStaleHotUpdates().apply(compiler)
   }
 }
