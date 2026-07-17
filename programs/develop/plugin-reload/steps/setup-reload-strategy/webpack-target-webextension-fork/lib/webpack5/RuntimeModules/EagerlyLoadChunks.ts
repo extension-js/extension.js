@@ -1,6 +1,8 @@
+// Explicit `any` return type: the class extends an `any`-typed RuntimeModule,
+// so the anonymous class type cannot be named in declaration emit (TS4094).
 export default function createEagerlyLoadChunksRuntimeModule(
   webpack: typeof import('webpack')
-) {
+): any {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack as any
   return class EagerlyLoadChunksRuntimeModule extends RuntimeModule {
     private readonly chunkIds: Array<string | number>
