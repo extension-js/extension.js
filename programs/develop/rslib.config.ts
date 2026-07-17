@@ -54,7 +54,7 @@ const browserEntries = {
   // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
   'main-world-bridge': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
+    './plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/main-world-bridge.js'
   ),
   'minimum-chromium-file': path.resolve(
     __dirname,
@@ -81,11 +81,11 @@ const nodeEntries = {
   ),
   'feature-scripts-content-script-wrapper': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
+    './plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper.ts'
   ),
   'feature-scripts-classic-concat-loader': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/classic-concat-loader.ts'
+    './plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/classic-concat-loader.ts'
   ),
   'feature-scripts-native-geturl-import-loader': path.resolve(
     __dirname,

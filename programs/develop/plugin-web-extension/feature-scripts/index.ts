@@ -9,12 +9,7 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {AddScripts} from './steps/add-scripts'
-import {SetupReloadStrategy} from './steps/setup-reload-strategy'
-import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
-import {InjectScriptsReplayShim} from './steps/setup-reload-strategy/inject-scripts-replay-shim'
-import {InjectBridgeProducer} from './steps/setup-reload-strategy/inject-bridge-producer'
-import {InjectBridgeRelay} from './steps/setup-reload-strategy/inject-bridge-relay'
-import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
+import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
@@ -26,6 +21,10 @@ import type {FilepathList, PluginInterface, DevOptions} from '../../types'
  * - content scripts use the inline lifecycle runtime only
  * - targeted reinjection stays browser-owned
  * - background/manifest changes stay on the full-reload path
+ *
+ * The dev-only reload/HMR strategy is NOT part of this feature — it lives
+ * in plugin-reload, which registers after this plugin and decorates the
+ * entries AddScripts declares here.
  */
 export class ScriptsPlugin {
   public readonly manifestPath: string
@@ -89,32 +88,5 @@ export class ScriptsPlugin {
     // emits them into the bundle; the browser then silently never injects the
     // file. Fail loudly instead — in every mode.
     new ValidateContentScriptSyntax().apply(compiler)
-
-    if (
-      compiler.options.mode !== 'production' &&
-      process.env.EXTENSION_NO_RELOAD !== 'true'
-    ) {
-      new StripContentScriptDevServerRuntime().apply(compiler)
-
-      new SetupReloadStrategy({
-        manifestPath: this.manifestPath,
-        browser: this.browser
-      }).apply(compiler)
-
-      // Inject the SW-side `__extjsScriptsReplay` shim so the controller can
-      // re-execute previously-issued `chrome.scripting.executeScript` calls
-      // after a user edits a file in /scripts/* — bringing programmatic
-      // injection HMR closer to parity with declarative content_scripts.
-      new InjectScriptsReplayShim().apply(compiler)
-
-      // Inject the agent-bridge producer so the background SW forwards its
-      // console output to the dev-server control WS (agent bridge).
-      // No-ops when the control bridge is unavailable.
-      new InjectBridgeProducer().apply(compiler)
-
-      // Forward content-script console to the SW relay (multi-context logs).
-      // No-ops when the control bridge is unavailable.
-      new InjectBridgeRelay().apply(compiler)
-    }
   }
 }

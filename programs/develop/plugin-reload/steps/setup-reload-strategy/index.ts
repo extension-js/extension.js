@@ -1,20 +1,20 @@
-// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
-// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
-// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
-// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
-// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
-// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
+// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
+// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
+// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
-import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
-import {isGeckoBasedBrowser} from '../../../../lib/constants'
+import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-scripts/scripts-lib/manifest'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {SetupBackgroundEntry} from './setup-background-entry'
-import {getCanonicalContentScriptJsAssetName} from '../../contracts'
-import type {Manifest, PluginInterface, DevOptions} from '../../../../types'
-import {stripBom} from '../../../../lib/parse-json-safe'
+import {getCanonicalContentScriptJsAssetName} from '../../../plugin-web-extension/feature-scripts/contracts'
+import type {Manifest, PluginInterface, DevOptions} from '../../../types'
+import {stripBom} from '../../../lib/parse-json-safe'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string

@@ -5,7 +5,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   getMainWorldBridgeScripts,
   resolveMainWorldBridgeSourcePath
-} from '../steps/setup-reload-strategy/add-content-script-wrapper/get-bridge-scripts'
+} from '../steps/add-content-script-wrapper/get-bridge-scripts'
 
 const tempDirs: string[] = []
 

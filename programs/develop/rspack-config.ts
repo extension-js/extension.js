@@ -28,6 +28,7 @@ import {CssPlugin} from './plugin-css'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {WebExtensionPlugin} from './plugin-web-extension'
+import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
@@ -165,6 +166,14 @@ export default function webpackConfig(
       polyfill: devOptions.polyfill
     }),
     new WebExtensionPlugin({
+      manifestPath,
+      browser: devOptions.browser
+    }),
+    // Dev-only reload/HMR strategy. Must register AFTER WebExtensionPlugin:
+    // SetupReloadStrategy decorates the background/content entries that
+    // feature-scripts' AddScripts (applied by WebExtensionPlugin) declares.
+    // No-ops in production and under EXTENSION_NO_RELOAD=true.
+    new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser
     }),
