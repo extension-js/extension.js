@@ -1,7 +1,11 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import {describe, expect, it} from 'vitest'
-import {getDevServerHmrImports} from '../dev-server-client-import'
+import {
+  getDevServerHmrImports,
+  HMR_CLIENT_SPECIFIER,
+  HMR_HOT_SPECIFIER
+} from '../dev-server-client-import'
 
 describe('dev-server-client-import', () => {
   it('returns absolute paths that exist on disk (not bare specifiers)', () => {
@@ -43,6 +47,56 @@ describe('dev-server-client-import', () => {
     expect(fs.existsSync(hotEntry), `HMR hot file missing: ${hotEntry}`).toBe(
       true
     )
+  })
+
+  it('resolves the hot runtime from @rspack/core, a declared dependency (issue #486)', () => {
+    // The HMR runtime must come from a package extension-develop actually
+    // declares. The historical `webpack/hot/dev-server` request only resolved
+    // on npm, where `webpack` was incidentally hoisted in as a transitive peer;
+    // pnpm's strict store and Yarn PnP both reject it, breaking `extension dev`
+    // with "Can't resolve 'webpack/hot/dev-server'". `@rspack/core` ships
+    // `hot/dev-server.js` and is a direct dependency, so it resolves everywhere.
+    const fakeCompiler = {
+      options: {devServer: {host: '127.0.0.1', port: 8080, hot: 'only'}}
+    }
+    const [, hotEntry] = getDevServerHmrImports(fakeCompiler as any)
+    const posix = hotEntry.replace(/\\/g, '/')
+    expect(posix).toContain('@rspack/core/hot/dev-server')
+    expect(posix).not.toContain('/webpack/hot/')
+  })
+
+  it('every prepended HMR specifier roots in a declared dependency (issue #486 guard)', () => {
+    // The invariant that makes #486 non-repeatable, independent of any package
+    // manager's hoisting: both specifiers extension-develop injects into user
+    // entry chains must root in a package it DECLARES. This fails at the source
+    // the moment anyone reintroduces an undeclared package (e.g. `webpack/...`),
+    // whereas an install-based gate can pass by hoisting accident (npm's flat
+    // tree, pnpm's public store) and only breaks in the field under Yarn PnP.
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, '..', '..', 'package.json'),
+        'utf8'
+      )
+    )
+    const declared = new Set(Object.keys(pkg.dependencies || {}))
+
+    // Package root of a bare specifier: `@scope/name/sub` -> `@scope/name`,
+    // `name/sub` -> `name`.
+    const packageRoot = (spec: string): string => {
+      const parts = spec.split('/')
+      return spec.startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]
+    }
+
+    for (const spec of [HMR_CLIENT_SPECIFIER, HMR_HOT_SPECIFIER]) {
+      const root = packageRoot(spec)
+      expect(
+        declared.has(root),
+        `HMR specifier "${spec}" roots in "${root}", which is NOT a declared ` +
+          `dependency of extension-develop. It would only resolve by hoisting ` +
+          `accident and break under Yarn PnP / pnpm strict (issue #486). Add it ` +
+          `to programs/develop/package.json dependencies or use a declared one.`
+      ).toBe(true)
+    }
   })
 
   it('returns empty array when no devServer config and no env vars', () => {
