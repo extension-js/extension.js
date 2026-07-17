@@ -11,7 +11,7 @@ import * as path from 'path'
 import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
-import {reportToCompilation} from '../html-lib/utils'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import {type FilepathList, type PluginInterface} from '../../../types'
 import {stripBom} from '../../../lib/parse-json-safe'
 
