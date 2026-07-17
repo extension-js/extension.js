@@ -28,6 +28,10 @@ import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {
+  parseParentPid,
+  setupParentWatchdog
+} from '../helpers/parent-watchdog'
 
 type DevOptions = {
   browser?: Browser | 'all'
@@ -51,6 +55,7 @@ type DevOptions = {
   waitFormat?: 'pretty' | 'json'
   allowControl?: boolean
   allowEval?: boolean
+  parentPid?: string | number
 }
 
 export function registerDevCommand(program: Command) {
@@ -173,6 +178,10 @@ export function registerDevCommand(program: Command) {
       '--allow-eval',
       'additionally enable `extension eval` (runs arbitrary code in a context; writes a 0600 session token)'
     )
+    .option(
+      '--parent-pid <pid>',
+      'exit when the given process dies. For wrappers that spawn `extension dev`, so a leaked dev server can never outlive its owner'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...devOptions}: DevOptions
@@ -180,6 +189,20 @@ export function registerDevCommand(program: Command) {
       if ((devOptions as any).author || (devOptions as any)['authorMode']) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
+      }
+
+      if (devOptions.parentPid !== undefined) {
+        const parentPid = parseParentPid(devOptions.parentPid)
+        if (parentPid === undefined) {
+          // eslint-disable-next-line no-console
+          console.error(
+            messages.unhandledError(
+              `--parent-pid expects a positive integer pid, got: ${devOptions.parentPid}`
+            )
+          )
+          process.exit(1)
+        }
+        setupParentWatchdog(parentPid)
       }
 
       const list = vendors(browser)
