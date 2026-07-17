@@ -13,7 +13,7 @@ import * as path from 'path'
  *   broadcasts `static-changed`, and rspack 2.x stopped bumping
  *   `stats.hash` on asset-only rebuilds, so HTML edits in already-open
  *   extension pages stay frozen forever.
- * - `hot: true` — keeps `module.hot` injected so `webpack/hot/dev-server`
+ * - `hot: true` — keeps `module.hot` injected so `@rspack/core/hot/dev-server`
  *   (prepended to HTML entry chains) does not throw at module evaluation.
  *
  * If you change either value, the entire `dev-live` Playwright project will
