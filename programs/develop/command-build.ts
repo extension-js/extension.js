@@ -144,6 +144,7 @@ export async function extensionBuild(
       extensions: resolvedExtensionsConfig,
       browser,
       mode: resolvedMode,
+      metadataCommand: buildOptions?.metadataCommand || 'build',
       output: {
         clean: true,
         path: distPath
