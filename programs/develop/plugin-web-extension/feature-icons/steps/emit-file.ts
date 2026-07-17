@@ -10,28 +10,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation} from '@rspack/core'
 import * as messages from '../messages'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import {iconValuesToStrings} from '../normalize-keys'
 import {type FilepathList, type PluginInterface} from '../../../types'
-
-// Shared utility for reporting errors or warnings to the compilation
-function reportToCompilation(
-  compilation: Compilation,
-  message: string,
-  compiler: Compiler,
-  opts?: {type?: 'error' | 'warning'; file?: string}
-) {
-  const ErrorConstructor = compiler?.rspack?.WebpackError || Error
-  const errObj = new ErrorConstructor(message) as Error & {file?: string}
-  const arrKey = opts?.type === 'warning' ? 'warnings' : 'errors'
-
-  if (opts?.file) errObj.file = opts.file
-
-  if (!compilation[arrKey]) {
-    compilation[arrKey] = []
-  }
-
-  compilation[arrKey].push(errObj)
-}
 
 export class EmitFile {
   public readonly manifestPath: string
@@ -214,11 +195,12 @@ export class EmitFile {
 
                   reportToCompilation(
                     compilation,
+                    compiler,
                     messages.iconsMissingFile(feature, displayPath, {
                       publicRootHint: isPublicRoot
                     }),
-                    compiler,
-                    {type: severity, file: 'manifest.json'}
+                    severity,
+                    'manifest.json'
                   )
                   missingCount++
                   continue

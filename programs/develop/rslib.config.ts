@@ -58,11 +58,11 @@ const browserEntries = {
   ),
   'minimum-chromium-file': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
+    './plugin-reload/reload-lib/minimum-files/minimum-background-file-chromium.ts'
   ),
   'minimum-firefox-file': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
+    './plugin-reload/reload-lib/minimum-files/minimum-background-file-firefox.ts'
   )
 }
 
