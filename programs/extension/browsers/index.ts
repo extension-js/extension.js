@@ -96,7 +96,7 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
 /**
  * Launch a browser with the given extension(s) loaded.
  *
- * Returns a `BrowserController` that provides reload and unified-logging control.
+ * Returns a `BrowserController` that provides unified-logging control.
  * This is the primary entry point for the CLI orchestration layer — it replaces
  * the old BrowsersPlugin that lived inside the bundler.
  */

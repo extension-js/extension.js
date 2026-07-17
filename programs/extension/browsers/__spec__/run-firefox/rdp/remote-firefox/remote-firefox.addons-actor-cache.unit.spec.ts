@@ -38,12 +38,10 @@ describe('RemoteFirefox connection-scoped actor cache', () => {
     } as any)
 
     rf.cachedAddonsActor = 'server1.conn0.addonsActor2'
-    rf.cachedSupportsReload = true
 
     await rf.connectClient(9999)
 
     expect(rf.cachedAddonsActor).toBeUndefined()
-    expect(rf.cachedSupportsReload).toBeNull()
   })
 
   it('re-clears the cache when the transport transparently reconnects', async () => {
@@ -56,10 +54,8 @@ describe('RemoteFirefox connection-scoped actor cache', () => {
 
     // Simulate discovering an actor on this connection, then a reconnect.
     rf.cachedAddonsActor = 'server1.conn1.addonsActor5'
-    rf.cachedSupportsReload = false
     client.emit('reconnected')
 
     expect(rf.cachedAddonsActor).toBeUndefined()
-    expect(rf.cachedSupportsReload).toBeNull()
   })
 })

@@ -25,7 +25,6 @@ import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   buildBrowserLaunchRequest,
-  publishUserExtensionRoot,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import {
@@ -368,12 +367,6 @@ export class FirefoxLaunchPlugin {
 
     // Prepare extension(s)
     const extensionsToLoad = toExtensionLoadList(this.host.extension)
-    publishUserExtensionRoot(
-      extensionsToLoad,
-      typeof this.ctx.setExtensionRoot === 'function'
-        ? this.ctx.setExtensionRoot
-        : undefined
-    )
 
     // Compute RDP port with availability check
     const desiredDebugPort = deriveDebugPortWithInstance(
@@ -445,7 +438,7 @@ export class FirefoxLaunchPlugin {
         debugPort
       )
       this.host.rdpController = ctrl
-      this.ctx.setController(ctrl, debugPort)
+      this.ctx.setController(ctrl)
       this.scheduleWatchTimeout()
 
       try {

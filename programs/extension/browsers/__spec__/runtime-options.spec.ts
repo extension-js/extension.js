@@ -2,7 +2,6 @@ import {describe, expect, it, vi} from 'vitest'
 import {
   buildBrowserLaunchRequest,
   pickSharedBrowserRuntimeOptions,
-  publishUserExtensionRoot,
   toExtensionLoadList
 } from '../browsers-lib/runtime-options'
 
@@ -83,16 +82,5 @@ describe('browser runtime-options helpers', () => {
       '/tmp/ext-a',
       '/tmp/ext-b'
     ])
-  })
-
-  it('publishes the last string extension root when available', () => {
-    const setExtensionRoot = vi.fn()
-
-    publishUserExtensionRoot(
-      ['/tmp/not-last', 123 as unknown as string, '/tmp/final-ext'] as any,
-      setExtensionRoot
-    )
-
-    expect(setExtensionRoot).toHaveBeenCalledWith('/tmp/final-ext')
   })
 })

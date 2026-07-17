@@ -18,7 +18,6 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "cdpClientConnectionError: function(1)",
     "cdpClientExtensionInfoFailed: function(2)",
     "cdpClientExtensionLoadFailed: function(2)",
-    "cdpClientExtensionReloadFailed: function(2)",
     "cdpClientExtensionUnloadFailed: function(2)",
     "cdpClientFoundTargets: function(1)",
     "cdpClientLoadEventTimeout: function(0)",
