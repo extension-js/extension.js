@@ -14,14 +14,14 @@ import {parse as parseModuleSyntax} from 'es-module-lexer/js'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName
-} from '../../../contracts'
-import {findNearestProjectManifestSync} from '../../../../../lib/project-manifest'
-import * as messages from '../../../messages'
-import {stripBom} from '../../../../../lib/parse-json-safe'
+} from '../../contracts'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
+import * as messages from '../../messages'
+import {stripBom} from '../../../../lib/parse-json-safe'
 import {
   canonicalizeDir,
   canonicalizeResourcePath
-} from '../../../../../lib/resource-path'
+} from '../../../../lib/resource-path'
 
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
