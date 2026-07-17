@@ -2,38 +2,24 @@
 
 ## Unreleased
 
-- **`extension doctor`** — one command that walks a dev session's control-channel legs (ready contract, server process, ports, token, executor, browser) and names the first failing one with a fix. Agents get `--output json`.
-- **Fork-browser fixes** — waterfox/librewolf now get Firefox-shaped `web_accessible_resources`, and brave/opera/vivaldi/yandex now get the MV2-deprecation warning Chromium targets already had.
-- **Clearer control-channel errors** — "no executor connected" and eval "Forbidden" now say *why* (stale service worker mid-resync, browser still launching, missing/mismatched eval token) instead of a catch-all.
+### Features
+
+- Add --no-polyfill, emit extension-develop dts, fix stale --source help ([79683f72](https://github.com/extension-js/extension.js/commit/79683f72da1adb3e1a7c1001dc5ff991327bc92b))
+- Add --parent-pid watchdog so leaked dev servers die with their owner ([63be66fa](https://github.com/extension-js/extension.js/commit/63be66fa100422571b93fed30415ffd439ee1041))
 
 ### Fixes
 
-- Fix control-port spec: resolve() adds drive letter on Windows ([d4bc93b9](https://github.com/extension-js/extension.js/commit/d4bc93b940f8c375eeb87e967046a60c6c70e282))
-- Prevent #484 class: per-browser token, doctor verb, session smoke CI ([68511174](https://github.com/extension-js/extension.js/commit/685111743b7ebcd6da3d8d5b2a62ff7d6abcd3a1))
-- Fix deno smoke lane: deno install ignores file: deps; use links field ([0a753eae](https://github.com/extension-js/extension.js/commit/0a753eae905c6a02fe582f06cba4c5431cd3e9fe))
-- Stop claiming Preact HMR in author-mode summary and dev help ([e0c0c26e](https://github.com/extension-js/extension.js/commit/e0c0c26e4e2f2ff2eadc70f9203d4659463340b2))
-- Fix npm README logo rewrite regex; resync generated mirror ([8038d0d5](https://github.com/extension-js/extension.js/commit/8038d0d58b5fcbb7be2df7ad1e8843c3ea3f757b))
-- Repair named commands missing descriptions Chrome refuses to load ([047e2209](https://github.com/extension-js/extension.js/commit/047e22091e556e3e6ac2a6099dadaadc9668cf6d))
+- Resolve HMR runtime from @rspack/core so Yarn PnP resolves it (#486) ([58ffa0ae](https://github.com/extension-js/extension.js/commit/58ffa0ae299b21a3e44ad3ba38bba9a643c1f012))
+- Resolve browser-prefixed world keys before MAIN-world bridge compilation ([6a5ba99f](https://github.com/extension-js/extension.js/commit/6a5ba99fbccf4d590adbd320568c986143a120b5))
+- Sweep reload-era dead code from browsers; trim README deno note ([edcd00ac](https://github.com/extension-js/extension.js/commit/edcd00acb9f5060803add991b9c4211962d3162d))
 
 <details>
-<summary>Other changes (16)</summary>
+<summary>Other changes (4)</summary>
 
-- Extract inline script by string index, not regex (CodeQL #73) ([e788ecee](https://github.com/extension-js/extension.js/commit/e788eceef30af88b5ce32bd700908b2bbff502d4))
-- Trace webpack numeric chunks + runtime-set HTML surfaces into dist ([29489317](https://github.com/extension-js/extension.js/commit/29489317159d4d9e9566cdb65982e3db08f46db8))
-- Normalize folder ASCII banners: add 113 missing, fix 20 wrong ([e1a5b0d2](https://github.com/extension-js/extension.js/commit/e1a5b0d2bba79cdb5cfd76ed77dbe129420ec7a0))
-- Remove resolved docs/followups and dead vitest.workspace.ts ([965a9043](https://github.com/extension-js/extension.js/commit/965a90434d67c891b50cf8079802404c4503e563))
-- Log Firefox RDP connect retries and name the port on give-up ([e3d3b799](https://github.com/extension-js/extension.js/commit/e3d3b7993d808e3f346f273f185181b3b9b0103b))
-- Repo hygiene: drop dead files, fix docs drift, sync test workspace ([96ef5038](https://github.com/extension-js/extension.js/commit/96ef5038e23d4d788e19be58f021201170652934))
-- Bridge classic page-script globals to window for inline consumers ([9ffaa3e6](https://github.com/extension-js/extension.js/commit/9ffaa3e6d56dfc1f0c679ca8496e8ac134c86312))
-- Root-absolute refs: ship JS import closure, fix manifest page targets ([fd820dca](https://github.com/extension-js/extension.js/commit/fd820dca3b10de19fdb825950933e7408624402a))
-- Resync generated npm README mirror (Safari status Alpha) ([5105e379](https://github.com/extension-js/extension.js/commit/5105e37992a0a6ca65617ee390e9f3e7c86dc2b4))
-- Resync bundled javascript template: top-level setPanelBehavior fix ([58d6a8f2](https://github.com/extension-js/extension.js/commit/58d6a8f2cc44bed98eb3858eba4b3f6c43bc8117))
-- Reject failed builds as promises; process.exit(1) only via CLI opt-in ([f5c3c649](https://github.com/extension-js/extension.js/commit/f5c3c64958d0249f6715684bd3839bdf02a1d764))
-- Leave unresolvable bare require() verbatim instead of failing the build ([c5ca4225](https://github.com/extension-js/extension.js/commit/c5ca4225fe7a7a7dcecf1650848dbc78279a2616))
-- Canonicalize supported-surface lists; promote deno to full peer ([2a78f2ed](https://github.com/extension-js/extension.js/commit/2a78f2edd58ebb9b6c547f4201a24e7b9fc58334))
-- CI: promote Deno to PR-gating smoke lane (validated locally) ([d50b5ecf](https://github.com/extension-js/extension.js/commit/d50b5ecf231d177f954ad09351e560f3a15857dd))
-- CI: smoke fork build targets; add non-blocking nightly Deno lane ([0d5a6cbb](https://github.com/extension-js/extension.js/commit/0d5a6cbbf1e42e35a8afecfee4f75e16bbd9d176))
-- README: note Deno support alongside npm/pnpm/yarn/bun ([aaed6e47](https://github.com/extension-js/extension.js/commit/aaed6e47a2afe19d83ff6a0bd50151b9d95fee72))
+- Prune superseded hot-update generations from the loadable dev dist ([28602698](https://github.com/extension-js/extension.js/commit/28602698699a7384a82c8384f1983b2c3fc2e9fc))
+- Stamp real command + versions in ready.json; per-run events.ndjson ([4147cda9](https://github.com/extension-js/extension.js/commit/4147cda9e3cf11685759125bd2c38b4f62cc00f9))
+- Slim feature-scripts: drop dead shims, unify compilation issue reporting ([032909df](https://github.com/extension-js/extension.js/commit/032909df1664d88a17756dc9b6eb6645ed4f5ea1))
+- Extract reload/HMR into plugin-reload; hoist content-script wrapper ([c702350b](https://github.com/extension-js/extension.js/commit/c702350b798a7842e91dfbcd19b394f59de24640))
 </details>
 
 ## 3.18.0 (May 28, 2026)
