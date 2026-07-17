@@ -29,18 +29,7 @@ vi.mock('../run-chromium/chromium-context', async () => {
   function createChromiumContext() {
     return {
       getController: () => cdpController,
-      onControllerReady: (_cb: any) => {},
-      setController: (_c: any, _p: any) => {},
-      getPorts: () => ({}),
-      setExtensionRoot: (_r?: string) => {},
-      getExtensionRoot: () => undefined,
-      setServiceWorkerPaths: (_r?: string, _a?: string) => {},
-      getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (_r?: any) => {},
-      getPendingReloadReason: () => undefined,
-      clearPendingReloadReason: () => {},
-      logger: undefined,
-      didLaunch: false
+      setController: (_c: any) => {}
     }
   }
 

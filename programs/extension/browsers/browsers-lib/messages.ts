@@ -822,13 +822,6 @@ export function cdpClientLoadEventTimeout() {
   return `${getLoggingPrefix('warn')} Chrome load event timed out; proceeding anyway...`
 }
 
-export function cdpClientExtensionReloadFailed(
-  extensionId: string,
-  error: string
-) {
-  return `${getLoggingPrefix('error')} Chrome CDP Client: Failed to force-reload extension ${colors.gray(extensionId)}: ${colors.red(error)}`
-}
-
 export function cdpClientExtensionUnloadFailed(
   extensionId: string,
   error: string

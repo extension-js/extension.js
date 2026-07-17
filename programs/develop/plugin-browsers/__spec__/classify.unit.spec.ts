@@ -46,8 +46,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
   // controller.reload() call (the launched controller no longer reloads).
   const reload = vi.fn()
   const controller: BrowserController = {
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined)
+    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
   }
 
   const plugin = new BrowsersPlugin({
