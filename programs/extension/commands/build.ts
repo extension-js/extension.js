@@ -55,6 +55,7 @@ export function registerBuildCommand(program: Command) {
       'whether or not to apply the cross-browser polyfill. Defaults to `false`',
       parseOptionalBoolean
     )
+    .option('--no-polyfill', 'disable the cross-browser polyfill')
     .option(
       '--zip [boolean]',
       'whether or not to compress the extension into a ZIP file. Defaults to `false`',

@@ -17,12 +17,12 @@
     },
     "./preview": {
       "development": "./preview-entry.ts",
-      "types": "./dist/preview.d.ts",
+      "types": "./dist/preview-entry.d.ts",
       "import": "./dist/preview.mjs"
     },
     "./bridge": {
       "development": "./bridge-entry.ts",
-      "types": "./dist/bridge.d.ts",
+      "types": "./dist/bridge-entry.d.ts",
       "import": "./dist/bridge.mjs"
     },
     "./package.json": "./package.json"
