@@ -75,7 +75,7 @@
     "edge-extension"
   ],
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "axios": "^1.16.0",
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.1.5",
