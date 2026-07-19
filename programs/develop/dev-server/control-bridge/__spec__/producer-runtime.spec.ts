@@ -380,6 +380,123 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     })
   })
 
+  const flush = async () => {
+    for (let i = 0; i < 8; i++) await Promise.resolve()
+  }
+
+  it('eval content resolves --url to the matching tab id (#51)', async () => {
+    const executed: Array<{target: {tabId: number}}> = []
+    const ws = setup({
+      scripting: {
+        executeScript: (opts: {target: {tabId: number}}) => {
+          executed.push(opts)
+          return Promise.resolve([{result: 42}])
+        }
+      },
+      tabs: {
+        query: (q: {url?: string; active?: boolean}, cb: (t: unknown[]) => void) => {
+          if (q && q.url) cb([{id: 9, url: 'https://example.com/'}])
+          else cb([])
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-url',
+      op: 'eval',
+      target: {context: 'content', url: 'https://example.com/*'},
+      args: {expression: '1'}
+    })
+    await flush()
+    expect(executed).toHaveLength(1)
+    expect(executed[0].target.tabId).toBe(9)
+    expect(results(ws).find((f) => f.cmdId === 'e-url')).toMatchObject({
+      ok: true,
+      value: 42
+    })
+  })
+
+  it('eval content with no --tab/--url defaults to the active tab (#51)', async () => {
+    const executed: Array<{target: {tabId: number}}> = []
+    const ws = setup({
+      scripting: {
+        executeScript: (opts: {target: {tabId: number}}) => {
+          executed.push(opts)
+          return Promise.resolve([{result: 'ok'}])
+        }
+      },
+      tabs: {
+        query: (
+          q: {url?: string; active?: boolean},
+          cb: (t: unknown[]) => void
+        ) => {
+          if (q && q.active) cb([{id: 5, url: 'https://active.test/'}])
+          else cb([])
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-active',
+      op: 'eval',
+      target: {context: 'content'},
+      args: {expression: '1'}
+    })
+    await flush()
+    expect(executed).toHaveLength(1)
+    expect(executed[0].target.tabId).toBe(5)
+  })
+
+  it('eval content with no matching tab reports Unsupported, not a silent hang (#51)', async () => {
+    const ws = setup({
+      scripting: {executeScript: () => Promise.resolve([{result: 1}])},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-none',
+      op: 'eval',
+      target: {context: 'content', url: 'https://nope.test/'},
+      args: {expression: '1'}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-none')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported'}
+    })
+  })
+
+  it('inspect content resolves --url to a tab and snapshots it (#51)', async () => {
+    const executed: Array<{target: {tabId: number}}> = []
+    const ws = setup({
+      scripting: {
+        executeScript: (opts: {target: {tabId: number}}) => {
+          executed.push(opts)
+          return Promise.resolve([{result: {url: 'https://example.com/'}}])
+        }
+      },
+      tabs: {
+        query: (q: {url?: string}, cb: (t: unknown[]) => void) => {
+          if (q && q.url) cb([{id: 3, url: 'https://example.com/'}])
+          else cb([])
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'i-url',
+      op: 'inspect',
+      target: {context: 'content', url: 'https://example.com/*'},
+      args: {include: ['summary']}
+    })
+    await flush()
+    expect(executed).toHaveLength(1)
+    expect(executed[0].target.tabId).toBe(3)
+    expect(results(ws).find((f) => f.cmdId === 'i-url')).toMatchObject({
+      ok: true
+    })
+  })
+
   it('reload acks immediately then calls chrome.runtime.reload', async () => {
     let reloaded = false
     const ws = setup({runtime: {reload: () => (reloaded = true)}})
