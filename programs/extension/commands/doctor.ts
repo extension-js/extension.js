@@ -10,7 +10,7 @@ import path from 'path'
 import type {Command} from 'commander'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
-type CheckStatus = 'pass' | 'fail' | 'skip'
+type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
 export interface DoctorCheckResult {
   check: string
@@ -26,6 +26,28 @@ interface DoctorOptions {
 
 const CONNECT_TIMEOUT_MS = 5000
 const PROBE_TIMEOUT_MS = 3000
+// Right after a clean compile the browser is still launching and the extension's
+// service worker has not yet connected. During this window an absent executor is
+// expected, not a failure — report `warn`, and only escalate to `fail` once the
+// window elapses with no attachment.
+const EXECUTOR_ATTACH_GRACE_MS = 10_000
+
+/**
+ * True when the executor is merely still attaching after a fresh compile: within
+ * the grace window since compiledAt, and no evidence the browser has given up
+ * (the SW has not attached and the browser has not exited).
+ */
+function isExecutorAttachGrace(ready: any): boolean {
+  // Once the SW has attached, absence is a real regression — never a grace warn.
+  if (ready?.executorAttachedAt || ready?.runtime === 'attached') return false
+  // A browser that exited under a live server is a real failure, not launching.
+  if (ready?.browserExitedAt) return false
+  const stamp = ready?.compiledAt || ready?.ts
+  if (typeof stamp !== 'string') return false
+  const compiledMs = Date.parse(stamp)
+  if (Number.isNaN(compiledMs)) return false
+  return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
+}
 
 /**
  * Walks the control-channel legs in dependency order and reports the first
@@ -262,6 +284,18 @@ export async function runDoctor(
               ? 'executor responded to a storage probe'
               : `executor responded (probe errored in-extension: ${probe.error?.message ?? 'unknown'})`
           })
+        } else if (isExecutorAttachGrace(ready)) {
+          results.push({
+            check: 'executor',
+            status: 'warn',
+            detail:
+              'no executor connected yet — the browser is still launching ' +
+              `(within ${EXECUTOR_ATTACH_GRACE_MS / 1000}s of compile); the ` +
+              'service worker has not attached',
+            remediation:
+              'Give it a moment: wait for ready.json to gain ' +
+              '`runtime: "attached"` before acting, or re-run doctor shortly'
+          })
         } else {
           results.push({
             check: 'executor',
@@ -273,13 +307,26 @@ export async function runDoctor(
           })
         }
       } catch (err: any) {
-        results.push({
-          check: 'executor',
-          status: 'fail',
-          detail: `probe did not complete: ${String(err?.message || err)}`,
-          remediation:
-            'Retry shortly; if it persists reload the extension or restart the dev session'
-        })
+        if (isExecutorAttachGrace(ready)) {
+          results.push({
+            check: 'executor',
+            status: 'warn',
+            detail:
+              'executor probe did not complete yet — the browser is still ' +
+              `launching (within ${EXECUTOR_ATTACH_GRACE_MS / 1000}s of compile)`,
+            remediation:
+              'Give it a moment: wait for ready.json to gain ' +
+              '`runtime: "attached"` before acting, or re-run doctor shortly'
+          })
+        } else {
+          results.push({
+            check: 'executor',
+            status: 'fail',
+            detail: `probe did not complete: ${String(err?.message || err)}`,
+            remediation:
+              'Retry shortly; if it persists reload the extension or restart the dev session'
+          })
+        }
       }
     }
 
@@ -313,6 +360,7 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
   const glyph: Record<CheckStatus, string> = {
     pass: '✓',
     fail: '✗',
+    warn: '!',
     skip: '–'
   }
   // eslint-disable-next-line no-console
@@ -322,10 +370,12 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
     // eslint-disable-next-line no-console
     console.log(`  ${glyph[r.status]} ${r.check.padEnd(width)}  ${r.detail}`)
   }
-  const firstFail = results.find((r) => r.status === 'fail')
-  if (firstFail?.remediation) {
+  const advisory =
+    results.find((r) => r.status === 'fail') ??
+    results.find((r) => r.status === 'warn')
+  if (advisory?.remediation) {
     // eslint-disable-next-line no-console
-    console.log(`\n${firstFail.check}: ${firstFail.remediation}`)
+    console.log(`\n${advisory.check}: ${advisory.remediation}`)
   }
 }
 
