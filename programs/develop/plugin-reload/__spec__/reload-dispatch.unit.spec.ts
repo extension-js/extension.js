@@ -53,6 +53,44 @@ describe('dispatchReload', () => {
     )
   })
 
+  // §53: a reload that reaches zero producers is a silent no-op — on heavy
+  // sites / auth walls where the SW never attaches, that looks like a broken
+  // tool. The broker hands back a single deduped hint; dispatch surfaces it.
+  it('warns with the broker hint when a reload reaches zero producers (§53)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {
+      broadcastReload: vi.fn().mockReturnValue(0),
+      undeliveredReloadWarning: vi.fn().mockReturnValue('SW not attached — …')
+    }
+    await dispatchReload(CS, {broker})
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('SW not attached')
+    // No "Reloading…" line when nothing was reloaded.
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('stays silent when zero producers but the broker returns no hint (§53 grace/dedup)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const broker = {
+      broadcastReload: vi.fn().mockReturnValue(0),
+      undeliveredReloadWarning: vi.fn().mockReturnValue(null)
+    }
+    await dispatchReload(CS, {broker})
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('does NOT ask for an undelivered-reload hint when a producer was notified (§53)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const undeliveredReloadWarning = vi.fn().mockReturnValue('should not show')
+    await dispatchReload(CS, {
+      broker: {broadcastReload: vi.fn().mockReturnValue(1), undeliveredReloadWarning}
+    })
+    expect(undeliveredReloadWarning).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('is a no-op for an undefined instruction (no changed sources)', async () => {
     const broker = {broadcastReload: vi.fn()}
     await dispatchReload(undefined, {broker})

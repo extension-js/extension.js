@@ -432,3 +432,85 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     expect(cons.sent).toHaveLength(0)
   })
 })
+
+describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () => {
+  const GRACE_MS = 10_000
+
+  // A controllable clock: sessionStartedAt is captured at construction, so set
+  // the start time first, then advance `nowMs` to simulate elapsed time.
+  function brokerAt(startMs: number) {
+    let nowMs = startMs
+    const b = new BridgeBroker({...opts, now: () => nowMs})
+    return {b, advance: (ms: number) => (nowMs += ms)}
+  }
+
+  function helloProducer(b: BridgeBroker, id = 'p') {
+    b.onFrame(new FakeConn(id), {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+  }
+
+  it('stays silent inside the startup grace window (browser still launching)', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS - 1)
+    expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+
+  it('warns "never-connected" past grace when no SW ever attached (heavy site / auth wall)', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    const msg = b.undeliveredReloadWarning()
+    expect(msg).toContain('SW not attached')
+    expect(msg).toContain('has not connected to the dev server this session')
+  })
+
+  it('dedupes: a rapid edit loop warns once per attach-state, not once per save', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    expect(b.undeliveredReloadWarning()).not.toBeNull() // first stranded edit
+    expect(b.undeliveredReloadWarning()).toBeNull() // repeat edit, same state
+    expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+
+  it('warns "recently-disconnected" after an attach→detach, and only once', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+
+    // Was never-connected → warn once.
+    expect(b.undeliveredReloadWarning()).toContain(
+      'has not connected to the dev server this session'
+    )
+
+    // The SW attaches (clears the dedup) then drops out.
+    const prod = new FakeConn('p')
+    b.onFrame(prod, {type: 'hello', v: 1, role: 'producer', instanceId: 'inst-1'})
+    b.onClose(prod)
+
+    // A stranded edit now reports the disconnect — a genuinely new state.
+    const msg = b.undeliveredReloadWarning()
+    expect(msg).toContain('SW not attached')
+    expect(msg).toContain('disconnected')
+    // ...but still only once for this state.
+    expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+
+  it('stays silent while a stale-instance resync is in flight (a reload is already coming)', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+
+    // A previous-session SW dials in and is told to full-reload/resync.
+    b.onFrame(new FakeConn('stale'), {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'PREVIOUS-SESSION'
+    })
+
+    // The resynced worker reconnects within seconds and picks up the latched
+    // edit — warning now would cry wolf.
+    expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+})
