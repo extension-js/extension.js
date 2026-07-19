@@ -4,22 +4,17 @@
 
 ### Features
 
-- Add --no-polyfill, emit extension-develop dts, fix stale --source help ([79683f72](https://github.com/extension-js/extension.js/commit/79683f72da1adb3e1a7c1001dc5ff991327bc92b))
-- Add --parent-pid watchdog so leaked dev servers die with their owner ([63be66fa](https://github.com/extension-js/extension.js/commit/63be66fa100422571b93fed30415ffd439ee1041))
-
-### Fixes
-
-- Resolve HMR runtime from @rspack/core so Yarn PnP resolves it (#486) ([58ffa0ae](https://github.com/extension-js/extension.js/commit/58ffa0ae299b21a3e44ad3ba38bba9a643c1f012))
-- Resolve browser-prefixed world keys before MAIN-world bridge compilation ([6a5ba99f](https://github.com/extension-js/extension.js/commit/6a5ba99fbccf4d590adbd320568c986143a120b5))
-- Sweep reload-era dead code from browsers; trim README deno note ([edcd00ac](https://github.com/extension-js/extension.js/commit/edcd00acb9f5060803add991b9c4211962d3162d))
+- Allow reserved _locales and _metadata dirs past the dev name guard ([131388ac](https://github.com/extension-js/extension.js/commit/131388ac9aa006956875b4fc4d48e0ca52326a1d))
 
 <details>
-<summary>Other changes (4)</summary>
+<summary>Other changes (6)</summary>
 
-- Prune superseded hot-update generations from the loadable dev dist ([28602698](https://github.com/extension-js/extension.js/commit/28602698699a7384a82c8384f1983b2c3fc2e9fc))
-- Stamp real command + versions in ready.json; per-run events.ndjson ([4147cda9](https://github.com/extension-js/extension.js/commit/4147cda9e3cf11685759125bd2c38b4f62cc00f9))
-- Slim feature-scripts: drop dead shims, unify compilation issue reporting ([032909df](https://github.com/extension-js/extension.js/commit/032909df1664d88a17756dc9b6eb6645ed4f5ea1))
-- Extract reload/HMR into plugin-reload; hoist content-script wrapper ([c702350b](https://github.com/extension-js/extension.js/commit/c702350b798a7842e91dfbcd19b394f59de24640))
+- Override adm-zip to 0.6.0 to fix the memory-exhaustion advisory ([a7e2c27a](https://github.com/extension-js/extension.js/commit/a7e2c27ae884458a26e26c32e421bb977960443c))
+- Warn when a dev reload reaches no page (service worker not attached) ([ed08f41f](https://github.com/extension-js/extension.js/commit/ed08f41fc24251b422424e688217717b4d7cd406))
+- Stamp runtime attachment in ready.json; doctor grace + unify distPath ([24935327](https://github.com/extension-js/extension.js/commit/2493532768e98a295e0487377ebbb00c65b5bb6c))
+- Target eval/inspect by tab or url and add inspect --list-tabs ([a8747be9](https://github.com/extension-js/extension.js/commit/a8747be9942ec7d9b8e44789bf5312e64f9f31c4))
+- Evict stale unpacked loads and open the newtab override tab ([22ea5039](https://github.com/extension-js/extension.js/commit/22ea503916933d16029ed68a0ecdbb2cee8496e7))
+- Unify scaffold package-manager and expose it on CreateResult ([611c09fd](https://github.com/extension-js/extension.js/commit/611c09fdcc1d529c3c04b5111dacaf1c8921db8f))
 </details>
 
 ## 3.18.0 (May 28, 2026)
