@@ -109,6 +109,44 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       try { socket && socket.send(JSON.stringify(frame)); } catch (e) {}
     }
 
+    // Resolve a numeric tab id for content/page targeting when the caller did
+    // not pass one: match target.url against open tabs (Chrome match pattern,
+    // then a substring fallback), else default to the active tab. cb(tabId, err)
+    // — tabId is null with a human message when nothing matches. (#51)
+    function resolveTargetTab(target, cb) {
+      var chrome = g.chrome;
+      if (!chrome || !chrome.tabs) { cb(null, "chrome.tabs is not available"); return; }
+      var url = target && target.url;
+      if (url) {
+        var substringMatch = function () {
+          try {
+            chrome.tabs.query({}, function (all) {
+              var hit = (all || []).filter(function (t) { return t.url && String(t.url).indexOf(url) !== -1; })[0];
+              if (hit && typeof hit.id === "number") { cb(hit.id, null); return; }
+              cb(null, "no open tab matches url: " + url);
+            });
+          } catch (e2) { cb(null, "tab query failed"); }
+        };
+        try {
+          // chrome.tabs.query accepts URL match patterns; a bare url/glob may
+          // not be a valid pattern, so fall back to a substring scan.
+          chrome.tabs.query({url: url}, function (tabs) {
+            if (chrome.runtime && chrome.runtime.lastError) { substringMatch(); return; }
+            if (tabs && tabs.length && typeof tabs[0].id === "number") { cb(tabs[0].id, null); return; }
+            substringMatch();
+          });
+        } catch (e) { substringMatch(); }
+        return;
+      }
+      try {
+        chrome.tabs.query({active: true, lastFocusedWindow: true}, function (tabs) {
+          var t = tabs && tabs[0];
+          if (t && typeof t.id === "number") { cb(t.id, null); return; }
+          cb(null, "no active tab to target");
+        });
+      } catch (e3) { cb(null, "tab query failed"); }
+    }
+
     // Execute one authorized command in the SW (or route to a tab). chrome.*
     // promise APIs are used; callback-only APIs are wrapped.
     function executeCommand(cmd) {
@@ -116,6 +154,24 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var ctx = target.context || "background";
       var chrome = g.chrome;
       var cmdId = cmd.cmdId;
+      // content/page eval & inspect need a numeric tab id. When the caller gave
+      // a --url (or nothing), resolve it to a tab (url match, else the active
+      // tab) and re-dispatch with target.tabId filled in. (#51)
+      if ((op === "eval" || op === "inspect") && (ctx === "content" || ctx === "page") && target.tabId == null) {
+        resolveTargetTab(target, function (tabId, err) {
+          if (tabId == null) {
+            replyErr(cmdId, "Unsupported", err || ("eval/inspect in context " + ctx + " needs a --tab id, a --url to match, or an active tab"));
+            return;
+          }
+          var next = {};
+          for (var k in cmd) { if (Object.prototype.hasOwnProperty.call(cmd, k)) next[k] = cmd[k]; }
+          next.target = {};
+          for (var tk in target) { if (Object.prototype.hasOwnProperty.call(target, tk)) next.target[tk] = target[tk]; }
+          next.target.tabId = tabId;
+          executeCommand(next);
+        });
+        return;
+      }
       try {
         if (!chrome) { replyErr(cmdId, "Unsupported", "chrome.* not available in this context"); return; }
         if (op === "eval") {

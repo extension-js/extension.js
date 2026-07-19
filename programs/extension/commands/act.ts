@@ -229,9 +229,12 @@ export function registerActCommands(program: Command): void {
       )
       .option(
         '--url <glob|substring>',
-        'for content/page: document(s) to target'
+        'for content/page: document to target (resolved to its tab)'
       )
-      .option('--tab <id>', 'for content/page: a specific tab')
+      .option(
+        '--tab <id>',
+        'for content/page: a specific tab (default: the --url match, else the active tab)'
+      )
   ).action(async function (
     expression: string,
     projectPathArg: string,
@@ -341,9 +344,17 @@ export function registerActCommands(program: Command): void {
       )
       .option(
         '--context <content|page|popup|options|sidebar|devtools>',
-        'what to inspect: content/page (needs --tab) or an open surface (default content)'
+        'what to inspect: content/page or an open surface (default content)'
       )
-      .option('--tab <id>', 'tab id to inspect (required for content/page)')
+      .option(
+        '--url <glob|substring>',
+        'for content/page: document to target (resolved to its tab)'
+      )
+      .option(
+        '--tab <id>',
+        'for content/page: a specific tab (default: the --url match, else the active tab)'
+      )
+      .option('--list-tabs', 'list open tabs as {tabId,url,title} and exit')
       .option(
         '--include <list>',
         'comma-separated: html,summary (default summary)'
@@ -359,8 +370,21 @@ export function registerActCommands(program: Command): void {
       include?: string
       maxBytes?: string
       withConsole?: string | boolean
+      listTabs?: boolean
     }
   ) {
+    // --list-tabs is a discovery path: surface numeric tab ids so a caller can
+    // target eval/inspect explicitly. tabs.query needs no token or DOM. (#51)
+    if (opts.listTabs) {
+      await runCommand({
+        projectPathArg,
+        op: 'tabs.query',
+        target: {context: 'background'},
+        args: {},
+        opts
+      })
+      return
+    }
     const include = opts.include
       ? opts.include
           .split(',')
