@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import colors from 'pintor'
-import {detectPackageManagerFromEnv, isDenoRuntime} from './package-manager'
+import {resolveScaffoldPackageManager} from './package-manager'
 
 const statusPrefix = colors.brightBlue('⏵⏵⏵')
 
@@ -65,33 +65,32 @@ export async function successfullInstall(
   depsInstalled: boolean
 ) {
   const relativePath = path.relative(process.cwd(), projectPath)
-  const pm = detectPackageManagerFromEnv()
+  const pm = resolveScaffoldPackageManager()
 
-  let command = 'npm run'
+  let command = 'npm run dev'
   let installCmd = 'npm install'
 
-  if (isDenoRuntime()) {
-    // Deno runs package.json scripts via `deno task`, not `deno run`.
-    command = 'deno task dev'
-    installCmd = 'deno install'
-  } else {
-    switch (pm) {
-      case 'yarn':
-        command = 'yarn dev'
-        installCmd = 'yarn'
-        break
-      case 'pnpm':
-        command = 'pnpm dev'
-        installCmd = 'pnpm install'
-        break
-      case 'bun':
-        command = 'bun dev'
-        installCmd = 'bun install'
-        break
-      default:
-        command = 'npm run dev'
-        installCmd = 'npm install'
-    }
+  switch (pm) {
+    case 'deno':
+      // Deno runs package.json scripts via `deno task`, not `deno run`.
+      command = 'deno task dev'
+      installCmd = 'deno install'
+      break
+    case 'yarn':
+      command = 'yarn dev'
+      installCmd = 'yarn'
+      break
+    case 'pnpm':
+      command = 'pnpm dev'
+      installCmd = 'pnpm install'
+      break
+    case 'bun':
+      command = 'bun dev'
+      installCmd = 'bun install'
+      break
+    default:
+      command = 'npm run dev'
+      installCmd = 'npm install'
   }
 
   const steps = depsInstalled
