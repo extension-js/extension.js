@@ -1388,3 +1388,251 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     })
   })
 })
+
+describe('bridge producer runtime — storage on callback-only engines (#54)', () => {
+  function setup(chromeApi: Record<string, unknown>, extra: Record<string, unknown> = {}) {
+    FakeWebSocket.instances = []
+    const {fakeGlobal} = makeGlobal()
+    fakeGlobal.chrome = chromeApi
+    fakeGlobal.navigator = {userAgent: 'Firefox'}
+    Object.assign(fakeGlobal, extra)
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9999,
+        instanceId: 'inst-S',
+        context: 'background'
+      }),
+      fakeGlobal
+    )
+    const ws = FakeWebSocket.instances[0]
+    ws.triggerOpen()
+    ws.sent = []
+    return ws
+  }
+  const results = (ws: FakeWebSocket) =>
+    ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'result')
+
+  // Gecko's chrome.* namespace is callback-only: chrome.storage.local.get(key)
+  // returns undefined (not a promise). The old code did `.then()` on that ->
+  // TypeError. It must fall back to the callback form.
+  it('storage.set then storage.get round-trip via a callback-only stub', async () => {
+    const store: Record<string, unknown> = {}
+    const callbackOnly = {
+      get: (key: string | null, cb?: (r: Record<string, unknown>) => void) => {
+        if (typeof cb === 'function') cb(key == null ? {...store} : {[key]: store[key]})
+        return undefined // Gecko chrome.*: no promise
+      },
+      set: (items: Record<string, unknown>, cb?: () => void) => {
+        if (typeof cb === 'function') {
+          Object.assign(store, items)
+          cb()
+        }
+        return undefined
+      }
+    }
+    const ws = setup({storage: {local: callbackOnly}, runtime: {}})
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 's1',
+      op: 'storage.set',
+      target: {context: 'background'},
+      args: {area: 'local', items: {hello: 'world'}}
+    })
+    await Promise.resolve()
+    expect(store.hello).toBe('world')
+    expect(results(ws).find((f) => f.cmdId === 's1')).toMatchObject({
+      ok: true,
+      value: {set: ['hello']}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 's2',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {area: 'local', key: 'hello'}
+    })
+    await Promise.resolve()
+    expect(results(ws).find((f) => f.cmdId === 's2')).toMatchObject({
+      ok: true,
+      value: {hello: 'world'}
+    })
+  })
+
+  it('storage.get surfaces runtime.lastError as a StorageError on the callback path', async () => {
+    const callbackOnly = {
+      get: (_key: string | null, cb?: (r: unknown) => void) => {
+        if (typeof cb === 'function') cb(undefined)
+        return undefined
+      }
+    }
+    const ws = setup({
+      storage: {local: callbackOnly},
+      runtime: {lastError: {message: 'quota exceeded'}}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 's-err',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {area: 'local', key: 'k'}
+    })
+    await Promise.resolve()
+    expect(results(ws).find((f) => f.cmdId === 's-err')).toMatchObject({
+      ok: false,
+      error: {name: 'StorageError'}
+    })
+  })
+
+  it('prefers the promisified browser.* namespace when present (Firefox)', async () => {
+    const store: Record<string, unknown> = {}
+    // chrome.* is callback-only and would double-write on set; browser.* is
+    // promisified. The fix must route through browser.* to avoid the callback path.
+    let chromeGetCalls = 0
+    const chromeArea = {
+      get: (_k: string | null, cb?: (r: unknown) => void) => {
+        chromeGetCalls++
+        if (cb) cb({})
+        return undefined
+      }
+    }
+    const browserArea = {
+      get: (key: string | null) =>
+        Promise.resolve(key == null ? {...store} : {[key]: store[key]}),
+      set: (items: Record<string, unknown>) => {
+        Object.assign(store, items)
+        return Promise.resolve()
+      }
+    }
+    const ws = setup(
+      {storage: {local: chromeArea}, runtime: {}},
+      {browser: {storage: {local: browserArea}}}
+    )
+    // The producer boot reads the pending-reinject flag via chrome.storage; only
+    // the command path below should be asserted against browser.* preference.
+    chromeGetCalls = 0
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'b1',
+      op: 'storage.set',
+      target: {context: 'background'},
+      args: {area: 'local', items: {a: 1}}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(store.a).toBe(1)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'b2',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {area: 'local', key: 'a'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(results(ws).find((f) => f.cmdId === 'b2')).toMatchObject({
+      ok: true,
+      value: {a: 1}
+    })
+    // The callback-only chrome.* area was never consulted.
+    expect(chromeGetCalls).toBe(0)
+  })
+})
+
+describe('bridge producer runtime — uncaught error capture (#55)', () => {
+  function setup(chromeApi: Record<string, unknown> = {}) {
+    FakeWebSocket.instances = []
+    const {fakeGlobal} = makeGlobal()
+    fakeGlobal.chrome = chromeApi
+    fakeGlobal.navigator = {userAgent: 'Chrome'}
+    const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+    fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
+      ;(handlers[type] || (handlers[type] = [])).push(fn)
+    }
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9999,
+        instanceId: 'inst-U',
+        context: 'background'
+      }),
+      fakeGlobal
+    )
+    const ws = FakeWebSocket.instances[0]
+    ws.triggerOpen()
+    ws.sent = []
+    return {ws, handlers, fakeGlobal}
+  }
+  const errorLogs = (ws: FakeWebSocket) =>
+    ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log' && f.event.level === 'error')
+
+  it('forwards an uncaught error event as a single level:error log', () => {
+    const {ws, handlers} = setup()
+    expect(handlers.error).toHaveLength(1)
+    handlers.error[0]({
+      error: new Error('boom in SW'),
+      message: 'boom in SW',
+      filename: 'background.js'
+    })
+    const logs = errorLogs(ws)
+    expect(logs).toHaveLength(1)
+    expect(logs[0].event).toMatchObject({level: 'error', context: 'background', runId: 'inst-U'})
+    expect(logs[0].event.messageParts[0]).toContain('boom in SW')
+  })
+
+  it('forwards an unhandled promise rejection as a single level:error log', () => {
+    const {ws, handlers} = setup()
+    expect(handlers.unhandledrejection).toHaveLength(1)
+    handlers.unhandledrejection[0]({reason: new Error('rejected!')})
+    const logs = errorLogs(ws)
+    expect(logs).toHaveLength(1)
+    expect(logs[0].event.messageParts[0]).toContain('Unhandled promise rejection')
+    expect(logs[0].event.messageParts[0]).toContain('rejected!')
+  })
+
+  it('does not double-emit a throw already logged via console.error', () => {
+    const {ws, handlers, fakeGlobal} = setup()
+    const err = new Error('logged then thrown')
+    ;(fakeGlobal.console as any).error(err)
+    // The uncaught handler fires for the SAME Error object.
+    handlers.error[0]({error: err, message: err.message})
+    const logs = errorLogs(ws)
+    // Exactly one error-level frame — the console.error one; the event is deduped.
+    expect(logs).toHaveLength(1)
+  })
+})
+
+describe('bridge relay runtime — uncaught error capture (#55)', () => {
+  it('forwards a page/content uncaught error over the log port as level:error', () => {
+    const sent: any[] = []
+    const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+    const fakeGlobal: Record<string, unknown> = {
+      console: {error: () => {}},
+      location: {href: 'https://shop.example/checkout'},
+      addEventListener: (type: string, fn: (ev: unknown) => void) => {
+        ;(handlers[type] || (handlers[type] = [])).push(fn)
+      },
+      chrome: {
+        runtime: {
+          connect: () => ({
+            postMessage: (msg: any) => sent.push(msg),
+            onDisconnect: {addListener: () => {}}
+          }),
+          lastError: undefined
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'content'}), fakeGlobal)
+    expect(handlers.error).toHaveLength(1)
+    handlers.error[0]({
+      error: new Error('page blew up'),
+      message: 'page blew up',
+      filename: 'https://shop.example/app.js'
+    })
+    expect(sent).toHaveLength(1)
+    expect(sent[0].__extjsBridgeLog).toMatchObject({level: 'error', context: 'content'})
+    expect(sent[0].__extjsBridgeLog.messageParts[0]).toContain('page blew up')
+  })
+})
