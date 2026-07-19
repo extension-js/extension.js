@@ -9,6 +9,30 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {CDPClient} from '../cdp-client'
+import {findStaleUnpackedExtensionIds} from './ownership'
+
+// Evict any prior unpacked load of THIS project that the persistent profile
+// auto-loaded at startup, before loading the current build — so the profile
+// holds exactly one copy of the extension (#49). Best-effort: older Chrome
+// without `Extensions.uninstall`, or an entry that is already gone, must never
+// block or fail the launch. Returns the ids actually removed.
+export async function uninstallStaleUnpackedLoads(
+  cdp: CDPClient,
+  profilePath: string | undefined,
+  outPath: string
+): Promise<string[]> {
+  const stale = findStaleUnpackedExtensionIds(profilePath, outPath)
+  const removed: string[] = []
+  for (const id of stale) {
+    try {
+      await cdp.sendCommand('Extensions.uninstall', {id})
+      removed.push(id)
+    } catch {
+      // best-effort only
+    }
+  }
+  return removed
+}
 
 export async function loadUnpackedIfNeeded(
   cdp: CDPClient,
