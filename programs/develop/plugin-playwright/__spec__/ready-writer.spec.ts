@@ -54,4 +54,35 @@ describe('ready.json writer preservation', () => {
     expect('browserExitedAt' in after).toBe(false)
     expect('browserExitCode' in after).toBe(false)
   })
+
+  it('stamps runtime:"attached"/executorAttachedAt once and preserves it across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    // The SW connects to the control channel.
+    writer.stampExecutorAttached()
+    const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(stamped.runtime).toBe('attached')
+    expect(typeof stamped.executorAttachedAt).toBe('string')
+    const firstStamp = stamped.executorAttachedAt
+
+    // A later recompile must not erase the attach signal...
+    writer.writeReady()
+    const afterCompile = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(afterCompile.runtime).toBe('attached')
+    expect(afterCompile.executorAttachedAt).toBe(firstStamp)
+
+    // ...and a repeated attach (SW reconnect) must not rewrite the timestamp.
+    writer.stampExecutorAttached()
+    const afterReattach = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(afterReattach.executorAttachedAt).toBe(firstStamp)
+  })
+
+  it('does not invent the runtime signal before the SW attaches', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect('runtime' in after).toBe(false)
+    expect('executorAttachedAt' in after).toBe(false)
+  })
 })

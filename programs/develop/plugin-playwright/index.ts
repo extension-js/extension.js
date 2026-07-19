@@ -53,6 +53,13 @@ export type ReadyMetadata = {
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
   browserExitCode?: number | null
+  // Runtime attachment signal. `status: 'ready'` means "compiled + dist written";
+  // these mean "the extension's service worker has connected to the control
+  // channel and can be driven" — stamped by the control broker on the first
+  // producer hello, preserved across recompiles. Tooling that needs to act
+  // (storage/reload/eval) should wait for `runtime: 'attached'`, not just ready.
+  runtime?: 'attached'
+  executorAttachedAt?: string
 }
 
 export type PlaywrightAutomationEvent = {
@@ -254,6 +261,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           ;(payload as Record<string, unknown>).browserExitCode =
             prev.browserExitCode ?? null
         }
+        // The SW attaches once per session but the compile can re-run many
+        // times; a recompile must not erase the runtime-attached signal.
+        if (typeof prev.executorAttachedAt === 'string') {
+          ;(payload as Record<string, unknown>).executorAttachedAt =
+            prev.executorAttachedAt
+          ;(payload as Record<string, unknown>).runtime = 'attached'
+        }
       }
     } catch {
       // ignore
@@ -300,6 +314,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         errors: Array.isArray(errors) ? errors : [],
         compiledAt: null
       })
+    },
+    // Stamp the runtime-attached signal when the extension's service worker
+    // first connects to the control channel. Read-modify-write so it never
+    // disturbs the compile status or the launcher-stamped cdpPort/exit fields;
+    // idempotent, so repeated SW reconnects don't rewrite the timestamp.
+    stampExecutorAttached() {
+      try {
+        if (!fs.existsSync(readyPath)) return
+        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+        if (typeof prev.executorAttachedAt === 'string') return
+        prev.executorAttachedAt = nowISO()
+        prev.runtime = 'attached'
+        prev.ts = nowISO()
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // best-effort only
+      }
     },
     appendEvent
   }

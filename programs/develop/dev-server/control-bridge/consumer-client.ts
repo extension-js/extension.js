@@ -31,6 +31,12 @@ export interface ReadyContractInfo {
   /** Stamped when the launched browser exits while the server keeps running. */
   browserExitedAt?: string
   browserExitCode?: number
+  /** When the compile finished (ISO) — the meaning of `status: 'ready'`. */
+  compiledAt?: string
+  /** When the extension's service worker attached to the control channel (ISO). */
+  executorAttachedAt?: string
+  /** `'attached'` once the SW has connected; absent while still launching. */
+  runtime?: string
   /** Last contract write time (ISO). */
   ts?: string
 }
@@ -57,6 +63,12 @@ export function readReadyContract(
         typeof c.browserExitedAt === 'string' ? c.browserExitedAt : undefined,
       browserExitCode:
         typeof c.browserExitCode === 'number' ? c.browserExitCode : undefined,
+      compiledAt: typeof c.compiledAt === 'string' ? c.compiledAt : undefined,
+      executorAttachedAt:
+        typeof c.executorAttachedAt === 'string'
+          ? c.executorAttachedAt
+          : undefined,
+      runtime: typeof c.runtime === 'string' ? c.runtime : undefined,
       ts: typeof c.ts === 'string' ? c.ts : undefined
     }
   } catch {

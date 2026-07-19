@@ -45,6 +45,11 @@ export interface BridgeBrokerOptions {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
+  // Called once, the first time the extension's service worker (the "executor")
+  // connects over the control channel. Lets the dev server stamp a distinct
+  // "runtime attached" signal into ready.json — separate from the compile-ready
+  // status — so tooling can wait for the extension to actually be attached.
+  onExecutorAttached?: () => void
 }
 
 export const CLOSE_BAD_INSTANCE = 4001
@@ -154,6 +159,8 @@ export class BridgeBroker {
   private staleResyncTimes: number[] = []
   /** True once any producer hello has been accepted this run. */
   private producerEverConnected = false
+  /** Fired once, on the first producer hello, to stamp ready.json. */
+  private readonly onExecutorAttached?: () => void
   /** When the last accepted producer's socket closed (broker clock). */
   private lastProducerDisconnectedAt: number | null = null
   /**
@@ -184,6 +191,7 @@ export class BridgeBroker {
     this.controlToken = options.controlToken
     this.actions = options.actions
     this.authorMode = options.authorMode ?? false
+    this.onExecutorAttached = options.onExecutorAttached
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -433,6 +441,18 @@ export class BridgeBroker {
 
     if (hello.role === 'producer') {
       this.producerEverConnected = true
+      // The extension's service worker attached. Stamp ready.json's runtime
+      // signal. Fired on EVERY producer hello (not just the first): the callback
+      // is idempotent, and firing every time closes a startup race — the control
+      // server accepts connections before the dev server has wired this callback,
+      // so a hello arriving in that window would otherwise lose the stamp forever.
+      // Later hellos (SW reconnects) then land it. Cheap: an already-stamped
+      // contract is a single read that returns early.
+      try {
+        this.onExecutorAttached?.()
+      } catch {
+        // best-effort stamp; never let it disturb the hello path
+      }
     }
 
     if (hello.role === 'producer' && this.pendingReload) {

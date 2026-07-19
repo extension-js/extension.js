@@ -30,6 +30,7 @@ import {
   actionsPath as sessionActionsPath
 } from '../lib/session-paths'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {asAbsolute, getDistPath} from '../lib/paths'
 import {BridgeBroker} from './control-bridge/broker'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {
@@ -368,6 +369,12 @@ export async function devServer(
   // --- Agent bridge (Slice 1): dedicated control WS + logs.ndjson ---
   // Best-effort and local-only. Runs alongside (never blocks) the dev server.
   const browserName = String(devOptions.browser || 'chromium')
+  // One canonical dist output path per browser, shared with `build`/`preview`
+  // (all three route through getDistPath). Re-joining `dist/<browser>` inline at
+  // each use site let the rspack output, the manifest path, and the ready.json
+  // `distPath` field drift apart across code paths/versions — the root of the
+  // "distPath depends on how the CLI was resolved" report. Derive it once.
+  const primaryDistPath = getDistPath(asAbsolute(packageJsonDir), browserName)
   const bridgeLogsAbsPath = sessionLogsPath(packageJsonDir, browserName)
   // The ready contract publishes it project-relative.
   const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
@@ -392,6 +399,10 @@ export async function devServer(
     allowControl && allowEval
       ? writeControlToken(packageJsonDir, browserName)
       : undefined
+  // The metadata writer is created later (it needs the resolved control port),
+  // but the broker fires onExecutorAttached whenever the SW connects — which is
+  // always after that. A mutable holder bridges the ordering.
+  let stampExecutorAttached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: currentInstance.instanceId,
@@ -402,7 +413,8 @@ export async function devServer(
     allowEval,
     controlToken: bridgeControlToken,
     actions: bridgeActionsFile,
-    authorMode
+    authorMode,
+    onExecutorAttached: () => stampExecutorAttached?.()
   })
 
   // Option B: hand the broker to a launched runner plugin so Chromium reloads
@@ -515,7 +527,7 @@ export async function devServer(
     port: portAllocation.port,
     output: {
       clean: false,
-      path: path.join(packageJsonDir, 'dist', devOptions.browser)
+      path: primaryDistPath
     }
   })
 
@@ -529,12 +541,7 @@ export async function devServer(
   const compilerConfig = merge(finalConfig, {})
 
   const compiler = rspack(compilerConfig)
-  const manifestOutputPath = path.join(
-    packageJsonDir,
-    'dist',
-    devOptions.browser,
-    'manifest.json'
-  )
+  const manifestOutputPath = path.join(primaryDistPath, 'manifest.json')
   installManifestDiskWriteGuard(manifestOutputPath)
   suppressManifestOutputWrites(compiler, manifestOutputPath)
 
@@ -589,11 +596,7 @@ export async function devServer(
     packageJsonDir,
     browser: String(devOptions.browser || 'chromium'),
     command: 'dev',
-    distPath: path.join(
-      packageJsonDir,
-      'dist',
-      String(devOptions.browser || 'chromium')
-    ),
+    distPath: primaryDistPath,
     manifestPath,
     port,
     host: connectableHost,
@@ -602,6 +605,7 @@ export async function devServer(
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath
   })
+  stampExecutorAttached = () => metadata.stampExecutorAttached()
 
   // Surface invalidation/fatal startup diagnostics during startup.
   // Done-hook warning/error output is registered earlier in CompilationPlugin

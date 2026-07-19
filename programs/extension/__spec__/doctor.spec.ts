@@ -173,6 +173,75 @@ describe('extension doctor', () => {
     expect(r['executor'].detail).toContain('no executor connected')
   })
 
+  it('warns (not fails) the executor during the post-compile attach grace window', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        // Compiled a moment ago; SW has not attached yet.
+        compiledAt: new Date().toISOString()
+      })
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {
+        name: 'Unavailable',
+        message:
+          'no executor connected: no extension service worker has connected since this dev session started'
+      }
+    }
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r['executor'].status).toBe('warn')
+    // A warn must not make the session unhealthy.
+    expect(
+      (await runDoctor('/proj', {})).some((c) => c.status === 'fail')
+    ).toBe(false)
+  })
+
+  it('fails the executor once the grace window has elapsed with no attach', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        // Compiled well over the grace window ago, still no SW.
+        compiledAt: new Date(Date.now() - 60_000).toISOString()
+      })
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r['executor'].status).toBe('fail')
+  })
+
+  it('does not grace-warn the executor once the SW has attached (runtime attached)', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        compiledAt: new Date().toISOString(),
+        runtime: 'attached',
+        executorAttachedAt: new Date().toISOString()
+      })
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r['executor'].status).toBe('fail')
+  })
+
   it('fails the browser check when the browser exited under a live server', async () => {
     state.mod = healthyModule({
       readReadyContract: () => ({
