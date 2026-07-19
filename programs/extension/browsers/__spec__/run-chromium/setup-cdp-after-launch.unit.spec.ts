@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const ctorSpy = vi.fn()
 const connectSpy = vi.fn(async () => {})
@@ -12,6 +12,7 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
   name: 'User Extension',
   version: '1.0.0'
 }))
+const openTabSpy = vi.fn(async () => {})
 
 vi.mock(
   '../../run-chromium/cdp/cdp-extension-controller',
@@ -23,6 +24,7 @@ vi.mock(
       connect = connectSpy
       ensureLoaded = ensureLoadedSpy
       getInfoBestEffort = getInfoBestEffortSpy
+      openTab = openTabSpy
     }
     return {CDPExtensionController}
   }
@@ -37,8 +39,26 @@ vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce: vi.fn(async () => true)
 }))
 
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 import * as banner from '../../browsers-lib/banner'
+
+const tempDirs: string[] = []
+
+// A real on-disk extension dir whose manifest.json setupCdpAfterLaunch reads to
+// decide whether to open the new-tab surface.
+function makeExtensionDir(manifest: Record<string, unknown>): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-newtab-'))
+  tempDirs.push(dir)
+  fs.writeFileSync(
+    path.join(dir, 'manifest.json'),
+    JSON.stringify(manifest),
+    'utf-8'
+  )
+  return dir
+}
 
 describe('setupCdpAfterLaunch', () => {
   beforeEach(() => {
@@ -46,8 +66,16 @@ describe('setupCdpAfterLaunch', () => {
     connectSpy.mockClear()
     ensureLoadedSpy.mockClear()
     getInfoBestEffortSpy.mockClear()
+    openTabSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
+  })
+
+  afterEach(() => {
+    while (tempDirs.length) {
+      const dir = tempDirs.pop()
+      if (dir) fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 
   it('prints development banner early using best-effort info lookup', async () => {
@@ -118,5 +146,77 @@ describe('setupCdpAfterLaunch', () => {
       })
     )
     expect(plugin.cdpController).toBeDefined()
+  })
+
+  it('opens a fresh new tab when the manifest overrides the new tab (#50)', async () => {
+    const extDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'NewTab Ext',
+      chrome_url_overrides: {newtab: 'newtab/index.html'}
+    })
+    const plugin: any = {browser: 'chromium', port: 9333, instanceId: 'i'}
+    const chromiumArgs = [
+      `--load-extension=${extDir}`,
+      '--remote-debugging-port=9333',
+      '--user-data-dir=/tmp/extension-profile'
+    ]
+    const compilation: any = {
+      options: {mode: 'development', output: {path: extDir}}
+    }
+
+    await setupCdpAfterLaunch(compilation, plugin, chromiumArgs)
+
+    expect(openTabSpy).toHaveBeenCalledWith('chrome://newtab/')
+  })
+
+  it('does not open a new tab when there is no newtab override', async () => {
+    const extDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Plain Ext',
+      action: {default_popup: 'popup.html'}
+    })
+    const plugin: any = {browser: 'chromium', port: 9333, instanceId: 'i'}
+    const chromiumArgs = [
+      `--load-extension=${extDir}`,
+      '--remote-debugging-port=9333',
+      '--user-data-dir=/tmp/extension-profile'
+    ]
+    const compilation: any = {
+      options: {mode: 'development', output: {path: extDir}}
+    }
+
+    await setupCdpAfterLaunch(compilation, plugin, chromiumArgs)
+
+    expect(openTabSpy).not.toHaveBeenCalled()
+  })
+
+  it('respects an explicit startingUrl and --no-open (no courtesy tab)', async () => {
+    const extDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'NewTab Ext',
+      chrome_url_overrides: {newtab: 'newtab/index.html'}
+    })
+    const chromiumArgs = [
+      `--load-extension=${extDir}`,
+      '--remote-debugging-port=9333',
+      '--user-data-dir=/tmp/extension-profile'
+    ]
+    const compilation: any = {
+      options: {mode: 'development', output: {path: extDir}}
+    }
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {browser: 'chromium', port: 9333, instanceId: 'i', startingUrl: 'https://example.com'} as any,
+      chromiumArgs
+    )
+    expect(openTabSpy).not.toHaveBeenCalled()
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {browser: 'chromium', port: 9333, instanceId: 'i', noOpen: true} as any,
+      chromiumArgs
+    )
+    expect(openTabSpy).not.toHaveBeenCalled()
   })
 })
