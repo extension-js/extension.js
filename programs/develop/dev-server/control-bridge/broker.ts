@@ -124,6 +124,37 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
  * past this the stale hello no longer explains the absence. */
 const STALE_RESYNC_HINT_MS = 30_000
 
+/**
+ * §53. How long after session start to stay quiet about a reload that reached
+ * zero producers. During startup the browser is still launching and the SW is
+ * still connecting, so a zero-delivery edit is expected, not a problem — warning
+ * then would cry wolf on every cold start. Past this window an undelivered edit
+ * is a real "reloads aren't reaching the page" signal and gets surfaced once.
+ */
+const UNDELIVERED_RELOAD_GRACE_MS = 10_000
+
+/**
+ * §53. Operator-facing warnings for a dev-loop reload that reached no page,
+ * keyed by why no producer is attached. Distinct from EXECUTOR_ABSENT (which
+ * answers a controller's blocked command with "retry"): these address the
+ * developer who just saved a file and saw nothing happen. The dev server prints
+ * one of these; the broker only decides which (or none).
+ */
+const UNDELIVERED_RELOAD_WARN: Record<
+  'never-connected' | 'recently-disconnected',
+  string
+> = {
+  'never-connected':
+    'SW not attached — your edit compiled but no page received it. The ' +
+    "extension's service worker has not connected to the dev server this " +
+    'session (a heavy ad/bot-laden page, an auth wall, or a profile-cached ' +
+    'worker can prevent it). Reloads resume automatically once it connects.',
+  'recently-disconnected':
+    'SW not attached — your edit compiled but no page received it. The ' +
+    "extension's service worker disconnected (MV3 workers idle out, or the " +
+    'browser may have exited). Reloads resume automatically once it reconnects.'
+}
+
 interface Pending {
   controller: BridgeConnection
   op: CommandOp
@@ -159,6 +190,18 @@ export class BridgeBroker {
   private staleResyncTimes: number[] = []
   /** True once any producer hello has been accepted this run. */
   private producerEverConnected = false
+  /** Broker clock at session start — the anchor for §53's startup grace. */
+  private readonly sessionStartedAt: number
+  /**
+   * §53 dedup: the absence kind we last warned about for an undelivered reload.
+   * Set when a warning is emitted, cleared on the next producer attach, so a
+   * rapid edit loop warns once per attach-state transition (not once per save)
+   * yet a later detach can warn again.
+   */
+  private lastUndeliveredWarnKind:
+    | 'never-connected'
+    | 'recently-disconnected'
+    | null = null
   /** Fired once, on the first producer hello, to stamp ready.json. */
   private readonly onExecutorAttached?: () => void
   /** When the last accepted producer's socket closed (broker clock). */
@@ -195,6 +238,7 @@ export class BridgeBroker {
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
+    this.sessionStartedAt = this.now()
   }
 
   get consumerCount(): number {
@@ -325,6 +369,48 @@ export class BridgeBroker {
   }
 
   /**
+   * §53. After a dev-loop {@link broadcastReload} reached zero producers, decide
+   * whether to surface a one-line operator warning that the edit isn't reaching
+   * any page. Returns the message the FIRST time an attach-state warrants it, or
+   * null when:
+   *   - still inside the startup grace window (browser launching / SW connecting),
+   *   - a stale producer just resynced (a full-reload is already in flight and
+   *     the latched edit rides along), or
+   *   - this same absence kind was already warned (deduped until the next attach).
+   *
+   * The broker owns this decision because it alone tracks attach state; the dev
+   * server prints what this returns. A zero-delivery reload is otherwise a silent
+   * no-op indistinguishable from a broken tool on heavy sites / auth walls.
+   */
+  undeliveredReloadWarning(): string | null {
+    const now = this.now()
+
+    // Cold start: the browser may still be launching and the SW connecting, so
+    // a zero-delivery edit is expected. Stay quiet until the grace window ends.
+    if (now - this.sessionStartedAt < UNDELIVERED_RELOAD_GRACE_MS) return null
+
+    // A stale-instance producer just dialed in and was told to full-reload; the
+    // resynced worker reconnects within seconds and picks up the latched edit.
+    // Warning during that self-healing transition would cry wolf.
+    if (
+      this.lastStaleHelloAt != null &&
+      now - this.lastStaleHelloAt < STALE_RESYNC_HINT_MS
+    ) {
+      return null
+    }
+
+    const kind = this.producerEverConnected
+      ? 'recently-disconnected'
+      : 'never-connected'
+
+    // One warning per attach-state transition, not once per save.
+    if (this.lastUndeliveredWarnKind === kind) return null
+    this.lastUndeliveredWarnKind = kind
+
+    return UNDELIVERED_RELOAD_WARN[kind]
+  }
+
+  /**
    * Keepalive for the dev extension's MV3 service worker: receiving any
    * WebSocket message resets its ~30s idle timer, so the dev server pings
    * all producers on an interval shorter than that. Without this, a quiet
@@ -441,6 +527,10 @@ export class BridgeBroker {
 
     if (hello.role === 'producer') {
       this.producerEverConnected = true
+      // A producer is back: clear the §53 undelivered-reload dedup so that if it
+      // later disconnects, the next stranded edit warns again (the attach state
+      // genuinely transitioned).
+      this.lastUndeliveredWarnKind = null
       // The extension's service worker attached. Stamp ready.json's runtime
       // signal. Fired on EVERY producer hello (not just the first): the callback
       // is idempotent, and firing every time closes a startup race — the control

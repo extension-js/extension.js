@@ -22,6 +22,13 @@ export interface ReloadBroker {
     label?: string
     changedFiles?: string[]
   }): number
+  /**
+   * §53. When a broadcast reached zero producers, an optional operator warning
+   * that the edit isn't reaching any page (grace-gated + deduped by the broker),
+   * or null. Optional so launched-path executors / test doubles without it still
+   * satisfy the interface.
+   */
+  undeliveredReloadWarning?(): string | null
 }
 
 export interface ReloadExecutor {
@@ -71,9 +78,18 @@ export async function dispatchReload(
     // signal (`notified` producers). With zero producers nothing reloads
     // anywhere — printing "Reloading…" would be a lie. This also covers
     // `--no-browser` before/without an attached browser.
-    if (notified > 0 && instruction.label) {
-      console.log(formatReloadingLine(instruction.label))
+    if (notified > 0) {
+      if (instruction.label) console.log(formatReloadingLine(instruction.label))
+      return
     }
+
+    // §53. Zero producers: the edit compiled but reached no page. That is
+    // correct behavior (nothing to reload), but staying entirely silent makes a
+    // heavy-site / auth-wall session where the SW never attaches look like a
+    // broken tool. Past the startup grace window the broker hands back a single
+    // deduped hint explaining why; surface it so the no-op is diagnosable.
+    const warning = executor.broker.undeliveredReloadWarning?.()
+    if (warning) console.warn(warning)
   }
 }
 
