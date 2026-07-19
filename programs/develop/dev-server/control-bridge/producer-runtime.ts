@@ -201,14 +201,34 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           }
           return;
         }
-        if (op === "storage.get") {
-          chrome.storage[args.area || "local"].get(args.key != null ? args.key : null)
-            .then(function (r) { replyOk(cmdId, r); }, function (e) { replyErr(cmdId, "StorageError", e); });
-          return;
-        }
-        if (op === "storage.set") {
-          chrome.storage[args.area || "local"].set(args.items || {})
-            .then(function () { replyOk(cmdId, {set: Object.keys(args.items || {})}); }, function (e) { replyErr(cmdId, "StorageError", e); });
+        if (op === "storage.get" || op === "storage.set") {
+          // chrome.* storage is callback-only on Gecko (only browser.* is
+          // promisified there); some older Chromium builds also predate the
+          // promise form. Calling .then() on the callback-only return (undefined)
+          // is the §54 TypeError. Prefer the promisified browser.* namespace,
+          // then fall back to the callback shape — the same promise-or-callback
+          // duality getActionPopup handles below.
+          var storageNS = (g.browser && g.browser.storage) ? g.browser.storage : chrome.storage;
+          var storageArea = storageNS && storageNS[args.area || "local"];
+          if (!storageArea) { replyErr(cmdId, "StorageError", "storage." + (args.area || "local") + " unavailable"); return; }
+          var isSet = op === "storage.set";
+          var callArgs = isSet ? [args.items || {}] : [args.key != null ? args.key : null];
+          var onStorageOk = function (r) { replyOk(cmdId, isSet ? {set: Object.keys(args.items || {})} : r); };
+          var onStorageErr = function (e) { replyErr(cmdId, "StorageError", (e && e.message) || String(e)); };
+          var storageFn = isSet ? storageArea.set : storageArea.get;
+          try {
+            var storageRet = storageFn.apply(storageArea, callArgs);
+            if (storageRet && typeof storageRet.then === "function") {
+              storageRet.then(onStorageOk, onStorageErr);
+              return;
+            }
+          } catch (e) { /* not thenable / threw synchronously: fall back to callback */ }
+          try {
+            storageFn.apply(storageArea, callArgs.concat([function (r) {
+              var le = chrome.runtime && chrome.runtime.lastError;
+              if (le) onStorageErr(le); else onStorageOk(r);
+            }]));
+          } catch (e) { onStorageErr(e); }
           return;
         }
         if (op === "reload") {
@@ -768,12 +788,39 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       };
     }
 
+    // §55: uncaught errors and unhandled rejections don't route through the
+    // patched console (the browser reports them internally), so background/SW
+    // crashes never reach \`extension logs\`. The global handlers below forward
+    // them as level:"error"; these signatures let us skip a throw already shipped
+    // via console.error (user code that logs THEN rethrows the same Error).
+    var recentErrorSigs = [];
+    function errorSig(message, stack) {
+      return String(message == null ? "" : message) + "::" + String(stack == null ? "" : stack).slice(0, 200);
+    }
+    function noteErrorSig(sig) {
+      recentErrorSigs.push({sig: sig, t: Date.now()});
+      if (recentErrorSigs.length > 50) recentErrorSigs.shift();
+    }
+    function errorSigSeenRecently(sig) {
+      var now = Date.now();
+      for (var i = recentErrorSigs.length - 1; i >= 0; i--) {
+        if (now - recentErrorSigs[i].t > 3000) { recentErrorSigs.splice(i, 1); continue; }
+        if (recentErrorSigs[i].sig === sig) return true;
+      }
+      return false;
+    }
+
     LEVELS.forEach(function (level) {
       var orig = typeof consoleRef[level] === "function"
         ? consoleRef[level].bind(consoleRef)
         : function () {};
       consoleRef[level] = function () {
         try {
+          if (level === "error") {
+            for (var ai = 0; ai < arguments.length; ai++) {
+              if (arguments[ai] instanceof Error) noteErrorSig(errorSig(arguments[ai].message, arguments[ai].stack));
+            }
+          }
           send({
             type: "log",
             event: {
@@ -790,6 +837,44 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         return orig.apply(consoleRef, arguments);
       };
     });
+
+    // Forward uncaught throws / unhandled rejections as level:"error" so a silent
+    // background crash is visible in \`extension logs\` (§55). Deduped against the
+    // console.error signatures above so a logged-then-rethrown Error emits once.
+    function shipUncaughtError(message, stack, url) {
+      try {
+        var sig = errorSig(message, stack);
+        if (errorSigSeenRecently(sig)) return;
+        noteErrorSig(sig);
+        send({
+          type: "log",
+          event: {
+            v: 1,
+            id: nowId(),
+            timestamp: Date.now(),
+            level: "error",
+            context: CONTEXT,
+            messageParts: sanitize([String(message) + (stack ? "\\n" + stack : "")]),
+            url: url,
+            runId: INSTANCE_ID
+          }
+        });
+      } catch (e) {}
+    }
+    try {
+      if (typeof g.addEventListener === "function") {
+        g.addEventListener("error", function (ev) {
+          var err = ev && ev.error;
+          var message = (err && err.message) || (ev && ev.message) || "Uncaught error";
+          shipUncaughtError(message, err && err.stack, ev && ev.filename);
+        });
+        g.addEventListener("unhandledrejection", function (ev) {
+          var reason = ev && ev.reason;
+          var message = (reason && reason.message) || (reason != null ? String(reason) : "Unhandled rejection");
+          shipUncaughtError("Unhandled promise rejection: " + message, reason && reason.stack, undefined);
+        });
+      }
+    } catch (e) {}
 
     // Multi-context console forwarding: other contexts (content scripts, surface
     // pages) can't reliably open ws://127.0.0.1 (page CSP / connect-src), so they
@@ -957,25 +1042,78 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
       return logPort;
     }
 
+    // Relay one log payload to the SW producer over the named port, redialing
+    // once if the port went stale (SW restarted). Shared by the console patch
+    // and the uncaught-error handlers below.
+    function postLog(payload) {
+      var p = getLogPort();
+      if (!p) return;
+      try {
+        p.postMessage({__extjsBridgeLog: payload});
+      } catch (e) {
+        logPort = null;
+        var p2 = getLogPort();
+        if (p2) { try { p2.postMessage({__extjsBridgeLog: payload}); } catch (e2) {} }
+      }
+    }
+
+    // §55: uncaught throws / unhandled rejections in a page or content script
+    // never route through the patched console, so they'd be invisible in
+    // \`extension logs\`. Track console.error Error signatures to dedupe them.
+    var recentErrorSigs = [];
+    function errorSig(message, stack) {
+      return String(message == null ? "" : message) + "::" + String(stack == null ? "" : stack).slice(0, 200);
+    }
+    function noteErrorSig(sig) {
+      recentErrorSigs.push({sig: sig, t: Date.now()});
+      if (recentErrorSigs.length > 50) recentErrorSigs.shift();
+    }
+    function errorSigSeenRecently(sig) {
+      var now = Date.now();
+      for (var i = recentErrorSigs.length - 1; i >= 0; i--) {
+        if (now - recentErrorSigs[i].t > 3000) { recentErrorSigs.splice(i, 1); continue; }
+        if (recentErrorSigs[i].sig === sig) return true;
+      }
+      return false;
+    }
+
     LEVELS.forEach(function (level) {
       var orig = typeof consoleRef[level] === "function" ? consoleRef[level].bind(consoleRef) : function () {};
       consoleRef[level] = function () {
         try {
-          var p = getLogPort();
-          if (p) {
-            try {
-              p.postMessage({__extjsBridgeLog: {level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()}});
-            } catch (e) {
-              // stale port (SW restarted): drop it and redial once
-              logPort = null;
-              var p2 = getLogPort();
-              if (p2) { try { p2.postMessage({__extjsBridgeLog: {level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()}}); } catch (e2) {} }
+          if (level === "error") {
+            for (var ai = 0; ai < arguments.length; ai++) {
+              if (arguments[ai] instanceof Error) noteErrorSig(errorSig(arguments[ai].message, arguments[ai].stack));
             }
           }
+          postLog({level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()});
         } catch (e) {}
         return orig.apply(consoleRef, arguments);
       };
     });
+
+    function shipUncaughtError(message, stack, url) {
+      try {
+        var sig = errorSig(message, stack);
+        if (errorSigSeenRecently(sig)) return;
+        noteErrorSig(sig);
+        postLog({level: "error", context: CONTEXT, messageParts: sanitize([String(message) + (stack ? "\\n" + stack : "")]), url: url || here()});
+      } catch (e) {}
+    }
+    try {
+      if (typeof g.addEventListener === "function") {
+        g.addEventListener("error", function (ev) {
+          var err = ev && ev.error;
+          var message = (err && err.message) || (ev && ev.message) || "Uncaught error";
+          shipUncaughtError(message, err && err.stack, (ev && ev.filename) || undefined);
+        });
+        g.addEventListener("unhandledrejection", function (ev) {
+          var reason = ev && ev.reason;
+          var message = (reason && reason.message) || (reason != null ? String(reason) : "Unhandled rejection");
+          shipUncaughtError("Unhandled promise rejection: " + message, reason && reason.stack, undefined);
+        });
+      }
+    } catch (e) {}
 
     // Surface DOM inspection: the SW executor can't reach popup/options/sidebar
     // DOM (separate extension pages), and the sidecar can't either (cross-extension
