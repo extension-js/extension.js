@@ -9,7 +9,11 @@
 import * as path from 'path'
 import * as messages from './lib/messages'
 import * as utils from './lib/utils'
-import {isDenoRuntime} from './lib/package-manager'
+import {
+  isDenoRuntime,
+  resolveScaffoldPackageManager,
+  type ScaffoldPackageManager
+} from './lib/package-manager'
 import {createDirectory} from './steps/create-directory'
 import {importExternalTemplate} from './steps/import-external-template'
 import {overridePackageJson} from './steps/write-package-json'
@@ -40,6 +44,11 @@ export interface CreateResult {
   projectName: string
   template: string
   depsInstalled: boolean
+  // The package manager the scaffold was created with — the one used to install
+  // dependencies (when `install: true`) and the one whose commands the printed
+  // next-steps reference (when `install: false`). Programmatic hosts read this
+  // to render correct next steps instead of re-deriving it from a lockfile.
+  packageManager: ScaffoldPackageManager
 }
 
 export async function extensionCreate(
@@ -119,6 +128,7 @@ export async function extensionCreate(
     projectPath,
     projectName,
     template,
-    depsInstalled: install
+    depsInstalled: install,
+    packageManager: resolveScaffoldPackageManager()
   }
 }
