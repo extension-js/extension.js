@@ -79,12 +79,41 @@ export class CDPExtensionController {
     await this.connectFreshClient()
   }
 
+  /**
+   * Open a fresh browser tab. Used after the extension registers to land the
+   * developer on a `chrome_url_overrides.newtab` surface — that override only
+   * takes effect for tabs created AFTER registration, so the launch tab (which
+   * predates it) shows Chrome's default new tab (#50). Best-effort: a no-op
+   * when disconnected, and callers swallow errors so it never blocks launch.
+   */
+  async openTab(url: string): Promise<void> {
+    if (!this.cdp) return
+    await this.cdp.sendCommand('Target.createTarget', {url})
+  }
+
   async ensureLoaded(): Promise<ExtensionInfoResult> {
     if (!this.cdp) throw new Error('CDP not connected')
 
     // Load unpacked extension from output path
     const exists = fs.existsSync(this.outPath)
     if (!exists) throw new Error(`Output path not found: ${this.outPath}`)
+
+    // Before loading this build, evict any prior unpacked load of THIS project
+    // that the persistent profile auto-loaded at startup (a sibling dist path
+    // from an earlier run/CLI resolution) — otherwise the profile accumulates
+    // duplicate extension IDs for one project (#49). Best-effort, once.
+    if (this.profilePath) {
+      try {
+        const {uninstallStaleUnpackedLoads} = await import('./ensure')
+        await uninstallStaleUnpackedLoads(
+          this.cdp,
+          this.profilePath,
+          this.outPath
+        )
+      } catch {
+        // best-effort only — never block launch on cleanup
+      }
+    }
 
     // CDP-first strategy: try Extensions.loadUnpacked (Chrome 126+ with
     // --enable-unsafe-extension-debugging), then fall back to target derivation

@@ -20,6 +20,25 @@ import {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
+// True when the emitted manifest overrides the new tab page. The dist manifest
+// is already browser-de-prefixed (chromium:/chrome: collapsed to plain keys),
+// but check the common prefixes too in case a raw --load-extension dir the
+// compiler never touched is being run.
+function manifestDeclaresNewtabOverride(outPath: string): boolean {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(outPath, 'manifest.json'), 'utf-8')
+    )
+    const overrides =
+      manifest?.chrome_url_overrides ||
+      manifest?.['chromium:chrome_url_overrides'] ||
+      manifest?.['chrome:chrome_url_overrides']
+    return Boolean(overrides && typeof overrides.newtab === 'string')
+  } catch {
+    return false
+  }
+}
+
 export async function setupCdpAfterLaunch(
   compilation: CompilationLike | undefined,
   plugin: ChromiumPluginRuntime,
@@ -240,6 +259,24 @@ export async function setupCdpAfterLaunch(
     } catch {
       // best-effort only
     }
+  }
+
+  // A chrome_url_overrides.newtab surface only applies to tabs opened AFTER the
+  // extension registers; the browser's launch tab predates registration and so
+  // shows Chrome's default new tab. Now that the extension is loaded, open a
+  // fresh new tab so the developer lands on THEIR new-tab surface (#50). Skipped
+  // when the user asked for a specific startingUrl or passed --no-open.
+  try {
+    if (
+      extensionControllerInfo &&
+      !plugin.startingUrl &&
+      !plugin.noOpen &&
+      manifestDeclaresNewtabOverride(extensionOutputPath)
+    ) {
+      await cdpExtensionController.openTab('chrome://newtab/')
+    }
+  } catch {
+    // best-effort only — never block launch on the courtesy tab
   }
 
   plugin.cdpController = cdpExtensionController

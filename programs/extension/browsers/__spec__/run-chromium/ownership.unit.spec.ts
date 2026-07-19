@@ -12,7 +12,10 @@ import {afterEach, describe, expect, it} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {classifyExtensionOwnership} from '../../run-chromium/cdp/cdp-extension-controller/ownership'
+import {
+  classifyExtensionOwnership,
+  findStaleUnpackedExtensionIds
+} from '../../run-chromium/cdp/cdp-extension-controller/ownership'
 
 const tempDirs: string[] = []
 
@@ -124,5 +127,94 @@ describe('classifyExtensionOwnership — the one ownership decision', () => {
     writePreferences(profile, {'my-ext-id': {path: out + path.sep}})
 
     expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe('mine')
+  })
+})
+
+describe('findStaleUnpackedExtensionIds — prior loads to evict (#49)', () => {
+  // A project tree with a canonical build dir and a legacy sibling under the
+  // same dist root, so distRoot resolution is exercised for real.
+  function makeProject(): {dist: string; current: string; legacy: string} {
+    const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-stale-proj-'))
+    tempDirs.push(proj)
+    const dist = path.join(proj, 'dist')
+    const current = path.join(dist, 'chrome')
+    const legacy = path.join(dist, 'extension-js', 'chrome')
+    fs.mkdirSync(current, {recursive: true})
+    fs.mkdirSync(legacy, {recursive: true})
+    return {dist, current, legacy}
+  }
+
+  it('flags a sibling build under the same dist root, keeping the current one', () => {
+    const profile = makeProfile()
+    const {current, legacy} = makeProject()
+    writePreferences(profile, {
+      current: {path: current},
+      stale: {path: legacy}
+    })
+
+    const stale = findStaleUnpackedExtensionIds(profile, current)
+    expect(stale).toEqual(['stale'])
+  })
+
+  it('never flags an extension from another project (different dist root)', () => {
+    const profile = makeProfile()
+    const {current} = makeProject()
+    const other = makeProject()
+    writePreferences(profile, {
+      current: {path: current},
+      otherProject: {path: other.current}
+    })
+
+    expect(findStaleUnpackedExtensionIds(profile, current)).toEqual([])
+  })
+
+  it('never flags a store-installed extension (path outside any dist)', () => {
+    const profile = makeProfile()
+    const {current} = makeProject()
+    const packed = makeOutPath() // an install dir with no `dist` segment
+    writePreferences(profile, {
+      current: {path: current},
+      packed: {path: packed}
+    })
+
+    expect(findStaleUnpackedExtensionIds(profile, current)).toEqual([])
+  })
+
+  it('returns [] when the profile has no Preferences yet', () => {
+    const profile = makeProfile()
+    const {current} = makeProject()
+    expect(findStaleUnpackedExtensionIds(profile, current)).toEqual([])
+  })
+
+  it('returns [] when there is no profile path', () => {
+    const {current} = makeProject()
+    expect(findStaleUnpackedExtensionIds(undefined, current)).toEqual([])
+  })
+
+  it('uses the innermost dist, so an ancestor dir named "dist" cannot widen the root', () => {
+    // A project whose path itself contains a "dist" ancestor segment. The dist
+    // root must be the innermost `.../proj/dist`, NOT the ancestor `/tmp/.../dist`,
+    // otherwise an unrelated extension under the ancestor would be evicted.
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-dist-ancestor-'))
+    tempDirs.push(base)
+    const ancestor = path.join(base, 'dist') // ancestor literally named "dist"
+    const projDist = path.join(ancestor, 'proj', 'dist')
+    const current = path.join(projDist, 'chrome')
+    const legacy = path.join(projDist, 'extension-js', 'chrome')
+    // An unrelated extension living under the ancestor "dist" but NOT this project.
+    const unrelated = path.join(ancestor, 'someone-else', 'build')
+    fs.mkdirSync(current, {recursive: true})
+    fs.mkdirSync(legacy, {recursive: true})
+    fs.mkdirSync(unrelated, {recursive: true})
+
+    const profile = makeProfile()
+    writePreferences(profile, {
+      current: {path: current},
+      sibling: {path: legacy},
+      unrelated: {path: unrelated}
+    })
+
+    // Only the same-project sibling is evicted; the unrelated one is spared.
+    expect(findStaleUnpackedExtensionIds(profile, current)).toEqual(['sibling'])
   })
 })
