@@ -141,8 +141,6 @@ describe('PerfBudgetsPlugin', () => {
   })
 
   it('honors per-category budget overrides', () => {
-    // Asset is over the default 512 KiB content-script budget, but the
-    // override raises the budget to 2 MiB, so it must NOT warn.
     const compilation = applyAndRun(
       new PerfBudgetsPlugin({
         budgets: {'content-script': 2 * 1024 * 1024}
@@ -154,7 +152,6 @@ describe('PerfBudgetsPlugin', () => {
   })
 
   it('reports multiple oversized assets sorted by size desc', () => {
-    // All three exceed their respective budgets (512/512/1024 KiB).
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
       'content_scripts/content-0.js': 700 * 1024,
       'sidebar/index.js': 1500 * 1024,
@@ -168,7 +165,6 @@ describe('PerfBudgetsPlugin', () => {
     expect(sidebarIdx).toBeGreaterThan(-1)
     expect(swIdx).toBeGreaterThan(-1)
     expect(csIdx).toBeGreaterThan(-1)
-    // Sidebar (1500 KiB) > CS (700 KiB) > SW (600 KiB)
     expect(sidebarIdx).toBeLessThan(csIdx)
     expect(csIdx).toBeLessThan(swIdx)
   })

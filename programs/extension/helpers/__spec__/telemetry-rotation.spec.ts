@@ -64,7 +64,6 @@ it('rotates the audit file at the size cap and bounds total disk usage', () => {
 
   expect(fs.existsSync(auditFile)).toBe(true)
   expect(fs.existsSync(backup)).toBe(true)
-  // one event (~300 bytes) may land after the pre-append size check
   expect(fs.statSync(auditFile).size).toBeLessThan(600 + 1024)
   expect(fs.statSync(backup).size).toBeLessThan(600 + 1024)
 })
@@ -75,7 +74,6 @@ it('drops a grossly oversized legacy audit file instead of keeping it as backup'
   const telemetryDir = path.join(configHome, 'extensionjs', 'telemetry')
   fs.mkdirSync(telemetryDir, {recursive: true})
   const auditFile = path.join(telemetryDir, 'events.jsonl')
-  // >= 10x the cap, standing in for the unbounded pre-fix growth
   fs.writeFileSync(auditFile, 'x'.repeat(600 * 10))
 
   const telemetry = makeTelemetry()

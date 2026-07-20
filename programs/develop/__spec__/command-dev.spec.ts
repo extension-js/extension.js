@@ -54,7 +54,6 @@ import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
 
 describe('webpack/command-dev', () => {
-  // fs is mocked module - configure per-test behaviors via mockImplementation
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -79,7 +78,6 @@ describe('webpack/command-dev', () => {
   })
 
   it('generates types for TS projects, installs dependencies if needed, and starts dev server with defaults', async () => {
-    // Simulate missing node_modules
     const nodeModules = path.join('/proj', 'node_modules')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
       String(p) === nodeModules ? false : false
@@ -194,7 +192,6 @@ describe('webpack/command-dev', () => {
 
     expect(localErrorSpy).toHaveBeenCalledTimes(1)
     const printed = localErrorSpy.mock.calls[0][0]
-    // A formatted string, not the raw Error object (which prints its stack).
     expect(typeof printed).toBe('string')
     expect(printed).toMatch(/Missing tsconfig\.json/)
     expect(printed).not.toMatch(/\n\s+at /)

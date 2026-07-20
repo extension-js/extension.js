@@ -1,10 +1,10 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   checkUpdates as formatUpdateMessage,
-  noURLWithoutStart,
   notImplemented,
-  unsupportedBrowserFlag,
-  programUserHelp
+  noURLWithoutStart,
+  programUserHelp,
+  unsupportedBrowserFlag
 } from '../messages'
 
 describe('messages helpers', () => {
@@ -15,7 +15,6 @@ describe('messages helpers', () => {
     expect(msg.message).toMatch(/2.0.0/)
     expect(msg.message).toMatch(/2.1.0/)
     expect(msg.suffix).toMatch(/2.1.0/)
-    // Surfaces the release notes for the new version so "what's new" is one click away.
     expect(msg.message).toContain(
       'https://github.com/extension-js/extension.js/releases/tag/v2.1.0'
     )
@@ -23,8 +22,8 @@ describe('messages helpers', () => {
 
   it('suggests start when URL passed to create', () => {
     const msg = noURLWithoutStart('https://example.com')
-    expect(msg).toMatch(/create/) // mentions create command
-    expect(msg).toMatch(/start/) // suggests start command
+    expect(msg).toMatch(/create/)
+    expect(msg).toMatch(/start/)
     expect(msg).toMatch(/https:\/\/example\.com/)
   })
 

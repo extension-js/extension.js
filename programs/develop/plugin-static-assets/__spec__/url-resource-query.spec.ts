@@ -30,8 +30,6 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
     )
     const re: RegExp = urlRule.resourceQuery
 
-    // A concat payload whose file list contains "url" (e.g. clearurls.js,
-    // URLHashParams.js) must not flip the whole entry into an asset/resource.
     const concatQuery =
       '?__extensionjs_classic_concat__=' +
       encodeURIComponent(
@@ -43,7 +41,6 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
       )
     expect(re.test(concatQuery)).toBe(false)
 
-    // And plain filenames that merely contain the letters "url" don't match.
     expect(re.test('?raw')).toBe(false)
     expect(re.test('')).toBe(false)
   })

@@ -79,7 +79,6 @@ describe('printDevBannerOnce', () => {
       browser: 'firefox',
       outPath,
       hostPort: {host: '127.0.0.1', port: 6000},
-      // Avoid firefox-location2 discovery on Windows CI (can exceed test timeout).
       browserVersionLine: 'Firefox (unit test)',
       getInfo: async () => null
     })

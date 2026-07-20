@@ -108,9 +108,7 @@ describe('plugin-playwright metadata writer', () => {
       )
     )
     expect(ready.schemaVersion).toBe(2)
-    // unset string fields are omitted (not serialized as undefined)
     expect('instanceId' in ready).toBe(false)
-    // controlPort normalizes to null when unset
     expect(ready.controlPort).toBeNull()
   })
 

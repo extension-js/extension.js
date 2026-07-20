@@ -14,7 +14,6 @@ describe('discoverWebSocketDebuggerUrl', () => {
   it('falls back to /json when /json/version hangs', async () => {
     server = http.createServer((req, res) => {
       if (req.url === '/json/version') {
-        // Intentionally never respond to emulate a hanging endpoint.
         return
       }
 

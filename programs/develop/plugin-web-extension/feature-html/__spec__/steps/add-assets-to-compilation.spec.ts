@@ -5,7 +5,6 @@ import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
-// Mock fs module
 vi.mock('fs', () => ({
   default: {
     existsSync: vi.fn(),
@@ -54,14 +53,12 @@ describe('AddAssetsToCompilation', () => {
 
   describe('apply', () => {
     it('should handle standardized lowercase public folder paths correctly', () => {
-      // Mock the compilation asset
       const mockAsset = {
         source: {
           source: () => '<html><img src="/public/image.png"></html>'
         }
       }
 
-      // Provide includeList so the plugin processes this HTML
       addAssetsToCompilation = new AddAssetsToCompilation({
         manifestPath: '/test/project/manifest.json',
         includeList: {feature: '/test/project/resource.html'} as any
@@ -81,7 +78,6 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      // Verify that we checked the expected public path
       const calls = (fs.existsSync as any).mock.calls
         .flat()
         .map((value: any) => toPosix(String(value))) as string[]
@@ -116,7 +112,6 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      // Ensure public-root assets were checked
       const calls = ((fs.existsSync as any).mock.calls.flat() as any[]).map(
         (value: any) => toPosix(String(value))
       )
@@ -151,13 +146,11 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      // With public/ delegation, HTML plugin should not emit assets under public
       expect((mockCompilation as any).emitAsset.mock.calls.length).toBe(0)
     })
   })
 
   it('shows public-root hint only for extension-root absolute (leading /) paths', () => {
-    // HTML references a missing root asset and a missing relative asset
     const mockAsset = {
       source: {
         source: () =>
@@ -174,16 +167,13 @@ describe('AddAssetsToCompilation', () => {
       return name === 'resource.html' ? (mockAsset as any) : undefined
     })
 
-    // Simulate not found in both public and output roots
     vi.mocked(fs.existsSync).mockImplementation((p: any) => false)
     vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from(''))
 
     addAssetsToCompilation.apply(mockCompiler)
 
     const warnings = String(mockCompilation.warnings.map(String).join('\n'))
-    // Hint appears for root-absolute
     expect(warnings).toMatch(/resolved from the extension output root/i)
-    // Hint omitted for relative path
     const relativeWarning = mockCompilation.warnings
       .map(String)
       .find((w: string) => w.includes('img/miss.png'))
@@ -193,7 +183,6 @@ describe('AddAssetsToCompilation', () => {
   })
 
   it('emits warnings for remote <script>/<link> references without failing build', () => {
-    // HTML referencing remote resources
     const mockAsset = {
       source: {
         source: () =>
@@ -219,7 +208,6 @@ describe('AddAssetsToCompilation', () => {
     expect(text).toMatch(/Remote <(script|style)>/i)
     expect(text).toMatch(/cdn\.example\.com\/.+\.css/i)
     expect(text).toMatch(/cdn\.example\.com\/.+\.js/i)
-    // Should not produce errors
     expect(mockCompilation.errors.length).toBe(0)
   })
 })

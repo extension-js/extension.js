@@ -1,9 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// We test process signal handler behavior without actually registering on
-// the real process object. We mock process.on/removeListener and the
-// child_process module, then verify cleanup logic.
-
 describe('Chromium setupProcessSignalHandlers', () => {
   let originalProcessOn: typeof process.on
   let registeredHandlers: Map<string, Function[]>
@@ -12,7 +8,6 @@ describe('Chromium setupProcessSignalHandlers', () => {
     registeredHandlers = new Map()
     originalProcessOn = process.on
 
-    // Intercept process.on to capture handlers without actually registering
     ;(process as any).on = vi.fn((event: string, handler: Function) => {
       const existing = registeredHandlers.get(event) || []
       existing.push(handler)
@@ -20,8 +15,6 @@ describe('Chromium setupProcessSignalHandlers', () => {
       return process
     })
 
-    // Module installs global handlers once and tracks instances in a registry;
-    // reset so each test re-installs against the freshly mocked process.on.
     const mod = await import(
       '../../run-chromium/chromium-launch/process-handlers'
     )
@@ -61,7 +54,6 @@ describe('Chromium setupProcessSignalHandlers', () => {
 
     setupProcessSignalHandlers('chrome', child, cleanupInstance)
 
-    // Trigger SIGINT handler
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     for (const h of sigintHandlers) h()
 
@@ -82,16 +74,11 @@ describe('Chromium setupProcessSignalHandlers', () => {
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     for (const h of sigintHandlers) h()
 
-    // kill should not be called since child.killed is already true
     expect(child.kill).not.toHaveBeenCalled()
-    // But cleanupInstance should still be called
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
   })
 
   it('ignores ECONNRESET / EPIPE thrown during browser teardown', async () => {
-    // Regression: Templates Nightly Edge job hit ECONNRESET on a CDP socket
-    // during EXTENSION_AUTO_EXIT_MS shutdown and force-exited the runner with
-    // code 1, turning a clean shutdown into a CI failure.
     const {setupProcessSignalHandlers} = await import(
       '../../run-chromium/chromium-launch/process-handlers'
     )
@@ -118,7 +105,6 @@ describe('Chromium setupProcessSignalHandlers', () => {
     expect(errorSpy).not.toHaveBeenCalled()
     expect(cleanupInstance).not.toHaveBeenCalled()
 
-    // Real errors still go through the fatal path.
     handlers[0](new Error('real failure'))
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
     expect(exitSpy).toHaveBeenCalledWith(1)
@@ -131,22 +117,17 @@ describe('Chromium setupProcessSignalHandlers', () => {
 
     const child: any = {killed: false, kill: vi.fn(), pid: 12345}
 
-    // Two launches register two instances but must NOT add a second global
-    // listener. That was the leak (a handler per launch).
     const dispose1 = setupProcessSignalHandlers('chrome', child, vi.fn())
     const dispose2 = setupProcessSignalHandlers('chrome', child, vi.fn())
 
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     expect(sigintHandlers).toHaveLength(1)
 
-    // The single listener fans out to both live instances...
     for (const h of sigintHandlers) h()
 
-    // ...and after disposing one, a fresh signal only cleans the survivor.
     dispose1()
     const survivorCleanup = vi.fn()
     setupProcessSignalHandlers('chrome', child, survivorCleanup)
-    // still one global listener
     expect((registeredHandlers.get('SIGINT') || []).length).toBe(1)
 
     dispose2()
@@ -180,9 +161,6 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       registeredHandlers.set(event, existing)
       return process
     })
-    // The module now installs global handlers once and tracks instances in a
-    // module-level registry; reset it so each test starts from a clean state
-    // (handlers re-install against the freshly mocked process.on).
     const mod = await import(
       '../../run-firefox/firefox-launch/process-handlers'
     )
@@ -204,19 +182,15 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
 
     setupFirefoxProcessHandlers('firefox', () => child, cleanupInstance)
 
-    // Trigger SIGINT handler twice rapidly
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     expect(sigintHandlers.length).toBeGreaterThan(0)
 
-    // Call the same handler twice, isCleaningUp should prevent double execution
     const handler = sigintHandlers[0]
     handler()
     handler()
 
-    // Give async work a tick to settle
     await new Promise((r) => setTimeout(r, 50))
 
-    // cleanupInstance should only be called once due to the guard
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
   })
 
@@ -254,7 +228,6 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
 
     await new Promise((r) => setTimeout(r, 50))
 
-    // childRef should have been called to get the current child
     expect(childRef).toHaveBeenCalled()
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
   })
@@ -302,7 +275,6 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
 
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
 
-    // Should not throw when child is null
     expect(() => sigintHandlers[0]()).not.toThrow()
 
     await new Promise((r) => setTimeout(r, 50))

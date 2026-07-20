@@ -40,8 +40,6 @@ describe('buildCssRules, missing-preprocessor passthrough (bug 26)', () => {
       }
     }
 
-    // Preprocessor files still route as CSS (Chrome parity), never to the
-    // default JS parser.
     expect(
       rulesFor(rules, 'scss').every(
         (r) => r.type === 'css' || r.type === 'css/module'

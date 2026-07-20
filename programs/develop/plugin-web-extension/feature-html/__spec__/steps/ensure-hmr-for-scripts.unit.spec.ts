@@ -11,8 +11,6 @@ function makeLoaderCtx(options: any) {
   } as any
 }
 
-// The loader is sync for known parse types and async (this.async()) for
-// javascript/auto, where it lexes the source before picking the HMR API.
 function runLoader(ctx: any, src: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let wentAsync = false
@@ -44,10 +42,6 @@ describe('ensureHMRForScripts loader', () => {
   })
 
   it('injects the CJS module.hot guard into script-parsed (javascript/dynamic) modules', () => {
-    // A classic page script, e.g. any .js in a `"type": "commonjs"` package,
-    // which is what the classic-concat pipeline feeds through this loader,
-    // is parsed in script mode, where `import.meta` is a SyntaxError that
-    // fails the whole dev build (xposter, BUGS_TO_FIX #10).
     const src = 'var I18N = {};'
     const out = ensureHMRForScripts.call(
       {
@@ -96,16 +90,10 @@ describe('ensureHMRForScripts loader', () => {
   })
 
   it('injects module.hot into auto parses whose source is a classic script', async () => {
-    // `javascript/auto` infers module-vs-script from the source, so injecting
-    // `import.meta` into a script flips it to a strict ES-module parse. On a
-    // multi-MB one-line data script full of legacy octal escapes (\\1) that
-    // produced one strict-mode error PER ESCAPE, each rendering the whole
-    // line as a snippet, gigabytes of rspack diagnostics from one file
-    // (Rapid-Journal-Quality-Check, 2026-07-11 machine OOM).
     for (const src of [
       'console.log("x")',
-      'var data = "a\\1/NA\\2/NA";', // legacy octal escapes: sloppy-only
-      'import("./lazy.js")' // dynamic import is legal in classic scripts
+      'var data = "a\\1/NA\\2/NA";',
+      'import("./lazy.js")'
     ]) {
       const out = await runLoader(
         {
@@ -128,7 +116,7 @@ describe('ensureHMRForScripts loader', () => {
         resourcePath: '/proj/page.js',
         _module: {type: 'javascript/auto'}
       },
-      'import {' // unlexable
+      'import {'
     )
     expect(out).toContain('module.hot')
     expect(out).not.toContain('import.meta.webpackHot')

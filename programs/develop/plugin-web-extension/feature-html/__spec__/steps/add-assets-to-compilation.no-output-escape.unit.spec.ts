@@ -37,11 +37,9 @@ describe('joinEmittedAssetName (URL-clamped asset names)', () => {
   })
 
   it('clamps leading .. the way chrome resolves the matching URL', () => {
-    // one level up eats the assets/ prefix, like /assets/../x -> /x
     expect(joinEmittedAssetName('assets', '../img/logo.png')).toBe(
       'img/logo.png'
     )
-    // deeper walks clamp at the root instead of escaping the output dir
     expect(joinEmittedAssetName('assets', '../../../assets/icon16.png')).toBe(
       'assets/icon16.png'
     )
@@ -61,10 +59,6 @@ describe('joinEmittedAssetName (URL-clamped asset names)', () => {
 
 describe('AddAssetsToCompilation (no output-dir escape)', () => {
   it('a nested page referencing ../../../assets/<icon> emits INSIDE the output dir', () => {
-    // The wild-corpus Sappgulf storm: popup.html at adapters/chrome/popup/
-    // references ../../../assets/icon16.png. The emitted asset name used to be
-    // ../../assets/icon16.png, the dev middleware wrote it OVER the source
-    // file, and the watcher recompiled on its own emit once per second.
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-no-escape-')
     )

@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest'
-import {resolveConnectableHost, isWildcardHost} from '../connectable-host'
+import {describe, expect, it} from 'vitest'
+import {isWildcardHost, resolveConnectableHost} from '../connectable-host'
 
 describe('resolveConnectableHost', () => {
   it('keeps a concrete bind host as-is (it is already connectable)', () => {
@@ -19,7 +19,6 @@ describe('resolveConnectableHost', () => {
     expect(resolveConnectableHost('0.0.0.0', 'devbox.example.com')).toBe(
       'devbox.example.com'
     )
-    // Even over a concrete bind host.
     expect(resolveConnectableHost('192.168.1.50', 'public.example.com')).toBe(
       'public.example.com'
     )

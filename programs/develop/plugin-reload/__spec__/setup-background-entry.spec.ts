@@ -32,8 +32,6 @@ function fakeCompiler(entry: Record<string, unknown> = {}) {
       }
     }
   } as any
-  // Drives the captured thisCompilation taps against a bare compilation and
-  // returns the errors they reported.
   compiler.__collectErrors = () => {
     const compilation = {errors: [] as Error[]}
     for (const cb of compilationTaps) cb(compilation)
@@ -42,8 +40,6 @@ function fakeCompiler(entry: Record<string, unknown> = {}) {
   return compiler
 }
 
-// A manifest shaped like the `init` template: no background declared, and the
-// manifest_version is only present under chromium:/firefox: prefixes.
 const NO_BACKGROUND = {
   'chromium:manifest_version': 3,
   'firefox:manifest_version': 2,
@@ -53,11 +49,6 @@ const NO_BACKGROUND = {
 
 describe('SetupBackgroundEntry default entry registration', () => {
   it('registers background/service_worker for Safari when no background is declared', () => {
-    // Regression: Safari is neither chromium- nor gecko-classified, so the
-    // prefixed manifest_version keys do not resolve (manifestVersion is
-    // undefined). patch-background still injects background.service_worker, so
-    // the matching entry must be created or the persist-manifest gate fails the
-    // first build with "files were not emitted to disk".
     const manifestPath = writeManifest(NO_BACKGROUND)
     const compiler = fakeCompiler()
 
@@ -87,8 +78,6 @@ describe('SetupBackgroundEntry default entry registration', () => {
     )
   })
 
-  // Gecko forks must be treated like Firefox (MV2 background.scripts), not fall
-  // through to the chromium service_worker default.
   for (const browser of ['waterfox', 'librewolf']) {
     it(`registers background/script for the gecko fork ${browser}`, () => {
       const manifestPath = writeManifest(NO_BACKGROUND)

@@ -3,8 +3,6 @@ import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {getLocales} from '../get-locales'
 
-// These tests verify that getLocales walks _locales/*/* and returns absolute file paths.
-// They avoid framework/e2e concerns and operate purely on the filesystem.
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 describe('getLocales (unit)', () => {
@@ -27,7 +25,6 @@ describe('getLocales (unit)', () => {
       path.join(ptDir, 'messages.json'),
       '{"hello":{"message":"oi"}}'
     )
-    // extra non-json files should still be returned; LocalesPlugin filters later
     fs.writeFileSync(path.join(enDir, 'notes.txt'), 'note')
     fs.writeFileSync(path.join(enDir, 'logo.png'), '')
   })

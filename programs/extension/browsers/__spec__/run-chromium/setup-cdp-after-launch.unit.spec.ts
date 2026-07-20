@@ -44,8 +44,6 @@ import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-
 
 const tempDirs: string[] = []
 
-// A real on-disk extension dir whose manifest.json setupCdpAfterLaunch reads to
-// decide whether to open the new-tab surface.
 function makeExtensionDir(manifest: Record<string, unknown>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-newtab-'))
   tempDirs.push(dir)

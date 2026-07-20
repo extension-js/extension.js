@@ -24,16 +24,13 @@ afterEach(() => {
 describe('ZipPlugin', () => {
   it('writes dist zips when options.zip or zipSource are set', async () => {
     const root = makeTempDir('extjs-zip-')
-    // ensure .gitignore exists to satisfy getFilesToZip
     fs.writeFileSync(path.join(root, '.gitignore'), '')
     const dist = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(dist, {recursive: true})
-    // minimal manifest in output dir (distribution zip)
     fs.writeFileSync(
       path.join(dist, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1.0.0'})
     )
-    // also put a manifest at project root for source zipping
     fs.writeFileSync(
       path.join(root, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1.0.0'})

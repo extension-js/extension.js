@@ -261,18 +261,11 @@ describe('optional-deps-resolver', () => {
   })
 
   it('treats install-root rules as resolved when the project package.json declares the dependency', async () => {
-    // Repro: pnpm strict layouts hide preact behind .pnpm symlinks that
-    // Node's resolver can't traverse from extension-develop's package
-    // context. As long as the user's package.json declares the dep, trust
-    // their package manager. The bundler will surface a real error later
-    // if the install was a lie.
     const dependencyId = '@extjs-test/preact-like'
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-using-preact-like',
       dependencies: {[dependencyId]: '^10.0.0'}
     })
-    // Intentionally do NOT createPackage(...) for `dependencyId` so the
-    // Node resolver fails. We want to confirm the package.json fallback.
 
     const {getContractVerificationFailuresFromKnownLocations} = await import(
       '../optional-deps-resolver'
@@ -292,12 +285,6 @@ describe('optional-deps-resolver', () => {
   })
 
   it('treats module-context-resolve failures as resolved when the project declares the missing peer', async () => {
-    // Repro: @rspack/plugin-preact-refresh's peerDependencies are only
-    // @prefresh/*, preact isn't a peer there, so pnpm strict doesn't
-    // sibling-link it next to the plugin. Node's req.resolve('preact')
-    // from the plugin's package context fails. The bundler routes preact
-    // via resolve.alias at compile time, so the cross-package check is
-    // only useful for genuine missing peers, not user-declared deps.
     const pluginId = '@extjs-test/plugin-framework-refresh'
     const peerId = '@extjs-test/framework'
     createPackage(
@@ -305,7 +292,6 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = class FrameworkRefreshPlugin {}'
     )
-    // Plugin can NOT resolve the peer, peer isn't sibling-linked next to it.
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-with-framework',
       dependencies: {[peerId]: '^1.0.0'}
@@ -344,7 +330,6 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = class StrictPeerPlugin {}'
     )
-    // Project does NOT declare the peer.
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-without-peer'
     })
@@ -393,17 +378,12 @@ describe('optional-deps-resolver', () => {
     expect(failures).toEqual([dependencyId])
   })
 
-  // Drive the package-manager detector through a lockfile fixture in the
-  // project root (its first detection signal) so the suite resolves a manager
-  // deterministically without spawning a real install.
   function writeLockfile(rootDir: string, pm: 'pnpm' | 'yarn' | 'npm' | 'bun') {
     const lockfileByPm: Record<string, string> = {
       pnpm: 'pnpm-lock.yaml',
       yarn: 'yarn.lock',
       npm: 'package-lock.json'
     }
-    // bun has no dedicated lockfile branch in the detector; it falls through
-    // to env/PATH detection. Force it explicitly via the documented override.
     if (pm === 'bun') {
       process.env.EXTENSION_JS_PACKAGE_MANAGER = 'bun'
       return
@@ -430,10 +410,8 @@ describe('optional-deps-resolver', () => {
       message = error instanceof Error ? error.message : String(error)
     }
 
-    // One actionable line, not a multi-line JSON dump.
     expect(message.split('\n')).toHaveLength(1)
     expect(message).not.toContain('{')
-    // Carries the integration name, the missing package id, and a pnpm hint.
     expect(message).toContain('[SASS]')
     expect(message).toContain('@extjs-test/missing-sass')
     expect(message).toContain('pnpm add -D @extjs-test/missing-sass')
@@ -462,12 +440,10 @@ describe('optional-deps-resolver', () => {
     const pnpmMessage = await captureMessage()
     expect(pnpmMessage).toContain('pnpm add -D @extjs-test/missing-sass')
 
-    // Switch the project's package manager and re-resolve.
     fs.rmSync(path.join(projectPath, 'pnpm-lock.yaml'), {force: true})
     vi.resetModules()
     writeLockfile(projectPath, 'npm')
     const npmMessage = await captureMessage()
-    // npm uses `install -D`, not `add -D`.
     expect(npmMessage).toContain('npm install -D @extjs-test/missing-sass')
     expect(npmMessage).not.toContain('add -D')
   })
@@ -491,13 +467,11 @@ describe('optional-deps-resolver', () => {
       message = error instanceof Error ? error.message : String(error)
     }
 
-    // First line is still the readable hint; the JSON body follows.
     const newlineIndex = message.indexOf('\n')
     expect(newlineIndex).toBeGreaterThan(0)
     const jsonBody = message.slice(newlineIndex + 1)
     const parsed = JSON.parse(jsonBody)
 
-    // Same top-level diagnostic keys the resolver produces today.
     expect(Object.keys(parsed).sort()).toEqual(
       [
         'contractId',
@@ -532,7 +506,6 @@ describe('optional-deps-resolver', () => {
       message = error instanceof Error ? error.message : String(error)
     }
 
-    // yarn uses `add -D` like pnpm/bun.
     expect(message.split('\n')).toHaveLength(1)
     expect(message).toContain('yarn add -D')
   })
@@ -551,7 +524,6 @@ describe('optional-deps-resolver', () => {
     ]
 
     for (const {pm, hint} of expectations) {
-      // Fresh project root per package manager so lockfiles never collide.
       const pmProjectPath = fs.mkdtempSync(
         path.join(os.tmpdir(), 'tmp-extjs-pm-')
       )

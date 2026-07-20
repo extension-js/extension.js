@@ -1,25 +1,3 @@
-// Regression gate: enforce the per-target shape of `dist/` after the ESM
-// flip. Runs in <1 s and pins the exact invariant we broke in
-// a9153af9, when the createRequire banner was applied to every emitted
-// chunk, the browser-runtime files (preact-refresh-shim,
-// minimum-script-file, main-world-bridge, minimum-{chromium,firefox}-file)
-// shipped a top-level `import "node:module"`. rspack later bundled those
-// wrappers into the user's web-target output and surfaced the cryptic
-// "Reading from 'node:module' is not handled by plugins" error, but only
-// on the windows-latest/npm CI cell that exercised the React content-dev
-// scenario. Checking the artifact directly catches this kind of leak the
-// moment `pnpm compile` runs, on every machine.
-//
-// The two lists below are the contract programs/develop ships:
-// - WEB_ENTRIES: emitted as standalone assets that run inside the user's
-//   extension at runtime (HTML page, content script, service worker).
-//   These MUST contain only browser-safe code.
-// - NODE_ENTRIES: emitted for Node, the main library, the preview entry,
-//   and rspack loaders that execute in the loader runner at build time.
-//   These MAY freely use Node builtins and the createRequire banner.
-//
-// Update both lists when adding a new entry to rslib.config.ts.
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
@@ -43,20 +21,11 @@ const NODE_ENTRIES = [
   'feature-scripts-classic-concat-loader'
 ] as const
 
-// Tokens we do not want to see in a browser-runtime bundle. The banner
-// regression hit `node:module` specifically; the rest of the list pins the
-// general invariant, a content-script / SW / HTML chunk has no business
-// importing Node builtins, regardless of how the import got introduced
-// (banner, source edit, plugin, transitive dep).
 const FORBIDDEN_NODE_SCHEMES = [
   /\bfrom\s+["']node:[a-z][a-z0-9_-]*["']/i,
   /\brequire\(\s*["']node:[a-z][a-z0-9_-]*["']\s*\)/i
 ]
 
-// Bare Node-builtin specifiers. We don't want to forbid every word that
-// happens to look like a builtin (a content script can absolutely have a
-// variable called `path`); we forbid only `import ... from '<builtin>'` and
-// `require('<builtin>')` syntactic forms at module scope.
 const NODE_BUILTINS = [
   'fs',
   'fs/promises',
@@ -86,9 +55,6 @@ const FORBIDDEN_BARE_BUILTINS = NODE_BUILTINS.flatMap((id) => {
 })
 
 function distFile(stem: string): string {
-  // dist/<stem>.mjs is the canonical ESM output (rslib emits .mjs after the
-  // ESM flip); the .js sibling is a copy written by write-dist-js-aliases for
-  // legacy rspack `resolveLoader.extensions: ['.js', ...]` consumers.
   return path.join(DIST_DIR, `${stem}.mjs`)
 }
 
@@ -149,10 +115,6 @@ describe('dist target shape', () => {
     }
 
     it('module.mjs carries the createRequire banner', () => {
-      // Sanity-check the inverse of the web-target rule: if the banner
-      // disappears here, bundled bare `require()` sites in
-      // optional-deps-resolver.ts hit ReferenceError at runtime in pure ESM.
-      // The exact identifier comes from rslib.config.ts.
       const file = distFile('module')
       const source = fs.readFileSync(file, 'utf-8')
       expect(

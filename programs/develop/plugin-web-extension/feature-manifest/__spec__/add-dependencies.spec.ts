@@ -18,7 +18,6 @@ describe('AddDependencies', () => {
       }
     }
 
-    // monkey-patch add to capture
     ;(deps as any).add = (x: string) => added.push(x)
 
     const plugin = new AddDependencies(['/a', '/b'])

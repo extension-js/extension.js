@@ -1,9 +1,3 @@
-// Regression: InjectScriptsReplayShim prepends the dev-only
-// `globalThis.__extjsScriptsReplay` shim to the compiled background SW /
-// script bundle so the controller can replay programmatic
-// `chrome.scripting.executeScript` calls after a user edits a file in
-// `/scripts/*`.
-
 import {sources} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {InjectScriptsReplayShim} from '../steps/inject-scripts-replay-shim'
@@ -60,7 +54,6 @@ describe('InjectScriptsReplayShim', () => {
     const out = getAssetSource('background/service_worker.js')
     expect(out).toContain('__extjsScriptsReplayInstalled')
     expect(out).toContain('__extjsScriptsReplay')
-    // User code must still be present, preceded by the shim.
     expect(out.indexOf('__extjsScriptsReplay')).toBeLessThan(
       out.indexOf('/* user sw */')
     )
@@ -98,7 +91,6 @@ describe('InjectScriptsReplayShim', () => {
     )
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
-    // Should equal the input, no double-prepend.
     expect(out).toBe('/* __extjsScriptsReplayInstalled marker */ /* user sw */')
   })
 })

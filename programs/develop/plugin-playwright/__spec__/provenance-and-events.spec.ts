@@ -96,8 +96,6 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
     ).toHaveLength(1)
 
-    // A "new run" in the same process: the file resets instead of appending
-    // prior-run entries forever.
     writer.writeStarting()
     expect(fs.readFileSync(writer.eventsPath, 'utf-8')).toBe('')
   })

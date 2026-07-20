@@ -1,6 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Mock step classes so we can assert construction and apply() calls
 const EmitFileMock = vi.fn().mockImplementation(function (
   this: any,
   _opts: any
@@ -47,13 +46,11 @@ describe('IconsPlugin (index.ts)', () => {
     expect(EmitFileMock).toHaveBeenCalledTimes(1)
     expect(AddToFileDependenciesMock).toHaveBeenCalledTimes(1)
 
-    // Ensure options are passed through to both steps
     const emitCtorArgs = EmitFileMock.mock.calls[0][0]
     const depsCtorArgs = AddToFileDependenciesMock.mock.calls[0][0]
     expect(emitCtorArgs).toEqual(options)
     expect(depsCtorArgs).toEqual(options)
 
-    // Ensure each step's apply() was called with the compiler
     const emitInstance = (EmitFileMock as any).mock.instances[0]
     const depsInstance = (AddToFileDependenciesMock as any).mock.instances[0]
     expect(emitInstance.apply).toHaveBeenCalledWith(fakeCompiler)

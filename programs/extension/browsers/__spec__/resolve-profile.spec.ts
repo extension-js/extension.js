@@ -5,19 +5,6 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {browserConfig as chromiumConfig} from '../run-chromium/chromium-launch/browser-config'
 import {browserConfig as firefoxConfig} from '../run-firefox/firefox-launch/browser-config'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile-options contract, exercised end-to-end through BOTH launchers.
-//
-// Locks the behaviour of the shared resolve-profile decision via on-disk
-// assertions only (no real browser, no network):
-//   - profile: false           → browser's own default profile, no managed dir
-//   - explicit path            → launched against exactly that directory
-//   - nothing                  → fresh managed throwaway profile
-//   - empty / whitespace path  → behaves like nothing, NOT like false
-//   - copyFromProfile          → managed profile seeded as a copy of the source
-//   - keepProfileChanges       → managed profile + changes survive a 2nd run
-// ─────────────────────────────────────────────────────────────────────────────
-
 let SCRATCH: string
 
 function distFor(browser: 'chrome' | 'firefox') {
@@ -28,13 +15,11 @@ function makeCompilation(out: string) {
   return {options: {output: {path: out}}} as any
 }
 
-/** Chromium: the directory the launch points at, or null if no --user-data-dir. */
 function chromiumUserDataDir(flags: string[]): string | null {
   const flag = flags.find((f) => f.startsWith('--user-data-dir='))
   return flag ? flag.replace('--user-data-dir=', '') : null
 }
 
-/** Firefox: the directory the launch points at, or null if no --profile. */
 function firefoxProfileDir(args: string): string | null {
   const m = args.match(/--profile="([^"]+)"/)
   return m ? m[1] : null
@@ -59,8 +44,6 @@ describe('profile-options contract (both launchers)', () => {
       fs.rmSync(SCRATCH, {recursive: true, force: true})
     } catch {}
   })
-
-  // ── profile: false → the browser's own default profile ──────────────────────
 
   it('chromium: profile false uses the default profile, no managed dir, no --user-data-dir', () => {
     const out = distFor('chrome')
@@ -114,8 +97,6 @@ describe('profile-options contract (both launchers)', () => {
     expect(chromiumUserDataDir(falseFlags)).toBeNull()
   })
 
-  // ── explicit path → launched against exactly that directory ─────────────────
-
   it('chromium: explicit profile path launches against exactly that directory', () => {
     const explicit = fs.mkdtempSync(path.join(SCRATCH, 'explicit-chrome-'))
     const flags = chromiumConfig(makeCompilation(distFor('chrome')), {
@@ -136,8 +117,6 @@ describe('profile-options contract (both launchers)', () => {
     expect(firefoxProfileDir(args)).toBe(explicit)
   })
 
-  // ── nothing → fresh managed throwaway profile ───────────────────────────────
-
   it('chromium: nothing gives a managed throwaway profile (marked for cleanup)', () => {
     const out = distFor('chrome')
     const flags = chromiumConfig(makeCompilation(out), {
@@ -149,7 +128,6 @@ describe('profile-options contract (both launchers)', () => {
     expect(dir).toContain(
       path.join('extension-js', 'profiles', 'chrome-profile')
     )
-    // throwaway → carries the managed-ephemeral marker (cleaned on exit)
     expect(fs.existsSync(path.join(String(dir), MANAGED_MARKER))).toBe(true)
   })
 
@@ -166,8 +144,6 @@ describe('profile-options contract (both launchers)', () => {
     )
     expect(fs.existsSync(path.join(String(dir), MANAGED_MARKER))).toBe(true)
   })
-
-  // ── empty / whitespace string → like nothing, NOT like false ────────────────
 
   it('chromium: empty string is NOT false, a managed profile is still created', () => {
     const flags = chromiumConfig(makeCompilation(distFor('chrome')), {
@@ -195,8 +171,6 @@ describe('profile-options contract (both launchers)', () => {
     } as any)
     expect(firefoxProfileDir(args)).toBeTruthy()
   })
-
-  // ── copyFromProfile → managed profile seeded as a copy of the source ────────
 
   it('chromium: copyFromProfile seeds the managed profile with the source contents', () => {
     const source = fs.mkdtempSync(path.join(SCRATCH, 'src-chrome-'))
@@ -235,8 +209,6 @@ describe('profile-options contract (both launchers)', () => {
     )
   })
 
-  // ── keepProfileChanges → managed profile + changes survive a 2nd run ────────
-
   it('chromium: keepProfileChanges keeps the managed dir and its changes across runs', () => {
     const out = distFor('chrome')
     const run1 = chromiumConfig(makeCompilation(out), {
@@ -246,10 +218,8 @@ describe('profile-options contract (both launchers)', () => {
     } as any)
     const dir1 = String(chromiumUserDataDir(run1))
 
-    // kept profiles are NOT marked for cleanup → removeManagedEphemeralProfile skips them
     expect(fs.existsSync(path.join(dir1, MANAGED_MARKER))).toBe(false)
 
-    // user change made in the profile during the first run
     fs.writeFileSync(path.join(dir1, 'my-change.txt'), 'survives')
 
     const run2 = chromiumConfig(makeCompilation(out), {
@@ -259,7 +229,7 @@ describe('profile-options contract (both launchers)', () => {
     } as any)
     const dir2 = String(chromiumUserDataDir(run2))
 
-    expect(dir2).toBe(dir1) // stable directory across runs
+    expect(dir2).toBe(dir1)
     expect(fs.readFileSync(path.join(dir2, 'my-change.txt'), 'utf8')).toBe(
       'survives'
     )
@@ -290,8 +260,6 @@ describe('profile-options contract (both launchers)', () => {
     )
   })
 
-  // ── copyFromProfile is copy-once when the profile is kept ────────────────────
-
   it('chromium: copyFromProfile + keepProfileChanges seeds once and does not clobber kept edits', () => {
     const out = distFor('chrome')
     const source = fs.mkdtempSync(path.join(SCRATCH, 'src-once-chrome-'))
@@ -304,12 +272,10 @@ describe('profile-options contract (both launchers)', () => {
       copyFromProfile: source
     } as any)
     const dir1 = String(chromiumUserDataDir(run1))
-    // first run seeds from the source
     expect(fs.readFileSync(path.join(dir1, 'seeded.txt'), 'utf8')).toBe(
       'v1-from-source'
     )
 
-    // user edits the seeded file and adds a profile-only file
     fs.writeFileSync(path.join(dir1, 'seeded.txt'), 'user-edited')
     fs.writeFileSync(path.join(dir1, 'user-only.txt'), 'keep')
 
@@ -322,8 +288,6 @@ describe('profile-options contract (both launchers)', () => {
     const dir2 = String(chromiumUserDataDir(run2))
 
     expect(dir2).toBe(dir1)
-    // copy-once: the second run must NOT re-seed, so the edited seeded file and
-    // the profile-only file both survive.
     expect(fs.readFileSync(path.join(dir2, 'seeded.txt'), 'utf8')).toBe(
       'user-edited'
     )

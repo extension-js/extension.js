@@ -5,11 +5,6 @@ import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {patchDevContentScriptManifestPaths} from '../steps/patch-dev-content-script-manifest-paths'
 
-// Regression for the 3.14 → 3.15 content-script CSS purge gap. Dev mode runs
-// with `output.clean: false`. The prior purge regex matched only canonical
-// `content-N.<hash>.<ext>` bundles, so named CSS chunks like
-// `content-index.<hash>.css` (emitted by content-script CSS imports via
-// `import.meta.url`) accumulated in the output directory across rebuilds.
 describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
   let tmpRoot: string
   let outputPath: string

@@ -1,6 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Mocks for internal dependencies used by CssPlugin
 const mockedContentLoaders = [{test: /a\.css$/}]
 const mockedHtmlLoaders = [{test: /b\.css$/}]
 
@@ -20,7 +19,6 @@ vi.mock('../css-in-html-loader', () => ({
   cssInHtmlLoader: vi.fn(async () => mockedHtmlLoaders)
 }))
 
-// Import after mocks
 import {CssPlugin} from '../index'
 
 function createCompiler(
@@ -59,7 +57,6 @@ describe('CssPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Loaders from both content + html plus conditional sass/less rules
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
       mockedContentLoaders.length + mockedHtmlLoaders.length
     )
@@ -73,7 +70,6 @@ describe('CssPlugin', () => {
 
     expect(compiler.hooks.beforeRun.tapPromise).toHaveBeenCalled()
 
-    // Simulate Rspack calling the hook
     await (compiler.hooks.beforeRun as any)._cb()
 
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
@@ -87,12 +83,6 @@ describe('CssPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Regression guard: an earlier version of `index.ts` pushed duplicate
-    // `type: 'asset/resource'` rules for `.sass/.scss/.less` that overlapped
-    // (and overrode) the `type: 'asset/inline'` rules emitted by
-    // `cssInContentScriptLoader`. The duplicates triggered emit-as-file for
-    // content-script CSS, which then needed `web_accessible_resources` and
-    // failed across rebuilds. Ownership now lives solely in the loader file.
     const rules = compiler.options.module.rules as any[]
     expect(rules.some((r) => r.type === 'asset/resource')).toBe(false)
   })
@@ -103,13 +93,6 @@ describe('CssPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Regression guard (G27): vue-loader emits `Foo.ce.vue.css?vue&type=style
-    // &index=0&id=…&inline&lang=css` for every <style> in a custom-element
-    // SFC and imports the module's default export as the style string. The
-    // issuer-based rules type such requests as native CSS (no JS exports),
-    // dead-linking that import. A trailing rule must flip the type to
-    // asset/source, and carry NO `use`, so the loader chain from the
-    // matching rules above is not duplicated.
     const rules = compiler.options.module.rules as any[]
     const inlineRule = rules.find(
       (r) => r.resourceQuery && r.type === 'asset/source'
@@ -125,7 +108,6 @@ describe('CssPlugin', () => {
     )
     expect(query.test('?inline')).toBe(true)
     expect(query.test('?vue&type=style&index=0&id=x&lang=css')).toBe(false)
-    // `inline` must match as a whole token, not a substring of another param
     expect(query.test('?no-inline-here=1')).toBe(false)
     expect(query.test('?inlineLimit=4096')).toBe(false)
   })

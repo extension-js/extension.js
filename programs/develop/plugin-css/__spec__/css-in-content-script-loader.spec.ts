@@ -42,10 +42,6 @@ describe('cssInContentScriptLoader', () => {
 
     for (const rule of rules as any[]) {
       expect(['asset/inline', 'css/module']).toContain(rule.type)
-      // Regression guard: `resourceQuery: {not: [/url/]}` used to silently
-      // bypass PostCSS for `?url` imports, shipping raw CSS (including
-      // uncompiled `@import "tailwindcss"`). The rule must cover every
-      // CSS specifier the issuer can produce, no query-string escape hatch.
       expect(rule.resourceQuery).toBeUndefined()
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
@@ -53,9 +49,6 @@ describe('cssInContentScriptLoader', () => {
   })
 
   it('still routes .scss/.less as CSS when the preprocessor is not installed (G23)', async () => {
-    // Chrome loads a manifest-declared .scss stylesheet by injecting its raw
-    // text as CSS. With no rule for the extension, the file fell through to
-    // rspack's default JS parser and hard-failed a build the browser accepts.
     const rules = await cssInContentScriptLoader(
       '/project',
       '/project/manifest.json',
@@ -68,7 +61,6 @@ describe('cssInContentScriptLoader', () => {
         String(r.test) === String(/\.(sass|scss)$/) && r.type === 'asset/inline'
     )
     expect(scssRule).toBeDefined()
-    // Must NOT use sass-loader (it is not installed), plain CSS chain only.
     expect(
       (scssRule.use as any[]).some((u) =>
         String(u?.loader || u).includes('sass-loader')

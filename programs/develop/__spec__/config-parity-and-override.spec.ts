@@ -79,8 +79,6 @@ describe('extension.config object-merge and command/browser defaults', () => {
       persistProfile: true
     })
 
-    // Engine-based selection should use the chromium-based section,
-    // while managed Chromium ('chromium') remains independent.
     const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based')
     expect(chromiumBasedCfg).toMatchObject({
       browser: 'chromium-based',
@@ -105,19 +103,16 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    // When command has its own extensions, it should override top-level extensions
     const devCfg = await loadCommandConfig(dir, 'dev')
     expect(devCfg).toMatchObject({
       extensions: ['./explicit-a', './explicit-b']
     })
 
-    // When command has no extensions, it should inherit top-level extensions
     const startCfg = await loadCommandConfig(dir, 'start')
     expect(startCfg).toMatchObject({
       extensions: {dir: './extensions'}
     })
 
-    // Ensure command keys still work alongside inherited extensions
     const previewCfg = await loadCommandConfig(dir, 'preview')
     expect(previewCfg).toMatchObject({
       profile: 'user',

@@ -57,7 +57,6 @@ describe('patchHtml', () => {
     })
     expect(updated).toContain('href="/public/missing.css"')
     expect(updated).toContain('src="/public/missing.js"')
-    // warnings may or may not be emitted depending on fs layout; do not assert count
     expect(Array.isArray(compilation.warnings)).toBe(true)
   })
 })

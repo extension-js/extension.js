@@ -14,14 +14,6 @@ import {
   isFirefoxBrowser
 } from '../browsers/browsers-lib/browser-family'
 
-// Two family classifiers exist ON PURPOSE: extension-develop's is
-// substring-permissive (manifest prefixes and env files should treat any
-// *chromium* name as chromium-family), the launch layer's is exact-set
-// (binary selection must not guess for unknown names). What must NOT differ
-// is the shared vocabulary, a browser name one package classifies and the
-// other doesn't is exactly how `--browser chromium` got refused in the
-// field. This spec derives both vocabularies from develop's exported lists,
-// so extending one package without the other fails here, in review.
 describe('browser-family alignment across packages', () => {
   it('launch-layer sets are derived-equal to develop lists + family aliases', () => {
     expect(new Set(CHROMIUM_BROWSERS)).toEqual(
@@ -68,9 +60,6 @@ describe('browser-family alignment across packages', () => {
   })
 
   it('pins the intended semantic divergence for unknown fork names', () => {
-    // develop is substring-permissive so an unknown *chromium* fork still
-    // resolves chromium-family manifest keys; the launch layer stays
-    // exact-set so binary selection never guesses. Deliberate, not drift.
     expect(isChromiumBasedBrowser('mychromium')).toBe(true)
     expect(isChromiumBrowser('mychromium')).toBe(false)
   })

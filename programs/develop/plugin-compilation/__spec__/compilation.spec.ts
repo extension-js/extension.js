@@ -10,7 +10,6 @@ vi.mock('fs', async () => {
 
 import * as fs from 'node:fs'
 
-// Mock deps used inside the plugin implementation
 vi.mock('../env', () => {
   const apply = vi.fn()
   class EnvPluginMock {
@@ -58,7 +57,6 @@ vi.mock('case-sensitive-paths-webpack-plugin', () => ({
   }
 }))
 
-// Module under test
 import {CompilationPlugin} from '../index'
 
 describe('CompilationPlugin', () => {
@@ -92,7 +90,6 @@ describe('CompilationPlugin', () => {
     const compiler: any = {
       options: {
         mode,
-        // Minimal output config so @rspack/core DefinePlugin can apply in tests
         output: {environment: {}}
       },
       getInfrastructureLogger: () => ({
@@ -104,7 +101,6 @@ describe('CompilationPlugin', () => {
         watchClose: {
           tap: () => {}
         },
-        // Some third-party plugins call done.tap, so provide both
         done: {
           tap: (_name: string, cb: any) => {
             doneHandlers.push((stats: any, _done: any) => cb(stats))
@@ -138,22 +134,17 @@ describe('CompilationPlugin', () => {
     })
     plugin.apply(compiler as any)
 
-    // trigger done to hit logging branch
     emitDone({
       hasErrors: () => false,
       compilation: {startTime: 0, endTime: 10}
     })
 
-    // EnvPlugin constructed with provided options via mocked class
     const {EnvPlugin} = await import('../env')
     expect((EnvPlugin as any).lastOptions).toEqual({
       manifestPath: '/p/manifest.json',
       browser: 'edge'
     })
 
-    // Clean plugin path exercised without throwing (behavior verified via user-facing log)
-
-    // Success logs are printed via BoringPlugin using messages.boring.
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtA, 10ms)')
   })
 
@@ -176,7 +167,6 @@ describe('CompilationPlugin', () => {
 
     expect(cleanDistMocks.instances.length).toBe(0)
 
-    // Even when clean is false, success logs are still printed by BoringPlugin.
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
   })
 
@@ -229,7 +219,6 @@ describe('CompilationPlugin', () => {
     emitDone(stats)
     emitDone(stats)
 
-    // Successful compilations always emit the boring build line.
     const buildLines = consoleLogSpy.mock.calls.filter((call) =>
       String(call[0] || '').startsWith('build(')
     )
@@ -332,7 +321,6 @@ describe('CompilationPlugin', () => {
 
     const {ZipPlugin} = await import('../zip')
 
-    // Last options should come from the production apply (development should not register ZipPlugin)
     expect((ZipPlugin as any).lastOptions).toEqual(
       expect.objectContaining({
         manifestPath: '/p/manifest.json',

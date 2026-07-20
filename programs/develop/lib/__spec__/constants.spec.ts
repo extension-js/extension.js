@@ -44,8 +44,6 @@ describe('constants', () => {
   })
 
   it('classifies every family alias with its own predicate', () => {
-    // The alias arrays feed env-file resolution and the cross-package
-    // alignment spec, an alias a predicate rejects is unreachable there.
     for (const name of CHROMIUM_FAMILY_ALIASES) {
       expect(isChromiumBasedBrowser(name), name).toBe(true)
       expect(isGeckoBasedBrowser(name), name).toBe(false)

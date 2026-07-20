@@ -24,9 +24,7 @@ describe('removeManagedEphemeralProfile', () => {
     for (const dir of created.splice(0)) {
       try {
         fs.rmSync(path.dirname(dir), {recursive: true, force: true})
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   })
 
@@ -41,7 +39,6 @@ describe('removeManagedEphemeralProfile', () => {
 
   it('keeps a directory WITHOUT the marker (e.g. a user-provided profile)', () => {
     const dir = makeDir('my-profile')
-    // no marker written
     removeManagedEphemeralProfile(dir)
     expect(fs.existsSync(dir)).toBe(true)
   })

@@ -12,7 +12,6 @@ import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
 function makeCompilation(
   out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
 ) {
-  // Align with browserConfig expectations: Compilation.options.output.path
   return {options: {output: {path: out}}} as any
 }
 
@@ -30,7 +29,6 @@ describe('Chromium profile flags', () => {
   })
   afterEach(() => {
     process.env = OLD_ENV
-    // Cleanup any temp output created under /tmp/project/dist
     try {
       const distRoot = path.join(os.tmpdir(), 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
@@ -44,7 +42,6 @@ describe('Chromium profile flags', () => {
     } as any)
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
-    // Accept any ephemeral profile name under chrome-profile/
     expect(userDir).toMatch(
       /extension-js[\\/]+profiles[\\/]+chrome-profile[\\/]+/
     )
@@ -58,7 +55,6 @@ describe('Chromium profile flags', () => {
     } as any)
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
-    // Allow optional trailing quote
     expect(userDir).toMatch(
       /extension-js[\\/]+profiles[\\/]+chrome-profile[\\/]dev"?$/
     )
@@ -144,13 +140,6 @@ describe('Chromium profile flags', () => {
   })
 
   it('resolves relative explicit profile paths against the compilation context, not process.cwd()', () => {
-    // Regression: running examples sequentially from a parent directory used
-    // to collapse every example's `profile: './dist/extension-profile-<browser>'`
-    // to the same shared dir, because path.resolve() resolved against
-    // process.cwd() instead of the project root that owns extension.config.js.
-    // Chrome's persistent profile then carried the previous run's
-    // --load-extension path into the next session and the previous example
-    // appeared loaded in the new one.
     const projectA = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-profile-ctx-a-')
     )
@@ -302,7 +291,6 @@ describe('Chromium container sandbox flags', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     process.env = {...OLD_ENV}
-    // Default to non-Linux so tests are explicit about platform
     Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
   })
   afterEach(() => {
@@ -360,8 +348,6 @@ describe('Chromium container sandbox flags', () => {
     delete process.env.REMOTE_CONTAINERS
     delete process.env.CODESPACES
     delete process.env.container
-    // Note: /.dockerenv and /run/.containerenv don't exist on standard test
-    // hosts, so the fs.existsSync checks naturally return false here.
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
@@ -371,8 +357,6 @@ describe('Chromium container sandbox flags', () => {
 })
 
 describe('Chromium feature-switch merging', () => {
-  // Chromium keeps only the LAST occurrence of a repeated switch, so every
-  // --disable-features before the final one used to be silently dropped.
   it('emits exactly one --disable-features switch with every default feature', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
@@ -407,9 +391,6 @@ describe('Chromium feature-switch merging', () => {
     expect(enables[0]).toContain('SidePanelUpdates')
   })
 
-  // Chromium 152+ permanently disables command-line-loaded extensions with
-  // DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the first runtime.reload()
-  // unless this feature is off, which breaks every dev-mode SW/manifest edit.
   it('disables ExtensionDisableUnsupportedDeveloper (Chromium 152 reload kill)', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',

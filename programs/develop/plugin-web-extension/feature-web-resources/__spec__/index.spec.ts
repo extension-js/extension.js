@@ -17,16 +17,13 @@ describe('generateManifestPatches', () => {
   beforeEach(() => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'war-plugin-'))
     manifestPath = path.join(tmpRoot, 'manifest.json')
-    // Ensure manifest root exists
     fs.writeFileSync(manifestPath, '{}')
   })
 
   afterEach(() => {
     try {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
-    } catch {
-      // ignore
-    }
+    } catch {}
   })
 
   function runWith(
@@ -261,10 +258,6 @@ describe('generateManifestPatches', () => {
   })
 
   it('emits user-declared resources at their manifest-relative path', () => {
-    // Runtime code addresses WAR files by their literal path
-    // (chrome.runtime.getURL('images/icon.png')); rewriting the manifest to a
-    // flattened assets/ name made the declared resource and the requested URL
-    // disagree, so Chrome refused to serve the file.
     const rel = 'images/icon.png'
     const abs = path.join(tmpRoot, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -370,8 +363,6 @@ describe('generateManifestPatches', () => {
   })
 
   it('should correctly merge existing web_accessible_resources', () => {
-    // User-declared resources must resolve to something real: missing paths
-    // are now warned about and dropped instead of shipped broken.
     fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
     fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing_resource.svg'), 'x')
 
@@ -558,8 +549,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('accepts mv3 matches with ports and port wildcards Chrome loads (G21)', () => {
-      // Chrome loads WAR matches carrying a port, including the `:*` port
-      // wildcard (verified against live Chrome). The build must not fail.
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
@@ -663,19 +652,15 @@ describe('generateManifestPatches', () => {
         )
       }).not.toThrow()
 
-      // Directory declared as a glob so Chrome serves everything beneath it.
       expect(Array.from(resolved.v3[0].resources)).toContain('icons/*')
-      // Each file under the directory emitted, preserving its relative path.
       const names = emitAsset.mock.calls.map((c: any[]) => c[0])
       expect(names).toContain('icons/a.png')
       expect(names).toContain('icons/sub/b.png')
-      // No spurious errors.
       expect(compilation.errors.length).toBe(0)
     })
 
     it('preserves public-root path and warns if missing under public/', () => {
       const pub = '/img/logo.png'
-      // Do not create public/img/logo.png to trigger warning and preserve string
 
       const result = runWith(
         {},
@@ -802,15 +787,12 @@ describe('generateManifestPatches', () => {
     })
 
     it('emits a warning for missing public-root path', () => {
-      // public-root points to /root/app/public/img/logo.png which does not exist
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
           {matches: ['<all_urls>'], resources: ['/img/logo.png']}
         ]
       }
-
-      // Ensure missing under public/
 
       const manifestSource = {source: () => JSON.stringify(manifest)}
       const compilation = {
@@ -819,8 +801,6 @@ describe('generateManifestPatches', () => {
         updateAsset: vi.fn(),
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
-        // Public-root warnings are intentionally emitted in production only to
-        // avoid noise in dev mode (dev server will surface runtime 404s).
         options: {mode: 'production'},
         warnings: [] as any[]
       }
@@ -905,7 +885,6 @@ describe('generateManifestPatches', () => {
   })
 
   it('should merge only when matches sets are equal (mv3) and sort deterministically', () => {
-    // See above: declared resources have to exist to stay in the manifest.
     fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
     fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing.svg'), 'x')
     fs.writeFileSync(path.join(tmpRoot, 'dist', 'x.svg'), 'x')
@@ -926,7 +905,6 @@ describe('generateManifestPatches', () => {
             js: ['content_scripts/content-0.js']
           },
           {
-            // different set, overlapping value present but not equal set
             matches: ['https://example.com/*'],
             js: ['content_scripts/other.js']
           }
@@ -949,7 +927,6 @@ describe('generateManifestPatches', () => {
       resources: string[]
     }[]
 
-    // Should produce two groups; one merged with exact-match set, one untouched
     expect(groups.length).toBe(2)
 
     const merged = groups.find(
@@ -959,7 +936,6 @@ describe('generateManifestPatches', () => {
       (g) => g.matches.join(',') === 'https://example.com/*'
     )!
 
-    // Deterministic sort on resources
     expect(merged.resources).toEqual(
       ['content_scripts/a.svg', 'content_scripts/b.svg', 'existing.svg'].sort()
     )

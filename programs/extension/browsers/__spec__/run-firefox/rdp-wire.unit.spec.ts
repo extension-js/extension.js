@@ -5,10 +5,6 @@ import {
 } from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 
 describe('RDP wire format', () => {
-  // -----------------------------------------------------------------------
-  // buildRdpFrame
-  // -----------------------------------------------------------------------
-
   describe('buildRdpFrame', () => {
     it('encodes a payload as length:json', () => {
       const frame = buildRdpFrame({to: 'root', type: 'listTabs'})
@@ -24,14 +20,9 @@ describe('RDP wire format', () => {
       const len = parseInt(frame.substring(0, colonIdx), 10)
       const body = frame.substring(colonIdx + 1)
       expect(len).toBe(Buffer.from(body).length)
-      // byte length > character length for multi-byte chars
       expect(len).toBeGreaterThan(body.length)
     })
   })
-
-  // -----------------------------------------------------------------------
-  // parseRdpFrame, single complete frame
-  // -----------------------------------------------------------------------
 
   describe('parseRdpFrame, complete frames', () => {
     it('parses a single complete frame', () => {
@@ -66,10 +57,6 @@ describe('RDP wire format', () => {
     })
   })
 
-  // -----------------------------------------------------------------------
-  // parseRdpFrame, incomplete / split frames
-  // -----------------------------------------------------------------------
-
   describe('parseRdpFrame, incomplete frames', () => {
     it('returns input unchanged when frame is incomplete (no colon yet)', () => {
       const result = parseRdpFrame(Buffer.from('42'))
@@ -79,7 +66,6 @@ describe('RDP wire format', () => {
     })
 
     it('returns input unchanged when body is shorter than declared length', () => {
-      // Declare 100 bytes but only provide 10
       const partial = '100:{"short":1}'
       const result = parseRdpFrame(Buffer.from(partial))
       expect(result.parsedMessage).toBeUndefined()
@@ -91,17 +77,14 @@ describe('RDP wire format', () => {
       const payload = {from: 'tab-1', result: {value: 'hello world'}}
       const frame = buildRdpFrame(payload)
 
-      // Split in the middle
       const mid = Math.floor(frame.length / 2)
       const chunk1 = frame.substring(0, mid)
       const chunk2 = frame.substring(mid)
 
-      // First chunk: incomplete
       const r1 = parseRdpFrame(Buffer.from(chunk1))
       expect(r1.parsedMessage).toBeUndefined()
       expect(r1.error).toBeUndefined()
 
-      // Reassemble and parse
       const combined = Buffer.concat([r1.remainingData, Buffer.from(chunk2)])
       const r2 = parseRdpFrame(combined)
       expect(r2.parsedMessage).toEqual(payload)
@@ -109,22 +92,16 @@ describe('RDP wire format', () => {
     })
   })
 
-  // -----------------------------------------------------------------------
-  // parseRdpFrame, multiple frames in one chunk
-  // -----------------------------------------------------------------------
-
   describe('parseRdpFrame, multiple frames in one chunk', () => {
     it('parses first frame and returns second as remaining data', () => {
       const msg1 = {from: 'root', tabs: [{actor: 'tab-1'}]}
       const msg2 = {from: 'tab-1', type: 'attached'}
       const combined = buildRdpFrame(msg1) + buildRdpFrame(msg2)
 
-      // First parse
       const r1 = parseRdpFrame(Buffer.from(combined))
       expect(r1.parsedMessage).toEqual(msg1)
       expect(r1.remainingData.length).toBeGreaterThan(0)
 
-      // Second parse on remaining data
       const r2 = parseRdpFrame(r1.remainingData)
       expect(r2.parsedMessage).toEqual(msg2)
       expect(r2.remainingData.length).toBe(0)
@@ -149,10 +126,6 @@ describe('RDP wire format', () => {
       expect(parsed).toEqual(msgs)
     })
   })
-
-  // -----------------------------------------------------------------------
-  // parseRdpFrame, multi-byte UTF-8 bodies (byte-length framing)
-  // -----------------------------------------------------------------------
 
   describe('parseRdpFrame, multi-byte UTF-8', () => {
     it('round-trips a body with accents, CJK, and emoji', () => {
@@ -185,7 +158,6 @@ describe('RDP wire format', () => {
       const payload = {from: 'tab-1', text: 'café 日本語 🎉'}
       const frame = Buffer.from(buildRdpFrame(payload))
 
-      // Split at a byte offset that lands inside a multi-byte sequence.
       const chunk1 = frame.subarray(0, frame.length - 3)
       const chunk2 = frame.subarray(frame.length - 3)
 
@@ -199,10 +171,6 @@ describe('RDP wire format', () => {
     })
   })
 
-  // -----------------------------------------------------------------------
-  // parseRdpFrame, error handling
-  // -----------------------------------------------------------------------
-
   describe('parseRdpFrame, error cases', () => {
     it('returns fatal error for non-numeric length prefix', () => {
       const result = parseRdpFrame(Buffer.from('abc:{"bad":true}'))
@@ -211,7 +179,6 @@ describe('RDP wire format', () => {
     })
 
     it('returns non-fatal error for invalid JSON body', () => {
-      // Correct length but broken JSON
       const badJson = '{not valid json'
       const len = Buffer.from(badJson).length
       const frame = `${len}:${badJson}`
@@ -219,7 +186,6 @@ describe('RDP wire format', () => {
 
       expect(result.error).toBeDefined()
       expect(result.fatal).toBe(false)
-      // Remaining data should skip past the bad frame
       expect(result.remainingData.length).toBe(0)
     })
 
@@ -233,7 +199,6 @@ describe('RDP wire format', () => {
     it('returns input unchanged for buffer with only colon', () => {
       const result = parseRdpFrame(Buffer.from(':'))
       expect(result.parsedMessage).toBeUndefined()
-      // separatorIndex < 1, so no parse attempt
     })
   })
 })

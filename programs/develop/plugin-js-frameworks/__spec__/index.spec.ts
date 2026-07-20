@@ -70,8 +70,6 @@ vi.mock('../../lib/transpile-packages', () => ({
     transpilePackagesMocks.resolveTranspilePackageDirs,
   isSubPath: transpilePackagesMocks.isSubPath
 }))
-// The manifest-fields package is externalized CJS (the fs mock below cannot
-// reach it), so stub it at the module boundary instead
 vi.mock('browser-extension-manifest-fields', () => ({
   getManifestFieldsData: vi.fn(() => ({
     html: projectFilesMocks.manifestHtmlFields
@@ -82,7 +80,6 @@ vi.mock('../../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForCompiler: vi.fn(() => ({pages: {}, scripts: {}}))
 }))
 
-// Mock manifest and page-HTML reads inside fs.readFileSync
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
@@ -150,13 +147,11 @@ describe('JsFrameworksPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Aliases merged (no babel)
     expect(compiler.options.resolve.alias).toMatchObject({
       ...mockedReact.alias,
       ...mockedPreact.alias
     })
 
-    // Has the base SWC rule first
     const swcRule = compiler.options.module.rules[0]
     expect(String(swcRule.test)).toContain('js')
     expect(swcRule.use?.options?.env?.targets).toEqual([
@@ -166,18 +161,15 @@ describe('JsFrameworksPlugin', () => {
     expect(swcRule.use?.options?.jsc?.parser?.syntax).toBe('typescript')
     expect(swcRule.use?.options?.sourceMap).toBe(true)
 
-    // Framework loaders appended
     const tests = compiler.options.module.rules.map((r: any) => String(r.test))
     expect(tests.some((t: string) => t.includes('\\.vue'))).toBe(true)
     expect(tests.some((t: string) => t.includes('\\.svelte'))).toBe(true)
 
-    // Framework plugins applied
     expect(mockedReact.plugins?.[0].apply).toHaveBeenCalled()
     expect(mockedPreact.plugins?.[0].apply).toHaveBeenCalled()
     expect(mockedVue.plugins?.[0].apply).toHaveBeenCalled()
     expect(mockedSvelte.plugins?.[0].apply).toHaveBeenCalled()
 
-    // tsconfig is set
     expect(compiler.options.resolve.tsConfig?.configFile).toBe(
       '/project/tsconfig.json'
     )
@@ -193,13 +185,9 @@ describe('JsFrameworksPlugin', () => {
     await plugin.apply(compiler)
     expect(compiler.hooks.beforeRun.tapPromise).toHaveBeenCalled()
 
-    // Simulate the hook being called by Rspack
     await (compiler.hooks.beforeRun as any)._cb()
 
-    // Now the SWC rule should be present
     const swcRule = compiler.options.module.rules[0]
-    // Regression: keep SWC minify disabled in production so magic comments
-    // (e.g. webpackIgnore/rspackIgnore) are preserved for bundler parsing.
     expect(swcRule?.use?.options?.minify).toBe(false)
   })
 
@@ -234,7 +222,6 @@ describe('JsFrameworksPlugin', () => {
     const compiler = createCompiler('development')
     const isCustomElement = vi.fn((tag: string) => tag.startsWith('ion-'))
 
-    // Simulate a user-provided vue-loader rule coming from extension.config.js
     compiler.options.module.rules.push({
       test: /\.vue$/,
       loader: '/mock/vue-loader',
@@ -257,7 +244,6 @@ describe('JsFrameworksPlugin', () => {
     expect(vueRules[0].options.compilerOptions.isCustomElement).toBe(
       isCustomElement
     )
-    // Ensure our default options are present (merged into the user rule)
     expect(vueRules[0].options.experimentalInlineMatchResource).toBe(true)
   })
 
@@ -298,19 +284,11 @@ describe('JsFrameworksPlugin', () => {
 
     await plugin.apply(compiler)
 
-    // Browsers load plain `<script src>` page scripts and classic workers as
-    // sloppy classic scripts; forcing every non-content-script file to
-    // strict ESM rejected Chrome-valid extensions (G20). The type must be an
-    // EXPLICIT javascript/auto: left implicit, rspack infers it from the
-    // nearest package.json `"type"` field, which Chrome never reads (G24,
-    // a `"type": "commonjs"` project broke its own module service worker).
     const nonContentRule = compiler.options.module.rules.find(
       (rule: any) => rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
     expect(nonContentRule?.type).toBe('javascript/auto')
 
-    // Content-script rules must NOT be forced esm. They are injected as
-    // classic scripts.
     const contentRules = compiler.options.module.rules.filter(
       (rule: any) => rule?.layer === 'extensionjs-content-script'
     )
@@ -319,7 +297,6 @@ describe('JsFrameworksPlugin', () => {
       expect((rule as any).type).toBe('javascript/auto')
     }
 
-    // With nothing platform-declared as a module, no ESM marker rule exists.
     const esmRules = compiler.options.module.rules.filter(
       (rule: any) => rule?.type === 'javascript/esm'
     )
@@ -342,11 +319,6 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.type === 'javascript/esm'
     )
     expect(esmRule).toBeDefined()
-    // The rule must match every absolute form of the same file. On Windows
-    // these disagree, `path.normalize` keeps a drive-less `\project\sw.js`
-    // while `path.resolve` (the shape rspack reports) yields
-    // `D:\project\sw.js`, so probing both keeps set-vs-probe form drift from
-    // passing on POSIX CI and failing only on the Windows runner.
     expect(esmRule.include(path.normalize('/project/sw.js'))).toBe(true)
     expect(esmRule.include(path.resolve('/project/sw.js'))).toBe(true)
     expect(esmRule.include('/project/./sw.js')).toBe(true)
@@ -371,11 +343,6 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.type === 'javascript/esm'
     )
     expect(esmRule).toBeDefined()
-    // The ESM marker rule excludes content-script files via the shared
-    // content-like matcher. Content-script paths are stored resolved
-    // (drive-lettered on Windows) while rspack may probe with either form.
-    // The matcher must recognize all of them or the content-script instance
-    // gets force-marked ESM on exactly one platform.
     const isContentLike = (esmRule as any).exclude[0]
     expect(isContentLike(path.normalize('/project/content.js'))).toBe(true)
     expect(isContentLike(path.resolve('/project/content.js'))).toBe(true)
@@ -424,12 +391,8 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.type === 'javascript/esm'
     )
     expect(esmRule).toBeDefined()
-    // Probe the normalized AND resolved forms: HTML-derived module paths are
-    // built with `path.join` (drive-less on Windows) while rspack reports the
-    // resolved, drive-lettered form, so matching must be form-insensitive.
     expect(esmRule.include(path.normalize('/project/main.js'))).toBe(true)
     expect(esmRule.include(path.resolve('/project/main.js'))).toBe(true)
-    // A plain <script src> is a classic script to the browser, never ESM.
     expect(esmRule.include(path.normalize('/project/classic.js'))).toBe(false)
     expect(esmRule.include(path.resolve('/project/classic.js'))).toBe(false)
   })

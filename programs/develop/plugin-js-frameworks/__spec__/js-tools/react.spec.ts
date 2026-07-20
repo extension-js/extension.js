@@ -22,7 +22,6 @@ vi.mock('../../../lib/optional-deps-resolver', () => ({
   loadOptionalContractModuleWithoutInstall: vi.fn(() => ReactRefreshPluginCtor)
 }))
 
-// Ensure require.resolve('react-refresh') succeeds to avoid install+exit
 const originalResolve = (require as any).resolve
 beforeEach(() => {
   ;(require as any).resolve = vi.fn((id: string) =>
@@ -61,7 +60,6 @@ describe('react tools', () => {
       this.options = options
       this.apply = vi.fn()
     } as any
-    // Mock module.createRequire to control both resolve() and require() paths.
     vi.doMock('module', () => ({
       createRequire: () => {
         const req = ((id: string) => {
@@ -134,7 +132,6 @@ describe('react tools', () => {
     const {maybeUseReact} = await import('../../js-tools/react')
     const result = await maybeUseReact('/p', {})
 
-    // The plugin was constructed from the named export, not the namespace object.
     expect(result?.plugins?.length).toBeGreaterThan(0)
     expect(result?.plugins?.[0]).toBeInstanceOf(ReactRefreshPluginCtor)
   })

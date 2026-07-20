@@ -11,20 +11,12 @@ import {
   findUnloadableIconFiles
 } from '../browsers-lib/manifest-refusal'
 
-// Launch-time honesty for manifest shapes Chromium refuses to load AT ALL:
-// the refusal surfaces as a native modal or as nothing (no console error, no
-// CDP target), so dev must say why before the spawn. MV2 was already
-// diagnosed; Firefox-style MV3 `background.scripts` without a service_worker
-// is the second shape (MelonTranslate / spotify-hotkeys-firefox cluster).
 describe('diagnoseChromiumManifestRefusal', () => {
   it('flags MV2', () => {
     expect(diagnoseChromiumManifestRefusal({manifest_version: 2})).toBe('mv2')
   })
 
   it('flags missing, MV1, and above-3 manifest_version as unsupported (wild: Custom-salesforce-inspector)', () => {
-    // Chrome treats a missing manifest_version as MV1 and refuses with
-    // "Cannot install extension because it uses an unsupported manifest
-    // version", same native-dialog wedge as MV2.
     expect(diagnoseChromiumManifestRefusal({name: 'x'})).toBe(
       'unsupported-manifest-version'
     )
@@ -52,8 +44,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
         background: {service_worker: 'sw.js'}
       })
     ).toBeNull()
-    // Dual-declared manifests load on Chromium (it uses the worker), the
-    // scripts array is Firefox's half of a cross-browser manifest.
     expect(
       diagnoseChromiumManifestRefusal({
         manifest_version: 3,
@@ -63,12 +53,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
   })
 
   it('does NOT flag query strings or fragments (verified live: Chrome 150 installs them ENABLED)', () => {
-    // `?` and `#` are literal path characters to Chrome's pattern parser,
-    // verified live 2026-07-11 via CDP loadUnpacked AND --load-extension:
-    // Ban-Checker's exact `.../gcpd/730?tab=majors` and `/page#section*`
-    // both install ENABLED, and the store-published SN-Utils (323★) ships
-    // `*://*/*?XML*` in exclude_matches. Flagging these warned "the whole
-    // extension will not load" on extensions that load fine.
     const invalid = findInvalidMatchPatterns({
       manifest_version: 3,
       host_permissions: ['*://steamcommunity.com/*'],
@@ -90,10 +74,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
   })
 
   it('accepts valid patterns, <all_urls>, IPs, and explicit ports (wild: memux loads fine with localhost:3000)', () => {
-    // Chromium's URLPattern ACCEPTS ports, verified live 2026-07-11: an
-    // extension declaring http://localhost:3000/* and example.com:8888/*
-    // installs ENABLED. Flagging them warned "the whole extension will not
-    // load" on extensions that load fine.
     expect(
       findInvalidMatchPatterns({
         host_permissions: [
@@ -117,11 +97,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
   })
 
   it('does NOT flag WILDCARD ports (verified live: chat-relay installs ENABLED with ws://localhost:*/)', () => {
-    // The port is not part of the host and may itself be a wildcard. The check
-    // used to test the whole authority, so `localhost:*` read as a mid-host
-    // wildcard and warned "the whole extension will not load" about an
-    // extension Chrome installs ENABLED with a running service worker
-    // (wild: BinaryBeastMaster/chat-relay, verified on Chrome 150).
     expect(
       findInvalidMatchPatterns({
         host_permissions: [
@@ -132,7 +107,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
       })
     ).toEqual([])
 
-    // …while a genuine mid-host wildcard is still refused, port or not.
     expect(
       findInvalidMatchPatterns({
         host_permissions: ['*://*carbonwise*:*/*']
@@ -155,8 +129,6 @@ describe('diagnoseChromiumManifestRefusal', () => {
   })
 })
 
-// Each shape below was proven against a wild subject with CDP
-// `Extensions.loadUnpacked`, which reports the reason --load-extension hides.
 describe('findChromiumLoadBlockers', () => {
   it('flags a host wildcard Chrome refuses (CarbonWise: *://*carbonwise*/*)', () => {
     expect(
@@ -220,7 +192,6 @@ describe('findChromiumLoadBlockers', () => {
     expect(findChromiumLoadBlockers({...valid, key: 'not-base64!!'})).toEqual([
       'key: not a valid base64 public key, Chrome refuses the extension.'
     ])
-    // broken padding, queup's exact failure mode
     expect(
       findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQE'})
     ).toEqual([
@@ -282,7 +253,6 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       "web_accessible_resources[0]: 'resources' is required, Chrome refuses the extension without it."
     ])
-    // use_dynamic_url alone satisfies "one other valid key" (verified live)
     expect(
       findChromiumLoadBlockers({
         ...valid,
@@ -291,7 +261,6 @@ describe('findChromiumLoadBlockers', () => {
         ]
       })
     ).toEqual([])
-    // MV2 string-array WAR is legal on MV2, never flag it there
     expect(
       findChromiumLoadBlockers({
         manifest_version: 2,
@@ -341,7 +310,6 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       'minimum_chrome_version: invalid value "banana", Chrome refuses the extension.'
     ])
-    // below the browser: loads (fixture 31); unknown browser version: silent
     expect(
       findChromiumLoadBlockers(
         {...valid, minimum_chrome_version: '100'},
@@ -354,7 +322,6 @@ describe('findChromiumLoadBlockers', () => {
   })
 
   it('never flags shapes verified to LOAD on Chrome 150 (the temptation list)', () => {
-    // MV3 background.page and background.persistent both install fine.
     expect(
       findChromiumLoadBlockers({...valid, background: {page: 'bg.html'}})
     ).toEqual([])
@@ -371,7 +338,6 @@ describe('findChromiumLoadBlockers', () => {
 
   it('tolerates malformed manifests; an empty one is truthfully flagged', () => {
     expect(findChromiumLoadBlockers(undefined)).toEqual([])
-    // {} genuinely refuses on Chrome (no name, no version), say so.
     const empty = findChromiumLoadBlockers({})
     expect(empty.some((b) => b.startsWith('name:'))).toBe(true)
     expect(empty.some((b) => b.startsWith('version:'))).toBe(true)
@@ -385,9 +351,6 @@ describe('findChromiumLoadBlockers', () => {
   })
 })
 
-// The locale family, every shape verified live on Chrome 150 (2026-07-13,
-// CDP loadUnpacked): missing catalogs, missing default_locale, unparseable
-// catalogs, and unresolved __MSG__ variables all refuse the whole extension.
 describe('findLocaleLoadBlockers', () => {
   let dir: string
   const valid = {manifest_version: 3, name: 'x', version: '1.0'}
@@ -491,8 +454,6 @@ describe('findLocaleLoadBlockers', () => {
   })
 })
 
-// "File does not exist: <path>", storage.managed_schema pointing nowhere
-// refuses the whole extension (fixture 19, Chrome 150).
 describe('findMissingManagedSchema', () => {
   let dir: string
 
@@ -516,10 +477,6 @@ describe('findMissingManagedSchema', () => {
   })
 })
 
-// Chrome refuses the whole extension over an icon it cannot load ("Could not
-// load icon '<file>'"), and with --load-extension that surfaces only on
-// stderr, dev printed an Extension ID for an extension the browser silently
-// never installed (wild: Speak2Type's 0-byte icon-128.png).
 describe('findUnloadableIconFiles', () => {
   let dir: string
 

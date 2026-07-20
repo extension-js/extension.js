@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {theme} from '../theme'
 
 describe('theme manifest override', () => {
@@ -19,9 +19,6 @@ describe('theme manifest override', () => {
   })
 
   it('rewrites an additional_backgrounds array without crashing on path.basename', () => {
-    // Regression: `additional_backgrounds` is an array of paths; the override
-    // used to pass it straight to path.basename() (string-only) and threw
-    // ERR_INVALID_ARG_TYPE. It must map over the array instead.
     const result = theme({
       theme: {
         images: {
@@ -37,7 +34,6 @@ describe('theme manifest override', () => {
       'theme/images/weta.png',
       'theme/images/weta-left.png'
     ])
-    // Non-image fields pass through untouched.
     expect(result.theme.properties.additional_backgrounds_alignment).toEqual([
       'right top',
       'left top'

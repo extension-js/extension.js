@@ -26,7 +26,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
   it('includes scanned extensions/<name> (manifest.json) and keeps user extension output last', async () => {
     const root = tmpDir('extjs-companion-wire-')
 
-    // Minimal project structure
     const pkgPath = path.join(root, 'package.json')
     const manifestPath = path.join(root, 'manifest.json')
     fs.writeFileSync(pkgPath, JSON.stringify({name: 'x'}), 'utf-8')
@@ -36,7 +35,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       'utf-8'
     )
 
-    // Companion unpacked extension root under ./extensions/other/manifest.json
     const companionRoot = path.join(root, 'extensions', 'other')
     fs.mkdirSync(companionRoot, {recursive: true})
     fs.writeFileSync(
@@ -278,7 +276,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     const root = tmpDir('extjs-devtools-source-manifest-')
     const userOut = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(userOut, {recursive: true})
-    // Intentionally do not write dist/chrome/manifest.json to simulate startup race.
 
     const sourceManifestPath = path.join(root, 'manifest.json')
     fs.writeFileSync(
@@ -338,11 +335,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
   })
 
   it('skips companion entries whose basename matches a reserved built-in package', () => {
-    // Regression: when the user keeps source folders like
-    // ./extensions/extension-js-devtools next to their project, the auto
-    // companion scan would surface that path as a load entry. The built-in
-    // resolver also adds the mirrored devtools dir, so Chrome would render
-    // two unpacked entries for the same logical extension.
     const root = tmpDir('extjs-devtools-companion-shadow-')
     const userOut = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(userOut, {recursive: true})
@@ -384,7 +376,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       'utf-8'
     )
 
-    // Companion-style shadow paths the user could have on disk
     const shadowDevtools = path.join(
       root,
       'extensions',
@@ -406,10 +397,6 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
   })
 
   it('dedupes the final load list by absolute path', () => {
-    // Regression: a companion entry pointing at the same absolute path as the
-    // user output (or an aliased duplicate via ./ prefix) must collapse to a
-    // single Chrome --load-extension argument so chrome://extensions does
-    // not show two cards for the same unpacked extension.
     const root = tmpDir('extjs-load-dedupe-')
     const userOut = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(userOut, {recursive: true})

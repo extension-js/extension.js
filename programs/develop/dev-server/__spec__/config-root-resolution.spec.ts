@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {loadCommandConfig, loadBrowserConfig, loadCustomConfig} = vi.hoisted(
   () => ({
@@ -129,13 +129,6 @@ describe('dev-server config root resolution', () => {
   })
 
   it('watches public/** and HTML sources for non-framework projects', async () => {
-    // The dev-server's watchFiles broadcast (`static-changed` →
-    // `self.location.reload()` in the bundled HMR client) is the only path
-    // that delivers public/* asset edits and HTML-entry edits to already-open
-    // extension pages once rspack 2.x stopped bumping stats.hash for
-    // asset-only rebuilds. Without these watch paths, edits to
-    // _locales/*.json, manifest.json, public/*, or src/**/*.html are
-    // invisible to the open extension UI until the user manually reloads.
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',
@@ -146,7 +139,6 @@ describe('dev-server config root resolution', () => {
 
     const watchFiles = devServerConfigCapture.current.watchFiles
     expect(watchFiles).toBeDefined()
-    // Normalize Windows backslashes so the assertion runs on both platforms.
     const norm = (p: string) => p.replace(/\\/g, '/')
     const paths = (watchFiles.paths as string[]).map(norm)
     expect(paths.some((p) => p.includes('/public/'))).toBe(true)
@@ -156,13 +148,6 @@ describe('dev-server config root resolution', () => {
   })
 
   it('enables hot and liveReload but disables WDS client injection', async () => {
-    // Content scripts strip the dev-server runtime entirely via
-    // StripContentScriptDevServerRuntime, so re-enabling liveReload no longer
-    // triggers content-script reload loops. liveReload: true is required so
-    // the dev-server's watchFiles change broadcast and the bundled HMR
-    // client's reloadApp -> liveReload fallback both fire when an HTML entry
-    // is edited (rspack 2.x stopped bumping stats.hash on asset-only
-    // rebuilds, breaking the previous accidental hot-update path).
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',

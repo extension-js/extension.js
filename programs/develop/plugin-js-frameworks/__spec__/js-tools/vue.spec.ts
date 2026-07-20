@@ -5,7 +5,6 @@ vi.mock('../../frameworks-lib/integrations', () => ({
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
-// Ensure vue-loader resolves
 const originalResolve = (require as any).resolve
 beforeEach(() => {
   ;(require as any).resolve = vi.fn((id: string) =>
@@ -31,7 +30,6 @@ describe('vue tools', () => {
       (_p: string, dep: string) => dep === 'vue'
     )
 
-    // Provide custom loader options via loader-options helper
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({foo: 1}))
     }))

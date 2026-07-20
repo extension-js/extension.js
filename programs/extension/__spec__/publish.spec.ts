@@ -1,4 +1,4 @@
-import {describe, it, expect, afterEach} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 import {buildPublishRequest} from '../commands/publish'
 
 const ORIG = {...process.env}
@@ -24,7 +24,7 @@ describe('buildPublishRequest', () => {
     process.env.EXTENSION_DEV_TOKEN = 'tok_env'
     process.env.EXTENSION_DEV_API_URL = 'http://localhost:3000/'
     const req = buildPublishRequest({})
-    expect(req.url).toBe('http://localhost:3000/api/cli/publish') // trailing slash trimmed
+    expect(req.url).toBe('http://localhost:3000/api/cli/publish')
     expect(req.headers.authorization).toBe('Bearer tok_env')
   })
 

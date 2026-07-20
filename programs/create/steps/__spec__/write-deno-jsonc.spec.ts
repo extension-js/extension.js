@@ -4,9 +4,6 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {writeDenoJsonc} from '../write-deno-jsonc'
 
-// Simulate a Deno runtime by exposing its runtime global (same approach as
-// lib/__spec__/deno-next-steps.spec.ts, Deno launches npm packages without
-// `npm_config_user_agent`, so `globalThis.Deno` is the only reliable signal).
 function withDenoGlobal(body: () => Promise<void> | void) {
   const hadDeno = 'Deno' in globalThis
   ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
@@ -17,8 +14,6 @@ function withDenoGlobal(body: () => Promise<void> | void) {
 
 const noopLogger = {log() {}, error() {}}
 
-// The generated file only uses full-line `//` comments, so stripping them
-// yields plain JSON, proving the JSONC stays machine-readable.
 function parseJsonc(contents: string): Record<string, any> {
   const withoutComments = contents
     .split('\n')
@@ -34,7 +29,6 @@ describe('writeDenoJsonc', () => {
   const prevExtensionEnv = process.env.EXTENSION_ENV
 
   beforeEach(async () => {
-    // Pin the scaffolded binary to the published `extension` bin.
     delete process.env.EXTENSION_CREATE_DEVELOP_ROOT
     delete process.env.EXTENSION_ENV
     tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'ext-deno-jsonc-'))
@@ -132,7 +126,6 @@ describe('writeDenoJsonc', () => {
     expect(config.nodeModulesDir).toBe('auto')
     expect(config.tasks.dev).toBe('extension dev')
 
-    // deno.jsonc replaces package.json as the manifest.
     await expect(
       fsp.access(path.join(projectPath, 'package.json'))
     ).rejects.toThrow()
@@ -163,8 +156,6 @@ describe('writeDenoJsonc', () => {
       await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
     )
     expect(Object.keys(config.imports)).toEqual(['extension'])
-    // #57: with no cliVersion the import must pin a RESOLVED version (the
-    // create package's own lockstep version), never float `@latest`.
     expect(config.imports.extension).not.toBe('npm:extension@latest')
     expect(config.imports.extension).toMatch(/^npm:extension@\^?\d+\.\d+\.\d+/)
   })

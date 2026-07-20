@@ -1,10 +1,10 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import type {ActionRecord, ActionsSink} from '../actions-file'
 import {
   BridgeBroker,
-  CLOSE_CONTROL_UNAVAILABLE,
-  type BridgeConnection
+  type BridgeConnection,
+  CLOSE_CONTROL_UNAVAILABLE
 } from '../broker'
-import type {ActionRecord, ActionsSink} from '../actions-file'
 import type {CommandFrame, ServerFrame} from '../contracts'
 
 class FakeConn implements BridgeConnection {
@@ -26,7 +26,6 @@ class FakeActions implements ActionsSink {
   }
 }
 
-/** Manual scheduler so timeouts are deterministic. */
 function makeScheduler() {
   const tasks = new Map<number, () => void>()
   let id = 0
@@ -85,7 +84,6 @@ describe('BridgeBroker (Slice 2: act)', () => {
       reload: true,
       deepDom: true
     })
-    // eval not enabled by default even with allow-control.
     expect(ready.capabilities.eval).toBe(false)
     expect(ready.capabilities.open).toEqual([
       'popup',
@@ -125,7 +123,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const ctl = new FakeConn('ctl')
     helloProducer(b, exec)
     helloController(b, ctl)
-    ctl.sent = [] // drop ready
+    ctl.sent = []
 
     b.onFrame(ctl, {
       type: 'command',
@@ -134,12 +132,10 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'}
     })
 
-    // Executor received the command (token never relayed).
     const fwd = exec.sent.find((f) => f.type === 'command') as any
     expect(fwd).toMatchObject({type: 'command', cmdId: 'cmd-1', op: 'reload'})
     expect(b.pendingCount).toBe(1)
 
-    // Executor replies; result is routed to the controller and audited.
     b.onFrame(exec, {
       type: 'result',
       cmdId: 'cmd-1',
@@ -171,7 +167,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const ctl = new FakeConn('ctl')
     helloProducer(b, exec)
     helloController(b, ctl)
-    ctl.sent = [] // drop ready
+    ctl.sent = []
 
     b.onFrame(ctl, {
       type: 'command',
@@ -228,9 +224,10 @@ describe('BridgeBroker (Slice 2: act)', () => {
       ok: false,
       error: {name: 'Unavailable'}
     })
-    // No producer has ever said hello → the never-connected diagnosis.
     expect(result.error.message).toContain('no executor connected')
-    expect(result.error.message).toContain('no extension service worker has connected')
+    expect(result.error.message).toContain(
+      'no extension service worker has connected'
+    )
     expect(actions.records[0]).toMatchObject({
       ok: false,
       errorName: 'Unavailable'
@@ -283,7 +280,6 @@ describe('BridgeBroker (Slice 2: act)', () => {
       const ctl = new FakeConn('ctl')
       helloController(b, ctl)
       const msg = denyMessage(b, ctl)
-      // Wins over never-connected: no producer was ever accepted here.
       expect(msg).toContain('told to full-reload')
       expect(msg).toContain('4s ago')
     })
@@ -291,8 +287,6 @@ describe('BridgeBroker (Slice 2: act)', () => {
     it('records the stale hello even when the resync is rate-limited', () => {
       let t = 0
       const b = new BridgeBroker(base({now: () => t}))
-      // 3/min resync cap: the 4th stale hello gets no reload frame but must
-      // still be stamped for diagnosis.
       for (let i = 0; i < 4; i++) {
         t += 1000
         staleProducerHello(b, new FakeConn(`stale-${i}`))
@@ -341,7 +335,6 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const exec = new FakeConn('exec')
     helloProducer(b, exec)
 
-    // Wrong token → eval forbidden, never forwarded, hash recorded (not raw expr).
     const ctl = new FakeConn('ctl')
     helloController(b, ctl, 'WRONG')
     ctl.sent = []
@@ -361,9 +354,8 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const rec = actions.records.at(-1)!
     expect(rec).toMatchObject({op: 'eval', ok: false, errorName: 'Forbidden'})
     expect(typeof rec.exprHash).toBe('string')
-    expect(rec.expr).toBeUndefined() // raw source never written by default
+    expect(rec.expr).toBeUndefined()
 
-    // Right token → eval forwarded to the executor.
     const ctl2 = new FakeConn('ctl2')
     helloController(b, ctl2, 'secret')
     b.onFrame(ctl2, {
@@ -400,15 +392,12 @@ describe('BridgeBroker (Slice 2: act)', () => {
       return result.error.message
     }
 
-    // --allow-eval not set: says so, even when a token is presented.
     expect(evalDeny({allowEval: false}, 'anything')).toContain('--allow-eval')
 
-    // Enabled but the hello carried no token: points at the token file read.
     expect(evalDeny({allowEval: true, controlToken: 'secret'})).toContain(
       'token missing'
     )
 
-    // Enabled with the wrong token: stale-token mismatch.
     expect(
       evalDeny({allowEval: true, controlToken: 'secret'}, 'WRONG')
     ).toContain('token mismatch')
@@ -458,7 +447,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       timeoutMs: 1000
     })
     expect(b.pendingCount).toBe(1)
-    sched.fire(1) // fire the timeout
+    sched.fire(1)
     expect(ctl.sent.at(-1)).toMatchObject({
       type: 'result',
       cmdId: 't1',
@@ -490,7 +479,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     expect(b.pendingCount).toBe(1)
     b.onClose(ctl)
     expect(b.pendingCount).toBe(0)
-    expect(sched.pending()).toBe(0) // timer cleared
+    expect(sched.pending()).toBe(0)
   })
 
   it('ignores result frames from non-executor connections', () => {
@@ -506,9 +495,8 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'}
     })
     ctl.sent = []
-    // A controller (not the executor) sending a result must be ignored.
     b.onFrame(ctl, {type: 'result', cmdId: 'x1', ok: true})
-    expect(b.pendingCount).toBe(1) // still pending
+    expect(b.pendingCount).toBe(1)
     expect(ctl.sent).toHaveLength(0)
   })
 })

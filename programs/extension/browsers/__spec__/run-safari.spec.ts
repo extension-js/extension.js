@@ -60,8 +60,6 @@ describe('run-safari config', () => {
     } as any)
 
     expect(config.appName).toBe('My Cool Extension')
-    // Case preserved + spaces→hyphens so it matches the app id the converter
-    // derives from --app-name (keeps app/appex bundle ids prefix-aligned).
     expect(config.bundleIdentifier).toBe('dev.extensionjs.My-Cool-Extension')
     expect(config.projectLocation).toBe(`${distDir}-xcode`)
     expect(config.macOsOnly).toBe(true)
@@ -91,8 +89,6 @@ describe('run-safari config', () => {
   })
 
   it('aligns app and appex PRODUCT_BUNDLE_IDENTIFIERs to the configured id', () => {
-    // Real converter output shape (Xcode 26): the appex id honors
-    // --bundle-identifier but the parent-app id is derived from the app name.
     const pbxproj = [
       'buildSettings = {',
       '  PRODUCT_BUNDLE_IDENTIFIER = "com.example.safari-smoke.Extension";',
@@ -178,13 +174,11 @@ describe('run-safari config', () => {
     } as any)
     const args = composeXcodebuildArgs(config)
 
-    // --macos-only → single scheme named after the app (no " (macOS)" suffix).
     expect(macOsSchemeName(config)).toBe('Build Me')
     expect(args).toContain('-scheme')
     expect(args).toContain('Build Me')
     expect(args).toContain('-project')
     expect(args).toContain(xcodeProjectPath(config))
-    // Ad-hoc signing so the embedded .appex passes ValidateEmbeddedBinary.
     expect(args).toContain('CODE_SIGN_IDENTITY=-')
     expect(args).toContain('CODE_SIGNING_ALLOWED=YES')
     expect(args).not.toContain('CODE_SIGNING_ALLOWED=NO')
@@ -346,9 +340,6 @@ describe('tool output tail', () => {
 })
 
 describe('launchBrowser safari boundary', () => {
-  // Safari is a build-only target packaged via packageSafariExtension; there is
-  // no live browser session to launch into, so launchBrowser rejects it (the
-  // CLI guards dev/preview/start before they ever reach here).
   it('reports safari/webkit-based as unsupported for launching', async () => {
     for (const browser of ['safari', 'webkit-based'] as const) {
       await expect(
@@ -363,10 +354,6 @@ describe('launchBrowser safari boundary', () => {
     }
   })
 })
-
-// ---------------------------------------------------------------------------
-// Manifest fingerprinting, staleness detection
-// ---------------------------------------------------------------------------
 
 describe('manifest fingerprinting', () => {
   let distDir: string
@@ -432,7 +419,6 @@ describe('manifest fingerprinting', () => {
     writeManifest(distDir, {name: 'Legacy', manifest_version: 3})
     const config = configFor(distDir)
 
-    // v1 files stored the normalized manifest string with no JSON envelope.
     fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {
       recursive: true
     })
@@ -452,7 +438,6 @@ describe('manifest fingerprinting', () => {
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
-    // Simulate a manifest edit, add a new permission
     writeManifest(distDir, {
       name: 'Evolving',
       permissions: ['storage', 'tabs']
@@ -475,7 +460,6 @@ describe('manifest fingerprinting', () => {
   it('ignores whitespace-only manifest formatting differences', () => {
     const manifest = {name: 'Whitespace', permissions: ['activeTab']}
     fs.mkdirSync(distDir, {recursive: true})
-    // Write with compact formatting
     fs.writeFileSync(
       path.join(distDir, 'manifest.json'),
       JSON.stringify(manifest)
@@ -483,7 +467,6 @@ describe('manifest fingerprinting', () => {
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
-    // Rewrite with pretty formatting, same content, different whitespace
     fs.writeFileSync(
       path.join(distDir, 'manifest.json'),
       JSON.stringify(manifest, null, 2)
@@ -507,10 +490,6 @@ describe('manifest fingerprinting', () => {
     expect(isProjectStale(config)).toBe(false)
   })
 })
-
-// ---------------------------------------------------------------------------
-// Xcode user-settings preservation
-// ---------------------------------------------------------------------------
 
 describe('xcode user-settings preservation', () => {
   const SAMPLE_PBXPROJ = [
@@ -579,15 +558,10 @@ describe('xcode user-settings preservation', () => {
     })
     expect(result).toContain('DEVELOPMENT_TEAM = MYTEAM;')
     expect(result).toContain('CODE_SIGN_STYLE = Automatic;')
-    // The old values should be gone
     expect(result).not.toMatch(/DEVELOPMENT_TEAM = "";/)
     expect(result).not.toMatch(/CODE_SIGN_STYLE = Manual;/)
   })
 })
-
-// ---------------------------------------------------------------------------
-// Full pipeline staleness integration (faked converter + xcodebuild)
-// ---------------------------------------------------------------------------
 
 describe('safari pipeline staleness integration', () => {
   let distDir: string
@@ -602,8 +576,6 @@ describe('safari pipeline staleness integration', () => {
     } as any)
   }
 
-  // Simulates what the converter would produce: the .xcodeproj directory and
-  // a project.pbxproj inside it.
   function fakeConvert(config: ReturnType<typeof configFor>) {
     const projDir = xcodeProjectPath(config)
     fs.mkdirSync(projDir, {recursive: true})
@@ -615,8 +587,6 @@ describe('safari pipeline staleness integration', () => {
     )
   }
 
-  // Simulates what the converter produces when the user has already configured
-  // signing in Xcode (i.e. the pbxproj has DEVELOPMENT_TEAM).
   function fakeConvertWithTeam(
     config: ReturnType<typeof configFor>,
     team: string
@@ -648,8 +618,6 @@ describe('safari pipeline staleness integration', () => {
     } catch {}
   })
 
-  // A minimal pipeline runner that records tool invocations instead of
-  // shelling out to xcrun / xcodebuild, so the tests work on any OS.
   async function runFakePipeline(
     manifest: Record<string, unknown>,
     opts?: {
@@ -677,10 +645,8 @@ describe('safari pipeline staleness integration', () => {
 
       const {saved, restore} = backupAndRestoreXcodeSettings(config)
 
-      // "Run" the converter (fake).
       converterCalls.push(composeConverterArgs(config))
 
-      // Simulate the converter writing a fresh project.
       const produceFn =
         opts?.converterProduces ||
         ((c: ReturnType<typeof configFor>) => fakeConvert(c))
@@ -699,7 +665,6 @@ describe('safari pipeline staleness integration', () => {
       logs.push('[skipped-conversion]')
     }
 
-    // Always "run" xcodebuild (fake).
     xcodebuildCalls.push(composeXcodebuildArgs(config))
     logs.push('[built]')
 
@@ -707,7 +672,6 @@ describe('safari pipeline staleness integration', () => {
   }
 
   it('resource-only change: skips the converter, still runs xcodebuild', async () => {
-    // First build: full conversion
     const manifest = {
       name: 'MyExt',
       permissions: ['storage'],
@@ -718,23 +682,17 @@ describe('safari pipeline staleness integration', () => {
     expect(first.logs).toContain('[built]')
     expect(converterCalls).toHaveLength(1)
 
-    // Now simulate editing content.js (manifest unchanged).
-    // Just re-run the pipeline with the same manifest.
     const second = await runFakePipeline(manifest)
     expect(second.logs).toContain('[skipped-conversion]')
     expect(second.logs).toContain('[built]')
-    // Converter was NOT called again
     expect(converterCalls).toHaveLength(1)
-    // xcodebuild was called both times
     expect(xcodebuildCalls).toHaveLength(2)
   })
 
   it('manifest change: triggers the converter', async () => {
-    // First build
     await runFakePipeline({name: 'MyExt', permissions: ['storage']})
     expect(converterCalls).toHaveLength(1)
 
-    // Second build with a permission added
     const second = await runFakePipeline({
       name: 'MyExt',
       permissions: ['storage', 'tabs']
@@ -745,11 +703,8 @@ describe('safari pipeline staleness integration', () => {
   })
 
   it('user Xcode configuration survives regeneration', async () => {
-    // First build, creates the project
     await runFakePipeline({name: 'SignedExt', permissions: ['storage']})
 
-    // Simulate the user configuring a signing team in Xcode by rewriting the
-    // pbxproj with DEVELOPMENT_TEAM set.
     const config = configFor(distDir)
     const projFile = pbxprojPath(config)
     fs.writeFileSync(
@@ -763,7 +718,6 @@ describe('safari pipeline staleness integration', () => {
       ].join('\n')
     )
 
-    // Now change the manifest (triggers regeneration).
     const result = await runFakePipeline({
       name: 'SignedExt',
       permissions: ['storage', 'activeTab']
@@ -775,7 +729,6 @@ describe('safari pipeline staleness integration', () => {
       '[preserved:DEVELOPMENT_TEAM,CODE_SIGN_STYLE]'
     )
 
-    // Verify the regenerated pbxproj has the user's team restored.
     const regenerated = fs.readFileSync(projFile, 'utf8')
     expect(regenerated).toContain('DEVELOPMENT_TEAM = USERTEAM42;')
     expect(regenerated).toContain('CODE_SIGN_STYLE = Automatic;')

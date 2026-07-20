@@ -64,7 +64,6 @@ describe('isContentScriptEntry', () => {
       content_scripts: [{js: ['content.js']}]
     }
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    // Ensure manifest path existence check passes
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('manifest.json')
     )
@@ -111,7 +110,6 @@ describe('css tools additional coverage', () => {
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(isUsingTailwind('/p')).toBe(true)
-    // Second call should not re-log
     expect(isUsingTailwind('/p')).toBe(true)
     expect(log).toHaveBeenCalledTimes(1)
   })
@@ -133,8 +131,6 @@ describe('css tools additional coverage', () => {
     const res = await maybeUsePostCss('/project', {mode: 'development'})
     expect(res.loader).toBeDefined()
     expect(String(res.loader)).toContain('postcss-loader')
-    // Since the test doesn't provide a real config module to load,
-    // we fall back to discovery from the project root
     expect(res.options?.postcssOptions?.config).toBe('/project')
     expect(res.options?.postcssOptions?.plugins).toBeUndefined()
   })

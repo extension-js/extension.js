@@ -1,7 +1,3 @@
-// The act command family (eval, storage, reload, inspect, open) against a
-// fake agent bridge: ready-contract discovery, token gating, command payload
-// shaping, and result printing / exit codes.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

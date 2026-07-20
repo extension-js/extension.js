@@ -1,11 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {pickMozExtensionHost} from '../run-firefox/rdp/remote-firefox/moz-id'
 
-// pickMozExtensionHost feeds ONLY the Firefox dev banner, and only as a fallback
-// when the RDP install reply carried no id. A `moz-extension://` host is a
-// per-session UUID that cannot be attributed to a specific add-on, so the picker
-// must refuse to guess whenever the choice is ambiguous. These tests pin that
-// "unambiguous or nothing" contract.
 describe('pickMozExtensionHost', () => {
   it('returns the host when exactly one moz-extension target is present', () => {
     expect(

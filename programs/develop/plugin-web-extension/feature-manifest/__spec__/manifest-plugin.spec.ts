@@ -1,6 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Mocks for step plugins used by ManifestPlugin
 const applySpy = vi.fn()
 
 vi.mock('../steps/emit-manifest', () => ({
@@ -48,7 +47,6 @@ vi.mock('../steps/legacy-warnings', () => ({
   }
 }))
 
-// Import under test after mocks
 import {ManifestPlugin} from '../index'
 
 describe('ManifestPlugin', () => {
@@ -57,7 +55,7 @@ describe('ManifestPlugin', () => {
   })
 
   it('constructs and applies all step plugins with correct options', () => {
-    const compiler: any = {hooks: {}} // passed through to sub-plugins
+    const compiler: any = {hooks: {}}
 
     const plugin = new ManifestPlugin({
       manifestPath: '/abs/path/manifest.json',
@@ -67,7 +65,6 @@ describe('ManifestPlugin', () => {
 
     plugin.apply(compiler as any)
 
-    // Ensure each step had apply called
     expect(applySpy).toHaveBeenCalled()
     expect(applySpy.mock.calls.length).toBe(7)
   })

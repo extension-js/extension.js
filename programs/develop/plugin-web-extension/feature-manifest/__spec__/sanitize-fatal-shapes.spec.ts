@@ -32,7 +32,6 @@ describe('sanitizeFatalManifestShapes', () => {
     } as unknown as Manifest)
     expect(empty.manifest.name).toBe('Unnamed Extension')
 
-    // scalars keep their intent, like the numeric-version coercion
     const numeric = sanitizeFatalManifestShapes({
       manifest_version: 3,
       name: 42,
@@ -85,7 +84,6 @@ describe('sanitizeFatalManifestShapes', () => {
   it("leaves CSPs without script-src 'unsafe-inline' byte-identical", () => {
     for (const extension_pages of [
       "script-src 'self'; object-src 'self'",
-      // 'unsafe-inline' is legal in style-src, only script-src is refused
       "script-src 'self'; style-src 'unsafe-inline'"
     ]) {
       const {manifest, fixes} = sanitizeFatalManifestShapes({

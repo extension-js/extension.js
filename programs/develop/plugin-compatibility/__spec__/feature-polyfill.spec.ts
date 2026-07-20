@@ -14,7 +14,6 @@ describe('PolyfillPlugin', () => {
   })
 
   it('provides the browser global when polyfill can be resolved', async () => {
-    // Create a real temp folder with the expected polyfill file
     const tmp = await fs.promises.mkdtemp(
       path.join(require('node:os').tmpdir(), 'polyfill-')
     )
@@ -34,14 +33,12 @@ describe('PolyfillPlugin', () => {
     const plugin = new PolyfillPlugin({manifestPath: '/abs/manifest.json'})
     plugin.apply(compiler)
 
-    // Accept either no warn or a single warn (different resolver behavior)
     expect(warnSpy.mock.calls.length <= 1).toBe(true)
   })
 
   it('warns if webextension-polyfill is not installed', () => {
     const compiler = {options: {context: '/project/root'}} as any
 
-    // Force resolution to fail
     vi.spyOn(require as any, 'resolve').mockImplementation(() => {
       throw new Error('Cannot find module')
     })
