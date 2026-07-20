@@ -349,37 +349,12 @@ jobs:
           VERSION: ${{ steps.validate.outputs.version }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
-          node -e "
-            const fs = require('fs');
-            const version = process.env.VERSION;
-            const path = 'CHANGELOG.md';
-            const releaseNotes = (process.env.RELEASE_NOTES || '').trim() || '- No changes listed.';
-            const text = fs.readFileSync(path, 'utf8');
-            const header = '## Unreleased';
-            const withHeader = text.includes(header) ? text : header + '\\n\\n' + text;
-            const start = withHeader.indexOf(header);
-            if (start === -1) { throw new Error('CHANGELOG.md missing ## Unreleased section'); }
-            const afterHeader = start + header.length;
-            let nextHeader = withHeader.indexOf('\\n## ', afterHeader);
-            if (nextHeader === -1) nextHeader = withHeader.length;
-            const before = withHeader.slice(0, start);
-            const after = withHeader.slice(nextHeader).replace(/^\\s+/, '');
-            const date = new Intl.DateTimeFormat('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              timeZone: 'UTC'
-            }).format(new Date());
-            const updated = [
-              before,
-              '## Unreleased\\n\\n',
-              `## ${version} (${date})\\n\\n`,
-              releaseNotes,
-              '\\n\\n',
-              after
-            ].join('');
-            fs.writeFileSync(path, updated);
-          "
+          set -euo pipefail
+          # Runs from a file, not an inline node -e string. The previous inline
+          # form was double-quoted, so the shell expanded the ${version} and
+          # ${date} placeholders to empty before node parsed them and the
+          # version heading was never written. See scripts/move-changelog.mjs.
+          node scripts/move-changelog.mjs
           # The highlights that shipped in this release are now baked into the
           # changelog/GitHub Release/Discord, so reset the file for the next cycle.
           cp scripts/release-highlights.template.md RELEASE_HIGHLIGHTS.md
