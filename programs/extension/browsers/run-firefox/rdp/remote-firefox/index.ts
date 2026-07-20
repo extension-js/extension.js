@@ -109,7 +109,7 @@ export class RemoteFirefox {
   }
 
   private async connectClient(port: number) {
-    let lastError
+    let lastError: unknown
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {

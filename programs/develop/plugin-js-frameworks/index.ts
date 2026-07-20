@@ -515,10 +515,18 @@ export class JsFrameworksPlugin {
       ...existingRules
     ].filter(Boolean)
 
-    maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallReact?.plugins?.forEach((plugin) => {
+      plugin.apply(compiler)
+    })
+    maybeInstallPreact?.plugins?.forEach((plugin) => {
+      plugin.apply(compiler)
+    })
+    maybeInstallVue?.plugins?.forEach((plugin) => {
+      plugin.apply(compiler)
+    })
+    maybeInstallSvelte?.plugins?.forEach((plugin) => {
+      plugin.apply(compiler)
+    })
 
     this.patchReactRefreshRules(compiler.options.module.rules as any[])
 

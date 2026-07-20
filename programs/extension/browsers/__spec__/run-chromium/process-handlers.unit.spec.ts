@@ -63,7 +63,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
 
     // Trigger SIGINT handler
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
-    sigintHandlers.forEach((h) => h())
+    for (const h of sigintHandlers) h()
 
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
@@ -80,7 +80,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
     setupProcessSignalHandlers('chrome', child, cleanupInstance)
 
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
-    sigintHandlers.forEach((h) => h())
+    for (const h of sigintHandlers) h()
 
     // kill should not be called since child.killed is already true
     expect(child.kill).not.toHaveBeenCalled()
@@ -140,7 +140,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
     expect(sigintHandlers).toHaveLength(1)
 
     // The single listener fans out to both live instances...
-    sigintHandlers.forEach((h) => h())
+    for (const h of sigintHandlers) h()
 
     // ...and after disposing one, a fresh signal only cleans the survivor.
     dispose1()

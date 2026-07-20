@@ -1035,7 +1035,7 @@ export class ChromiumLaunchPlugin {
         let pending = ''
         stderrStream.on('data', (chunk: Buffer) => {
           pending += String(chunk)
-          let newline
+          let newline: number
           while ((newline = pending.indexOf('\n')) !== -1) {
             const line = pending.slice(0, newline).trim()
             pending = pending.slice(newline + 1)

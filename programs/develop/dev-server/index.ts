@@ -446,7 +446,7 @@ export async function devServer(
         legacyControlPortFilePath(packageJsonDir, browserName)
       )
 
-    let controlServer
+    let controlServer: Awaited<ReturnType<typeof startControlServer>>
     try {
       controlServer = await startControlServer({
         broker: bridgeBroker,

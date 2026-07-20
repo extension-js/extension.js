@@ -440,7 +440,7 @@ export function resolveUserDeclaredWAR(
     const {resources: _resources, matches: _matches, ...extra} = entry
     const extraFields = Object.keys(extra).length > 0 ? extra : undefined
 
-    entry.resources.forEach((res) => handleOne(matches, res, extraFields))
+    for (const res of entry.resources) handleOne(matches, res, extraFields)
   })
 
   return {v2, v3}

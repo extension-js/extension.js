@@ -57,10 +57,10 @@
         "noExplicitAny": "off",
         "noPrototypeBuiltins": "off",
         "noControlCharactersInRegex": "off",
-        "useIterableCallbackReturn": "warn",
-        "noAssignInExpressions": "warn",
+        "useIterableCallbackReturn": "error",
+        "noAssignInExpressions": "off",
         "noAsyncPromiseExecutor": "error",
-        "noImplicitAnyLet": "warn"
+        "noImplicitAnyLet": "error"
       },
       "a11y": {
         "recommended": false
