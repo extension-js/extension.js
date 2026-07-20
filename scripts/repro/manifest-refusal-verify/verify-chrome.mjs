@@ -8,10 +8,10 @@
 
 // Drive real Chrome via CDP Extensions.loadUnpacked for every fixture and
 // record the exact acceptance/refusal per shape. One browser, sequential loads.
-import {spawn} from 'child_process'
-import * as fs from 'fs'
-import * as path from 'path'
-import {fileURLToPath} from 'url'
+import {spawn} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const fixturesRoot = path.join(here, 'fixtures')

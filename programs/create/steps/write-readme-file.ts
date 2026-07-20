@@ -6,8 +6,8 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs/promises'
-import * as path from 'path'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDenoRuntime} from '../lib/package-manager'

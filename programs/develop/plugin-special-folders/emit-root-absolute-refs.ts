@@ -21,9 +21,8 @@
 // the extension root are claimed. A genuinely broken ref stays broken and is
 // still reported.
 
+import * as fs from 'node:fs'
 import {type Compilation, rspack} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {
   extractStaticImportLiterals,
   resolveExtensionPath
@@ -69,7 +68,7 @@ export function emitRootAbsoluteRefs(
     for (const item of pendingJs) {
       for (const literal of extractStaticImportLiterals(item.content)) {
         const distRel = resolveExtensionPath(literal, item.name)
-        if (distRel) refs.add('/' + distRel)
+        if (distRel) refs.add(`/${distRel}`)
       }
     }
     pendingJs = []

@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 let ReactRefreshPluginCtor: any = class ReactRefreshPluginMock {
   options: any
@@ -87,7 +87,7 @@ describe('react tools', () => {
     const result = await maybeUseReact('/p', {refreshExclude})
     expect(result?.plugins?.length).toBeGreaterThan(0)
     expect((result?.plugins?.[0] as any)?.options?.exclude).toBe(refreshExclude)
-    expect(result?.alias?.['react$']).toContain('/project/node_modules/react')
+    expect(result?.alias?.react$).toContain('/project/node_modules/react')
     expect(result?.alias?.['react-dom$']).toContain(
       '/project/node_modules/react-dom'
     )
@@ -184,6 +184,6 @@ describe('react tools', () => {
     const result = await maybeUseReact('/p', {disableRefresh: true})
 
     expect(result?.plugins).toEqual([])
-    expect(result?.alias?.['react$']).toContain('/project/node_modules/react')
+    expect(result?.alias?.react$).toContain('/project/node_modules/react')
   })
 })

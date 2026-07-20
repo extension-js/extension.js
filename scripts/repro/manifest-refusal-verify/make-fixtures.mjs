@@ -8,9 +8,9 @@
 
 // Build minimal fixture extensions, one per candidate refusal shape.
 // Every fixture is MV3 + valid baseline EXCEPT the single field under test.
-import * as fs from 'fs'
-import * as path from 'path'
-import {fileURLToPath} from 'url'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures')
 fs.rmSync(root, {recursive: true, force: true})

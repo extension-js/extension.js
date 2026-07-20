@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'path'
+import * as path from 'node:path'
 import colors from 'pintor'
 
 function shortPath(p: string) {
@@ -78,7 +78,7 @@ export function staticAssetError(
   const extname = path.extname(missingFilePath)
   const lines: string[] = []
   lines.push(`Missing asset in ${colors.underline(errorSourcePath)}.`)
-  const ref = opts?.refLabel || '*' + extname
+  const ref = opts?.refLabel || `*${extname}`
   lines.push(
     `Update the ${colors.yellow(ref)} reference to point to a file that exists.`
   )

@@ -61,8 +61,7 @@ export class CompilationPlugin {
       try {
         const message = String((warning && (warning.message || warning)) || '')
         const modulePath = String(
-          (warning &&
-            warning.module &&
+          (warning?.module &&
             (warning.module.resource || warning.module.userRequest)) ||
             ''
         )

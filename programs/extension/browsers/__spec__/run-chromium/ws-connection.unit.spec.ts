@@ -4,7 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 const wsInstances: any[] = []
 
 vi.mock('ws', async () => {
-  const {EventEmitter} = await import('events')
+  const {EventEmitter} = await import('node:events')
 
   class MockWebSocket extends EventEmitter {
     static OPEN = 1

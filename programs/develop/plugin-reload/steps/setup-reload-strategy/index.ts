@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {stripBom} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'

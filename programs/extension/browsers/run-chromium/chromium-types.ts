@@ -9,7 +9,6 @@
 import type {
   BrowserLogger,
   Controller,
-  LogFormat,
   LogLevel,
   PluginInterface
 } from '../browsers-types'

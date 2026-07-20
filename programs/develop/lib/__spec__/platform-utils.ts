@@ -1,4 +1,4 @@
-import * as path from 'path'
+import * as path from 'node:path'
 
 /**
  * Normalize a path to Unix-style separators for stable assertions.

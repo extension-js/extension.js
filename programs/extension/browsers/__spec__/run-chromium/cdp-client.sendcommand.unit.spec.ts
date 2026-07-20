@@ -1,4 +1,4 @@
-import {EventEmitter} from 'events'
+import {EventEmitter} from 'node:events'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import WebSocket from 'ws'
 
@@ -18,7 +18,6 @@ vi.mock('../../run-chromium/cdp/ws', () => ({
 }))
 
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
-import {establishBrowserConnection} from '../../run-chromium/cdp/ws'
 
 describe('CDPClient.sendCommand', () => {
   let client: CDPClient

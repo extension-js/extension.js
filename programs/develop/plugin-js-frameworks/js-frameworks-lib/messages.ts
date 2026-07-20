@@ -60,10 +60,9 @@ export function jsFrameworksConfigsDetected(
   targets?: string[]
 ) {
   const fmt = (v?: string) => (v ? colors.underline(v) : colors.gray('none'))
-  const tgt =
-    targets && targets.length
-      ? targets.map((t) => colors.gray(t)).join(', ')
-      : colors.gray('default')
+  const tgt = targets?.length
+    ? targets.map((t) => colors.gray(t)).join(', ')
+    : colors.gray('default')
   return (
     `${colors.gray('⏵⏵⏵')} JS: Configs\n` +
     `${colors.gray('TSCONFIG')} ${fmt(tsConfigPath)}\n` +

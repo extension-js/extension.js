@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {Manifest} from '../../../types'
 import {manifestCommon} from './common'

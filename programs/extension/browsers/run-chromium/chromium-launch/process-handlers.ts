@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {ChildProcess} from 'child_process'
+import type {ChildProcess} from 'node:child_process'
 import * as messages from '../../browsers-lib/messages'
 import {
   forceKillChildOnExit,

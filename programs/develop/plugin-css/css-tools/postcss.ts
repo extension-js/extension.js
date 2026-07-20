@@ -6,11 +6,11 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import colors from 'pintor'
-import {pathToFileURL} from 'url'
 import {hasDependency} from '../../lib/has-dependency'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import {readProjectDependencies} from '../../lib/project-manifest'
@@ -370,7 +370,7 @@ function normalizeTailwindContentGlobs(config: any, projectPath: string): any {
 
 function getDeclaredTailwindMajor(projectPath: string): number | undefined {
   try {
-    const version = readProjectDependencies(projectPath)['tailwindcss']
+    const version = readProjectDependencies(projectPath).tailwindcss
     if (typeof version !== 'string') return undefined
     const match = version.match(/(\d+)/)
     if (!match) return undefined
@@ -646,7 +646,7 @@ export async function maybeUsePostCss(
         String(opts.mode || 'development')
       )
     }
-    if (configObject && configObject.plugins) {
+    if (configObject?.plugins) {
       selfResolved = resolveConfigPluginList(configObject.plugins, {
         projectPath,
         configDir: userPostCssConfig

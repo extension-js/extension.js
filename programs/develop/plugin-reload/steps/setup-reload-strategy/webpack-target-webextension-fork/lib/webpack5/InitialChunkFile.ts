@@ -97,7 +97,7 @@ export default class WebExtensionContentScriptEntryPlugin {
                   )
                   if (compilation.outputOptions.chunkFormat === 'module') {
                     code = asyncAndSyncFiles.map(
-                      (file: string) => `import ${JSON.stringify('./' + file)};`
+                      (file: string) => `import ${JSON.stringify(`./${file}`)};`
                     )
                   } else {
                     code = [

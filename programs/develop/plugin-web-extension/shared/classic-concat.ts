@@ -6,7 +6,7 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 
 /**
  * Classic scripts loaded side by side (content_scripts arrays, multiple

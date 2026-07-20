@@ -4,8 +4,8 @@
 // live inside feature-scripts' ScriptsPlugin; it moved here with the
 // plugin-reload extraction and this spec pins it in its new home.
 
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as path from 'path'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')

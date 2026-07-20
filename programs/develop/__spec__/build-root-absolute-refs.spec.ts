@@ -17,9 +17,9 @@
 //      silently (corpus ids oa--Chimildic__YaMuTools,
 //      oa--abalsam__cisco-dialer, the latter proving the `.htm` spelling).
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 const HTML_SRC_ROOT = fs.mkdtempSync(

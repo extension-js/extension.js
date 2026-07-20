@@ -6,12 +6,12 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {spawn} from 'node:child_process'
+import * as fs from 'node:fs'
+import {createServer, type Server} from 'node:http'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import AdmZip from 'adm-zip'
-import {spawn} from 'child_process'
-import * as fs from 'fs'
-import {createServer, type Server} from 'http'
-import * as os from 'os'
-import * as path from 'path'
 import {afterEach, describe, expect, it} from 'vitest'
 
 function makeZip(structure: Record<string, string>): Buffer {

@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {FilepathList, Manifest} from '../../../../types'
+import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
 export function backgroundPage(manifest: Manifest) {
@@ -14,8 +14,7 @@ export function backgroundPage(manifest: Manifest) {
   // why re-spreading `...manifest.background` here clobbers other keys in the
   // aggregate merge (G14).
   return (
-    manifest.background &&
-    manifest.background.page && {
+    manifest.background?.page && {
       background: {
         page: (() => {
           const raw = String(manifest.background.page)

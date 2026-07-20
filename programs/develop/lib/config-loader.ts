@@ -6,14 +6,14 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
+import * as vm from 'node:vm'
 import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as os from 'os'
-import * as path from 'path'
-import {pathToFileURL} from 'url'
-import * as vm from 'vm'
 import type {BrowserConfig, DevOptions, FileConfig} from '../types'
 import * as messages from './messages'
 
@@ -281,11 +281,7 @@ export async function loadCustomConfig(projectPath: string) {
           return userConfig.config
         }
         // Support plain object configuration by merging on top of base
-        if (
-          userConfig &&
-          userConfig.config &&
-          typeof userConfig.config === 'object'
-        ) {
+        if (userConfig?.config && typeof userConfig.config === 'object') {
           const partial = userConfig.config as Configuration
           return (config: Configuration) => {
             // NOTE: Keep `webpack-merge` out of the module top-level imports so
@@ -335,10 +331,9 @@ export async function loadCommandConfig(
           typeof (userConfig as any).perfBudgets === 'object'
             ? {perfBudgets: (userConfig as any).perfBudgets}
             : {}
-        const perCommand =
-          userConfig && userConfig.commands && userConfig.commands[command]
-            ? userConfig.commands[command]
-            : {}
+        const perCommand = userConfig?.commands?.[command]
+          ? userConfig.commands[command]
+          : {}
         return {
           ...baseExtensions,
           ...baseTranspilePackages,
@@ -366,7 +361,7 @@ export async function loadBrowserConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        if (userConfig && userConfig.browser) {
+        if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
 
           // Semantics:

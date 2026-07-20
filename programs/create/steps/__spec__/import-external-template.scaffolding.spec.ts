@@ -1,10 +1,10 @@
-import {describe, it, expect, afterEach} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it} from 'vitest'
 import {
-  TEMPLATE_SCAFFOLDING_FILES,
-  removeTemplateScaffoldingFiles
+  removeTemplateScaffoldingFiles,
+  TEMPLATE_SCAFFOLDING_FILES
 } from '../import-external-template'
 
 const tempDirs: string[] = []
@@ -25,7 +25,10 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
   it('strips examples-repo scaffolding but keeps real project files', async () => {
     const project = makeProject()
     // Examples-internal files that must not ship.
-    fs.writeFileSync(path.join(project, 'template.meta.json'), '{"featured":true}')
+    fs.writeFileSync(
+      path.join(project, 'template.meta.json'),
+      '{"featured":true}'
+    )
     fs.writeFileSync(path.join(project, 'template.spec.ts'), 'export {}')
     fs.writeFileSync(path.join(project, 'screenshot.png'), 'png')
     // Real project files that must survive.

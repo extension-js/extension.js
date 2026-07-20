@@ -55,7 +55,7 @@ export class InjectBridgeRelay {
               if (original.indexOf('__extjsBridgeRelayInstalled') !== -1) {
                 continue
               }
-              const next = sourceFor.get(target.context) + '\n' + original
+              const next = `${sourceFor.get(target.context)}\n${original}`
               compilation.updateAsset(asset.name, new sources.RawSource(next))
             }
           }

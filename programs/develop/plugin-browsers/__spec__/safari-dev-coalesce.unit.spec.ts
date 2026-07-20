@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeEach} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 
 // Drains the microtask queue so the plugin's promise-based state machine can

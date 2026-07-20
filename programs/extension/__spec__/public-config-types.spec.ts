@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 
 // Guards the public `import('extension').FileConfig` contract (issue #468).
 //

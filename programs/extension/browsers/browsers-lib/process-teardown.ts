@@ -6,7 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {type ChildProcess, spawn, spawnSync} from 'child_process'
+import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
 import type {BrowserType} from '../browsers-types'
 import * as messages from './messages'
 

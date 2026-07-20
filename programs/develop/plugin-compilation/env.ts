@@ -6,6 +6,8 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {
   Compilation,
   type Compiler,
@@ -15,8 +17,6 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
-import * as fs from 'fs'
-import * as path from 'path'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
@@ -303,7 +303,7 @@ export class EnvPlugin {
       // Fallback (shim missing from the install): merge a minimal-but-complete
       // stub into the single DefinePlugin so bundled `process` access is safe.
       filteredEnvVars['process.env'] = '{}'
-      filteredEnvVars['process'] =
+      filteredEnvVars.process =
         '({env:{},argv:[],platform:"browser",browser:true,versions:{},nextTick:function(cb){Promise.resolve().then(function(){cb()})}})'
     }
 

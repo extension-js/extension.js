@@ -1,16 +1,16 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  findNearestDenoConfigSync,
+  findNearestProjectManifestDirSync,
+  findNearestProjectManifestSync,
+  hasProjectDependency,
   parseJsoncSafe,
   parseNpmSpecifier,
   readDenoConfigDependencies,
   readProjectDependencies,
-  hasProjectDependency,
-  findNearestProjectManifestDirSync,
-  findNearestProjectManifestSync,
-  findNearestDenoConfigSync,
   stripJsoncExtensions
 } from '../project-manifest'
 
@@ -141,12 +141,12 @@ describe('readDenoConfigDependencies', () => {
     )
 
     const deps = readDenoConfigDependencies(path.join(dir, 'deno.jsonc'))
-    expect(deps['react']).toBe('^18.3.1')
+    expect(deps.react).toBe('^18.3.1')
     expect(deps['react-dom']).toBe('^18.3.1')
-    expect(deps['lodash']).toBe('^4.17.21')
+    expect(deps.lodash).toBe('^4.17.21')
     expect(deps['my-utils']).toBe('^4.17.21')
     expect(deps['@std/path']).toBeUndefined()
-    expect(deps['local']).toBeUndefined()
+    expect(deps.local).toBeUndefined()
   })
 })
 
@@ -166,10 +166,10 @@ describe('readProjectDependencies / hasProjectDependency', () => {
     )
 
     const deps = readProjectDependencies(dir)
-    expect(deps['react']).toBe('^18.3.1')
-    expect(deps['typescript']).toBe('5.3.3')
+    expect(deps.react).toBe('^18.3.1')
+    expect(deps.typescript).toBe('5.3.3')
     // package.json wins on conflicts.
-    expect(deps['vue']).toBe('^3.4.0')
+    expect(deps.vue).toBe('^3.4.0')
 
     expect(hasProjectDependency(dir, 'react')).toBe(true)
     expect(hasProjectDependency(dir, 'svelte')).toBe(false)

@@ -115,7 +115,7 @@ export function registerPreviewCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...previewOptions}: PreviewOptions
       ) => {
-        if (previewOptions.author || previewOptions['authorMode']) {
+        if (previewOptions.author || previewOptions.authorMode) {
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

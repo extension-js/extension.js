@@ -8,11 +8,11 @@
 
 // Verify match-pattern refusals on real Firefox via RDP installTemporaryAddon,
 // which returns the refusal reason in-protocol. Headless, throwaway profile.
-import {spawn} from 'child_process'
-import * as fs from 'fs'
-import * as net from 'net'
-import * as path from 'path'
-import {fileURLToPath} from 'url'
+import {spawn} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as net from 'node:net'
+import * as path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const FIREFOX = process.env.FIREFOX_BIN

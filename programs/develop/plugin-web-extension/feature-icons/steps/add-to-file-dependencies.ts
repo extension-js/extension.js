@@ -6,8 +6,8 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
-import * as fs from 'fs'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'

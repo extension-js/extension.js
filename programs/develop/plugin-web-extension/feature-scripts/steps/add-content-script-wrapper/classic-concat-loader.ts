@@ -18,8 +18,8 @@
 // watcher triggers a rebuild on save, and emits a V3 source map so errors
 // trace back to the real file and line.
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 
 const requireModule = createRequire(import.meta.url)
 

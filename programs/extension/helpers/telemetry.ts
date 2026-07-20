@@ -387,7 +387,7 @@ export class Telemetry {
     if (!this.storage) return
     this.rotateAuditIfNeeded(this.storage.auditFile)
     try {
-      fs.appendFileSync(this.storage.auditFile, JSON.stringify(payload) + '\n')
+      fs.appendFileSync(this.storage.auditFile, `${JSON.stringify(payload)}\n`)
     } catch {
       // if we can't audit locally, disable future sends too
       this.disabled = true
@@ -407,7 +407,7 @@ export class Telemetry {
       const max = auditMaxBytes()
       const size = fs.statSync(auditFile).size
       if (size < max) return
-      const backup = auditFile + '.1'
+      const backup = `${auditFile}.1`
       fs.rmSync(backup, {force: true})
       if (size >= max * 10) {
         fs.rmSync(auditFile, {force: true})

@@ -1,7 +1,7 @@
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {resolveAbsoluteFsPath} from '../../html-lib/utils'
 
 // Layout mirroring the wild subject that broke: manifest at the project root,
@@ -61,8 +61,8 @@ describe('resolveAbsoluteFsPath root URLs', () => {
       outputRoot: path.join(root, 'dist', 'chromium'),
       manifestRoot: root
     })
-    expect(
-      absoluteFsPath.startsWith(path.join(root, 'dist', 'chromium'))
-    ).toBe(false)
+    expect(absoluteFsPath.startsWith(path.join(root, 'dist', 'chromium'))).toBe(
+      false
+    )
   })
 })

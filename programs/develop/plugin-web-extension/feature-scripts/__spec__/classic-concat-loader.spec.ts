@@ -115,10 +115,10 @@ describe('classic-concat-loader', () => {
     // browserify-style INTERNAL require that must survive verbatim.
     fs.writeFileSync(
       umdPath,
-      [
+      `${[
         'if (typeof module === "object") texmath.katex = require("katex");',
         'else texmath.katex = {};'
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
       'utf8'
     )
     fs.writeFileSync(

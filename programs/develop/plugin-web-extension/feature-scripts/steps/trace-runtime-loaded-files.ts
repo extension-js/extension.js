@@ -6,9 +6,9 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import * as messages from '../messages'
 
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
@@ -603,7 +603,7 @@ export function resolveExtensionPath(
   if (trimmed.startsWith('//')) return null
 
   try {
-    const base = new URL('chrome-extension://extension-js/' + unixify(basePath))
+    const base = new URL(`chrome-extension://extension-js/${unixify(basePath)}`)
     const resolved = new URL(trimmed, base)
     if (resolved.hostname !== 'extension-js') return null
     const pathname = decodeURIComponent(resolved.pathname).replace(/^\/+/, '')

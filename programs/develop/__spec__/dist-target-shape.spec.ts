@@ -20,8 +20,8 @@
 //
 // Update both lists when adding a new entry to rslib.config.ts.
 
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
 
 const DEVELOP_ROOT = path.resolve(__dirname, '..')

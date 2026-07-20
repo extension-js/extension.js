@@ -6,11 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {
-  BrowserConfig,
-  BrowserType,
-  PluginInterface
-} from '../browsers-types'
+import type {BrowserConfig, PluginInterface} from '../browsers-types'
 
 export const sharedBrowserRuntimeOptionKeys = [
   'extension',

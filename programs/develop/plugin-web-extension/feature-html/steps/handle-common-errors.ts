@@ -6,14 +6,14 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {
   Compilation,
   type Compiler,
   type StatsError,
   WebpackError
 } from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../html-lib/messages'
 import {getAssetsFromHtml} from '../html-lib/utils'
@@ -82,7 +82,7 @@ function handleCantResolveError(
 
           while ((m = attrRe.exec(htmlText))) {
             const raw = m[2]
-            if (path.basename(raw) === base || raw.endsWith('/' + base)) {
+            if (path.basename(raw) === base || raw.endsWith(`/${base}`)) {
               isPublicRoot = raw.startsWith('/')
               matchedRawAttr = raw
               break

@@ -6,10 +6,10 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as crypto from 'node:crypto'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import * as crypto from 'crypto'
-import * as fs from 'fs'
-import * as path from 'path'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
@@ -343,7 +343,7 @@ export function resolveUserDeclaredWAR(
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
         // Resource exists either under public/ or in the emitted output; treat
         // it as valid and normalize to the public-root style in the manifest.
-        const output = toPublicOutput('/' + res)
+        const output = toPublicOutput(`/${res}`)
         pushResource(matches, output, extra)
         return
       }
@@ -377,7 +377,7 @@ export function resolveUserDeclaredWAR(
     // Chrome serves them all, instead of reading the directory as a file (EISDIR).
     if (fs.statSync(abs).isDirectory()) {
       emitDirectoryAsAssets(compilation, abs, manifestDir)
-      const dirResource = unixify(res).replace(/\/+$/, '') + '/*'
+      const dirResource = `${unixify(res).replace(/\/+$/, '')}/*`
       pushResource(matches, dirResource, extra)
       return
     }

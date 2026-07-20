@@ -1,5 +1,3 @@
-import type {Compilation} from 'webpack'
-
 export type TemplateLike = {
   asString: (chunks: any) => string
   indent: (lines: any) => string

@@ -1,4 +1,4 @@
-import {PassThrough} from 'stream'
+import {PassThrough} from 'node:stream'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../run-chromium/cdp/discovery', () => ({
@@ -65,7 +65,7 @@ describe('CDPClient pipe transport', () => {
 
     // Respond via pipe
     const response = JSON.stringify({id: json.id, result: {targetInfos: []}})
-    pipeIn.write(Buffer.from(response + '\0'))
+    pipeIn.write(Buffer.from(`${response}\0`))
 
     const result = await promise
     expect(result).toEqual({targetInfos: []})
@@ -102,7 +102,7 @@ describe('CDPClient pipe transport', () => {
       id: pendingIds[1],
       result: {product: 'Chrome/130'}
     })
-    pipeIn.write(Buffer.from(r1 + '\0' + r2 + '\0'))
+    pipeIn.write(Buffer.from(`${r1}\0${r2}\0`))
 
     await expect(p1).resolves.toEqual({targetInfos: []})
     await expect(p2).resolves.toEqual({product: 'Chrome/130'})
@@ -128,7 +128,7 @@ describe('CDPClient pipe transport', () => {
     // Split the response across two chunks
     const mid = Math.floor(response.length / 2)
     pipeIn.write(Buffer.from(response.slice(0, mid)))
-    pipeIn.write(Buffer.from(response.slice(mid) + '\0'))
+    pipeIn.write(Buffer.from(`${response.slice(mid)}\0`))
 
     await expect(promise).resolves.toEqual({value: 2})
   })

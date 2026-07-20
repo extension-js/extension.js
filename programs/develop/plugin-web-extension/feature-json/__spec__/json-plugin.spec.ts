@@ -1,12 +1,14 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+
 vi.mock('fs', () => ({
   existsSync: vi.fn(),
   readFileSync: vi.fn()
 }))
-import * as fs from 'fs'
-import * as path from 'path'
-import * as messages from '../messages'
+
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {JsonPlugin} from '../index'
+import * as messages from '../messages'
 
 function createCompilerHarness() {
   const thisCompilationCallbacks: Array<(compilation: any) => void> = []
@@ -93,7 +95,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['declarative_net_request.ruleset']: jsonPath}
+      includeList: {'declarative_net_request.ruleset': jsonPath}
     } as any)
     const harness = createCompilerHarness()
     const {assets, calls} = harness.applyAndRun(plugin)
@@ -116,7 +118,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: [p1, p2]}
+      includeList: {'storage.managed_schema': [p1, p2]}
     } as any)
     const harness = createCompilerHarness()
     const {assets, calls} = harness.applyAndRun(plugin)
@@ -133,7 +135,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['declarative_net_request.ruleset']: missing}
+      includeList: {'declarative_net_request.ruleset': missing}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -161,7 +163,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['declarative_net_request.ruleset']: p}
+      includeList: {'declarative_net_request.ruleset': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -178,7 +180,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['declarative_net_request.ruleset']: p}
+      includeList: {'declarative_net_request.ruleset': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -196,7 +198,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['declarative_net_request.ruleset']: p}
+      includeList: {'declarative_net_request.ruleset': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -214,7 +216,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: p}
+      includeList: {'storage.managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -239,7 +241,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath,
-      includeList: {['declarative_net_request.ruleset']: rel}
+      includeList: {'declarative_net_request.ruleset': rel}
     } as any)
     const harness = createCompilerHarness()
     const {assets, compilation, calls} = harness.applyAndRun(plugin)
@@ -271,7 +273,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath,
-      includeList: {['declarative_net_request.ruleset']: rel}
+      includeList: {'declarative_net_request.ruleset': rel}
     } as any)
     const harness = createCompilerHarness()
     const {assets, compilation, calls} = harness.applyAndRun(plugin)
@@ -297,7 +299,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: p}
+      includeList: {'storage.managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation} = harness.applyAndRun(plugin)
@@ -313,7 +315,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: p}
+      includeList: {'storage.managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     // inject an error before running processAssets
@@ -332,7 +334,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['custom.feature']: missingPath}
+      includeList: {'custom.feature': missingPath}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls, assets} = harness.applyAndRun(plugin)
@@ -353,7 +355,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: schemaPath}
+      includeList: {'storage.managed_schema': schemaPath}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)

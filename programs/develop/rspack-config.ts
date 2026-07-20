@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Configuration} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {makeSanitizedConsole} from './lib/branding'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {resolveDevelopInstallRoot} from './lib/develop-context'

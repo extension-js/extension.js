@@ -1,6 +1,6 @@
-import * as fsp from 'fs/promises'
-import * as os from 'os'
-import * as path from 'path'
+import * as fsp from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {writeDenoJsonc} from '../write-deno-jsonc'
 

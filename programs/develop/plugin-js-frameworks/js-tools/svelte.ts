@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions, JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
@@ -130,14 +130,10 @@ export async function maybeUseSvelte(
   // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {
     apply(compiler: any) {
-      const existingMainFields =
-        (compiler.options.resolve && compiler.options.resolve.mainFields) || []
-      const existingExtensions =
-        (compiler.options.resolve && compiler.options.resolve.extensions) || []
-      const existingAlias =
-        (compiler.options.resolve && compiler.options.resolve.alias) || {}
-      const existingModules =
-        (compiler.options.resolve && compiler.options.resolve.modules) || []
+      const existingMainFields = compiler.options.resolve?.mainFields || []
+      const existingExtensions = compiler.options.resolve?.extensions || []
+      const existingAlias = compiler.options.resolve?.alias || {}
+      const existingModules = compiler.options.resolve?.modules || []
 
       // de-duplicate while preserving order
       const dedupe = (arr: string[]) => Array.from(new Set(arr))

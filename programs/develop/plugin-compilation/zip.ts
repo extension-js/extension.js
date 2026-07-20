@@ -6,11 +6,11 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import AdmZip from 'adm-zip'
-import * as fs from 'fs'
 import ignore from 'ignore'
-import * as path from 'path'
 import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
 import {parseJsonSafe} from '../lib/parse-json-safe'

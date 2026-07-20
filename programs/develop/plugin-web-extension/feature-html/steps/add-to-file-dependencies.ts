@@ -6,9 +6,9 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
-import * as fs from 'fs'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {getAssetsFromHtml} from '../html-lib/utils'
 

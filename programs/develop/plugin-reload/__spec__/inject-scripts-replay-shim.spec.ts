@@ -4,7 +4,7 @@
 // `chrome.scripting.executeScript` calls after a user edits a file in
 // `/scripts/*`.
 
-import {Compilation, sources} from '@rspack/core'
+import {sources} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {InjectScriptsReplayShim} from '../steps/inject-scripts-replay-shim'
 

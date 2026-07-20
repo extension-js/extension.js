@@ -6,8 +6,8 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs/promises'
-import * as path from 'path'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import * as messages from '../lib/messages'
 import {isDenoRuntime} from '../lib/package-manager'
 import {
@@ -99,7 +99,7 @@ async function collectTemplateImports(
     ...(templatePackageJson.dependencies || {}),
     ...(templatePackageJson.devDependencies || {})
   }
-  delete declared['extension']
+  delete declared.extension
 
   const imports: Record<string, string> = {}
   for (const [name, version] of Object.entries(declared)) {
@@ -113,7 +113,7 @@ async function collectTemplateImports(
     process.env.EXTENSION_ENV === 'development'
       ? '*'
       : resolveExtensionDevDependencyVersion(cliVersion)
-  imports['extension'] = `npm:extension@${extensionVersion}`
+  imports.extension = `npm:extension@${extensionVersion}`
 
   return imports
 }

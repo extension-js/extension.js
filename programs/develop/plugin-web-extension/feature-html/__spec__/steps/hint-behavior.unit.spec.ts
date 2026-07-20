@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
-import * as fs from 'fs'
+import * as fs from 'node:fs'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 vi.mock('fs', () => ({

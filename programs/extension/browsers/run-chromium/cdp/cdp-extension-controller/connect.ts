@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Readable, Writable} from 'stream'
+import type {Readable, Writable} from 'node:stream'
 import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {checkChromeRemoteDebugging} from '../discovery'
 

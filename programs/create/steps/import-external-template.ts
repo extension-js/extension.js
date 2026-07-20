@@ -6,13 +6,13 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {existsSync} from 'node:fs'
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import AdmZip from 'adm-zip'
 import axios from 'axios'
-import {existsSync} from 'fs'
-import * as fs from 'fs/promises'
 import goGitIt from 'go-git-it'
-import * as os from 'os'
-import * as path from 'path'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
@@ -264,7 +264,7 @@ export async function importExternalTemplate(
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'extension-js-create-')
     )
-    const tempPath = path.join(tempRoot, projectName + '-temp')
+    const tempPath = path.join(tempRoot, `${projectName}-temp`)
     await fs.mkdir(tempPath, {recursive: true})
 
     const runGoGitIt = async (templatePath: string, destination: string) => {

@@ -16,7 +16,7 @@ import {
   statSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
+import {dirname, join} from 'node:path'
 
 const args = process.argv.slice(2)
 

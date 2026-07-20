@@ -6,10 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
-import {createRequire} from 'module'
-import * as path from 'path'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'

@@ -9,8 +9,8 @@
 
 'use strict'
 
-const fs = require('fs')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const distCjsEntry = path.resolve(__dirname, '../dist/cli.cjs')
 const distEntry = path.resolve(__dirname, '../dist/cli.js')
@@ -26,7 +26,7 @@ if (fs.existsSync(distCjsEntry)) {
   run(distEntry)
 } else if (fs.existsSync(sourceEntry)) {
   try {
-    const {spawnSync} = require('child_process')
+    const {spawnSync} = require('node:child_process')
     const tsxCli = require.resolve('tsx/cli')
     const result = spawnSync(
       process.execPath,

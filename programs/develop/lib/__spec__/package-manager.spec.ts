@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const originalPlatform = process.platform
@@ -46,7 +46,7 @@ describe('package-manager resolution', () => {
       setPlatform('win32')
       fs.writeFileSync(path.join(tempDir, 'package-lock.json'), '{}', 'utf8')
 
-      const {execFileSync} = (await import('child_process')) as any
+      const {execFileSync} = (await import('node:child_process')) as any
       execFileSync.mockReturnValue('C:\\nvm4w\\nodejs\\npm.cmd\r\n')
 
       const {resolvePackageManager, buildInstallCommand} = await import(
@@ -241,15 +241,16 @@ describe('installScriptSuppression (§16: auto-install must not run wild lifecyc
     delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS
   })
 
-  it.each(['npm', 'pnpm', 'bun'] as const)(
-    'passes --ignore-scripts to %s',
-    (name) => {
-      expect(installScriptSuppression({name})).toEqual({
-        args: ['--ignore-scripts'],
-        env: {}
-      })
-    }
-  )
+  it.each([
+    'npm',
+    'pnpm',
+    'bun'
+  ] as const)('passes --ignore-scripts to %s', (name) => {
+    expect(installScriptSuppression({name})).toEqual({
+      args: ['--ignore-scripts'],
+      env: {}
+    })
+  })
 
   it('uses env for yarn (Berry rejects the flag, yarn 1 reads npm_config_*)', () => {
     expect(installScriptSuppression({name: 'yarn'})).toEqual({
@@ -259,11 +260,17 @@ describe('installScriptSuppression (§16: auto-install must not run wild lifecyc
   })
 
   it('adds nothing for deno (deno install already refuses npm lifecycle scripts)', () => {
-    expect(installScriptSuppression({name: 'deno'})).toEqual({args: [], env: {}})
+    expect(installScriptSuppression({name: 'deno'})).toEqual({
+      args: [],
+      env: {}
+    })
   })
 
   it('suppresses nothing when EXTENSION_ALLOW_INSTALL_SCRIPTS=true', () => {
     process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS = 'true'
-    expect(installScriptSuppression({name: 'pnpm'})).toEqual({args: [], env: {}})
+    expect(installScriptSuppression({name: 'pnpm'})).toEqual({
+      args: [],
+      env: {}
+    })
   })
 })

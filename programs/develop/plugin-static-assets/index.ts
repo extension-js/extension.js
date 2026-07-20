@@ -170,9 +170,7 @@ export class StaticAssetsPlugin {
             const assets = (compilation?.getAssets?.() || []) as Array<{
               name: string
             }>
-            const emitted = assets.filter(
-              (a) => a.name && a.name.startsWith('assets/')
-            )
+            const emitted = assets.filter((a) => a.name?.startsWith('assets/'))
             const counts = {svg: 0, images: 0, fonts: 0, files: 0}
 
             for (const a of emitted) {

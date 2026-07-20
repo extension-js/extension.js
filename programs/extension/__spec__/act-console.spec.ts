@@ -1,7 +1,7 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {readRecentConsole} from '../commands/act'
 
 let dir: string
@@ -50,7 +50,7 @@ beforeEach(() => {
   ]
   fs.writeFileSync(
     path.join(d, 'logs.ndjson'),
-    lines.map((l) => JSON.stringify(l)).join('\n') + '\n'
+    `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`
   )
 })
 afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
@@ -90,7 +90,7 @@ describe('readRecentConsole (console-from-buffer)', () => {
 
   it('returns [] when no logs file exists', () => {
     expect(
-      readRecentConsole('/tmp/nope-' + Date.now(), 'chromium', {}, 10)
+      readRecentConsole(`/tmp/nope-${Date.now()}`, 'chromium', {}, 10)
     ).toEqual([])
   })
 })

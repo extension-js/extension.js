@@ -1,10 +1,10 @@
-import * as fsp from 'fs/promises'
-import * as os from 'os'
-import * as path from 'path'
+import * as fsp from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {isDenoRuntime} from '../package-manager'
-import {successfullInstall} from '../messages'
 import {writeReadmeFile} from '../../steps/write-readme-file'
+import {successfullInstall} from '../messages'
+import {isDenoRuntime} from '../package-manager'
 
 // Simulate a Deno runtime by exposing its runtime global. Deno launches npm
 // packages without `npm_config_user_agent`/`npm_execpath`, so the only reliable
@@ -42,7 +42,9 @@ describe('deno-aware scaffold next steps', () => {
   })
 
   it('writes deno task commands into the generated README', async () => {
-    const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'ext-deno-readme-'))
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-deno-readme-')
+    )
     const projectPath = path.join(tmpRoot, 'my-ext')
     try {
       await fsp.mkdir(projectPath, {recursive: true})

@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import os from 'node:os'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {assertNoManagedDependencyConflicts} from '../validate-user-dependencies'
 

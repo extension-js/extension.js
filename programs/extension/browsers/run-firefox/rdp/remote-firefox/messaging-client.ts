@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import EventEmitter from 'events'
+import EventEmitter from 'node:events'
 import * as messages from '../../../browsers-lib/messages'
 import {evaluate as evalHelper} from './evaluate'
 import * as api from './rdp-api'
