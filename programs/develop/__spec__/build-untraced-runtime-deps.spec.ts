@@ -470,6 +470,8 @@ function writeRuntimeSurfaceFixture() {
     [
       'chrome.action.setPopup({popup: "Alt.html"})',
       'chrome.sidePanel.setOptions({path: "Panel.html"})',
+      '// offscreen documents are never manifest refs (§67):',
+      'chrome.offscreen.createDocument({url: "offscreen/index.html", reasons: ["DOM_PARSER"], justification: "parse html"})',
       '// removing the popup is not a file reference:',
       'chrome.action.setPopup({popup: ""})',
       'chrome.action.setPopup({popup: "Missing.html"})',
@@ -488,6 +490,15 @@ function writeRuntimeSurfaceFixture() {
   fs.writeFileSync(
     path.join(RUNTIME_SURFACE_ROOT, 'Panel.html'),
     '<html><body><p>runtime-set panel</p></body></html>\n'
+  )
+  fs.mkdirSync(path.join(RUNTIME_SURFACE_ROOT, 'offscreen'), {recursive: true})
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'offscreen', 'index.html'),
+    '<html><body><p>offscreen document</p><script src="offscreen.js"></script></body></html>\n'
+  )
+  fs.writeFileSync(
+    path.join(RUNTIME_SURFACE_ROOT, 'offscreen', 'offscreen.js'),
+    'document.body.dataset.offscreenLoaded = "yes";\n'
   )
 }
 
@@ -700,7 +711,14 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     )
     expect(worker).toContain('Alt.html')
 
-    for (const rel of ['Alt.html', 'alt.js', 'Panel.html']) {
+    for (const rel of [
+      'Alt.html',
+      'alt.js',
+      'Panel.html',
+      // Offscreen documents ride the same runtime-surface tracing (§67).
+      path.join('offscreen', 'index.html'),
+      path.join('offscreen', 'offscreen.js')
+    ]) {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }

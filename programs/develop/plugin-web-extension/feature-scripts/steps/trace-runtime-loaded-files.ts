@@ -701,12 +701,14 @@ function extractGetURLLiterals(source: string): string[] {
 
 /**
  * Extract HTML surface paths set at runtime: chrome.action.setPopup(
- * {popup: "Alt.html"}) (plus browserAction/pageAction MV2 variants) and
- * chrome.sidePanel.setOptions({path: "panel.html"}). Chrome resolves these
- * against the extension root, but they are not manifest refs, so the page
- * pipeline never compiles them, untraced they silently vanish from dist and
- * the surface opens a 404 panel. Matching on the member chain
- * (`action.setPopup(`) keeps user-defined functions out while surviving
+ * {popup: "Alt.html"}) (plus browserAction/pageAction MV2 variants),
+ * chrome.sidePanel.setOptions({path: "panel.html"}), and
+ * chrome.offscreen.createDocument({url: "offscreen.html"}) (§67 — offscreen
+ * documents are never manifest refs, so this is their ONLY route into dist).
+ * Chrome resolves these against the extension root, but they are not manifest
+ * refs, so the page pipeline never compiles them, untraced they silently
+ * vanish from dist and the surface opens a 404 panel. Matching on the member
+ * chain (`action.setPopup(`) keeps user-defined functions out while surviving
  * minification, mirroring extractGetURLLiterals.
  */
 export function extractRuntimeSurfaceLiterals(source: string): string[] {
@@ -717,7 +719,8 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
       callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setPopup\s*\(/g,
       prop: 'popup'
     },
-    {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'}
+    {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'},
+    {callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g, prop: 'url'}
   ]
 
   for (const {callRe, prop} of calls) {
