@@ -21,7 +21,7 @@ import * as parse5utilities from 'parse5-utilities'
  *   canonical `/<feature>.css`, pass the actual public href here.
  */
 export function injectCssLink(
-  headNode: any,
+  headNode: Parameters<typeof parse5utilities.append>[0],
   feature: string,
   firstLinkAttrs?: Array<{name: string; value: string}>,
   hrefOverride?: string
@@ -43,7 +43,7 @@ export function injectCssLink(
     for (const attr of firstLinkAttrs) {
       if (
         propagateLinkAttrs.has(attr.name) &&
-        !linkTag.attrs.find((a: any) => a.name === attr.name)
+        !linkTag.attrs.find((a) => a.name === attr.name)
       ) {
         linkTag.attrs.push({name: attr.name, value: attr.value})
       }

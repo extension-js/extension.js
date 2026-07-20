@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {stripBom} from './parse-json-safe'
+import {type ParsedJson, stripBom} from './parse-json-safe'
 
 /**
  * Files that mark a directory as a project root and declare its dependencies.
@@ -111,7 +111,7 @@ export function stripJsoncExtensions(text: string): string {
  * JSON.parse for JSONC input (comments + trailing commas tolerated).
  * Empty input parses as `{}`; invalid syntax still throws.
  */
-export function parseJsoncSafe(text: string | Buffer): any {
+export function parseJsoncSafe(text: string | Buffer): ParsedJson {
   const stripped = stripJsoncExtensions(stripBom(text))
   return JSON.parse(stripped.trim() || '{}')
 }
@@ -169,7 +169,7 @@ export function readDenoConfigDependencies(
 ): Record<string, string> {
   const dependencies: Record<string, string> = {}
 
-  let config: any
+  let config: ParsedJson
   try {
     config = parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
   } catch {
@@ -201,7 +201,7 @@ function readPackageJsonDependencies(
   try {
     const pkg = JSON.parse(
       stripBom(fs.readFileSync(packageJsonPath, 'utf8')) || '{}'
-    ) as Record<string, any>
+    ) as Record<string, ParsedJson>
     const sections = [
       pkg.dependencies,
       pkg.devDependencies,

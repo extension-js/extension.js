@@ -85,7 +85,7 @@ export interface LoaderContext {
 
 export interface JsFramework {
   plugins: RspackPluginInstance[] | undefined
-  loaders: Record<string, any>[] | undefined
+  loaders: Record<string, unknown>[] | undefined
   alias: Record<string, string> | undefined
 }
 

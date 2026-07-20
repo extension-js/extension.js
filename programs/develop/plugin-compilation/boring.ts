@@ -36,8 +36,8 @@ export class BoringPlugin {
     })
 
     compiler.hooks.done.tap('develop:brand', (stats) => {
-      const hasErrors = Boolean((stats as any)?.hasErrors?.())
-      const hasWarnings = Boolean((stats as any)?.hasWarnings?.())
+      const hasErrors = Boolean(stats?.hasErrors?.())
+      const hasWarnings = Boolean(stats?.hasWarnings?.())
       const browserLaunchEnabled =
         String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
 
@@ -53,8 +53,8 @@ export class BoringPlugin {
         // asset-only rebuilds (e.g. HTML popup edits). Merge with the compiler's
         // watch set so the post-banner suppression below still clears on HTML changes.
         const fromCompilation = Array.from(
-          (((stats as any)?.compilation as any)
-            ?.modifiedFiles as Set<string>) || []
+          (stats?.compilation as {modifiedFiles?: Set<string>} | undefined)
+            ?.modifiedFiles || []
         )
         const fromCompiler = Array.from(compiler.modifiedFiles ?? [])
         const modifiedFiles = [

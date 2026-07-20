@@ -122,9 +122,7 @@ export function createChangedSourcesTracker(
   compiler.hooks.watchRun.tap('extjs-reload-changed-sources', () => {
     forcedFull = false
     changedSources = []
-    const modifiedFiles = (compiler as any).modifiedFiles as
-      | Set<string>
-      | undefined
+    const modifiedFiles = compiler.modifiedFiles as Set<string> | undefined
     if (!modifiedFiles || modifiedFiles.size === 0) return
 
     const contextDir = compiler.options.context || ''

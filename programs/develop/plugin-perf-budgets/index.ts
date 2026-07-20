@@ -86,20 +86,19 @@ export class PerfBudgetsPlugin {
 
       oversized.sort((a, b) => b.size - a.size)
 
-      const ErrorConstructor = (compiler as any)?.rspack?.WebpackError || Error
+      const ErrorConstructor = compiler?.rspack?.WebpackError || Error
       const warning = new ErrorConstructor(perfBudgetWarning(oversized))
-      ;(warning as any).name = 'PerfBudgetWarning'
+      ;(warning as Error).name = 'PerfBudgetWarning'
 
       if (!compilation.warnings) {
-        ;(compilation as any).warnings = []
+        compilation.warnings = []
       }
 
       compilation.warnings.push(warning)
     }
 
     const REPORT_STAGE =
-      (compiler as any)?.rspack?.Compilation?.PROCESS_ASSETS_STAGE_REPORT ??
-      5000
+      compiler?.rspack?.Compilation?.PROCESS_ASSETS_STAGE_REPORT ?? 5000
 
     compiler.hooks.thisCompilation.tap(
       PerfBudgetsPlugin.name,

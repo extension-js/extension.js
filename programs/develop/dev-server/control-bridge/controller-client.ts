@@ -102,7 +102,7 @@ export class BridgeController {
       })
 
       socket.on('message', (data) => {
-        let frame: any
+        let frame: {type?: unknown}
 
         try {
           frame = JSON.parse(data.toString())

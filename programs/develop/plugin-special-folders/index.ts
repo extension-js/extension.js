@@ -52,8 +52,11 @@ export class SpecialFoldersPlugin {
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
             // Late enough that HTML and CSS assets exist to be scanned.
-            stage: (compilation.constructor as any)
-              .PROCESS_ASSETS_STAGE_SUMMARIZE
+            stage: (
+              compilation.constructor as unknown as {
+                PROCESS_ASSETS_STAGE_SUMMARIZE: number
+              }
+            ).PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () => {
             // Root refs resolve from the EXTENSION root (the manifest dir),
@@ -77,8 +80,11 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
-              stage: (compilation.constructor as any)
-                .PROCESS_ASSETS_STAGE_PRE_PROCESS
+              stage: (
+                compilation.constructor as unknown as {
+                  PROCESS_ASSETS_STAGE_PRE_PROCESS: number
+                }
+              ).PROCESS_ASSETS_STAGE_PRE_PROCESS
             },
             () => {
               checkManifestInPublic(compilation, publicDir)

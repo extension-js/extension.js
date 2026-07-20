@@ -123,7 +123,7 @@ function moduleResourcesFromIdentifier(
  * name heuristics in {@link classifyReloadFromSources}.
  */
 export function buildSourceFeatureIndex(
-  compilation: any,
+  compilation: import('@rspack/core').Compilation,
   contextDir: string
 ): SourceFeatureIndex {
   const index: SourceFeatureIndex = {
@@ -354,7 +354,7 @@ export function classifyReloadFromSources(opts: {
 }
 
 export function readContentScriptCount(
-  compilation: any,
+  compilation: import('@rspack/core').Compilation,
   outputPath: string
 ): number {
   try {
