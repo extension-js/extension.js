@@ -1,7 +1,3 @@
-// Unit spec for the shared reload seam used by BOTH the launched-browser path
-// (BrowsersPlugin) and the --no-browser path (dev server): the single dispatch
-// policy + the shared watchRun changed-sources tracker.
-
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadInstruction} from '../index'
 import {createChangedSourcesTracker, dispatchReload} from '../reload-dispatch'
@@ -19,10 +15,6 @@ afterEach(() => {
 })
 
 describe('dispatchReload', () => {
-  // Reload is dispatched through the control-bridge broker (the in-extension SW
-  // producer) for BOTH launched (Chromium CDP + Firefox RDP) and `--no-browser`.
-  // A launched browser's controller is kept only for logging / source
-  // inspection, never reload, so the seam is broker-only.
   it('broadcasts over the broker with the shared label + changed files', async () => {
     const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
     await dispatchReload(CS, {broker})
@@ -37,13 +29,11 @@ describe('dispatchReload', () => {
   it('prints the stdout "Reloading …" line only when a producer was notified', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    // 0 producers → nothing actually reloads → no line.
     await dispatchReload(CS, {
       broker: {broadcastReload: vi.fn().mockReturnValue(0)}
     })
     expect(log).not.toHaveBeenCalled()
 
-    // ≥1 producer → the one shared label is announced.
     await dispatchReload(CS, {
       broker: {broadcastReload: vi.fn().mockReturnValue(1)}
     })
@@ -53,9 +43,6 @@ describe('dispatchReload', () => {
     )
   })
 
-  // §53: a reload that reaches zero producers is a silent no-op, on heavy
-  // sites / auth walls where the SW never attaches, that looks like a broken
-  // tool. The broker hands back a single deduped hint; dispatch surfaces it.
   it('warns with the broker hint when a reload reaches zero producers (§53)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -66,7 +53,6 @@ describe('dispatchReload', () => {
     await dispatchReload(CS, {broker})
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain('SW not attached')
-    // No "Reloading…" line when nothing was reloaded.
     expect(log).not.toHaveBeenCalled()
   })
 
@@ -101,7 +87,6 @@ describe('dispatchReload', () => {
   })
 
   it('is a no-op when no broker is present', async () => {
-    // Nothing to dispatch to, must not throw.
     await expect(dispatchReload(CS, {})).resolves.toBeUndefined()
   })
 
@@ -142,8 +127,6 @@ describe('createChangedSourcesTracker', () => {
   })
 
   it('drops the watch root itself (relativizes to empty) from changed sources', () => {
-    // rspack sometimes reports the project dir as a modified "file"; it must
-    // not leak into the reload label as a dangling comma.
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj', '/proj/src/content/scripts.js'])
@@ -175,7 +158,6 @@ describe('createChangedSourcesTracker', () => {
     fireWatchRun()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
-    // A subsequent compile with no modified files clears the prior state.
     compiler.modifiedFiles = new Set()
     fireWatchRun()
     expect(tracker.snapshot()).toEqual({forcedFull: false, changedSources: []})

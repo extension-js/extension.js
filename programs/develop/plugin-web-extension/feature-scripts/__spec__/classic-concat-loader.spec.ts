@@ -58,7 +58,6 @@ describe('classic-concat-loader', () => {
       output.indexOf('class Child')
     )
 
-    // Source map should reference original files
     expect(sourceMap).toBeTruthy()
     expect(sourceMap.version).toBe(3)
     expect(sourceMap.sources).toEqual([basePath, childPath])
@@ -111,8 +110,6 @@ describe('classic-concat-loader', () => {
     const dir = createTempProject()
     const umdPath = path.join(dir, 'texmath.js')
     const browserifyPath = path.join(dir, 'jszip.js')
-    // Mirrors the katex-style UMD dead branch that broke the build, plus a
-    // browserify-style INTERNAL require that must survive verbatim.
     fs.writeFileSync(
       umdPath,
       `${[
@@ -136,20 +133,14 @@ describe('classic-concat-loader', () => {
     classicConcatLoader.call(ctx as any, '')
 
     const [, output] = ctx.callback.mock.calls[0]
-    // The source is wrapped in a function whose params shadow the module system,
-    // called with all four undefined, rspack then treats every `require` as a
-    // locally-bound variable and does not statically collect it.
     expect(output).toContain(';(function (module, exports, define, require) {')
     expect(output).toContain(
       '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
     )
-    // Require/define calls are NOT rewritten. That would break browserify libs
-    // whose inner `function (require, module, exports)` provides its own require.
     expect(output).toContain('require("katex")')
     expect(output).toContain(
       'function(require,module,exports){var u=require("./utils")}'
     )
-    // The wrapper must enclose the user sources.
     expect(output.indexOf('(function (module')).toBeLessThan(
       output.indexOf('require("katex")')
     )
@@ -195,14 +186,11 @@ describe('classic-concat-loader TypeScript members (§24)', () => {
 
     const [err, output, sourceMap] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()
-    // Type annotations are gone, the class and its consumer share the scope.
     expect(output).not.toContain('m: number')
     expect(output).toContain('class BloomFilter')
     expect(output).toContain('new BloomFilter(8)')
-    // Source map still references the ORIGINAL TS source.
     expect(sourceMap.sources).toContain(tsPath)
     expect(sourceMap.sourcesContent[0]).toContain('m: number')
-    // The concatenated output must be valid JavaScript.
     expect(() => new Function(output)).not.toThrow()
   })
 
@@ -234,8 +222,6 @@ describe('classic-concat-loader TypeScript members (§24)', () => {
     const [err, output] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()
 
-    // Top-level declarations (and block-hoisted vars) are exposed; names
-    // scoped inside functions are not.
     for (const name of [
       'Handlebars',
       'helper',
@@ -247,7 +233,6 @@ describe('classic-concat-loader TypeScript members (§24)', () => {
     }
     expect(output).not.toContain('globalThis["local"]')
 
-    // The bridge actually lands the values on the global at runtime.
     const sandbox: Record<string, unknown> = {}
     new Function('globalThis', output)(sandbox)
     expect(sandbox.Handlebars).toBeDefined()

@@ -24,14 +24,12 @@ function makeProject(): string {
 describe('removeTemplateScaffoldingFiles (issue #476)', () => {
   it('strips examples-repo scaffolding but keeps real project files', async () => {
     const project = makeProject()
-    // Examples-internal files that must not ship.
     fs.writeFileSync(
       path.join(project, 'template.meta.json'),
       '{"featured":true}'
     )
     fs.writeFileSync(path.join(project, 'template.spec.ts'), 'export {}')
     fs.writeFileSync(path.join(project, 'screenshot.png'), 'png')
-    // Real project files that must survive.
     fs.writeFileSync(path.join(project, 'package.json'), '{"name":"x"}')
     fs.writeFileSync(path.join(project, 'tsconfig.json'), '{}')
     fs.mkdirSync(path.join(project, 'public'), {recursive: true})
@@ -44,7 +42,6 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
     }
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
     expect(fs.existsSync(path.join(project, 'tsconfig.json'))).toBe(true)
-    // The README-embedded asset under public/ is untouched.
     expect(fs.existsSync(path.join(project, 'public', 'screenshot.png'))).toBe(
       true
     )

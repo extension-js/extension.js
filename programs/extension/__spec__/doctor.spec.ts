@@ -184,7 +184,6 @@ describe('extension doctor', () => {
         runId: 'run-A',
         status: 'ready',
         pid: process.pid,
-        // Compiled a moment ago; SW has not attached yet.
         compiledAt: new Date().toISOString()
       })
     })
@@ -198,7 +197,6 @@ describe('extension doctor', () => {
     }
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('warn')
-    // A warn must not make the session unhealthy.
     expect(
       (await runDoctor('/proj', {})).some((c) => c.status === 'fail')
     ).toBe(false)
@@ -212,7 +210,6 @@ describe('extension doctor', () => {
         runId: 'run-A',
         status: 'ready',
         pid: process.pid,
-        // Compiled well over the grace window ago, still no SW.
         compiledAt: new Date(Date.now() - 60_000).toISOString()
       })
     })
@@ -264,8 +261,6 @@ describe('extension doctor', () => {
   })
 
   it('reports the browser leg as unknown when no cdpPort is stamped (§73 F27)', async () => {
-    // Absence of exit evidence must never render as a green verdict: with no
-    // cdpPort there is nothing to verify a live browser against.
     state.mod = healthyModule({
       readReadyContract: () => ({
         controlPort: 4001,
@@ -322,7 +317,6 @@ describe('extension doctor (command surface)', () => {
       const lines = logSpy.mock.calls.map((c) => String(c[0]))
       expect(lines[0]).toContain('doctor (chromium)')
       expect(lines.some((l) => l.includes('✗ ready-contract'))).toBe(true)
-      // The advisory line repeats the first failing check's remediation.
       expect(lines[lines.length - 1]).toContain('ready-contract:')
     } finally {
       vi.restoreAllMocks()

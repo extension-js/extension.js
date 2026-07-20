@@ -26,10 +26,7 @@ describe('setupFirefoxProcessHandlers lifecycle', () => {
     const after2 = events.map((e) => process.listenerCount(e))
 
     events.forEach((_event, i) => {
-      // A second (and any subsequent) registration must add NO listeners.
-      // This is the leak that previously grew per launch.
       expect(after2[i]).toBe(after1[i])
-      // This module installs at most one global listener per event, ever.
       expect(after1[i]).toBeLessThanOrEqual(before[i] + 1)
     })
 

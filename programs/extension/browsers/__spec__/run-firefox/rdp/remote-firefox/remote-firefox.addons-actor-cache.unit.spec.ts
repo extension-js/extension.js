@@ -1,7 +1,5 @@
 import {describe, expect, it, vi} from 'vitest'
 
-// Mock the RDP messaging client so connectClient() runs without a real socket.
-// A minimal on/emit lets us simulate the transport "reconnected" event.
 vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
   class FakeMessagingClient {
     _handlers: Record<string, Array<(...a: unknown[]) => void>> = {}
@@ -24,10 +22,6 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 
 describe('RemoteFirefox connection-scoped actor cache', () => {
-  // Regression: a transient first-attempt failure used to poison
-  // cachedAddonsActor with a previous connection's actor id
-  // (server1.conn0.addonsActor2). Every retry then reused that dead id and
-  // failed deterministically with "noSuchActor", so Firefox never recovered.
   it('clears the addonsActor cache when a new RDP connection is established', async () => {
     const rf: any = new RemoteFirefox({
       extension: 'dist/firefox',
@@ -49,7 +43,6 @@ describe('RemoteFirefox connection-scoped actor cache', () => {
 
     const client = await rf.connectClient(9999)
 
-    // Simulate discovering an actor on this connection, then a reconnect.
     rf.cachedAddonsActor = 'server1.conn1.addonsActor5'
     client.emit('reconnected')
 

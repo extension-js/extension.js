@@ -13,9 +13,7 @@ describe('CDPExtensionController CDP-first loading', () => {
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {
-        // ignore cleanup failures
-      }
+      } catch {}
     }
   })
 
@@ -50,13 +48,11 @@ describe('CDPExtensionController CDP-first loading', () => {
     controller.enableLogging = vi.fn(async () => {})
     controller.classifyOwnership = vi.fn(() => 'mine')
 
-    // deriveExtensionIdFromTargets should NOT be called if loadUnpacked succeeds
     controller.deriveExtensionIdFromTargets = vi.fn(async () => 'fallback-id')
 
     const info = await controller.ensureLoaded()
 
     expect(info.extensionId).toBe('cdp-loaded-id')
-    // Target derivation was not needed since CDP returned an ID
     expect(controller.deriveExtensionIdFromTargets).not.toHaveBeenCalled()
   })
 
@@ -86,7 +82,6 @@ describe('CDPExtensionController CDP-first loading', () => {
       getExtensionInfo: vi.fn(async () => ({
         extensionInfo: {name: 'Fallback Extension', version: '1.0.0'}
       })),
-      // Simulate older Chrome without Extensions.loadUnpacked
       sendCommand: vi.fn(async () => {
         throw new Error("'Extensions.loadUnpacked' wasn't found")
       })
@@ -102,9 +97,7 @@ describe('CDPExtensionController CDP-first loading', () => {
     const info = await controller.ensureLoaded()
 
     expect(info.extensionId).toBe('target-derived-id')
-    // loadUnpacked was attempted first (CDP-first strategy)
     expect(loadUnpackedSpy).toHaveBeenCalled()
-    // Then fell back to target derivation
     expect(controller.deriveExtensionIdFromTargets).toHaveBeenCalled()
   })
 
@@ -130,7 +123,6 @@ describe('CDPExtensionController CDP-first loading', () => {
       extensionPaths: [outPath]
     }) as any
 
-    // Pre-set the extension ID (simulates a previous successful load)
     controller.extensionId = 'already-known-id'
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => ({
@@ -144,7 +136,6 @@ describe('CDPExtensionController CDP-first loading', () => {
     const info = await controller.ensureLoaded()
 
     expect(info.extensionId).toBe('already-known-id')
-    // Should skip loadUnpacked since ID was already known
     expect(loadUnpackedSpy).not.toHaveBeenCalled()
   })
 })

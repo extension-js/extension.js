@@ -24,18 +24,15 @@ describe('ThrowIfRecompileIsNeeded', () => {
       html,
       '<html><head><link rel="stylesheet" href="a.css"></head><body><script src="a.js"></script></body></html>'
     )
-    // Initial store call happens on apply
     const compiler = makeCompiler([html])
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'm'),
       includeList: {f: html}
     } as any).apply(compiler as any)
-    // Simulate change: update file to different entries
     fs.writeFileSync(
       html,
       '<html><head><link rel="stylesheet" href="b.css"></head><body><script src="b.js"></script></body></html>'
     )
-    // Re-run make hook
     compiler.hooks.make.tapAsync('', (compiler as any).hooks.make.tapAsync)
     expect((compiler as any)._errors.length >= 0).toBe(true)
   })

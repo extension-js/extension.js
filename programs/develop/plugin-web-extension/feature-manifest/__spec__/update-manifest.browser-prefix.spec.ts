@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {UpdateManifest} from '../steps/update-manifest'
 
 function runUpdateManifest(opts: {
@@ -12,6 +12,7 @@ function runUpdateManifest(opts: {
   const updated: Record<string, string> = {}
   const compilation: any = {
     errors: [],
+    warnings: [],
     assets,
     getAsset: (n: string) =>
       assets[n] ? {source: assets[n].source} : undefined,
@@ -174,8 +175,6 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     expect(out.side_panel?.default_title).toBe('Panel')
   })
 
-  // Chromium forks (brave/opera/vivaldi/yandex) and gecko forks
-  // (waterfox/librewolf) must inherit their family's scoped keys.
   for (const browser of ['brave', 'opera', 'vivaldi', 'yandex']) {
     it(`maps chromium:/chrome: keys onto key for a ${browser} build`, () => {
       const out = runUpdateManifest({

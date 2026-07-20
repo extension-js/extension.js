@@ -62,9 +62,6 @@ describe('UpdateManifest', () => {
     new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.icons).toBeDefined()
-    // A css-only group must reference the entry chunk the compiler actually
-    // emits (content_scripts/content-N.js), not a legacy content_scripts-N
-    // stub that nothing emits, the persist guard fails the build over it.
     expect(out.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.js'
     ])

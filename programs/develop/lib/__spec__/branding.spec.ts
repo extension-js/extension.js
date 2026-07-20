@@ -1,5 +1,5 @@
-import {describe, it, expect, vi} from 'vitest'
-import {scrubBrand, makeSanitizedConsole} from '../../lib/branding'
+import {describe, expect, it, vi} from 'vitest'
+import {makeSanitizedConsole, scrubBrand} from '../../lib/branding'
 
 describe('webpack-lib/branding', () => {
   it('scrubBrand replaces tool brands and normalizes errors/newlines', () => {
@@ -22,7 +22,6 @@ describe('webpack-lib/branding', () => {
     expect(out).not.toContain('ModuleBuildError:')
     expect(out).not.toContain('ModuleParseError:')
     expect(out).not.toContain('Module build failed')
-    // collapses multiple newlines
     expect(out).not.toMatch(/\n{3,}/)
   })
 

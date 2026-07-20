@@ -1,7 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Captured constructor arguments, so we can assert what SetupReloadStrategy
-// hands to the webextension target without running a real compilation.
 const captured = vi.hoisted(() => ({
   webExtension: [] as any[],
   backgroundEntry: [] as any[]
@@ -73,8 +71,6 @@ describe('SetupReloadStrategy background entry', () => {
   })
 
   it('uses a page entry on gecko even when the manifest is MV3', () => {
-    // Firefox runs an event page, not a service worker, so an MV3 manifest
-    // must still resolve to a page entry.
     const opts = run(
       {manifest_version: 3, background: {service_worker: 'b.js'}},
       'firefox'
@@ -117,15 +113,12 @@ describe('SetupReloadStrategy content script metadata', () => {
       ]
     }).contentScriptsMeta
 
-    // The MAIN script keeps index 0 and points at its bridge.
     expect(meta['content_scripts/content-0.js']).toEqual({
       index: 0,
       bundleId: 'content_scripts/content-0.js',
       world: 'main',
       bridgeBundleId: 'content_scripts/content-2.js'
     })
-    // The bridge is appended after the declared scripts, never overwriting
-    // the ordinary script that already owns index 1.
     expect(meta['content_scripts/content-2.js']).toEqual({
       index: 2,
       bundleId: 'content_scripts/content-2.js',

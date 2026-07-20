@@ -1,22 +1,3 @@
-// Real-rspack regression gate for ROOT-ABSOLUTE references (BUGS_TO_FIX §39).
-// Chrome resolves a leading `/` from the extension root, so a wild extension
-// can point an HTML page at `<script src="/js/popup.js" type="module">` or a
-// manifest surface at `options_page: "/page/options.html"`. Two silent holes:
-//
-//   1. The HTML script-src path copied the module verbatim (correct, the
-//      browser resolves it) but DROPPED its static import closure: the
-//      `import {msg} from "/js/gr.js"` shipped intact while js/gr.js never
-//      landed in dist, and the popup died on the import fetch. Repro:
-//      UPSTREAM_BUG_repros/h-root-absolute-html-src (corpus id
-//      oa--conmeobeou1253__1.5.7_0).
-//
-//   2. The manifest overrides treated ANY root-absolute page ref as
-//      public-served: the html pipeline compiled /page/options.html to
-//      options/index.html while the dist manifest kept pointing at
-//      page/options.html, which nothing emitted. The options surface 404'd
-//      silently (corpus ids oa--Chimildic__YaMuTools,
-//      oa--abalsam__cisco-dialer, the latter proving the `.htm` spelling).
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -39,9 +20,6 @@ function writePackageJson(root: string, name: string) {
   )
 }
 
-// Mirrors UPSTREAM_BUG_repros/h-root-absolute-html-src: a popup page whose
-// module script is referenced root-absolutely and imports a sibling the
-// bundler never sees.
 function writeHtmlSrcFixture() {
   writePackageJson(HTML_SRC_ROOT, 'extjs-build-root-abs-html-spec')
   fs.mkdirSync(path.join(HTML_SRC_ROOT, 'js'), {recursive: true})
@@ -75,9 +53,6 @@ function writeHtmlSrcFixture() {
   )
 }
 
-// The §39 addendum shape: a root-absolute options_page that lives at the
-// project root (NOT under public/), compiled by the html pipeline, so the
-// dist manifest must point at the compiled surface.
 function writeOptionsFixture() {
   writePackageJson(OPTIONS_ROOT, 'extjs-build-root-abs-options-spec')
   fs.mkdirSync(path.join(OPTIONS_ROOT, 'page'), {recursive: true})
@@ -101,9 +76,6 @@ function writeOptionsFixture() {
   )
 }
 
-// public/ keeps precedence: a root-absolute ref that public/ owns stays a
-// verbatim public path in the manifest, the special-folders pipeline serves
-// it at the output root.
 function writePublicOptionsFixture() {
   writePackageJson(PUBLIC_OPTIONS_ROOT, 'extjs-build-root-abs-public-spec')
   fs.mkdirSync(path.join(PUBLIC_OPTIONS_ROOT, 'public', 'page'), {
@@ -171,21 +143,18 @@ describe('build: root-absolute references (real rspack)', () => {
 
     const distDir = path.join(HTML_SRC_ROOT, 'dist', 'chrome')
 
-    // The module ships verbatim (the browser resolves its imports)...
     const popupJs = fs.readFileSync(
       path.join(distDir, 'js', 'popup.js'),
       'utf8'
     )
     expect(popupJs).toContain('from "/js/gr.js"')
 
-    // ...so its import closure must ship beside it.
     const grJs = path.join(distDir, 'js', 'gr.js')
     expect(fs.existsSync(grJs), `missing ${grJs}`).toBe(true)
     expect(fs.readFileSync(grJs, 'utf8')).toContain(
       'root-absolute import loaded'
     )
 
-    // And the ref that ships must not be reported as missing.
     expect(summary.warnings_count ?? 0).toBe(0)
   }, 120_000)
 

@@ -18,10 +18,6 @@ const developRoot = path.resolve(
 
 describe('session-state layout', () => {
   it('keys every non-legacy artifact per project+browser', () => {
-    // A per-project single slot gets clobbered the moment a second browser
-    // session starts on the same project (the control.token defect). Every
-    // artifact must vary with the browser AND carry the browser name
-    // visibly in its path.
     for (const artifact of SESSION_ARTIFACTS) {
       if (artifact.keying !== 'per-browser') continue
       const chrome = artifact.build('/proj', 'chrome')
@@ -37,9 +33,6 @@ describe('session-state layout', () => {
   })
 
   it('allows exactly the known legacy slots and no new ones', () => {
-    // Adding a shared-slot (or dist-lifetime) session file is a design
-    // decision with a field-report-shaped failure mode, force the edit to
-    // happen here, in review, not silently in a path join.
     const legacy = SESSION_ARTIFACTS.filter(
       (artifact) => artifact.keying !== 'per-browser'
     ).map((artifact) => artifact.name)
@@ -50,10 +43,6 @@ describe('session-state layout', () => {
   })
 
   it('has no session path joins outside session-paths', () => {
-    // Path builders that bypass the module dodge both assertions above.
-    // Scan every source line for path.join/resolve calls that mention the
-    // session-state roots. The facades re-export from session-paths, so
-    // after the refactor this allowlist is just the module itself.
     const allowed = new Set([path.join('lib', 'session-paths.ts')])
     const offenders: string[] = []
 
@@ -71,8 +60,6 @@ describe('session-state layout', () => {
         const rel = path.relative(developRoot, full)
         if (allowed.has(rel)) continue
 
-        // Collapse whitespace so multi-line join(...) argument lists can't
-        // slip past a line-based scan; match within the call's paren span.
         const flat = fs.readFileSync(full, 'utf-8').replace(/\s+/g, ' ')
         const calls = flat.match(/path\.(join|resolve)\([^)]*\)/g) ?? []
         for (const call of calls) {

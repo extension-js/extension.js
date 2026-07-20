@@ -27,11 +27,6 @@ describe('StaticAssetsPlugin', () => {
     vi.clearAllMocks()
   })
 
-  // Dev content-hashes too: an unhashed `assets/[name][ext]` let two assets
-  // that merely share a basename overwrite each other, and rspack failed the
-  // compilation ("Multiple assets emit different content to the same filename")
-  // so `extension dev` never booted, while `build` was fine. This spec used to
-  // assert the unhashed name, i.e. it asserted the bug.
   it('content-hashes asset filenames in development and keeps the SVG inline threshold', async () => {
     const compiler = createCompiler()
     const plugin = new StaticAssetsPlugin({
@@ -111,7 +106,6 @@ describe('StaticAssetsPlugin', () => {
 
   it('respects existing custom SVG rule (does not add default svg asset rule)', async () => {
     const compiler = createCompiler()
-    // Add a custom SVG rule with a loader (`use` present)
     compiler.options.module.rules.push({
       test: /\.svg$/i,
       use: [{loader: 'custom-svg-loader'}]
@@ -124,19 +118,16 @@ describe('StaticAssetsPlugin', () => {
     await plugin.apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
-    // Ensure our original custom rule is present
     const svgRules = rules.filter(
       (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
     )
     expect(svgRules.length).toBe(1)
     expect(svgRules[0].use).toBeDefined()
-    // And that no default asset-type svg rule was added
     expect(svgRules[0].type).toBeUndefined()
   })
 
   it('respects existing custom fonts rule (does not add default fonts asset rule)', async () => {
     const compiler = createCompiler()
-    // Add a custom fonts rule (e.g. `asset/inline` for strict CSP pages)
     compiler.options.module.rules.push({
       test: /\.(woff|woff2|eot|ttf|otf)$/i,
       type: 'asset/inline'
@@ -158,7 +149,6 @@ describe('StaticAssetsPlugin', () => {
     expect(fontRules.length).toBe(1)
     expect(fontRules[0].type).toBe('asset/inline')
 
-    // Other default rules should still be present.
     expect(
       findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)
     ).toBeTruthy()

@@ -1,14 +1,7 @@
 import net from 'node:net'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
-// We test RdpTransport directly. It is the core RDP connection layer.
-// These tests cover per-actor request queuing, error isolation,
-// disconnect cleanup, and event forwarding.
 import {RdpTransport} from '../../run-firefox/rdp/remote-firefox/transport'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function createMockServer(): Promise<{
   server: net.Server
@@ -52,10 +45,6 @@ function sendResponse(sock: net.Socket, payload: Record<string, unknown>) {
   sock.write(buildRdpFrame(payload))
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('RdpTransport', () => {
   let mockState: Awaited<ReturnType<typeof createMockServer>>
   let transport: RdpTransport
@@ -75,16 +64,11 @@ describe('RdpTransport', () => {
     })
   })
 
-  // -----------------------------------------------------------------------
-  // 1. disconnect() rejects all pending and queued requests
-  // -----------------------------------------------------------------------
-
   it('rejects pending requests when disconnect() is called', async () => {
     await transport.connect(mockState.port)
 
     const pending = transport.request({to: 'root', type: 'listTabs'})
 
-    // Give the write a tick to flush to the active map
     await new Promise((r) => setTimeout(r, 30))
 
     transport.disconnect()
@@ -107,10 +91,6 @@ describe('RdpTransport', () => {
     await expect(req3).rejects.toThrow()
   })
 
-  // -----------------------------------------------------------------------
-  // 2. Per-actor queuing, only one in-flight request per actor
-  // -----------------------------------------------------------------------
-
   it('queues a second request to the same actor until the first resolves', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
@@ -122,13 +102,11 @@ describe('RdpTransport', () => {
       url: 'https://example.com'
     })
 
-    // Only the first request is on the wire. Respond to it.
     await new Promise((r) => setTimeout(r, 30))
     sendResponse(sock, {from: 'tab-1', type: 'attached'})
 
     const firstResult = await first
 
-    // Now the second request flushes. Respond to it.
     await new Promise((r) => setTimeout(r, 30))
     sendResponse(sock, {from: 'tab-1', type: 'navigated'})
 
@@ -147,7 +125,6 @@ describe('RdpTransport', () => {
 
     await new Promise((r) => setTimeout(r, 30))
 
-    // Respond in reverse order, both are in-flight concurrently
     sendResponse(sock, {from: 'tab-B', type: 'attached'})
     sendResponse(sock, {from: 'tab-A', type: 'attached'})
 
@@ -155,10 +132,6 @@ describe('RdpTransport', () => {
     expect(resultA).toMatchObject({from: 'tab-A'})
     expect(resultB).toMatchObject({from: 'tab-B'})
   })
-
-  // -----------------------------------------------------------------------
-  // 3. Error responses are routed correctly without affecting other actors
-  // -----------------------------------------------------------------------
 
   it('rejects the correct actor on RDP error without affecting others', async () => {
     await transport.connect(mockState.port)
@@ -176,10 +149,6 @@ describe('RdpTransport', () => {
     await expect(reqB).resolves.toMatchObject({from: 'tab-B'})
   })
 
-  // -----------------------------------------------------------------------
-  // 4. Unmatched messages are emitted as events
-  // -----------------------------------------------------------------------
-
   it('emits unmatched messages as message events', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
@@ -194,10 +163,6 @@ describe('RdpTransport', () => {
     expect(messages[0]).toMatchObject({from: 'server', type: 'tabListChanged'})
   })
 
-  // -----------------------------------------------------------------------
-  // 5. Firefox greeting frame is emitted as message (no pending for it)
-  // -----------------------------------------------------------------------
-
   it('handles Firefox greeting frame without errors', async () => {
     const errors: unknown[] = []
     transport.on('error', (e) => errors.push(e))
@@ -205,7 +170,6 @@ describe('RdpTransport', () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
 
-    // Firefox sends a greeting with `from: "root"` on connect
     sendResponse(sock, {
       from: 'root',
       applicationType: 'browser',
@@ -213,15 +177,10 @@ describe('RdpTransport', () => {
     })
 
     await new Promise((r) => setTimeout(r, 50))
-    // No "without sender" errors expected
     expect(
       errors.filter((e) => String(e).includes('without sender'))
     ).toHaveLength(0)
   })
-
-  // -----------------------------------------------------------------------
-  // 6. Messages without `from` field emit error
-  // -----------------------------------------------------------------------
 
   it('emits error for messages missing the from field', async () => {
     await transport.connect(mockState.port)
@@ -237,10 +196,6 @@ describe('RdpTransport', () => {
     expect(String(errors[0])).toContain('without')
   })
 
-  // -----------------------------------------------------------------------
-  // 7. Multiple responses for same actor flush the queue correctly
-  // -----------------------------------------------------------------------
-
   it('flushes three sequential requests to same actor correctly', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
@@ -249,7 +204,6 @@ describe('RdpTransport', () => {
     const r2 = transport.request({to: 'tab-1', type: 'op2'})
     const r3 = transport.request({to: 'tab-1', type: 'op3'})
 
-    // Respond to each in sequence, each response should flush the next
     await new Promise((r) => setTimeout(r, 30))
     sendResponse(sock, {from: 'tab-1', result: 'res1'})
     const res1 = await r1
@@ -266,10 +220,6 @@ describe('RdpTransport', () => {
     expect(res3).toMatchObject({result: 'res3'})
   })
 
-  // -----------------------------------------------------------------------
-  // 8. Mixed actor queue: one actor error doesn't block others
-  // -----------------------------------------------------------------------
-
   it('actor error does not block requests to other actors', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
@@ -280,11 +230,9 @@ describe('RdpTransport', () => {
 
     await new Promise((r) => setTimeout(r, 30))
 
-    // tab-A errors
     sendResponse(sock, {from: 'tab-A', error: true, message: 'failed'})
     await expect(reqA).rejects.toMatchObject({error: true})
 
-    // tab-B continues fine
     sendResponse(sock, {from: 'tab-B', result: 'b1'})
     await expect(reqB1).resolves.toMatchObject({result: 'b1'})
 
@@ -292,12 +240,6 @@ describe('RdpTransport', () => {
     sendResponse(sock, {from: 'tab-B', result: 'b2'})
     await expect(reqB2).resolves.toMatchObject({result: 'b2'})
   })
-
-  // -----------------------------------------------------------------------
-  // 9. Server-initiated close emits 'end' AND rejects in-flight requests
-  //    (previously a documented gap: requests hung forever on close because
-  //    the reconnect path swaps the transport without calling disconnect()).
-  // -----------------------------------------------------------------------
 
   it('rejects in-flight requests and emits end when the server closes', async () => {
     await transport.connect(mockState.port)
@@ -316,17 +258,11 @@ describe('RdpTransport', () => {
     await expect(req).rejects.toThrow()
   })
 
-  // -----------------------------------------------------------------------
-  // 10. A request that never gets a reply rejects after the timeout
-  //     (instead of hanging the actor's queue forever)
-  // -----------------------------------------------------------------------
-
   it('rejects a request that never gets a reply after the timeout', async () => {
     process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS = '60'
     const t = new RdpTransport()
     try {
       await t.connect(mockState.port)
-      // Mock server never responds.
       await expect(t.request({to: 'tab-1', type: 'noReply'})).rejects.toThrow(
         /timed out/
       )
@@ -337,11 +273,6 @@ describe('RdpTransport', () => {
       } catch {}
     }
   })
-
-  // -----------------------------------------------------------------------
-  // 11. A request made before connect rejects cleanly (no socket) rather
-  //     than throwing out of flush() and corrupting the pending queue
-  // -----------------------------------------------------------------------
 
   it('rejects a request made before connect instead of throwing', async () => {
     const t = new RdpTransport()

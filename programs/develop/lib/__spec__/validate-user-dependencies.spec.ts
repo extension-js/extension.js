@@ -55,8 +55,6 @@ describe('assertNoManagedDependencyConflicts', () => {
   it('does not throw when a managed name is only a substring of another package', () => {
     const project = makeTempDir('extjs-substring-')
     const pkgPath = path.join(project, 'package.json')
-    // `pintor` is managed; the project depends on a hypothetical
-    // `pintor-extras` and references only that in its config.
     fs.writeFileSync(
       pkgPath,
       JSON.stringify({

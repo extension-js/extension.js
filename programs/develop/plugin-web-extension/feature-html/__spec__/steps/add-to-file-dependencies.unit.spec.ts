@@ -31,7 +31,6 @@ describe('AddToFileDependencies', () => {
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {'feature/index': html}
     } as any).apply(c as any)
-    // Only root html guaranteed; static entries are added to set but not necessarily to compilation.fileDependencies
     expect(c.hooks.thisCompilation as any).toBeTruthy()
   })
 })

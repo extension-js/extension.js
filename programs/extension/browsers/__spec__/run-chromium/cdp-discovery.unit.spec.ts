@@ -7,10 +7,6 @@ import {
   discoverWebSocketDebuggerUrl
 } from '../../run-chromium/cdp/discovery'
 
-// ---------------------------------------------------------------------------
-// Helpers, tiny HTTP server for testing discovery
-// ---------------------------------------------------------------------------
-
 function createCdpServer(
   handlers: Record<string, (res: http.ServerResponse) => void>
 ): Promise<{server: http.Server; port: number}> {
@@ -203,8 +199,6 @@ describe('checkChromeRemoteDebugging', () => {
   })
 
   it('returns false when nothing is listening on the port', async () => {
-    // Use a port that is (almost certainly) not in use
-    // Get a free port by binding then releasing
     const server = net.createServer()
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
     const port = (server.address() as net.AddressInfo).port
@@ -233,7 +227,6 @@ describe('checkChromeRemoteDebugging', () => {
     const port = (server.address() as net.AddressInfo).port
 
     try {
-      // Connecting to a non-routable address should fail
       const result = await checkChromeRemoteDebugging(port, '192.0.2.1')
       expect(result).toBe(false)
     } finally {

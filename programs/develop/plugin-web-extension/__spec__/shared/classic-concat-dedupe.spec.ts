@@ -11,12 +11,6 @@ const parse = (entry: string) => {
 
 describe('classicConcatEntry', () => {
   it('dedupes a file listed twice in one content_scripts group (Chrome injects it once)', () => {
-    // Verified live on Chrome 150: a file listed twice in one `js` array is
-    // injected EXACTLY ONCE, no error. Concatenating it twice redeclares its
-    // top-level bindings and turns the whole group into a SyntaxError
-    // ("Identifier 'NativeSkipper' has already been declared"), so an extension
-    // Chrome runs fine failed to build, wild: ThomasTavernier/Improve-Crunchyroll
-    // lists .../watch/player/skippers/skippers.js twice.
     const entry = classicConcatEntry('content_scripts/content-1', [
       '/p/shared/a.js',
       '/p/skippers.js',

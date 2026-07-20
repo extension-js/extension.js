@@ -4,10 +4,6 @@ import {icons} from '../icons'
 
 describe('icons manifest override, output path matches the icon emitter', () => {
   it('preserves in-project relative icon paths as declared', () => {
-    // Regression (G16): flattening every icon to icons/<basename> collides
-    // with any other emitted asset that legitimately owns icons/<basename>
-    // (e.g. a popup-referenced image) and silently aliases two different
-    // icons that share a basename. In-project paths are preserved instead.
     const out = icons({
       icons: {16: 'images/i16.png', 32: 'i32.png'}
     } as any) as any
@@ -25,9 +21,6 @@ describe('icons manifest override, output path matches the icon emitter', () => 
   })
 
   it('treats leading-slash (extension-root) icon paths as project-relative', () => {
-    // Bug 06 invariant: the manifest must point where the emitter writes.
-    // The emitter resolves "/images/x.png" to <project>/images/x.png and
-    // (since G16) emits it at images/x.png, so the manifest agrees.
     const out = icons({
       icons: {16: '/images/get_started16.png', 32: '/images/get_started32.png'}
     } as any) as any

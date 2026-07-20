@@ -4,9 +4,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// The default `javascript` template (and its `init` alias) now ships with the
-// package and is copied locally, no network. go-git-it is mocked to fail so
-// the test proves the bundled path is used and never falls back to the wire.
 vi.mock('go-git-it', () => ({
   default: vi.fn(async () => {
     throw new Error('go-git-it should not be called for the bundled template')
@@ -41,8 +38,6 @@ describe('importExternalTemplate', () => {
         error: () => {}
       })
 
-      // The bundled template carries its manifest under src/, distinguishing a
-      // local copy from any network fetch.
       expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(true)
       expect(
         fs.existsSync(path.join(projectPath, 'src', 'manifest.json'))
@@ -51,9 +46,7 @@ describe('importExternalTemplate', () => {
     } finally {
       try {
         await fsp.rm(tmpRoot, {recursive: true, force: true})
-      } catch {
-        // ignore cleanup errors
-      }
+      } catch {}
     }
   })
 })

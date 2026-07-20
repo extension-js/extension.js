@@ -1,11 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// This spec guards the launched-Chromium controller contract: reload is owned
-// by the dev server's control-bridge SW producer (the same executor as
-// `--no-browser`), NOT the launcher's CDP controller. So launchBrowser()'s
-// returned controller exposes logging only, no reload(), no close(). The
-// reload routing itself is covered by the develop-side dispatchReload / broker
-// tests.
 const constructorCalls: Array<{host: any; ctx: any}> = []
 
 vi.mock('../run-chromium/chromium-launch', () => {
@@ -13,9 +7,7 @@ vi.mock('../run-chromium/chromium-launch', () => {
     constructor(host: any, ctx: any) {
       constructorCalls.push({host, ctx})
     }
-    async runOnce(_compilation: any, _options: any) {
-      // no-op; dry-run semantics
-    }
+    async runOnce(_compilation: any, _options: any) {}
     apply(_compiler: any) {}
   }
   return {ChromiumLaunchPlugin}

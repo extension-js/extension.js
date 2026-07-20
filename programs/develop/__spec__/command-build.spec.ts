@@ -11,7 +11,6 @@ vi.mock('fs', async () => {
   }
 })
 
-// Mocks for modules the SUT uses
 vi.mock('../lib/project', () => ({
   getProjectStructure: vi.fn(async () => ({
     manifestPath: '/proj/src/manifest.json',
@@ -19,11 +18,9 @@ vi.mock('../lib/project', () => ({
   }))
 }))
 
-// Provide a minimal plugin shape to exercise filtering
 const SOME_OTHER_PLUGIN = {constructor: {name: 'OtherPlugin'}}
 
 vi.mock('../rspack-config', async () => {
-  // Ensure this mock can reference the plugin name without hoist issues
   const pluginBrowsersLike = {constructor: {name: 'plugin-browsers'}}
   return {
     default: vi.fn(() => ({
@@ -35,7 +32,6 @@ vi.mock('../rspack-config', async () => {
 
 vi.mock('webpack-merge', () => ({merge: (cfg: any) => cfg}))
 
-// user config returns the config it receives so we can assert filtered plugins were passed in
 vi.mock('../lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
   return {
@@ -57,8 +53,6 @@ vi.mock('../lib/generate-extension-types', () => ({
   generateExtensionTypes: vi.fn(async () => {})
 }))
 
-// Default to "no TS" so the existing JS-focused suites don't have to
-// thread a tsconfig through their fs stubs. Individual tests can override.
 vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => false),
   ensureTypeScriptConfig: vi.fn()
@@ -81,7 +75,6 @@ vi.mock('@rspack/core', () => ({
   rspack: rspackMock
 }))
 
-// Make rspack compiler controllable
 function makeCompiler(statsImpl: any, failErr?: any) {
   return {
     run: (cb: any) => cb(failErr, statsImpl),
@@ -89,12 +82,10 @@ function makeCompiler(statsImpl: any, failErr?: any) {
   }
 }
 
-// Scrub brand is used in error printing
 vi.mock('../lib/branding', () => ({
   scrubBrand: (s: string) => s.replace(/Rspack/gi, 'Extension.js')
 }))
 
-// Silence logs
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -108,8 +99,6 @@ import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/r
 import webpackConfig from '../rspack-config'
 
 describe('webpack/command-build', () => {
-  // fs is mocked; configure per-test behavior below
-
   beforeEach(() => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
@@ -135,7 +124,6 @@ describe('webpack/command-build', () => {
   })
 
   it('builds successfully, filters browser plugins, merges user config, and returns summary', async () => {
-    // Simulate presence of node_modules (no install)
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })
@@ -168,13 +156,11 @@ describe('webpack/command-build', () => {
       errors_count: 0
     })
 
-    // user config was given only non-browser plugins
     expect((configLoaderMod as any).userConfigSpy).toHaveBeenCalledTimes(1)
     const passedConfig = (configLoaderMod as any).userConfigSpy.mock.calls[0][0]
     const passedPlugins = passedConfig.plugins || []
     expect(passedPlugins).toEqual([SOME_OTHER_PLUGIN])
 
-    // rspack called with merged config
     expect(rspackMock).toHaveBeenCalledTimes(1)
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
@@ -324,7 +310,6 @@ describe('webpack/command-build', () => {
   it('ensures dependencies before running the build', async () => {
     const nodeModules = path.join('/proj', 'node_modules')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
-      // path exists but is empty dir
       return String(p) === nodeModules || false
     })
     ;(fs.readdirSync as any).mockReturnValue([])
@@ -394,10 +379,6 @@ describe('webpack/command-build', () => {
   })
 
   it('rejects (never process.exit) on build errors BY DEFAULT, library hosts embed extensionBuild (§37)', async () => {
-    // Prove the default path, not the vitest escape hatch: with VITEST unset
-    // and no exitOnError option, a failed build must reject the promise. The
-    // old `exitOnError ?? true` default killed embedding hosts
-    // (@extension.dev/mcp's server died mid-session on failing builds).
     const priorVitest = process.env.VITEST
     delete process.env.VITEST
     const exitSpy = vi
@@ -508,10 +489,6 @@ describe('webpack/command-build', () => {
   })
 
   it('regenerates extension-env.d.ts for TS projects so CI tsc --noEmit stays clean', async () => {
-    // Symmetric with command-dev: `extension build` must publish the
-    // `/// <reference types="extension/types" />` shim so a fresh-clone CI run
-    // that never invoked `extension dev` still sees the ambient types
-    // (asset modules, ImportMetaEnv, global `browser`).
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })
@@ -542,16 +519,11 @@ describe('webpack/command-build', () => {
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
 
-    // `ensureTypeScriptConfig` still runs (it gates the "TS files w/o tsconfig"
-    // error), but no shim is written when the project isn't using TS.
     expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith('/proj/src')
     expect(genTypesMod.generateExtensionTypes).not.toHaveBeenCalled()
   })
 
   it('persists the build-summary contract for shell-out hosts (§73)', async () => {
-    // Hosts that shell out to `extension build` (the MCP) never see the
-    // returned summary object; the persisted contract is their only
-    // structured channel. Real tmp dir so the write is exercised end to end.
     const os = await import('node:os')
     const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
     const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-summary-'))
@@ -589,7 +561,6 @@ describe('webpack/command-build', () => {
       const persisted = JSON.parse(realFs.readFileSync(summaryFile, 'utf8'))
       expect(persisted.browser).toBe('chrome')
       expect(persisted.warnings_count).toBe(1)
-      // ANSI-stripped, ready for a programmatic consumer.
       expect(persisted.warnings).toEqual(['Deprecation: legacy API'])
     } finally {
       realFs.rmSync(tmp, {recursive: true, force: true})

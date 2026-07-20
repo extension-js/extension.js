@@ -37,9 +37,6 @@ describe('parseParentPid', () => {
 describe('setupParentWatchdog', () => {
   it('fires immediately when the parent pid is already dead', () => {
     const onDeath = vi.fn()
-    // Reserve a real pid, let it exit, then watch it. Spawning is async, so
-    // use an implausible-but-valid pid instead: max pid space on macOS/Linux
-    // is well below this value.
     const cancel = setupParentWatchdog(2 ** 30, {
       onDeath,
       log: () => {},

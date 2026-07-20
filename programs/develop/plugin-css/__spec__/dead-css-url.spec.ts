@@ -20,11 +20,6 @@ function createProject() {
   return dir
 }
 
-/**
- * Drives only the dead-url resolve tap: captures the beforeResolve callback
- * the plugin registers on a fake NormalModuleFactory and feeds it resolve
- * data the way rspack would for a CSS url() request.
- */
 function armPlugin(projectDir: string) {
   const warnings: any[] = []
   let beforeResolve: ((data: any) => false | void) | null = null
@@ -47,8 +42,6 @@ function armPlugin(projectDir: string) {
     }
   }
 
-  // apply() is async because of configureOptions; the dead-url tap is
-  // registered synchronously first, so we don't await it.
   void new CssPlugin({
     manifestPath: path.join(projectDir, 'manifest.json')
   } as any).apply(compiler)
@@ -81,11 +74,9 @@ describe('CssPlugin dead url() tolerance (§23: Chrome silently 404s them)', () 
     const issuer = path.join(dir, 'cs.css')
     const {resolve, warnings} = armPlugin(dir)
 
-    // file exists at the extension root -> normal resolution continues
     expect(
       resolve({request: '/img/real.png', context: dir, contextInfo: {issuer}})
     ).toBeUndefined()
-    // JS issuer -> not our concern, even for a missing file
     expect(
       resolve({
         request: '/img/missing.png',
@@ -93,7 +84,6 @@ describe('CssPlugin dead url() tolerance (§23: Chrome silently 404s them)', () 
         contextInfo: {issuer: path.join(dir, 'index.js')}
       })
     ).toBeUndefined()
-    // bare specifier without an asset extension -> stays with the resolver
     expect(
       resolve({
         request: 'some-pkg/styles.css',

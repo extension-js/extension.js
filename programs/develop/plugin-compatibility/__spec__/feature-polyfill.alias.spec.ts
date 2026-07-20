@@ -1,10 +1,9 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 const provideApply = vi.fn()
 
-// Mock rspack to intercept ProvidePlugin usage
 vi.mock('@rspack/core', async () => {
   const actual: any = await vi.importActual('@rspack/core')
   class ProvidePluginMock {
@@ -24,8 +23,8 @@ vi.mock('@rspack/core', async () => {
   }
 })
 
-import {PolyfillPlugin} from '../feature-polyfill'
 import * as rspack from '@rspack/core'
+import {PolyfillPlugin} from '../feature-polyfill'
 
 describe('PolyfillPlugin resolver/alias and provider', () => {
   beforeEach(() => {

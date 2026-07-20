@@ -236,12 +236,6 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('treats real-shape icons (Record<string, string[]>) as a flat list', async () => {
-    // `browser-extension-manifest-fields` returns icons keyed by icon group
-    // (`icons`, `action`, `browser_action`, …) where each value is an array
-    // of resolved paths, one per declared size. Before flattening, the
-    // snapshot was Array<Array<string>> and `prev[i] !== next[i]` always
-    // tripped (different array references) → spurious error every rebuild
-    // with a comma-joined dump as `pathBefore`.
     const errors: any[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     const realShape = {
@@ -258,7 +252,6 @@ describe('ManifestFieldsChangeDetector', () => {
     plugin.apply(compiler as any)
     await compiler._triggerWatchRun()
 
-    // Same logical content, fresh array references, must NOT trip diff
     mockFields = {
       scripts: {},
       html: {},
@@ -316,7 +309,6 @@ describe('ManifestFieldsChangeDetector', () => {
     expect(errors.length).toBe(1)
     const message = String(errors[0].message || errors[0])
     expect(message).toContain('Entrypoint references changed')
-    // The "before" path must be a single resolved path, not a CSV.
     expect(message).not.toMatch(/PATH BEFORE\b[^\n]*,[^\n]*/)
   })
 

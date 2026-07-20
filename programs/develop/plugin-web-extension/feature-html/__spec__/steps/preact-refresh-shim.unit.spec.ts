@@ -1,24 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-/**
- * `preact-refresh-shim.ts` is the first module in every dev-mode HTML entry
- * chain. It exists so the user's bundle does not crash with
- * `$RefreshReg$ is not defined` when a refresh plugin is silently
- * mis-wired. The known case at the time of writing is
- * `@rspack/plugin-preact-refresh@1.1.4` against rspack 2.x, where the
- * plugin's HMR runtime intercept is keyed on `runtimeModule.constructorName`
- * (undefined in rspack 2.x), so the per-factory `$RefreshReg$` definition
- * never gets installed and the loader-injected top-level `$RefreshReg$()`
- * calls hit a ReferenceError.
- *
- * The shim must:
- *   1. Define `globalThis.$RefreshReg$` and `globalThis.$RefreshSig$` as
- *      no-ops when they are not already defined.
- *   2. Be a transparent backstop, must not clobber an existing definition.
- *
- * Imported from source (vitest TS transform). Avoids a hard dependency on
- * `pnpm compile` running before tests in CI.
- */
 describe('preact-refresh-shim (dev page)', () => {
   beforeEach(() => {
     delete (globalThis as any).$RefreshReg$
@@ -32,8 +13,6 @@ describe('preact-refresh-shim (dev page)', () => {
   })
 
   async function loadFreshShim() {
-    // vi.resetModules() above forces a fresh evaluation of the module's
-    // top-level side effects, which is what we're verifying.
     return import('../../steps/preact-refresh-shim.ts')
   }
 
@@ -42,15 +21,11 @@ describe('preact-refresh-shim (dev page)', () => {
     expect(typeof (globalThis as any).$RefreshReg$).toBe('function')
     expect(typeof (globalThis as any).$RefreshSig$).toBe('function')
 
-    // $RefreshSig$() returns an identity function so the loader's
-    // `$RefreshSig$()(Component, key, forceReset, getCustomHooks)` calls
-    // pass the component through unchanged.
     const sig = (globalThis as any).$RefreshSig$()
     expect(typeof sig).toBe('function')
     const subject = {tag: 'Component'}
     expect(sig(subject)).toBe(subject)
 
-    // The fallback registration is a no-op. It must not throw with any args.
     expect(() => (globalThis as any).$RefreshReg$(subject, 'id')).not.toThrow()
   })
 

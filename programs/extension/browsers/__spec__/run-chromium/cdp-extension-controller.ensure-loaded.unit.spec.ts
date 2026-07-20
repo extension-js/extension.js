@@ -13,9 +13,7 @@ describe('CDPExtensionController ensureLoaded', () => {
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {
-        // ignore cleanup failures
-      }
+      } catch {}
     }
   })
 
@@ -60,7 +58,6 @@ describe('CDPExtensionController ensureLoaded', () => {
     const info = await controller.ensureLoaded()
 
     expect(info.extensionId).toBe('userid')
-    // CDP-first: loadUnpacked is always attempted before target derivation
     expect(loadUnpackedSpy).toHaveBeenCalled()
   })
 

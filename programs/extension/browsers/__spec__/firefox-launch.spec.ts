@@ -35,7 +35,6 @@ describe('Firefox profile args', () => {
       browser: 'firefox'
     } as any)
     expect(args).toMatch(/--profile="/)
-    // Accept any ephemeral profile name under firefox-profile/
     expect(args).toMatch(
       /extension-js[\\/]+profiles[\\/]+firefox-profile[\\/]+/
     )
@@ -70,10 +69,6 @@ describe('Firefox profile args', () => {
   })
 
   it('resolves relative explicit profile paths against the compilation context, not process.cwd()', async () => {
-    // Regression: matches the Chromium fix in chromium-flags.spec.ts,
-    // relative `profile: './dist/extension-profile-firefox'` must anchor to
-    // the project that owns extension.config.js so sequential example runs
-    // never share a single Firefox profile.
     const projectA = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-fx-profile-ctx-a-')
     )

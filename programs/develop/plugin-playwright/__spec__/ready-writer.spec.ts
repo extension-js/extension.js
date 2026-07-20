@@ -28,14 +28,12 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    // simulate the chromium launcher stamping a mid-session browser death
     const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     ready.browserExitedAt = '2026-07-12T00:00:00.000Z'
     ready.browserExitCode = 21
     ready.cdpPort = 9223
     fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
 
-    // a later compile succeeding must not erase the death evidence
     writer.writeReady()
 
     const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
@@ -59,20 +57,17 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    // The SW connects to the control channel.
     writer.stampExecutorAttached()
     const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(stamped.runtime).toBe('attached')
     expect(typeof stamped.executorAttachedAt).toBe('string')
     const firstStamp = stamped.executorAttachedAt
 
-    // A later recompile must not erase the attach signal...
     writer.writeReady()
     const afterCompile = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(afterCompile.runtime).toBe('attached')
     expect(afterCompile.executorAttachedAt).toBe(firstStamp)
 
-    // ...and a repeated attach (SW reconnect) must not rewrite the timestamp.
     writer.stampExecutorAttached()
     const afterReattach = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(afterReattach.executorAttachedAt).toBe(firstStamp)
@@ -112,7 +107,6 @@ describe('ready.json writer preservation', () => {
   it('a build writer never rewrites a LIVE dev session contract (§65)', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
-    // Make the contract belong to a live foreign process (the test parent).
     const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
     ready.pid = process.ppid
     fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
@@ -144,7 +138,7 @@ describe('ready.json writer preservation', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
     const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
-    ready.pid = 99999999 // certainly not a live pid
+    ready.pid = 99999999
     fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
 
     const buildWriter = createPlaywrightMetadataWriter({

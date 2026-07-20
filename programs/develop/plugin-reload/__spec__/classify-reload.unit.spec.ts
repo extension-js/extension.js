@@ -1,8 +1,3 @@
-// Unit spec for the pure reload classifier shared by the launched-browser path
-// (BrowsersPlugin) and the controller-less `--no-browser` reload broadcast.
-// Keeping both paths on one classifier guarantees a given change reloads
-// identically whether or not a browser was launched.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -131,8 +126,6 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
   })
 
   it('classifies an unconventionally named SW source as service-worker (anshul regression)', () => {
-    // `background-ultimate.js` fails the /background(\.|\/)/ name pattern and
-    // used to be re-injected as a content script. The SW never restarted.
     const result = classifyReloadFromSources({
       changedSources: ['background-ultimate.js'],
       getContentScriptCount: count(1),
@@ -188,10 +181,6 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
   })
 
   it('a shared SW+content source fans out to both reload paths (firefox-tab-switcher regression)', () => {
-    // A module listed in both background.scripts and content_scripts[].js
-    // used to classify SW-only, the SW restarted while every open tab kept
-    // the stale content world. The instruction stays 'service-worker' (the
-    // restart carries it) but must name the stale content entries and say so.
     const result = classifyReloadFromSources({
       changedSources: ['shared.js'],
       getContentScriptCount: count(1),

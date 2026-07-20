@@ -8,7 +8,6 @@ describe('mv2 background override', () => {
       background: {scripts: ['one.js', 'two.js', 'three.js']}
     } as any) as any
 
-    // All source scripts bundle into one file, so the output references it once.
     expect(result.background.scripts).toEqual(['background/scripts.js'])
   })
 

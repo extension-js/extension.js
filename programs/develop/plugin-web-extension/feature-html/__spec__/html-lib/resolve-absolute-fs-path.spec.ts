@@ -4,10 +4,6 @@ import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {resolveAbsoluteFsPath} from '../../html-lib/utils'
 
-// Layout mirroring the wild subject that broke: manifest at the project root,
-// a nested page at pages/nested.html referenced root-absolutely
-// (<iframe src="/pages/nested.html">), and a dist output containing the
-// PATCHED copy of the same page.
 let root: string
 beforeAll(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'resolve-abs-'))
@@ -51,9 +47,6 @@ describe('resolveAbsoluteFsPath root URLs', () => {
   })
 
   it('does not resolve a missing root URL into the output dir', () => {
-    // /pages/nested.js exists ONLY inside dist (a compiled ref rewritten into
-    // patched HTML). Resolving it into outputRoot fed our own output back as
-    // input; the returned path must stay outside outputRoot.
     const {absoluteFsPath} = resolveAbsoluteFsPath({
       asset: '/pages/nested.js',
       projectRoot: root,

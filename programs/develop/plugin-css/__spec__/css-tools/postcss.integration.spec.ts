@@ -40,7 +40,6 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
     const srcSidebar = path.join(tmpRoot, 'src', 'sidebar')
     fs.mkdirSync(srcSidebar, {recursive: true})
 
-    // Signal Tailwind usage to maybeUsePostCss via dependency detection.
     fs.writeFileSync(
       path.join(tmpRoot, 'package.json'),
       JSON.stringify(
@@ -58,14 +57,11 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
     )
     const fixtureNodeModules = path.join(tmpRoot, 'node_modules')
     fs.mkdirSync(fixtureNodeModules, {recursive: true})
-    // Resolve tailwindcss from wherever pnpm actually installed it, rather
-    // than assuming a hard-coded ../../node_modules/ hoist location.
     const workspaceTailwindPath = path.dirname(
       nodeCreateRequire(import.meta.url).resolve('tailwindcss/package.json')
     )
     expect(fs.existsSync(workspaceTailwindPath)).toBe(true)
     const tailwindDest = path.join(fixtureNodeModules, 'tailwindcss')
-    // On Windows use real path + copy to avoid EPERM (symlinks/junctions in pnpm store)
     if (process.platform === 'win32') {
       const realSource = fs.realpathSync(workspaceTailwindPath)
       fs.cpSync(realSource, tailwindDest, {recursive: true})
@@ -83,7 +79,6 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       }
     }
 
-    // Tailwind v4 entry plus explicit source hint.
     const cssFile = path.join(srcSidebar, 'sidebar-index.css')
     fs.writeFileSync(
       cssFile,
@@ -94,7 +89,6 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       ].join('\n')
     )
 
-    // Fixture content containing arbitrary classes that previously regressed.
     fs.writeFileSync(
       path.join(srcSidebar, 'app.tsx'),
       [

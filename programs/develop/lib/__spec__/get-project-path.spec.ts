@@ -94,7 +94,6 @@ describe('get-project-path', () => {
     const manifestDir = path.join(nested, 'ext')
     fs.mkdirSync(manifestDir, {recursive: true})
     fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
-    // package.json one level above manifest
     fs.writeFileSync(
       path.join(nested, 'package.json'),
       JSON.stringify({name: 'pkg'})

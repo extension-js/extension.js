@@ -1,8 +1,8 @@
-import {describe, it, expect, afterEach} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {startControlServer, type ControlServer} from '../ws-control-server'
 import {BridgeBroker} from '../broker'
 import {CONTROL_WS_PATH} from '../contracts'
+import {type ControlServer, startControlServer} from '../ws-control-server'
 
 let server: ControlServer | null = null
 const sockets: WebSocket[] = []
@@ -11,9 +11,7 @@ afterEach(async () => {
   for (const s of sockets) {
     try {
       s.terminate()
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
   sockets.length = 0
   if (server) {
@@ -31,7 +29,6 @@ function connect(port: number): Promise<WebSocket> {
   })
 }
 
-/** Resolve with the next parsed message, or reject after a timeout. */
 function nextFrame(ws: WebSocket, timeoutMs = 2000): Promise<any> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(

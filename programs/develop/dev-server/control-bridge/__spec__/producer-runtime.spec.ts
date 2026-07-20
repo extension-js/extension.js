@@ -114,7 +114,6 @@ describe('bridge producer runtime', () => {
     })
     run(src, fakeGlobal)
 
-    // A console call before the socket opens is queued.
     ;(fakeGlobal.console as any).error('boom', {a: 1})
 
     const ws = FakeWebSocket.instances[0]
@@ -138,7 +137,6 @@ describe('bridge producer runtime', () => {
     expect(log.event.messageParts).toEqual(['boom', '{"a":1}'])
     expect(typeof log.event.id).toBe('string')
 
-    // Original console must still fire (passthrough).
     expect(originalCalls).toContainEqual({
       level: 'error',
       args: ['boom', {a: 1}]
@@ -163,10 +161,6 @@ describe('bridge producer runtime', () => {
   })
 
   it('reinjects content scripts once on install/reload (zombie-tab healing)', async () => {
-    // After a dev full reload, Chrome leaves already-open tabs with the OLD
-    // build's content-script DOM (nodes render, listeners dead). The producer
-    // must reinject on onInstalled, and ONLY on onInstalled, so idle-stop SW
-    // wakes never churn mounted UI.
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
     const fetched: string[] = []
@@ -199,7 +193,6 @@ describe('bridge producer runtime', () => {
     run(src, fakeGlobal)
 
     expect(installedListener).toBeTypeOf('function')
-    // No reinject before onInstalled fires (a plain SW wake must be a no-op).
     expect(fetched).toHaveLength(0)
 
     installedListener!()
@@ -208,11 +201,6 @@ describe('bridge producer runtime', () => {
   })
 
   it('honors exclude_matches on reinject and dynamic re-registration', async () => {
-    // Static Chrome injection never touches excluded pages, and extensions
-    // rely on that (dusk-recording opens the very page it excludes from its
-    // SW message handler, dev-injecting there creates an open-tab → inject →
-    // open-tab runaway loop). The reinject path must subtract excluded tabs,
-    // and the dynamic registration must carry excludeMatches.
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
     fakeGlobal.fetch = () =>
@@ -265,10 +253,8 @@ describe('bridge producer runtime', () => {
         ) => {
           const urls = Array.isArray(q.url) ? q.url : []
           if (urls.includes('*://*/_screenrecording*')) {
-            // the exclude query, only the bootstrap tab matches
             cb([{id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}])
           } else {
-            // the matches query, both tabs match <all_urls>
             cb([
               {id: 1, url: 'http://127.0.0.1:5151/probe.html'},
               {id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}
@@ -287,10 +273,8 @@ describe('bridge producer runtime', () => {
     installedListener!()
     await new Promise((r) => setTimeout(r, 400))
 
-    // Only the non-excluded tab received the fresh script.
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(1)
-    // The dynamic registration is no broader than the static one.
     expect(registered).toHaveLength(1)
     expect(registered[0].excludeMatches).toEqual(['*://*/_screenrecording*'])
   })
@@ -322,7 +306,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     run(src, fakeGlobal)
     const ws = FakeWebSocket.instances[0]
     ws.triggerOpen()
-    ws.sent = [] // drop the hello
+    ws.sent = []
     return ws
   }
 
@@ -390,8 +374,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const executed: Array<{target: {tabId: number}}> = []
     const ws = setup({
       scripting: {
-        // Run the injected func like Chrome would, so the §61 wrapper
-        // protocol round-trips through the real code path.
         executeScript: (opts: {
           target: {tabId: number}
           func: (...a: unknown[]) => unknown
@@ -482,8 +464,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('eval content: a null injection result is an error, never ok:true null (§61)', async () => {
-    // Chrome resolves executeScript with a null result when no frame ran the
-    // function (restricted page) — that must not surface as success.
     const ws = setup({
       scripting: {executeScript: () => Promise.resolve([{result: null}])},
       tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
@@ -598,8 +578,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('tabs.query works on a callback-only chrome.* (Gecko MV2, §70)', async () => {
-    // Gecko's chrome.tabs.query returns undefined (callback-only): the §70
-    // crash was `.then` on that undefined.
     const ws = setup({
       tabs: {
         query: (_q: unknown, cb?: (t: unknown[]) => void) => {
@@ -742,7 +720,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
-    // The ack is sent before the (deferred) reload so the result isn't lost.
     expect(results(ws).find((f) => f.cmdId === 'r1')).toMatchObject({
       ok: true,
       value: {reloading: true}
@@ -794,8 +771,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     const ws = setup(chromeApi)
-    // User code registers its handler AFTER the producer wrapped addListener
-    // (the producer is prepended, so it always wraps first in real builds).
     chromeApi.action.onClicked.addListener((tab: unknown) => fired.push(tab))
     ws.triggerMessage({
       type: 'command',
@@ -939,13 +914,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
-    // One listener for surface eval (§62), one for surface inspect.
     expect(listeners.length).toBe(2)
     const dispatch = (msg: any, respond: (r: any) => void) => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
 
-    // Non-matching context → no response.
     let responded: any = 'NONE'
     dispatch(
       {__extjsInspectRequest: true, target: {context: 'options'}},
@@ -953,7 +926,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
     expect(responded).toBe('NONE')
 
-    // Matching context → DOM snapshot.
     dispatch(
       {
         __extjsInspectRequest: true,
@@ -987,7 +959,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
 
-    // Non-matching context → silence.
     let responded: any = 'NONE'
     dispatch(
       {
@@ -999,7 +970,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
     expect(responded).toBe('NONE')
 
-    // Matching context → evaluated value.
     dispatch(
       {
         __extjsEvalRequest: true,
@@ -1010,7 +980,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
     expect(responded).toMatchObject({ok: true, value: 23})
 
-    // A throw comes back as an explicit error, never a silent null.
     dispatch(
       {
         __extjsEvalRequest: true,
@@ -1048,8 +1017,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(src).not.toContain('__EXTJS_CONTEXT__')
     run(src, fakeGlobal)
     ;(fakeGlobal.console as any).warn('hello from content', {a: 1})
-    // A subject SW that echoes every runtime MESSAGE back to its tabs must
-    // never see relay traffic, sendMessage would loop it forever (family B).
     expect(sendMessageCalls).toHaveLength(0)
     expect(connectedName).toBe('__extjs-bridge-log__')
     expect(sent).toHaveLength(1)
@@ -1158,7 +1125,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       url: 'https://y.test/',
       messageParts: ['ported']
     })
-    // foreign ports are ignored
     const before = ws.sent.length
     connectListeners[0]({
       name: 'someone-elses-port',
@@ -1177,7 +1143,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       runtime: {onMessage: {addListener: (fn: any) => listeners.push(fn)}}
     })
     expect(listeners.length).toBe(1)
-    // Simulate a content script forwarding console via sendMessage.
     listeners[0](
       {
         __extjsBridgeLog: {
@@ -1202,12 +1167,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('reload broadcast (content-scripts): re-injects the fresh script into open tabs in place (no extension restart)', async () => {
     const injected: Array<{tabId?: number; files: string[]; world?: string}> =
       []
-    // The console announcement is a separate executeScript call carrying
-    // `func`+`args` (no `files`): the "[extension.js] Reloading …" line echoed
-    // into each tab's devtools console.
     const announced: Array<{tabId?: number; args?: unknown[]}> = []
     let runtimeReloaded = false
-    // The on-disk manifest the SW fetches has the NEW (content-hashed) filename.
     const diskManifest = {
       content_scripts: [
         {
@@ -1231,7 +1192,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             cb([
               {id: 11, url: 'https://x.test/a'},
               {id: 12, url: 'https://x.test/b'},
-              {id: 99, url: 'about:blank'} // not injectable, must be skipped
+              {id: 99, url: 'about:blank'}
             ])
         },
         scripting: {
@@ -1269,20 +1230,15 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'content-scripts',
       label: 'content_script (src/content/scripts.ts)'
     })
-    // fetch().then().then(), let the microtasks settle.
     await new Promise((r) => setTimeout(r, 20))
 
-    // Injected the NEW file into the two matching http tabs; skipped about:blank.
     expect(injected.map((i) => i.tabId).sort()).toEqual([11, 12])
     expect(injected[0].files).toEqual(['content_scripts/content-0.NEWHASH.js'])
     expect(injected[0].world).toBe('ISOLATED')
-    // The devtools console line carries the SAME server-built label, and only
-    // into injectable tabs.
     expect(announced.map((a) => a.tabId).sort()).toEqual([11, 12])
     expect(announced[0].args).toEqual([
       '[extension.js] Reloading content_script (src/content/scripts.ts)…'
     ])
-    // No extension restart and no command result frame.
     expect(runtimeReloaded).toBe(false)
     expect(results(ws)).toHaveLength(0)
   })
@@ -1382,7 +1338,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    // First change: nothing registered yet -> registerContentScripts.
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
     await new Promise((r) => setTimeout(r, 20))
     expect(updated).toHaveLength(0)
@@ -1394,14 +1349,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       world: 'ISOLATED',
       runAt: 'document_idle'
     })
-    // The id must not start with '_' (Chrome reserves that namespace).
     expect(registered[0].id.startsWith('_')).toBe(false)
 
-    // Second change: the id now exists -> updateContentScripts.
     existing = [{id: 'extjs-dev-cs-0'}]
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
     await new Promise((r) => setTimeout(r, 20))
-    expect(registered).toHaveLength(1) // unchanged
+    expect(registered).toHaveLength(1)
     expect(updated).toHaveLength(1)
     expect(updated[0].id).toBe('extjs-dev-cs-0')
   })
@@ -1418,18 +1371,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'full'})
 
-    // The reload is deferred (150ms) so any in-flight frame, and the console
-    // announcement dispatched into tabs, flushes first.
     expect(runtimeReloaded).toBe(false)
     await new Promise((r) => setTimeout(r, 250))
     expect(runtimeReloaded).toBe(true)
   })
 
   it('reload broadcast (service-worker): stamps the pending-reinject flag BEFORE restarting', async () => {
-    // runtime.reload() does not fire onInstalled, so this flag is the only
-    // signal the NEXT producer generation gets to heal open tabs whose
-    // content world went stale (a shared SW+content module edit, the
-    // firefox-tab-switcher regression).
     let runtimeReloaded = false
     const stored: Record<string, unknown> = {}
     const ws = setup({
@@ -1450,7 +1397,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'service-worker'})
 
-    // The flag lands synchronously, before the deferred restart.
     expect(typeof stored.__extjsDevPendingReinject).toBe('number')
     expect(runtimeReloaded).toBe(false)
     await new Promise((r) => setTimeout(r, 250))
@@ -1458,9 +1404,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('producer boot consumes a fresh pending-reinject flag and heals open tabs', async () => {
-    // The post-reload producer generation: no onInstalled ever fires for a
-    // dev-driven runtime.reload(), so the boot path must reinject from the
-    // storage flag, and clear it so idle-stop SW wakes stay no-ops.
     const removed: string[] = []
     const fetched: string[] = []
     setup(
@@ -1497,8 +1440,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('producer boot drops a STALE pending-reinject flag without reinjecting', async () => {
-    // A flag left behind by a crashed session must not churn mounted UI on
-    // the next unrelated boot: clear it, reinject nothing.
     const removed: string[] = []
     const fetched: string[] = []
     setup(
@@ -1536,8 +1477,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('reload broadcast (content-scripts): falls back to a full reload when chrome.scripting is unavailable', async () => {
     let runtimeReloaded = false
-    // No chrome.scripting (e.g. an MV2/Firefox build) -> can't re-inject in
-    // place, so restart the extension instead.
     const ws = setup({
       runtime: {
         reload: () => {
@@ -1587,11 +1526,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
     await new Promise((r) => setTimeout(r, 250))
 
-    // livereload owns the page refresh: the producer must not reload the
-    // extension or console-spam web tabs for a page-only edit…
     expect(runtimeReloaded).toBe(false)
     expect(execCalls).toHaveLength(0)
-    // …but the devtools companion pill still mirrors the dev loop.
     expect(external).toHaveLength(1)
     expect(external[0].msg).toMatchObject({
       type: 'extjs-dev-reload-state',
@@ -1640,7 +1576,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
     await new Promise((r) => setTimeout(r, 20))
 
-    // reloading fires next to the action; reloaded only after reinjection ran.
     const phases = external.map((e) => e.msg.phase)
     expect(phases).toEqual(['reloading', 'reloaded'])
     for (const e of external) {
@@ -1652,7 +1587,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const ws = setup({
       scripting: {
         executeScript: (opts: any) =>
-          // Simulate the injected extractor returning a snapshot.
           Promise.resolve([
             {
               result: {
@@ -1706,16 +1640,13 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
   const results = (ws: FakeWebSocket) =>
     ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'result')
 
-  // Gecko's chrome.* namespace is callback-only: chrome.storage.local.get(key)
-  // returns undefined (not a promise). The old code did `.then()` on that ->
-  // TypeError. It must fall back to the callback form.
   it('storage.set then storage.get round-trip via a callback-only stub', async () => {
     const store: Record<string, unknown> = {}
     const callbackOnly = {
       get: (key: string | null, cb?: (r: Record<string, unknown>) => void) => {
         if (typeof cb === 'function')
           cb(key == null ? {...store} : {[key]: store[key]})
-        return undefined // Gecko chrome.*: no promise
+        return undefined
       },
       set: (items: Record<string, unknown>, cb?: () => void) => {
         if (typeof cb === 'function') {
@@ -1782,8 +1713,6 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
 
   it('prefers the promisified browser.* namespace when present (Firefox)', async () => {
     const store: Record<string, unknown> = {}
-    // chrome.* is callback-only and would double-write on set; browser.* is
-    // promisified. The fix must route through browser.* to avoid the callback path.
     let chromeGetCalls = 0
     const chromeArea = {
       get: (_k: string | null, cb?: (r: unknown) => void) => {
@@ -1804,8 +1733,6 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       {storage: {local: chromeArea}, runtime: {}},
       {browser: {storage: {local: browserArea}}}
     )
-    // The producer boot reads the pending-reinject flag via chrome.storage; only
-    // the command path below should be asserted against browser.* preference.
     chromeGetCalls = 0
     ws.triggerMessage({
       type: 'command',
@@ -1830,7 +1757,6 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       ok: true,
       value: {a: 1}
     })
-    // The callback-only chrome.* area was never consulted.
     expect(chromeGetCalls).toBe(0)
   })
 })
@@ -1897,10 +1823,8 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
     const {ws, handlers, fakeGlobal} = setup()
     const err = new Error('logged then thrown')
     ;(fakeGlobal.console as any).error(err)
-    // The uncaught handler fires for the SAME Error object.
     handlers.error[0]({error: err, message: err.message})
     const logs = errorLogs(ws)
-    // Exactly one error-level frame, the console.error one; the event is deduped.
     expect(logs).toHaveLength(1)
   })
 })

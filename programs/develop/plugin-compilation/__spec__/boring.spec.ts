@@ -1,9 +1,3 @@
-// Pins the §74 watcher-wedge fix: the done-hook brand line re-reads the
-// manifest from disk, and a mid-save manifest is routinely invalid JSON.
-// A throw here escapes hooks.done into Watching._done and permanently
-// kills the watch loop, so the tap must swallow the parse failure and
-// fall back to the last name it successfully read.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

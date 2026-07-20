@@ -89,9 +89,6 @@ describe('extension-develop runtime resolution', () => {
       'dist'
     )
 
-    // Outer workspace looks like a sibling extension.js monorepo whose
-    // programs/develop has not been compiled (no dist/). The walker must
-    // ignore it because startDir is inside a node_modules tree.
     writeJson(path.join(outerWorkspaceDevelopRoot, 'package.json'), {
       name: 'extension-develop',
       version: '9.9.9'

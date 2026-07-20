@@ -168,7 +168,6 @@ describe('readProjectDependencies / hasProjectDependency', () => {
     const deps = readProjectDependencies(dir)
     expect(deps.react).toBe('^18.3.1')
     expect(deps.typescript).toBe('5.3.3')
-    // package.json wins on conflicts.
     expect(deps.vue).toBe('^3.4.0')
 
     expect(hasProjectDependency(dir, 'react')).toBe(true)

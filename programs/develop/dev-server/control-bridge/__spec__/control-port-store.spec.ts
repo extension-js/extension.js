@@ -1,9 +1,3 @@
-// Unit spec for control-port persistence, the reachability half of the
-// stale-SW self-heal (see BridgeBroker stale-producer resync). The port file
-// lives under the project's .extension-js/ dir so it outlives dist/: a kept
-// or explicit browser profile survives a dist wipe, and its cached SW can
-// only resync if the next session rebinds the port it has baked in (#484).
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

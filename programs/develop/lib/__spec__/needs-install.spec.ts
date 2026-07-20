@@ -81,10 +81,6 @@ describe('needsInstall', () => {
   })
 
   it('returns false when package.json is missing (web-only mode)', async () => {
-    // Regression: vanilla Chrome samples (e.g. sample.page-redder) cloned via
-    // `extension dev <github-url>` ship a manifest.json but no package.json.
-    // Returning true here would trigger `npm install` against a directory
-    // with no package.json and crash with ENOENT.
     const project = makeTempDir('extjs-needs-install-webonly-')
 
     const {needsInstall, asAbsolute} = await import('../paths')

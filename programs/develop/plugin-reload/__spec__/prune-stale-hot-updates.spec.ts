@@ -56,7 +56,6 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
 
     touch('gen2.js', 'gen2.json')
     compileWith(['hot/gen2.js', 'hot/gen2.json', 'main.js'])
-    // gen1 is the previous generation: kept one round as a grace window
     expect(hotFiles()).toEqual([
       'gen1.js',
       'gen1.js.map',
@@ -67,7 +66,6 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
 
     touch('gen3.js', 'gen3.json')
     compileWith(['hot/gen3.js', 'hot/gen3.json'])
-    // gen1 is now two generations old: pruned
     expect(hotFiles()).toEqual(['gen2.js', 'gen2.json', 'gen3.js', 'gen3.json'])
   })
 
@@ -94,7 +92,6 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
     fs.writeFileSync(path.join(nested, 'service_worker.ccc.json'), '')
     compileWith(['hot/background/service_worker.ccc.json'])
 
-    // aaa is two generations old: pruned; bbb kept as grace window
     expect(fs.readdirSync(nested).sort()).toEqual([
       'service_worker.bbb.json',
       'service_worker.ccc.json'

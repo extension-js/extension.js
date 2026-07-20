@@ -1,18 +1,3 @@
-// Real-rspack regression gate for runtime-loaded file tracing, the corpus
-// sweep's largest failure cluster (56/268 runtime failures at 4.0.4). Two
-// classes of files load at runtime through APIs the module graph cannot see:
-//
-//   1. importScripts("lib/util.js") inside a classic background service
-//      worker. The worker relocates to background/service_worker.js, and
-//      importScripts resolves relative URLs against the worker's own URL, so
-//      the dep must land at background/lib/util.js in dist.
-//   2. chrome.scripting.executeScript({files: ["injected.js"]}) payloads,
-//      which Chrome resolves against the extension root and executes as
-//      classic content scripts, copied through verbatim.
-//
-// Before the fix both builds ended "Build succeeded with no warnings" while
-// dist was missing the files. See TraceRuntimeLoadedFiles.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -48,8 +33,6 @@ function writePackageJson(root: string, name: string) {
   )
 }
 
-// Mirrors the corpus repro `a-importscripts`: classic worker at the project
-// root pulling a sibling lib/ file, which chains a second importScripts call.
 function writeImportScriptsFixture() {
   writePackageJson(IMPORTSCRIPTS_ROOT, 'extjs-build-importscripts-spec')
   fs.mkdirSync(path.join(IMPORTSCRIPTS_ROOT, 'lib'), {recursive: true})
@@ -77,8 +60,6 @@ function writeImportScriptsFixture() {
     ].join('\n')
   )
 
-  // util.js chains a second importScripts, chained calls still resolve
-  // against the worker URL, so both files must land under background/lib/.
   fs.writeFileSync(
     path.join(IMPORTSCRIPTS_ROOT, 'lib', 'util.js'),
     ['importScripts("lib/extra.js");', 'var UTIL = "loaded";', ''].join('\n')
@@ -90,8 +71,6 @@ function writeImportScriptsFixture() {
   )
 }
 
-// Mirrors the corpus repro `b-executescript`: popup injects a root-level
-// payload file via chrome.scripting.executeScript({files}).
 function writeExecuteScriptFixture() {
   writePackageJson(EXECUTESCRIPT_ROOT, 'extjs-build-executescript-spec')
 
@@ -142,8 +121,6 @@ function writeExecuteScriptFixture() {
   )
 }
 
-// Worker references a dep that does not exist: the silent-breakage case must
-// become a build warning instead of "Build succeeded with no warnings".
 function writeMissingDepFixture() {
   writePackageJson(MISSING_DEP_ROOT, 'extjs-build-missing-dep-spec')
 
@@ -167,12 +144,6 @@ function writeMissingDepFixture() {
   )
 }
 
-// Mirrors the corpus repro `d-executescript-callback` (bug 7 / G30): the
-// executeScript call's completion callback holds a multi-KB nested template
-// literal. Minifiers hoist the callback into the call's own argument list, so
-// the tracer's balanced-args read must survive argument spans well past the
-// old 5000-char cap, and template-literal interpolations must not desync
-// the string-aware scan.
 function writeTemplateLiteralFixture() {
   writePackageJson(TEMPLATE_LITERAL_ROOT, 'extjs-build-template-literal-spec')
 
@@ -228,11 +199,6 @@ function writeTemplateLiteralFixture() {
   )
 }
 
-// Mirrors the corpus repro `c-runtime-fetch` (bug 6 / G29): the popup fetches
-// a package file by a page-relative literal. The page relocates in dist
-// (popup.html -> action/index.html), so the file must land where the fetch
-// resolves from the EMITTED page (action/data/config.json) and a fetch of
-// a file that exists nowhere must warn instead of staying silent.
 function writeFetchFixture() {
   writePackageJson(FETCH_ROOT, 'extjs-build-fetch-spec')
   fs.mkdirSync(path.join(FETCH_ROOT, 'data'), {recursive: true})
@@ -273,12 +239,6 @@ function writeFetchFixture() {
   )
 }
 
-// Mirrors the corpus repro `e-dynamic-import` (bug 8): chrome.runtime.getURL
-// literals resolve against the extension ROOT regardless of the calling
-// context, so a content script's import(chrome.runtime.getURL('common.js'))
-// is traceable even though relative fetches from content scripts are not.
-// The NAVIGATION variant (L8teNever) points getURL at an HTML page whose own
-// src/href subresources must ship along with it.
 function writeGetURLFixture() {
   writePackageJson(GETURL_ROOT, 'extjs-build-geturl-spec')
   fs.mkdirSync(path.join(GETURL_ROOT, 'ui'), {recursive: true})
@@ -311,9 +271,6 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
-  // common.js carries a static relative import graph (bug 10): Chrome
-  // resolves these against the module's own URL, so the copied root must
-  // ship with its ./lib siblings, including a re-export hop.
   fs.mkdirSync(path.join(GETURL_ROOT, 'lib'), {recursive: true})
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'common.js'),
@@ -369,11 +326,6 @@ function writeGetURLFixture() {
   )
 }
 
-// Mirrors the corpus repro `i-webpack-numeric-chunks` (bug 40): a prebuilt
-// webpack5 bundle loads lazy chunks by NUMERIC id through publicPath
-// concatenation (id + ".js" / id + ".css"), so the chunk filenames never
-// exist as string literals, literal tracing is blind by construction. The
-// runtime SHAPE must trigger a verbatim copy of numeric siblings instead.
 function writeWebpackChunksFixture() {
   writePackageJson(WEBPACK_CHUNKS_ROOT, 'extjs-build-webpack-chunks-spec')
 
@@ -396,9 +348,6 @@ function writeWebpackChunksFixture() {
     '<html><body><div id="root"></div><script src="popup.js"></script></body></html>\n'
   )
 
-  // Minimal webpack5-shaped runtime: numeric-id URL construction with the
-  // runtime's own ChunkLoadError literal (which survives minification when
-  // the __webpack_require__ identifier does not).
   fs.writeFileSync(
     path.join(WEBPACK_CHUNKS_ROOT, 'popup.js'),
     [
@@ -436,11 +385,6 @@ function writeWebpackChunksFixture() {
   )
 }
 
-// Mirrors the corpus repro `j-setpopup-html` (bug 41): a worker sets an HTML
-// surface at runtime (chrome.action.setPopup / chrome.sidePanel.setOptions).
-// The literal survives into the dist worker, but the page is not a manifest
-// ref, untraced, the file (and its script closure) vanished from dist with
-// zero warnings and the popup opened a 404 panel.
 function writeRuntimeSurfaceFixture() {
   writePackageJson(RUNTIME_SURFACE_ROOT, 'extjs-build-runtime-surface-spec')
 
@@ -566,9 +510,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     )
     expect(worker).toContain('lib/util.js')
 
-    // importScripts("lib/util.js") resolves against
-    // chrome-extension://<id>/background/service_worker.js, the dep (and its
-    // chained dep) must exist at background/lib/, byte-identical to source.
     const utilDist = path.join(distDir, 'background', 'lib', 'util.js')
     const extraDist = path.join(distDir, 'background', 'lib', 'extra.js')
     expect(fs.existsSync(utilDist), `missing ${utilDist}`).toBe(true)
@@ -585,8 +526,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     const distDir = path.join(EXECUTESCRIPT_ROOT, 'dist', 'chrome')
     expect(fs.existsSync(path.join(distDir, 'injected.js'))).toBe(true)
     expect(fs.existsSync(path.join(distDir, 'injected.css'))).toBe(true)
-    // Chrome executes these as classic content scripts at their literal
-    // path. The copy must be verbatim, not bundled or wrapped.
     expect(fs.readFileSync(path.join(distDir, 'injected.js'), 'utf8')).toBe(
       'document.title = "injected ran";\n'
     )
@@ -608,8 +547,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     const summary = await buildFixture(FETCH_ROOT)
     expect(summary.errors_count).toBe(0)
 
-    // fetch("./data/config.json") resolves against the EMITTED page URL
-    // (action/index.html), so the file must land at action/data/config.json.
     const distDir = path.join(FETCH_ROOT, 'dist', 'chrome')
     const configDist = path.join(distDir, 'action', 'data', 'config.json')
     expect(fs.existsSync(configDist), `missing ${configDist}`).toBe(true)
@@ -617,8 +554,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       '{"greeting": "hello from config"}\n'
     )
 
-    // fetch("./data/nope.json") exists nowhere, silent breakage must
-    // surface as a build warning.
     expect(summary.warnings_count).toBeGreaterThan(0)
     expect(
       fs.existsSync(path.join(distDir, 'action', 'data', 'nope.json'))
@@ -631,25 +566,17 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
 
     const distDir = path.join(GETURL_ROOT, 'dist', 'chrome')
 
-    // getURL resolves against the extension root, so common.js must ship at
-    // the package root, verbatim (Chrome loads it as a real ES module file).
     const commonDist = path.join(distDir, 'common.js')
     expect(fs.existsSync(commonDist), `missing ${commonDist}`).toBe(true)
     expect(fs.readFileSync(commonDist, 'utf8')).toBe(
       fs.readFileSync(path.join(GETURL_ROOT, 'common.js'), 'utf8')
     )
 
-    // Bug 10: the copied module's static relative import graph ships too,
-    // one direct import hop plus a re-export hop, resolved against the
-    // module's own URL.
     for (const rel of ['lib/helper.js', 'lib/deeper.js']) {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
 
-    // Bug 9: the consuming call site must stay a NATIVE dynamic import,
-    // lowered into the bundler module map it throws
-    // `Cannot find module 'chrome-extension://<id>/common.js'` at runtime.
     const contentBundle = fs.readFileSync(
       path.join(distDir, 'content_scripts', 'content-0.js'),
       'utf8'
@@ -659,15 +586,11 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     )
     expect(contentBundle).not.toContain('Cannot find module')
 
-    // NAVIGATION variant: the getURL'd HTML page ships at its literal path
-    // with its own src/href subresource closure.
     for (const rel of ['ui/page.html', 'ui/page.js', 'ui/page.css']) {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
 
-    // getURL of a file that exists nowhere must warn instead of staying
-    // silent.
     expect(summary.warnings_count).toBeGreaterThan(0)
     expect(fs.existsSync(path.join(distDir, 'nope.js'))).toBe(false)
   }, 120_000)
@@ -678,8 +601,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
 
     const distDir = path.join(WEBPACK_CHUNKS_ROOT, 'dist', 'chrome')
 
-    // publicPath "" resolves against the RELOCATED page URL (action/), and
-    // publicPath "/" against the root. The chunks must exist at both.
     for (const rel of [
       '311.js',
       '311.js.map',
@@ -691,7 +612,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
-    // Chunks are prebuilt artifacts. The copy must be verbatim.
     expect(fs.readFileSync(path.join(distDir, '311.js'), 'utf8')).toBe(
       'window.__chunk311 = "loaded";\n'
     )
@@ -703,8 +623,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
 
     const distDir = path.join(RUNTIME_SURFACE_ROOT, 'dist', 'chrome')
 
-    // The literal survives in the emitted worker; the page and its
-    // subresource closure must survive in dist alongside it.
     const worker = fs.readFileSync(
       path.join(distDir, 'background', 'service_worker.js'),
       'utf8'
@@ -715,7 +633,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       'Alt.html',
       'alt.js',
       'Panel.html',
-      // Offscreen documents ride the same runtime-surface tracing (§67).
       path.join('offscreen', 'index.html'),
       path.join('offscreen', 'offscreen.js')
     ]) {
@@ -726,7 +643,6 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       'runtime-set popup'
     )
 
-    // A runtime-set surface that exists nowhere must warn, not stay silent.
     expect(summary.warnings_count).toBeGreaterThan(0)
     expect(fs.existsSync(path.join(distDir, 'Missing.html'))).toBe(false)
   }, 120_000)

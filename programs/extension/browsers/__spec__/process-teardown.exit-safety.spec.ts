@@ -1,10 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Proves the exit-path safety net that both launchers now share: on a plain
-// `process.exit` a child that ignored SIGTERM still gets a synchronous SIGKILL,
-// with no reliance on the unref'd grace timer that never fires once the loop
-// drains. Fake children only, no real browser is launched.
-
 describe('process-teardown shared module', () => {
   afterEach(() => vi.restoreAllMocks())
 

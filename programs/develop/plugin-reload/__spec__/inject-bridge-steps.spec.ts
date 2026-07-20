@@ -1,9 +1,3 @@
-// InjectBridgeProducer prepends the agent-bridge producer to the compiled
-// background bundle; InjectBridgeRelay prepends the relay to the other
-// extension surfaces (content scripts, popup, options, sidebar, devtools).
-// Both read the control port from process.env and must stay inert when the
-// bridge is off, and idempotent when the bundle already carries the marker.
-
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
@@ -85,10 +79,8 @@ describe('InjectBridgeProducer', () => {
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
     expect(out).toContain('__extjsBridgeProducerInstalled')
-    // Port and instanceId are baked into the injected source.
     expect(out).toContain('8123')
     expect(out).toContain('abc123')
-    // User code must still be present, preceded by the producer.
     expect(out.indexOf('__extjsBridgeProducerInstalled')).toBeLessThan(
       out.indexOf('/* user sw */')
     )
@@ -139,7 +131,6 @@ describe('InjectBridgeProducer', () => {
       else process.env.EXTENSION_CONTROL_PORT = port
       const {compiler, taps} = makeCompiler()
       new InjectBridgeProducer().apply(compiler)
-      // No compilation hook registered means no asset is ever rewritten.
       expect(taps).toHaveLength(0)
     }
   })
@@ -178,8 +169,6 @@ describe('InjectBridgeRelay', () => {
       ['options/index.js', 'options'],
       ['sidebar/index.js', 'sidebar'],
       ['devtools/index.js', 'devtools'],
-      // url-override pages: the relay is their only console/inspect/eval
-      // route — chrome.scripting can't reach the extension's own pages (§63).
       ['chrome_url_overrides/newtab.js', 'newtab'],
       ['chrome_url_overrides/history.js', 'history'],
       ['chrome_url_overrides/bookmarks.js', 'bookmarks']

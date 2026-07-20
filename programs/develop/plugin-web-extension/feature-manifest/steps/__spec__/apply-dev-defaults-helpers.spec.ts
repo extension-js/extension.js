@@ -84,7 +84,6 @@ describe('ApplyDevDefaults patch helpers', () => {
         const csp = patchV3CSP(restrictive()).extension_pages
         expect(csp).toContain('ws://192.168.0.7:*')
         expect(csp).toContain('http://192.168.0.7:*')
-        // loopback entries stay, local surfaces still dial 127.0.0.1
         expect(csp).toContain('ws://127.0.0.1:*')
       })
     })
@@ -110,7 +109,6 @@ describe('ApplyDevDefaults patch helpers', () => {
           content_security_policy: "default-src 'self'"
         } as any)
         expect(csp).toContain('ws://10.0.0.5:*')
-        // default-src itself must stay untouched
         expect(csp).toMatch(/default-src 'self';/)
       })
     })

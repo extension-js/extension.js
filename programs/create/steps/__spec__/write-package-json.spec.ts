@@ -228,8 +228,6 @@ describe('resolveExtensionDevDependencyVersion (#57, never silently pin "latest"
   it('falls back to an env override when the caller threads no version', () => {
     delete process.env.EXTENSION_CREATE_ENGINE_VERSION
     process.env.EXTENSION_MCP_CLI_VERSION = '4.0.14-canary.999.deadbeef'
-    // The MCP calls extensionCreate without cliVersion. It must still pin the
-    // engine it is actually driving, not float "latest".
     expect(resolveExtensionDevDependencyVersion()).toBe(
       '4.0.14-canary.999.deadbeef'
     )
@@ -274,7 +272,6 @@ describe('overridePackageJson dependency build-script approval', () => {
       )
 
       expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
-      // No native ML deps declared → no build approvals, no bun trust list.
       expect(pkg.pnpm.onlyBuiltDependencies).toBeUndefined()
       expect(pkg.trustedDependencies).toBeUndefined()
     })
@@ -302,12 +299,10 @@ describe('overridePackageJson dependency build-script approval', () => {
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
       )
 
-      // pnpm: native deps allowed to build, no-op less still suppressed.
       expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
         expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])
       )
       expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
-      // bun: same native deps trusted to run their install scripts.
       expect(pkg.trustedDependencies).toEqual(
         expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])
       )
@@ -336,7 +331,6 @@ describe('overridePackageJson dependency build-script approval', () => {
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
       )
 
-      // Template's own approval is preserved; `less` suppression is added.
       expect(pkg.pnpm.onlyBuiltDependencies).toContain('esbuild')
       expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
     })

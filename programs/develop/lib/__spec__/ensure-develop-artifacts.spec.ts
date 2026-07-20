@@ -64,7 +64,6 @@ describe('ensureUserProjectDependencies', () => {
 
     await ensureUserProjectDependencies('/nonexistent-project' as any)
 
-    // package.json is unreadable at that path, so confinement still applies
     const [, args] = execInstallCommand.mock.calls[0]
     expect(args).toEqual(['install', '--ignore-scripts', '--ignore-workspace'])
   })

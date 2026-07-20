@@ -1,34 +1,8 @@
-// Regression gate: companion devtools/theme extensions must not call MV3-only
-// chrome APIs in their Firefox bundles. When they do, Firefox MV2 throws
-// "TypeError: chrome.X is undefined" at background load and the entire
-// companion extension fails to register, which makes the user's own extension
-// appear partially broken in about:debugging (Inspect button on the user's
-// addon may still open, but neighbour cards in the runtime list are dead, and
-// historically this masked itself as "Inspect doesn't work for action/locales
-// examples on Firefox").
-//
-// History: chrome.action.onClicked / chrome.sidePanel.setPanelBehavior /
-// chrome.webNavigation.* were unguarded in extension-js-devtools/src/background
-// /log-central.ts. They were fixed by wrapping with
-// `if (import.meta.env.EXTENSION_BROWSER !== 'firefox')` so the build-time
-// define-plugin tree-shakes the bodies away in the Firefox bundle.
-//
-// This spec asserts the bundle is genuinely free of those tokens. Catching
-// this statically makes the failure mode visible at `vitest` time instead of
-// via "user clicks Inspect, nothing happens, files an issue."
-
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
-// Tokens that must NOT appear in the Firefox bundle of any extension.js
-// companion. Each is either MV3-only or requires a permission Firefox MV2
-// does not grant on the companion manifest. The leading "chrome." anchor is
-// load-bearing, bare "action" or "webNavigation" appear elsewhere innocently
-// (e.g. browser_action keys, navigation log strings). The trailing "."
-// disambiguates property access from substring matches inside identifiers
-// (e.g. "chrome.action" inside a comment string vs. an actual call site).
 const FORBIDDEN_FIREFOX_TOKENS = [
   'chrome.action.',
   'chrome.sidePanel.',
@@ -69,9 +43,6 @@ function firefoxBundlePath(packageDir: string) {
 function ensureCliBuilt(): boolean {
   if (fs.existsSync(CLI_DIST)) return true
 
-  // The companion build scripts shell out to programs/extension/dist/cli.cjs.
-  // CI suites that filter to programs/develop never produce that artifact, so
-  // compile it on demand here so the spec is self-contained.
   const result = spawnSync(
     'pnpm',
     ['-C', 'programs/extension', 'run', 'compile'],
@@ -89,9 +60,6 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
   const bundlePath = firefoxBundlePath(packageDir)
   if (fs.existsSync(bundlePath)) return true
 
-  // No prebuilt bundle, invoke the package's own build:firefox script. CI
-  // generally has dist/ already; this branch protects local dev runs and
-  // freshly-cloned checkouts.
   if (!ensureCliBuilt()) return false
 
   const result = spawnSync('npm', ['run', 'build:firefox'], {
@@ -101,11 +69,6 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
   })
 
   if (result.status !== 0) {
-    // Treat as skip rather than throw: this regression gate must not fail
-    // when the surrounding environment cannot produce a Firefox bundle
-    // (e.g. CI suites that scope to programs/develop and never compile the
-    // extension CLI). The bundle correctness check still runs in any suite
-    // that does produce the bundle.
     return false
   }
 
@@ -121,7 +84,6 @@ describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
       if (!built) return
 
       const bundlePath = firefoxBundlePath(companion.packageDir)
-      // extension-js-theme historically has no background; skip silently.
       if (!fs.existsSync(bundlePath)) return
 
       const source = fs.readFileSync(bundlePath, 'utf8')

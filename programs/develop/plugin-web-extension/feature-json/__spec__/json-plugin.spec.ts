@@ -18,8 +18,6 @@ function createCompilerHarness() {
   const calls = {emit: 0, update: 0}
 
   const compilation: any = {
-    // The implementation expects a Compilation-like object with a compiler
-    // and compiler options/context. Unit tests will wire these up in applyAndRun.
     hooks: {
       processAssets: {
         tap(_opts: any, cb: () => void) {
@@ -58,7 +56,6 @@ function createCompilerHarness() {
   }
 
   function applyAndRun(plugin: JsonPlugin) {
-    // Provide a minimal Compilation/Compiler relationship expected by the plugin code.
     const context = path.dirname(
       (plugin as any).manifestPath || 'manifest.json'
     )
@@ -67,7 +64,6 @@ function createCompilerHarness() {
     compilation.options = {context}
 
     plugin.apply(compiler)
-    // simulate rspack/webpack lifecycle synchronously
     for (const cb of thisCompilationCallbacks) cb(compilation)
     for (const cb of processAssetsCallbacks) cb()
     return {assets, compilation, calls}
@@ -152,8 +148,6 @@ describe('JsonPlugin', () => {
   })
 
   it('accepts a DNR ruleset with a UTF-8 BOM, as Chrome does (G22)', () => {
-    // Verified against live Chrome: a BOM-prefixed rules JSON loads and the
-    // ruleset enables. The build must strip the BOM instead of erroring.
     const p = '/abs/path/rules.json'
     const mockedFs = fs as any
     mockedFs.existsSync.mockImplementation((x: any) => x === p)
@@ -234,7 +228,6 @@ describe('JsonPlugin', () => {
 
     const mockedFs = fs as any
     mockedFs.existsSync.mockImplementation((p: any) => p === abs)
-    // Valid DNR ruleset (array)
     mockedFs.readFileSync.mockImplementation((p: any) =>
       p === abs ? Buffer.from('[]') : Buffer.from('')
     )
@@ -246,15 +239,12 @@ describe('JsonPlugin', () => {
     const harness = createCompilerHarness()
     const {assets, compilation, calls} = harness.applyAndRun(plugin)
 
-    // No emit/update because file is under public/
     expect(calls.emit).toBe(0)
     expect(calls.update).toBe(0)
     expect(Object.keys(assets)).toHaveLength(0)
 
-    // File is watched
     expect(compilation.fileDependencies.has(abs)).toBe(true)
 
-    // No validation errors for a valid ruleset
     expect(compilation.errors.length).toBe(0)
   })
 
@@ -266,7 +256,6 @@ describe('JsonPlugin', () => {
 
     const mockedFs = fs as any
     mockedFs.existsSync.mockImplementation((p: any) => p === abs)
-    // Invalid JSON
     mockedFs.readFileSync.mockImplementation((p: any) =>
       p === abs ? Buffer.from('{ invalid') : Buffer.from('')
     )
@@ -278,15 +267,12 @@ describe('JsonPlugin', () => {
     const harness = createCompilerHarness()
     const {assets, compilation, calls} = harness.applyAndRun(plugin)
 
-    // No emit/update because file is under public/
     expect(calls.emit).toBe(0)
     expect(calls.update).toBe(0)
     expect(Object.keys(assets)).toHaveLength(0)
 
-    // File is watched
     expect(compilation.fileDependencies.has(abs)).toBe(true)
 
-    // Validation error should be present
     expect(compilation.errors.length).toBe(1)
     expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
   })
@@ -318,7 +304,6 @@ describe('JsonPlugin', () => {
       includeList: {'storage.managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
-    // inject an error before running processAssets
     harness.compilation.errors.push(new Error('stop'))
     const {assets, calls} = harness.applyAndRun(plugin)
 

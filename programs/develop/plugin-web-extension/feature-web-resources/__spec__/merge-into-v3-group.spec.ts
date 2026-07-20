@@ -9,7 +9,6 @@ describe('mergeIntoV3Group', () => {
     mergeIntoV3Group(groups, ['https://example.com/*'], ['b.png', 'a.png'])
 
     expect(groups).toEqual([
-      // resources are de-duped and sorted
       {resources: ['a.png', 'b.png'], matches: ['https://example.com/*']}
     ])
   })
@@ -18,7 +17,6 @@ describe('mergeIntoV3Group', () => {
     const groups: Group[] = [
       {resources: ['a.png'], matches: ['https://b.com/*', 'https://a.com/*']}
     ]
-    // Same matches, different declared order -> same group
     mergeIntoV3Group(
       groups,
       ['https://a.com/*', 'https://b.com/*'],
@@ -49,7 +47,6 @@ describe('mergeIntoV3Group', () => {
     const groups: Group[] = [{resources: ['assets/*'], matches: ['<all_urls>']}]
     mergeIntoV3Group(groups, ['<all_urls>'], ['assets/logo.png', 'other.png'])
 
-    // assets/logo.png is covered by assets/* and must not be added again
     expect(groups[0].resources).toEqual(['assets/*', 'other.png'])
   })
 

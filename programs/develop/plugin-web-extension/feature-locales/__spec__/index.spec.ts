@@ -4,7 +4,6 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as getLocalesModule from '../get-locales'
 import {LocalesPlugin} from '../index'
 
-// Minimal tapable-like hook helper
 function createHook() {
   const taps: Array<() => void> = []
   return {
@@ -86,8 +85,6 @@ describe('LocalesPlugin (unit)', () => {
       options: {context: tmpRoot},
       hooks: {
         thisCompilation: thisCompilationHook,
-        // afterCompile is called with the compilation; bind it here so the
-        // tap fires against the same compilation when _runAll() runs.
         afterCompile: {
           tap: (_name: string, cb: (compilation: any) => void) => {
             afterCompileHook.tap('', () => cb(compilation))
@@ -103,14 +100,12 @@ describe('LocalesPlugin (unit)', () => {
     }
 
     plugin.apply(compiler)
-    // run processAssets first (asset emission), then afterCompile (dep tracking)
     ;(processAssetsHook as any)._runAll()
     ;(afterCompileHook as any)._runAll()
     return compilation as any
   }
 
   it('emits only .json locale files and skips non-json', () => {
-    // Ensure manifest declares default_locale to pass validation
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
@@ -131,7 +126,6 @@ describe('LocalesPlugin (unit)', () => {
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/logo.png'))
     ).toBe(false)
-    // No warnings/errors for existing files
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
   })
@@ -154,11 +148,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('tracks locale fileDependencies on afterCompile, not processAssets', () => {
-    // Rspack's filewatcher snapshots compilation.fileDependencies after seal;
-    // additions made during processAssets are not always picked up for the
-    // next watch cycle, so editing _locales/<locale>/messages.json silently
-    // failed to trigger a rebuild. The hook must be afterCompile (mirroring
-    // feature-manifest/add-dependencies).
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
@@ -215,7 +204,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('errors when _locales exists but default_locale is missing', () => {
-    // No default_locale in manifest; _locales present from beforeEach
     fs.writeFileSync(manifestPath, '{"name":"x","manifest_version":3}')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
@@ -229,12 +217,10 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('errors when a non-default locale messages.json is invalid JSON', () => {
-    // Default locale set and valid
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
-    // Corrupt pt_BR/messages.json
     fs.writeFileSync(path.join(ptDir, 'messages.json'), '{ invalid')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
@@ -249,7 +235,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('errors when manifest references __MSG_*__ not defined in default locale', () => {
-    // Set manifest with placeholders but do not provide keys in messages.json
     fs.writeFileSync(
       manifestPath,
       JSON.stringify({
@@ -260,11 +245,9 @@ describe('LocalesPlugin (unit)', () => {
         action: {default_title: '__MSG_actionTitle__'}
       })
     )
-    // Default locale exists with messages.json, but missing keys
     fs.writeFileSync(
       path.join(enDir, 'messages.json'),
       JSON.stringify({
-        // intentionally no extDesc or actionTitle
         title: {message: 'ok'}
       })
     )
@@ -284,7 +267,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('pushes an error and does not throw when manifest.json is missing (with metadata, no path in message)', () => {
-    // create a clean temp root without a manifest.json
     const cleanRoot = path.resolve(__dirname, '__tmp_locales_plugin_missing__')
     if (fs.existsSync(cleanRoot))
       fs.rmSync(cleanRoot, {recursive: true, force: true})
@@ -320,12 +302,10 @@ describe('LocalesPlugin (unit)', () => {
     expect(err.name).toBe('ManifestNotFoundError')
     expect(err.file).toBe(missingManifestPath)
     expect(typeof err.message).toBe('string')
-    // Message follows guidance + NOT FOUND style (header provides file context)
     expect(err.message).toContain('Check for a valid manifest.json file.')
     expect(hasAnsi(err.message)).toBe(false)
     expect((compilation as any)._emitted).toBeUndefined()
 
-    // cleanup
     if (fs.existsSync(cleanRoot))
       fs.rmSync(cleanRoot, {recursive: true, force: true})
   })
@@ -401,9 +381,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('emits _locales at bundle root when manifest is under src/ and _locales is at project root', () => {
-    // Strict layout: manifest under tmpRoot/src/, _locales/ at tmpRoot/
-    // (sibling of src/, public/, etc.). Emit must produce `_locales/...`
-    // regardless of where the manifest lives in source.
     const pkgRoot = path.join(tmpRoot, 'pkg-root')
     const innerSrc = path.join(pkgRoot, 'src')
     const rootLocales = path.join(pkgRoot, '_locales', 'en')
@@ -454,9 +431,6 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('warns when _locales/ is found next to the manifest instead of the project root', () => {
-    // Project-root layout is canonical, but the legacy `<manifestDir>/_locales`
-    // shape still works, emit a build warning to nudge migration without
-    // breaking templates / external projects that rely on the legacy layout.
     const pkgRoot = path.join(tmpRoot, 'legacy-layout-warn')
     const innerSrc = path.join(pkgRoot, 'src')
     const innerLocales = path.join(innerSrc, '_locales', 'en')
@@ -494,13 +468,11 @@ describe('LocalesPlugin (unit)', () => {
     new LocalesPlugin({manifestPath: srcManifestPath}).apply(compiler)
     ;(processAssetsHook as any)._runAll()
 
-    // Build must NOT fail, no error pushed.
     const error = compilation.errors.find(
       (e: any) => e.name === 'LocalesValidationError'
     )
     expect(error).toBeUndefined()
 
-    // A LocalesLayoutWarning should be present pointing at the legacy path.
     const warning = compilation.warnings.find(
       (w: any) => w.name === 'LocalesLayoutWarning'
     )

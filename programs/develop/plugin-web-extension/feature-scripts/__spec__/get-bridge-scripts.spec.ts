@@ -120,14 +120,11 @@ describe('main-world bridge helpers', () => {
       'utf8'
     )
 
-    // Chromium family targets resolve chromium:world -> world: MAIN, so the
-    // bridge entry MUST be compiled (the emitted manifest references it).
     for (const browser of ['chrome', 'edge', 'chromium-based'] as const) {
       const bridgeScripts = getMainWorldBridgeScripts(manifestPath, browser)
       expect(Object.keys(bridgeScripts)).toEqual(['content_scripts/content-1'])
     }
 
-    // Firefox drops the chromium: prefix entirely, no world key, no bridge.
     expect(
       Object.keys(getMainWorldBridgeScripts(manifestPath, 'firefox'))
     ).toEqual([])

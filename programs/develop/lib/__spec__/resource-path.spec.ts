@@ -17,11 +17,6 @@ afterEach(() => {
   }
 })
 
-// Build a project whose real source dir is also reachable through a symlinked
-// ancestor. Resolving the symlinked form vs the real form is the SAME class of
-// divergence that breaks the content-script wrapper on Windows (native realpath
-// expands 8.3 short names / drive case), but reproducible on every OS. A
-// directory junction is used so Windows CI can create it without elevation.
 function makeProjectWithSymlinkedView() {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rp-'))
@@ -51,7 +46,6 @@ describe('lib/resource-path', () => {
   it('canonicalizeResourcePath tolerates a virtual file whose directory exists', () => {
     const {contentDir} = makeProjectWithSymlinkedView()
     const virtual = path.join(contentDir, 'does-not-exist.ts')
-    // The directory is canonicalized even though the file is absent.
     expect(canonicalizeResourcePath(virtual)).toBe(
       path.join(canonicalizeDir(contentDir), 'does-not-exist.ts')
     )
@@ -61,10 +55,7 @@ describe('lib/resource-path', () => {
     const {realSrc, linkedResource} = makeProjectWithSymlinkedView()
     const includeDirs = [canonicalizeDir(realSrc)]
 
-    // The helper canonicalizes both sides, so containment holds...
     expect(isResourceUnderDirs(linkedResource, includeDirs)).toBe(true)
-    // ...whereas a naive prefix check (the old behavior) would NOT, because the
-    // symlinked path string is not a prefix of the real include dir.
     expect(linkedResource.startsWith(includeDirs[0])).toBe(false)
   })
 
@@ -80,8 +71,6 @@ describe('lib/resource-path', () => {
     const fileInSibling = path.join(sibling, 'a.ts')
     fs.writeFileSync(fileInSibling, 'x')
 
-    // `src-extra/a.ts` must NOT count as being under `src/` even though the
-    // string `.../src` is a prefix of `.../src-extra`.
     expect(isResourceUnderDirs(fileInSibling, [canonicalizeDir(dir)])).toBe(
       false
     )
@@ -93,11 +82,6 @@ describe('lib/resource-path', () => {
   })
 
   it('toResourceKey yields one key for every absolute form of the same path', () => {
-    // On Windows `path.normalize('/project/sw.js')` stays drive-less
-    // (`\project\sw.js`) while `path.resolve` prepends the cwd drive, the
-    // exact divergence that made a resolve-built set unmatchable by a
-    // normalize-built probe. On POSIX the forms coincide, so this assertion
-    // is only load-bearing on the Windows runner.
     const forms = [
       '/project/sw.js',
       '/project/./sw.js',

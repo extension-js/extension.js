@@ -1,11 +1,3 @@
-// Golden-fixture gate for the manifest output contract: one real rspack
-// build over a fixture that touches every path-rewriting surface, with the
-// emitted manifest pinned field by field. @extension.dev/compiler ports this
-// contract for in-browser previews (its parity scoreboard pins the same
-// shapes), so a change that breaks these expectations silently breaks
-// preview parity, not just this repo. Heavier than the unit suites (~one
-// real build, same trade-off as build-content-script.spec.ts).
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -117,7 +109,6 @@ function writeFixture() {
     write(`src/${page}.css`, 'h1 { color: blue }\n')
   }
 
-  // Smallest valid 1x1 PNG.
   fs.mkdirSync(path.join(FIXTURE_ROOT, 'public', 'icons'), {recursive: true})
   fs.writeFileSync(
     path.join(FIXTURE_ROOT, 'public', 'icons', 'icon16.png'),
@@ -181,9 +172,6 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
     })
     expect(manifest.icons).toEqual({'16': 'icons/icon16.png'})
 
-    // Content scripts: per-index canonical names; the MAIN world script
-    // keeps its index name and gains a bridge entry (no world) numbered
-    // after the original count, inserted before it.
     expect(manifest.content_scripts).toEqual([
       {
         matches: ['<all_urls>'],
@@ -203,9 +191,6 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
       }
     ])
 
-    // WAR: declared resource normalized from public/, the emitted
-    // content-script CSS auto-merged into the matching group, resources
-    // sorted, and user fields like use_dynamic_url preserved.
     expect(manifest.web_accessible_resources).toEqual([
       {
         resources: ['content_scripts/content-0.css', 'icons/icon16.png'],
@@ -214,7 +199,6 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
       }
     ])
 
-    // The files behind every contract path must exist on disk.
     const expectedFiles = [
       'background/service_worker.js',
       'action/index.html',

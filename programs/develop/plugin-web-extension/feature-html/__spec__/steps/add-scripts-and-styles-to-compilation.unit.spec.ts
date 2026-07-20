@@ -57,12 +57,6 @@ describe('AddScriptsAndStylesToCompilation', () => {
         p.endsWith('main.js')
       )
     ).toBe(true)
-    // A root-absolute ref is an EXTENSION-ROOT reference (Chrome resolves '/'
-    // from the extension root), never a module to bundle, with or without a
-    // public/ dir. This used to assert the opposite: with no public/ dir the
-    // ref was bundled as an entry, which is exactly how a wild extension died
-    // with "Module not found: Can't resolve '/styles.css'" (BUGS_TO_FIX §18).
-    // It is served from the output root instead.
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.endsWith('/styles.css')
@@ -86,9 +80,6 @@ describe('AddScriptsAndStylesToCompilation', () => {
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
     const imports = compiler.options.entry['feature/index'].import as string[]
-    // Chrome silently 404s dead-ref.js and runs the page; feeding it to
-    // rspack as an entry import fails the whole build with "Module not
-    // found". The existing script must still bundle.
     expect(imports.some((p) => p.endsWith('exists.js'))).toBe(true)
     expect(imports.some((p) => p.endsWith('dead-ref.js'))).toBe(false)
   })
@@ -116,10 +107,6 @@ describe('AddScriptsAndStylesToCompilation', () => {
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
     const imports = compiler.options.entry['feature/index'].import as string[]
-    // Refresh shim must run before the rspack-dev-server HMR client and any
-    // user .tsx module that the refresh loader transformed (top-level
-    // `$RefreshReg$`/`$RefreshSig$` calls). Verify the order: shim → HMR
-    // client → ... → minimum-script-file.
     const shimIdx = imports.findIndex((p) => p.includes('preact-refresh-shim'))
     const hmrIdx = imports.findIndex((p) =>
       p.replace(/\\/g, '/').includes('dev-server/client/index.js?')

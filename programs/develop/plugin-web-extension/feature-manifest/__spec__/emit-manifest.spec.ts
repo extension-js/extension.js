@@ -58,7 +58,6 @@ describe('EmitManifest', () => {
       side_panel: {default_path: 'src/sidebar/index.html'}
     })
 
-    // Now simulate read error
     new EmitManifest({
       manifestPath: path.join(tempDir, 'missing.json')
     } as any).apply(compiler)

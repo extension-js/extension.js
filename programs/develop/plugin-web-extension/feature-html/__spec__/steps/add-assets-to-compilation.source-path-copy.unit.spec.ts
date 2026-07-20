@@ -20,8 +20,6 @@ function makeCompilation(contextDirectory: string) {
     }
   }
   return {
-    // The compiler context is the PROJECT root in production; asset
-    // containment checks key off it, so the temp project must be it here.
     options: {context: contextDirectory},
     hooks: {
       thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
@@ -32,9 +30,6 @@ function makeCompilation(contextDirectory: string) {
 
 describe('AddAssetsToCompilation (source-path copies)', () => {
   it('also emits static assets at their manifest-relative source path', () => {
-    // Chrome serves every packed file at its source path, so
-    // chrome.runtime.getURL('img/logo.png') must keep resolving in the
-    // built extension even though the HTML rewrite points at assets/.
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-source-path-copy-')
     )
@@ -65,7 +60,6 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
-      // The assets/ contract copy AND the Chrome source-path copy.
       expect(emittedAssetNames).toContain('assets/img/logo.png')
       expect(emittedAssetNames).toContain('img/logo.png')
       expect(
@@ -108,7 +102,6 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
-      // public/ files are copied by the public pipeline, not re-emitted here.
       expect(emittedAssetNames).not.toContain('public/pic.png')
       expect(emittedAssetNames).not.toContain('assets/pic.png')
     } finally {

@@ -41,9 +41,7 @@ it('writes audit to cache when config path is unwritable', () => {
 
   try {
     fs.chmodSync(configHome, 0o500)
-  } catch {
-    // best-effort on platforms that ignore chmod (e.g. Windows)
-  }
+  } catch {}
 
   const configWritable = canWrite(configHome)
 
@@ -54,7 +52,6 @@ it('writes audit to cache when config path is unwritable', () => {
   const telemetry = new Telemetry({
     app: 'extension',
     version: '0.0.0',
-    // audit every call so we can assert the file exists
     sampleRate: 1,
     debounceMs: 0
   })

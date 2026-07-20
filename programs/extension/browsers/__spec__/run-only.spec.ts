@@ -1,4 +1,4 @@
-import {describe, expect, it, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} = vi.hoisted(
   () => ({
@@ -105,9 +105,6 @@ describe('runOnlyPreviewBrowser', () => {
     })
   })
 
-  // Regression: preview/start (runOnlyPreviewBrowser) previously threw
-  // "Unsupported browser" for the fork targets because the dispatch listed only
-  // chrome/edge/chromium and firefox. Forks must route to their family launcher.
   for (const browser of ['brave', 'opera', 'vivaldi', 'yandex'] as const) {
     it(`routes the chromium fork ${browser} to the chromium launcher`, async () => {
       await runOnlyPreviewBrowser({

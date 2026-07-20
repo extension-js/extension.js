@@ -1,6 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Mocks
 const defineApply = vi.fn()
 let lastDefineArgs: any = null
 const provideApply = vi.fn()
@@ -47,9 +46,6 @@ vi.mock('fs', async () => {
   return {
     ...actual,
     existsSync: vi.fn(),
-    // env.ts reads the selected .env file and hands the content to
-    // dotenv.parse. Return the path itself as the "content" so the parse
-    // mock below can keep keying its fixtures off the path.
     readFileSync: vi.fn((p: any, ...rest: any[]) => {
       if (/\.env[^/\\]*$/.test(String(p))) return String(p)
       return actual.readFileSync(p, ...rest)
@@ -163,19 +159,12 @@ describe('EnvPlugin', () => {
     })
     plugin.apply(compiler as any)
 
-    // Ensure DefinePlugin applied at least once
     expect(defineApply).toHaveBeenCalled()
     expect(lastDefineArgs).toBeTruthy()
-    // The process shim isn't resolvable here (fs.existsSync mocked to .env
-    // paths only), so the inline fallback stub is defined for browser safety.
     expect(lastDefineArgs.process).toBeTruthy()
     expect(lastDefineArgs['process.env']).toBeTruthy()
-    // G12: Node-only import.meta accessors are neutralized to undefined so
-    // vendored ESM (.mjs) dead branches don't leave a literal `import.meta` in a
-    // classic chunk (which fails minification).
     expect(lastDefineArgs['import.meta.dirname']).toBe('undefined')
     expect(lastDefineArgs['import.meta.filename']).toBe('undefined')
-    // import.meta.url is deliberately left to rspack's own rewrite.
     expect(lastDefineArgs['import.meta.url']).toBeUndefined()
     expect(provideApply).not.toHaveBeenCalled()
   })
@@ -196,8 +185,6 @@ describe('EnvPlugin', () => {
     expect(toPosix(String(lastProvideArgs.process))).toContain(
       '/runtime/process-shim.cjs'
     )
-    // With a real shim provided, the broad process / process.env defines are
-    // omitted so they don't shadow the polyfill.
     expect(lastDefineArgs.process).toBeUndefined()
     expect(lastDefineArgs['process.env']).toBeUndefined()
   })
@@ -222,11 +209,10 @@ describe('EnvPlugin', () => {
     triggerCompilation(compilation)
     runProcessAssets()
 
-    // index.html and manifest.json updated, ignore.txt untouched
     expect(Object.keys(updated)).toEqual(['index.html', 'manifest.json'])
-    expect(updated['index.html']).toContain('sysFoo') // from process.env override
-    expect(updated['index.html']).toContain('envBar') // from env file
-    expect(updated['index.html']).toContain('$EXTENSION_MISS') // untouched when missing
+    expect(updated['index.html']).toContain('sysFoo')
+    expect(updated['index.html']).toContain('envBar')
+    expect(updated['index.html']).toContain('$EXTENSION_MISS')
     expect(updated['manifest.json']).toContain('sysFoo')
     expect(updated['manifest.json']).toContain('envBar')
     expect(getCurrentManifestContent(compilation as any)).toBe(

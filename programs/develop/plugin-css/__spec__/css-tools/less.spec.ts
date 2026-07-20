@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {lessHasDependencyMock} = vi.hoisted(() => ({
   lessHasDependencyMock: vi.fn(() => false)
@@ -29,7 +29,6 @@ describe('less tools', () => {
 
   it('maybeUseLess resolves without emitting rules when less is not in use', async () => {
     const less = await import('../../css-tools/less')
-    // less not declared (mock returns false) -> no contract work, returns void.
     await expect(less.maybeUseLess('/p')).resolves.toBeUndefined()
   })
 })

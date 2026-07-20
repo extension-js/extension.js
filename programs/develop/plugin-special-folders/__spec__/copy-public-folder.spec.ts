@@ -1,4 +1,4 @@
-import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
@@ -10,7 +10,6 @@ const FS = vi.hoisted(() => ({
 }))
 vi.mock('fs', () => ({...FS}))
 
-// Mock rspack CopyRspackPlugin
 const copyApply = vi.fn()
 let lastCopyOptions: any = null
 vi.mock('@rspack/core', async () => {
@@ -30,7 +29,6 @@ vi.mock('@rspack/core', async () => {
   }
 })
 
-// Mock WarnUponFolderChanges to assert wiring in development
 const warnApply = vi.fn()
 vi.mock('../warn-upon-folder-changes', () => ({
   WarnUponFolderChanges: vi.fn().mockImplementation(function (this: any) {
@@ -38,7 +36,6 @@ vi.mock('../warn-upon-folder-changes', () => ({
   })
 }))
 
-// Minimal compiler with hooks and options
 const createFakeCompiler = (
   mode: 'development' | 'production',
   withWatch = false
@@ -53,8 +50,6 @@ const createFakeCompiler = (
               tap: (_opts: any, fn: () => void) => fn()
             }
           },
-          // The plugin also taps processAssets to copy root-absolute refs into
-          // the output root, so the double needs the assets API it reads.
           getAssets: () => [],
           getAsset: () => undefined,
           emitAsset: () => {},

@@ -6,12 +6,6 @@ import classicConcatLoader, {
   collectClassicGlobalNames
 } from '../steps/add-content-script-wrapper/classic-concat-loader'
 
-// Coverage for the swc + acorn rewrite that removed the 24MB `typescript`
-// runtime dependency from extension-develop. Two halves are exercised:
-// type-stripping (rspack's bundled swc, replacing ts.transpileModule) and
-// global-name collection (acorn, replacing ts.createSourceFile + AST walk).
-// The semantics under test are the browser-parity contract of §24 and §38.
-
 const tempDirs: string[] = []
 
 afterEach(() => {
@@ -48,7 +42,6 @@ function runLoader(files: Array<{name: string; content: string}>) {
   return {err, output: output as string, sourceMap, paths}
 }
 
-/** Names the loader decided to hang on the page global. */
 function bridgedNames(output: string): string[] {
   const names: string[] = []
   const re = /globalThis\["([^"]+)"\] =/g
@@ -57,7 +50,6 @@ function bridgedNames(output: string): string[] {
   return names
 }
 
-/** Collect against a .js name so the loader never type-strips first. */
 const collect = (src: string) => collectClassicGlobalNames('f.js', src)
 
 describe('type stripping via rspack swc (§24)', () => {
@@ -133,11 +125,6 @@ describe('type stripping via rspack swc (§24)', () => {
 })
 
 describe('no "use strict" contamination (latent bug the rewrite fixes)', () => {
-  // tsc's transpileModule emitted a `"use strict"` prologue. Because the concat
-  // wrapper puts every member inside ONE function body and comments do not
-  // interrupt a directive prologue, a .ts file sorted FIRST silently made every
-  // other file in the group strict, breaking classic scripts that rely on
-  // sloppy-mode behaviour.
   it('does not inject a use-strict prologue when transpiling TS', () => {
     const {output} = runLoader([
       {name: 'a.ts', content: 'const x: number = 1\n'}
@@ -151,7 +138,6 @@ describe('no "use strict" contamination (latent bug the rewrite fixes)', () => {
       {name: 'b.js', content: 'sloppyImplicitGlobal = 5;\n'}
     ])
     expect(output).not.toContain('use strict')
-    // Under a strict prologue this assignment throws ReferenceError.
     const sandbox: Record<string, unknown> = {}
     expect(() => new Function('globalThis', output)(sandbox)).not.toThrow()
   })
@@ -164,10 +150,6 @@ describe('no "use strict" contamination (latent bug the rewrite fixes)', () => {
   })
 
   it('parses a .ts member as a SCRIPT, tolerating legacy HTML comments', () => {
-    // `<!--` is a sloppy-script-only legacy feature that old vendored libraries
-    // still carry. Parsing the member as a module (isModule: true) rejects it
-    // outright with "Legacy comments cannot be used in module code", so this
-    // pins the script-mode parse the classic-concat contract depends on.
     const {err, output} = runLoader([
       {
         name: 'legacy.ts',
@@ -231,10 +213,6 @@ describe('global-name collection via acorn (§38)', () => {
     expect(names).not.toContain('caughtErr')
   })
 
-  // These must sit in EXPRESSION-STATEMENT position. A function or class
-  // expression in a variable initializer is never descended into at all
-  // (visit() returns as soon as it records the binding name), so putting them
-  // there would assert nothing about the opaque-scope handling.
   it('treats an IIFE body as opaque', () => {
     const names = collect('(function () { var iifeLocal = 1 })();')
     expect(names).not.toContain('iifeLocal')
@@ -254,9 +232,6 @@ describe('global-name collection via acorn (§38)', () => {
   })
 
   it('treats a class static block as opaque (a var there is block-scoped)', () => {
-    // A static block is the one place a `var` can sit DIRECTLY in a class body
-    // rather than inside a method, so it is what makes the class-expression
-    // scope load-bearing rather than redundant with the function-expression one.
     expect(
       collect('register(class { static { var staticLocal = 1 } });')
     ).toEqual([])
@@ -272,8 +247,6 @@ describe('global-name collection via acorn (§38)', () => {
   })
 
   it('records the binding but not the initializer body (parity with the old impl)', () => {
-    // `var holder = () => {...}` exposes `holder`; the arrow body is never
-    // walked, so its vars stay local, matching the TypeScript implementation.
     const names = collect('var holder = () => { var innerLocal = 1 };')
     expect(names).toEqual(['holder'])
   })
@@ -325,7 +298,6 @@ describe('global-name collection via acorn (§38)', () => {
   })
 
   it('returns names in source order with duplicates intact', () => {
-    // The loader is what de-duplicates; the collector reports what it sees.
     expect(collect('var dup = 1; var dup = 2;')).toEqual(['dup', 'dup'])
   })
 
@@ -375,11 +347,9 @@ describe('bridging behaviour end to end', () => {
       {name: 'broken.js', content: 'function (){\n'},
       {name: 'fine.js', content: 'var recovered = 1;\n'}
     ])
-    // The group is not rejected: the broken file is passed through verbatim.
     expect(err).toBeNull()
     expect(output).toContain('function (){')
     expect(output).toContain('var recovered = 1;')
-    // The parseable member still gets its bridge.
     expect(bridgedNames(output)).toContain('recovered')
   })
 

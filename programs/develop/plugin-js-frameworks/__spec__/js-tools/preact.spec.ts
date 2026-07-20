@@ -5,7 +5,6 @@ vi.mock('../../frameworks-lib/integrations', () => ({
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
-// Ensure @rspack/plugin-preact-refresh resolves
 const originalResolve = (require as any).resolve
 beforeEach(() => {
   ;(require as any).resolve = vi.fn((id: string) =>
@@ -59,9 +58,6 @@ describe('preact tools', () => {
     expect(logSpy).toHaveBeenCalledTimes(1)
 
     const result = await maybeUsePreact('/p')
-    // Fast-refresh is intentionally disabled (rspack 2.x renames the prefresh
-    // runtime's `module` arg → `module is not defined` at eval). Preact falls
-    // back to live-reload, so no plugin is contributed, only the alias map.
     expect(result?.plugins).toEqual([])
     expect(result?.alias?.react).toContain(
       '/project/node_modules/preact/compat'
@@ -78,10 +74,6 @@ describe('preact tools', () => {
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/preact/jsx-dev-runtime'
     )
-    // The `preact` alias resolves to the *package directory* (parent of
-    // package.json) so webpack treats it as a prefix for sub-paths like
-    // `preact/hooks`. Without it, pnpm strict layouts leave `preact`
-    // unresolvable for `preact/compat` sub-imports.
     expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 
@@ -93,7 +85,6 @@ describe('preact tools', () => {
       (_p: string, dep: string) => dep === 'preact'
     )
 
-    // If maybeUsePreact tried to require the refresh plugin, this would be hit.
     let pluginRequested = false
     vi.doMock('module', () => ({
       createRequire: () => {
@@ -114,7 +105,6 @@ describe('preact tools', () => {
 
     expect(pluginRequested).toBe(false)
     expect(result?.plugins).toEqual([])
-    // Aliases are still wired so Preact compiles and runs (live-reload only).
     expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 })

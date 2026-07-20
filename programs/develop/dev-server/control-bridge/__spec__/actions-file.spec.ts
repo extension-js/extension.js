@@ -38,7 +38,6 @@ describe('ActionsFileWriter', () => {
     expect(lines).toHaveLength(2)
     const first = JSON.parse(lines[0])
     expect(first).toMatchObject({v: 1, cmdId: 'a', op: 'reload', ok: true})
-    // No header line (the actions schema is closed).
     expect(first.type).toBeUndefined()
     expect(JSON.parse(lines[1])).toMatchObject({
       cmdId: 'b',
@@ -52,7 +51,7 @@ describe('ActionsFileWriter', () => {
     w1.start()
     w1.write(rec('old'))
     const w2 = new ActionsFileWriter({filePath: file})
-    w2.start() // should rotate the existing file to actions.1.ndjson
+    w2.start()
     w2.write(rec('new'))
     expect(fs.existsSync(file.replace(/\.ndjson$/, '.1.ndjson'))).toBe(true)
     const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
@@ -64,7 +63,7 @@ describe('ActionsFileWriter', () => {
     const w = new ActionsFileWriter({filePath: file, maxLines: 2})
     w.start()
     w.write(rec('1'))
-    w.write(rec('2')) // hits maxLines -> rotate
+    w.write(rec('2'))
     w.write(rec('3'))
     expect(fs.existsSync(file.replace(/\.ndjson$/, '.1.ndjson'))).toBe(true)
     const current = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)

@@ -1,12 +1,3 @@
-// Real-rspack regression gate for manifest page-surface existence checks
-// (G31). Build-time strictness already rejects manifests whose
-// background.service_worker / content_scripts / icons point at missing files,
-// but page surfaces (action.default_popup, options_page, options_ui.page,
-// chrome_url_overrides.*) used to skip silently: the build ended "with no
-// warnings" as a manifest-only dist whose rewritten manifest pointed at a
-// phantom action/index.html. Chrome refuses to load such an extension, so the
-// build must fail it honestly.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -64,7 +55,6 @@ function writeMissingOverrideFixture() {
   )
 }
 
-// Control: the same surfaces with files present must keep building clean.
 function writePresentPopupFixture() {
   writePackageJson(PRESENT_POPUP_ROOT, 'extjs-build-present-popup-spec')
   fs.writeFileSync(
@@ -129,8 +119,6 @@ afterAll(() => {
 })
 
 describe('build: manifest page-surface existence checks (real rspack)', () => {
-  // VITEST=true flips extensionBuild's shouldExitOnError to false, so a
-  // failed build rejects the promise instead of killing the test process.
   it('fails the build when action.default_popup and options_page point at missing files', async () => {
     await expect(buildFixture(MISSING_POPUP_ROOT)).rejects.toThrow(
       'Build failed with errors'

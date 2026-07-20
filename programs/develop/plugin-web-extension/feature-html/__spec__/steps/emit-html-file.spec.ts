@@ -21,9 +21,7 @@ describe('EmitHtmlFile', () => {
     plugin = new EmitHtmlFile({
       manifestPath: '/test/project/manifest.json',
       includeList: {
-        // entrypoint (manifest-defined): should not warn here
         'action/default_popup': '/test/project/popup.html',
-        // non-entrypoint (pages/*): should warn here
         'pages/main': '/test/project/pages/main.html'
       } as any
     })
@@ -51,7 +49,6 @@ describe('EmitHtmlFile', () => {
   })
 
   it('warns only for non-entrypoint pages when HTML file is missing', () => {
-    // Simulate JSON manifest so EmitHtmlFile can parse it without error
     vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
       if (String(p).endsWith('manifest.json'))
         return Buffer.from('{"name":"X"}')
@@ -60,7 +57,6 @@ describe('EmitHtmlFile', () => {
     vi.mocked(fs.existsSync).mockImplementation((_p: any) => false)
     plugin.apply(mockCompiler)
 
-    // Should push exactly one warning for pages/* and not for manifest entrypoints
     expect((mockCompilation as any).warnings.length).toBe(1)
   })
 })

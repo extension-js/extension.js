@@ -1,13 +1,3 @@
-// Ownership is a tri-state, not a boolean. The chromium controller used to ask
-// `extensionIdBelongsToOutPath` (returning `boolean | null`) and both call
-// sites only acted on `=== false`, so `null` ("cannot tell yet") behaved
-// exactly like `true` ("verified mine"), a freshly created profile whose
-// Preferences had not flushed, or an id absent from Preferences, would get a
-// foreign extension silently adopted as the dev extension.
-//
-// This spec locks the shared decision: 'mine' | 'not_mine' | 'unknown', built
-// from faked profile directories on disk, no real browser.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -75,17 +65,15 @@ describe('classifyExtensionOwnership, the one ownership decision', () => {
     const foreign = makeOutPath()
     writePreferences(profile, {'foreign-id': {path: foreign}})
 
-    // A foreign extension that verifiably is not ours stays rejected.
     expect(classifyExtensionOwnership(profile, out, 'foreign-id')).toBe(
       'not_mine'
     )
   })
 
   it("returns 'unknown' when the profile has not written Preferences yet", () => {
-    const profile = makeProfile() // fresh profile, no Preferences file
+    const profile = makeProfile()
     const out = makeOutPath()
 
-    // The cannot-know moment: not a yes. Callers must resolve it explicitly.
     expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe(
       'unknown'
     )
@@ -141,8 +129,6 @@ describe('classifyExtensionOwnership, the one ownership decision', () => {
 })
 
 describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
-  // A project tree with a canonical build dir and a legacy sibling under the
-  // same dist root, so distRoot resolution is exercised for real.
   function makeProject(): {dist: string; current: string; legacy: string} {
     const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-stale-proj-'))
     tempDirs.push(proj)
@@ -181,7 +167,7 @@ describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
   it('never flags a store-installed extension (path outside any dist)', () => {
     const profile = makeProfile()
     const {current} = makeProject()
-    const packed = makeOutPath() // an install dir with no `dist` segment
+    const packed = makeOutPath()
     writePreferences(profile, {
       current: {path: current},
       packed: {path: packed}
@@ -202,16 +188,12 @@ describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
   })
 
   it('uses the innermost dist, so an ancestor dir named "dist" cannot widen the root', () => {
-    // A project whose path itself contains a "dist" ancestor segment. The dist
-    // root must be the innermost `.../proj/dist`, NOT the ancestor `/tmp/.../dist`,
-    // otherwise an unrelated extension under the ancestor would be evicted.
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-dist-ancestor-'))
     tempDirs.push(base)
-    const ancestor = path.join(base, 'dist') // ancestor literally named "dist"
+    const ancestor = path.join(base, 'dist')
     const projDist = path.join(ancestor, 'proj', 'dist')
     const current = path.join(projDist, 'chrome')
     const legacy = path.join(projDist, 'extension-js', 'chrome')
-    // An unrelated extension living under the ancestor "dist" but NOT this project.
     const unrelated = path.join(ancestor, 'someone-else', 'build')
     fs.mkdirSync(current, {recursive: true})
     fs.mkdirSync(legacy, {recursive: true})
@@ -224,7 +206,6 @@ describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
       unrelated: {path: unrelated}
     })
 
-    // Only the same-project sibling is evicted; the unrelated one is spared.
     expect(findStaleUnpackedExtensionIds(profile, current)).toEqual(['sibling'])
   })
 })

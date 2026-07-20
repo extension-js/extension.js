@@ -5,12 +5,6 @@ import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
-// Regression for the 3.14 → 3.15 content-script CSS WAR gap. Dev mode runs
-// with `output.clean: false`, so prior compilations leave hashed CSS chunks
-// like `content_scripts/content-index.<hash>.css` behind in the output
-// directory. Open tabs whose pre-rebuild content script's `import.meta.url`
-// fetch resolves to a leftover chunk would otherwise hit a 403 because only
-// the current compile's CSS made it into web_accessible_resources.
 describe('web_accessible_resources: stale on-disk content-script CSS', () => {
   let tmpRoot: string
   let outputPath: string

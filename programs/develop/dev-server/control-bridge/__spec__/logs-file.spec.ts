@@ -57,7 +57,7 @@ describe('LogsFileWriter', () => {
     w.flush()
     w.close()
     const out = lines(logPath)
-    expect(out).toHaveLength(3) // header + 2
+    expect(out).toHaveLength(3)
     expect(out[1]).toMatchObject({seq: 1, messageParts: ['a']})
     expect(out[2]).toMatchObject({seq: 2, messageParts: ['b']})
   })
@@ -78,15 +78,13 @@ describe('LogsFileWriter', () => {
       runId: 'run-A',
       maxLines: 3
     })
-    w.start() // header = 1 line
+    w.start()
     w.write(event(1, 'a'))
     w.write(event(2, 'b'))
-    w.flush() // 1 + 2 = 3 >= 3 -> rotate
+    w.flush()
     w.close()
-    // current file is a fresh header only
     expect(lines(logPath)).toHaveLength(1)
     expect(lines(logPath)[0]).toMatchObject({type: 'header'})
-    // rotated file holds header + the two events
     const rotated = lines(path.join(dir, 'logs.1.ndjson'))
     expect(rotated).toHaveLength(3)
     expect(rotated[1]).toMatchObject({seq: 1})
@@ -96,7 +94,7 @@ describe('LogsFileWriter', () => {
     const w = new LogsFileWriter({
       filePath: logPath,
       runId: 'run-A',
-      maxLines: 1, // every flush rotates
+      maxLines: 1,
       generations: 2
     })
     w.start()

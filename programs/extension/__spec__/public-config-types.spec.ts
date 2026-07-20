@@ -2,13 +2,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
-// Guards the public `import('extension').FileConfig` contract (issue #468).
-//
-// The failure modes here are silent: a `types` path pointing at a missing file,
-// or a relative re-export that loses its explicit `.js` extension, both resolve
-// to `any` under the common `skipLibCheck: true` instead of erroring. These
-// assertions fail loudly when the wiring regresses.
-
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(
   fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')
@@ -26,8 +19,6 @@ describe('public config types (extension package)', () => {
     const dts = fs.readFileSync(path.join(pkgRoot, rootTypes), 'utf8')
 
     expect(dts).toContain('FileConfig')
-    // ESM (`"type": "module"`): the relative re-export must carry an explicit
-    // extension or it resolves to `any` under node16/nodenext (TS2834).
     expect(dts).toMatch(/from\s+['"]\.\/config-types\.js['"]/)
   })
 

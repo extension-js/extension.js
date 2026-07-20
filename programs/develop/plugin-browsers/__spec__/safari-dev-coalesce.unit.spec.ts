@@ -1,8 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 
-// Drains the microtask queue so the plugin's promise-based state machine can
-// advance between assertions. No timers (the fake packager is deferred-promise).
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve()
 }
@@ -53,7 +51,6 @@ function harness() {
   return {plugin, trigger, compiled, errors, ...pkg}
 }
 
-// Run + resolve a clean first compile so the plugin is in steady (resync) state.
 async function settleFirst(h: ReturnType<typeof harness>, out = '/init') {
   const p = h.trigger(out)
   await flush()
@@ -71,7 +68,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     let hookSettled = false
     void p.then(() => (hookSettled = true))
     await flush()
-    expect(hookSettled).toBe(false) // still blocking on the packager
+    expect(hookSettled).toBe(false)
 
     h.callFor('/out1').resolve()
     await p
@@ -84,7 +81,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     const h = harness()
     await settleFirst(h)
     const p = h.trigger('/out2')
-    await p // background hook returns immediately
+    await p
     expect(h.modes()).toEqual(['full:/init', 'resync:/out2'])
     h.callFor('/out2').resolve()
     await h.plugin.idle()
@@ -94,10 +91,10 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
   it('a burst v2,v3,v4 collapses to a single v4 follow-up', async () => {
     const h = harness()
     await settleFirst(h)
-    await h.trigger('/v2') // starts the background run (packager in flight)
+    await h.trigger('/v2')
     const idle = h.plugin.idle()
-    await h.trigger('/v3') // queued
-    await h.trigger('/v4') // queued (overwrites v3)
+    await h.trigger('/v3')
+    await h.trigger('/v4')
     h.callFor('/v2').resolve()
     await flush()
     h.callFor('/v4').resolve()
@@ -132,7 +129,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     await p1
     const p2 = h.trigger('/out1b')
     await flush()
-    expect(h.modes()).toEqual(['full:/out1', 'full:/out1b']) // still full
+    expect(h.modes()).toEqual(['full:/out1', 'full:/out1b'])
     h.callFor('/out1b').resolve()
     await p2
     expect(h.compiled[0].isFirstCompile).toBe(true)
@@ -143,7 +140,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     await settleFirst(h)
     await h.trigger('/v2')
     const idle = h.plugin.idle()
-    await h.trigger('/v3') // queued
+    await h.trigger('/v3')
     h.callFor('/v2').reject(new Error('midfail'))
     await flush()
     expect(h.errors).toContainEqual({errors: ['midfail']})
@@ -157,7 +154,6 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     await h.trigger('/x', {errors: ['compile broke']})
     expect(h.errors).toEqual([{errors: ['compile broke']}])
     expect(h.calls).toHaveLength(0)
-    // firstRun untouched: the next clean compile is still a full package
     const p = h.trigger('/y')
     await flush()
     expect(h.modes()).toEqual(['full:/y'])
@@ -180,7 +176,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     let resolved = false
     void h.plugin.idle().then(() => (resolved = true))
     await flush()
-    expect(resolved).toBe(false) // still packaging
+    expect(resolved).toBe(false)
     h.callFor('/v2').resolve()
     await flush()
     expect(resolved).toBe(true)

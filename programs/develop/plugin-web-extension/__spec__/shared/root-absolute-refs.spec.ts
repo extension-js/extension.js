@@ -16,7 +16,6 @@ beforeAll(() => {
   fs.writeFileSync(path.join(root, 'nscl', 'main.js'), '// nscl')
   fs.writeFileSync(path.join(root, 'public', 'img', 'in-public.svg'), '<svg/>')
   fs.writeFileSync(path.join(root, 'also-at-root.svg'), '<svg/>')
-  // same ref name present in BOTH public/ and the root: public/ must win
   fs.mkdirSync(path.join(root, 'img'), {recursive: true})
   fs.writeFileSync(path.join(root, 'img', 'in-public.svg'), '<svg>root</svg>')
 })
@@ -29,7 +28,6 @@ describe('resolveRootAbsoluteRef', () => {
   const publicDir = () => path.join(root, 'public')
 
   it('resolves a root-absolute ref from the extension root (Chrome semantics)', () => {
-    // The §18 case: hackademix/noscript ships ui/options.html -> "/nscl/main.js"
     expect(resolveRootAbsoluteRef('/nscl/main.js', root, publicDir())).toBe(
       path.join(root, 'nscl', 'main.js')
     )

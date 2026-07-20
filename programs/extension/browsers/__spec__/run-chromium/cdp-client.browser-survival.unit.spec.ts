@@ -11,12 +11,6 @@ import {
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 import {stampReadyBrowserExited} from '../../run-chromium/chromium-launch'
 
-// Family B (BUGS_TO_FIX §14-7): closing the --remote-debugging-pipe is
-// Chromium's BROWSER-SHUTDOWN signal. The CDP client's cleanup used to end()
-// the pipe on any dead-connection verdict (e.g. a heartbeat that timed out
-// because an extension reload wedged the DevTools thread), which killed the
-// user's wedged-but-alive dev browser. These specs pin the survival contract.
-
 describe('CDPClient pipe shutdown safety', () => {
   let client: CDPClient
   let pipeIn: PassThrough
@@ -52,7 +46,6 @@ describe('CDPClient pipe shutdown safety', () => {
     await client.connectViaPipe(pipeIn, pipeOut)
     client.disconnect()
 
-    // flowing mode = something is consuming; paused = writes would buffer
     expect(pipeIn.readableFlowing).toBe(true)
   })
 })
@@ -73,7 +66,6 @@ describe('wasTerminatedByUs', () => {
     gracefulTerminateChild(ours, 'chromium')
     expect(wasTerminatedByUs(ours)).toBe(true)
 
-    // a child we never signaled, e.g. the browser dying on its own
     expect(wasTerminatedByUs(dying)).toBe(false)
   })
 

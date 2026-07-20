@@ -1,8 +1,3 @@
-// Type-level contract: the manifest-overrides surface reads real `Manifest`
-// fields instead of `as any`. These `expectTypeOf` assertions fail to compile
-// if the canonical `Manifest` type ever loses the shapes the overrides depend
-// on (omnibox.default_icon, content_scripts[].css/js, host_permissions,
-// theme_experiment), guarding against a silent regression back to `as any`.
 import {describe, expectTypeOf, it} from 'vitest'
 import type {Manifest} from '../../../../types'
 import {omnibox} from '../common/omnibox'

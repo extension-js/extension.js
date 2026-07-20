@@ -6,19 +6,6 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 
-// End-to-end regression guard for `./styles.css?url` in content scripts.
-//
-// Before the loader fix, `resourceQuery: {not: [/url/]}` on every content-
-// script CSS rule meant a `?url` import silently bypassed the CSS pipeline,
-// shipping the raw source verbatim (including `@import "tailwindcss"` left
-// uncompiled). After the fix, the rules must apply regardless of query
-// string, `?url` imports go through the same PostCSS chain as plain ones,
-// and the URL exported to JS points at the compiled stylesheet.
-//
-// This spec runs a real rspack build on a minimal fixture and asserts that
-// the emitted CSS asset is the PostCSS output (a CSS custom property added
-// by a dedicated postcss plugin) rather than the raw source bytes.
-
 const FIXTURE_RAW_MARKER = '/* RAW_CSS_MARKER */'
 const FIXTURE_PROCESSED_MARKER = '--regression-marker: processed;'
 
@@ -45,8 +32,6 @@ function writeFixture(dir: string) {
     path.join(dir, 'src', 'content', 'styles.css'),
     `${FIXTURE_RAW_MARKER}\n.widget { color: red }\n`
   )
-  // Bespoke postcss plugin: injects a marker custom property into every rule.
-  // Used below to detect whether PostCSS actually ran on the `?url` import.
   fs.writeFileSync(
     path.join(dir, 'postcss.config.cjs'),
     `module.exports = {
@@ -77,7 +62,6 @@ function findEmittedCss(distDir: string): string | null {
   for (const f of hits) {
     if (f.endsWith('.css')) return fs.readFileSync(f, 'utf8')
   }
-  // Small CSS may be inlined as a data URI inside a JS bundle.
   for (const f of hits) {
     if (!f.endsWith('.js')) continue
     const js = fs.readFileSync(f, 'utf8')
@@ -91,8 +75,6 @@ describe('css-url-query regression (end-to-end)', () => {
   let fixtureDir: string
 
   beforeAll(() => {
-    // realpathSync resolves macOS /var → /private/var so the manifest-derived
-    // content-script paths match the absolute paths rspack reports as issuers.
     fixtureDir = fs.realpathSync(
       fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-url-query-regression-'))
     )
@@ -151,8 +133,6 @@ describe('css-url-query regression (end-to-end)', () => {
       emitted,
       'no CSS asset emitted under dist/content_scripts/'
     ).not.toBe(null)
-    // If `?url` still bypassed the CSS pipeline, the raw marker comment
-    // would survive and PostCSS would never have run.
     expect(
       emitted!.includes(FIXTURE_PROCESSED_MARKER),
       'emitted CSS missing PostCSS-injected marker, `?url` import bypassed the CSS pipeline'

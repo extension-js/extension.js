@@ -44,7 +44,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
   })
 
   it('refuses the controller role when control is not enabled', () => {
-    const b = new BridgeBroker(opts) // no allowControl
+    const b = new BridgeBroker(opts)
     const c = new FakeConn('c')
     b.onFrame(c, {
       type: 'hello',
@@ -83,7 +83,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
-    cons.sent = [] // drop the ready frame
+    cons.sent = []
     b.onFrame(prod, {type: 'log', event: {...incoming('hi'), seq: 0} as any})
     expect(cons.sent).toHaveLength(1)
     expect(cons.sent[0]).toMatchObject({type: 'log'})
@@ -109,7 +109,6 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
-    // ready + 2 replayed logs
     expect(late.sent[0]).toMatchObject({type: 'ready', bufferedFrom: 1})
     expect(late.sent.slice(1).map((f: any) => f.event.messageParts[0])).toEqual(
       ['a', 'b']
@@ -129,7 +128,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     cons.sent = []
     b.ingestLog(incoming('a'))
     b.ingestLog(incoming('b'))
-    b.ingestLog(incoming('c')) // overflow -> drop 1
+    b.ingestLog(incoming('c'))
     const gaps = cons.sent.filter((f) => f.type === 'gap')
     expect(gaps).toHaveLength(1)
     expect(gaps[0]).toMatchObject({
@@ -149,7 +148,6 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       instanceId: 'inst-1'
     })
     cons.sent = []
-    // a consumer (or unauthed conn) sending a log must be ignored
     b.onFrame(cons, {type: 'log', event: {...incoming('x'), seq: 0} as any})
     expect(cons.sent).toHaveLength(0)
   })
@@ -202,7 +200,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     const cons = new FakeConn('c')
     hello(b, prod, 'producer')
     hello(b, cons, 'consumer')
-    cons.sent = [] // drop the ready frame
+    cons.sent = []
 
     const notified = b.broadcastReload({type: 'full'})
 
@@ -212,7 +210,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   })
 
   it('is not gated on allowControl, the dev loop reloads without --allow-control', () => {
-    const b = new BridgeBroker(opts) // allowControl defaults to false
+    const b = new BridgeBroker(opts)
     const prod = new FakeConn('p')
     hello(b, prod, 'producer')
     expect(b.broadcastReload({type: 'service-worker'})).toBe(1)
@@ -224,10 +222,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   })
 
   it('self-heals a STALE producer: full-reload frame before the close', () => {
-    // A live SW from a previous dev session (Chrome kept its cached script
-    // after a restart) dials in with the old instanceId. Rejecting it would
-    // strand the extension, instead it is told to reload itself so the
-    // fresh on-disk bundle (current port + instanceId) takes over.
     const b = new BridgeBroker(opts)
     const stale = new FakeConn('stale')
     b.onFrame(stale, {
@@ -275,12 +269,10 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     for (let i = 0; i < 3; i++) {
       expect(helloStale().sent).toHaveLength(1)
     }
-    // Fourth within the window: closed without a reload (no cycle storms).
     const fourth = helloStale()
     expect(fourth.sent).toHaveLength(0)
     expect(fourth.closed?.code).toBe(CLOSE_BAD_INSTANCE)
 
-    // Window rolls over → resync allowed again.
     nowMs += 61_000
     expect(helloStale().sent).toHaveLength(1)
   })
@@ -305,9 +297,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   })
 
   it('latches an undeliverable reload and hands it to the next producer hello', () => {
-    // An MV3 SW that idled out (or has not started yet) holds no producer
-    // socket, the broadcast reaches nobody. The edit must still apply when
-    // the SW comes back, not silently reload nothing.
     const b = new BridgeBroker(opts)
     expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)
 
@@ -320,7 +309,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       label: 'extension'
     })
 
-    // Delivered once: a second producer hello gets nothing.
     const prod2 = new FakeConn('p2')
     hello(b, prod2, 'producer')
     expect(prod2.sent).toHaveLength(0)
@@ -329,14 +317,13 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   it('keeps only the newest undeliverable reload and clears it on a delivered broadcast', () => {
     const b = new BridgeBroker(opts)
     b.broadcastReload({type: 'service-worker'})
-    b.broadcastReload({type: 'full'}) // supersedes the latched SW reload
+    b.broadcastReload({type: 'full'})
 
     const prod = new FakeConn('p')
     hello(b, prod, 'producer')
     expect(prod.sent).toHaveLength(1)
     expect(prod.sent[0]).toMatchObject({type: 'reload', reloadType: 'full'})
 
-    // A broadcast that reached a live producer clears any stale latch.
     b.broadcastReload({type: 'service-worker'})
     const late = new FakeConn('late')
     hello(b, late, 'producer')
@@ -344,10 +331,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   })
 
   it('latches a DELIVERED content-scripts reload until the producer acks (bug 27)', () => {
-    // A socket write is not delivery: a wedged-but-connected SW receives the
-    // frame at the socket layer while its message pump never runs the
-    // reinjection. The reload must replay to the next (healthy) producer
-    // hello instead of being lost.
     const b = new BridgeBroker(opts)
     const wedged = new FakeConn('wedged')
     hello(b, wedged, 'producer')
@@ -359,7 +342,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       })
     ).toBe(1)
 
-    // No ack came back, a fresh producer hello gets the replay.
     const fresh = new FakeConn('fresh')
     hello(b, fresh, 'producer')
     expect(fresh.sent).toHaveLength(1)
@@ -369,7 +351,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       label: 'content_script (content/index.ts)'
     })
 
-    // Replay is once-only.
     const later = new FakeConn('later')
     hello(b, later, 'producer')
     expect(later.sent).toHaveLength(0)
@@ -425,7 +406,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     const cons = new FakeConn('c')
     hello(b, prod, 'producer')
     hello(b, cons, 'consumer')
-    cons.sent = [] // drop the ready frame
+    cons.sent = []
 
     expect(b.pingProducers()).toBe(1)
     expect(prod.sent).toEqual([{type: 'ping'}])
@@ -436,8 +417,6 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
 describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () => {
   const GRACE_MS = 10_000
 
-  // A controllable clock: sessionStartedAt is captured at construction, so set
-  // the start time first, then advance `nowMs` to simulate elapsed time.
   function brokerAt(startMs: number) {
     let nowMs = startMs
     const b = new BridgeBroker({...opts, now: () => nowMs})
@@ -470,8 +449,8 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
   it('dedupes: a rapid edit loop warns once per attach-state, not once per save', () => {
     const {b, advance} = brokerAt(1_000_000)
     advance(GRACE_MS)
-    expect(b.undeliveredReloadWarning()).not.toBeNull() // first stranded edit
-    expect(b.undeliveredReloadWarning()).toBeNull() // repeat edit, same state
+    expect(b.undeliveredReloadWarning()).not.toBeNull()
+    expect(b.undeliveredReloadWarning()).toBeNull()
     expect(b.undeliveredReloadWarning()).toBeNull()
   })
 
@@ -479,12 +458,10 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
     const {b, advance} = brokerAt(1_000_000)
     advance(GRACE_MS)
 
-    // Was never-connected → warn once.
     expect(b.undeliveredReloadWarning()).toContain(
       'has not connected to the dev server this session'
     )
 
-    // The SW attaches (clears the dedup) then drops out.
     const prod = new FakeConn('p')
     b.onFrame(prod, {
       type: 'hello',
@@ -494,11 +471,9 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
     })
     b.onClose(prod)
 
-    // A stranded edit now reports the disconnect, a genuinely new state.
     const msg = b.undeliveredReloadWarning()
     expect(msg).toContain('SW not attached')
     expect(msg).toContain('disconnected')
-    // ...but still only once for this state.
     expect(b.undeliveredReloadWarning()).toBeNull()
   })
 
@@ -506,7 +481,6 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
     const {b, advance} = brokerAt(1_000_000)
     advance(GRACE_MS)
 
-    // A previous-session SW dials in and is told to full-reload/resync.
     b.onFrame(new FakeConn('stale'), {
       type: 'hello',
       v: 1,
@@ -514,8 +488,6 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
       instanceId: 'PREVIOUS-SESSION'
     })
 
-    // The resynced worker reconnects within seconds and picks up the latched
-    // edit, warning now would cry wolf.
     expect(b.undeliveredReloadWarning()).toBeNull()
   })
 })
