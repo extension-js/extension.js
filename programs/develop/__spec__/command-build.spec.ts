@@ -548,6 +548,54 @@ describe('webpack/command-build', () => {
     expect(genTypesMod.generateExtensionTypes).not.toHaveBeenCalled()
   })
 
+  it('persists the build-summary contract for shell-out hosts (§73)', async () => {
+    // Hosts that shell out to `extension build` (the MCP) never see the
+    // returned summary object; the persisted contract is their only
+    // structured channel. Real tmp dir so the write is exercised end to end.
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-summary-'))
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {
+      hasErrors: () => false,
+      toJson: () => ({
+        assets: [{name: 'a.js', size: 10}],
+        warnings: [{message: '\u001b[33mDeprecation: legacy API\u001b[0m'}],
+        errors: []
+      })
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    try {
+      await extensionBuild(tmp, {browser: 'chrome', silent: true})
+
+      const summaryFile = path.join(
+        tmp,
+        'dist',
+        'extension-js',
+        'chrome',
+        'build-summary.json'
+      )
+      expect(realFs.existsSync(summaryFile)).toBe(true)
+      const persisted = JSON.parse(realFs.readFileSync(summaryFile, 'utf8'))
+      expect(persisted.browser).toBe('chrome')
+      expect(persisted.warnings_count).toBe(1)
+      // ANSI-stripped, ready for a programmatic consumer.
+      expect(persisted.warnings).toEqual(['Deprecation: legacy API'])
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
   it('rejects when compiler returns missing stats (prevents silent success)', async () => {
     process.env.VITEST = 'true'
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {

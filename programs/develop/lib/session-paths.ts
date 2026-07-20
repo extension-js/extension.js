@@ -83,6 +83,18 @@ export function actionsPath(projectPath: string, browser: string): string {
   return path.join(browserArtifactsDir(projectPath, browser), 'actions.ndjson')
 }
 
+/** Build summary contract (§73): the structured warnings channel exists on
+ * BuildSummary, but hosts that SHELL OUT to `extension build` (the MCP) had
+ * no transport for it and were left scraping stdout. Persisted best-effort
+ * after a successful build; consumers must mtime-guard against a stale file
+ * from an earlier build. */
+export function buildSummaryPath(projectPath: string, browser: string): string {
+  return path.join(
+    browserArtifactsDir(projectPath, browser),
+    'build-summary.json'
+  )
+}
+
 export type SessionArtifactKeying =
   | 'per-browser'
   | 'legacy-shared'
@@ -110,5 +122,6 @@ export const SESSION_ARTIFACTS: ReadonlyArray<SessionArtifact> = [
   {name: 'ready-contract', keying: 'per-browser', build: readyContractPath},
   {name: 'events-log', keying: 'per-browser', build: eventsPath},
   {name: 'bridge-logs', keying: 'per-browser', build: logsPath},
-  {name: 'actions-audit', keying: 'per-browser', build: actionsPath}
+  {name: 'actions-audit', keying: 'per-browser', build: actionsPath},
+  {name: 'build-summary', keying: 'per-browser', build: buildSummaryPath}
 ]
