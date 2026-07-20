@@ -1,8 +1,14 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {describe, expect, it} from 'vitest'
-import {SESSION_ARTIFACTS} from '../session-paths'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {
+  ensureSessionArtifactsIgnoreFile,
+  SESSION_ARTIFACTS,
+  SESSION_ARTIFACTS_IGNORE_CONTENT,
+  sessionArtifactsIgnoreFilePath
+} from '../session-paths'
 
 const developRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -82,5 +88,42 @@ describe('session-state layout', () => {
     walk(developRoot)
 
     expect(offenders, offenders.join('\n')).toEqual([])
+  })
+})
+
+describe('session-root ignore guard (§73 E22)', () => {
+  let scratch: string
+
+  beforeEach(() => {
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-e22-develop-'))
+  })
+
+  afterEach(() => {
+    try {
+      fs.rmSync(scratch, {recursive: true, force: true})
+    } catch {}
+  })
+
+  it('writes a self-ignoring .gitignore into the session root', () => {
+    ensureSessionArtifactsIgnoreFile(scratch)
+    const content = fs.readFileSync(
+      sessionArtifactsIgnoreFilePath(scratch),
+      'utf8'
+    )
+    expect(content).toBe(SESSION_ARTIFACTS_IGNORE_CONTENT)
+    expect(content.trim().endsWith('*')).toBe(true)
+  })
+
+  it('is idempotent and never clobbers an existing (user-edited) file', () => {
+    ensureSessionArtifactsIgnoreFile(scratch)
+    ensureSessionArtifactsIgnoreFile(scratch)
+    const ignoreFile = sessionArtifactsIgnoreFilePath(scratch)
+    expect(fs.readFileSync(ignoreFile, 'utf8')).toBe(
+      SESSION_ARTIFACTS_IGNORE_CONTENT
+    )
+
+    fs.writeFileSync(ignoreFile, 'profiles/\n')
+    ensureSessionArtifactsIgnoreFile(scratch)
+    expect(fs.readFileSync(ignoreFile, 'utf8')).toBe('profiles/\n')
   })
 })

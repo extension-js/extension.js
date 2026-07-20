@@ -6,6 +6,7 @@
 // ╚══════╝╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 /**
@@ -57,11 +58,47 @@ export function legacyControlTokenPath(projectPath: string): string {
   return path.join(sessionStateDir(projectPath), 'control.token')
 }
 
+export function sessionArtifactsRootDir(projectPath: string): string {
+  return path.resolve(projectPath, 'dist', 'extension-js')
+}
+
+/**
+ * §73 E22: `dist/extension-js/` holds a full managed browser profile
+ * (Cookies, History, Login Data) plus session logs. Scaffolds ignore `dist`,
+ * but adopted projects often have no root .gitignore, and committing that
+ * directory ships personal data. The owner decision was to keep the layout
+ * and make the tree defend itself: a `.gitignore` containing `*` inside the
+ * session root makes git ignore it (and the ignore file itself) regardless
+ * of the project's own ignore rules, while `dist/<browser>` build output
+ * stays committable. Written once at session-dir creation; an existing file
+ * (user-edited) is never overwritten. Best-effort: never throws.
+ */
+export const SESSION_ARTIFACTS_IGNORE_CONTENT =
+  '# Extension.js session state: managed browser profiles (cookies, history,\n' +
+  '# logins), session logs and machine contracts. Personal data lives here —\n' +
+  '# this directory must never be committed or shipped.\n' +
+  '*\n'
+
+export function sessionArtifactsIgnoreFilePath(projectPath: string): string {
+  return path.join(sessionArtifactsRootDir(projectPath), '.gitignore')
+}
+
+export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
+  try {
+    const ignoreFile = sessionArtifactsIgnoreFilePath(projectPath)
+    if (fs.existsSync(ignoreFile)) return
+    fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
+    fs.writeFileSync(ignoreFile, SESSION_ARTIFACTS_IGNORE_CONTENT)
+  } catch {
+    // A hygiene guard must never break a dev session or build.
+  }
+}
+
 export function browserArtifactsDir(
   projectPath: string,
   browser: string
 ): string {
-  return path.resolve(projectPath, 'dist', 'extension-js', browser)
+  return path.join(sessionArtifactsRootDir(projectPath), browser)
 }
 
 export function readyContractPath(
