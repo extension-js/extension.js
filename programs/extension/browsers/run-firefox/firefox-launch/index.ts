@@ -21,8 +21,12 @@ import {
   managedBrowserCacheEnv,
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
-import {gracefulTerminateChild} from '../../browsers-lib/process-teardown'
+import {
+  gracefulTerminateChild,
+  wasTerminatedByUs
+} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
+import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
 import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
@@ -87,6 +91,9 @@ export class FirefoxLaunchPlugin {
   private readonly ctx: FirefoxContext
   private child: ChildProcess | null = null
   private watchTimeout?: NodeJS.Timeout
+  // Set before spawn so the child 'close' handler can find the session's
+  // ready.json and stamp an unexpected browser exit (§71).
+  private extensionOutputPath?: string
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
@@ -389,6 +396,20 @@ export class FirefoxLaunchPlugin {
     // Prepare extension(s)
     const extensionsToLoad = toExtensionLoadList(this.host.extension)
 
+    // The user extension's dist dir anchors ready.json; companions
+    // (devtools/theme) are filtered out, mirroring getExtensionOutputPath on
+    // the Chromium side.
+    const userExtensionCandidates = extensionsToLoad.filter(
+      (p) =>
+        !/[\\/]extension-js-devtools[\\/]/.test(p) &&
+        !/[\\/]extension-js-theme[\\/]/.test(p)
+    )
+    this.extensionOutputPath = (
+      userExtensionCandidates.length
+        ? userExtensionCandidates
+        : extensionsToLoad
+    ).slice(-1)[0]
+
     // Compute RDP port with availability check
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,
@@ -545,7 +566,7 @@ export class FirefoxLaunchPlugin {
     // exits, so this instance is unregistered from the global cleanup registry.
     let disposeProcessHandlers: (() => void) | undefined
 
-    child.on('close', (_code) => {
+    child.on('close', (code) => {
       if (this.watchTimeout) {
         clearTimeout(this.watchTimeout)
         this.watchTimeout = undefined
@@ -554,6 +575,18 @@ export class FirefoxLaunchPlugin {
         this.ctx.logger?.info?.(
           messages.browserInstanceExited(this.host.browser)
         )
+      }
+      // An exit we didn't ask for used to be fully silent on Gecko: dev kept
+      // printing "Add-on ready", ready.json stayed green, and root-causing
+      // needed an experiment outside the tooling (§71). Say so loudly and
+      // stamp the contract so automation sees the session is browserless.
+      if (!wasTerminatedByUs(child)) {
+        this.ctx.logger?.error?.(
+          `[browser] ${this.host.browser} exited (code ${
+            code ?? 'unknown'
+          }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
+        )
+        stampReadyBrowserExited(this.extensionOutputPath, code)
       }
       this.cleanupInstance().catch((err) => {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {

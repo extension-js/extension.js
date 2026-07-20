@@ -114,31 +114,9 @@ async function maybePrintDevBanner(args: {
   })
 }
 
-// Stamp an unexpected browser exit into ready.json (additive fields; the
-// develop-side writer preserves them across recompiles, like cdpPort) so
-// automation reading the contract sees the session is browserless instead of
-// trusting a "ready" status whose reloads go nowhere.
-export function stampReadyBrowserExited(
-  extensionOutputPath: string | undefined,
-  code: number | null
-) {
-  try {
-    if (!extensionOutputPath) return
-    const readyPath = path.join(
-      path.dirname(extensionOutputPath),
-      'extension-js',
-      path.basename(extensionOutputPath),
-      'ready.json'
-    )
-    if (!fs.existsSync(readyPath)) return
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    ready.browserExitedAt = new Date().toISOString()
-    ready.browserExitCode = code
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
-  } catch {
-    // best-effort; never throw from a close handler
-  }
-}
+// Shared with the Firefox launcher; re-exported here for existing importers.
+import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
+export {stampReadyBrowserExited}
 
 /**
  * ChromiumLaunchPlugin
@@ -1086,18 +1064,22 @@ export class ChromiumLaunchPlugin {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
-        // An exit we didn't ask for means the dev browser died out from under
-        // a live session, compiles keep "succeeding" while every reload goes
-        // nowhere. Say so loudly and stamp ready.json so automation sees it
-        // too (previously this was silent outside EXTENSION_AUTHOR_MODE).
-        if (!wasTerminatedByUs(child) && this.closeHandlerContext?.isDevMode) {
+        // An exit we didn't ask for means the browser died out from under a
+        // live session. Say so loudly and stamp ready.json so automation sees
+        // it too (previously this was silent outside EXTENSION_AUTHOR_MODE,
+        // and preview/start sessions were never stamped at all, §72).
+        if (!wasTerminatedByUs(child)) {
           this.logger.error(
-            `[browser] ${this.options.browser} exited mid-session (code ${
-              code ?? 'unknown'
-            }). The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.`
+            this.closeHandlerContext?.isDevMode
+              ? `[browser] ${this.options.browser} exited mid-session (code ${
+                  code ?? 'unknown'
+                }). The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.`
+              : `[browser] ${this.options.browser} exited (code ${
+                  code ?? 'unknown'
+                }); the preview session is over.`
           )
           stampReadyBrowserExited(
-            this.closeHandlerContext.extensionOutputPath,
+            this.closeHandlerContext?.extensionOutputPath,
             code
           )
         }
