@@ -113,4 +113,14 @@ describe('typescript tools', () => {
         .sourceMap
     ).toBe(false)
   })
+
+  it('defaultTypeScriptConfig scaffolds a moduleResolution TypeScript 7 accepts', async () => {
+    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
+    const {compilerOptions} = defaultTypeScriptConfig('/project')
+    // 'node' (node10) was REMOVED in TypeScript 7: scaffolding it made the
+    // generated tsconfig fail the user's own `tsc --noEmit` with TS5108.
+    expect(compilerOptions.moduleResolution).toBe('bundler')
+    // 'bundler' is only valid alongside a modern module setting.
+    expect(compilerOptions.module).toBe('esnext')
+  })
 })
