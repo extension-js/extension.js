@@ -31,7 +31,7 @@ const shouldGenerateDts = (() => {
 function copyReadmePlugin() {
   return {
     name: 'copy-readme',
-    setup(api: any) {
+    setup(api: {onAfterBuild: (cb: () => void) => void}) {
       api.onAfterBuild(() => {
         const sourceReadme = path.join(__dirname, '../../README.md')
         const targetReadme = path.join(__dirname, 'README.md')

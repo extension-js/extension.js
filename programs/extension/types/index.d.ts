@@ -114,6 +114,7 @@ declare module '*.bmp' {
 }
 declare module '*.svg' {
   // Use any to avoid conflicts with SVGR or other SVG loaders.
+  // biome-ignore lint/suspicious/noExplicitAny: deliberate, a stricter type conflicts with SVGR-style loaders
   const content: any
   export default content
 }

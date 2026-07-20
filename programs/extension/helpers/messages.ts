@@ -88,12 +88,12 @@ export function unhandledError(err: unknown) {
   return `${getLoggingPrefix('error')} ${colors.red(String(message || 'Unknown error'))}`
 }
 
-export function updateFailed(err: any) {
-  return `${getLoggingPrefix('error')} Failed to check for updates.\n${colors.red(String(err?.message || err))}`
+export function updateFailed(err: unknown) {
+  return `${getLoggingPrefix('error')} Failed to check for updates.\n${colors.red(String((err as Error | undefined)?.message || err))}`
 }
 
 export function checkUpdates(
-  packageJson: Record<string, any>,
+  packageJson: Record<string, unknown>,
   update: {latest: string}
 ) {
   const latest = String(update.latest)

@@ -9,9 +9,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-let cachedPackageJson: Record<string, any> | null = null
+type CliPackageJson = {version?: string; name?: string} & Record<
+  string,
+  unknown
+>
 
-export function getCliPackageJson(): Record<string, any> {
+let cachedPackageJson: CliPackageJson | null = null
+
+export function getCliPackageJson(): CliPackageJson {
   if (cachedPackageJson) return cachedPackageJson
 
   const candidates = [
@@ -22,7 +27,7 @@ export function getCliPackageJson(): Record<string, any> {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       const content = fs.readFileSync(candidate, 'utf8')
-      const parsed = JSON.parse(content) as Record<string, any>
+      const parsed = JSON.parse(content) as CliPackageJson
       cachedPackageJson = parsed
       return parsed
     }

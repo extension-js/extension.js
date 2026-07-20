@@ -38,6 +38,8 @@ type BuildOptions = {
   appName?: string
   bundleId?: string
   forceRegenerate?: boolean
+  author?: boolean
+  authorMode?: boolean
 }
 
 export function registerBuildCommand(program: Command) {
@@ -114,7 +116,7 @@ export function registerBuildCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...buildOptions}: BuildOptions
       ) => {
-        if ((buildOptions as any).author || (buildOptions as any).authorMode) {
+        if (buildOptions.author || buildOptions.authorMode) {
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'
@@ -189,8 +191,7 @@ export function registerBuildCommand(program: Command) {
           }
         }
 
-        const {extensionBuild}: {extensionBuild: any} =
-          await loadExtensionDevelopModule()
+        const {extensionBuild} = await loadExtensionDevelopModule()
 
         for (const vendor of list) {
           await extensionBuild(pathOrRemoteUrl, {
@@ -204,7 +205,7 @@ export function registerBuildCommand(program: Command) {
             zipFilename: buildOptions.zipFilename,
             silent: buildOptions.silent,
             install: buildOptions.install,
-            extensions: parseExtensionsList((buildOptions as any).extensions),
+            extensions: parseExtensionsList(buildOptions.extensions),
             mode,
             appName: buildOptions.appName,
             bundleId: buildOptions.bundleId,

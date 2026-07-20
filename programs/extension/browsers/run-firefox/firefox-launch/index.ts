@@ -72,6 +72,16 @@ type LaunchOptions = {
   noOpen?: boolean
 } & BrowserConfig
 
+// Shape of the stats value the injected compiler hands to the done hook;
+// tolerates both real rspack Stats and the mock compilers specs pass.
+interface FirefoxLaunchDoneStats {
+  hasErrors?: () => boolean
+  compilation: CompilationLike & {
+    options: {mode?: string}
+    errors?: unknown[]
+  }
+}
+
 export class FirefoxLaunchPlugin {
   private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
@@ -108,10 +118,24 @@ export class FirefoxLaunchPlugin {
     this.ctx.didLaunch = true
   }
 
-  apply(compiler: any) {
+  apply(compiler: unknown) {
+    const host = compiler as {
+      getInfrastructureLogger?: (name: string) => BrowserLogger
+      hooks: {
+        done: {
+          tapAsync: (
+            name: string,
+            cb: (
+              stats: FirefoxLaunchDoneStats,
+              done: (err?: unknown) => void
+            ) => Promise<void>
+          ) => void
+        }
+      }
+    }
     this.ctx.logger =
-      typeof compiler?.getInfrastructureLogger === 'function'
-        ? compiler.getInfrastructureLogger('FirefoxLaunchPlugin')
+      typeof host?.getInfrastructureLogger === 'function'
+        ? host.getInfrastructureLogger('FirefoxLaunchPlugin')
         : ({
             info: (...a: unknown[]) => console.log(...a),
             warn: (...a: unknown[]) => console.warn(...a),
@@ -119,63 +143,60 @@ export class FirefoxLaunchPlugin {
             debug: (...a: unknown[]) => console?.debug?.(...a)
           } as BrowserLogger)
 
-    compiler.hooks.done.tapAsync(
-      'run-firefox:launch',
-      async (stats: any, done: any) => {
-        try {
-          const hasErrors =
-            typeof stats?.hasErrors === 'function'
-              ? stats.hasErrors()
-              : !!stats?.compilation?.errors?.length
+    host.hooks.done.tapAsync('run-firefox:launch', async (stats, done) => {
+      try {
+        const hasErrors =
+          typeof stats?.hasErrors === 'function'
+            ? stats.hasErrors()
+            : !!stats?.compilation?.errors?.length
 
-          if (hasErrors) {
-            this.ctx.logger?.info?.(
-              messages.skippingBrowserLaunchDueToCompileErrors()
-            )
-            done()
-            return
-          }
-
-          if (this.ctx.didLaunch) {
-            done()
-            return
-          }
-
-          // Match Chromium's banner ordering: ready line BEFORE the
-          // banner. See runOnce above for context.
-          if (stats.compilation.options.mode === 'development') {
-            console.log(
-              devServerReady(
-                stats.compilation.options.mode as 'development' | 'production',
-                this.host.browser
-              )
-            )
-          }
-
-          await this.launch(
-            stats.compilation,
-            buildBrowserLaunchRequest(
-              this.host,
-              stats.compilation.options.mode as
-                | 'development'
-                | 'production'
-                | 'none'
-            ) as LaunchOptions
+        if (hasErrors) {
+          this.ctx.logger?.info?.(
+            messages.skippingBrowserLaunchDueToCompileErrors()
           )
-
-          this.ctx.didLaunch = true
-        } catch (error) {
-          this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
-          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-            done(error)
-            return
-          } else {
-            process.exit(1)
-          }
+          done()
+          return
         }
-        done()
+
+        if (this.ctx.didLaunch) {
+          done()
+          return
+        }
+
+        // Match Chromium's banner ordering: ready line BEFORE the
+        // banner. See runOnce above for context.
+        if (stats.compilation.options.mode === 'development') {
+          console.log(
+            devServerReady(
+              stats.compilation.options.mode as 'development' | 'production',
+              this.host.browser
+            )
+          )
+        }
+
+        await this.launch(
+          stats.compilation,
+          buildBrowserLaunchRequest(
+            this.host,
+            stats.compilation.options.mode as
+              | 'development'
+              | 'production'
+              | 'none'
+          ) as LaunchOptions
+        )
+
+        this.ctx.didLaunch = true
+      } catch (error) {
+        this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          done(error)
+          return
+        } else {
+          process.exit(1)
+        }
       }
-    )
+      done()
+    })
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
@@ -492,7 +513,7 @@ export class FirefoxLaunchPlugin {
     return await spawnFirefoxProcess({
       binary,
       args,
-      stdio: this.resolveSpawnStdio(),
+      stdio: [...this.resolveSpawnStdio()],
       fallbackBinary,
       logger: this.ctx.logger
     })

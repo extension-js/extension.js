@@ -148,13 +148,13 @@ export async function overridePackageJson(
   projectPath: string,
   projectName: string,
   {template = 'javascript', cliVersion}: OverridePackageJsonOptions,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const extensionBinary = await resolveExtensionBinary()
   const candidatePath = path.join(projectPath, 'package.json')
 
   // Web-only remote templates may not include package.json; start from a minimal base
-  let packageJson: Record<string, any> = {}
+  let packageJson: Record<string, unknown> = {}
 
   try {
     const packageJsonContent = await fs.readFile(candidatePath)
@@ -188,16 +188,17 @@ export async function overridePackageJson(
   // default and ignore these keys). Native ML builds are only approved when the
   // project actually pulls the transformers stack, keeping plain scaffolds clean.
   const declaredDeps = {
-    ...(packageJson.dependencies || {}),
-    ...(packageJson.devDependencies || {})
+    ...((packageJson.dependencies as Record<string, string>) || {}),
+    ...((packageJson.devDependencies as Record<string, string>) || {})
   }
   const usesMlNativeDeps = ML_DEP_TRIGGERS.some((dep) => declaredDeps[dep])
   const nativeBuildDeps = usesMlNativeDeps ? ML_NATIVE_BUILD_DEPENDENCIES : []
 
-  const existingPnpm =
+  const existingPnpm = (
     packageJson.pnpm && typeof packageJson.pnpm === 'object'
       ? packageJson.pnpm
       : {}
+  ) as {ignoredBuiltDependencies?: string[]; onlyBuiltDependencies?: string[]}
   const ignoredBuilt = uniq([
     ...(existingPnpm.ignoredBuiltDependencies || []),
     ...BUILD_NOOP_DEPENDENCIES
@@ -207,7 +208,7 @@ export async function overridePackageJson(
     ...nativeBuildDeps
   ])
   const trustedDeps = uniq([
-    ...(packageJson.trustedDependencies || []),
+    ...((packageJson.trustedDependencies as string[]) || []),
     ...nativeBuildDeps
   ])
 
@@ -218,7 +219,7 @@ export async function overridePackageJson(
     ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
     scripts: {
       ...getTemplateAwareScripts(template, extensionBinary),
-      ...packageJson.scripts
+      ...((packageJson.scripts as Record<string, string>) || {})
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
@@ -241,7 +242,7 @@ export async function overridePackageJson(
       path.join(projectPath, 'package.json'),
       `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
-  } catch (error: any) {
+  } catch (error) {
     logger.error(messages.writingPackageJsonMetadataError(projectName, error))
     throw error
   }

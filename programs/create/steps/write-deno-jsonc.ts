@@ -87,7 +87,7 @@ async function collectTemplateImports(
   projectPath: string,
   cliVersion?: string
 ): Promise<Record<string, string>> {
-  let templatePackageJson: Record<string, any> = {}
+  let templatePackageJson: Record<string, unknown> = {}
   try {
     const raw = await fs.readFile(path.join(projectPath, 'package.json'))
     templatePackageJson = JSON.parse(raw.toString())
@@ -133,7 +133,7 @@ export async function writeDenoJsonc(
   projectPath: string,
   projectName: string,
   {template = 'javascript', cliVersion, primary = false}: WriteDenoJsoncOptions,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   if (!isDenoRuntime()) {
     return
@@ -163,7 +163,7 @@ export async function writeDenoJsonc(
       // deno.jsonc replaces package.json as the manifest.
       await fs.rm(path.join(projectPath, 'package.json'), {force: true})
     }
-  } catch (error: any) {
+  } catch (error) {
     logger.error(messages.writingDenoJsoncError(projectName, error))
     throw error
   }

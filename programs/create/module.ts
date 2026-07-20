@@ -28,8 +28,8 @@ import {overridePackageJson} from './steps/write-package-json'
 import {writeReadmeFile} from './steps/write-readme-file'
 
 export interface CreateLogger {
-  log: (...args: any[]) => void
-  error: (...args: any[]) => void
+  log: (...args: unknown[]) => void
+  error: (...args: unknown[]) => void
 }
 
 export interface CreateOptions {

@@ -28,7 +28,8 @@ export async function copyDirectoryWithSymlinks(
       try {
         const target = await fs.readlink(sourcePath)
         await fs.symlink(target, destPath)
-      } catch (err: any) {
+      } catch (caught) {
+        const err = caught as NodeJS.ErrnoException | undefined
         if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
           const real = await fs.realpath(sourcePath)
           await fs.cp(real, destPath, {recursive: true})
@@ -61,7 +62,8 @@ export async function moveDirectoryContents(
       try {
         const target = await fs.readlink(sourcePath)
         await fs.symlink(target, destPath)
-      } catch (err: any) {
+      } catch (caught) {
+        const err = caught as NodeJS.ErrnoException | undefined
         if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
           const real = await fs.realpath(sourcePath)
           await fs.cp(real, destPath, {recursive: true})
@@ -73,7 +75,8 @@ export async function moveDirectoryContents(
       // Move files with EXDEV (cross-device) fallback to copy+unlink
       try {
         await fs.rename(sourcePath, destPath)
-      } catch (err: any) {
+      } catch (caught) {
+        const err = caught as NodeJS.ErrnoException | undefined
         if (err && (err.code === 'EXDEV' || err.code === 'EINVAL')) {
           await fs.copyFile(sourcePath, destPath)
           await fs.rm(sourcePath, {force: true})
@@ -95,7 +98,7 @@ export async function getInstallCommand() {
 export async function isDirectoryWriteable(
   directory: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): Promise<boolean> {
   try {
     logger.log(messages.folderExists(projectName))

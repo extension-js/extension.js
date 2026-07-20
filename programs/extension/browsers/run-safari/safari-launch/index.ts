@@ -33,7 +33,7 @@ function fallbackLogger(): BrowserLogger {
     info: (...a: unknown[]) => console.log(...a),
     warn: (...a: unknown[]) => console.warn(...a),
     error: (...a: unknown[]) => console.error(...a),
-    debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+    debug: (...a: unknown[]) => console?.debug?.(...a)
   } as BrowserLogger
 }
 

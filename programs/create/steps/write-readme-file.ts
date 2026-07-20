@@ -25,7 +25,7 @@ async function pathExists(target: string): Promise<boolean> {
 export async function writeReadmeFile(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   // Always overwrite the template's README so the scaffolded project
   // reads as the user's own, not the upstream template's marketing
@@ -95,7 +95,7 @@ export async function writeReadmeFile(
     logger.log(messages.writingReadmeMetaData())
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
-  } catch (error: any) {
+  } catch (error) {
     logger.error(messages.writingReadmeMetaDataEError(projectName, error))
     throw error
   }

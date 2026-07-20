@@ -53,7 +53,7 @@ export function resolveWslWindowsBinary(): string | null {
 export async function spawnFirefoxProcess(opts: {
   binary: string
   args: string[]
-  stdio: any
+  stdio: import('node:child_process').StdioOptions
   fallbackBinary?: string | null
   logger?: FirefoxLogger
 }): Promise<ChildProcess> {

@@ -78,7 +78,7 @@ function commandContext(command: string): {template?: string; source?: string} {
 
 const consent = resolveTelemetryConsent(process.argv)
 const invoked = detectInvokedCommand(process.argv)
-const version = getCliPackageJson().version
+const version = String(getCliPackageJson().version || '0.0.0')
 
 export const telemetry = new Telemetry({
   app: 'extension',
