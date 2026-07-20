@@ -49,6 +49,21 @@
       "arrowParentheses": "always"
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "programs/develop/plugin-web-extension/**",
+        "!**/__spec__/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "error"
+          }
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {

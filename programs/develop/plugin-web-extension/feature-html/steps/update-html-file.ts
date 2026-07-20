@@ -44,11 +44,15 @@ export class UpdateHtmlFile {
             if (!fs.existsSync(resolved)) continue
 
             const assetFilename = getFilePath(feature, '.html', false)
-            const getAssetFn: any = (compilation as any).getAsset
+            const getAssetFn = compilation.getAsset
             const existing =
               typeof getAssetFn === 'function'
                 ? getAssetFn.call(compilation, assetFilename)
-                : (compilation as any).assets?.[assetFilename]
+                : (
+                    compilation as unknown as {
+                      assets?: Record<string, unknown>
+                    }
+                  ).assets?.[assetFilename]
 
             if (!existing) continue
 
@@ -62,14 +66,15 @@ export class UpdateHtmlFile {
             const updatedHtml =
               typeof updated === 'string'
                 ? updated
-                : updated && typeof (updated as any).html === 'string'
-                  ? (updated as any).html
+                : updated &&
+                    typeof (updated as {html?: unknown}).html === 'string'
+                  ? (updated as {html: string}).html
                   : null
 
             if (typeof updatedHtml === 'string') {
               compilation.updateAsset(
                 assetFilename,
-                new (sources as any).RawSource(updatedHtml)
+                new sources.RawSource(updatedHtml)
               )
             }
           }

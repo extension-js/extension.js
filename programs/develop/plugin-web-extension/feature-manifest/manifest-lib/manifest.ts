@@ -20,7 +20,7 @@ const INTERNAL_MANIFEST_SOURCE = '__extensionjs_manifest_source__'
 const INTERNAL_MANIFEST_CURRENT_SOURCE =
   '__extensionjs_manifest_current_source__'
 
-function readAssetSource(asset: any): string {
+function readAssetSource(asset: {source?: unknown} | null | undefined): string {
   if (!asset) return ''
 
   const source = asset.source
@@ -33,8 +33,8 @@ function readAssetSource(asset: any): string {
     return typeof out === 'string' ? out : String(out || '')
   }
 
-  if (source && typeof source.source === 'function') {
-    const out = source.source()
+  if (source && typeof (source as {source?: unknown}).source === 'function') {
+    const out = (source as {source: () => unknown}).source()
 
     return typeof out === 'string' ? out : String(out || '')
   }
@@ -46,26 +46,34 @@ export function setOriginalManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  ;(compilation as any)[INTERNAL_MANIFEST_SOURCE] = source
+  ;(compilation as unknown as Record<string, string | undefined>)[
+    INTERNAL_MANIFEST_SOURCE
+  ] = source
 }
 
 export function getOriginalManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return (compilation as any)[INTERNAL_MANIFEST_SOURCE]
+  return (compilation as unknown as Record<string, string | undefined>)[
+    INTERNAL_MANIFEST_SOURCE
+  ]
 }
 
 export function setCurrentManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  ;(compilation as any)[INTERNAL_MANIFEST_CURRENT_SOURCE] = source
+  ;(compilation as unknown as Record<string, string | undefined>)[
+    INTERNAL_MANIFEST_CURRENT_SOURCE
+  ] = source
 }
 
 export function getCurrentManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return (compilation as any)[INTERNAL_MANIFEST_CURRENT_SOURCE]
+  return (compilation as unknown as Record<string, string | undefined>)[
+    INTERNAL_MANIFEST_CURRENT_SOURCE
+  ]
 }
 
 export function getManifestContent(
@@ -80,7 +88,10 @@ export function getManifestContent(
   const getAsset = compilation.getAsset
 
   if (typeof getAsset === 'function') {
-    const manifestAsset = getAsset.call(compilation, 'manifest.json')
+    const manifestAsset = getAsset.call(compilation, 'manifest.json') as
+      | {source?: unknown}
+      | null
+      | undefined
     const manifest = readAssetSource(manifestAsset)
 
     if (manifest) {

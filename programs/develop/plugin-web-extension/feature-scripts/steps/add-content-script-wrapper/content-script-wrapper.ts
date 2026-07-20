@@ -25,11 +25,11 @@ import * as messages from '../../messages'
 
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
-  _compilation?: any
+  _compilation?: unknown
   resourcePath: string
   resourceQuery?: string
   emitWarning?(warning: Error): void
-  callback(err: Error | null, content?: string, sourceMap?: any): void
+  callback(err: Error | null, content?: string, sourceMap?: unknown): void
 }
 
 const schema = {
@@ -117,8 +117,11 @@ function collectStyleAssetSpecifiers(source: string): string[] {
 function hasDefaultExport(
   source: string,
   resourcePath: string,
-  compilation: any
+  compilationArg: unknown
 ): boolean {
+  const compilation = compilationArg as
+    | {__extjsHasDefaultExportCache?: Map<string, boolean>}
+    | undefined
   try {
     const abs = path.normalize(resourcePath)
     const sig = getSourceSignature(source)
@@ -152,10 +155,10 @@ function hasDefaultExport(
 
 const __EXTENSIONJS_manifestParseCache = new Map<
   string,
-  {key: string; manifest: any}
+  {key: string; manifest: Record<string, unknown>}
 >()
 
-function readManifestCached(manifestPath: string): any {
+function readManifestCached(manifestPath: string): Record<string, unknown> {
   try {
     const stat = fs.statSync(manifestPath)
     const key = `${stat.mtimeMs}:${stat.size}`
@@ -181,23 +184,28 @@ function readManifestCached(manifestPath: string): any {
  * Prepends empty mapping lines so the original mappings align with the
  * user source that now appears after the runtime prefix.
  */
-function shiftSourceMap(map: any, prefix: string): any {
-  if (!map || typeof map !== 'object' || typeof map.mappings !== 'string') {
+function shiftSourceMap(map: unknown, prefix: string): unknown {
+  const mapObj = map as {mappings?: unknown} | null | undefined
+  if (
+    !mapObj ||
+    typeof mapObj !== 'object' ||
+    typeof mapObj.mappings !== 'string'
+  ) {
     return map
   }
   const prefixLineCount = prefix.split('\n').length - 1
   if (prefixLineCount <= 0) return map
   const pad = new Array(prefixLineCount).fill('').join(';')
   return {
-    ...map,
-    mappings: `${pad};${map.mappings}`
+    ...(mapObj as Record<string, unknown>),
+    mappings: `${pad};${mapObj.mappings}`
   }
 }
 
 export default function contentScriptWrapper(
   this: ContentScriptLoaderContext,
   source: string,
-  inputSourceMap?: any
+  inputSourceMap?: unknown
 ): string | void {
   const options = this.getOptions()
   validate(schema, options, {

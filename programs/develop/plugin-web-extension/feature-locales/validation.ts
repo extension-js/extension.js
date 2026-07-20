@@ -24,7 +24,10 @@ export function validateLocales(
     (compiler.options.context as string | undefined) || undefined
   try {
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
-    const manifest = JSON.parse(stripBom(manifestRaw)) as Record<string, any>
+    const manifest = JSON.parse(stripBom(manifestRaw)) as Record<
+      string,
+      unknown
+    >
     const defaultLocale = manifest?.default_locale
 
     const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
@@ -48,14 +51,15 @@ export function validateLocales(
 
       if (usedManifestDirFallback) {
         const ErrorConstructor =
-          (compiler as any)?.rspack?.WebpackError || Error
+          (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)
+            ?.rspack?.WebpackError || Error
         const warning = new ErrorConstructor(
           messages.localesMustBeAtProjectRoot(
             resolvedLocalesRoot,
             path.join(projectRoot, '_locales')
           )
         )
-        ;(warning as any).name = 'LocalesLayoutWarning'
+        ;(warning as Error).name = 'LocalesLayoutWarning'
         if (!compilation.warnings) compilation.warnings = []
         compilation.warnings.push(warning)
       }
@@ -134,7 +138,7 @@ export function validateLocales(
       // Validate JSON of default locale messages. Parse once here and reuse
       // the result for the placeholder scan below (this file was previously
       // read and JSON.parse'd twice in a row)
-      let defaultLocaleMessages: any
+      let defaultLocaleMessages: Record<string, {message?: unknown} | undefined>
 
       try {
         const content = fs.readFileSync(messagesJsonPath, 'utf8')
@@ -177,7 +181,7 @@ export function validateLocales(
               collectMsgKeys(item, acc)
             }
           } else if (value && typeof value === 'object') {
-            for (const v of Object.values(value as Record<string, any>)) {
+            for (const v of Object.values(value as Record<string, unknown>)) {
               collectMsgKeys(v, acc)
             }
           }

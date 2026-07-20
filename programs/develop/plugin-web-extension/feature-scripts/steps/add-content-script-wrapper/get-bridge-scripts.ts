@@ -87,8 +87,10 @@ export function getMainWorldBridgeScripts(
     // FILTERED manifest, so the entries compiled here must key off the same
     // shape or the manifest references bridge bundles that never build.
     const resolved = filterKeysForThisBrowser(raw, browser)
-    const contentScripts: any[] = Array.isArray(resolved?.content_scripts)
-      ? resolved.content_scripts
+    const contentScripts: Array<{world?: unknown}> = Array.isArray(
+      resolved?.content_scripts
+    )
+      ? (resolved.content_scripts as Array<{world?: unknown}>)
       : []
     const originalCount = contentScripts.length
 

@@ -27,19 +27,21 @@ function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
   return bundledAsset?.extension === ext
 }
 
-function isAlreadyBundledContentScripts(contentScripts: any[]) {
+function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
   if (!Array.isArray(contentScripts) || contentScripts.length === 0)
     return false
 
-  return contentScripts.every((contentObj) => {
-    const js = Array.isArray(contentObj?.js) ? contentObj.js : []
-    const css = Array.isArray(contentObj?.css) ? contentObj.css : []
+  return (contentScripts as Array<{js?: unknown; css?: unknown}>).every(
+    (contentObj) => {
+      const js = Array.isArray(contentObj?.js) ? contentObj.js : []
+      const css = Array.isArray(contentObj?.css) ? contentObj.css : []
 
-    return (
-      js.every((filePath: string) => isBundledContentPath(filePath, 'js')) &&
-      css.every((filePath: string) => isBundledContentPath(filePath, 'css'))
-    )
-  })
+      return (
+        js.every((filePath: string) => isBundledContentPath(filePath, 'js')) &&
+        css.every((filePath: string) => isBundledContentPath(filePath, 'css'))
+      )
+    }
+  )
 }
 
 export function contentScripts(manifest: Manifest, manifestPath?: string) {
@@ -56,7 +58,7 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   }
 
   const originalCount = original.length
-  const result: any[] = []
+  const result: Array<Record<string, unknown>> = []
 
   // 1) Keep user-defined content scripts indices stable and
   // insert MAIN-world bridges *before* their MAIN-world entries.
@@ -65,7 +67,8 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   // extension base URL before HMR initializes.
   let bridgeOrdinal = 0
   for (let index = 0; index < original.length; index++) {
-    const contentObj: ContentObj & Record<string, any> = original[index] || {}
+    const contentObj: ContentObj & Record<string, unknown> =
+      original[index] || {}
     // Manifest overrides work by getting the manifest.json
     // before compilation and re-naming the files to be
     // bundled. But in reality the compilation returns here

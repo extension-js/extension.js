@@ -28,7 +28,7 @@ function normalizeManifestFile(filePath: unknown): string | undefined {
   return normalized
 }
 
-function collectRequiredManifestFiles(manifest: any): string[] {
+function collectRequiredManifestFiles(manifest: unknown): string[] {
   const required = new Set<string>()
 
   const addFile = (filePath: unknown) => {
@@ -36,22 +36,42 @@ function collectRequiredManifestFiles(manifest: any): string[] {
     if (normalized) required.add(normalized)
   }
 
-  addFile(manifest?.background?.service_worker)
-  addFile(manifest?.background?.page)
+  const manifestObj = manifest as
+    | {
+        background?: {
+          service_worker?: unknown
+          page?: unknown
+          scripts?: unknown
+        }
+        side_panel?: {default_path?: unknown}
+        content_scripts?: unknown
+      }
+    | undefined
+  const background = manifestObj?.background
 
-  if (Array.isArray(manifest?.background?.scripts)) {
-    for (const script of manifest.background.scripts) addFile(script)
+  addFile(background?.service_worker)
+  addFile(background?.page)
+
+  const backgroundScripts = background?.scripts
+  if (Array.isArray(backgroundScripts)) {
+    for (const script of backgroundScripts) addFile(script)
   }
 
-  addFile(manifest?.side_panel?.default_path)
+  addFile(manifestObj?.side_panel?.default_path)
 
-  if (Array.isArray(manifest?.content_scripts)) {
-    for (const contentScript of manifest.content_scripts) {
-      if (Array.isArray(contentScript?.js)) {
-        for (const jsFile of contentScript.js) addFile(jsFile)
+  const contentScripts = manifestObj?.content_scripts
+  if (Array.isArray(contentScripts)) {
+    for (const contentScript of contentScripts as Array<{
+      js?: unknown
+      css?: unknown
+    }>) {
+      const js = contentScript?.js
+      if (Array.isArray(js)) {
+        for (const jsFile of js) addFile(jsFile)
       }
-      if (Array.isArray(contentScript?.css)) {
-        for (const cssFile of contentScript.css) addFile(cssFile)
+      const css = contentScript?.css
+      if (Array.isArray(css)) {
+        for (const cssFile of css) addFile(cssFile)
       }
     }
   }
@@ -181,9 +201,9 @@ export class PersistManifestToDisk {
             // File may not exist yet; continue to write it.
           }
           writeFileAtomically(manifestOutputPath, manifestSource)
-        } catch (error: any) {
+        } catch (error) {
           const err = new rspack.WebpackError(
-            `Failed to persist manifest.json to disk: ${error.message}`
+            `Failed to persist manifest.json to disk: ${(error as Error).message}`
           ) as Error & {file?: string}
           err.file = 'manifest.json'
           compilation.errors.push(err)

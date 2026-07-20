@@ -214,7 +214,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
 
   compilation.emitAsset(
     filepath,
-    new (sources as any).RawSource((updatedHtml || source).toString())
+    new sources.RawSource((updatedHtml || source).toString())
   )
 
   assetsFromHtml.forEach((assetFromHtml) => {
@@ -226,7 +226,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
       return
     }
     const s = fs.readFileSync(assetFromHtml)
-    const r = new (sources as any).RawSource(s)
+    const r = new sources.RawSource(s)
     const assetFilepath = joinEmittedAssetName(
       'assets',
       computePosixRelative(absoluteFsPath, assetFromHtml)
@@ -252,9 +252,9 @@ export class AddAssetsToCompilation {
     compiler.hooks.thisCompilation.tap(
       'html:add-assets-to-compilation',
       (compilation) => {
-        const processAssetsHook: any = (compilation as any).hooks?.processAssets
+        const processAssetsHook = compilation.hooks?.processAssets
         const runner = () => {
-          const errs = (compilation as any).errors || []
+          const errs = compilation.errors || []
           if (Array.isArray(errs) && errs.length > 0) return
 
           const allEntries = this.includeList || {}
@@ -266,7 +266,7 @@ export class AddAssetsToCompilation {
             if (!resource) continue
 
             const htmlAssetName = getFilePath(featureName, '.html', false)
-            const getAssetFn: any = (compilation as any).getAsset
+            const getAssetFn = compilation.getAsset
 
             let compilationAsset =
               typeof getAssetFn === 'function'
@@ -450,10 +450,7 @@ export class AddAssetsToCompilation {
                   })
                 } else {
                   const source = fs.readFileSync(absoluteFsPath)
-                  compilation.emitAsset(
-                    filepath,
-                    new (sources as any).RawSource(source)
-                  )
+                  compilation.emitAsset(filepath, new sources.RawSource(source))
                 }
               }
 
@@ -488,7 +485,7 @@ export class AddAssetsToCompilation {
                     const source = fs.readFileSync(absoluteFsPath)
                     compilation.emitAsset(
                       sourcePathAsset,
-                      new (sources as any).RawSource(source)
+                      new sources.RawSource(source)
                     )
                   }
                 }

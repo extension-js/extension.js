@@ -35,7 +35,8 @@ export function reportToCompilation(
   const bucket = type === 'warning' ? 'warnings' : 'errors'
   compilation[bucket] ||= []
   // de-dupe by file + message text
-  const already = (compilation[bucket] as any[]).some((e: any) => {
+  const existing = compilation[bucket] as Array<Error & {file?: string}>
+  const already = existing.some((e) => {
     return (
       (e?.file || '') === (issue.file || '') &&
       String(e?.message) === String(issue.message)

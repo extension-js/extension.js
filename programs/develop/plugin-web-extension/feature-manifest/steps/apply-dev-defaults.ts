@@ -50,7 +50,7 @@ export class ApplyDevDefaults {
             if (compilation.errors.length > 0) return
             if (!this.manifestPath) {
               try {
-                const WebpackErrorCtor = (compiler as any).rspack?.WebpackError
+                const WebpackErrorCtor = compiler.rspack?.WebpackError
                 compilation.errors.push(
                   WebpackErrorCtor
                     ? new WebpackErrorCtor(
@@ -76,8 +76,12 @@ export class ApplyDevDefaults {
             const contentScriptMatches: string[] = Array.isArray(
               canonicalManifest.content_scripts
             )
-              ? (canonicalManifest.content_scripts as any[]).flatMap(
-                  (cs: any) => (Array.isArray(cs?.matches) ? cs.matches : [])
+              ? (
+                  canonicalManifest.content_scripts as Array<{
+                    matches?: unknown
+                  }>
+                ).flatMap((cs) =>
+                  Array.isArray(cs?.matches) ? cs.matches : []
                 )
               : []
 

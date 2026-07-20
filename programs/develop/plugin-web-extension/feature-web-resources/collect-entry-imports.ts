@@ -45,18 +45,20 @@ function forEachStringKey<T>(
 }
 
 function getAssetSource(compilation: Compilation, filename: string): string {
-  let assetGetFunction: any
+  let assetGetFunction: unknown
   if (typeof compilation.getAsset === 'function') {
     assetGetFunction = compilation.getAsset(filename)
   }
 
-  let assetViaAssets: any
+  let assetViaAssets: unknown
 
   if (!assetGetFunction && compilation.assets) {
     assetViaAssets = compilation.assets[filename]
   }
 
-  const asset = assetGetFunction || assetViaAssets
+  const asset = (assetGetFunction || assetViaAssets) as
+    | {source?: {source?: () => unknown} | (() => unknown)}
+    | undefined
 
   if (!asset) {
     return ''
@@ -156,7 +158,7 @@ export function collectContentScriptEntryImports(
         const moduleObj = modulesArray[j]
 
         // for each chunk that the module belongs to (auxiliary for module)
-        const moduleChunksArray: any[] = Array.from(
+        const moduleChunksArray: unknown[] = Array.from(
           chunkGraph.getModuleChunks(moduleObj)
         )
 

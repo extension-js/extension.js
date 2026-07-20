@@ -11,6 +11,27 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import * as messages from '../messages'
 
+// Structural view of the manifest fields the tracer reads; values stay
+// unknown and are validated at each use site.
+interface TracedManifest {
+  background?: {
+    service_worker?: unknown
+    page?: unknown
+    scripts?: unknown[]
+    type?: unknown
+  }
+  action?: {default_popup?: unknown}
+  browser_action?: {default_popup?: unknown}
+  page_action?: {default_popup?: unknown}
+  options_page?: unknown
+  options_ui?: {page?: unknown}
+  devtools_page?: unknown
+  side_panel?: {default_path?: unknown}
+  sidebar_action?: {default_panel?: unknown}
+  chrome_url_overrides?: Record<string, unknown>
+  content_scripts?: Array<{js?: unknown[]; css?: unknown[]}>
+}
+
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
@@ -50,7 +71,7 @@ export class TraceRuntimeLoadedFiles {
     )
   }
 
-  private readManifest(): Record<string, any> | undefined {
+  private readManifest(): TracedManifest | undefined {
     try {
       return JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
     } catch {
@@ -467,8 +488,10 @@ function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
   const entryOption = compiler.options.entry
   if (entryOption && typeof entryOption === 'object') {
     for (const [name, desc] of Object.entries(entryOption)) {
-      const imports: unknown[] = Array.isArray((desc as any)?.import)
-        ? (desc as any).import
+      const imports: unknown[] = Array.isArray(
+        (desc as {import?: unknown})?.import
+      )
+        ? (desc as {import: unknown[]}).import
         : typeof desc === 'string'
           ? [desc]
           : []
@@ -619,7 +642,7 @@ export function resolveExtensionPath(
  * their raw sources through, the main pipeline owns them.
  */
 function manifestDeclaredSourcePaths(
-  manifest: Record<string, any> | undefined
+  manifest: TracedManifest | undefined
 ): Set<string> {
   const declared = new Set<string>()
   if (!manifest) return declared

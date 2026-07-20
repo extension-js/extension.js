@@ -12,7 +12,7 @@ import {getFilePath} from './utils'
 // CSS link injection has been moved to plugin-css/css-lib/inject-css-link.ts
 
 export function injectJsScript(
-  bodyNode: any,
+  bodyNode: Parameters<typeof parse5utilities.append>[0],
   feature: string,
   firstScriptAttrs?: Array<{name: string; value: string}>
 ) {
@@ -23,7 +23,7 @@ export function injectJsScript(
     for (const attr of firstScriptAttrs) {
       if (
         propagateScriptAttrs.has(attr.name) &&
-        !scriptTag.attrs.find((a: any) => a.name === attr.name)
+        !scriptTag.attrs.find((a) => a.name === attr.name)
       ) {
         scriptTag.attrs.push({name: attr.name, value: attr.value})
       }

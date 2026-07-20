@@ -55,7 +55,8 @@ export class ValidateContentScriptSyntax {
               try {
                 // eslint-disable-next-line no-new-func
                 new Function(source)
-              } catch (error: any) {
+              } catch (caught) {
+                const error = caught as Error | undefined
                 if (error?.name !== 'SyntaxError') continue
                 const err = new WebpackError(
                   [

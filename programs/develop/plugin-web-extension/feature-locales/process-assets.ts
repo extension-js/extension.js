@@ -46,7 +46,7 @@ export function processLocaleAssets(
 
         // @ts-expect-error - file is not a property of Error
         warning.file = thisResource
-        ;(warning as any).name = 'LocalesPluginMissingFile'
+        ;(warning as Error).name = 'LocalesPluginMissingFile'
 
         if (!compilation.warnings) {
           compilation.warnings = []

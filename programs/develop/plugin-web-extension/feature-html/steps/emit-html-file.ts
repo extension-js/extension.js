@@ -126,7 +126,7 @@ function manifestFieldForHtmlFeature(
   featureName: string,
   manifestPath: string
 ): string {
-  let manifest: Record<string, any> = {}
+  let manifest: Record<string, unknown> = {}
   try {
     manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   } catch {

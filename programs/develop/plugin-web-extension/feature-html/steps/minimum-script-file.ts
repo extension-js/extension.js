@@ -24,9 +24,23 @@
  * keep their previous "reload to recover" behavior, while content scripts remain protected.
  */
 const safeLocation =
-  typeof globalThis !== 'undefined' ? (globalThis as any).location : undefined
+  typeof globalThis !== 'undefined'
+    ? (
+        globalThis as {
+          location?: {protocol?: unknown; search?: unknown; href?: unknown}
+        }
+      ).location
+    : undefined
 const safeHistory =
-  typeof globalThis !== 'undefined' ? (globalThis as any).history : undefined
+  typeof globalThis !== 'undefined'
+    ? (
+        globalThis as {
+          history?: {
+            replaceState?: (data: unknown, unused: string, url?: string) => void
+          }
+        }
+      ).history
+    : undefined
 
 try {
   if (
