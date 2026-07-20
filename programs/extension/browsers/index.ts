@@ -13,6 +13,7 @@ import {
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
+  BrowserLogSink,
   BrowserType,
   CompilationLike,
   Controller,
@@ -59,6 +60,12 @@ export interface BrowserLaunchOptions {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
+  /**
+   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
+   * (E21). Provided by the dev server so alarm clamps / CSP refusals land in
+   * logs.ndjson; Chromium-only (Firefox RDP exposes no equivalent stream).
+   */
+  logSink?: BrowserLogSink
 }
 
 /**
@@ -149,7 +156,8 @@ async function launchChromium(
     logTimestamps: opts.logTimestamps,
     logColor: opts.logColor,
     logUrl: opts.logUrl,
-    logTab: opts.logTab
+    logTab: opts.logTab,
+    logSink: opts.logSink
   }
 
   const ctx = createChromiumContext()
