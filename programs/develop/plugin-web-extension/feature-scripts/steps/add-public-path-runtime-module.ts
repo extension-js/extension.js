@@ -12,8 +12,12 @@
 import type {Compiler} from '@rspack/core'
 
 const basic = [
-  `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {} })()`,
-  `var isChrome = !!(() => { try { return globalThis.chrome.runtime.getURL("/") } catch(e) {} })()`
+  `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {
+    // Ignore
+  } })()`,
+  `var isChrome = !!(() => { try { return globalThis.chrome.runtime.getURL("/") } catch(e) {
+    // Ignore
+  } })()`
 ]
 
 const weakRuntimeCheck = [

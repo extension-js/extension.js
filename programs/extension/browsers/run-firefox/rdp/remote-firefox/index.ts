@@ -201,12 +201,16 @@ export class RemoteFirefox {
             `[browser] Firefox add-on output did not fully settle before install: ${addonPath}`
           )
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       try {
         console.log('[browser] Firefox add-on paths:', candidateAddonPaths)
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
 
     /** ID of the user extension (webpack output), not companion devtools/theme add-ons. */
@@ -266,7 +270,9 @@ export class RemoteFirefox {
           )
         }
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     this.lastInstalledAddonPath = primaryAddonPath
 
@@ -329,6 +335,8 @@ export class RemoteFirefox {
       })
 
       this.loggingAttached = true
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 }

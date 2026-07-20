@@ -11,7 +11,9 @@ afterEach(async () => {
   for (const s of sockets) {
     try {
       s.terminate()
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   sockets.length = 0
   if (server) {

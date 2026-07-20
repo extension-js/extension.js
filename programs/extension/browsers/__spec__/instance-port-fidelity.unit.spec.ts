@@ -82,7 +82,9 @@ describe('chromium readiness, faithful per-instance CDP resolution', () => {
       const fromRegistry = resolvePortForInstance(instanceId, 'cdp', derived)
       if (typeof fromRegistry === 'number' && fromRegistry > 0)
         return fromRegistry
-    } catch {}
+    } catch {
+      // Ignore
+    }
     return derived
   }
 

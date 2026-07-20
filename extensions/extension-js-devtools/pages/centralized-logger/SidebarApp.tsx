@@ -60,7 +60,9 @@ export default function SidebarApp() {
       try {
         port.onMessage.removeListener(onMessage)
         port.disconnect()
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   }, [])
 
@@ -126,7 +128,9 @@ export default function SidebarApp() {
           }
         }
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }, [])
 
   useEffect(() => {
@@ -138,7 +142,9 @@ export default function SidebarApp() {
         logger_source_filter: sourceFilter,
         logger_autoscroll: autoScroll
       })
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }, [contextFilter, tabFilter, levelFilter, sourceFilter, autoScroll])
 
   const filtered = useMemo(() => {

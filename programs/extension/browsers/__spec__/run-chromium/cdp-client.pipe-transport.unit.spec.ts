@@ -26,7 +26,9 @@ describe('CDPClient pipe transport', () => {
   afterEach(() => {
     try {
       client.disconnect()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     pipeIn.destroy()
     pipeOut.destroy()
   })

@@ -202,7 +202,9 @@ function resolveConfigPluginModule(
     try {
       const req = createRequire(path.join(base, '__extensionjs__.js'))
       return unwrapDefaultExport(req(name))
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   try {
     const req = createRequire(import.meta.url)
@@ -494,10 +496,14 @@ export async function maybeUsePostCss(
               tailwindMod = req(id)
               tailwindPluginId = id
               break
-            } catch {}
+            } catch {
+              // Ignore
+            }
           }
           if (tailwindMod) break
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
 
       if (tailwindMod) {
@@ -569,7 +575,9 @@ export async function maybeUsePostCss(
                       tailwindPluginId = '@tailwindcss/postcss'
                       break
                     }
-                  } catch {}
+                  } catch {
+                    // Ignore
+                  }
                 }
               }
             }

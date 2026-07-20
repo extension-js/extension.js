@@ -87,8 +87,6 @@ export function collectContentScriptEntryImports(
 ): Record<string, string[]> {
   const entryImports: Record<string, string[]> = {}
 
-  // Determine which entry names correspond to content scripts
-  // based on includeList keys and compilation entrypoints
   const contentEntryNames = new Set<string>(
     Object.keys(includeList || {}).filter((k) =>
       k.startsWith('content_scripts')
@@ -97,8 +95,6 @@ export function collectContentScriptEntryImports(
 
   const chunkGraph = compilation.chunkGraph
 
-  // Also include any compilation entrypoints that match the logical
-  // content_scripts prefix
   compilation.entrypoints.forEach((_entry, entryName) => {
     if (String(entryName).startsWith('content_scripts/')) {
       contentEntryNames.add(entryName)
@@ -128,9 +124,7 @@ export function collectContentScriptEntryImports(
       collectedFilesSet.add(fileNameStr)
     }
 
-    // For each chunk in entry.chunks
     entry.chunks.forEach((chunk) => {
-      // chunkFiles (primary files)
       const currentChunk = chunk as unknown as ChunkLike
       const chunkFilesArray: string[] = Array.isArray(currentChunk.files)
         ? currentChunk.files
@@ -140,7 +134,6 @@ export function collectContentScriptEntryImports(
         addFileIfRelevant(chunkFilesArray[i])
       }
 
-      // auxiliaryFiles
       let chunkAuxFilesArray: string[] = []
 
       if (Array.isArray(currentChunk.auxiliaryFiles)) {
@@ -151,13 +144,11 @@ export function collectContentScriptEntryImports(
         addFileIfRelevant(chunkAuxFilesArray[i])
       }
 
-      // modules in chunk
       const modulesArray = Array.from(chunkGraph.getChunkModulesIterable(chunk))
 
       for (let j = 0; j < modulesArray.length; j++) {
         const moduleObj = modulesArray[j]
 
-        // for each chunk that the module belongs to (auxiliary for module)
         const moduleChunksArray: unknown[] = Array.from(
           chunkGraph.getModuleChunks(moduleObj)
         )
@@ -224,7 +215,6 @@ export function collectContentScriptEntryImports(
     entryImports[entryName] = Array.from(collectedFilesSet)
   })
 
-  // Normalize to unix path separators for consistency
   const entryImportsEntries = Object.entries(entryImports)
 
   for (let i = 0; i < entryImportsEntries.length; i++) {

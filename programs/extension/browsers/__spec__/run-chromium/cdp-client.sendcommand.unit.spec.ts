@@ -37,7 +37,9 @@ describe('CDPClient.sendCommand', () => {
     vi.useRealTimers()
     try {
       client.disconnect()
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('resolves when a matching response arrives', async () => {

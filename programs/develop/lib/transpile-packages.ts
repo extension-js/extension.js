@@ -57,14 +57,18 @@ function resolvePackageRoot(
     return path.dirname(
       requireFromProject.resolve(`${packageName}/package.json`)
     )
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   // Fallback for packages using restrictive exports maps.
   try {
     const entryPath = requireFromProject.resolve(packageName)
     const discovered = findPackageRootFromEntry(entryPath, packageName)
     if (discovered) return discovered
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const guessedPackageDir = path.join(
     projectRoot,
@@ -151,7 +155,9 @@ export function resolveTranspilePackageDirs(
     resolvedDirs.add(normalizePath(packageDir))
     try {
       resolvedDirs.add(normalizePath(fs.realpathSync(packageDir)))
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   return Array.from(resolvedDirs)

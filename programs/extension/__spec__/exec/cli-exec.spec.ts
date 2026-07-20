@@ -230,7 +230,9 @@ async function runUntilTimeout(
       } catch {
         try {
           child.kill('SIGTERM')
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
     }, timeoutMs)
 
@@ -247,7 +249,9 @@ async function runUntilTimeout(
       } catch {
         try {
           child.kill('SIGKILL')
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
     }, timeoutMs + 3000)
 

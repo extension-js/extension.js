@@ -91,12 +91,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var s = safeValue(value);
       var frame = {type: "result", cmdId: cmdId, ok: true, value: s.value};
       if (s.truncated) frame.truncated = true;
-      try { socket && socket.send(JSON.stringify(frame)); } catch (e) {}
+      try { socket && socket.send(JSON.stringify(frame)); } catch (e) {
+        // Ignore
+      }
     }
 
     function replyErr(cmdId, name, message) {
       var frame = {type: "result", cmdId: cmdId, ok: false, error: {name: name, message: String(message), engine: engineName()}};
-      try { socket && socket.send(JSON.stringify(frame)); } catch (e) {}
+      try { socket && socket.send(JSON.stringify(frame)); } catch (e) {
+        // Ignore
+      }
     }
 
     // Resolve a numeric tab id when the caller did not pass one: match
@@ -288,7 +292,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (op === "reload") {
           if (ctx === "background") {
             replyOk(cmdId, {reloading: true});
-            setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 50);
+            setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
+              // Ignore
+            } }, 50);
           } else if (target.tabId) {
             nsCall("tabs", "reload", [target.tabId], function (err) {
               if (err) replyErr(cmdId, "ReloadError", (err && err.message) || err);
@@ -310,14 +316,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 r.then(function (p) { cb(p || ""); }, function () { cb(""); });
                 return;
               }
-            } catch (e) {}
+            } catch (e) {
+              // Ignore
+            }
             try { chrome.action.getPopup({}, function (p) { cb(p || ""); }); }
             catch (e) { cb(""); }
           };
           var resolveActiveTab = function (a, cb) {
             if (a && typeof a.tabId === "number") {
               try { chrome.tabs.get(a.tabId, function (t) { cb(t || {id: a.tabId}); }); return; }
-              catch (e) {}
+              catch (e) {
+                // Ignore
+              }
             }
             try { chrome.tabs.query({active: true, lastFocusedWindow: true}, function (tabs) { cb((tabs && tabs[0]) || undefined); }); }
             catch (e) { cb(undefined); }
@@ -331,7 +341,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               if (perms.indexOf("activeTab") !== -1) {
                 return "replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it (scripting on the active tab, captureVisibleTab) behave differently than a real click";
               }
-            } catch (e) {}
+            } catch (e) {
+              // Ignore
+            }
             return null;
           };
           if (surface === "popup") {
@@ -367,7 +379,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   resolveActiveTab(args, function (tab) {
                     var fired = 0;
                     for (var i = 0; i < actionClickedListeners.length; i++) {
-                      try { actionClickedListeners[i](tab); fired++; } catch (e) {}
+                      try { actionClickedListeners[i](tab); fired++; } catch (e) {
+                        // Ignore
+                      }
                     }
                     var reply = {triggered: "onClicked", listeners: fired, gesture: false};
                     var warning = activeTabWarning();
@@ -387,7 +401,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               resolveActiveTab(args, function (tab) {
                 var fired = 0;
                 for (var i = 0; i < commandListeners.length; i++) {
-                  try { commandListeners[i](commandName, tab); fired++; } catch (e) {}
+                  try { commandListeners[i](commandName, tab); fired++; } catch (e) {
+                    // Ignore
+                  }
                 }
                 replyOk(cmdId, {triggered: "command", command: commandName || null, listeners: fired, gesture: false});
               });
@@ -473,7 +489,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
-    function noopLastError() { try { void g.chrome.runtime.lastError; } catch (e) {} }
+    function noopLastError() { try { void g.chrome.runtime.lastError; } catch (e) {
+      // Ignore
+    } }
 
     // Only http(s)/file/ftp tabs can run a content script; skip chrome://, the
     // extension's own pages, about:blank, etc.
@@ -497,7 +515,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         try {
           chrome.tabs.query({url: matches}, function (tabs) {
             var err = null;
-            try { err = chrome.runtime.lastError; } catch (e) {}
+            try { err = chrome.runtime.lastError; } catch (e) {
+              // Ignore
+            }
             if (err || !tabs) return;
             for (var i = 0; i < tabs.length; i++) {
               (function (tab) {
@@ -505,7 +525,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 if (excludedTabIds[tab.id]) return;
                 var target = {tabId: tab.id, allFrames: allFrames};
                 if (cssFiles.length && chrome.scripting.insertCSS) {
-                  try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {}
+                  try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {
+                    // Ignore
+                  }
                 }
                 if (jsFiles.length && chrome.scripting.executeScript) {
                   try {
@@ -513,17 +535,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                       {target: target, files: jsFiles, world: world, injectImmediately: true},
                       noopLastError
                     );
-                  } catch (e) {}
+                  } catch (e) {
+                    // Ignore
+                  }
                 }
               })(tabs[i]);
             }
           });
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
       }
       if (Array.isArray(excludeMatches) && excludeMatches.length) {
         try {
           chrome.tabs.query({url: excludeMatches}, function (excludedTabs) {
-            try { void chrome.runtime.lastError; } catch (e) {}
+            try { void chrome.runtime.lastError; } catch (e) {
+              // Ignore
+            }
             var excluded = {};
             if (excludedTabs) {
               for (var i = 0; i < excludedTabs.length; i++) {
@@ -533,7 +561,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             injectInto(excluded);
           });
           return;
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
       }
       injectInto({});
     }
@@ -550,9 +580,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             var entries = (manifest && manifest.content_scripts) || [];
             for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i]);
             reregisterForFutureNavigations(entries);
-            if (onDone) { try { onDone(); } catch (e) {} }
+            if (onDone) { try { onDone(); } catch (e) {
+              // Ignore
+            } }
           })
-          .catch(function () {});
+          .catch(function () {
+            // Ignore
+          });
         return true;
       } catch (e) { return false; }
     }
@@ -600,7 +634,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
       try {
         chrome.scripting.getRegisteredContentScripts(function (existing) {
-          try { void chrome.runtime.lastError; } catch (e) {}
+          try { void chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          }
           var have = {};
           if (existing) for (var k = 0; k < existing.length; k++) have[existing[k].id] = true;
           var toRegister = [], toUpdate = [];
@@ -608,13 +644,19 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             (have[scripts[j].id] ? toUpdate : toRegister).push(scripts[j]);
           }
           if (toRegister.length) {
-            try { chrome.scripting.registerContentScripts(toRegister, noopLastError); } catch (e) {}
+            try { chrome.scripting.registerContentScripts(toRegister, noopLastError); } catch (e) {
+              // Ignore
+            }
           }
           if (toUpdate.length) {
-            try { chrome.scripting.updateContentScripts(toUpdate, noopLastError); } catch (e) {}
+            try { chrome.scripting.updateContentScripts(toUpdate, noopLastError); } catch (e) {
+              // Ignore
+            }
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // Dev-loop reload without the CDP controller: content-scripts re-inject in
@@ -630,10 +672,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           if (chrome.storage && chrome.storage.local) {
             chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
         // Deferred so in-flight frames and the tab console announcement flush
         // before the SW dies; the devtools companion confirms completion.
-        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 150); } catch (e) {}
+        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
+          // Ignore
+        } }, 150); } catch (e) {}
       };
 
       if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
@@ -661,7 +707,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           {type: "extjs-dev-reload-state", phase: phase, label: label || "", kind: kind || "", instanceId: INSTANCE_ID},
           function () { noopLastError(); }
         );
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // console.log the reload line into every open injectable tab; the patched
@@ -683,18 +731,24 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                     noopLastError
                   );
                   return;
-                } catch (e) {}
+                } catch (e) {
+                  // Ignore
+                }
               }
               // MV2 fallback (Firefox without the scripting API).
               if (chrome.tabs.executeScript) {
                 try {
                   chrome.tabs.executeScript(tab.id, {code: "console.log(" + JSON.stringify(text) + ");"}, noopLastError);
-                } catch (e) {}
+                } catch (e) {
+                  // Ignore
+                }
               }
             })(tabs[i]);
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
 
     function handleDevReloadFrame(frame) {
@@ -752,7 +806,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     function send(frame) {
       if (open && socket) {
-        try { socket.send(JSON.stringify(frame)); return; } catch (e) {}
+        try { socket.send(JSON.stringify(frame)); return; } catch (e) {
+          // Ignore
+        }
       }
       if (queue.length < MAX_QUEUE) queue.push(frame);
     }
@@ -760,7 +816,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     function schedule() {
       var delay = backoff;
       backoff = Math.min(backoff * 2, MAX_BACKOFF);
-      try { setTimeout(connect, delay); } catch (e) {}
+      try { setTimeout(connect, delay); } catch (e) {
+        // Ignore
+      }
     }
 
     function connect() {
@@ -775,7 +833,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         backoff = 250;
         try {
           socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID}));
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
         flush();
       };
       socket.onmessage = function (ev) {
@@ -786,7 +846,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         } else if (frame && frame.type === "reload") {
           // Dev-loop reload broadcast (see broker.broadcastReload).
           // Fire-and-forget: no result frame is expected.
-          try { handleDevReloadFrame(frame); } catch (e) {}
+          try { handleDevReloadFrame(frame); } catch (e) {
+            // Ignore
+          }
         } else if (frame && frame.type === "ping") {
           // Server keepalive: merely RECEIVING this resets the MV3 SW's ~30s
           // idle timer (Chrome 116+), keeping it reachable. Nothing to do.
@@ -798,7 +860,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         schedule();
       };
       socket.onerror = function () {
-        try { socket && socket.close(); } catch (e) {}
+        try { socket && socket.close(); } catch (e) {
+          // Ignore
+        }
       };
     }
 
@@ -844,7 +908,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               runId: INSTANCE_ID
             }
           });
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
         return orig.apply(consoleRef, arguments);
       };
     });
@@ -869,7 +935,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             runId: INSTANCE_ID
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
     try {
       if (typeof g.addEventListener === "function") {
@@ -884,7 +952,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           shipUncaughtError("Unhandled promise rejection: " + message, reason && reason.stack, undefined);
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     // Other contexts relay console logs to this SW over a NAMED runtime.Port:
     // they can't open the WS under page CSP, and sendMessage can echo-loop.
@@ -905,7 +975,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             runId: INSTANCE_ID
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
     try {
       var rtPort = g.chrome;
@@ -917,10 +989,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               if (!msg || !msg.__extjsBridgeLog) return;
               shipRelayedLog(msg.__extjsBridgeLog, port.sender);
             });
-          } catch (e) {}
+          } catch (e) {
+            // Ignore
+          }
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
     // Legacy sendMessage path: kept for any surface still relaying the old way
     // (harmless one-predicate listener; new relays never use it).
     try {
@@ -931,7 +1007,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           shipRelayedLog(msg.__extjsBridgeLog, sender);
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     // Chrome never injects manifest content scripts into already-open tabs, so
     // fire one reinject on onInstalled (which skips idle-stop SW wakes).
@@ -941,12 +1019,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         rtBoot.runtime.onInstalled.addListener(function () {
           try {
             setTimeout(function () {
-              try { reinjectContentScripts(); } catch (e) {}
+              try { reinjectContentScripts(); } catch (e) {
+                // Ignore
+              }
             }, 250);
-          } catch (e) {}
+          } catch (e) {
+            // Ignore
+          }
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     // runtime.reload() does NOT fire onInstalled (verified Chromium 146), so
     // consume the pre-reload storage flag here (fresh only) to heal open tabs.
@@ -957,17 +1041,25 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           noopLastError();
           var ts = res && res.__extjsDevPendingReinject;
           if (ts == null) return;
-          try { stBoot.storage.local.remove("__extjsDevPendingReinject", noopLastError); } catch (e) {}
+          try { stBoot.storage.local.remove("__extjsDevPendingReinject", noopLastError); } catch (e) {
+            // Ignore
+          }
           if (typeof ts !== "number" || Date.now() - ts > 30000) return;
           setTimeout(function () {
-            try { reinjectContentScripts(); } catch (e) {}
+            try { reinjectContentScripts(); } catch (e) {
+              // Ignore
+            }
           }, 250);
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     connect();
-  } catch (e) {}
+  } catch (e) {
+    // Ignore
+  }
 })();
 `
 
@@ -1012,7 +1104,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
       try {
         logPort = chrome.runtime.connect({name: "__extjs-bridge-log__"});
         logPort.onDisconnect.addListener(function () {
-          try { void chrome.runtime.lastError; } catch (e) {}
+          try { void chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          }
           logPort = null;
         });
       } catch (e) { logPort = null; }
@@ -1029,7 +1123,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
       } catch (e) {
         logPort = null;
         var p2 = getLogPort();
-        if (p2) { try { p2.postMessage({__extjsBridgeLog: payload}); } catch (e2) {} }
+        if (p2) { try { p2.postMessage({__extjsBridgeLog: payload}); } catch (e2) {
+          // Ignore
+        } }
       }
     }
 
@@ -1062,7 +1158,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
             }
           }
           postLog({level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()});
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
         return orig.apply(consoleRef, arguments);
       };
     });
@@ -1073,7 +1171,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
         if (errorSigSeenRecently(sig)) return;
         noteErrorSig(sig);
         postLog({level: "error", context: CONTEXT, messageParts: sanitize([String(message) + (stack ? "\\n" + stack : "")]), url: url || here()});
-      } catch (e) {}
+      } catch (e) {
+        // Ignore
+      }
     }
     try {
       if (typeof g.addEventListener === "function") {
@@ -1088,7 +1188,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
           shipUncaughtError("Unhandled promise rejection: " + message, reason && reason.stack, undefined);
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     // The SW executor can't reach another extension page's DOM or eval there,
     // so THIS surface answers inspect/eval requests for its own context.
@@ -1112,7 +1214,9 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
           return true; // responded
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
 
     try {
       if (chrome.runtime && chrome.runtime.onMessage) {
@@ -1155,8 +1259,12 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
           return true; // responded
         });
       }
-    } catch (e) {}
-  } catch (e) {}
+    } catch (e) {
+      // Ignore
+    }
+  } catch (e) {
+    // Ignore
+  }
 })();
 `
 

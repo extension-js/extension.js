@@ -24,7 +24,9 @@ describe('removeManagedEphemeralProfile', () => {
     for (const dir of created.splice(0)) {
       try {
         fs.rmSync(path.dirname(dir), {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 

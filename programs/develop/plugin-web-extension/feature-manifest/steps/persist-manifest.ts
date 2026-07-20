@@ -110,7 +110,9 @@ function writeFileAtomically(targetPath: string, content: string) {
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -195,7 +197,9 @@ export class PersistManifestToDisk {
           try {
             const currentOnDisk = fs.readFileSync(manifestOutputPath, 'utf-8')
             if (currentOnDisk === manifestSource) return
-          } catch {}
+          } catch {
+            // Ignore
+          }
           writeFileAtomically(manifestOutputPath, manifestSource)
         } catch (error) {
           const err = new rspack.WebpackError(

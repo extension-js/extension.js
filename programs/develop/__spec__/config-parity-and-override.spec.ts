@@ -19,7 +19,9 @@ afterEach(() => {
   for (const d of created) {
     try {
       fs.rmSync(d, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   created.length = 0
 })

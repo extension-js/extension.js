@@ -161,13 +161,17 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
 function loadOrCreateId(file: string): string {
   try {
     if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const id = crypto.randomUUID()
   if (ensureDir(path.dirname(file))) {
     try {
       fs.writeFileSync(file, id, 'utf8')
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   return id
 }
@@ -181,7 +185,9 @@ function readConsentFile(file: string): 'enabled' | 'disabled' | null {
     if (raw === 'disabled' || raw === 'off' || raw === '0' || raw === 'no') {
       return 'disabled'
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
   return null
 }
 
@@ -368,7 +374,9 @@ export class Telemetry {
       }).catch(() => {})
 
       clearTimeout(t)
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   shutdown(): void {
@@ -404,7 +412,9 @@ export class Telemetry {
       } else {
         fs.renameSync(auditFile, backup)
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 }
 

@@ -179,7 +179,9 @@ export function resolveFromBinaries(
       for (const dir of versionDirs) {
         candidateFiles.push(...buildCandidates(dir, browser))
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   for (const candidate of candidateFiles) {
@@ -187,7 +189,9 @@ export function resolveFromBinaries(
       if (candidate && fs.existsSync(candidate)) {
         return candidate
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   const names = executableNamesFor(browser)
@@ -394,7 +398,9 @@ function findExecutableUnder(
         }
       }
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   return null
 }

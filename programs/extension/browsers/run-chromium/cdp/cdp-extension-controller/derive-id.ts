@@ -60,7 +60,9 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
       }
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const trimTrailingSep = (p: string) => {
     let end = p.length
@@ -116,7 +118,9 @@ export async function deriveExtensionIdFromTargetsHelper(
         if (!/^Profile\s+\d+$/i.test(entry)) continue
         pushPrefIfExists(path.join(profilePath, entry))
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     for (const prefPath of candidates) {
       try {
@@ -154,7 +158,9 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
 
         if (fallbackId) return fallbackId
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
 
     return null
@@ -250,7 +256,9 @@ export async function deriveExtensionIdFromTargetsHelper(
             // found in the entire pass AND the match is unambiguous.
             if (!versionFallbackIds.includes(id)) versionFallbackIds.push(id)
           }
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
 
       // No name match this pass: accept a version-only match only when unique;
@@ -282,7 +290,9 @@ export async function deriveExtensionIdFromTargetsHelper(
 
         deferredUrlDerivedId = deferredUrlDerivedId || urlDerivedId
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     await new Promise((r) => setTimeout(r, backoffMs))
     retries++

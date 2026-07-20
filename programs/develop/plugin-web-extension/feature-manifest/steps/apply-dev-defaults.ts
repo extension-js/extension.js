@@ -99,7 +99,9 @@ export class ApplyDevDefaults {
                         'manifest: No manifest.json path. Unable to apply dev defaults.'
                       )
                 )
-              } catch {}
+              } catch {
+                // Ignore
+              }
               return
             }
 

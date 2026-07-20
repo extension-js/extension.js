@@ -15,7 +15,6 @@ const ignoredManifestDirs = new Set(['node_modules', '.git'])
 export async function findManifestJsonPath(
   projectPath: string
 ): Promise<string> {
-  // Common locations first
   const candidates = [
     path.join(projectPath, 'manifest.json'),
     path.join(projectPath, 'src', 'manifest.json'),
@@ -27,10 +26,11 @@ export async function findManifestJsonPath(
     try {
       await fs.promises.access(candidate)
       return candidate
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
-  // Fallback: search shallow tree for manifest.json
   const queue: Array<{dir: string; depth: number}> = [
     {dir: projectPath, depth: 0}
   ]

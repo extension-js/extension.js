@@ -26,15 +26,8 @@ import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtim
 import * as messages from './helpers/messages'
 import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
 
-// Public type surface for `extension.config.js`. Re-exported from the root so
-// consumers can annotate their config with `import('extension').FileConfig`.
-// These are type-only re-exports (erased at runtime). They live in a
-// self-contained local module because `extension-develop` does not publish
-// declaration files. See `config-types.ts` for the sync note.
-// The `.js` extension is required: this package is ESM (`"type": "module"`),
-// so the emitted declaration's relative re-export must carry an explicit
-// extension to resolve under consumer `node16`/`nodenext` module resolution
-// (TS2834). Without it the type silently degrades to `any` under skipLibCheck.
+// Public type surface for extension.config.js, re-exported from the root. The
+// .js extension is required for node16/nodenext resolution (TS2834).
 export type {
   BrowserConfig,
   BrowserType,
@@ -77,13 +70,8 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   }
 
   let nextArgv = argv
-  // --no-reload: dev-only. Skips the content-script reinjection wrapper +
-  // the on-rebuild reload dispatch in plugin-browsers, so the dist bundle
-  // stays clean and an open tab is not disturbed when files change. The
-  // user is expected to manually reload the extension/page to pick up
-  // changes. Implemented as an env var because plugin-web-extension and
-  // plugin-browsers run in the develop process and don't see CLI flags
-  // directly.
+  // --no-reload: dev-only; skips the reinjection wrapper + reload dispatch so an
+  // open tab is undisturbed. Env var because plugins don't see CLI flags.
   const hasNoReload = nextArgv.includes('--no-reload')
   if (hasNoReload) {
     const command = resolveCommandFromArgv(nextArgv)
@@ -178,7 +166,6 @@ extensionJs.on('option:ai-help', () => {
   process.exit(0)
 })
 
-// Show help when invoked with no args (e.g., `npx extension`)
 if (process.argv.length <= 2) {
   extensionJs.outputHelp()
   process.exit(0)

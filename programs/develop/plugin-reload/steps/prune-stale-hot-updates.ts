@@ -12,20 +12,8 @@ import type {Compiler} from '@rspack/core'
 
 const HOT_DIR = 'hot'
 
-/**
- * Prune superseded hot-update generations from `dist/<browser>/hot/`.
- *
- * The HMR runtime resolves hot chunks against the extension origin
- * (publicPath = chrome-extension://<id>/), so the files under hot/ are
- * fetched FROM DISK and must ship in the loadable dist, but only the
- * current generation is ever requested (currentHash -> nextHash). Without
- * pruning, every edit leaves its .js/.json/.map generation behind forever:
- * an afternoon of editing puts hundreds of stale files in the "what ships"
- * tree, all churning fs watchers on each edit.
- *
- * The previous generation is kept one round as a grace window for an
- * in-flight fetch racing the compile that superseded it.
- */
+// Prune superseded hot-update generations from hot/: only the current one is
+// requested, and the previous is kept one round for in-flight fetches.
 export class PruneStaleHotUpdates {
   public static readonly name = 'plugin-reload:prune-stale-hot-updates'
 
@@ -50,9 +38,8 @@ export class PruneStaleHotUpdates {
         }
 
         const keep = new Set([...emitted, ...this.previousGeneration])
-        // Hot assets nest by runtime name (hot/background/service_worker.<hash>.json,
-        // hot/content_scripts/content-N.<hash>.json), so walk recursively and
-        // compare hot-relative posix paths.
+        // Hot assets nest by runtime name, so walk recursively and compare
+        // hot-relative posix paths.
         const pruneDir = (dir: string, relPrefix: string) => {
           for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
             const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
@@ -64,7 +51,7 @@ export class PruneStaleHotUpdates {
                   fs.rmdirSync(absolute)
                 }
               } catch {
-                // best-effort only
+                // Ignore
               }
               continue
             }
@@ -72,7 +59,7 @@ export class PruneStaleHotUpdates {
             try {
               fs.rmSync(absolute, {force: true})
             } catch {
-              // best-effort only
+              // Ignore
             }
           }
         }

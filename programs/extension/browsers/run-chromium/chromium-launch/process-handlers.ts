@@ -80,10 +80,8 @@ function installGlobalHandlersOnce() {
 
   process.on('uncaughtException', (error) => {
     if (isBenignSocketTeardown(error)) {
-      // Browser auto-exit (EXTENSION_AUTO_EXIT_MS) and Ctrl+C teardowns close
-      // the CDP/HTTP sockets while reads may still be in flight. The runner
-      // can safely ignore these, keeping `process.exit(1)` here turns a
-      // clean shutdown into a CI failure (Templates Nightly Edge).
+      // Auto-exit and Ctrl+C teardowns close sockets mid-read; process.exit(1) here
+      // turns a clean shutdown into a CI failure.
       return
     }
     console.error(
@@ -109,11 +107,8 @@ function installGlobalHandlersOnce() {
   })
 }
 
-/**
- * Register a Chromium instance for process-exit cleanup. Returns a disposer that
- * unregisters the instance (call it once the child has exited). Global process
- * listeners are installed only on the first call.
- */
+// Register a Chromium instance for process-exit cleanup; returns a disposer.
+// Global process listeners are installed only on the first call.
 export function setupProcessSignalHandlers(
   browser: BrowserType,
   child: ChildProcess,

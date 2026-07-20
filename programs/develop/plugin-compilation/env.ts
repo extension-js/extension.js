@@ -88,14 +88,8 @@ function resolveEnvPaths(projectPath: string, envFiles: string[]) {
   }
 }
 
-/**
- * Env files resolve family-wide, mirroring the manifest-prefix contract
- * (lib/manifest-utils.ts): `chrome:`/`chromium:`/`edge:` manifest keys all
- * apply to any chromium-family target, so `.env.chrome` must equally apply
- * when building the default `chromium` target. The exact browser name always
- * wins over family siblings; Safari/webkit inherit the chromium family for
- * the same reason they inherit its manifest keys.
- */
+// Env files resolve family-wide, mirroring the manifest-prefix contract; the
+// exact browser name wins, Safari/webkit inherit the chromium family.
 export function getEnvFileCandidates(
   browser: DevOptions['browser'],
   mode: string
@@ -118,7 +112,7 @@ export function getEnvFileCandidates(
 
   return [
     ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
-    `.env.${mode}`, // .env.development
+    `.env.${mode}`,
     '.env.local',
     '.env'
   ]
@@ -139,10 +133,8 @@ export class EnvPlugin {
       (this.manifestPath ? path.dirname(this.manifestPath) : '')
     const mode = compiler.options.mode || 'development'
 
-    // Collect .env files based on browser (family-wide, see
-    // getEnvFileCandidates) and mode. Note: `.env.example` is intentionally
-    // NOT included, it holds placeholder/documentation values and must not
-    // be treated as a real value source for the build
+    // Collect .env files by browser (family-wide) and mode. .env.example is
+    // intentionally NOT included: placeholder values, never a real source.
     const envFiles = getEnvFileCandidates(this.browser, mode)
 
     const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
@@ -151,9 +143,8 @@ export class EnvPlugin {
       console.log(messages.envSelectedFile(envPath))
     }
 
-    // The project ships .env files, but none match this browser/mode, the
-    // author clearly intended env injection, and every EXTENSION_PUBLIC_*
-    // read will silently be undefined. Surface that as a build warning.
+    // The project ships .env files but none match this browser/mode; every
+    // EXTENSION_PUBLIC_* read would be undefined, so surface a build warning.
     if (!envPath && projectPath) {
       let unmatchedEnvFiles: string[] = []
       try {
@@ -189,45 +180,30 @@ export class EnvPlugin {
       }
     }
 
-    // Load the .env file manually and filter variables prefixed with
-    // 'EXTENSION_PUBLIC_'. dotenv.parse (not .config) on purpose: .config
-    // mutates process.env, and since process.env wins the merge below, the
-    // first build's values would leak into and override every later build in
-    // the same process (e.g. chrome values overriding a firefox build's own
-    // .env.firefox when building multiple browsers).
+    // dotenv.parse (not .config) on purpose: .config mutates process.env, which
+    // wins the merge, so the first build's values would leak into later builds.
     const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
     const defaultsVars = fs.existsSync(defaultsPath)
       ? dotenv.parse(fs.readFileSync(defaultsPath))
       : {}
 
-    // Merge all environment variables (including system env vars)
     const combinedVars = {
       ...defaultsVars,
       ...envVars,
-      ...process.env // Include system variables
+      ...process.env
     }
 
-    // Filter out variables with EXTENSION_PUBLIC_ prefix
     const filteredEnvVars = Object.keys(combinedVars)
       .filter((key) => key.startsWith('EXTENSION_PUBLIC_'))
       .reduce(
         (obj, key) => {
           obj[`process.env.${key}`] = JSON.stringify(combinedVars[key])
-          // Support for import.meta.env
           obj[`import.meta.env.${key}`] = JSON.stringify(combinedVars[key])
           return obj
         },
         {} as Record<string, string>
       )
 
-    // Ensure default environment variables are always available:
-    // - EXTENSION_PUBLIC_BROWSER (legacy)
-    // - EXTENSION_PUBLIC_MODE (legacy)
-    // - EXTENSION_BROWSER
-    // - BROWSER
-    // (after v3)
-    // - EXTENSION_MODE
-    // - MODE
     filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
       this.browser
     )
@@ -245,20 +221,13 @@ export class EnvPlugin {
     filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_MODE'] = JSON.stringify(mode)
 
-    // New after v3
     filteredEnvVars['process.env.BROWSER'] = JSON.stringify(this.browser)
     filteredEnvVars['import.meta.env.BROWSER'] = JSON.stringify(this.browser)
     filteredEnvVars['process.env.MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.MODE'] = JSON.stringify(mode)
 
-    // Define bare `import.meta.env` as an object of every injected var
-    // (Vite parity). Without it, rspack rewrites a leftover `import.meta.env`
-    // to `(void 0)` in classic output, so reading ANY variable that no env
-    // file defines crashes the surface at boot with
-    // "Cannot read properties of undefined" instead of yielding `undefined`.
-    // This also makes `const {FOO} = import.meta.env` work. Member defines
-    // above still win for known vars (longest-match), so inlining and
-    // tree-shaking are unaffected.
+    // Define bare import.meta.env as an object of every injected var (Vite
+    // parity); otherwise rspack rewrites it to (void 0) and reads crash at boot.
     const importMetaEnvObject: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(filteredEnvVars)) {
       if (key.startsWith('import.meta.env.')) {
@@ -268,18 +237,8 @@ export class EnvPlugin {
     }
     filteredEnvVars['import.meta.env'] = JSON.stringify(importMetaEnvObject)
 
-    // Neutralize the Node-only `import.meta` accessors (G12). Vendored ESM
-    // (`.mjs`) runtimes (ONNX runtime, kokoro/piper TTS) reference
-    // `import.meta.dirname`/`import.meta.filename` in dead Node-only branches
-    // (e.g. `typeof __dirname < 'u' ? __dirname : import.meta.dirname`).
-    // Extension.js emits classic (non-module) chunks, and rspack leaves these
-    // unknown property forms verbatim, so a literal `import.meta` survives into
-    // the chunk and fails minification with "'import.meta' cannot be used outside
-    // of module code". Define them to `undefined` so the dead branch collapses
-    // before the minifier runs. We deliberately do NOT touch `import.meta.url`
-    // (rspack already rewrites that property form for classic output) or bare
-    // `import.meta` (rspack replaces direct access with `{}` + a warning, which
-    // is non-fatal), to avoid regressing extensions that use them.
+    // Neutralize Node-only import.meta.dirname/filename: vendored ESM runtimes
+    // reference them in dead branches that otherwise fail classic-chunk minification.
     filteredEnvVars['import.meta.dirname'] = 'undefined'
     filteredEnvVars['import.meta.filename'] = 'undefined'
 
@@ -291,12 +250,8 @@ export class EnvPlugin {
       console.log(messages.envInjectedPublicVars(injectedCount))
     }
 
-    // Provide a real, complete browser `process` so any `process.*` access in
-    // user code or dependencies resolves to a safe object instead of throwing
-    // (browsers/extension runtimes have no global `process`). Specific
-    // `process.env.EXTENSION_PUBLIC_*` reads are still statically inlined by the
-    // DefinePlugin above, so they stay tree-shakeable; ProvidePlugin only fills
-    // in the remaining free `process` references.
+    // Provide a real browser process object so free process.* reads don't throw;
+    // EXTENSION_PUBLIC_* reads are still statically inlined and tree-shakeable.
     const processShim = resolveProcessShim()
 
     if (!processShim) {
@@ -307,14 +262,12 @@ export class EnvPlugin {
         '({env:{},argv:[],platform:"browser",browser:true,versions:{},nextTick:function(cb){Promise.resolve().then(function(){cb()})}})'
     }
 
-    // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
     if (processShim) {
       new ProvidePlugin({process: processShim}).apply(compiler)
     }
 
-    // Process all .json and .html files in the output directory
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
       (compilation) => {
@@ -365,20 +318,18 @@ export class EnvPlugin {
                     : `$${name}`
                 }
 
-                // Replace environment variables in the format $EXTENSION_PUBLIC_VAR (legacy)
                 fileContent = fileContent.replace(
                   /\$EXTENSION_PUBLIC_[A-Z_]+/g,
                   (match: string) => {
-                    const envVarName = match.slice(1) // Remove the '$'
+                    const envVarName = match.slice(1)
                     return resolveVar(envVarName)
                   }
                 )
 
-                // Replace environment variables in the format $EXTENSION_VAR
                 fileContent = fileContent.replace(
                   /\$EXTENSION_[A-Z_]+/g,
                   (match: string) => {
-                    const envVarName = match.slice(1) // Remove the '$'
+                    const envVarName = match.slice(1)
                     return resolveVar(envVarName)
                   }
                 )

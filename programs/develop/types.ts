@@ -198,20 +198,16 @@ export interface DevOptions extends BrowserOptionsBase {
    * Skip launching the browser (dev server still starts).
    */
   noBrowser?: boolean
-  // Browser flags and preferences forwarded to the browser launcher
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
-  // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
   safariBinary?: SafariOptions['safariBinary']
-  // Packaging options (used when mode === 'production')
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
-  // Unified logger CLI output options
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
     | 'background'
@@ -228,7 +224,6 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
-  // Safari identity/packaging inputs (safari/webkit-based targets only)
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']
@@ -267,11 +262,9 @@ export interface BuildOptions {
    * [internal] Auto-install project dependencies when missing.
    */
   install?: boolean
-  // When true, treat warnings as build failures
   failOnWarning?: boolean
-  // When true, a failed build calls process.exit(1) after the clean error
-  // line, the CLI wrapper passes this. Defaults to false: as a library
-  // import, a failed build is a rejected promise, never a dead host process.
+  // When true, a failed build calls process.exit(1) (CLI wrapper passes this);
+  // defaults to false: as a library, a failed build is a rejected promise.
   exitOnError?: boolean
   /**
    * Internal: the command stamped into ready.json/events.ndjson. Defaults to
@@ -279,7 +272,6 @@ export interface BuildOptions {
    * receipt names the command the user actually ran.
    */
   metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
-  // Safari identity/packaging inputs (safari/webkit-based targets only)
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']
@@ -333,7 +325,6 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
    */
   publicHost?: string
-  // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
     | 'background'
@@ -383,7 +374,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
    */
   publicHost?: string
-  // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
     | 'background'
@@ -409,7 +399,6 @@ export interface BrowserConfig extends BrowserOptionsBase {
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
   safariBinary?: SafariOptions['safariBinary']
-  // Safari identity/packaging inputs (browser.safari config)
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']
@@ -420,13 +409,11 @@ export interface BrowserConfig extends BrowserOptionsBase {
   extensions?: CompanionExtensionsConfig
 }
 
-// Shared output shape consumed by webpack-config
 export type OutputConfig = {
   clean: boolean
   path: string
 }
 
-// Minimal common options webpack-config depends on, shared across commands
 export interface CommonWebpackOptions {
   output: OutputConfig
   preferences?: Record<string, unknown>
@@ -451,9 +438,8 @@ export interface CommonWebpackOptions {
    */
   instanceId?: string
   /**
-   * Agent-bridge control channel (Slice 1). Injected by dev-server so the
-   * PlaywrightPlugin can advertise them in ready.json (agent bridge).
-   * Not user-configurable.
+   * Agent-bridge control channel. Injected by dev-server so the
+   * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
    */
   controlPort?: number | null
   controlPath?: string
@@ -485,8 +471,6 @@ export type WebpackConfigOptions = CommonWebpackOptions &
 
 export interface FileConfig {
   browser?: {
-    // Allow configuration by any supported browser key
-    // (kept wide to align with BrowserType and runtime mapping)
     [K in BrowserType]?: BrowserConfig
   }
   commands?: {

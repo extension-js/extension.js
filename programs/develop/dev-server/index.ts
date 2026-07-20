@@ -525,7 +525,9 @@ export async function devServer(
     // Control port could not bind; the dev server still runs without the bridge.
     try {
       bridgeLogFile.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   // Expose control-channel coordinates to the compiler (same process) so the
@@ -538,10 +540,14 @@ export async function devServer(
   process.once('exit', () => {
     try {
       bridgeLogFile.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     try {
       bridgeActionsFile?.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     // Never leave a usable eval token behind after the session ends.
     if (bridgeControlToken) {
       clearControlToken(packageJsonDir, browserName)

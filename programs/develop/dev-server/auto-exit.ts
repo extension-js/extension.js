@@ -34,12 +34,16 @@ export function setupAutoExit(
 
   try {
     console.log(messages.autoExitModeEnabled(autoExitMs))
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   autoExitTimer = setTimeout(async () => {
     try {
       console.log(messages.autoExitTriggered(autoExitMs))
-    } catch {}
+    } catch {
+      // Ignore
+    }
     await onCleanup()
   }, autoExitMs)
 
@@ -52,7 +56,9 @@ export function setupAutoExit(
   forceKillTimer = setTimeout(() => {
     try {
       console.log(messages.autoExitForceKill(forceKillMs))
-    } catch {}
+    } catch {
+      // Ignore
+    }
     process.exit(0)
   }, forceKillMs)
 

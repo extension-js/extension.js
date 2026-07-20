@@ -36,7 +36,9 @@ function killWindowsTree(child: ChildProcess, sync: boolean): void {
         () => {}
       )
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }
 
 // Signal-path teardown: SIGTERM, then SIGKILL after a grace window. The timer
@@ -71,7 +73,9 @@ export function forceKillChildOnExit(
   try {
     authorLog(messages.enhancedProcessManagementForceKill(browser))
     child.kill('SIGKILL')
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }
 
 const BENIGN_SOCKET_ERROR_CODES = new Set([

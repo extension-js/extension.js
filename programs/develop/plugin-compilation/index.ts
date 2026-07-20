@@ -113,7 +113,9 @@ export class CompilationPlugin {
           )
         }).apply(compiler)
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     if (
       (this.zip || this.zipSource) &&

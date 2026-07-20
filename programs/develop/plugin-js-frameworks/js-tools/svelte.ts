@@ -22,7 +22,9 @@ function resolveFromProject(id: string, projectPath: string) {
     try {
       const req = createRequire(path.join(base, 'package.json'))
       return req.resolve(id)
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   return undefined
 }

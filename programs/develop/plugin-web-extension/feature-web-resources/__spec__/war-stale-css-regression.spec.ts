@@ -23,7 +23,9 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
   afterEach(() => {
     try {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('WAR-lists leftover content_scripts/*.css that exists on disk but not in compilation.assets', () => {

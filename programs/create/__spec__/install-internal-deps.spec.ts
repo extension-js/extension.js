@@ -52,7 +52,9 @@ describe('install-internal-deps', () => {
     for (const d of created) {
       try {
         fs.rmSync(d, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
     created.length = 0
     process.env = originalEnv

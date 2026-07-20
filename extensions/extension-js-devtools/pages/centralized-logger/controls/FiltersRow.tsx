@@ -150,7 +150,9 @@ export function FiltersRow({
             let host = url
             try {
               host = url ? new URL(url).host : ''
-            } catch {}
+            } catch {
+              // Ignore
+            }
             return (
               <SelectItem className="text-xs" key={t} value={String(t)}>
                 <span

@@ -180,7 +180,9 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     console.error = (...args: unknown[]) => {
       try {
         addEntry('error', 'content', args, location.href)
-      } catch {}
+      } catch {
+        // Ignore
+      }
       originalError(...args)
     }
 
@@ -287,7 +289,9 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
         data: payload.data,
         url: location.href
       })
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   useEffect(() => {

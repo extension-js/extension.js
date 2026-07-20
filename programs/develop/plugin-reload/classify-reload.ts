@@ -307,7 +307,9 @@ export function readContentScriptCount(
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   try {
     const manifestPath = path.join(outputPath, 'manifest.json')
@@ -318,7 +320,9 @@ export function readContentScriptCount(
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   return 0
 }

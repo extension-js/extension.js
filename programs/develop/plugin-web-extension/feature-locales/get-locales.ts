@@ -21,12 +21,8 @@ export function resolveLocalesFolder(
   manifestPath: string,
   projectRoot?: string
 ): string | undefined {
-  // Prefer `<projectRoot>/_locales` (platform-aligned layout, sibling of
-  // package.json, public/, dist/), but accept `<manifestDir>/_locales` as
-  // a fallback so existing templates with `src/_locales/` next to a
-  // src/manifest.json continue to build. validation.ts surfaces a build
-  // warning when the fallback path is used so authors are nudged toward
-  // the canonical layout without breaking the build.
+  // Prefer <projectRoot>/_locales but accept <manifestDir>/_locales so legacy
+  // templates keep building; validation.ts warns on the fallback.
   if (projectRoot) {
     const fromRoot = path.join(projectRoot, '_locales')
     if (isUsableDir(fromRoot)) return fromRoot

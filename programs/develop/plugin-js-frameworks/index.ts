@@ -215,7 +215,9 @@ export class JsFrameworksPlugin {
     let manifest: ParsedJson = {}
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     const contentScripts = Array.isArray(manifest?.content_scripts)
       ? manifest.content_scripts
