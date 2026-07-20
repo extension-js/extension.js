@@ -34,6 +34,36 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
+/**
+ * Resolve an i18n manifest name (`__MSG_appName__`) against the default
+ * locale's messages.json so the zip is named after the real extension name,
+ * not the placeholder slug (§73 F29: msgappname-1.0.0.zip). Falls back to the
+ * project dir basename when the message cannot be resolved.
+ */
+function resolveManifestName(
+  rawName: unknown,
+  manifest: {default_locale?: unknown},
+  searchRoots: string[],
+  fallback: string
+): string {
+  const raw = typeof rawName === 'string' ? rawName : ''
+  const msgMatch = raw.match(/^__MSG_(.+)__$/)
+  if (!msgMatch) return raw || fallback
+
+  const locale = String(manifest.default_locale || 'en')
+  for (const root of searchRoots) {
+    try {
+      const messagesPath = path.join(root, '_locales', locale, 'messages.json')
+      const parsed = parseJsonSafe(fs.readFileSync(messagesPath, 'utf-8'))
+      const message = parsed?.[msgMatch[1]]?.message
+      if (typeof message === 'string' && message.trim()) return message
+    } catch {
+      // try the next root
+    }
+  }
+  return fallback
+}
+
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
 
 async function getFilesToZip(projectDir: string): Promise<string[]> {
@@ -84,7 +114,38 @@ export class ZipPlugin {
 
         const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
 
-        const base = sanitize(manifest.name || path.basename(packageJsonDir))
+        // §73 F29: a missing default-locale folder makes the packaged zip
+        // rejectable by every store, and the ADM-ZIP failure that follows
+        // hides that root cause. Say it precisely, up front.
+        if (manifest.default_locale) {
+          const localeRoot = this.zipData.zipSource ? packageJsonDir : outPath
+          const messagesPath = path.join(
+            localeRoot,
+            '_locales',
+            String(manifest.default_locale),
+            'messages.json'
+          )
+          if (!fs.existsSync(messagesPath)) {
+            stats?.compilation?.warnings?.push(
+              new Error(
+                `ZipPlugin: manifest.json declares default_locale "${String(
+                  manifest.default_locale
+                )}" but ${messagesPath} does not exist. Stores reject packages ` +
+                  `without their default locale — restore the _locales folder ` +
+                  `before shipping this zip.`
+              ) as (typeof stats.compilation.warnings)[number]
+            )
+          }
+        }
+
+        const base = sanitize(
+          resolveManifestName(
+            manifest.name,
+            manifest,
+            [outPath, path.dirname(manifestPath), packageJsonDir],
+            path.basename(packageJsonDir)
+          )
+        )
         const name = `${base}-${manifest.version || '0.0.0'}`
 
         if (this.zipData.zipSource) {
