@@ -208,6 +208,36 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     return null
   }
 
+  // §65: a second command (build/preview/start) against a project whose
+  // (project, browser) contract is owned by a LIVE dev session must never
+  // rewrite that session's ready.json/events.ndjson — otherwise `stop`
+  // targets the wrong pid, doctor asserts a dead session, and a failed
+  // preview leaves "ready" pointing at a dead process. Detect the live owner
+  // once at writer creation and turn every write into a warned no-op.
+  const foreignLiveDevSession = (() => {
+    if (options.command === 'dev') return null
+    try {
+      if (!fs.existsSync(readyPath)) return null
+      const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+      if (prev?.command !== 'dev') return null
+      if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
+      if (prev.status !== 'ready' && prev.status !== 'starting') return null
+      process.kill(prev.pid, 0) // throws when the pid is gone
+      return {pid: prev.pid as number}
+    } catch {
+      return null
+    }
+  })()
+  if (foreignLiveDevSession) {
+    console.warn(
+      `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
+        `${readyPath}; this ${options.command} run will not rewrite the ` +
+        `session's ready.json/events.ndjson. The output dir is shared, so ` +
+        `the dev browser may pick up freshly ${options.command}-built files — ` +
+        `stop the dev session first for a clean ${options.command} receipt.`
+    )
+  }
+
   const base = {
     schemaVersion: 2 as const,
     command: options.command,
@@ -235,6 +265,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       message?: string
     }
   ) {
+    if (foreignLiveDevSession) return
     ensureDirSync(metadataDir)
     const payload: ReadyMetadata = {
       ...base,
@@ -277,6 +308,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   }
 
   function appendEvent(event: PlaywrightAutomationEvent) {
+    if (foreignLiveDevSession) return
     ensureDirSync(metadataDir)
     try {
       fs.appendFileSync(
@@ -294,6 +326,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     readyPath,
     eventsPath,
     writeStarting() {
+      if (foreignLiveDevSession) return
       // A new run is the only truth (matching ready.json): reset the
       // timeline so entries from prior runs don't interleave and a
       // long-lived session can't grow the file unboundedly.
@@ -320,6 +353,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // green "ready" over a dead pid (§66/§71). Read-modify-write to keep the
     // session's provenance (cdpPort, browser exit evidence) intact.
     writeShutdown() {
+      if (foreignLiveDevSession) return
       try {
         if (!fs.existsSync(readyPath)) return
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
