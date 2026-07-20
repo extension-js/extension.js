@@ -8,6 +8,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+// Must be the first import: exits with a version message on Node < 22.12,
+// where requiring the ESM-only commander would crash with ERR_REQUIRE_ESM.
+import './helpers/node-version-guard'
 import {program} from 'commander'
 import {registerActCommands} from './commands/act'
 import {registerBuildCommand} from './commands/build'

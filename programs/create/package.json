@@ -7,7 +7,7 @@
     "directory": "programs/create"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
   },
   "exports": {
     ".": {

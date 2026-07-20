@@ -1,9 +1,9 @@
-import {describe, it, expect} from 'vitest'
 import {Command} from 'commander'
-import {parseOptionalBoolean} from '../vendors'
+import {describe, expect, it} from 'vitest'
 import {registerBuildCommand} from '../../commands/build'
 import {registerDevCommand} from '../../commands/dev'
 import {registerStartCommand} from '../../commands/start'
+import {parseOptionalBoolean} from '../vendors'
 
 function coercionFor(
   register: (program: Command) => void,
@@ -31,7 +31,11 @@ describe('parseOptionalBoolean', () => {
 
 describe('optional [boolean] flags coerce their value, not the raw string', () => {
   const cases: Array<[string, (p: Command) => void, string[]]> = [
-    ['build', registerBuildCommand, ['--polyfill', '--zip', '--zip-source', '--silent']],
+    [
+      'build',
+      registerBuildCommand,
+      ['--polyfill', '--zip', '--zip-source', '--silent']
+    ],
     ['dev', registerDevCommand, ['--polyfill']],
     ['start', registerStartCommand, ['--polyfill']]
   ]
