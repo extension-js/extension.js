@@ -115,7 +115,9 @@ describe('BridgeController (integration)', () => {
     controller = null
     try {
       executor?.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     executor = null
     if (server) {
       await server.close()

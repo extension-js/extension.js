@@ -23,7 +23,9 @@ async function findUpLocal(
       const stat = await fs.promises.stat(candidate)
 
       if (stat.isFile()) return candidate
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     if (currentDir === root) return undefined
     currentDir = path.dirname(currentDir)
@@ -43,7 +45,9 @@ function findUpLocalSync(
     try {
       const stat = fs.statSync(candidate)
       if (stat.isFile()) return candidate
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     if (currentDir === root) return undefined
     currentDir = path.dirname(currentDir)

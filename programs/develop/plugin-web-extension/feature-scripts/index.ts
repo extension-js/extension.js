@@ -53,29 +53,20 @@ export class ScriptsPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // Runtime-loaded files the module graph cannot see: classic worker
-    // importScripts(...) dependencies and executeScript/insertCSS `files`
-    // payloads. Copied through verbatim; missing references become warnings.
+    // Runtime-loaded files the module graph cannot see (importScripts, executeScript
+    // files payloads): copied through verbatim, missing references warn.
     new TraceRuntimeLoadedFiles({
       manifestPath: this.manifestPath
     }).apply(compiler)
 
-    // import(chrome.runtime.getURL(...)) resolves to an absolute
-    // chrome-extension:// URL at runtime, no module map can satisfy it, so
-    // the call must stay a NATIVE import() in the emitted bundle (the trace
-    // step above guarantees the target files ship).
+    // import(chrome.runtime.getURL(...)) resolves at runtime; no module map can
+    // satisfy it, so the call must stay a NATIVE import() in the emitted bundle.
     new KeepGetURLImportsNative({
       manifestPath: this.manifestPath
     }).apply(compiler)
 
-    // The content-script wrapper is load-bearing in every mode: it converts
-    // `export default fn` into `__EXTENSIONJS_default__` and emits the
-    // `__EXTENSIONJS_mount(__EXTENSIONJS_default__, runAt)` call that
-    // actually invokes the user's default export. Without it, rspack treats
-    // the entry chunk as a side-effect-free module that exports an unused
-    // default, and tree-shakes the entire body out of the production bundle.
-    // EXTENSION_NO_RELOAD opts out of the reload strategy below, not the
-    // wrapper itself, the mount call has to run in every build mode.
+    // The wrapper is load-bearing in every mode: it emits the __EXTENSIONJS_mount
+    // call; without it rspack tree-shakes the entire entry body in production.
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
       browser: this.browser
@@ -85,9 +76,8 @@ export class ScriptsPlugin {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
 
-    // swc tolerates some early syntax errors (top-level redeclarations) and
-    // emits them into the bundle; the browser then silently never injects the
-    // file. Fail loudly instead, in every mode.
+    // swc tolerates some early syntax errors and emits them into the bundle; the
+    // browser then silently never injects the file. Fail loudly in every mode.
     new ValidateContentScriptSyntax().apply(compiler)
   }
 }

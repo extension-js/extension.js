@@ -76,7 +76,6 @@ async function onStartup(
   setExtension: (extension: chrome.management.ExtensionInfo) => void,
   setDescription: (description: string) => void
 ) {
-  // Try via shared helper first
   const fromBg = await getDevExtension()
   if (fromBg) {
     setExtension(fromBg)
@@ -84,7 +83,6 @@ async function onStartup(
     return
   }
 
-  // Fallback: call chrome.management directly in this page context
   const all = (await new Promise((resolve) => {
     try {
       chrome.management.getAll(resolve)
@@ -114,7 +112,6 @@ async function onStartup(
     return
   }
 
-  // Final fallback: use this extension's manifest for a sensible name
   const manifest = chrome.runtime.getManifest()
 
   setExtension({
@@ -142,7 +139,6 @@ const Welcome: React.FC = () => {
     onStartup(setExtension, setDescription)
   }, [])
 
-  // Pick the largest available management icon (if any)
   const userIconUrl =
     extension?.icons && extension.icons.length
       ? [...extension.icons].sort((a, b) => (b.size || 0) - (a.size || 0))[0]
@@ -312,7 +308,6 @@ const Welcome: React.FC = () => {
   )
 }
 
-// React mount code
 const rootElement = document.getElementById('root')
 
 if (rootElement) {

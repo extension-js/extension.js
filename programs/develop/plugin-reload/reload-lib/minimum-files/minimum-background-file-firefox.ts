@@ -15,6 +15,6 @@ try {
     loc.reload = () => {}
   }
 } catch {
-  // ignore
+  // Ignore
 }
 console.log('Minimum Firefox file loaded for reload purposes')

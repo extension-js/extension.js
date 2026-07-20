@@ -230,12 +230,8 @@ export function sanitizeFatalManifestShapes(
   return {manifest: out as Manifest, fixes}
 }
 
-/**
- * Drop `'unsafe-inline'` from the script-src directive only; every other
- * directive passes through untouched. A script-src left with no sources
- * would mean "allow nothing" and kill the extension's own pages, so it
- * falls back to 'self'. Returns the input string when nothing changed.
- */
+// Drop 'unsafe-inline' from script-src only; a script-src left empty would
+// mean "allow nothing", so it falls back to 'self'.
 function stripUnsafeInlineFromScriptSrc(policy: string): string {
   let changed = false
   const rebuilt = policy
@@ -262,10 +258,8 @@ function isValidChromeVersion(version: string): boolean {
   return parts.every((part) => /^\d{1,5}$/.test(part) && Number(part) <= 65535)
 }
 
-/**
- * Salvage what numbers the author DID write ("1.0-beta" -> "1.0",
- * "v2.3" -> "2.3"); a version with none ("x.y.z") becomes "0.0.0".
- */
+// Salvage what numbers the author DID write ("1.0-beta" -> "1.0");
+// a version with none becomes "0.0.0".
 function salvageVersion(version: string): string {
   const digits = version.match(/\d{1,5}/g)?.slice(0, 4) ?? []
   if (!digits.length) return '0.0.0'

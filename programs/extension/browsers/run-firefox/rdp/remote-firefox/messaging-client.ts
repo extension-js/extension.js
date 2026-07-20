@@ -55,7 +55,7 @@ export class MessagingClient extends EventEmitter {
         this.emit('reconnected')
         return
       } catch {
-        // Retry
+        // Ignore
       }
     }
     this.reconnecting = false
@@ -77,7 +77,6 @@ export class MessagingClient extends EventEmitter {
     return await api.listTabs(this.transport)
   }
 
-  // Resolve a tab descriptor actor into an actual tab target actor and console actor
   async getTargetFromDescriptor(
     descriptorId: string
   ): Promise<{targetActor?: string; consoleActor?: string}> {

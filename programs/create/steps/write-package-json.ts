@@ -45,7 +45,6 @@ function extensionJsPackageJsonScripts(extensionBinary: string) {
     start: `${extensionBinary} start`,
     build: `${extensionBinary} build`,
     preview: `${extensionBinary} preview`,
-    // Convenience scripts to highlight multi-browser builds
     'build:chrome': `${extensionBinary} build --browser chrome`,
     'build:firefox': `${extensionBinary} build --browser firefox`,
     'build:edge': `${extensionBinary} build --browser edge`
@@ -80,27 +79,20 @@ interface OverridePackageJsonOptions {
   cliVersion?: string
 }
 
-// `less` rides in transitively via extension-develop (Less compilation support).
-// Its postinstall only installs Playwright inside less.js's own dev monorepo and
-// is a no-op when installed as a dependency, so pnpm's "Ignored build scripts"
-// warning is pure noise. Suppress it in every scaffold so `pnpm install` is clean.
+// less rides in transitively; its postinstall is a no-op outside less.js's own
+// monorepo, so suppress pnpm's "Ignored build scripts" noise in scaffolds.
 const BUILD_NOOP_DEPENDENCIES = ['less']
 
-// Native packages that MUST run their install script (download/build platform
-// binaries) or the extension breaks at runtime. They arrive via the
-// transformers ML stack. pnpm blocks build scripts by default and bun only runs
-// them for `trustedDependencies`, so without pre-approval the user has to run a
-// manual `approve-builds`/`--trust` middle step. npm/yarn run them by default.
+// Native packages that MUST run their install script or break at runtime
+// (transformers ML stack); pnpm/bun need pre-approval, npm/yarn run by default.
 const ML_NATIVE_BUILD_DEPENDENCIES = ['onnxruntime-node', 'sharp', 'protobufjs']
 const ML_DEP_TRIGGERS = ['@huggingface/transformers', '@xenova/transformers']
 
 const uniq = (values: Array<string | undefined>): string[] =>
   Array.from(new Set(values.filter(Boolean) as string[]))
 
-// An explicit engine-version override for callers that don't thread `cliVersion`
-// through (chiefly the MCP, which calls `extensionCreate` directly). Without one
-// the generated project pinned `"latest"`, which resolves to the newest STABLE
-// and silently overrode a pinned/canary engine the caller was actually running.
+// Engine-version override for callers that don't thread cliVersion (chiefly
+// the MCP); "latest" would silently override a pinned/canary engine.
 function engineVersionOverrideFromEnv(): string | undefined {
   const raw = (
     process.env.EXTENSION_CREATE_ENGINE_VERSION ||
@@ -110,10 +102,8 @@ function engineVersionOverrideFromEnv(): string | undefined {
   return raw || undefined
 }
 
-// `extension-create` publishes in lockstep with `extension`, so our own package
-// version is the RESOLVED engine version to pin when the caller gave none,
-// reproducible, and matching the toolchain that produced the scaffold. Falls
-// back to `undefined` (→ `latest`) only if the manifest can't be read.
+// extension-create publishes in lockstep with extension, so our own version is
+// the RESOLVED engine version to pin when the caller gave none.
 function ownCreatePackageVersion(): string | undefined {
   try {
     const pkg = JSON.parse(
@@ -183,10 +173,8 @@ export async function overridePackageJson(
   const packageManagerSpec =
     packageJson.packageManager || getPackageManagerSpecFromEnv()
 
-  // Pre-approve dependency build scripts so a single install "just works" with
-  // no manual approve-builds step, across pnpm and bun (npm/yarn run scripts by
-  // default and ignore these keys). Native ML builds are only approved when the
-  // project actually pulls the transformers stack, keeping plain scaffolds clean.
+  // Pre-approve dependency build scripts so one install just works on pnpm/bun;
+  // native ML builds only approved when the project pulls the transformers stack.
   const declaredDeps = {
     ...((packageJson.dependencies as Record<string, string>) || {}),
     ...((packageJson.devDependencies as Record<string, string>) || {})

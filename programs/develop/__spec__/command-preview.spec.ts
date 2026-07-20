@@ -112,7 +112,9 @@ describe('webpack/command-preview (run-only)', () => {
     vi.restoreAllMocks()
     try {
       fs.rmSync(metadataRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {

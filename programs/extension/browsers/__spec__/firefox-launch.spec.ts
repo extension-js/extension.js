@@ -26,7 +26,9 @@ describe('Firefox profile args', () => {
     try {
       const distRoot = path.join('/tmp', 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('adds --profile for ephemeral profile by default', async () => {
@@ -119,7 +121,9 @@ describe('Firefox profile args', () => {
       try {
         fs.rmSync(projectA, {recursive: true, force: true})
         fs.rmSync(projectB, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 })

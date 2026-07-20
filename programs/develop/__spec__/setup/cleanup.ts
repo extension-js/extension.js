@@ -6,7 +6,9 @@ import glob from 'tiny-glob'
 async function rm(dir: string) {
   try {
     fs.rmSync(dir, {recursive: true, force: true})
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }
 
 afterAll(async () => {
@@ -15,18 +17,24 @@ afterAll(async () => {
   let tmpA: string[] = []
   try {
     tmpA = await glob('**/__spec__/.tmp-*', {cwd: root, dot: true})
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   let tmpB: string[] = []
   try {
     tmpB = await glob('.tmp-*', {cwd: root, dot: true})
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const packageRoot = path.join(root, '..')
   let tmpC: string[] = []
   try {
     tmpC = await glob('tmp-extjs-*', {cwd: packageRoot, dot: true})
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   for (const d of [...tmpA, ...tmpB]) await rm(path.join(root, d))
   for (const d of tmpC) await rm(path.join(packageRoot, d))

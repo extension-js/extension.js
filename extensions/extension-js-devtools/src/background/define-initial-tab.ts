@@ -18,7 +18,6 @@ export async function getDevExtensions() {
       const name = String(extension.name || '').toLowerCase()
 
       return (
-        // Built-in devtools
         name.includes('extension.js built-in developer tools') ||
         name.includes('extension.js theme')
       )
@@ -26,18 +25,14 @@ export async function getDevExtensions() {
 
     const devExtensions = (allExtensions || []).filter((extension) => {
       return (
-        // Do not include itself
         extension.id !== chrome.runtime.id &&
         // Reload extension
         extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
-        // Show only unpackaged extensions
         extension.installType === 'development' &&
         // Exclude themes so we pick the actual user extension
         // (Chrome reports themes via management API)
         extension.type !== 'theme' &&
-        // Must be enabled to be useful
         extension.enabled === true &&
-        // Also exclude our built-ins by name/description
         !isBuiltIn(extension)
       )
     })
@@ -54,13 +49,11 @@ export async function getDevExtension() {
   return devExtensions[devExtensions.length - 1]
 }
 
-// Ideas here are adapted from
-// https://github.com/jeremyben/webpack-chrome-extension-launcher
-// Released under MIT license.
+// Adapted from https://github.com/jeremyben/webpack-chrome-extension-launcher
+// (MIT license).
 
-// Create a new tab and set it to background.
-// We want the user-selected page to be active,
-// not chrome://extensions.
+// Create a new tab and set it to background: the user-selected page should be
+// active, not chrome://extensions.
 export function createExtensionsPageTab(
   initialTab: chrome.tabs.Tab,
   url: string
@@ -71,21 +64,17 @@ export function createExtensionsPageTab(
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
   const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
 
-  // Check if url tab is open
   chrome.tabs.query({url: extensionsPage}, (tabs) => {
     const extensionsTabExist = tabs.length > 0
 
-    // Return if url exists
     if (extensionsTabExist) return
 
-    // Create an inactive tab
     chrome.tabs.create(
       {url: extensionsPage, active: false},
       function setBackgroundTab(extensionsTab) {
         // Get current url tab and move it left.
         // This action auto-activates the tab
         chrome.tabs.move(extensionsTab.id!, {index: 0}, () => {
-          // Get user-selected initial page tab and activate the right tab
           setTimeout(() => {
             chrome.tabs.update(initialTab.id!, {active: true})
           }, 500)
@@ -95,7 +84,6 @@ export function createExtensionsPageTab(
   })
 }
 
-// Function to handle first run logic
 export async function handleFirstRun() {
   const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
@@ -118,7 +106,6 @@ export async function handleFirstRun() {
   let devExtension: chrome.management.ExtensionInfo | undefined
   devExtension = await getDevExtension()
 
-  // Use project-specific key when available; otherwise fall back to a global key
   const browserStr = String(
     // @ts-ignore
     import.meta.env?.EXTENSION_BROWSER || 'chromium'
@@ -130,13 +117,8 @@ export async function handleFirstRun() {
       return
     }
 
-    // Promise-wrap `chrome.tabs.create` so we know the welcome tab is actually
-    // open before we commit `didRun`. Firefox MV2's `chrome.*` API is a
-    // best-effort callback bridge over the native Promise-returning API:
-    // certain calls leave the callback unresolved without throwing. Relying
-    // on the callback for control flow there silently no-oped the previous
-    // implementation, and didRun was set anyway → the welcome page never
-    // surfaced for that user again
+    // Promise-wrap chrome.tabs.create so the welcome tab is confirmed open before
+    // didRun commits; Firefox MV2 callbacks can silently never resolve.
     const createTab = (createProperties: chrome.tabs.CreateProperties) =>
       new Promise<chrome.tabs.Tab | undefined>((resolve) => {
         try {
@@ -195,7 +177,6 @@ export async function handleFirstRun() {
         }
       }
     } catch {
-      // Fallback to relative URL if runtime URL resolution fails
       opened = await createTab({url: 'pages/welcome.html', active: true})
     }
 

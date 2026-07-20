@@ -128,7 +128,6 @@ export function autoExitForceKill(ms: number) {
   return `Force-killing process after ${colors.brightBlue(ms.toString())} ms to ensure exit.`
 }
 
-// Dev server startup watchdog message
 export function devServerStartTimeout(ms: number) {
   return [
     `Dev server startup is taking longer than expected (${colors.brightBlue(ms.toString())} ms).`,
@@ -137,20 +136,16 @@ export function devServerStartTimeout(ms: number) {
   ].join('\n')
 }
 
-// Fatal bundler error surfaced by compiler.hooks.failed
 export function bundlerFatalError(error: unknown) {
   const text =
     error instanceof Error ? error.stack || error.message : String(error)
   return `Build failed to start:\n${colors.red(text)}`
 }
 
-// Compilation finished with errors
-// Optional low-noise message on invalidation
 export function bundlerRecompiling() {
   return `Recompiling due to file changes…`
 }
 
-// No entrypoints produced by the compiler
 export function noEntrypointsDetected(port: number) {
   return [
     `No entrypoints or assets were produced by the initial compilation.`,

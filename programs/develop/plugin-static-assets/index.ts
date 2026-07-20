@@ -162,7 +162,9 @@ export class StaticAssetsPlugin {
             else counts.files++
           }
           console.log(messages.assetsEmittedSummary(emitted.length, counts))
-        } catch {}
+        } catch {
+          // Ignore
+        }
       })
     }
   }

@@ -319,7 +319,9 @@ export class AddAssetsToCompilation {
                   )
                 }
               }
-            } catch {}
+            } catch {
+              // Ignore
+            }
 
             warnMissingPublicRootResources({
               compilation,
@@ -390,7 +392,9 @@ export class AddAssetsToCompilation {
               if (isUnderPublicRoot) {
                 try {
                   compilation.fileDependencies.add(absoluteFsPath)
-                } catch {}
+                } catch {
+                  // Ignore
+                }
 
                 continue
               }

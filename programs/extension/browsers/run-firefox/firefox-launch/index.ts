@@ -264,7 +264,9 @@ export class FirefoxLaunchPlugin {
     ) {
       try {
         logFirefoxDryRun('firefox-mock-binary', '--binary-args=""')
-      } catch {}
+      } catch {
+        // Ignore
+      }
       return
     }
 
@@ -475,7 +477,9 @@ export class FirefoxLaunchPlugin {
           )
           this.ctx.logger?.info?.(messages.devFirefoxProfilePath(profilePath))
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
     } else {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.warn?.(
@@ -611,7 +615,9 @@ export class FirefoxLaunchPlugin {
         this.ctx.logger?.info?.(
           `[browser] Watch timeout reached (${ms}ms). Shutting down.`
         )
-      } catch {}
+      } catch {
+        // Ignore
+      }
       this.cleanupInstance()
         .catch((err) => {
           if (process.env.EXTENSION_AUTHOR_MODE === 'true') {

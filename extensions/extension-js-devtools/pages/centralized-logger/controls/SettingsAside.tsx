@@ -51,10 +51,14 @@ export function SettingsAside() {
             setCaptureNetworkErrors(
               String(data?.logger_capture_network || 'off') === 'errors'
             )
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }, [])
 
   return (
@@ -108,7 +112,9 @@ export function SettingsAside() {
                                 chrome.storage?.session?.set?.({
                                   logger_theme: checked ? 'dark' : 'light'
                                 })
-                              } catch {}
+                              } catch {
+                                // Ignore
+                              }
                             }}
                             defaultChecked={(() => {
                               try {
@@ -142,7 +148,9 @@ export function SettingsAside() {
                                 chrome.storage?.session?.set?.({
                                   logger_capture_stacks: next
                                 })
-                              } catch {}
+                              } catch {
+                                // Ignore
+                              }
                             }}
                           />
                         </div>
@@ -166,7 +174,9 @@ export function SettingsAside() {
                                     ? 'errors'
                                     : 'off'
                                 })
-                              } catch {}
+                              } catch {
+                                // Ignore
+                              }
                             }}
                           />
                         </div>

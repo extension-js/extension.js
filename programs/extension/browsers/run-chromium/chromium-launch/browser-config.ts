@@ -202,7 +202,9 @@ export function browserConfig(
           path.basename(userProfilePath),
           Number.isFinite(maxAgeHours) ? maxAgeHours : 12
         )
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   }
 
@@ -217,7 +219,9 @@ export function browserConfig(
         configOptions.browser,
         configOptions.preferences
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   const excludeFlags = configOptions.excludeBrowserFlags || []

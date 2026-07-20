@@ -62,7 +62,9 @@ export function setupLoggerClient(
       ;(chrome.storage as any)?.session?.onChanged?.addListener?.(
         onSessionChanged
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     const port = targetExtensionId
       ? chrome.runtime.connect(targetExtensionId, {name: 'logger'})
@@ -83,7 +85,9 @@ export function setupLoggerClient(
           stack: extra?.stack,
           errorName: extra?.errorName
         })
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
 
     const levels: LogLevel[] = [
@@ -103,7 +107,9 @@ export function setupLoggerClient(
       console[level] = (...args) => {
         try {
           post(level, args)
-        } catch {}
+        } catch {
+          // Ignore
+        }
         originals[level]?.(...args)
       }
     }
@@ -115,7 +121,9 @@ export function setupLoggerClient(
             new Error().stack
           : undefined
         post('error', [event.message], {stack, errorName: 'Error'})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     })
 
     window.addEventListener('unhandledrejection', (event) => {
@@ -138,7 +146,9 @@ export function setupLoggerClient(
           stack,
           errorName
         })
-      } catch {}
+      } catch {
+        // Ignore
+      }
     })
 
     window.addEventListener(
@@ -146,7 +156,9 @@ export function setupLoggerClient(
       () => {
         try {
           post('info', ['pagehide'])
-        } catch {}
+        } catch {
+          // Ignore
+        }
       },
       {capture: true}
     )
@@ -157,7 +169,9 @@ export function setupLoggerClient(
         try {
           if (document.visibilityState === 'hidden')
             post('info', ['visibility:hidden'])
-        } catch {}
+        } catch {
+          // Ignore
+        }
       },
       {capture: true}
     )
@@ -172,7 +186,9 @@ export function setupLoggerClient(
             if (typeof data?.logger_capture_stacks === 'boolean') {
               captureStacks = data.logger_capture_stacks
             }
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
       )
       const onSessionChanged = (
@@ -189,12 +205,16 @@ export function setupLoggerClient(
           if (area === 'session' && 'logger_capture_stacks' in changes) {
             captureStacks = Boolean(changes.logger_capture_stacks?.newValue)
           }
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
       ;(chrome.storage as any)?.session?.onChanged?.addListener?.(
         onSessionChanged
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     {
       try {
@@ -242,7 +262,9 @@ export function setupLoggerClient(
             try {
               ;(this as any).__ext_url = url
               ;(this as any).__ext_method = method
-            } catch {}
+            } catch {
+              // Ignore
+            }
             return open.apply(this, [method, url, ...rest])
           }
           X.prototype.send = function (...args: any[]) {
@@ -265,9 +287,13 @@ export function setupLoggerClient(
                       `${Math.round(performance.now() - start)}ms`
                     ])
                   }
-                } catch {}
+                } catch {
+                  // Ignore
+                }
               })
-            } catch {}
+            } catch {
+              // Ignore
+            }
             try {
               return send.apply(this, args)
             } catch (e: any) {
@@ -284,7 +310,11 @@ export function setupLoggerClient(
             }
           }
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }

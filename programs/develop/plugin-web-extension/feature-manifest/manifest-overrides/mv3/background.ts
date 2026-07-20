@@ -10,9 +10,8 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
 export function backgroundServiceWorker(manifest: Manifest) {
-  // Contribute ONLY the rewritten `service_worker` key, see the sibling MV2
-  // override for why re-spreading `...manifest.background` here clobbers other
-  // keys in the aggregate merge (G14).
+  // Contribute ONLY the rewritten service_worker key; see the sibling MV2
+  // override for why re-spreading manifest.background clobbers other keys.
   return (
     manifest.background?.service_worker && {
       background: {

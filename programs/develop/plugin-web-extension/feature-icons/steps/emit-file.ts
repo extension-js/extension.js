@@ -196,7 +196,9 @@ export class EmitFile {
                 if (isUnderPublic) {
                   try {
                     compilation.fileDependencies.add(resolved)
-                  } catch {}
+                  } catch {
+                    // Ignore
+                  }
 
                   underPublicCount++
                   continue

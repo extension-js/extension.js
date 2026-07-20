@@ -36,15 +36,13 @@ export function deriveDebugPortWithInstance(
   return basePlusOffset + instanceOffsetFromId(instanceId)
 }
 
-// Calculates debug port from various sources
 export function calculateDebugPort(
   portFromConfig?: number | string,
   devServerPort?: number,
   defaultPort: number = DEFAULT_DEBUG_PORT
 ) {
-  // `--port 0` means "OS-assigned dev-server port": deriving CDP from it
-  // yields 0 + PORT_OFFSET = 100, an unbindable privileged port that leaves
-  // the browser without a CDP endpoint. Non-positive/NaN ports fall through.
+  // --port 0 means OS-assigned: deriving CDP from it yields an unbindable
+  // privileged port; non-positive/NaN ports fall through.
   const parsed =
     typeof portFromConfig === 'string'
       ? parseInt(portFromConfig, 10)
@@ -59,7 +57,6 @@ export function calculateDebugPort(
     : defaultPort
 }
 
-// Filters browser flags based on exclusions
 export function filterBrowserFlags(
   defaultFlags: string[],
   excludeFlags: string[] = []
@@ -75,13 +72,8 @@ export interface ChromiumBinaryChoice {
   swappedToSystem: boolean
 }
 
-// A managed `chromium` install is always a tip-of-tree snapshot (dev channel):
-// one `extension install chromium` (or chromium-location --download) would
-// otherwise silently outrank every installed stable browser for all future
-// dev sessions. Prefer a system-installed browser over the cached snapshot
-// unless the user opts in (EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true). A system
-// candidate that itself lives in a download cache (puppeteer dirs, the managed
-// cache root) is just another snapshot and does not count as stable.
+// A managed chromium install is a tip-of-tree snapshot; prefer a system stable
+// browser unless EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true. Cache paths don't count.
 export function chooseChromiumBinaryPreferringStable(opts: {
   managedSnapshotBinary: string | null
   systemBinary: string | null
@@ -114,12 +106,8 @@ export function chooseChromiumBinaryPreferringStable(opts: {
   return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
 }
 
-// EXTENSION_BROWSER_FLAGS is the launcher-agnostic escape hatch for harnesses
-// and CI to append flags to every launched browser without touching the
-// project's extension.config.js (e.g. --headless=new so batch runs never open
-// a window that steals macOS keyboard focus). Whitespace-separated; flag
-// values that themselves contain spaces are not supported. Appended AFTER
-// config browserFlags so the environment wins feature-switch merges.
+// EXTENSION_BROWSER_FLAGS: launcher-agnostic escape hatch to append flags per
+// launch; whitespace-separated, appended AFTER config flags so env wins.
 export function parseEnvBrowserFlags(raw: string | undefined | null): string[] {
   return String(raw || '')
     .split(/\s+/)
@@ -127,10 +115,8 @@ export function parseEnvBrowserFlags(raw: string | undefined | null): string[] {
     .filter(Boolean)
 }
 
-// Chromium keeps only the LAST occurrence of a repeated switch, so passing
-// --disable-features (or --enable-features) more than once silently drops
-// every earlier value. Collapse all occurrences of each into a single
-// comma-joined switch (deduped, first-seen order) at the end of the list.
+// Chromium keeps only the LAST occurrence of a repeated switch; collapse
+// --disable/enable-features into one comma-joined switch each.
 export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
   const merged: string[] = []
   const featureValues: Record<string, string[]> = {
@@ -159,8 +145,6 @@ export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
   return merged
 }
 
-// Find an available TCP port near a starting port.
-// Defaults to localhost.
 export async function findAvailablePortNear(
   startPort: number,
   maxAttempts: number = 20,
@@ -227,7 +211,7 @@ function readChromiumSingletonOwner(
       return parseChromiumSingletonOwner(fs.readlinkSync(lockPath))
     }
   } catch {
-    // Fall back to plain-file parsing below.
+    // Ignore
   }
 
   try {
@@ -247,7 +231,7 @@ function removeChromiumSingletonArtifacts(profilePath: string): string[] {
       fs.rmSync(full, {recursive: true, force: true})
       removed.push(name)
     } catch {
-      // ignore
+      // Ignore
     }
   }
   return removed
@@ -283,7 +267,7 @@ export function markManagedEphemeralProfile(profilePath: string) {
       'utf8'
     )
   } catch {
-    // ignore
+    // Ignore
   }
 }
 
@@ -303,8 +287,6 @@ export function removeManagedEphemeralProfile(
   }
 }
 
-// Remove old managed ephemeral profile directories while preserving the active
-// profile and the stable persistent profile directory (`dev`).
 export function cleanupOldTempProfiles(
   baseDir: string,
   excludeBasename: string | undefined,
@@ -334,18 +316,18 @@ export function cleanupOldTempProfiles(
         const st = fs.statSync(full)
         mtime = st.mtimeMs
       } catch {
-        // ignore
+        // Ignore
       }
 
       if (mtime > 0 && mtime < cutoff) {
         try {
           fs.rmSync(full, {recursive: true, force: true})
         } catch {
-          // ignore
+          // Ignore
         }
       }
     }
   } catch {
-    // ignore
+    // Ignore
   }
 }

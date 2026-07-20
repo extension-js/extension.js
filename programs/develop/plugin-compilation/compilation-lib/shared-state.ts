@@ -22,11 +22,8 @@ export function markBannerPrinted() {
   }
 }
 
-// Listen for the cross-package signal emitted by banner.ts the moment it
-// finishes printing the " 🧩 Extension.js x.y.z" card. This guarantees the
-// first deferred compile line flushes immediately after the banner, without
-// it, the line stays parked until the next `done` hook (so the initial run
-// shows zero lines and the first reload double-prints)
+// Listen for the cross-package banner-printed signal so the first deferred
+// compile line flushes immediately; otherwise it parks until the next done hook.
 let listenerInstalled = false
 
 function ensureBannerListener() {
@@ -41,11 +38,8 @@ ensureBannerListener()
 
 export function isBannerPrinted(): boolean {
   if (sharedState.bannerPrinted) return true
-  // The browser-side banner printer lives in a separate package
-  // (programs/extension/browsers/browsers-lib/banner.ts). The
-  // BANNER_PRINTED_EVENT listener above flushes synchronously when the
-  // banner prints, but if the event was missed (e.g. develop loaded after
-  // the banner fired), fall back to the env var that banner.ts also sets
+  // The banner printer lives in another package; if its event was missed
+  // (develop loaded late), fall back to the env var banner.ts also sets.
   if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
     markBannerPrinted()
     return true

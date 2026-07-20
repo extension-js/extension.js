@@ -14,7 +14,6 @@ import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
 import {stripBom} from './parse-json-safe'
 
-// Pretty-format helpers for human-readable, Vercel-like tone
 export const fmt = {
   heading: (title: string) => colors.underline(colors.blue(title)),
   label: (key: string) => colors.gray(key.toUpperCase()),
@@ -40,12 +39,10 @@ export const fmt = {
   }
 }
 
-// Prefix candidates (try swapping if desired): '⏵', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
-    // Author mode: magenta, clearly branded, keeps three-element prefix shape
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return colors.brightMagenta(base)
   }
@@ -187,10 +184,8 @@ export function buildWebpack(
     typeof stats?.compilation?.outputOptions?.path === 'string'
       ? stats.compilation.outputOptions.path
       : ''
-  // Failed builds may not emit manifest.json. Fall back to the project
-  // manifest so this summary never throws inside the compiler.run callback:
-  // an exception there leaves the build promise pending and the process
-  // exits 0 without ever reaching the error handling.
+  // Failed builds may not emit manifest.json; fall back to the project manifest
+  // so this summary never throws inside the compiler.run callback.
   const distManifestPath = outputPath
     ? path.join(outputPath, 'manifest.json')
     : ''
@@ -745,7 +740,6 @@ export function isUsingExperimentalConfig(integration: unknown) {
   return `${getLoggingPrefix('info')} Using ${colors.yellow(String(integration))}.`
 }
 
-// Development-only debug helpers
 export function debugDirs(manifestDir: string, packageJsonDir: string) {
   return (
     `${getLoggingPrefix('info')} Directories\n` +

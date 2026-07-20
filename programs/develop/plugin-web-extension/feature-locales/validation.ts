@@ -19,7 +19,6 @@ export function validateLocales(
   compilation: Compilation,
   manifestPath: string
 ): boolean {
-  // Validate locales/default_locale consistency across browsers
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
   try {
@@ -35,12 +34,8 @@ export function validateLocales(
       resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
     const hasLocalesRoot = Boolean(resolvedLocalesRoot)
 
-    // Project-root layout is the canonical placement (sibling of public/,
-    // dist/, package.json, matches Chrome's view of the dist root). When
-    // the resolver falls back to `<manifestDir>/_locales` instead, emit a
-    // build WARNING so authors are nudged toward the canonical layout,
-    // not a fatal error, since plenty of existing templates and external
-    // projects still use the legacy nested layout and shouldn't break.
+    // Project-root _locales is the canonical placement; the <manifestDir>/_locales
+    // fallback warns instead of failing so legacy layouts keep building.
     if (projectRoot && resolvedLocalesRoot) {
       const manifestDir = path.dirname(manifestPath)
       const sameAsRoot = path.resolve(manifestDir) === path.resolve(projectRoot)
@@ -135,9 +130,8 @@ export function validateLocales(
         return false
       }
 
-      // Validate JSON of default locale messages. Parse once here and reuse
-      // the result for the placeholder scan below (this file was previously
-      // read and JSON.parse'd twice in a row)
+      // Parse once and reuse for the placeholder scan below (this file used to be
+      // read and JSON.parse'd twice in a row).
       let defaultLocaleMessages: Record<string, {message?: unknown} | undefined>
 
       try {
@@ -250,7 +244,6 @@ export function validateLocales(
     }
   }
 
-  // Validate all locale JSON files are syntactically valid
   try {
     const localesRoot = resolveLocalesFolder(manifestPath, projectRoot)
 

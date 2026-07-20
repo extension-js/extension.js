@@ -97,7 +97,9 @@ try {
     }
   }
   chrome.storage.session.onChanged.addListener(onSessionChanged as never)
-} catch {}
+} catch {
+  // Ignore
+}
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -126,7 +128,9 @@ function appendEventAndBroadcast(event: LogEvent) {
     try {
       const msg: ServerMessage = {type: 'append', event}
       port.postMessage(msg)
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -136,7 +140,9 @@ function handleClientMessage(port: chrome.runtime.Port, msg: ClientMessage) {
     const initMsg: InitMessage = {type: 'init', events: eventsBufferAll}
     try {
       port.postMessage(initMsg)
-    } catch {}
+    } catch {
+      // Ignore
+    }
     return
   }
 
@@ -193,7 +199,9 @@ chrome.runtime.onConnect.addListener((port) => {
     subscribers.delete(port)
     try {
       port.onMessage.removeListener(onMessage)
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 })
 
@@ -201,7 +209,9 @@ if (import.meta.env.EXTENSION_BROWSER !== 'firefox') {
   chrome.action.onClicked.addListener(async () => {
     try {
       await chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 }
 
@@ -239,7 +249,9 @@ function enrichEventAndBroadcast(event: LogEvent) {
     try {
       const url = new URL(event.url)
       event.hostname = `${url.hostname}${url.pathname}`
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   if (event.tabId != null && event.title == null) {
     try {
@@ -249,7 +261,9 @@ function enrichEventAndBroadcast(event: LogEvent) {
         appendEventAndBroadcast(event)
       })
       return
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   appendEventAndBroadcast(event)
@@ -428,7 +442,9 @@ chrome.runtime.onStartup.addListener(() => {
   // Emit a deterministic test signal for CLI verification
   try {
     logLifecycle('info', ['TEST_LOG: background-start'])
-  } catch {}
+  } catch {
+    // Ignore
+  }
 })
 
 chrome.tabs.onCreated.addListener((tab) => {

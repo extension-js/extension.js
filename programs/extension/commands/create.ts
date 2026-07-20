@@ -59,12 +59,11 @@ export function registerCreateCommand(program: Command) {
                   path.dirname(developEntry)
                 )
               } catch {
-                // Leave unset if extension-develop is not available
+                // Ignore
               }
             }
           }
         }
-        // Load the matching create runtime from the regular dependency graph.
         const {extensionCreate} = await import('extension-create')
 
         await extensionCreate(pathOrRemoteUrl, {

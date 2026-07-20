@@ -34,11 +34,11 @@ export async function attachConsoleListeners(client: MessagingClient) {
           }
         }
       } catch {
-        // ignore per-target failures
+        // Ignore
       }
     }
   } catch {
-    // ignore target scan failures
+    // Ignore
   }
 }
 

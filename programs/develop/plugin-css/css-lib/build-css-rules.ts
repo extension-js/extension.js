@@ -62,12 +62,8 @@ export async function buildCssRules(
           }
         ]
       : // Without the preprocessor installed, still route the files as CSS.
-        // Chrome loads a manifest-declared `.scss` stylesheet by injecting
-        // its raw text as CSS (dropping invalid rules), so with no rule here
-        // the file used to fall through to rspack's default JS parser and
-        // hard-fail a build the browser accepts. Shipping raw preprocessor
-        // source is knowingly-broken CSS, so each file also emits a loud
-        // install-the-compiler warning via the passthrough loader.
+        // Chrome loads a manifest-declared .scss by injecting raw text as CSS; without
+        // this rule the file hits the JS parser and fails a build the browser accepts.
         [
           {
             test: /\.(sass|scss)$/,

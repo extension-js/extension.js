@@ -28,7 +28,9 @@ describe('assertNoManagedDependencyConflicts', () => {
 
     try {
       fs.rmSync(project, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('does not throw when a managed dependency is only mentioned in a comment', () => {
@@ -49,7 +51,9 @@ describe('assertNoManagedDependencyConflicts', () => {
 
     try {
       fs.rmSync(project, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('does not throw when a managed name is only a substring of another package', () => {
@@ -72,6 +76,8 @@ describe('assertNoManagedDependencyConflicts', () => {
 
     try {
       fs.rmSync(project, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 })

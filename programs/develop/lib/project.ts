@@ -17,9 +17,8 @@ export interface ProjectStructure {
   manifestPath: string
   // Optional in web-only mode (no package manager present)
   packageJsonPath?: string
-  // deno.json(c) when the project is (also) a Deno project. A project with
-  // only this manifest is a full project, not web-only mode: dependencies
-  // are declared as `npm:` imports and installed with `deno install`.
+  // deno.json(c) when the project is (also) a Deno project: still a full
+  // project, with npm: imports installed via deno install.
   denoJsonPath?: string
 }
 
@@ -110,7 +109,6 @@ async function importUrlSourceFromGithub(
         if (!hasManifest(expectedPath)) {
           fs.rmSync(expectedPath, {recursive: true, force: true})
         } else {
-          // Directory exists and is a valid extension root; use it as-is
           return expectedPath
         }
       }
@@ -129,7 +127,6 @@ async function importUrlSourceFromGithub(
   }
 
   async function tryZipFallback() {
-    // Build a GitHub ZIP URL and extract the repository, then resolve subdir
     const branch =
       treeIndex !== -1 && segments.length > treeIndex + 1
         ? segments[treeIndex + 1]
@@ -144,7 +141,6 @@ async function importUrlSourceFromGithub(
     const zipUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`
     const extractedPath = await importUrlSourceFromZip(zipUrl)
 
-    // Locate the extracted repo root (usually <repo>-<branch>)
     const extractedDirs = fs
       .readdirSync(extractedPath, {withFileTypes: true})
       .filter((d) => d.isDirectory())
@@ -165,7 +161,6 @@ async function importUrlSourceFromGithub(
     return await tryZipFallback()
   }
 
-  // Prefer candidates based on URL
   const candidates: string[] = []
 
   if (treeIndex !== -1 && segments.length > treeIndex + 2) {
@@ -182,7 +177,6 @@ async function importUrlSourceFromGithub(
     }
   }
 
-  // As a last resort, attempt to find a newly created directory that has a manifest.json
   const dirs = fs
     .readdirSync(cwd, {withFileTypes: true})
     .filter((d) => d.isDirectory())
@@ -193,7 +187,6 @@ async function importUrlSourceFromGithub(
     if (fs.existsSync(manifestPath)) return path.join(cwd, dir)
   }
 
-  // As a last attempt for GitHub ZIP fallback, scan for a newly extracted repo root
   try {
     const dirs = fs
       .readdirSync(cwd, {withFileTypes: true})
@@ -205,7 +198,9 @@ async function importUrlSourceFromGithub(
     if (ghRoot) {
       return path.join(cwd, ghRoot)
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
 }
@@ -331,8 +326,6 @@ function collectManifestCandidates(
   return results
 }
 
-// Gets the project structure with manifest and package.json locations
-// Supports monorepo structure where manifest and package.json may be in different directories
 export async function getProjectStructure(
   pathOrRemoteUrl: string | undefined
 ): Promise<ProjectStructure> {
@@ -343,8 +336,6 @@ export async function getProjectStructure(
     return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
   }
 
-  // Find nearest project manifest (package.json or deno.json(c)) from the
-  // project root (if any).
   const packageJsonPathFromProject = await findNearestPackageJson(
     path.join(projectPath, 'manifest.json')
   )
@@ -357,9 +348,6 @@ export async function getProjectStructure(
       ? path.dirname(denoJsonPathFromProject)
       : undefined
 
-  // Prefer conventional locations before recursive search:
-  // - <root>/manifest.json
-  // - <root>/src/manifest.json
   const rootManifestPath = path.join(projectPath, 'manifest.json')
   const srcManifestPath = path.join(projectPath, 'src', 'manifest.json')
   let manifestPath = fs.existsSync(srcManifestPath)
@@ -424,11 +412,8 @@ export async function getProjectStructure(
     }
   }
 
-  // PWA web-app manifests share the manifest.json filename but are not
-  // browser-extension manifests. Detect them by their signature fields
-  // (no manifest_version plus web-app-only keys) and re-resolve to a real
-  // extension manifest elsewhere in the project, or fail with a clear
-  // message instead of crashing on PWA-shaped fields downstream.
+  // PWA web-app manifests share the manifest.json filename; detect by signature
+  // fields and re-resolve to a real extension manifest or fail clearly.
   const readManifestObject = (
     candidatePath: string
   ): ParsedJson | undefined => {
@@ -497,16 +482,14 @@ export async function getProjectStructure(
       } else if (fs.existsSync(fallbackRoot)) {
         manifestPath = fallbackRoot
       } else {
-        // If only public/ contains a manifest, treat as not found
         throw new Error(messages.manifestNotFoundError(fallbackRoot))
       }
     }
   }
 
   if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
-    // No (valid) package.json: a Deno-manifest project is still a full
-    // project; only when no manifest exists at all do we fall back to
-    // web-only mode.
+    // No (valid) package.json: a Deno-manifest project is still a full project;
+    // only with no manifest at all do we fall back to web-only mode.
     return {
       manifestPath,
       ...(denoJsonPath ? {denoJsonPath} : {})

@@ -31,14 +31,18 @@ export function useSortingPersistence(storageKey = 'logger_table_sorting') {
 
         if (Array.isArray(val)) setTimeOnlySorting(val)
       })
-    } catch {}
+    } catch {
+      // Ignore
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     try {
       chrome.storage.session.set({[storageKey]: sorting})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }, [sorting, storageKey])
 
   return {sorting, setTimeOnlySorting}

@@ -63,7 +63,9 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         } catch {
           try {
             chrome.tabs.create({url: extensionsPage})
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
         return
       }
@@ -77,6 +79,9 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         : url.startsWith(`${scheme}://newtab`) ||
           url.startsWith(`${scheme}://welcome`)
 
+// Always attempt first-run handling on Firefox: it does not always start on an
+
+// initial page, so ensure the welcome page is still available.
       if (isFirefox) {
         // Always attempt first-run handling on Firefox.
         // Firefox does not always start on an initial page,
@@ -95,5 +100,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
 
       createExtensionsPageTab(initialTab, extensionsPage)
     })
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }

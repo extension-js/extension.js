@@ -13,14 +13,8 @@ import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 import type {FilepathList} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 
-// `scripts/` is a near-universal folder name for npm/CI build & dev tooling, but
-// Extension.js's `scripts/` special folder enrolls EVERY file in it as a
-// standalone (content-script-like) entry. Node build scripts then fail the build
-// on their Node-only imports (`fs-extra`, `esbuild`, `playwright`, `require('fs')`
-// …) which can't resolve in a browser bundle (G13). A browser content script can
-// never use these, so a file that imports a Node builtin / known build tool, or
-// carries a `#!…node` shebang, is unambiguously build tooling, exclude it from
-// the `scripts/` scan instead of trying (and failing) to bundle it.
+// scripts/ enrolls EVERY file as a content-script-like entry, but Node build
+// tooling (Node-builtin imports, node shebang) can never be one; exclude it.
 const NODE_BUILTINS = new Set([
   'assert',
   'buffer',
@@ -125,11 +119,8 @@ function isNodeToolingScript(absPath: string): boolean {
     return false
   }
 
-  // `#!/usr/bin/env node` (or any node shebang) => a CLI/build script.
   if (/^#!.*\bnode\b/.test(source)) return true
 
-  // Collect every `require('x')` / `import … from 'x'` / `import 'x'` specifier
-  // and check whether any is a Node builtin or a known Node-only build tool.
   const specifierRe =
     /(?:require\s*\(\s*|(?:import|export)\b[^'"()]*?\bfrom\s*|import\s*)['"]([^'"]+)['"]/g
   let match: RegExpExecArray | null
@@ -158,24 +149,8 @@ function filterNodeToolingScripts(
   return next
 }
 
-// ── G13 option 2: only enroll `scripts/` files the extension actually uses ──
-// The `scripts/` special folder auto-enrolls EVERY file in it as a standalone
-// content-script entry. The Node-tooling filter above catches build/dev scripts
-// that import Node builtins or carry a `#!node` shebang, but it can't see a plain
-// data/generator helper (e.g. `data = {…}`, top-level `await`, no imports), that
-// file has no Node "tell", yet it's still not a browser script, so enrolling it
-// breaks the build (G13 gap: `vict0rsch/PaperMemory`'s `scripts/cell.js`).
-//
-// A real `scripts/` file is referenced by the extension: listed in the manifest
-// (`content_scripts`, `web_accessible_resources`, …), pulled from an HTML page, or
-// injected at runtime via a string path (`chrome.scripting.executeScript({files:
-// ['/scripts/x.js']})`, how the canonical special-folders-scripts example works).
-// So keep a `scripts/` entry only if its project-relative path appears in the
-// project's own extension assets; drop the ones referenced nowhere.
-//
-// Fail OPEN: if we can't read any reference assets (nothing to check against), keep
-// everything, biasing toward a false-keep (a loud build error) over a false-drop
-// (a script silently missing at runtime).
+// Keep a scripts/ entry only if the extension actually references it (manifest,
+// HTML, or runtime string path); fail OPEN when no reference assets are readable.
 
 const REFERENCE_SOURCE_EXTS = new Set([
   '.html',
@@ -192,11 +167,8 @@ const REFERENCE_SOURCE_EXTS = new Set([
   '.svelte'
 ])
 
-// Directories that never hold hand-authored reference assets. `scripts/` is
-// excluded too: a reference to a scripts/ file comes from the extension's real
-// entrypoints (background/content/popup/manifest), not from a sibling build tool
-// inside scripts/, including scripts/ would let a build script that reads a data
-// helper (`fs.readFile('scripts/cell.js')`) falsely "reference" it.
+// Directories that never hold hand-authored reference assets. scripts/ is
+// excluded too: a build script reading a data helper must not "reference" it.
 const REFERENCE_SKIP_DIRS = new Set([
   'node_modules',
   'dist',
@@ -247,7 +219,7 @@ function collectReferenceCorpus(projectRoot: string): string {
         files += 1
         bytes += text.length
       } catch {
-        // ignore unreadable files
+        // Ignore
       }
     }
   }
@@ -373,9 +345,8 @@ function finalizeSpecialFoldersData(
     ...data,
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
-    // Drop Node build/dev tooling that happens to live in `scripts/` (G13), then
-    // drop any `scripts/` file the extension never references (G13 gap, data /
-    // generator helpers with no Node tell), then exclude public/ entries as pages.
+    // Drop Node build/dev tooling living in scripts/, then drop scripts/ files the
+    // extension never references, then exclude public/ entries as pages.
     scripts: filterPublicEntrypoints(
       filterUnreferencedScripts(
         filterNodeToolingScripts(data.scripts),
@@ -384,9 +355,8 @@ function finalizeSpecialFoldersData(
       projectRoot,
       publicDir
     ),
-    // Default behavior: auto-scan top-level ./extensions for companion
-    // unpacked extensions (one level deep), with optional browser subfolders
-    // handled by the resolver when applicable.
+    // Default behavior: auto-scan top-level ./extensions for companion unpacked
+    // extensions (one level deep), optional browser subfolders via the resolver.
     extensions: {dir: './extensions'}
   }
 }

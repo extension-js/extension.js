@@ -45,7 +45,9 @@ it('falls back to cache when config path is unwritable', () => {
 
   try {
     fs.chmodSync(configHome, 0o500)
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const configWritable = canWrite(configHome)
 

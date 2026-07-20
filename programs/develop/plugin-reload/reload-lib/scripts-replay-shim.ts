@@ -6,24 +6,8 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * Dev-only banner prepended to the background service worker / script. Wraps
- * `chrome.scripting.executeScript` so the SDK can replay the same programmatic
- * injections after a user edits a file in `/scripts/*`.
- *
- * Without this, editing `/scripts/script-one.js` rebuilds the bundle on disk
- * but the previously-injected DOM stays stale until the user manually
- * re-triggers whatever called `executeScript`. With this shim plus the
- * controller-side trigger, `/scripts/*` edits behave like declarative
- * `content_scripts` edits: the SDK re-executes the same injection on the
- * same tab, and the wrapper around each `/scripts/<name>.js` (which runs
- * via `__EXTENSIONJS_mount`) handles old-mount teardown.
- *
- * Storage: in-memory `Map` keyed by tabId. Lives on the SW's globalThis, so
- * it survives across multiple `executeScript` calls in the same SW lifetime
- * and dies when Chrome cycles the SW. That's fine for dev, the next click
- * after a SW restart re-records the call.
- */
+// Dev-only banner wrapping chrome.scripting.executeScript so /scripts/* edits
+// replay prior injections; in-memory per-tab map, dies with the SW (fine for dev).
 export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
   try {
     if (typeof globalThis !== "object" || !globalThis) return;

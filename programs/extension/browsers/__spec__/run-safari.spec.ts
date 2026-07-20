@@ -49,7 +49,9 @@ describe('run-safari config', () => {
   afterEach(() => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('derives app name and a converter-aligned bundle id from the manifest', () => {
@@ -365,7 +367,9 @@ describe('manifest fingerprinting', () => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
       fs.rmSync(`${distDir}-xcode`, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   function configFor(dir: string) {
@@ -615,7 +619,9 @@ describe('safari pipeline staleness integration', () => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
       fs.rmSync(xcodeDir, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   async function runFakePipeline(

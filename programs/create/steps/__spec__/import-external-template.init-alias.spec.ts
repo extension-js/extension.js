@@ -46,7 +46,9 @@ describe('importExternalTemplate', () => {
     } finally {
       try {
         await fsp.rm(tmpRoot, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 })

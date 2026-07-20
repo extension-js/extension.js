@@ -97,10 +97,8 @@ function collectStyleAssetSpecifiers(source: string): string[] {
       if (
         specifier &&
         SAFE_SPECIFIER.test(specifier) &&
-        // CSS-module imports compile to a class-name exports OBJECT, not an
-        // emitted asset, `new URL(exportsObject, base)` yields a garbage
-        // ".../[object Object]" candidate. The getURL(<bundle>.css) fallback
-        // covers modules css, so skip them here.
+        // CSS-module imports compile to a class-name exports OBJECT, not an asset;
+        // new URL(exportsObject, base) yields garbage, and getURL covers modules css.
         !/\.module\.(?:css|scss|sass|less|styl)(?:\?|$)/.test(specifier) &&
         !/(?:^|[?&])url(?:[=&]|$)/.test(specifier) &&
         !/(?:^|[?&])raw(?:[=&]|$)/.test(specifier)
@@ -132,10 +130,8 @@ function hasDefaultExport(
       if (typeof cached === 'boolean') return cached
     }
 
-    // The lexer only scans import/export statements, so it tolerates TS/TSX
-    // sources without needing per-syntax parser configuration. It covers
-    // `export default ...`, `export {x as default}`, and re-exports of
-    // `default`; anything it can't lex throws into the regex fallback below.
+    // The lexer only scans import/export statements, tolerating TS/TSX without
+    // per-syntax config; anything it can't lex throws into the regex fallback.
     const [, moduleExports] = parseModuleSyntax(source)
     const result = moduleExports.some((entry) => entry.n === 'default')
 
@@ -148,7 +144,9 @@ function hasDefaultExport(
         `${path.normalize(resourcePath)}|${getSourceSignature(source)}`,
         fallback
       )
-    } catch {}
+    } catch {
+      // Ignore
+    }
     return fallback
   }
 }
@@ -179,11 +177,8 @@ function readManifestCached(manifestPath: string): Record<string, unknown> {
   }
 }
 
-/**
- * Shift source map mappings down by the number of lines in `prefix`.
- * Prepends empty mapping lines so the original mappings align with the
- * user source that now appears after the runtime prefix.
- */
+// Shift source map mappings down by the prefix line count so original
+// mappings align with the user source after the runtime prefix.
 function shiftSourceMap(map: unknown, prefix: string): unknown {
   const mapObj = map as {mappings?: unknown} | null | undefined
   if (
@@ -215,12 +210,8 @@ export default function contentScriptWrapper(
 
   const compilation = this._compilation
   const manifestPath = options.manifestPath
-  // Canonicalize so these match `this.resourcePath`, which rspack hands us as
-  // the symlink-resolved real path. Under a symlinked project root (macOS
-  // $TMPDIR, some CI/devcontainer temp dirs) a non-canonical manifestDir would
-  // make `path.resolve(manifestDir, jsFile)` differ from the real resourcePath,
-  // so the file would not be recognized as a declared content script and would
-  // lose its `__EXTENSIONJS_mount` call.
+  // Canonicalize to match this.resourcePath (symlink-resolved); under a
+  // symlinked project root a raw manifestDir would break declared-entry matching.
   const manifestDir = canonicalizeDir(path.dirname(manifestPath))
   const packageJsonPath = findNearestProjectManifestSync(manifestPath)
   const packageJsonDir = canonicalizeDir(
@@ -265,10 +256,8 @@ export default function contentScriptWrapper(
     }
   }
 
-  // Canonicalize the resource path into the SAME form as the
-  // manifestDir/packageJsonDir above. See lib/resource-path for why both sides
-  // must be canonicalized identically, otherwise the declared-entry match
-  // silently fails on Windows and every content script falls through unwrapped.
+  // Canonicalize into the SAME form as manifestDir above; otherwise the
+  // declared-entry match silently fails on Windows and scripts go unwrapped.
   const resourceAbsPath = canonicalizeResourcePath(this.resourcePath)
   const declaredEntry = declaredContentJsAbsEntries.find(
     (entry) => resourceAbsPath === path.normalize(entry.abs)
@@ -281,13 +270,8 @@ export default function contentScriptWrapper(
     !relToScripts.startsWith('..') &&
     !path.isAbsolute(relToScripts)
 
-  // The scripts/ folder at the project root is reserved for browser-side
-  // content-script-like files, Extension.js prepends a mount/reload runtime to
-  // every file inside it. A Node.js CLI or launcher dropped into scripts/ would
-  // get the runtime prepended too, pushing the shebang past line 1 and yielding
-  // a cryptic swc "Expected ident" syntax error. Detect obvious Node.js shapes
-  // and surface an actionable message naming the reserved folder before we
-  // wrap anything.
+  // scripts/ is reserved for browser-side files; a Node CLI dropped there gets
+  // the runtime prepended and a cryptic swc error, so name the folder up front.
   if (isScriptsFolderScript && !declaredEntry) {
     const nodeIndicators = detectNodeJsShapedScript(rewrittenSource)
     if (nodeIndicators.length > 0) {
@@ -301,14 +285,8 @@ export default function contentScriptWrapper(
     }
   }
 
-  // A vendored, pre-minified library (e.g. Mozilla's browser-polyfill.min.js)
-  // dropped into scripts/ is not a first-party content-script entrypoint: it
-  // ships its own runtime and must be passed through untouched. Wrapping it
-  // would prepend the mount/reload runtime and append the
-  // __EXTENSIONJS_REINJECT_GENERATION epilogue to a third-party file, shifting
-  // its line numbers and corrupting any parse diagnostics. Only skip files
-  // caught by the scripts/ heuristic, an explicitly declared content_scripts
-  // entry stays wrapped even if it happens to be named *.min.js.
+  // A vendored pre-minified library in scripts/ must pass through untouched;
+  // only heuristic-caught files skip, declared content_scripts stay wrapped.
   const isVendoredMinifiedScript = /\.min\.[cm]?js$/i.test(resourceAbsPath)
   if (isVendoredMinifiedScript && !declaredEntry) {
     if (inputSourceMap) {
@@ -440,11 +418,8 @@ export default function contentScriptWrapper(
     '  } catch (error) {}\n' +
     '}\n'
 
-  // The bundled companion extensions (extension-js-devtools/theme) are
-  // wrapper-built like any user extension and share canonical bundle keys
-  // (content_scripts/content-0) with user content scripts in the SAME page
-  // DOM. Their wrappers must never adopt, restyle, or clean up foreign
-  // (user-extension) roots.
+  // Companion extensions share canonical bundle keys with user content scripts
+  // in the SAME page DOM; their wrappers must never adopt foreign roots.
   const isBuiltInCompanion = /extension-js-(?:devtools|theme)/.test(
     String(packageJsonDir || '')
   )
@@ -454,9 +429,8 @@ export default function contentScriptWrapper(
     `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
     `var __EXTENSIONJS_REINJECT_BUILD_TOKEN=${JSON.stringify(buildToken)};\n` +
     `var __EXTENSIONJS_NO_FOREIGN_ADOPT=${JSON.stringify(isBuiltInCompanion)};\n` +
-    // Distinct extensions run this same wrapper against the same page DOM with
-    // IDENTICAL reinject keys (content_scripts/content-0::script-0), so bare
-    // keys cannot express ownership. Qualify with the runtime extension id.
+    // Distinct extensions run this wrapper with IDENTICAL reinject keys, so bare
+    // keys cannot express ownership; qualify with the runtime extension id.
     'function __EXTENSIONJS_ownerToken(){\n' +
     '  var extId = "";\n' +
     '  try {\n' +
@@ -466,10 +440,8 @@ export default function contentScriptWrapper(
     '  return String(__EXTENSIONJS_REINJECT_KEY || "") + (extId ? "@" + extId : "");\n' +
     '}\n' +
     `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isProd)};\n` +
-    // Roots that already existed before OUR mount ran (other scripts in a
-    // multi-script entry, or other extensions). Adoption must never claim
-    // them: stamping every unowned root corrupts ownership, so teardown
-    // later mismatches and roots accumulate across reinjects.
+    // Roots that predate OUR mount must never be adopted: stamping unowned roots
+    // corrupts ownership and roots accumulate across reinjects.
     'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
     'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
     '  try {\n' +
@@ -836,8 +808,7 @@ export default function contentScriptWrapper(
     '    __EXTENSIONJS_previousCleanup();\n' +
     '  }\n' +
     '} catch (error) {}\n' +
-    // No registry entry = fresh isolated world (first injection or the world
-    // was reset by chrome.runtime.reload): any root we own predates this
+    // No registry entry = fresh isolated world: any root we own predates this
     // execution and must go, even when its build token still matches.
     'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n' +
     'function __EXTENSIONJS_syncAssetBase(){\n' +
@@ -932,10 +903,18 @@ export default function contentScriptWrapper(
       `${bootstrap}` +
       `${runtimeInline}`
     const suffix =
-      `try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {}\n` +
-      `try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {}\n` +
-      `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {}\n` +
-      `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {}\n`
+      `try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {
+        // Ignore
+      }\n` +
+      `try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {
+        // Ignore
+      }\n` +
+      `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {
+        // Ignore
+      }\n` +
+      `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {
+        // Ignore
+      }\n`
     const wrapped = `${prefix}${rewrittenSource}\n${suffix}`
     if (inputSourceMap) {
       this.callback(null, wrapped, shiftSourceMap(inputSourceMap, prefix))
@@ -993,8 +972,12 @@ export default function contentScriptWrapper(
     `var __EXTENSIONJS_cleanup = function(){};\n` +
     `try { __EXTENSIONJS_cleanup = __EXTENSIONJS_mount(__EXTENSIONJS_default__, ${JSON.stringify(
       runAt
-    )}) } catch (error) {}\n` +
-    `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {}\n` +
+    )}) } catch (error) {
+      // Ignore
+    }\n` +
+    `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {
+      // Ignore
+    }\n` +
     `export default __EXTENSIONJS_default__\n`
   const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
   if (inputSourceMap) {

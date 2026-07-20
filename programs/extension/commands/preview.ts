@@ -29,7 +29,6 @@ type PreviewOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
-  // Unified logger options (parity with dev)
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean

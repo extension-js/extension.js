@@ -28,18 +28,15 @@ export class LocalesPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    // Add the locales to the compilation. This is important so other
-    // plugins can get it via the compilation.assets object,
-    // allowing them to modify it.
+    // Add the locales to the compilation so other plugins can read and modify
+    // them via compilation.assets.
     compiler.hooks.thisCompilation.tap('locales:module', (compilation) => {
       compilation.hooks.processAssets.tap(
         {
           name: 'locales:module',
-          // Add additional assets to the compilation.
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
-          // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
             const ErrorConstructor = compiler?.rspack?.WebpackError || Error
             const error = new ErrorConstructor(
@@ -58,14 +55,12 @@ export class LocalesPlugin {
             return
           }
 
-          // Validate locales/default_locale consistency across browsers
           if (!validateLocales(compiler, compilation, this.manifestPath)) {
             return
           }
 
           if (compilation.errors.length > 0) return
 
-          // Process and emit locale assets
           processLocaleAssets(compiler, compilation, this.manifestPath)
         }
       )

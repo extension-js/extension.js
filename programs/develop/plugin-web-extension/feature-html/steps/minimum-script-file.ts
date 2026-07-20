@@ -6,23 +6,8 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * Dev-only helper included in all HTML-based extension pages during development.
- *
- * Why this exists:
- * - We run the dev-server in `hot: "only"` mode globally to avoid hard-reload loops
- *   in content scripts when HMR fails (common after syntax errors).
- * - Some extension UI pages (sidebar/options/popup) historically relied on reload-based
- *   recovery after syntax errors.
- *
- * Rspack dev-server client (v2.x) checks `location.search` for: rspack-dev-server-hot=false
- * If present, it will NOT attempt HMR and will fall back to liveReload (full
- * reload). The same param was named `webpack-dev-server-hot=false` in
- * @rspack/dev-server 1.x; v2.0 renamed both the hot and live-reload guards to
- * the rspack-prefixed forms, so we set both names for forward/back compat.
- * We set that flag only for extension pages (`*-extension:` protocols) so UI pages
- * keep their previous "reload to recover" behavior, while content scripts remain protected.
- */
+// Dev-only helper for HTML pages: sets the rspack/webpack dev-server hot=false
+// URL guards so UI pages fall back to full reload; content scripts stay hot-only.
 const safeLocation =
   typeof globalThis !== 'undefined'
     ? (
@@ -68,7 +53,7 @@ try {
     }
   }
 } catch {
-  // ignore
+  // Ignore
 }
 
 export {}

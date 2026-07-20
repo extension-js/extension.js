@@ -36,10 +36,8 @@ function resolveDevelopRootFromDir(dir: string): string | undefined {
 function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
   let currentDir = path.resolve(startDir)
 
-  // If we're inside an installed copy (node_modules in the path), don't
-  // escape into the surrounding project. That would let an outer monorepo
-  // hijack the resolution and force a workspace build that has nothing to
-  // do with the consumer
+  // Inside an installed copy (node_modules in the path), don't escape into the
+  // surrounding project: an outer monorepo would hijack the resolution.
   if (currentDir.split(path.sep).includes('node_modules')) return undefined
 
   for (let depth = 0; depth < 8; depth += 1) {
@@ -167,11 +165,8 @@ export async function loadExtensionDevelopModule<T = AnyDevelopModule>(
   return (await import('extension-develop')) as T
 }
 
-/**
- * Load only the lightweight preview entry from extension-develop.
- * This avoids pulling in rspack and the full build toolchain, making
- * `extension preview` start significantly faster.
- */
+// Load only the lightweight preview entry, avoiding rspack and the full build
+// toolchain, so extension preview starts significantly faster.
 export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {
@@ -200,10 +195,8 @@ export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
   return (await import('extension-develop/preview')) as T
 }
 
-/**
- * Load only the lightweight agent-bridge entry (BridgeConsumer / readReadyContract)
- * for the `extension logs` command. Avoids pulling in rspack like preview does.
- */
+// Load only the lightweight agent-bridge entry for extension logs;
+// avoids pulling in rspack like preview does.
 export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {

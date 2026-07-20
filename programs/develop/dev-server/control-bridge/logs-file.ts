@@ -50,7 +50,7 @@ export class LogsFileWriter {
       fs.mkdirSync(path.dirname(this.opts.filePath), {recursive: true})
       if (fs.existsSync(this.opts.filePath)) this.rotate()
     } catch {
-      // best-effort
+      // Ignore
     }
 
     this.writeHeader(null)
@@ -128,7 +128,7 @@ export class LogsFileWriter {
       this.bytes += Buffer.byteLength(sentinel)
       this.lines += 1
     } catch {
-      // give up on the sentinel too
+      // Ignore
     }
   }
 
@@ -173,7 +173,7 @@ export class LogsFileWriter {
         fs.renameSync(this.opts.filePath, this.rotatedName(1))
       }
     } catch {
-      // best-effort
+      // Ignore
     }
   }
 }

@@ -131,9 +131,8 @@ export function getManifestContent(
   }
 }
 
-// Re-export the canonical resolver (imported above) so the emission path,
-// feature-scripts, and feature-html all share one implementation, including
-// Safari/webkit chromium-family resolution.
+// Re-export the canonical resolver so emission, feature-scripts, and
+// feature-html share one implementation, incl. Safari/webkit resolution.
 export {filterKeysForThisBrowser}
 
 export function buildCanonicalManifest(

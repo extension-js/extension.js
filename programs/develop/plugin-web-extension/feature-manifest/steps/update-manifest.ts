@@ -128,7 +128,9 @@ export class UpdateManifest {
                       if (hasCss && hasJs && cs.js?.length === 1) {
                         devCssStubsAdded++
                       }
-                    } catch {}
+                    } catch {
+                      // Ignore
+                    }
                   }
                 }
                 console.log(
@@ -137,7 +139,9 @@ export class UpdateManifest {
                     devCssStubsAdded
                   )
                 )
-              } catch {}
+              } catch {
+                // Ignore
+              }
             }
 
             // Repair shapes Chrome refuses to load over (numeric version, empty or 0-byte
