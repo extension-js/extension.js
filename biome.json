@@ -59,7 +59,7 @@
         "noControlCharactersInRegex": "off",
         "useIterableCallbackReturn": "warn",
         "noAssignInExpressions": "warn",
-        "noAsyncPromiseExecutor": "warn",
+        "noAsyncPromiseExecutor": "error",
         "noImplicitAnyLet": "warn"
       },
       "a11y": {
