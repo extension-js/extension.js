@@ -169,7 +169,7 @@ export async function evaluate(
         expression,
         type
       )) as {result?: unknown; value?: unknown} | unknown
-      const r: any = response ?? {}
+      const r = (response ?? {}) as {result?: unknown; value?: unknown}
 
       if (r.result !== undefined) return r.result
       if (r.value !== undefined) return r.value
