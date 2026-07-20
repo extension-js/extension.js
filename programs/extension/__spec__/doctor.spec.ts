@@ -46,7 +46,8 @@ function healthyModule(overrides: Record<string, unknown> = {}) {
       instanceId: 'inst-1',
       runId: 'run-A',
       status: 'ready',
-      pid: process.pid
+      pid: process.pid,
+      cdpPort: 9222
     }),
     readControlToken: () => 'tok',
     readPersistedControlPort: () => 4001,
@@ -89,7 +90,8 @@ describe('extension doctor', () => {
         instanceId: 'inst-1',
         runId: 'run-A',
         status: 'ready',
-        pid: 999999
+        pid: 999999,
+        cdpPort: 9222
       })
     })
     const r = byCheck(await runDoctor('/proj', {}))
@@ -259,6 +261,24 @@ describe('extension doctor', () => {
     expect(r.browser.status).toBe('fail')
     expect(r.browser.detail).toContain('code 21')
     expect(r.browser.remediation).toContain('Restart')
+  })
+
+  it('reports the browser leg as unknown when no cdpPort is stamped (§73 F27)', async () => {
+    // Absence of exit evidence must never render as a green verdict: with no
+    // cdpPort there is nothing to verify a live browser against.
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid
+      })
+    })
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.browser.status).toBe('skip')
+    expect(r.browser.detail).toContain('unknown')
+    expect(r.browser.remediation).toBeTruthy()
   })
 })
 
