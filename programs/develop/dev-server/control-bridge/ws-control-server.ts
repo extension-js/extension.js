@@ -13,10 +13,8 @@ import {type AnyFrame, CONTROL_WS_PATH, type ServerFrame} from './contracts'
 const SLOW_CONSUMER_BYTES = 8 * 1024 * 1024
 const CLOSE_SLOW_CONSUMER = 4008
 
-// MV3 service workers idle out after ~30s without events; receiving a
-// WebSocket message resets that timer (Chrome 116+). Ping producers on a
-// shorter cadence so the dev extension's SW stays reachable for reload
-// broadcasts however long the developer pauses between edits.
+// MV3 service workers idle out after ~30s; a WebSocket message resets that
+// timer (Chrome 116+), so ping producers faster to keep the SW reachable.
 const PRODUCER_KEEPALIVE_INTERVAL_MS = 20_000
 
 export interface ControlServer {
@@ -55,9 +53,7 @@ export function startControlServer(
             // Isolate a slow reader so it can't backpressure the broker
             try {
               socket.close(CLOSE_SLOW_CONSUMER, 'slow consumer')
-            } catch {
-              // ignore
-            }
+            } catch {}
             return
           }
           try {
@@ -69,9 +65,7 @@ export function startControlServer(
         close(code, reason) {
           try {
             socket.close(code, reason)
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }
 
@@ -80,7 +74,7 @@ export function startControlServer(
         try {
           frame = JSON.parse(data.toString())
         } catch {
-          return // ignore malformed frames
+          return
         }
         broker.onFrame(conn, frame)
       })
@@ -106,9 +100,7 @@ export function startControlServer(
             for (const client of wss.clients) {
               try {
                 client.terminate()
-              } catch {
-                // ignore
-              }
+              } catch {}
             }
             wss.close(() => res())
           })

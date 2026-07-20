@@ -60,9 +60,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
       }
     }
-  } catch {
-    // Ignore best-effort manifest introspection.
-  }
+  } catch {}
 
   const trimTrailingSep = (p: string) => {
     let end = p.length
@@ -118,9 +116,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         if (!/^Profile\s+\d+$/i.test(entry)) continue
         pushPrefIfExists(path.join(profilePath, entry))
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
 
     for (const prefPath of candidates) {
       try {
@@ -158,9 +154,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
 
         if (fallbackId) return fallbackId
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
 
     return null
@@ -178,14 +172,8 @@ export async function deriveExtensionIdFromTargetsHelper(
       const targets = await cdp.getTargets()
       const profileCandidateId = deriveFromProfile()
 
-      // 1) Try to derive from extension background/service worker contexts.
-      //    Walk every candidate target before deciding, version-only matches
-      //    are kept in a separate bucket and only applied at the END of the
-      //    pass, so a target that matches by NAME later in the iteration
-      //    always wins over an earlier target that matches by version alone.
-      //    This avoids returning the wrong extension when the user's
-      //    extension and a companion (e.g. extension-js-devtools) ship the
-      //    same version + manifest_version
+      // Derive from extension background/SW contexts. Walk every target before
+      // deciding: a NAME match later in the pass beats a version-only match.
       let firstEvalId: string | null = null
       let evalIdCount = 0
       let urlDerivedId: string | null = null
@@ -258,20 +246,15 @@ export async function deriveExtensionIdFromTargetsHelper(
             (expectedManifestVersion ? manifestVersionMatches : true) &&
             (!profileCandidateId || id === profileCandidateId)
           ) {
-            // Defer: only fall back to a version-only match if no name match
-            // is found in the entire pass, AND the match is unambiguous
-            // (exactly one such candidate).
+            // Defer: fall back to a version-only match only if no name match is
+            // found in the entire pass AND the match is unambiguous.
             if (!versionFallbackIds.includes(id)) versionFallbackIds.push(id)
           }
-        } catch {
-          // Ignore
-        }
+        } catch {}
       }
 
-      // No name match found this pass, accept a version-only match only when
-      // it is unique. Multiple version-only candidates means we cannot
-      // distinguish the user extension from a sibling (for example, companion),
-      // so fall through to the next retry / profile-derived fallback
+      // No name match this pass: accept a version-only match only when unique;
+      // multiple candidates can't distinguish the user extension from a sibling.
       if (
         versionFallbackIds.length === 1 &&
         (expectedName ? !expectedNameIsMsg : true)
@@ -279,7 +262,6 @@ export async function deriveExtensionIdFromTargetsHelper(
         return versionFallbackIds[0]
       }
 
-      // With exactly one viable extension runtime, use it.
       if (evalIdCount === 1 && firstEvalId) {
         if (!hasExpectedManifestIdentity) {
           return firstEvalId
@@ -300,9 +282,7 @@ export async function deriveExtensionIdFromTargetsHelper(
 
         deferredUrlDerivedId = deferredUrlDerivedId || urlDerivedId
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
 
     await new Promise((r) => setTimeout(r, backoffMs))
     retries++

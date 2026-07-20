@@ -9,13 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-/**
- * Removes JSONC extensions (// and block comments, trailing commas) so the
- * result parses with JSON.parse. String contents, including commas and
- * comment-looking sequences inside them, are preserved verbatim.
- * (Mirror of extension-develop's lib/project-manifest.ts; the programs are
- * separate packages and don't share source.)
- */
+// Removes JSONC extensions (comments, trailing commas) so the result parses
+// with JSON.parse. String contents are preserved verbatim.
 function stripJsoncExtensions(text: string): string {
   let out = ''
   let i = 0
@@ -100,9 +95,6 @@ export function parseJsoncSafe(text: string): ParsedJsonc {
   return JSON.parse(stripped.trim() || '{}')
 }
 
-/**
- * Parses an `npm:` import specifier into its package name and version range.
- */
 export function parseNpmSpecifier(
   specifier: unknown
 ): {name: string; version: string} | undefined {
@@ -125,10 +117,8 @@ export function parseNpmSpecifier(
   return name ? {name, version} : undefined
 }
 
-/**
- * Dependencies declared through `npm:` specifiers in the project's
- * deno.jsonc/deno.json `imports` map (package names and aliases).
- */
+// Dependencies declared through `npm:` specifiers in the project's
+// deno.jsonc/deno.json `imports` map (package names and aliases).
 export function readDenoConfigDependencies(
   projectPath: string
 ): Record<string, string> {

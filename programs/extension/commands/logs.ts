@@ -48,9 +48,8 @@ function levelRank(level: string): number {
   return i === -1 ? LEVEL_ORDER.length : i
 }
 
-// `--url` accepts a glob (`*` = any run of chars) or a plain substring (no `*`).
-// Matched against the event's url, then hostname. Shared verbatim with the MCP
-// extension_logs tool, keep the two in lockstep.
+// `--url` accepts a glob (`*` = any run of chars) or a plain substring, matched
+// against url then hostname. Shared with the MCP extension_logs tool.
 function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   const hasGlob = pattern.includes('*')
   let re: RegExp | null = null

@@ -9,9 +9,8 @@
 import type {BrowserConfig, BrowserType} from '../types'
 import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
-// Returns cross-browser defaults to force dark mode.
-// - Chromium/Edge: uses command-line flags to force dark UI.
-// - Firefox/Gecko: writes user.js prefs to force dark UI and prefers-color-scheme.
+// Cross-browser defaults to force dark mode: Chromium uses command-line flags,
+// Firefox/Gecko writes user.js prefs for UI and prefers-color-scheme.
 export function getDarkModeDefaults(
   browser: BrowserType
 ): Pick<BrowserConfig, 'browserFlags' | 'preferences'> {
@@ -28,35 +27,27 @@ export function getDarkModeDefaults(
     }
   }
 
-  // Firefox/Gecko family (firefox + forks like waterfox/librewolf) → set UI +
-  // content color-scheme prefs.
-  // References:
-  // - ui.systemUsesDarkTheme: 1 → dark, 0 → light
-  // - layout.css.prefers-color-scheme.content-override:
-  //   2 → dark, 1 → light, 0/3 → follow system/default
+  // Firefox/Gecko family: set UI + content color-scheme prefs
+  // (ui.systemUsesDarkTheme 1=dark; content-override 2=dark, 1=light, 0/3=system).
   if (isGeckoBasedBrowser(String(browser))) {
     return {
       browserFlags: [],
       preferences: {
         'ui.systemUsesDarkTheme': 1,
         'layout.css.prefers-color-scheme.content-override': 2,
-        // Optional: make DevTools dark as well for consistency
         'devtools.theme': 'dark'
       }
     }
   }
 
-  // Fallback (unknown browser types): no-ops
   return {
     browserFlags: [],
     preferences: {}
   }
 }
 
-/**
- * Merge dark-mode defaults into an existing BrowserConfig without overriding
- * explicit user choices. Flags are de-duplicated preserving user order.
- */
+// Merge dark-mode defaults into an existing BrowserConfig without overriding
+// explicit user choices. Flags are de-duplicated preserving user order.
 export function withDarkMode<T extends BrowserConfig & {browser: BrowserType}>(
   config: T
 ): T {
@@ -75,7 +66,6 @@ export function withDarkMode<T extends BrowserConfig & {browser: BrowserType}>(
 
   const nextPreferences = {
     ...(config.preferences || {}),
-    // Only fill missing keys so callers can override any of them explicitly
     ...Object.fromEntries(
       Object.entries(defaults.preferences || {}).filter(
         ([k]) => !(k in (config.preferences || {}))

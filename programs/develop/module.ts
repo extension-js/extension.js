@@ -34,10 +34,8 @@ export {
   type BuildOptions,
   extensionDev,
   type DevOptions,
-  // extensionPreview is available via the lightweight 'extension-develop/preview'
-  // entry point. It is re-exported here for backward compatibility but new
-  // consumers should import from 'extension-develop/preview' to avoid pulling
-  // in the full bundler toolchain.
+  // extensionPreview is re-exported for backward compatibility; new consumers
+  // should import 'extension-develop/preview' to skip the bundler toolchain.
   extensionPreview,
   type PreviewOptions,
   type FileConfig,

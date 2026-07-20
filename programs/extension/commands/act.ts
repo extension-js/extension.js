@@ -242,7 +242,6 @@ const commonOptions = (cmd: Command): Command =>
     .option('--output <pretty|json>', 'output format (default pretty)')
 
 export function registerActCommands(program: Command): void {
-  // extension eval <expression> [project-path]
   commonOptions(
     program
       .command('eval')
@@ -279,7 +278,6 @@ export function registerActCommands(program: Command): void {
     }
   )
 
-  // extension storage <get|set> [project-path]
   commonOptions(
     program
       .command('storage')
@@ -343,7 +341,6 @@ export function registerActCommands(program: Command): void {
     }
   )
 
-  // extension reload [project-path]
   commonOptions(
     program
       .command('reload')
@@ -365,7 +362,6 @@ export function registerActCommands(program: Command): void {
     })
   })
 
-  // extension inspect [project-path], sidecar/control-channel DOM snapshot
   commonOptions(
     program
       .command('inspect')
@@ -453,7 +449,6 @@ export function registerActCommands(program: Command): void {
     }
   )
 
-  // extension open <surface> [project-path]
   commonOptions(
     program
       .command('open')

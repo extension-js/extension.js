@@ -11,12 +11,8 @@ import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
 
-/**
- * Prepends the dev-only `globalThis.__extjsScriptsReplay` shim to the
- * compiled background SW / script. Done as a `processAssets` post-process
- * rather than via BannerPlugin so we only touch the background entry asset
- * regardless of the bundler's banner-emission ordering.
- */
+// Prepends the dev-only scripts-replay shim to the compiled background asset.
+// A processAssets post-process (not BannerPlugin) so only that asset is touched.
 export class InjectScriptsReplayShim {
   apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
@@ -25,9 +21,8 @@ export class InjectScriptsReplayShim {
         compilation.hooks.processAssets.tap(
           {
             name: InjectScriptsReplayShim.name,
-            // Run late, after StripContentScriptDevServerRuntime
-            // (PROCESS_ASSETS_STAGE_REPORT) so its source modifications
-            // don't undo our prepend.
+            // Run late, after StripContentScriptDevServerRuntime, so its
+            // source modifications don't undo our prepend.
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
           },
           () => {

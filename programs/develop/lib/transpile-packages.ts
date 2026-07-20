@@ -53,25 +53,19 @@ function resolvePackageRoot(
   projectRoot: string,
   packageName: string
 ): string | undefined {
-  // Fast path for packages that expose package.json.
   try {
     return path.dirname(
       requireFromProject.resolve(`${packageName}/package.json`)
     )
-  } catch {
-    // Fallback below.
-  }
+  } catch {}
 
   // Fallback for packages using restrictive exports maps.
   try {
     const entryPath = requireFromProject.resolve(packageName)
     const discovered = findPackageRootFromEntry(entryPath, packageName)
     if (discovered) return discovered
-  } catch {
-    // Keep trying.
-  }
+  } catch {}
 
-  // Last fallback: common direct path in node_modules.
   const guessedPackageDir = path.join(
     projectRoot,
     'node_modules',
@@ -118,11 +112,8 @@ function getWorkspaceDependencyNames(projectRoot: string): string[] {
   }
 }
 
-/**
- * Resolves package roots for transpile allowlist entries.
- * We keep both the symlinked package path and its real path so include/exclude
- * checks work across npm/pnpm/yarn and different symlink modes.
- */
+// Keep both the symlinked package path and its real path so include/exclude
+// checks work across npm/pnpm/yarn and different symlink modes.
 export function resolveTranspilePackageDirs(
   projectRoot: string,
   transpilePackages?: string[]
@@ -160,19 +151,14 @@ export function resolveTranspilePackageDirs(
     resolvedDirs.add(normalizePath(packageDir))
     try {
       resolvedDirs.add(normalizePath(fs.realpathSync(packageDir)))
-    } catch {
-      // Keep symlink path only when realpath is unavailable.
-    }
+    } catch {}
   }
 
   return Array.from(resolvedDirs)
 }
 
-// Containment check routed through the shared canonicalization helper so it is
-// robust to the same cross-platform path-form differences the content-script
-// wrapper hit (Windows 8.3 short names / drive-letter case, symlinked roots).
-// Both sides are canonicalized identically; non-existent/virtual paths fall
-// back to a plain normalized comparison. See lib/resource-path.
+// Containment check routed through the shared canonicalization helper so both
+// sides normalize identically across platforms. See lib/resource-path.
 export function isSubPath(
   resourcePath: string,
   directoryPath: string

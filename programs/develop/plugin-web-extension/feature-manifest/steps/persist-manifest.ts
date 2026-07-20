@@ -110,9 +110,7 @@ function writeFileAtomically(targetPath: string, content: string) {
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
-    } catch {
-      // Best-effort cleanup; nothing actionable if the unlink itself fails.
-    }
+    } catch {}
   }
 }
 
@@ -197,9 +195,7 @@ export class PersistManifestToDisk {
           try {
             const currentOnDisk = fs.readFileSync(manifestOutputPath, 'utf-8')
             if (currentOnDisk === manifestSource) return
-          } catch {
-            // File may not exist yet; continue to write it.
-          }
+          } catch {}
           writeFileAtomically(manifestOutputPath, manifestSource)
         } catch (error) {
           const err = new rspack.WebpackError(

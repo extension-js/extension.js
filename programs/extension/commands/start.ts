@@ -37,10 +37,8 @@ type StartOptions = {
   host?: string
   polyfill?: boolean | string
   install?: boolean
-  // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
-  // Unified logger options (parity with dev/preview)
   logLevel?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
@@ -204,7 +202,6 @@ export function registerStartCommand(program: Command) {
           const logContexts = parseLogContexts(logContextOption)
           const logLevel = logsOption || startOptions.logLevel || 'off'
 
-          // Phase 1: Build the extension in production mode
           await extensionBuild(pathOrRemoteUrl, {
             browser: vendor as StartOptions['browser'],
             // CLI surface: a failed build ends this process with the clean
@@ -223,10 +220,8 @@ export function registerStartCommand(program: Command) {
             continue
           }
 
-          // Phase 2: Launch the browser with the built output via browser API.
-          // The extensionPreview module is still used under the hood to resolve
-          // project structure and extensions-to-load. We call launchBrowser
-          // through the preview module which handles all of this.
+          // Launch the browser through the preview module, which resolves the
+          // project structure and extensions-to-load.
           const {extensionPreview} = await loadExtensionDevelopPreviewModule()
 
           await extensionPreview(

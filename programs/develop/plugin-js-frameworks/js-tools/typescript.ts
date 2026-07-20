@@ -100,42 +100,19 @@ export function ensureTypeScriptConfig(projectPath: string): void {
 export function defaultTypeScriptConfig(projectPath: string, _opts?: unknown) {
   return {
     compilerOptions: {
-      // Allow JavaScript files to be imported inside your project,
-      // instead of just .ts and .tsx files
       allowJs: true,
-      // Allow default imports from modules with no default export
       allowSyntheticDefaultImports: true,
-      // Enables emit interoperability between CommonJS and ES Modules
       esModuleInterop: true,
-      // Issue an error if a program tries to include a file by a casing
-      // different from the casing on disk.
       forceConsistentCasingInFileNames: true,
-      // Report errors on unused local variables.
-      // inlineSources: false,
-      // Controls how JSX constructs are emitted in JavaScript files.
-      // This only affects output of JS files that started in .tsx files.
       jsx: isUsingJSFramework(projectPath) ? 'react-jsx' : 'preserve',
-      // Include typings for latest ECMAScript features and DOM APIs
       lib: ['dom', 'dom.iterable', 'esnext'],
-      // Resolve the way the bundler does. 'node' (aka node10) was REMOVED in
-      // TypeScript 7, scaffolding it made the generated tsconfig fail the
-      // user's own `tsc --noEmit` with TS5108, and 'bundler' is the accurate
-      // model for the Rspack/SWC pipeline anyway. Matches every template.
+      // 'node' (aka node10) resolution was removed in TypeScript 7 and fails
+      // `tsc --noEmit` with TS5108; 'bundler' models the Rspack/SWC pipeline.
       moduleResolution: 'bundler',
-      // Use ES modules, which are the standard in modern browsers
       module: 'esnext',
-      // Report errors on unused local variables.
-      // noUnusedLocals: false,
-      // Report errors on unused parameters in functions.
-      // noUnusedParameters: false,
-      // Allow importing '.json' files
       resolveJsonModule: true,
-      // Enable all strict type-checking options
       strict: true,
-      // Use the latest ECMAScript version for the target output
       target: 'esnext',
-      // Ensure each file can be safely transpiled without relying
-      // on other imports
       isolatedModules: false,
       skipLibCheck: true
     },
@@ -156,24 +133,12 @@ export function getUserTypeScriptConfigFile(projectPath: string) {
 export function getTypeScriptConfigOverrides(opts: {mode: DevOptions['mode']}) {
   return {
     compilerOptions: {
-      // Generate source maps for debugging
       sourceMap: opts.mode === 'development',
-      // Skip type checking of all declaration files (*.d.ts)
       skipLibCheck: true,
-      // Whether to embed the source map content in the .js files.
       inlineSourceMap: false,
-      // Generates a source map for .d.ts files which map back to the
-      // original .ts source file.
       declarationMap: false,
-      // Do not emit compiler output files like JavaScript source code,
-      // source-maps or declarations.
       noEmit: true,
-      // Tells TypeScript to save information about the project graph
-      // from the last compilation to files stored on disk.
       incremental: true,
-      // This setting lets you specify a file for storing incremental
-      // compilation information as a part of composite projects which
-      // enables faster building of larger TypeScript codebases.
       tsBuildInfoFile: path.join('./', 'node_modules', '.cache', 'tsbuildinfo')
     },
     exclude: ['node_modules', 'dist']
@@ -196,14 +161,7 @@ export async function maybeUseTypeScript(
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 
-  // No `typescript` package is required to build a TypeScript extension:
-  // sources are compiled by swc (this flag only selects the swc parser
-  // syntax), and the classic-concat loader now strips types with swc too.
-  // Demanding the package here used to be harmless only because
-  // extension-develop shipped its own copy; once that 24MB dependency went
-  // away, the check would have hard-failed every project that uses TypeScript
-  // without declaring it: 112 of 902 (12.4%) of the real-world corpus.
-  // Whether to install `typescript` for editor tooling and `tsc --noEmit` is
-  // the project's call, not ours.
+  // No `typescript` package is required to build: swc compiles the sources.
+  // Installing it for editor tooling and `tsc --noEmit` is the project's call.
   return true
 }

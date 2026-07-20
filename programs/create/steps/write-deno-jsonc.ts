@@ -35,13 +35,8 @@ function renderJsoncEntries(entries: Record<string, string>): string {
     .join('\n')
 }
 
-// In primary mode deno.jsonc IS the project manifest: npm dependencies are
-// declared as `npm:` specifiers in `imports`, `deno install` resolves them,
-// `nodeModulesDir: "auto"` materializes them in a real node_modules the
-// bundler can resolve from, and the Extension.js toolchain reads the imports
-// for framework/CSS/TypeScript detection. In companion mode (monorepo
-// templates) package.json stays the dependency manifest and deno.jsonc only
-// adds Deno-native tasks.
+// In primary mode deno.jsonc IS the project manifest (npm: specifiers in
+// imports, nodeModulesDir auto); in companion mode package.json stays.
 function renderDenoJsonc(
   tasks: Record<string, string>,
   imports?: Record<string, string>
@@ -121,11 +116,8 @@ async function collectTemplateImports(
 interface WriteDenoJsoncOptions {
   template?: string
   cliVersion?: string
-  /**
-   * When true, deno.jsonc becomes the project's only manifest: template
-   * dependencies move into `imports` and package.json is removed
-   * (issue #482, deno.jsonc instead of package.json).
-   */
+  // When true, deno.jsonc becomes the project's only manifest: template deps
+  // move into `imports` and package.json is removed (issue #482).
   primary?: boolean
 }
 

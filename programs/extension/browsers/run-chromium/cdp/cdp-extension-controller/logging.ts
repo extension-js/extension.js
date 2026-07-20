@@ -58,7 +58,6 @@ export function registerAutoEnableLogging(
         )
 
         if (sessionId && matchesExtension) {
-          // Enable runtime and log domains for this session
           cdp.sendCommand('Runtime.enable', {}, sessionId).catch(() => {})
           cdp.sendCommand('Log.enable', {}, sessionId).catch(() => {})
         }
@@ -66,17 +65,13 @@ export function registerAutoEnableLogging(
         message.method === 'Runtime.consoleAPICalled' ||
         message.method === 'Log.entryAdded'
       ) {
-        // Only print unified CDP logs when user has enabled verbose output
         if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
           const ts = new Date().toISOString()
           console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
         }
 
-        // Browser-generated entries (alarm clamps, CSP refusals, deprecations)
-        // never pass through the page's console hook, so the SW producer can't
-        // report them; route them to the host's log pipeline here. Console-API
-        // events are NOT routed: the in-extension producer already ingests
-        // those, and doubling them would duplicate every console line.
+        // Browser-generated Log entries never pass the page's console hook, so
+        // route them here; console-API events would duplicate the producer's.
         if (logSink && message.method === 'Log.entryAdded') {
           const entry = message.params?.entry || {}
           logSink({

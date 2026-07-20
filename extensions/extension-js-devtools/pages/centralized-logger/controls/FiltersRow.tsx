@@ -34,7 +34,6 @@ export type FiltersRowProps = {
   getContextColorClass?: (ctx: LoggerContext) => string
 }
 
-// Unified color class mapping for log levels
 const LOG_LEVEL_COLOR_CLASS: Record<LogLevel, string> = {
   error: 'bg-red-400',
   warn: 'bg-yellow-300',

@@ -28,8 +28,7 @@ export function annotateGetURLDynamicImports(source: string): string {
   const n = source.length
   let i = 0
   // Tracks the previous significant (non-space, non-comment) character so a
-  // leading `/` can be classified as regex-start vs division, a regex
-  // literal's quotes/parens must not desync the scan of code we rewrite.
+  // leading `/` can be classified as regex-start vs division.
   let prevSignificant = ''
 
   while (i < n) {
@@ -109,10 +108,6 @@ export default function nativeGetURLImportLoader(
   return annotateGetURLDynamicImports(source)
 }
 
-/**
- * Return the argument text between an opening paren and its balanced close
- * (string-aware), or null when unbalanced.
- */
 function readBalancedArgs(code: string, openIndex: number): string | null {
   if (code[openIndex] !== '(') return null
   let depth = 0
@@ -131,10 +126,8 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
   return null
 }
 
-/**
- * Index of the closing quote, template `${...}` interpolations skipped
- * (they may nest strings and further templates).
- */
+// Index of the closing quote, template interpolations skipped
+// (they may nest strings and further templates).
 function skipString(code: string, start: number, cap: number): number {
   const quote = code[start]
   for (let i = start + 1; i < cap; i++) {
@@ -161,7 +154,6 @@ function skipString(code: string, start: number, cap: number): number {
   return cap
 }
 
-/** Index of the closing `/` of a regex literal (class- and escape-aware). */
 function skipRegex(code: string, start: number, cap: number): number {
   let inClass = false
   for (let i = start + 1; i < cap; i++) {
@@ -178,10 +170,8 @@ function skipRegex(code: string, start: number, cap: number): number {
   return cap
 }
 
-/**
- * Classic prev-token heuristic: a `/` starts a regex literal when the
- * previous significant character cannot end an expression.
- */
+// Classic prev-token heuristic: a `/` starts a regex literal when the
+// previous significant character cannot end an expression.
 function regexCanStart(prevSignificant: string): boolean {
   if (!prevSignificant) return true
   return !/[\w$)\]}"'`]/.test(prevSignificant)
