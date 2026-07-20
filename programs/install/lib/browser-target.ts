@@ -4,7 +4,7 @@
 //  ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ██║
 //  ██║██║ ╚████║███████║   ██║   ██║  ██║███████╗███████╗
 //  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export type InstallBrowserTarget = 'chrome' | 'chromium' | 'edge' | 'firefox'
 
@@ -28,7 +28,7 @@ export function normalizeBrowserName(input: string): InstallBrowserTarget {
 
   if (value === 'safari' || value === 'webkit-based') {
     throw new Error(
-      `There is no Safari binary to install — Safari ships with macOS. ` +
+      `There is no Safari binary to install. Safari ships with macOS. ` +
         `Safari builds need the full Xcode app instead (Mac App Store), then ` +
         `run \`extension build --browser safari\`.`
     )

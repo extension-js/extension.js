@@ -1,14 +1,14 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
-import {PassThrough} from 'stream'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {CDPClient} from '../../run-chromium/cdp/cdp-client'
+import {PassThrough} from 'stream'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
-  gracefulTerminateChild,
   forceKillChildOnExit,
+  gracefulTerminateChild,
   wasTerminatedByUs
 } from '../../browsers-lib/process-teardown'
+import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 import {stampReadyBrowserExited} from '../../run-chromium/chromium-launch'
 
 // Family B (BUGS_TO_FIX §14-7): closing the --remote-debugging-pipe is
@@ -73,7 +73,7 @@ describe('wasTerminatedByUs', () => {
     gracefulTerminateChild(ours, 'chromium')
     expect(wasTerminatedByUs(ours)).toBe(true)
 
-    // a child we never signaled — e.g. the browser dying on its own
+    // a child we never signaled, e.g. the browser dying on its own
     expect(wasTerminatedByUs(dying)).toBe(false)
   })
 
@@ -100,7 +100,10 @@ describe('stampReadyBrowserExited', () => {
     const metaDir = path.join(tmp, 'dist', 'extension-js', 'chromium')
     fs.mkdirSync(metaDir, {recursive: true})
     const readyPath = path.join(metaDir, 'ready.json')
-    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', cdpPort: 9223}))
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', cdpPort: 9223})
+    )
 
     stampReadyBrowserExited(outPath, 21)
 

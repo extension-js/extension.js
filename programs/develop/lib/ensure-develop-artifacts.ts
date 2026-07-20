@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -52,12 +52,12 @@ export async function ensureUserProjectDependencies(
     })
   } catch (error) {
     // The resolved manager can fail through no fault of the project's own
-    // dependency graph — e.g. corepack honoring a `packageManager` pin to a
+    // dependency graph, e.g. corepack honoring a `packageManager` pin to a
     // pnpm too old for the running Node (G28). npm ships with Node itself,
     // so one retry with it keeps the build alive; `--no-package-lock` avoids
     // dropping a lockfile the project's real manager never asked for.
     if (pm.name === 'npm') throw error
-    // A Deno project's dependencies live in deno.json(c) `npm:` imports —
+    // A Deno project's dependencies live in deno.json(c) `npm:` imports,
     // npm cannot install those (and may have no package.json to read at all).
     if (pm.name === 'deno') throw error
     console.warn(messages.projectInstallFallbackToNpm(pm.name))

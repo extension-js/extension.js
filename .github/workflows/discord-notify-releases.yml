@@ -4,7 +4,7 @@ name: Extension.js – Discord Release Notification
 # `publish-release.yml` (stable channel), which has the curated highlights and
 # condensed body. This workflow stays around to re-announce an existing release
 # by hand (e.g. if the inline notification failed) and intentionally does NOT
-# trigger on `release: published` — that would double-post every stable release.
+# trigger on `release: published`. That would double-post every stable release.
 on:
   workflow_dispatch:
     inputs:

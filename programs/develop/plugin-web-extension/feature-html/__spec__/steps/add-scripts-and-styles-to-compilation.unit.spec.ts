@@ -1,6 +1,6 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
 
 function makeTmp(name: string) {
@@ -58,7 +58,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       )
     ).toBe(true)
     // A root-absolute ref is an EXTENSION-ROOT reference (Chrome resolves '/'
-    // from the extension root), never a module to bundle — with or without a
+    // from the extension root), never a module to bundle, with or without a
     // public/ dir. This used to assert the opposite: with no public/ dir the
     // ref was bundled as an entry, which is exactly how a wild extension died
     // with "Module not found: Can't resolve '/styles.css'" (BUGS_TO_FIX §18).

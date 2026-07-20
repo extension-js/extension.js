@@ -4,7 +4,7 @@
 // ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║
 // ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ██║███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export const sharedState = {
   bannerPrinted: false as boolean,
@@ -24,7 +24,7 @@ export function markBannerPrinted() {
 
 // Listen for the cross-package signal emitted by banner.ts the moment it
 // finishes printing the " 🧩 Extension.js x.y.z" card. This guarantees the
-// first deferred compile line flushes immediately after the banner — without
+// first deferred compile line flushes immediately after the banner, without
 // it, the line stays parked until the next `done` hook (so the initial run
 // shows zero lines and the first reload double-prints)
 let listenerInstalled = false

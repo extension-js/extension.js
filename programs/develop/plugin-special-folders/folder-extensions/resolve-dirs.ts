@@ -4,17 +4,17 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
+import type {CompanionExtensionsConfig} from './types'
 import {
   isDir,
   isValidExtensionRoot,
   normalizeCompanionConfig,
   toAbs
 } from './utils'
-import type {CompanionExtensionsConfig} from './types'
 
 // Resolve companion extension directories that should be loaded by the browser runner.
 // We assume each directory is already an unpacked extension root

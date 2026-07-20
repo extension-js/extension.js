@@ -4,11 +4,11 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 
-// THIN WRAPPER — keep it that way.
+// THIN WRAPPER, keep it that way.
 //
 // `publish` is the one place the OSS CLI touches the hosted extension.dev
 // platform. It exists here as a deliberately minimal funnel: build a request,
@@ -18,7 +18,7 @@ import type {Command} from 'commander'
 // command. The small POST duplication between the two is intentional.
 //
 // Do NOT grow platform features here (pack/sign/visibility/descriptors, a login
-// flow, etc.) — those belong to the platform/MCP scope. See
+// flow, etc.), those belong to the platform/MCP scope. See
 // extension-dev/packages/extensiondev-mcp/docs/login-command-todo.md.
 const DEFAULT_API = 'https://www.extension.dev'
 
@@ -35,7 +35,7 @@ export interface PublishInput {
   buildSha?: string
 }
 
-/** Build the HTTP request (pure, unit-testable — no network). */
+/** Build the HTTP request (pure, unit-testable, no network). */
 export function buildPublishRequest(opts: PublishInput): PublishRequest {
   const token = String(
     opts.token || process.env.EXTENSION_DEV_TOKEN || ''

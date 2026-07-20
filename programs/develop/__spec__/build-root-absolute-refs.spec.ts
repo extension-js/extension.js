@@ -3,7 +3,7 @@
 // can point an HTML page at `<script src="/js/popup.js" type="module">` or a
 // manifest surface at `options_page: "/page/options.html"`. Two silent holes:
 //
-//   1. The HTML script-src path copied the module verbatim (correct — the
+//   1. The HTML script-src path copied the module verbatim (correct, the
 //      browser resolves it) but DROPPED its static import closure: the
 //      `import {msg} from "/js/gr.js"` shipped intact while js/gr.js never
 //      landed in dist, and the popup died on the import fetch. Repro:
@@ -13,14 +13,14 @@
 //   2. The manifest overrides treated ANY root-absolute page ref as
 //      public-served: the html pipeline compiled /page/options.html to
 //      options/index.html while the dist manifest kept pointing at
-//      page/options.html — which nothing emitted. The options surface 404'd
+//      page/options.html, which nothing emitted. The options surface 404'd
 //      silently (corpus ids oa--Chimildic__YaMuTools,
-//      oa--abalsam__cisco-dialer — the latter proving the `.htm` spelling).
+//      oa--abalsam__cisco-dialer, the latter proving the `.htm` spelling).
 
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 const HTML_SRC_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-root-abs-html-')
@@ -51,7 +51,7 @@ function writeHtmlSrcFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — root-absolute html src',
+        name: 'Build Spec, root-absolute html src',
         version: '1.0.0',
         action: {default_popup: '/popup.html'}
       },
@@ -76,7 +76,7 @@ function writeHtmlSrcFixture() {
 }
 
 // The §39 addendum shape: a root-absolute options_page that lives at the
-// project root (NOT under public/) — compiled by the html pipeline, so the
+// project root (NOT under public/), compiled by the html pipeline, so the
 // dist manifest must point at the compiled surface.
 function writeOptionsFixture() {
   writePackageJson(OPTIONS_ROOT, 'extjs-build-root-abs-options-spec')
@@ -87,7 +87,7 @@ function writeOptionsFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — root-absolute options_page',
+        name: 'Build Spec, root-absolute options_page',
         version: '1.0.0',
         options_page: '/page/options.html'
       },
@@ -102,7 +102,7 @@ function writeOptionsFixture() {
 }
 
 // public/ keeps precedence: a root-absolute ref that public/ owns stays a
-// verbatim public path in the manifest — the special-folders pipeline serves
+// verbatim public path in the manifest, the special-folders pipeline serves
 // it at the output root.
 function writePublicOptionsFixture() {
   writePackageJson(PUBLIC_OPTIONS_ROOT, 'extjs-build-root-abs-public-spec')
@@ -115,7 +115,7 @@ function writePublicOptionsFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — public root-absolute options_page',
+        name: 'Build Spec, public root-absolute options_page',
         version: '1.0.0',
         options_page: '/page/options.html'
       },

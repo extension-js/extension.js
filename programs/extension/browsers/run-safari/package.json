@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Safari builder for Extension.js — converts the built web extension into a Safari app via xcrun/xcodebuild. macOS only.",
+  "description": "Safari builder for Extension.js, converts the built web extension into a Safari app via xcrun/xcodebuild. macOS only.",
   "license": "MIT",
   "repository": {
     "type": "git",

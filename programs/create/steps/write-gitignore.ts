@@ -4,7 +4,7 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
@@ -15,7 +15,11 @@ const globalTesting = ['', '# testing', 'coverage']
 const globalProduction = ['', '# production', 'dist']
 const globalMisc = ['', '# misc', '.DS_Store']
 // Dev-session state (control token, per-browser control port). Machine-local.
-const localSessionState = ['', '# extension.js local session state', '.extension-js']
+const localSessionState = [
+  '',
+  '# extension.js local session state',
+  '.extension-js'
+]
 const envFiles = [
   '',
   '# local env files',

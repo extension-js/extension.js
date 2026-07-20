@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
+  BRIDGE_PRODUCER_SOURCE,
   buildBridgeProducerSource,
-  buildBridgeRelaySource,
-  BRIDGE_PRODUCER_SOURCE
+  buildBridgeRelaySource
 } from '../producer-runtime'
 
 class FakeWebSocket {
@@ -165,14 +165,16 @@ describe('bridge producer runtime', () => {
   it('reinjects content scripts once on install/reload (zombie-tab healing)', async () => {
     // After a dev full reload, Chrome leaves already-open tabs with the OLD
     // build's content-script DOM (nodes render, listeners dead). The producer
-    // must reinject on onInstalled — and ONLY on onInstalled, so idle-stop SW
+    // must reinject on onInstalled, and ONLY on onInstalled, so idle-stop SW
     // wakes never churn mounted UI.
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
     const fetched: string[] = []
     fakeGlobal.fetch = (url: string) => {
       fetched.push(String(url))
-      return Promise.resolve({json: () => Promise.resolve({content_scripts: []})})
+      return Promise.resolve({
+        json: () => Promise.resolve({content_scripts: []})
+      })
     }
     fakeGlobal.chrome = {
       runtime: {
@@ -208,7 +210,7 @@ describe('bridge producer runtime', () => {
   it('honors exclude_matches on reinject and dynamic re-registration', async () => {
     // Static Chrome injection never touches excluded pages, and extensions
     // rely on that (dusk-recording opens the very page it excludes from its
-    // SW message handler — dev-injecting there creates an open-tab → inject →
+    // SW message handler, dev-injecting there creates an open-tab → inject →
     // open-tab runaway loop). The reinject path must subtract excluded tabs,
     // and the dynamic registration must carry excludeMatches.
     const {fakeGlobal} = makeGlobal()
@@ -263,10 +265,10 @@ describe('bridge producer runtime', () => {
         ) => {
           const urls = Array.isArray(q.url) ? q.url : []
           if (urls.includes('*://*/_screenrecording*')) {
-            // the exclude query — only the bootstrap tab matches
+            // the exclude query, only the bootstrap tab matches
             cb([{id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}])
           } else {
-            // the matches query — both tabs match <all_urls>
+            // the matches query, both tabs match <all_urls>
             cb([
               {id: 1, url: 'http://127.0.0.1:5151/probe.html'},
               {id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}
@@ -298,7 +300,7 @@ describe('bridge producer runtime', () => {
   })
 })
 
-describe('bridge producer runtime — executor (Slice 2)', () => {
+describe('bridge producer runtime, executor (Slice 2)', () => {
   function setup(
     chromeApi: Record<string, unknown>,
     extraGlobals: Record<string, unknown> = {}
@@ -394,7 +396,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
         }
       },
       tabs: {
-        query: (q: {url?: string; active?: boolean}, cb: (t: unknown[]) => void) => {
+        query: (
+          q: {url?: string; active?: boolean},
+          cb: (t: unknown[]) => void
+        ) => {
           if (q && q.url) cb([{id: 9, url: 'https://example.com/'}])
           else cb([])
         }
@@ -757,7 +762,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     run(src, fakeGlobal)
     ;(fakeGlobal.console as any).warn('hello from content', {a: 1})
     // A subject SW that echoes every runtime MESSAGE back to its tabs must
-    // never see relay traffic — sendMessage would loop it forever (family B).
+    // never see relay traffic, sendMessage would loop it forever (family B).
     expect(sendMessageCalls).toHaveLength(0)
     expect(connectedName).toBe('__extjs-bridge-log__')
     expect(sent).toHaveLength(1)
@@ -785,7 +790,10 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
             const stale = connects === 1
             return {
               postMessage: (msg: any) => {
-                if (stale) throw new Error('Attempting to use a disconnected port object')
+                if (stale)
+                  throw new Error(
+                    'Attempting to use a disconnected port object'
+                  )
                 sent.push(msg)
               },
               onDisconnect: {addListener: () => {}}
@@ -936,7 +944,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
             cb([
               {id: 11, url: 'https://x.test/a'},
               {id: 12, url: 'https://x.test/b'},
-              {id: 99, url: 'about:blank'} // not injectable — must be skipped
+              {id: 99, url: 'about:blank'} // not injectable, must be skipped
             ])
         },
         scripting: {
@@ -974,7 +982,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
       reloadType: 'content-scripts',
       label: 'content_script (src/content/scripts.ts)'
     })
-    // fetch().then().then() — let the microtasks settle.
+    // fetch().then().then(), let the microtasks settle.
     await new Promise((r) => setTimeout(r, 20))
 
     // Injected the NEW file into the two matching http tabs; skipped about:blank.
@@ -1123,8 +1131,8 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'full'})
 
-    // The reload is deferred (150ms) so any in-flight frame — and the console
-    // announcement dispatched into tabs — flushes first.
+    // The reload is deferred (150ms) so any in-flight frame, and the console
+    // announcement dispatched into tabs, flushes first.
     expect(runtimeReloaded).toBe(false)
     await new Promise((r) => setTimeout(r, 250))
     expect(runtimeReloaded).toBe(true)
@@ -1133,7 +1141,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
   it('reload broadcast (service-worker): stamps the pending-reinject flag BEFORE restarting', async () => {
     // runtime.reload() does not fire onInstalled, so this flag is the only
     // signal the NEXT producer generation gets to heal open tabs whose
-    // content world went stale (a shared SW+content module edit — the
+    // content world went stale (a shared SW+content module edit, the
     // firefox-tab-switcher regression).
     let runtimeReloaded = false
     const stored: Record<string, unknown> = {}
@@ -1165,7 +1173,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
   it('producer boot consumes a fresh pending-reinject flag and heals open tabs', async () => {
     // The post-reload producer generation: no onInstalled ever fires for a
     // dev-driven runtime.reload(), so the boot path must reinject from the
-    // storage flag — and clear it so idle-stop SW wakes stay no-ops.
+    // storage flag, and clear it so idle-stop SW wakes stay no-ops.
     const removed: string[] = []
     const fetched: string[] = []
     setup(
@@ -1175,10 +1183,8 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
         },
         storage: {
           local: {
-            get: (
-              key: string,
-              cb: (res: Record<string, unknown>) => void
-            ) => cb({[key]: Date.now()}),
+            get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({[key]: Date.now()}),
             remove: (key: string, cb?: () => void) => {
               removed.push(key)
               cb && cb()
@@ -1215,10 +1221,8 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
         },
         storage: {
           local: {
-            get: (
-              key: string,
-              cb: (res: Record<string, unknown>) => void
-            ) => cb({[key]: Date.now() - 60_000}),
+            get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({[key]: Date.now() - 60_000}),
             remove: (key: string, cb?: () => void) => {
               removed.push(key)
               cb && cb()
@@ -1262,7 +1266,7 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
     expect(runtimeReloaded).toBe(true)
   })
 
-  it('reload broadcast (page): notify-only — no extension reload, no tab console line, companion still pinged', async () => {
+  it('reload broadcast (page): notify-only, no extension reload, no tab console line, companion still pinged', async () => {
     const external: Array<{id: string; msg: any}> = []
     const execCalls: unknown[] = []
     let runtimeReloaded = false
@@ -1389,8 +1393,11 @@ describe('bridge producer runtime — executor (Slice 2)', () => {
   })
 })
 
-describe('bridge producer runtime — storage on callback-only engines (#54)', () => {
-  function setup(chromeApi: Record<string, unknown>, extra: Record<string, unknown> = {}) {
+describe('bridge producer runtime, storage on callback-only engines (#54)', () => {
+  function setup(
+    chromeApi: Record<string, unknown>,
+    extra: Record<string, unknown> = {}
+  ) {
     FakeWebSocket.instances = []
     const {fakeGlobal} = makeGlobal()
     fakeGlobal.chrome = chromeApi
@@ -1419,7 +1426,8 @@ describe('bridge producer runtime — storage on callback-only engines (#54)', (
     const store: Record<string, unknown> = {}
     const callbackOnly = {
       get: (key: string | null, cb?: (r: Record<string, unknown>) => void) => {
-        if (typeof cb === 'function') cb(key == null ? {...store} : {[key]: store[key]})
+        if (typeof cb === 'function')
+          cb(key == null ? {...store} : {[key]: store[key]})
         return undefined // Gecko chrome.*: no promise
       },
       set: (items: Record<string, unknown>, cb?: () => void) => {
@@ -1540,7 +1548,7 @@ describe('bridge producer runtime — storage on callback-only engines (#54)', (
   })
 })
 
-describe('bridge producer runtime — uncaught error capture (#55)', () => {
+describe('bridge producer runtime, uncaught error capture (#55)', () => {
   function setup(chromeApi: Record<string, unknown> = {}) {
     FakeWebSocket.instances = []
     const {fakeGlobal} = makeGlobal()
@@ -1578,7 +1586,11 @@ describe('bridge producer runtime — uncaught error capture (#55)', () => {
     })
     const logs = errorLogs(ws)
     expect(logs).toHaveLength(1)
-    expect(logs[0].event).toMatchObject({level: 'error', context: 'background', runId: 'inst-U'})
+    expect(logs[0].event).toMatchObject({
+      level: 'error',
+      context: 'background',
+      runId: 'inst-U'
+    })
     expect(logs[0].event.messageParts[0]).toContain('boom in SW')
   })
 
@@ -1588,7 +1600,9 @@ describe('bridge producer runtime — uncaught error capture (#55)', () => {
     handlers.unhandledrejection[0]({reason: new Error('rejected!')})
     const logs = errorLogs(ws)
     expect(logs).toHaveLength(1)
-    expect(logs[0].event.messageParts[0]).toContain('Unhandled promise rejection')
+    expect(logs[0].event.messageParts[0]).toContain(
+      'Unhandled promise rejection'
+    )
     expect(logs[0].event.messageParts[0]).toContain('rejected!')
   })
 
@@ -1599,12 +1613,12 @@ describe('bridge producer runtime — uncaught error capture (#55)', () => {
     // The uncaught handler fires for the SAME Error object.
     handlers.error[0]({error: err, message: err.message})
     const logs = errorLogs(ws)
-    // Exactly one error-level frame — the console.error one; the event is deduped.
+    // Exactly one error-level frame, the console.error one; the event is deduped.
     expect(logs).toHaveLength(1)
   })
 })
 
-describe('bridge relay runtime — uncaught error capture (#55)', () => {
+describe('bridge relay runtime, uncaught error capture (#55)', () => {
   it('forwards a page/content uncaught error over the log port as level:error', () => {
     const sent: any[] = []
     const handlers: Record<string, Array<(ev: unknown) => void>> = {}
@@ -1632,7 +1646,10 @@ describe('bridge relay runtime — uncaught error capture (#55)', () => {
       filename: 'https://shop.example/app.js'
     })
     expect(sent).toHaveLength(1)
-    expect(sent[0].__extjsBridgeLog).toMatchObject({level: 'error', context: 'content'})
+    expect(sent[0].__extjsBridgeLog).toMatchObject({
+      level: 'error',
+      context: 'content'
+    })
     expect(sent[0].__extjsBridgeLog.messageParts[0]).toContain('page blew up')
   })
 })

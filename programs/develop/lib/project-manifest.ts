@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -25,8 +25,8 @@ export const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
 
 /**
  * Removes JSONC extensions (// and block comments, trailing commas) so the
- * result parses with JSON.parse. String contents — including commas and
- * comment-looking sequences inside them — are preserved verbatim.
+ * result parses with JSON.parse. String contents, including commas and
+ * comment-looking sequences inside them, are preserved verbatim.
  */
 export function stripJsoncExtensions(text: string): string {
   let out = ''
@@ -162,7 +162,7 @@ export function findDenoConfigPath(projectDir: string): string | undefined {
  * Dependencies a deno.json(c) declares through `npm:` specifiers in its
  * `imports` map. Both the npm package name and the import alias are
  * registered: the alias is what project source imports, the package name is
- * what lands in node_modules — dependency checks may ask for either.
+ * what lands in node_modules, dependency checks may ask for either.
  */
 export function readDenoConfigDependencies(
   denoConfigPath: string

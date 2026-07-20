@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import * as path from 'path'
@@ -47,7 +47,7 @@ export class UpdateManifest {
       const js = contentObj.js ?? []
       if (css.length && !js.length) {
         // The group's entry always emits a JS chunk (it carries the CSS HMR
-        // runtime), named after the canonical group index — which can differ
+        // runtime), named after the canonical group index, which can differ
         // from the array position once MAIN-world bridges are inserted, so
         // read the index back from the rewritten css path.
         const canonicalIndex =
@@ -83,14 +83,14 @@ export class UpdateManifest {
               this.browser
             ) as Manifest
 
-            // Firefox can't load background.service_worker — translate it to a
+            // Firefox can't load background.service_worker, translate it to a
             // background.scripts event page pointing at the same emitted bundle.
             patchedManifest = patchGeckoBackground(
               patchedManifest,
               this.browser
             )
 
-            // And the mirror: Chromium can't load MV3 background.scripts —
+            // And the mirror: Chromium can't load MV3 background.scripts,
             // translate it to a classic service worker on the same bundle.
             patchedManifest = patchChromiumBackground(
               patchedManifest,
@@ -153,7 +153,7 @@ export class UpdateManifest {
             // Repair shapes Chrome refuses to load the extension over
             // (numeric version, empty default_icon, icon paths that resolve
             // to 0-byte files). --load-extension surfaces the refusal only
-            // as a native modal, wedging the dev session before CDP binds —
+            // as a native modal, wedging the dev session before CDP binds,
             // so repair, and warn so the author fixes the source manifest.
             const sanitized = sanitizeFatalManifestShapes(
               patchedManifest,

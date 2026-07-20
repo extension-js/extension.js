@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as parse5utilities from 'parse5-utilities'
@@ -245,7 +245,7 @@ export function cleanLeading(s: string): string {
  * the extension root, so leading `..` left after the join are dropped. Without
  * the clamp, an asset referenced from a nested page (`../../../assets/x.png`
  * from `adapters/chrome/popup/popup.html`) produces the asset NAME
- * `../../assets/x.png` — the dev middleware then writes it OUTSIDE the output
+ * `../../assets/x.png`, the dev middleware then writes it OUTSIDE the output
  * dir, on top of the source file, and the watcher loops on its own emit
  * forever (the wild-corpus Sappgulf storm).
  */
@@ -300,7 +300,7 @@ export function resolveAbsoluteFsPath(params: {
         const candidate = path.join(publicRootForResource, withoutPublicPrefix)
         if (fs.existsSync(candidate)) return candidate
         // Chrome serves /pages/x.html as chrome-extension://<id>/pages/x.html,
-        // i.e. manifest-relative — resolve the SOURCE file there. Never fall
+        // i.e. manifest-relative, resolve the SOURCE file there. Never fall
         // back into outputRoot: reading our own emitted output as input feeds
         // already-patched HTML (compiled /feature.js refs) back through the
         // pipeline, which ENOENTs from the filesystem root and kills the

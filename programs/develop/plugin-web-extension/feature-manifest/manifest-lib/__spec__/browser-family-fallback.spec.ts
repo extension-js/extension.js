@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 
 // Every supported browser/alias must fall back to its engine family for
-// manifest-key resolution when no browser-specific prefix is present — exactly
+// manifest-key resolution when no browser-specific prefix is present, exactly
 // what Safari now does. A manifest that only carries chromium:/firefox: prefixed
 // keys must resolve to the right family's values for all of these.
 const MANIFEST = {

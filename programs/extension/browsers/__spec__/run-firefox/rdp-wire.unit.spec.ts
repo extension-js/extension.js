@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
-  parseRdpFrame,
-  buildRdpFrame
+  buildRdpFrame,
+  parseRdpFrame
 } from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 
 describe('RDP wire format', () => {
@@ -30,10 +30,10 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
-  // parseRdpFrame — single complete frame
+  // parseRdpFrame, single complete frame
   // -----------------------------------------------------------------------
 
-  describe('parseRdpFrame — complete frames', () => {
+  describe('parseRdpFrame, complete frames', () => {
     it('parses a single complete frame', () => {
       const payload = {from: 'root', tabs: []}
       const raw = buildRdpFrame(payload)
@@ -67,10 +67,10 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
-  // parseRdpFrame — incomplete / split frames
+  // parseRdpFrame, incomplete / split frames
   // -----------------------------------------------------------------------
 
-  describe('parseRdpFrame — incomplete frames', () => {
+  describe('parseRdpFrame, incomplete frames', () => {
     it('returns input unchanged when frame is incomplete (no colon yet)', () => {
       const result = parseRdpFrame(Buffer.from('42'))
       expect(result.parsedMessage).toBeUndefined()
@@ -110,10 +110,10 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
-  // parseRdpFrame — multiple frames in one chunk
+  // parseRdpFrame, multiple frames in one chunk
   // -----------------------------------------------------------------------
 
-  describe('parseRdpFrame — multiple frames in one chunk', () => {
+  describe('parseRdpFrame, multiple frames in one chunk', () => {
     it('parses first frame and returns second as remaining data', () => {
       const msg1 = {from: 'root', tabs: [{actor: 'tab-1'}]}
       const msg2 = {from: 'tab-1', type: 'attached'}
@@ -151,14 +151,14 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
-  // parseRdpFrame — multi-byte UTF-8 bodies (byte-length framing)
+  // parseRdpFrame, multi-byte UTF-8 bodies (byte-length framing)
   // -----------------------------------------------------------------------
 
-  describe('parseRdpFrame — multi-byte UTF-8', () => {
+  describe('parseRdpFrame, multi-byte UTF-8', () => {
     it('round-trips a body with accents, CJK, and emoji', () => {
       const payload = {
         from: 'tab-1',
-        text: 'héllo 日本語 🎉 — accented & wide & astral'
+        text: 'héllo 日本語 🎉, accented & wide & astral'
       }
       const frame = buildRdpFrame(payload)
       const result = parseRdpFrame(Buffer.from(frame))
@@ -200,10 +200,10 @@ describe('RDP wire format', () => {
   })
 
   // -----------------------------------------------------------------------
-  // parseRdpFrame — error handling
+  // parseRdpFrame, error handling
   // -----------------------------------------------------------------------
 
-  describe('parseRdpFrame — error cases', () => {
+  describe('parseRdpFrame, error cases', () => {
     it('returns fatal error for non-numeric length prefix', () => {
       const result = parseRdpFrame(Buffer.from('abc:{"bad":true}'))
       expect(result.error).toBeDefined()

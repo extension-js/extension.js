@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 
 // Catalog snapshot for every `messages.ts` user-facing string catalog under
-// programs/develop. This pins the EXPORT SURFACE of each catalog — the set of
-// message names and their arity/kind — so an unintended addition, removal,
+// programs/develop. This pins the EXPORT SURFACE of each catalog, the set of
+// message names and their arity/kind, so an unintended addition, removal,
 // rename, or signature change of any user-facing message fails loudly in
 // review. It deliberately does not render the strings (that needs per-message
 // args + would couple the snapshot to ANSI/env), so the snapshot stays

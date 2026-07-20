@@ -4,12 +4,12 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
+import * as net from 'net'
 import * as os from 'os'
 import * as path from 'path'
-import * as net from 'net'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
 
 const MANAGED_EPHEMERAL_PROFILE_MARKER = '.extension-js-managed-profile'
@@ -120,9 +120,7 @@ export function chooseChromiumBinaryPreferringStable(opts: {
 // a window that steals macOS keyboard focus). Whitespace-separated; flag
 // values that themselves contain spaces are not supported. Appended AFTER
 // config browserFlags so the environment wins feature-switch merges.
-export function parseEnvBrowserFlags(
-  raw: string | undefined | null
-): string[] {
+export function parseEnvBrowserFlags(raw: string | undefined | null): string[] {
   return String(raw || '')
     .split(/\s+/)
     .map((flag) => flag.trim())

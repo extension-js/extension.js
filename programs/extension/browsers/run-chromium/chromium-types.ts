@@ -4,14 +4,14 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {
   BrowserLogger,
+  Controller,
   LogFormat,
   LogLevel,
-  PluginInterface,
-  Controller
+  PluginInterface
 } from '../browsers-types'
 
 export type {
@@ -121,7 +121,7 @@ export interface ChromiumLogger {
 // `?.` / `|| ''` and must keep doing so.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** CDP `Target.TargetInfo` — the fields read off `Target.getTargets` results. */
+/** CDP `Target.TargetInfo`, the fields read off `Target.getTargets` results. */
 export interface CdpTargetInfo {
   type?: string
   targetId?: string
@@ -129,7 +129,7 @@ export interface CdpTargetInfo {
 }
 
 /**
- * CDP `Runtime.ExecutionContextDescription` — the fields read when matching the
+ * CDP `Runtime.ExecutionContextDescription`, the fields read when matching the
  * page / isolated world for content-script reinjection.
  */
 export interface CdpExecutionContextDescription {
@@ -157,7 +157,7 @@ export interface CdpLogEntry {
   columnNumber?: number
 }
 
-/** A CDP `Runtime.StackTrace` — only the top call frame fields are read. */
+/** A CDP `Runtime.StackTrace`, only the top call frame fields are read. */
 export interface CdpStackTrace {
   callFrames?: Array<{
     url?: string
@@ -179,7 +179,7 @@ export interface CdpProtocolParams {
 }
 
 /**
- * The parsed JSON envelope delivered to `onProtocolEvent` subscribers — typed
+ * The parsed JSON envelope delivered to `onProtocolEvent` subscribers, typed
  * at the wire boundary so consumers read fields without casts.
  */
 export interface CdpProtocolMessage {

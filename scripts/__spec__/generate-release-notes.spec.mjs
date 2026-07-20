@@ -1,17 +1,17 @@
-import test from 'node:test'
 import assert from 'node:assert/strict'
 import {execFileSync} from 'node:child_process'
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
+import test from 'node:test'
 
 import {
-  categorize,
-  readHighlights,
-  formatMarkdown,
-  formatDiscord,
   buildTweet,
+  categorize,
   findAnchor,
+  formatDiscord,
+  formatMarkdown,
+  readHighlights,
   resolveRange
 } from '../generate-release-notes.mjs'
 
@@ -75,17 +75,17 @@ test('readHighlights parses bullets and ignores HTML-comment instructions', () =
     [
       '<!--',
       '  instructions',
-      '  - **example** — commented bullet must be ignored',
+      '  - **example**, commented bullet must be ignored',
       '-->',
       '',
       '## Highlights',
       '',
-      '- **`extension publish`** — share a build via URL',
+      '- **`extension publish`**, share a build via URL',
       '- Safari (alpha) support'
     ].join('\n')
   )
   assert.deepEqual(readHighlights(file), [
-    '**`extension publish`** — share a build via URL',
+    '**`extension publish`**, share a build via URL',
     'Safari (alpha) support'
   ])
   rmSync(dir, {recursive: true, force: true})
@@ -109,11 +109,11 @@ test('formatMarkdown leads with highlights and folds other changes', () => {
     commit('Document a thing', 'doc8901')
   ])
   const md = formatMarkdown({
-    highlights: ['**Big thing** — does X'],
+    highlights: ['**Big thing**, does X'],
     buckets,
     repoUrl: 'https://example.com/repo'
   })
-  assert.match(md, /^- \*\*Big thing\*\* — does X/)
+  assert.match(md, /^- \*\*Big thing\*\*, does X/)
   assert.match(md, /### Features/)
   assert.match(md, /### Fixes/)
   assert.match(md, /<details>\n<summary>Other changes \(1\)<\/summary>/)
@@ -161,9 +161,7 @@ test('formatDiscord uses highlights when present, else leads with features', () 
 test('buildTweet strips markdown, caps length, and appends the url', () => {
   const tweet = buildTweet({
     version: '3.19.0',
-    highlights: [
-      '**`extension publish`** — share a [build](https://x) via URL'
-    ],
+    highlights: ['**`extension publish`**, share a [build](https://x) via URL'],
     buckets: {features: [], fixes: [], other: []},
     notesUrl: 'https://example.com/notes'
   })

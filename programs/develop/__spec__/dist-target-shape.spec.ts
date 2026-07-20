@@ -1,6 +1,6 @@
 // Regression gate: enforce the per-target shape of `dist/` after the ESM
 // flip. Runs in <1 s and pins the exact invariant we broke in
-// a9153af9 — when the createRequire banner was applied to every emitted
+// a9153af9, when the createRequire banner was applied to every emitted
 // chunk, the browser-runtime files (preact-refresh-shim,
 // minimum-script-file, main-world-bridge, minimum-{chromium,firefox}-file)
 // shipped a top-level `import "node:module"`. rspack later bundled those
@@ -14,15 +14,15 @@
 // - WEB_ENTRIES: emitted as standalone assets that run inside the user's
 //   extension at runtime (HTML page, content script, service worker).
 //   These MUST contain only browser-safe code.
-// - NODE_ENTRIES: emitted for Node — the main library, the preview entry,
+// - NODE_ENTRIES: emitted for Node, the main library, the preview entry,
 //   and rspack loaders that execute in the loader runner at build time.
 //   These MAY freely use Node builtins and the createRequire banner.
 //
 // Update both lists when adding a new entry to rslib.config.ts.
 
-import {describe, it, expect, beforeAll} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {beforeAll, describe, expect, it} from 'vitest'
 
 const DEVELOP_ROOT = path.resolve(__dirname, '..')
 const DIST_DIR = path.join(DEVELOP_ROOT, 'dist')
@@ -45,7 +45,7 @@ const NODE_ENTRIES = [
 
 // Tokens we do not want to see in a browser-runtime bundle. The banner
 // regression hit `node:module` specifically; the rest of the list pins the
-// general invariant — a content-script / SW / HTML chunk has no business
+// general invariant, a content-script / SW / HTML chunk has no business
 // importing Node builtins, regardless of how the import got introduced
 // (banner, source edit, plugin, transitive dep).
 const FORBIDDEN_NODE_SCHEMES = [
@@ -108,7 +108,7 @@ describe('dist target shape', () => {
         const file = distFile(stem)
         expect(
           fs.existsSync(file),
-          `${file} missing — rslib.config.ts WEB lib entry probably renamed/dropped`
+          `${file} missing, rslib.config.ts WEB lib entry probably renamed/dropped`
         ).toBe(true)
 
         const source = fs.readFileSync(file, 'utf-8')
@@ -143,7 +143,7 @@ describe('dist target shape', () => {
         const file = distFile(stem)
         expect(
           fs.existsSync(file),
-          `${file} missing — rslib.config.ts NODE lib entry probably renamed/dropped`
+          `${file} missing, rslib.config.ts NODE lib entry probably renamed/dropped`
         ).toBe(true)
       })
     }
@@ -157,7 +157,7 @@ describe('dist target shape', () => {
       const source = fs.readFileSync(file, 'utf-8')
       expect(
         source.startsWith('import { createRequire as __extjsCreateRequire }'),
-        'module.mjs is missing the createRequire banner — node-target lib ' +
+        'module.mjs is missing the createRequire banner, node-target lib ' +
           'in rslib.config.ts probably regressed; bundled bare require() will ReferenceError.'
       ).toBe(true)
     })

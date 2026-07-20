@@ -4,28 +4,28 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'path'
 import * as messages from './lib/messages'
-import * as utils from './lib/utils'
 import {
   isDenoRuntime,
   resolveScaffoldPackageManager,
   type ScaffoldPackageManager
 } from './lib/package-manager'
+import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
-import {importExternalTemplate} from './steps/import-external-template'
-import {overridePackageJson} from './steps/write-package-json'
-import {writeDenoJsonc} from './steps/write-deno-jsonc'
-import {installDependencies} from './steps/install-dependencies'
-import {writeReadmeFile} from './steps/write-readme-file'
-import {writeManifestJson} from './steps/write-manifest-json'
 import {generateExtensionTypes} from './steps/generate-extension-types'
-import {writeGitignore} from './steps/write-gitignore'
+import {importExternalTemplate} from './steps/import-external-template'
 import {initializeGitRepository} from './steps/initialize-git-repository'
-import {setupBuiltInTests} from './steps/setup-built-in-tests'
+import {installDependencies} from './steps/install-dependencies'
 import {installInternalDependencies} from './steps/install-internal-deps'
+import {setupBuiltInTests} from './steps/setup-built-in-tests'
+import {writeDenoJsonc} from './steps/write-deno-jsonc'
+import {writeGitignore} from './steps/write-gitignore'
+import {writeManifestJson} from './steps/write-manifest-json'
+import {overridePackageJson} from './steps/write-package-json'
+import {writeReadmeFile} from './steps/write-readme-file'
 
 export interface CreateLogger {
   log: (...args: any[]) => void
@@ -44,7 +44,7 @@ export interface CreateResult {
   projectName: string
   template: string
   depsInstalled: boolean
-  // The package manager the scaffold was created with — the one used to install
+  // The package manager the scaffold was created with, the one used to install
   // dependencies (when `install: true`) and the one whose commands the printed
   // next-steps reference (when `install: false`). Programmatic hosts read this
   // to render correct next steps instead of re-deriving it from a lockfile.

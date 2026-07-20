@@ -4,7 +4,7 @@
 // ╚════██║██╔══██║██╔══╝  ██╔══██║██╔══██╗██║
 // ███████║██║  ██║██║     ██║  ██║██║  ██║██║
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -150,7 +150,7 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Manifest fingerprinting — detect when the generated Xcode project is stale
+// Manifest fingerprinting, detect when the generated Xcode project is stale
 // ---------------------------------------------------------------------------
 
 export function manifestFingerprintPath(config: SafariBuildConfig): string {
@@ -292,9 +292,10 @@ export function applyXcodeUserSettings(
   return result
 }
 
-export function backupAndRestoreXcodeSettings(
-  config: SafariBuildConfig
-): {saved: Record<string, string>; restore: () => void} {
+export function backupAndRestoreXcodeSettings(config: SafariBuildConfig): {
+  saved: Record<string, string>
+  restore: () => void
+} {
   const projFile = pbxprojPath(config)
   let saved: Record<string, string> = {}
 

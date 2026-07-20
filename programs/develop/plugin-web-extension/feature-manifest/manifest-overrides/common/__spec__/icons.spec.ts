@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
-import {icons} from '../icons'
+import {describe, expect, it} from 'vitest'
 import {action} from '../../mv3/action'
+import {icons} from '../icons'
 
-describe('icons manifest override — output path matches the icon emitter', () => {
+describe('icons manifest override, output path matches the icon emitter', () => {
   it('preserves in-project relative icon paths as declared', () => {
     // Regression (G16): flattening every icon to icons/<basename> collides
     // with any other emitted asset that legitimately owns icons/<basename>

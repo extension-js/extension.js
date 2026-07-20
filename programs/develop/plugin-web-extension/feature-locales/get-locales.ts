@@ -4,10 +4,10 @@
 // ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
 // ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 
 function isUsableDir(p: string): boolean {
   try {
@@ -21,7 +21,7 @@ export function resolveLocalesFolder(
   manifestPath: string,
   projectRoot?: string
 ): string | undefined {
-  // Prefer `<projectRoot>/_locales` (platform-aligned layout — sibling of
+  // Prefer `<projectRoot>/_locales` (platform-aligned layout, sibling of
   // package.json, public/, dist/), but accept `<manifestDir>/_locales` as
   // a fallback so existing templates with `src/_locales/` next to a
   // src/manifest.json continue to build. validation.ts surfaces a build

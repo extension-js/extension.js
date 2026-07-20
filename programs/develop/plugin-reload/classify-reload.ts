@@ -4,12 +4,12 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 import {stripBom} from '../lib/parse-json-safe'
+import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
@@ -25,14 +25,14 @@ export interface ReloadInstruction {
   changedAssets?: string[]
   /**
    * Human context label shared VERBATIM by every surface that announces this
-   * reload — CLI stdout, the page's devtools console line, and the devtools
-   * extension pill — so they can never disagree about what is reloading.
+   * reload, CLI stdout, the page's devtools console line, and the devtools
+   * extension pill, so they can never disagree about what is reloading.
    * e.g. "content_script (content/scripts.tsx)".
    */
   label?: string
 }
 
-/** "context (fileA, fileB +2 more)" — the one label every reload surface shows. */
+/** "context (fileA, fileB +2 more)", the one label every reload surface shows. */
 export function formatReloadContextLabel(
   context: string,
   files: string[]
@@ -45,7 +45,7 @@ export function formatReloadContextLabel(
 
 /**
  * Best-effort page-context name for a page-only edit, mirroring the path
- * heuristics used for the service-worker branch. Only used for the label —
+ * heuristics used for the service-worker branch. Only used for the label,
  * never for the reload decision.
  */
 export function pageContextFromSources(changedSources: string[]): string {
@@ -70,7 +70,7 @@ export function pageContextFromSources(changedSources: string[]): string {
  * compilation's chunk graph. Name-pattern heuristics are NOT trustworthy for
  * this decision: a service worker named `background-ultimate.js` fails the
  * `background.`/`service-worker` patterns and would be re-injected as a
- * content script (the SW then never restarts — the wild-corpus anshul bug).
+ * content script (the SW then never restarts, the wild-corpus anshul bug).
  */
 export interface SourceFeatureIndex {
   /** Sources bundled into a background/* chunk (SW or MV2 scripts). */
@@ -83,7 +83,7 @@ export interface SourceFeatureIndex {
 
 /** Loader-prefixed module identifier → project-relative resource path(s).
  * Classic-concat entries hide their member files in the
- * `__extensionjs_classic_concat__` resource query — expand those too, since
+ * `__extensionjs_classic_concat__` resource query, expand those too, since
  * an edit to ANY member recompiles the entry. */
 function moduleResourcesFromIdentifier(
   identifier: string,
@@ -93,7 +93,8 @@ function moduleResourcesFromIdentifier(
   // strip a trailing `|<layer>` marker (rspack appends the module layer)
   const noLayer = afterLoaders.split('|')[0]
   const queryIndex = noLayer.indexOf('?')
-  const resourcePath = queryIndex === -1 ? noLayer : noLayer.slice(0, queryIndex)
+  const resourcePath =
+    queryIndex === -1 ? noLayer : noLayer.slice(0, queryIndex)
   const query = queryIndex === -1 ? '' : noLayer.slice(queryIndex)
 
   const out: string[] = []
@@ -109,7 +110,7 @@ function moduleResourcesFromIdentifier(
       const data = JSON.parse(decodeURIComponent(concatMatch[1]))
       for (const file of data?.js || []) push(String(file))
     } catch {
-      // malformed query — the first file alone still classifies the entry
+      // malformed query, the first file alone still classifies the entry
     }
   }
   return out
@@ -118,7 +119,7 @@ function moduleResourcesFromIdentifier(
 /**
  * Walk the finished compilation and record, for every bundled source file,
  * which reload feature its chunks belong to. Nameless (async) chunks are
- * skipped — sources reached only through dynamic imports fall back to the
+ * skipped, sources reached only through dynamic imports fall back to the
  * name heuristics in {@link classifyReloadFromSources}.
  */
 export function buildSourceFeatureIndex(
@@ -177,16 +178,16 @@ export function buildSourceFeatureIndex(
  *      notify-only page.
  *   3. Emitted static asset (exists at the same relative path in the output
  *      dir: manifest icons, web-accessible resources, DNR rulesets) → full
- *      reload — the browser only re-reads those from disk on an extension
+ *      reload. The browser only re-reads those from disk on an extension
  *      reload, and re-injecting content scripts for an icon edit is a storm
  *      of no-ops (the wild-corpus Sappgulf bug).
  *   4. Name heuristics, as before, for anything the graph can't see.
  *
- * The thunks keep the (cheap) index build and manifest read lazy — they only
+ * The thunks keep the (cheap) index build and manifest read lazy. They only
  * run when a classification actually needs them.
  *
  * Returns a notify-only `type: 'page'` instruction for page-only edits
- * (popup/options/devtools/newtab HTML/CSS/JS) — those are delivered by
+ * (popup/options/devtools/newtab HTML/CSS/JS). Those are delivered by
  * rspack-dev-server's livereload broadcast, so firing an extension reload
  * would race it and flash the open surface. The 'page' instruction only
  * carries the announcement label; dispatch never reloads the extension for it.
@@ -268,7 +269,7 @@ export function classifyReloadFromSources(opts: {
   if (swChanged.length > 0) {
     // A shared module (SW chunk + content chunk) needs BOTH paths: the SW
     // restart carries the instruction, and changedContentScriptEntries tells
-    // the producer which open-tab content scripts went stale — the restarted
+    // the producer which open-tab content scripts went stale, the restarted
     // producer heals them from the pending-reinject flag it sets pre-reload.
     return {
       type: 'service-worker',
@@ -370,7 +371,9 @@ export function readContentScriptCount(
   try {
     const manifestPath = path.join(outputPath, 'manifest.json')
     if (fs.existsSync(manifestPath)) {
-      const manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
+      const manifest = JSON.parse(
+        stripBom(fs.readFileSync(manifestPath, 'utf8'))
+      )
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }

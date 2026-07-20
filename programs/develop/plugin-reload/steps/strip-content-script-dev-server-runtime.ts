@@ -4,12 +4,12 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {
-  stripDevServerStartupFromContentScript,
-  contentScriptRetainsDevServerRuntime
+  contentScriptRetainsDevServerRuntime,
+  stripDevServerStartupFromContentScript
 } from './remove-content-script-dev-server-runtime'
 
 const CONTENT_SCRIPT_ASSET =

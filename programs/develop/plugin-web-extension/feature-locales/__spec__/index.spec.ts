@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
-import {LocalesPlugin} from '../index'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as getLocalesModule from '../get-locales'
+import {LocalesPlugin} from '../index'
 
 // Minimal tapable-like hook helper
 function createHook() {
@@ -455,7 +455,7 @@ describe('LocalesPlugin (unit)', () => {
 
   it('warns when _locales/ is found next to the manifest instead of the project root', () => {
     // Project-root layout is canonical, but the legacy `<manifestDir>/_locales`
-    // shape still works — emit a build warning to nudge migration without
+    // shape still works, emit a build warning to nudge migration without
     // breaking templates / external projects that rely on the legacy layout.
     const pkgRoot = path.join(tmpRoot, 'legacy-layout-warn')
     const innerSrc = path.join(pkgRoot, 'src')
@@ -494,7 +494,7 @@ describe('LocalesPlugin (unit)', () => {
     new LocalesPlugin({manifestPath: srcManifestPath}).apply(compiler)
     ;(processAssetsHook as any)._runAll()
 
-    // Build must NOT fail — no error pushed.
+    // Build must NOT fail, no error pushed.
     const error = compilation.errors.find(
       (e: any) => e.name === 'LocalesValidationError'
     )

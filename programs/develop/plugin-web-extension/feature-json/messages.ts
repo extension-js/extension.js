@@ -4,7 +4,7 @@
 // ██   ██║╚════██║██║   ██║██║╚██╗██║
 // ╚█████╔╝███████║╚██████╔╝██║ ╚████║
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -100,7 +100,7 @@ export function jsonEmitSummary(
   }
 ) {
   return (
-    `JSON ${colors.yellow(feature)} — ` +
+    `JSON ${colors.yellow(feature)}, ` +
     `entries ${colors.gray(String(stats.entries))}, ` +
     `public ${colors.gray(String(stats.underPublic))}, ` +
     `emitted ${colors.gray(String(stats.emitted))}, ` +
@@ -119,7 +119,7 @@ export function jsonIncludeSummary(
   criticalCount: number
 ) {
   return (
-    `JSON include summary — features ${colors.gray(String(totalFeatures))}, ` +
+    `JSON include summary, features ${colors.gray(String(totalFeatures))}, ` +
     `critical ${colors.gray(String(criticalCount))}`
   )
 }

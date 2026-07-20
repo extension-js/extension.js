@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export const BRIDGE_PRODUCER_SOURCE = `;(function () {
   try {
@@ -28,7 +28,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Capture extension event listeners at install time. The producer is
     // prepended to the background bundle, so these wraps run BEFORE user code
-    // registers its listeners — letting the bridge replay them on demand. The
+    // registers its listeners, letting the bridge replay them on demand. The
     // platform exposes no API to dispatch these events, and CDP attaches too
     // late to wrap addListener, so this is the only path. Replay invokes the
     // handler WITHOUT a user gesture, so the gesture-derived activeTab grant
@@ -56,7 +56,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e) { /* non-fatal: trigger falls back to its no-listener reply */ }
     }
 
-    // Use g.chrome (not the hoisted chrome var below) — this runs first.
+    // Use g.chrome (not the hoisted chrome var below). This runs first.
     var actionClickedListeners = [];
     var commandListeners = [];
     if (g.chrome) {
@@ -112,7 +112,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Resolve a numeric tab id for content/page targeting when the caller did
     // not pass one: match target.url against open tabs (Chrome match pattern,
     // then a substring fallback), else default to the active tab. cb(tabId, err)
-    // — tabId is null with a human message when nothing matches. (#51)
+    // gets a null tabId with a human message when nothing matches. (#51)
     function resolveTargetTab(target, cb) {
       var chrome = g.chrome;
       if (!chrome || !chrome.tabs) { cb(null, "chrome.tabs is not available"); return; }
@@ -206,7 +206,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           // promisified there); some older Chromium builds also predate the
           // promise form. Calling .then() on the callback-only return (undefined)
           // is the §54 TypeError. Prefer the promisified browser.* namespace,
-          // then fall back to the callback shape — the same promise-or-callback
+          // then fall back to the callback shape, the same promise-or-callback
           // duality getActionPopup handles below.
           var storageNS = (g.browser && g.browser.storage) ? g.browser.storage : chrome.storage;
           var storageArea = storageNS && storageNS[args.area || "local"];
@@ -296,7 +296,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           } else if (surface === "action") {
             // Trigger the toolbar action. With a default_popup, clicking the icon
             // opens it (reuse openPopup). Without a popup, clicking fires
-            // chrome.action.onClicked — we replay the listeners captured at install.
+            // chrome.action.onClicked, we replay the listeners captured at install.
             if (chrome.action) {
               getActionPopup(function (popup) {
                 if (popup) {
@@ -422,15 +422,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Re-inject a single declared content-script entry's fresh files into every
     // open tab it matches, in place. The wrapper's reinject runtime tears down
     // the previous mount (matched by data-extjs-reinject-owner + build hash) and
-    // mounts the new one — so this is the controller-less equivalent of the CDP
+    // mounts the new one, so this is the controller-less equivalent of the CDP
     // controller's reinjection, just driven from inside the extension.
     //
     // exclude_matches MUST be honored: the browser's own static injection never
     // touches excluded pages, and extensions can rely on that (e.g. a script
-    // whose message handler opens the very page it excludes — injecting there
+    // whose message handler opens the very page it excludes, injecting there
     // anyway creates an open-a-tab → inject → open-a-tab runaway loop). Chrome's
     // tabs.query has no exclude support, so query the exclude patterns
-    // separately and subtract — the browser stays the single pattern matcher.
+    // separately and subtract. The browser stays the single pattern matcher.
     function reinjectContentScriptEntry(entry) {
       var chrome = g.chrome;
       var matches = (entry && entry.matches) || [];
@@ -489,7 +489,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Re-inject all content scripts into their open tabs. Reads the manifest
     // FROM DISK (not chrome.runtime.getManifest(), which is frozen at extension-
     // registration time) because dev content-script filenames are content-hashed
-    // and change on every edit — disk has the new js/css paths.
+    // and change on every edit, disk has the new js/css paths.
     function reinjectContentScripts(onDone) {
       var chrome = g.chrome;
       try {
@@ -575,7 +575,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Perform a dev-loop reload without the CDP controller:
     //   - content-scripts: re-inject the fresh script into open matching tabs in
     //     place (no extension restart), the controller-less equivalent of CDP
-    //     reinjection. Needs the scripting permission + host access to the tab —
+    //     reinjection. Needs the scripting permission + host access to the tab,
     //     both injected in dev by ApplyDevDefaults. Falls back to a full reload
     //     if scripting is unavailable.
     //   - service-worker / full / manifest: restart the whole extension so it
@@ -589,7 +589,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         // Chrome never re-runs content scripts in tabs that were already open
         // when the extension reloads, and runtime.reload() does NOT fire
         // onInstalled (verified Chromium 146), so the boot-time heal below is
-        // the only thing that converges open tabs after a SW/full reload —
+        // the only thing that converges open tabs after a SW/full reload,
         // without it a shared SW+content module edit restarts the SW while
         // every open tab keeps the stale content world (family F).
         try {
@@ -597,8 +597,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
           }
         } catch (e) {}
-        // Deferred so any in-flight result/log frame — and the "Reloading…"
-        // console announcement dispatched into tabs — flushes before the SW
+        // Deferred so any in-flight result/log frame, and the "Reloading…"
+        // console announcement dispatched into tabs, flushes before the SW
         // dies. runtime.reload() restarts the whole extension; the devtools
         // companion confirms completion via chrome.management events, so no
         // onDone here.
@@ -621,7 +621,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Stable IDs of the bundled extension-js-devtools companion: Chromium pins
     // via the manifest "key"; Firefox via browser_specific_settings.gecko.id.
-    // Absent companion (e.g. --no-browser in the user's own browser) is fine —
+    // Absent companion (e.g. --no-browser in the user's own browser) is fine,
     // sendMessage just reports no receiver and we swallow it.
     var DEVTOOLS_COMPANION_ID_CHROMIUM = "kgdaecdpfkikjncaalnmmnjjfpofkcbl";
     var DEVTOOLS_COMPANION_ID_FIREFOX = "devtools@extension.js";
@@ -640,7 +640,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     // console.log the reload line into every open injectable tab. Runs in the
-    // user extension's ISOLATED world, where the bridge relay patched console —
+    // user extension's ISOLATED world, where the bridge relay patched console,
     // so the same line also lands in the centralized dev-server log stream.
     function announceReloadInTabs(text) {
       var chrome = g.chrome;
@@ -688,12 +688,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (kind === "page") {
         // Notify-only: rspack-dev-server's livereload refreshes the open
         // surface; reloading the extension here would race it. No tab console
-        // line either — the reloading page clears its own console anyway.
+        // line either, the reloading page clears its own console anyway.
         return;
       }
 
       // Delivery ack for the broker: proves this SW's message pump actually
-      // processed the frame — a successful socket WRITE proves nothing when
+      // processed the frame, a successful socket WRITE proves nothing when
       // the worker is wedged-but-connected (bug 27). The broker latches a
       // content-scripts reload until this ack and replays it to the next
       // producer hello, so an edit that landed on a dead pump still converges.
@@ -879,12 +879,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Multi-context console forwarding: other contexts (content scripts, surface
     // pages) can't reliably open ws://127.0.0.1 (page CSP / connect-src), so they
     // relay console to this SW, which owns the WS. The relay travels a NAMED
-    // runtime.Port — never runtime.sendMessage — because port traffic is
+    // runtime.Port (never runtime.sendMessage) because port traffic is
     // invisible to the extension's own onMessage listeners. With sendMessage, an
     // extension whose SW echoes every message back to its tabs (wild newtube:
     // onMessage → tabs.sendMessage(msg) to all tabs) turned each relayed log
     // into a new tab message, whose subject-side console.log became another
-    // relayed envelope — a self-sustaining dev-only message storm (25k rows/10min
+    // relayed envelope, a self-sustaining dev-only message storm (25k rows/10min
     // observed) that starved the extension system and wedged Chromium's DevTools
     // endpoint (family B). We enrich with the real tabId/url from the port sender.
     function shipRelayedLog(ev, sender) {
@@ -960,7 +960,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // a dev-driven SW/full reload leaves the listener above silent and every
     // open tab keeps the previous build's content world. fullReload() stamps
     // __extjsDevPendingReinject into storage.local right before reloading;
-    // consume it here (fresh flags only — a stale one from a crashed session
+    // consume it here (fresh flags only, a stale one from a crashed session
     // is dropped) and heal open tabs from the on-disk manifest. Idle-stop SW
     // wakes never see the flag, so this cannot churn mounted UI.
     try {
@@ -988,9 +988,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
  * Lightweight RELAY for non-SW contexts (content scripts, surface pages). It
  * patches console and forwards each call to the background SW over a NAMED
  * runtime.Port ({__extjsBridgeLog} frames); the SW producer (above) stamps
- * tabId/url and ships it over the control WS. No WebSocket, no executor here —
+ * tabId/url and ships it over the control WS. No WebSocket, no executor here,
  * content scripts usually can't open ws://127.0.0.1 under the page's CSP.
- * A Port — not runtime.sendMessage — so the subject extension's own onMessage
+ * A Port (not runtime.sendMessage) so the subject extension's own onMessage
  * listeners never see relay traffic: an SW that echoes messages back to tabs
  * otherwise turns the relay into an infinite dev-only message storm (family B).
  */
@@ -1117,7 +1117,7 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
 
     // Surface DOM inspection: the SW executor can't reach popup/options/sidebar
     // DOM (separate extension pages), and the sidecar can't either (cross-extension
-    // isolation). So THIS page — the user extension's own surface — answers an
+    // isolation). So THIS page (the user extension's own surface) answers an
     // inspect request for its own context. The SW broadcasts the request; only the
     // matching-context surface responds with its DOM snapshot.
     try {

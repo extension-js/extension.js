@@ -1,12 +1,12 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   BridgeBroker,
+  type BridgeConnection,
   CLOSE_BAD_INSTANCE,
-  CLOSE_CONTROL_UNAVAILABLE,
-  type BridgeConnection
+  CLOSE_CONTROL_UNAVAILABLE
 } from '../broker'
-import {LogRingBuffer} from '../ring-buffer'
 import type {IncomingLogEvent, ServerFrame} from '../contracts'
+import {LogRingBuffer} from '../ring-buffer'
 
 class FakeConn implements BridgeConnection {
   sent: ServerFrame[] = []
@@ -211,7 +211,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     expect(prod.sent[0]).toMatchObject({type: 'reload', reloadType: 'full'})
   })
 
-  it('is not gated on allowControl — the dev loop reloads without --allow-control', () => {
+  it('is not gated on allowControl, the dev loop reloads without --allow-control', () => {
     const b = new BridgeBroker(opts) // allowControl defaults to false
     const prod = new FakeConn('p')
     hello(b, prod, 'producer')
@@ -226,7 +226,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   it('self-heals a STALE producer: full-reload frame before the close', () => {
     // A live SW from a previous dev session (Chrome kept its cached script
     // after a restart) dials in with the old instanceId. Rejecting it would
-    // strand the extension — instead it is told to reload itself so the
+    // strand the extension, instead it is told to reload itself so the
     // fresh on-disk bundle (current port + instanceId) takes over.
     const b = new BridgeBroker(opts)
     const stale = new FakeConn('stale')
@@ -306,7 +306,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
 
   it('latches an undeliverable reload and hands it to the next producer hello', () => {
     // An MV3 SW that idled out (or has not started yet) holds no producer
-    // socket — the broadcast reaches nobody. The edit must still apply when
+    // socket, the broadcast reaches nobody. The edit must still apply when
     // the SW comes back, not silently reload nothing.
     const b = new BridgeBroker(opts)
     expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)
@@ -359,7 +359,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       })
     ).toBe(1)
 
-    // No ack came back — a fresh producer hello gets the replay.
+    // No ack came back, a fresh producer hello gets the replay.
     const fresh = new FakeConn('fresh')
     hello(b, fresh, 'producer')
     expect(fresh.sent).toHaveLength(1)
@@ -486,10 +486,15 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
 
     // The SW attaches (clears the dedup) then drops out.
     const prod = new FakeConn('p')
-    b.onFrame(prod, {type: 'hello', v: 1, role: 'producer', instanceId: 'inst-1'})
+    b.onFrame(prod, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
     b.onClose(prod)
 
-    // A stranded edit now reports the disconnect — a genuinely new state.
+    // A stranded edit now reports the disconnect, a genuinely new state.
     const msg = b.undeliveredReloadWarning()
     expect(msg).toContain('SW not attached')
     expect(msg).toContain('disconnected')
@@ -510,7 +515,7 @@ describe('BridgeBroker.undeliveredReloadWarning (§53: SW-not-attached DX)', () 
     })
 
     // The resynced worker reconnects within seconds and picks up the latched
-    // edit — warning now would cry wolf.
+    // edit, warning now would cry wolf.
     expect(b.undeliveredReloadWarning()).toBeNull()
   })
 })

@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Mocks for internal dependencies used by CssPlugin
 const mockedContentLoaders = [{test: /a\.css$/}]
@@ -108,7 +108,7 @@ describe('CssPlugin', () => {
     // SFC and imports the module's default export as the style string. The
     // issuer-based rules type such requests as native CSS (no JS exports),
     // dead-linking that import. A trailing rule must flip the type to
-    // asset/source — and carry NO `use`, so the loader chain from the
+    // asset/source, and carry NO `use`, so the loader chain from the
     // matching rules above is not duplicated.
     const rules = compiler.options.module.rules as any[]
     const inlineRule = rules.find(

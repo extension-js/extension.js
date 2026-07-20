@@ -137,18 +137,18 @@ describe('classic-concat-loader', () => {
 
     const [, output] = ctx.callback.mock.calls[0]
     // The source is wrapped in a function whose params shadow the module system,
-    // called with all four undefined — rspack then treats every `require` as a
+    // called with all four undefined, rspack then treats every `require` as a
     // locally-bound variable and does not statically collect it.
-    expect(output).toContain(
-      ';(function (module, exports, define, require) {'
-    )
+    expect(output).toContain(';(function (module, exports, define, require) {')
     expect(output).toContain(
       '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
     )
-    // Require/define calls are NOT rewritten — that would break browserify libs
+    // Require/define calls are NOT rewritten. That would break browserify libs
     // whose inner `function (require, module, exports)` provides its own require.
     expect(output).toContain('require("katex")')
-    expect(output).toContain('function(require,module,exports){var u=require("./utils")}')
+    expect(output).toContain(
+      'function(require,module,exports){var u=require("./utils")}'
+    )
     // The wrapper must enclose the user sources.
     expect(output.indexOf('(function (module')).toBeLessThan(
       output.indexOf('require("katex")')
@@ -236,7 +236,13 @@ describe('classic-concat-loader TypeScript members (§24)', () => {
 
     // Top-level declarations (and block-hoisted vars) are exposed; names
     // scoped inside functions are not.
-    for (const name of ['Handlebars', 'helper', 'Renderer', 'mode', 'hoisted']) {
+    for (const name of [
+      'Handlebars',
+      'helper',
+      'Renderer',
+      'mode',
+      'hoisted'
+    ]) {
       expect(output).toContain(`globalThis[${JSON.stringify(name)}] = ${name}`)
     }
     expect(output).not.toContain('globalThis["local"]')

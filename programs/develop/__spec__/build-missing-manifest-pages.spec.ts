@@ -7,10 +7,10 @@
 // phantom action/index.html. Chrome refuses to load such an extension, so the
 // build must fail it honestly.
 
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 const MISSING_POPUP_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-missing-popup-')
@@ -36,7 +36,7 @@ function writeMissingPopupFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — missing popup + options page',
+        name: 'Build Spec, missing popup + options page',
         version: '1.0.0',
         action: {default_popup: 'popup.html'},
         options_page: 'options.html'
@@ -54,7 +54,7 @@ function writeMissingOverrideFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — missing newtab override',
+        name: 'Build Spec, missing newtab override',
         version: '1.0.0',
         chrome_url_overrides: {newtab: 'newtab.html'}
       },
@@ -72,7 +72,7 @@ function writePresentPopupFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — present popup',
+        name: 'Build Spec, present popup',
         version: '1.0.0',
         action: {default_popup: 'popup.html'}
       },

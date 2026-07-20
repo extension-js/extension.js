@@ -1,6 +1,6 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Shared state for mock WebSocket instances — must be declared before vi.mock
+// Shared state for mock WebSocket instances, must be declared before vi.mock
 const wsInstances: any[] = []
 
 vi.mock('ws', async () => {
@@ -87,7 +87,7 @@ describe('establishBrowserConnection', () => {
   })
 
   // -----------------------------------------------------------------------
-  // 3. Error + close sequence — both call onRejectPending
+  // 3. Error + close sequence, both call onRejectPending
   //    (WebSocket always fires close after error).
   //    The promise itself rejects only once.
   // -----------------------------------------------------------------------

@@ -4,15 +4,20 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {CompilationLike} from './browsers-types'
-import type {BrowserType} from './browsers-types'
-import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {printProdBannerOnce} from './browsers-lib/banner'
+import {
+  isChromiumBrowser,
+  isFirefoxBrowser
+} from './browsers-lib/browser-family'
+import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
-import type {PluginInterface} from './browsers-types'
-import {isChromiumBrowser, isFirefoxBrowser} from './browsers-lib/browser-family'
+import type {
+  BrowserType,
+  CompilationLike,
+  PluginInterface
+} from './browsers-types'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'

@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝   ██║   ██║   ██║██║   ██║██║     ╚════██║
 // ██████╔╝███████╗ ╚████╔╝    ██║   ╚██████╔╝╚██████╔╝███████╗███████║
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {useEffect, useMemo, useRef, useState} from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -234,7 +234,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
         if (payload.kind === 'page') {
           // Notify-only page reload (livereload lands almost immediately and
-          // there is no confirmation event) — settle on a short linger.
+          // there is no confirmation event), settle on a short linger.
           settleReload(1400)
         } else {
           // Never let a lost confirmation keep the pill lying: if neither the
@@ -267,7 +267,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       : `${diagnosticsIssueCount} setup checks need attention`
 
   // Same server-built label the CLI printed to stdout and the producer echoed
-  // into the page console — one string, every surface.
+  // into the page console, one string, every surface.
   const reloadingText = reloadLabel
     ? `Reloading ${reloadLabel}…`
     : 'Reloading…'
@@ -503,7 +503,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
   // Hardcoded surface colors. Tailwind v4 routes `bg-neutral-900` through the
   // CSS variable `--color-neutral-900`, and CSS variables inherit through open
-  // shadow roots — so a host page that overrides that variable (or one of the
+  // shadow roots, so a host page that overrides that variable (or one of the
   // shadcn `--background`/`--card`/etc. tokens this project also defines) can
   // bleed transparency or any other color into our overlay. `bg-opacity-100`
   // is a no-op in Tailwind v4 (it generates zero rules), so the safety net I
@@ -524,7 +524,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             // Radix scans the *direct* children of `Content` for a `Title` and
             // emits an a11y warning when none is found. The Title used to live
             // inside a wrapping `<div>`, which tripped that check on every
-            // open — render it as a direct child instead.
+            // open, render it as a direct child instead.
             style={{
               backgroundColor: SURFACE_DIALOG,
               borderColor: BORDER_NEUTRAL,
@@ -532,7 +532,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
               opacity: 1
             }}
             // Row template: Title, Description, diagnostics card (intrinsic
-            // height — just what the User-extension box needs), then the error
+            // height, just what the User-extension box needs), then the error
             // tabs section taking the remaining 1fr.
             className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-[0_20px_48px_rgba(0,0,0,0.6)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%]"
           >

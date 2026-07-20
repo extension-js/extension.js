@@ -4,12 +4,12 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import {createRequire} from 'module'
-import {defineConfig} from '@rslib/core'
 import type {RslibConfig} from '@rslib/core'
+import {defineConfig} from '@rslib/core'
+import {createRequire} from 'module'
+import * as path from 'path'
 
 const require = createRequire(import.meta.url)
 const shouldGenerateDts = (() => {
@@ -54,7 +54,7 @@ const externals = [
 // Browser-side runtime files: HMR shims and minimum placeholder scripts.
 // These are emitted as standalone assets and end up running INSIDE the
 // user's extension at runtime (HTML page scripts, content scripts, service
-// workers). They MUST NOT receive the Node-only `createRequire` banner —
+// workers). They MUST NOT receive the Node-only `createRequire` banner,
 // `node:module` is unresolvable in a web target and causes "Reading from
 // 'node:module' is not handled by plugins" when rspack later bundles user
 // code that pulls these wrappers in as content/background entries.

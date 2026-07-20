@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from 'vitest'
-import {StripContentScriptDevServerRuntime} from '../steps/strip-content-script-dev-server-runtime'
 import {stripDevServerStartupFromContentScript} from '../steps/remove-content-script-dev-server-runtime'
+import {StripContentScriptDevServerRuntime} from '../steps/strip-content-script-dev-server-runtime'
 
 describe('content script dev-server runtime stripping', () => {
   it('removes dev-server startup requires from content script bundles', () => {
@@ -41,7 +41,7 @@ describe('content script dev-server runtime stripping', () => {
       '  module.hot.check()',
       '}',
       '353(module) {',
-      "  console.log('user content script — keep me')",
+      "  console.log('user content script, keep me')",
       '}',
       '// startup',
       '__webpack_require__(870);',

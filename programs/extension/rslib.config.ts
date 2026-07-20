@@ -4,14 +4,14 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
-import colors from 'pintor'
-import {createRequire} from 'module'
-import {defineConfig} from '@rslib/core'
 import type {RslibConfig} from '@rslib/core'
+import {defineConfig} from '@rslib/core'
+import * as fs from 'fs'
+import {createRequire} from 'module'
+import * as path from 'path'
+import colors from 'pintor'
 
 const require = createRequire(import.meta.url)
 const shouldGenerateDts = (() => {

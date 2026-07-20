@@ -4,7 +4,7 @@
 // ╚════██║   ██║   ██╔══██║   ██║   ██║██║╚════╝██╔══██║╚════██║╚════██║██╔══╝     ██║   ╚════██║
 // ███████║   ██║   ██║  ██║   ██║   ██║╚██████╗ ██║  ██║███████║███████║███████╗   ██║   ███████║
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler, RuleSetRule} from '@rspack/core'
 import type {DevOptions, PluginInterface} from '../types'
@@ -27,7 +27,7 @@ export class StaticAssetsPlugin {
     // assets with the same basename in different folders (wild: noscript ships
     // both `img/ui-custom64.webp` and `img/vintage/ui-custom64.webp`) collided
     // on one output name and rspack failed the compilation with "Conflict:
-    // Multiple assets emit different content to the same filename" — `build`
+    // Multiple assets emit different content to the same filename", `build`
     // was fine (it hashes) while `extension dev` never booted at all.
     // Hashing, not `[path]`: a path-based name can escape the output dir and
     // clobber sources in the watch loop.
@@ -87,9 +87,9 @@ export class StaticAssetsPlugin {
             {
               // Match only the standalone `?url` import query (e.g.
               // `import href from './icon.png?url'`). An unanchored /url/ also
-              // matched "url" anywhere in a resourceQuery — including inside the
+              // matched "url" anywhere in a resourceQuery, including inside the
               // __extensionjs_classic_concat__ payload when a concatenated file
-              // name contains "url" (e.g. clearurls.js) — which wrongly turned the
+              // name contains "url" (e.g. clearurls.js), which wrongly turned the
               // whole content-script/background concat entry into an asset/resource
               // emitted under a hash name instead of its canonical chunk file.
               resourceQuery: /(?:^\?|&)url(?:&|=|$)/,

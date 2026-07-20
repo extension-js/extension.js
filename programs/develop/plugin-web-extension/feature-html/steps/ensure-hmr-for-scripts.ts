@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {
   init as esModuleLexerInit,
@@ -138,7 +138,7 @@ export default function ensureHMRForScripts(
   }
 
   // `import.meta` is ONLY legal in module parses. A page script that rspack
-  // resolves as `javascript/dynamic` (classic script parse — e.g. any .js in
+  // resolves as `javascript/dynamic` (classic script parse, e.g. any .js in
   // a `"type": "commonjs"` package, which is exactly what the classic-concat
   // pipeline feeds through here) must get the CJS `module.hot` API instead,
   // or the injected guard itself is a parse error that fails the whole dev
@@ -156,7 +156,7 @@ export default function ensureHMRForScripts(
   // `javascript/auto` infers module-vs-script FROM THE SOURCE SYNTAX, so the
   // injected guard itself must not change the verdict: `import.meta` in the
   // wrapper flips a classic script into a strict ES-module parse, turning
-  // every sloppy-mode construct in the user's own code into a build error —
+  // every sloppy-mode construct in the user's own code into a build error,
   // and a multi-MB one-line data script full of legacy octal escapes melts
   // rspack's per-error snippet rendering into gigabytes (Rapid-Journal,
   // 2026-07-11). Pick the API the source's own syntax already selects:
@@ -170,7 +170,7 @@ export default function ensureHMRForScripts(
         const [, , , moduleSyntax] = esModuleLexerParse(source)
         hasModuleSyntax = Boolean(moduleSyntax)
       } catch {
-        // Not lexable as a module — the script parse keeps it alive.
+        // Not lexable as a module, the script parse keeps it alive.
       }
       callback(
         null,

@@ -4,13 +4,13 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import EventEmitter from 'events'
 import * as messages from '../../../browsers-lib/messages'
-import {RdpTransport} from './transport'
-import * as api from './rdp-api'
 import {evaluate as evalHelper} from './evaluate'
+import * as api from './rdp-api'
+import {RdpTransport} from './transport'
 
 export class MessagingClient extends EventEmitter {
   private transport = new RdpTransport()

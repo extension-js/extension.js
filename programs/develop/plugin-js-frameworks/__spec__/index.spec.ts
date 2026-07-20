@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
 import * as path from 'path'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const mockedReact = {
   alias: {
@@ -302,14 +302,14 @@ describe('JsFrameworksPlugin', () => {
     // sloppy classic scripts; forcing every non-content-script file to
     // strict ESM rejected Chrome-valid extensions (G20). The type must be an
     // EXPLICIT javascript/auto: left implicit, rspack infers it from the
-    // nearest package.json `"type"` field, which Chrome never reads (G24 —
+    // nearest package.json `"type"` field, which Chrome never reads (G24,
     // a `"type": "commonjs"` project broke its own module service worker).
     const nonContentRule = compiler.options.module.rules.find(
       (rule: any) => rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
     expect(nonContentRule?.type).toBe('javascript/auto')
 
-    // Content-script rules must NOT be forced esm — they are injected as
+    // Content-script rules must NOT be forced esm. They are injected as
     // classic scripts.
     const contentRules = compiler.options.module.rules.filter(
       (rule: any) => rule?.layer === 'extensionjs-content-script'
@@ -343,9 +343,9 @@ describe('JsFrameworksPlugin', () => {
     )
     expect(esmRule).toBeDefined()
     // The rule must match every absolute form of the same file. On Windows
-    // these disagree — `path.normalize` keeps a drive-less `\project\sw.js`
+    // these disagree, `path.normalize` keeps a drive-less `\project\sw.js`
     // while `path.resolve` (the shape rspack reports) yields
-    // `D:\project\sw.js` — so probing both keeps set-vs-probe form drift from
+    // `D:\project\sw.js`, so probing both keeps set-vs-probe form drift from
     // passing on POSIX CI and failing only on the Windows runner.
     expect(esmRule.include(path.normalize('/project/sw.js'))).toBe(true)
     expect(esmRule.include(path.resolve('/project/sw.js'))).toBe(true)
@@ -373,8 +373,8 @@ describe('JsFrameworksPlugin', () => {
     expect(esmRule).toBeDefined()
     // The ESM marker rule excludes content-script files via the shared
     // content-like matcher. Content-script paths are stored resolved
-    // (drive-lettered on Windows) while rspack may probe with either form —
-    // the matcher must recognize all of them or the content-script instance
+    // (drive-lettered on Windows) while rspack may probe with either form.
+    // The matcher must recognize all of them or the content-script instance
     // gets force-marked ESM on exactly one platform.
     const isContentLike = (esmRule as any).exclude[0]
     expect(isContentLike(path.normalize('/project/content.js'))).toBe(true)
@@ -429,7 +429,7 @@ describe('JsFrameworksPlugin', () => {
     // resolved, drive-lettered form, so matching must be form-insensitive.
     expect(esmRule.include(path.normalize('/project/main.js'))).toBe(true)
     expect(esmRule.include(path.resolve('/project/main.js'))).toBe(true)
-    // A plain <script src> is a classic script to the browser — never ESM.
+    // A plain <script src> is a classic script to the browser, never ESM.
     expect(esmRule.include(path.normalize('/project/classic.js'))).toBe(false)
     expect(esmRule.include(path.resolve('/project/classic.js'))).toBe(false)
   })

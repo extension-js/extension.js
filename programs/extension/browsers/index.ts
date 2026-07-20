@@ -4,9 +4,13 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {printDevBannerOnce, printProdBannerOnce} from './browsers-lib/banner'
+import {
+  isChromiumBrowser,
+  isFirefoxBrowser
+} from './browsers-lib/browser-family'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
@@ -15,7 +19,6 @@ import type {
   Controller,
   PluginInterface
 } from './browsers-types'
-import {isChromiumBrowser, isFirefoxBrowser} from './browsers-lib/browser-family'
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
@@ -60,7 +63,7 @@ export interface BrowserLaunchOptions {
 }
 
 /**
- * Handle returned by `launchBrowser` — provides logging control.
+ * Handle returned by `launchBrowser`, provides logging control.
  *
  * Reload is owned by the dev server's control-bridge SW producer (the same
  * executor for launched + `--no-browser`), not this controller; the CDP/RDP
@@ -97,7 +100,7 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
  * Launch a browser with the given extension(s) loaded.
  *
  * Returns a `BrowserController` that provides unified-logging control.
- * This is the primary entry point for the CLI orchestration layer — it replaces
+ * This is the primary entry point for the CLI orchestration layer, it replaces
  * the old BrowsersPlugin that lived inside the bundler.
  */
 export async function launchBrowser(
@@ -199,7 +202,7 @@ async function launchFirefox(
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
-    // Unified logger options — consumed by FirefoxRDPController.enableUnifiedLogging
+    // Unified logger options, consumed by FirefoxRDPController.enableUnifiedLogging
     logLevel: opts.logLevel as PluginInterface['logLevel'],
     logContexts: opts.logContexts as PluginInterface['logContexts'],
     logFormat: opts.logFormat as PluginInterface['logFormat'],
@@ -243,7 +246,7 @@ async function launchFirefox(
 
   // Resolve the RDP controller created during launch (when available).
   // In dry-run / VITEST paths launch() short-circuits and no controller
-  // is created — reload/logging will degrade to no-ops in that case.
+  // is created, reload/logging will degrade to no-ops in that case.
   const rdpController = ctx.getController?.()
 
   return {

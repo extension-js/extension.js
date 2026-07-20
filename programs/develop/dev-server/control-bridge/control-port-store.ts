@@ -4,13 +4,13 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 
 /**
- * Control-port persistence — the reachability half of stale-SW self-healing.
+ * Control-port persistence, the reachability half of stale-SW self-healing.
  *
  * Chrome caches an extension's background service-worker script per profile:
  * after a dev-server restart, a reused profile can keep running a SW whose
@@ -21,8 +21,8 @@ import * as path from 'path'
  * BridgeBroker.onHello).
  *
  * The file lives under the project's `.extension-js/` dir (with the control
- * token), NOT under dist/: profiles can outlive dist/ — an explicit
- * `--profile <path>` or a kept managed profile survives a dist wipe — and a
+ * token), NOT under dist/: profiles can outlive dist/, an explicit
+ * `--profile <path>` or a kept managed profile survives a dist wipe, and a
  * port file that dies with dist strands the profile's cached SW on a dead
  * port with no resync path (issue #484: permanent "no executor connected"
  * against a live, awake SW). The port must live at least as long as any
