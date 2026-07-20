@@ -47,19 +47,20 @@ export class StaticAssetsPlugin {
     }
 
     // Check if any existing rule handles SVG files
-    const hasCustomSvgRule = compiler.options.module.rules.some((rule) => {
-      return (
-        (rule as any) &&
-        (rule as any).test instanceof RegExp &&
-        (rule as any).test.test('.svg') &&
-        (rule as any).use !== undefined
+    const hasCustomSvgRule = compiler.options.module.rules.some((thisRule) => {
+      const rule = thisRule as {test?: unknown; use?: unknown} | null
+      return Boolean(
+        rule &&
+          rule.test instanceof RegExp &&
+          rule.test.test('.svg') &&
+          rule.use !== undefined
       )
     })
 
     const hasUrlResourceQueryRule = compiler.options.module.rules.some(
       (thisRule) => {
-        const rule = thisRule as RuleSetRule
-        const resourceQuery = (rule as any)?.resourceQuery
+        const rule = thisRule as {resourceQuery?: unknown} | null
+        const resourceQuery = rule?.resourceQuery
         if (!(resourceQuery instanceof RegExp)) return false
         return resourceQuery.test('?url')
       }
@@ -163,30 +164,27 @@ export class StaticAssetsPlugin {
         )
       )
 
-      compiler.hooks.afterEmit.tap(
-        StaticAssetsPlugin.name,
-        (compilation: any) => {
-          try {
-            const assets = (compilation?.getAssets?.() || []) as Array<{
-              name: string
-            }>
-            const emitted = assets.filter((a) => a.name?.startsWith('assets/'))
-            const counts = {svg: 0, images: 0, fonts: 0, files: 0}
+      compiler.hooks.afterEmit.tap(StaticAssetsPlugin.name, (compilation) => {
+        try {
+          const assets = (compilation?.getAssets?.() || []) as ReadonlyArray<{
+            name: string
+          }>
+          const emitted = assets.filter((a) => a.name?.startsWith('assets/'))
+          const counts = {svg: 0, images: 0, fonts: 0, files: 0}
 
-            for (const a of emitted) {
-              const n = a.name.toLowerCase()
-              if (n.endsWith('.svg')) counts.svg++
-              else if (/\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i.test(n))
-                counts.images++
-              else if (/\.(woff|woff2|eot|ttf|otf)$/i.test(n)) counts.fonts++
-              else counts.files++
-            }
-            console.log(messages.assetsEmittedSummary(emitted.length, counts))
-          } catch {
-            // silent
+          for (const a of emitted) {
+            const n = a.name.toLowerCase()
+            if (n.endsWith('.svg')) counts.svg++
+            else if (/\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i.test(n))
+              counts.images++
+            else if (/\.(woff|woff2|eot|ttf|otf)$/i.test(n)) counts.fonts++
+            else counts.files++
           }
+          console.log(messages.assetsEmittedSummary(emitted.length, counts))
+        } catch {
+          // silent
         }
-      )
+      })
     }
   }
 }

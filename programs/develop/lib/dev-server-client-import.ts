@@ -69,7 +69,31 @@ function resolveHmrHotPath(): string {
 }
 
 export function getDevServerHmrImports(compiler: Compiler): string[] {
-  const devServer = (compiler.options as any)?.devServer
+  interface DevServerClientConfig {
+    webSocketURL?: {
+      protocol?: unknown
+      hostname?: unknown
+      port?: unknown
+      pathname?: unknown
+    }
+    logging?: unknown
+    progress?: unknown
+    overlay?: unknown
+    reconnect?: unknown
+  }
+  const devServer = (
+    compiler.options as
+      | {
+          devServer?: {
+            client?: DevServerClientConfig
+            host?: string
+            port?: string | number
+            hot?: unknown
+            liveReload?: unknown
+          }
+        }
+      | undefined
+  )?.devServer
   const envHost = process.env.EXTENSION_DEV_SERVER_HOST
   const envPort = process.env.EXTENSION_DEV_SERVER_PORT
   const envPath = process.env.EXTENSION_DEV_SERVER_PATH

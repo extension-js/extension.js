@@ -17,7 +17,7 @@ import {isUsingTailwind} from './css-tools/tailwind'
 export interface StyleLoaderOptions {
   mode: DevOptions['mode']
   loader?: string
-  loaderOptions?: Record<string, any>
+  loaderOptions?: Record<string, unknown>
 }
 
 export async function commonStyleLoaders(
@@ -41,7 +41,9 @@ export async function commonStyleLoaders(
       styleLoaders.push({
         loader: resolveDevelopDistFile('css-parse-guard-loader')
       })
-      styleLoaders.push(maybeInstallPostCss as any)
+      ;(styleLoaders as Array<Record<string, unknown>>).push(
+        maybeInstallPostCss as Record<string, unknown>
+      )
     }
   }
 

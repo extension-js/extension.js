@@ -175,7 +175,7 @@ export async function extensionBuild(
     }
 
     await new Promise<void>((resolve, reject) => {
-      compiler.run(async (err: any, stats: any) => {
+      compiler.run(async (err, stats) => {
         if (err) {
           console.error(err.stack || err)
           return reject(err)

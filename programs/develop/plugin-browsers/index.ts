@@ -154,13 +154,13 @@ export class BrowsersPlugin implements RunnerPlugin {
   apply(compiler: Compiler) {
     const changedSources = createChangedSourcesTracker(compiler)
 
-    compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats: any) => {
+    compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats) => {
       const compilation = stats.compilation
       const hasErrors = compilation.errors && compilation.errors.length > 0
 
       if (hasErrors) {
         this.emitter.emit('error', {
-          errors: compilation.errors.map((e: any) =>
+          errors: compilation.errors.map((e: Error | string) =>
             typeof e === 'string' ? e : e.message || String(e)
           )
         })

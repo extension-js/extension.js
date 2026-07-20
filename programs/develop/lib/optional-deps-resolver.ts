@@ -84,8 +84,13 @@ type EnsureResolveInput = {
   contract?: OptionalDependencyContract
 }
 
-type EnsureLoadInput<T = any> = EnsureResolveInput & {
-  moduleAdapter?: (loaded: any) => T
+// Optionally installed modules have caller-defined shapes; the default T is
+// the loosest view so existing call sites keep their dynamic contract.
+// biome-ignore lint/suspicious/noExplicitAny: dynamic module loading boundary, adapters narrow per call site
+export type AnyModule = any
+
+type EnsureLoadInput<T = AnyModule> = EnsureResolveInput & {
+  moduleAdapter?: (loaded: AnyModule) => T
 }
 
 function toInstallRootContract(
@@ -106,7 +111,7 @@ function toInstallRootContract(
 }
 
 function getVerificationContract(
-  input: EnsureResolveInput | EnsureLoadInput<any>
+  input: EnsureResolveInput | EnsureLoadInput<AnyModule>
 ): OptionalDependencyContract {
   if (input.contract) return input.contract
 
@@ -292,7 +297,9 @@ function findNestedPackageDir(
   return undefined
 }
 
-function readPackageJsonFromDir(packageDir: string): any | undefined {
+function readPackageJsonFromDir(
+  packageDir: string
+): Record<string, unknown> | undefined {
   const manifestPath = path.join(packageDir, 'package.json')
   if (!fs.existsSync(manifestPath)) return undefined
 
@@ -304,23 +311,33 @@ function readPackageJsonFromDir(packageDir: string): any | undefined {
   }
 }
 
-function getPackageEntryCandidates(pkg: any): string[] {
+function getPackageEntryCandidates(
+  pkg: {main?: unknown; module?: unknown; exports?: unknown} | undefined
+): string[] {
   const candidateEntries: string[] = []
 
   if (typeof pkg?.main === 'string') candidateEntries.push(pkg.main)
   if (typeof pkg?.module === 'string') candidateEntries.push(pkg.module)
   if (typeof pkg?.exports === 'string') candidateEntries.push(pkg.exports)
 
-  const dotExport = pkg?.exports?.['.']
+  const exportsValue = pkg?.exports
+  const dotExport =
+    exportsValue && typeof exportsValue === 'object'
+      ? (exportsValue as Record<string, unknown>)['.']
+      : undefined
   if (typeof dotExport === 'string') candidateEntries.push(dotExport)
 
   if (dotExport && typeof dotExport === 'object') {
-    if (typeof dotExport.require === 'string')
-      candidateEntries.push(dotExport.require)
-    if (typeof dotExport.default === 'string')
-      candidateEntries.push(dotExport.default)
-    if (typeof dotExport.import === 'string')
-      candidateEntries.push(dotExport.import)
+    const dotObj = dotExport as {
+      require?: unknown
+      default?: unknown
+      import?: unknown
+    }
+    if (typeof dotObj.require === 'string')
+      candidateEntries.push(dotObj.require)
+    if (typeof dotObj.default === 'string')
+      candidateEntries.push(dotObj.default)
+    if (typeof dotObj.import === 'string') candidateEntries.push(dotObj.import)
   }
 
   candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
@@ -637,12 +654,12 @@ export function resolveOptionalPackageWithoutInstall(
   )
 }
 
-export async function ensureOptionalModuleLoaded<T = any>(
+export async function ensureOptionalModuleLoaded<T = AnyModule>(
   input: EnsureLoadInput<T>
 ): Promise<T> {
   const resolvedPath = await ensureOptionalPackageResolved(input)
   const candidateBases = getResolutionBases(input.projectPath)
-  let loaded: any
+  let loaded: AnyModule
   let didLoad = false
   let lastLoadError: unknown
 
@@ -702,13 +719,13 @@ export async function ensureOptionalModuleLoaded<T = any>(
   return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
 }
 
-export function loadOptionalModuleWithoutInstall<T = any>(
+export function loadOptionalModuleWithoutInstall<T = AnyModule>(
   input: EnsureLoadInput<T>
 ): T {
   const resolvedPath = resolveOptionalPackageWithoutInstall(input)
   const candidateBases = getResolutionBases(input.projectPath)
 
-  let loaded: any
+  let loaded: AnyModule
   let didLoad = false
   let lastLoadError: unknown
 
@@ -774,11 +791,11 @@ export async function ensureOptionalContractPackageResolved(input: {
   })
 }
 
-export async function ensureOptionalContractModuleLoaded<T = any>(input: {
+export async function ensureOptionalContractModuleLoaded<T = AnyModule>(input: {
   contractId: string
   projectPath: string
   dependencyId: string
-  moduleAdapter?: (loaded: any) => T
+  moduleAdapter?: (loaded: AnyModule) => T
 }): Promise<T> {
   const contract = getOptionalDependencyContract(input.contractId)
   return ensureOptionalModuleLoaded<T>({
@@ -804,11 +821,11 @@ export function resolveOptionalContractPackageWithoutInstall(input: {
   })
 }
 
-export function loadOptionalContractModuleWithoutInstall<T = any>(input: {
+export function loadOptionalContractModuleWithoutInstall<T = AnyModule>(input: {
   contractId: string
   projectPath: string
   dependencyId: string
-  moduleAdapter?: (loaded: any) => T
+  moduleAdapter?: (loaded: AnyModule) => T
 }): T {
   const contract = getOptionalDependencyContract(input.contractId)
   return loadOptionalModuleWithoutInstall<T>({

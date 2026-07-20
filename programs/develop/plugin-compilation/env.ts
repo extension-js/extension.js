@@ -325,13 +325,13 @@ export class EnvPlugin {
           },
           (assets) => {
             // Prefer compilation assets to be robust against different bundler versions
-            const files = Object.keys((compilation as any).assets || assets)
+            const files = Object.keys(compilation.assets || assets)
 
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
-                let fileContent = (compilation as any).assets[filename]
-                  .source()
-                  .toString()
+                let fileContent = String(
+                  compilation.assets[filename]?.source() ?? ''
+                )
 
                 const resolveVar = (name: string): string => {
                   // Prefer system > explicit env file > defaults; preserve when missing
@@ -356,9 +356,9 @@ export class EnvPlugin {
                     )[name]
                     if (typeof defaultsValue === 'string') return defaultsValue
                   }
-                  const combinedValue = (combinedVars as Record<string, any>)[
-                    name
-                  ]
+                  const combinedValue = (
+                    combinedVars as Record<string, unknown>
+                  )[name]
 
                   return typeof combinedValue === 'string'
                     ? combinedValue

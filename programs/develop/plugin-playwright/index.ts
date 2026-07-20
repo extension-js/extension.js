@@ -372,7 +372,7 @@ export class PlaywrightPlugin {
       })
     })
 
-    compiler.hooks.done.tap(PlaywrightPlugin.name, (stats: any) => {
+    compiler.hooks.done.tap(PlaywrightPlugin.name, (stats) => {
       const durationMs = Number(
         (stats?.compilation?.endTime || 0) -
           (stats?.compilation?.startTime || 0)

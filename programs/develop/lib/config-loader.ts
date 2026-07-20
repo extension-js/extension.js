@@ -16,6 +16,7 @@ import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
 import type {BrowserConfig, DevOptions, FileConfig} from '../types'
 import * as messages from './messages'
+import type {ParsedJson} from './parse-json-safe'
 
 type EnvPreloadResult = {
   loadedAny: boolean
@@ -30,7 +31,7 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   // Emulate Node's CJS wrapper so __filename/__dirname match the *real* file.
   // This avoids the old workaround of copying extension.config.js to a temp .cjs,
   // which breaks configs that compute paths using __dirname (e.g., profile paths).
-  const module = {exports: {} as any}
+  const module = {exports: {} as ParsedJson}
   const exports = module.exports
 
   const wrapped = `(function (exports, require, module, __filename, __dirname) {\n${code}\n})`
@@ -205,18 +206,18 @@ async function loadConfigFileUncached(
     try {
       if (!absolutePath.endsWith('.mjs')) {
         const requireFn = createRequire(import.meta.url)
-        let required: any
+        let required: ParsedJson
 
         try {
           required = requireFn(absolutePath)
-        } catch (requireErr: any) {
+        } catch (requireErr) {
           // If Node refuses to require because it treats .js as ESM due to package.json "type": "module",
           // but the file content clearly uses CommonJS (e.g., references to require in ESM scope),
           // copy to a temporary .cjs file and require that instead.
           const message =
             String(error?.message || '') +
             ' ' +
-            String(requireErr?.message || '')
+            String((requireErr as Error | undefined)?.message || '')
           const looksLikeCommonJsInEsm =
             message.includes('require is not defined in ES module scope') ||
             message.includes('Cannot use import statement outside a module') ||
@@ -317,19 +318,26 @@ export async function loadCommandConfig(
         const userConfig = await loadConfigFile(configPath)
         // Allow a top-level `extensions` key to apply to all commands, with
         // per-command overrides via `commands.<cmd>.extensions`.
+        const configExtras = userConfig as
+          | {
+              extensions?: unknown
+              transpilePackages?: unknown
+              perfBudgets?: unknown
+            }
+          | undefined
         const baseExtensions =
-          userConfig && (userConfig as any).extensions
-            ? {extensions: (userConfig as any).extensions}
+          configExtras && configExtras.extensions
+            ? {extensions: configExtras.extensions}
             : {}
         const baseTranspilePackages =
-          userConfig && Array.isArray((userConfig as any).transpilePackages)
-            ? {transpilePackages: (userConfig as any).transpilePackages}
+          configExtras && Array.isArray(configExtras.transpilePackages)
+            ? {transpilePackages: configExtras.transpilePackages}
             : {}
         const basePerfBudgets =
-          userConfig &&
-          (userConfig as any).perfBudgets &&
-          typeof (userConfig as any).perfBudgets === 'object'
-            ? {perfBudgets: (userConfig as any).perfBudgets}
+          configExtras &&
+          configExtras.perfBudgets &&
+          typeof configExtras.perfBudgets === 'object'
+            ? {perfBudgets: configExtras.perfBudgets}
             : {}
         const perCommand = userConfig?.commands?.[command]
           ? userConfig.commands[command]

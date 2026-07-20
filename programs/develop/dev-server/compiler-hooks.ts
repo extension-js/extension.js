@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Compiler} from '@rspack/core'
+import type {Compiler, Stats} from '@rspack/core'
 import {scrubBrand} from '../lib/branding'
 import * as messages from './messages'
 
@@ -33,7 +33,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
   let printed = false
   opts.compiler.hooks.done.tap(
     'extension.js:no-browser-banner',
-    (stats: any) => {
+    (stats: Stats) => {
       if (printed) return
       if (stats?.hasErrors?.()) return
       printed = true
@@ -56,7 +56,7 @@ export function setupCompilerDoneDiagnostics(
   port?: number
 ): void {
   let reportedNoEntries = false
-  compiler.hooks.done.tap('extension.js:done', (stats: any) => {
+  compiler.hooks.done.tap('extension.js:done', (stats: Stats) => {
     try {
       if (stats?.hasErrors?.()) {
         const str = stats?.toString?.({

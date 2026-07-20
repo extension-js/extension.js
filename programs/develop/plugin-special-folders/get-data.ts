@@ -152,7 +152,7 @@ function filterNodeToolingScripts(
       return !isNodeToolingScript(abs)
     })
     if (kept.length === 0) continue
-    next[key] = Array.isArray(value) ? kept : (kept[0] as any)
+    next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
   }
 
   return next
@@ -281,7 +281,7 @@ function filterUnreferencedScripts(
     const paths = Array.isArray(value) ? value : value ? [value] : []
     const kept = paths.filter(isReferenced)
     if (kept.length === 0) continue
-    next[key] = Array.isArray(value) ? kept : (kept[0] as any)
+    next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
   }
 
   return next

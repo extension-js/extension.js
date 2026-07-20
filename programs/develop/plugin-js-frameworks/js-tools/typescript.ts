@@ -97,7 +97,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
   hasShownUserMessage = true
 }
 
-export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
+export function defaultTypeScriptConfig(projectPath: string, _opts?: unknown) {
   return {
     compilerOptions: {
       // Allow JavaScript files to be imported inside your project,

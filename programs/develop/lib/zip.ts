@@ -34,7 +34,7 @@ function extractBuffer(zipBuffer: Buffer, destinationPath: string): void {
   console.log(messages.unpackagedSuccessfully())
 }
 
-function asZipError(error: any): Error {
+function asZipError(error: unknown): Error {
   console.error(messages.failedToDownloadOrExtractZIPFileError(error))
 
   // Ensure non-zip error yields a non-zero exit code when invoked via CLI
@@ -92,7 +92,7 @@ export async function downloadAndExtractZip(
     extractBuffer(zipBuffer, destinationPath)
 
     return destinationPath
-  } catch (error: any) {
+  } catch (error) {
     throw asZipError(error)
   }
 }
@@ -119,7 +119,7 @@ export async function extractLocalZip(
     extractBuffer(zipBuffer, destinationPath)
 
     return destinationPath
-  } catch (error: any) {
+  } catch (error) {
     throw asZipError(error)
   }
 }

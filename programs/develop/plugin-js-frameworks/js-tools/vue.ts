@@ -8,7 +8,7 @@
 
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {DefinePlugin} from '@rspack/core'
+import {DefinePlugin, type RspackPluginInstance} from '@rspack/core'
 import colors from 'pintor'
 import {
   ensureOptionalContractModuleLoaded,
@@ -19,7 +19,9 @@ import {hasDependency} from '../frameworks-lib/integrations'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
 
-type VueLoaderPluginCtor = new (...args: any[]) => {apply(compiler: any): void}
+type VueLoaderPluginCtor = new (
+  ...args: unknown[]
+) => {apply(compiler: unknown): void}
 
 let userMessageDelivered = false
 
@@ -53,7 +55,7 @@ export async function maybeUseVue(
       contractId: 'vue',
       projectPath,
       dependencyId: 'vue-loader',
-      moduleAdapter: (mod: any) => {
+      moduleAdapter: (mod) => {
         return (mod?.VueLoaderPlugin ||
           mod?.default?.VueLoaderPlugin) as VueLoaderPluginCtor
       }
@@ -77,7 +79,7 @@ export async function maybeUseVue(
 
   const isProd = mode === 'production'
   const defaultPlugins: JsFramework['plugins'] = [
-    new VueLoaderPlugin() as any,
+    new VueLoaderPlugin() as unknown as RspackPluginInstance,
     new DefinePlugin({
       // Drop the Options API in production so Vue's runtime tree-shakes the
       // ~10–20 KiB of options-handling code paths. Content scripts ship in

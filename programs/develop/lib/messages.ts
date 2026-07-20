@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {StatsAsset} from '@rspack/core'
+import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
@@ -175,10 +175,10 @@ export function projectInstallScriptsDisabled(pmName: string) {
 
 export function buildWebpack(
   projectDir: string,
-  stats: any,
+  stats: Stats | undefined,
   browser: DevOptions['browser']
 ): string {
-  const statsJson = stats?.toJson({
+  const statsJson = stats?.toJson?.({
     all: false,
     assets: true,
     timings: true
@@ -204,7 +204,7 @@ export function buildWebpack(
   } catch {
     manifest = {name: path.basename(projectDir), version: ''}
   }
-  const assets: any[] = statsJson?.assets
+  const assets: StatsAsset[] = statsJson?.assets || []
   const heading = `${getLoggingPrefix('info')} Building ${colors.blue(
     manifest.name
   )} extension using ${capitalizedBrowserName(browser)} defaults...\n`
@@ -213,7 +213,7 @@ export function buildWebpack(
   ).toFixed(2)} seconds.\n`
   const buildTarget = `Build Target: ${colors.gray(capitalizedBrowserName(browser))}\n`
   const buildStatus = `Build Status: ${
-    stats?.hasErrors() ? colors.red('Failed') : colors.green('Success')
+    stats?.hasErrors?.() ? colors.red('Failed') : colors.green('Success')
   }\n`
   const version = `\nVersion: ${colors.gray(manifest.version)}\n`
   const size = `Size: ${colors.gray(getAssetsSize(assets))}\n`
@@ -246,7 +246,27 @@ type BuildWarningCategory =
   | 'Runtime-risk'
   | 'Warning'
 
-function getWarningMessage(warning: any): string {
+// Bundler warnings arrive in several shapes (strings, rspack WebpackError,
+// plugin objects); this loose view lists every field the formatters probe.
+type LooseBuildWarning =
+  | string
+  | null
+  | undefined
+  | {
+      message?: unknown
+      details?: unknown
+      reason?: unknown
+      description?: unknown
+      name?: unknown
+      moduleName?: unknown
+      moduleIdentifier?: unknown
+      originName?: unknown
+      pluginName?: unknown
+      file?: unknown
+      chunkName?: unknown
+    }
+
+function getWarningMessage(warning: LooseBuildWarning): string {
   if (!warning) return ''
   if (typeof warning === 'string') return warning.trim()
 
@@ -265,7 +285,7 @@ function getWarningMessage(warning: any): string {
   return ''
 }
 
-function getWarningSource(warning: any): string {
+function getWarningSource(warning: LooseBuildWarning): string {
   if (!warning || typeof warning === 'string') return 'bundler'
 
   const candidates = [
@@ -285,7 +305,7 @@ function getWarningSource(warning: any): string {
   return 'bundler'
 }
 
-function getWarningArtifact(warning: any): string {
+function getWarningArtifact(warning: LooseBuildWarning): string {
   if (!warning || typeof warning === 'string') return ''
 
   const candidates = [warning.file, warning.chunkName, warning.moduleName]
@@ -378,7 +398,7 @@ export function buildSuccessWithWarnings(warningCount: number) {
   )}.`
 }
 
-export function buildWarningsDetails(warnings: any[]): string {
+export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
   if (!Array.isArray(warnings) || warnings.length === 0) return ''
 
   const blocks: string[] = []
@@ -518,10 +538,10 @@ export function writingTypeDefinitions(manifest: Manifest) {
   )
 }
 
-export function writingTypeDefinitionsError(error: any) {
+export function writingTypeDefinitionsError(error: unknown) {
   return `${getLoggingPrefix(
     'error'
-  )} Failed to write the extension type definition.\n${colors.red(error)}`
+  )} Failed to write the extension type definition.\n${colors.red(String(error))}`
 }
 
 export function downloadingText(url: string) {
@@ -541,10 +561,10 @@ export function unpackagedSuccessfully() {
   )} Browser extension unpackaged ${colors.green('successfully')}.`
 }
 
-export function failedToDownloadOrExtractZIPFileError(error: any) {
+export function failedToDownloadOrExtractZIPFileError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Failed to download or extract ZIP file.\n${colors.red(error)}`
+    `Failed to download or extract ZIP file.\n${colors.red(String(error))}`
   )
 }
 
@@ -599,19 +619,24 @@ function getAssetsSize(assets: {size: number}[] | undefined) {
   return getFileSize(totalSize)
 }
 
-function printTree(node: Record<string, any>, prefix = ''): string {
+interface AssetTreeNode {
+  size?: number
+  [child: string]: AssetTreeNode | number | undefined
+}
+
+function printTree(node: AssetTreeNode, prefix = ''): string {
   let output = ''
 
   Object.keys(node).forEach((key, index, array) => {
     const isLast = index === array.length - 1
     const connector = isLast ? '└─' : '├─'
-    const sizeInKB = node[key].size
-      ? ` (${getFileSize(node[key].size as number)})`
-      : ''
+    const child = node[key]
+    const childNode = child && typeof child === 'object' ? child : undefined
+    const sizeInKB = childNode?.size ? ` (${getFileSize(childNode.size)})` : ''
     output += `${colors.gray(prefix)}${colors.gray(connector)} ${key}${colors.gray(sizeInKB)}\n`
-    if (typeof node[key] === 'object' && !node[key].size) {
+    if (childNode && !childNode.size) {
       output += printTree(
-        node[key],
+        childNode,
         `${prefix}${isLast ? '   ' : colors.gray('│  ')}`
       )
     }
@@ -628,7 +653,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
     // instead of throwing inside the compiler.run callback.
     if (typeof asset?.name !== 'string') return
     const paths = asset.name.split('/')
-    let currentLevel: any = assetTree
+    let currentLevel: AssetTreeNode = assetTree
 
     paths.forEach((part, index) => {
       if (!currentLevel[part]) {
@@ -637,7 +662,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
       if (index === paths.length - 1) {
         currentLevel[part] = {size: asset.size}
       } else {
-        currentLevel = currentLevel[part]
+        currentLevel = currentLevel[part] as AssetTreeNode
       }
     })
   })
@@ -650,7 +675,7 @@ function formatWarningLabelLine(label: string, value: string): string {
 }
 
 function parsePerformanceWarning(
-  warning: any,
+  warning: LooseBuildWarning,
   source: string,
   _artifact: string
 ): string | undefined {
@@ -704,7 +729,7 @@ function formatPerformanceWarningBlock(options: {
   return lines.join('\n')
 }
 
-function getWarningBody(warning: any): string {
+function getWarningBody(warning: LooseBuildWarning): string {
   if (!warning) return ''
   if (typeof warning === 'string') return warning
 
@@ -716,8 +741,8 @@ function getWarningBody(warning: any): string {
     .join('\n')
 }
 
-export function isUsingExperimentalConfig(integration: any) {
-  return `${getLoggingPrefix('info')} Using ${colors.yellow(integration)}.`
+export function isUsingExperimentalConfig(integration: unknown) {
+  return `${getLoggingPrefix('info')} Using ${colors.yellow(String(integration))}.`
 }
 
 // Development-only debug helpers

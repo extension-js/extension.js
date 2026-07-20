@@ -37,7 +37,8 @@ export class CleanDistFolderPlugin {
             '[CleanDistFolderPlugin] Removed old hot-update files before compilation.'
           )
         }
-      } catch (error: any) {
+      } catch (caught) {
+        const error = caught as NodeJS.ErrnoException
         // Windows can transiently lock files (EBUSY/EPERM); retry shortly and
         // don't surface an error for the recoverable case
         if (

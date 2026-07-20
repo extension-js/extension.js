@@ -8,7 +8,7 @@
 
 import {scrubBrand} from './branding'
 
-export function handleStatsErrors(stats: any): void {
+export function handleStatsErrors(stats: import('@rspack/core').Stats): void {
   try {
     const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 

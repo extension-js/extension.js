@@ -14,6 +14,7 @@ const cjsRequire = createRequire(import.meta.url)
 
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
 import {hasDependency} from '../../lib/has-dependency'
+import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import * as messages from '../css-lib/messages'
 
@@ -44,7 +45,7 @@ export function isUsingSass(projectPath: string): boolean {
  */
 export function resolveSassImplementation(
   projectPath: string
-): any | undefined {
+): AnyModule | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
   const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean
@@ -56,7 +57,7 @@ export function resolveSassImplementation(
       let mod = req('sass')
 
       if (mod && typeof mod === 'object' && 'default' in mod) {
-        mod = (mod as any).default
+        mod = (mod as {default: AnyModule}).default
       }
 
       return mod
@@ -73,7 +74,7 @@ export function resolveSassImplementation(
     let mod = cjsRequire('sass')
 
     if (mod && typeof mod === 'object' && 'default' in mod) {
-      mod = (mod as any).default
+      mod = (mod as {default: AnyModule}).default
     }
 
     return mod
@@ -85,7 +86,7 @@ export function resolveSassImplementation(
 export function createSassLoaderOptions(
   projectPath: string,
   mode: 'development' | 'production'
-): Record<string, any> {
+): Record<string, AnyModule> {
   const implementation = resolveSassImplementation(projectPath)
   const usingSass = isUsingSass(projectPath)
 
@@ -95,7 +96,7 @@ export function createSassLoaderOptions(
     throw new Error(messages.missingSassDependency())
   }
 
-  const base: Record<string, any> = {
+  const base: Record<string, AnyModule> = {
     sourceMap: mode === 'development',
     sassOptions: {
       outputStyle: 'expanded'

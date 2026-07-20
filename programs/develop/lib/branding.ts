@@ -42,9 +42,9 @@ export function makeSanitizedConsole(brand = 'Extension.js') {
     typeof a === 'string' ? scrubBrand(a, brand) : a
 
   return {
-    log: (...args: any[]) => console.log(...args.map(sanitize)),
-    info: (...args: any[]) => console.info(...args.map(sanitize)),
-    warn: (...args: any[]) => console.warn(...args.map(sanitize)),
-    error: (...args: any[]) => console.error(...args.map(sanitize))
+    log: (...args: unknown[]) => console.log(...args.map(sanitize)),
+    info: (...args: unknown[]) => console.info(...args.map(sanitize)),
+    warn: (...args: unknown[]) => console.warn(...args.map(sanitize)),
+    error: (...args: unknown[]) => console.error(...args.map(sanitize))
   }
 }

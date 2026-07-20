@@ -65,7 +65,7 @@ export class SetupReloadStrategy {
     )
     const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 
-    const contentScriptsMeta: Record<string, any> = {}
+    const contentScriptsMeta: Record<string, unknown> = {}
     try {
       const csList = Array.isArray(patchedManifest.content_scripts)
         ? patchedManifest.content_scripts
@@ -115,6 +115,8 @@ export class SetupReloadStrategy {
       hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta
-    }).apply(compiler as any)
+    }).apply(
+      compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
+    )
   }
 }

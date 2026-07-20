@@ -18,7 +18,7 @@ import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 
-type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
+type ReactRefreshPluginCtor = new (...args: unknown[]) => RspackPluginInstance
 
 let userMessageDelivered = false
 
@@ -114,7 +114,7 @@ export async function maybeUseReact(
       // v1 exported the plugin as `module.exports` (the module itself is the
       // ctor); v2 exports a namespace object with a named `ReactRefreshRspackPlugin`.
       // Resolve the named export first so both major versions work.
-      moduleAdapter: (mod: any) =>
+      moduleAdapter: (mod) =>
         ((mod && (mod.default || mod.ReactRefreshRspackPlugin)) ||
           mod) as ReactRefreshPluginCtor
     })
@@ -125,7 +125,7 @@ export async function maybeUseReact(
       ...(typeof options.refreshExclude === 'undefined'
         ? {}
         : {exclude: options.refreshExclude})
-    }) as any // TODO: cezaraugusto fix this
+    }) as unknown as RspackPluginInstance
   ]
 
   return {

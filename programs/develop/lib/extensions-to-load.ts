@@ -31,7 +31,7 @@ function resolveBuiltInExtensionForBrowser(input: {
   packageName: 'extension-js-devtools' | 'extension-js-theme'
   browser: string
 }): string | undefined {
-  const engine = devtoolsEngineFor(input.browser as any)
+  const engine = devtoolsEngineFor(input.browser)
   const packageRelativeCandidates = [
     // Published package / mirrored monorepo output.
     path.join('dist', input.packageName, engine)
