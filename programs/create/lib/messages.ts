@@ -180,6 +180,34 @@ export function templateFetchTimedOut(templateName: string, ms: number) {
   )
 }
 
+// A genuine "this slug is not in the catalog" — distinct from a download/timeout
+// failure, which the old code mislabelled as "template not found" (#56).
+export function templateNotFoundInCatalog(
+  templateName: string,
+  error?: any
+) {
+  return (
+    `${colors.red('Error')} Template ${colors.yellow(templateName)} ` +
+    `is not in the extension-js/examples catalog.\n` +
+    (error ? `${colors.red(String(error))}\n` : '') +
+    `${colors.red('Next step: run')} ${colors.yellow('extension create --help')} ` +
+    `${colors.red('to list valid template names, or pass a GitHub URL.')}`
+  )
+}
+
+// The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
+// credential-helper hang). Surfacing this honestly — with the real cause — is
+// the #56 fix; the old path always said "choose a valid template name".
+export function templateDownloadFailed(templateName: string, error: any) {
+  return (
+    `${colors.red('Error')} Couldn't download template ${colors.yellow(
+      templateName
+    )} from ${colors.yellow('github.com/extension-js/examples')}.\n` +
+    `${colors.red(String((error && error.message) || error))}\n` +
+    `${colors.red('Next step: check your network (or GitHub rate limits) and try again; set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
+  )
+}
+
 export function initializingGitForRepository(projectName: string) {
   return `${statusPrefix} Initializing git repository for ${colors.blue(
     projectName
