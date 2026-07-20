@@ -118,9 +118,11 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       jsx: isUsingJSFramework(projectPath) ? 'react-jsx' : 'preserve',
       // Include typings for latest ECMAScript features and DOM APIs
       lib: ['dom', 'dom.iterable', 'esnext'],
-      // Use Node's module resolution algorithm; useful if using
-      // npm packages
-      moduleResolution: 'node',
+      // Resolve the way the bundler does. 'node' (aka node10) was REMOVED in
+      // TypeScript 7 — scaffolding it made the generated tsconfig fail the
+      // user's own `tsc --noEmit` with TS5108 — and 'bundler' is the accurate
+      // model for the Rspack/SWC pipeline anyway. Matches every template.
+      moduleResolution: 'bundler',
       // Use ES modules, which are the standard in modern browsers
       module: 'esnext',
       // Report errors on unused local variables.
