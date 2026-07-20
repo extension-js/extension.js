@@ -108,4 +108,56 @@ describe('ready.json writer preservation', () => {
     writer.writeShutdown()
     expect(fs.existsSync(writer.readyPath)).toBe(false)
   })
+
+  it('a build writer never rewrites a LIVE dev session contract (§65)', () => {
+    const devWriter = makeWriter()
+    devWriter.writeReady()
+    // Make the contract belong to a live foreign process (the test parent).
+    const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    ready.pid = process.ppid
+    fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
+
+    const buildWriter = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'chromium',
+      command: 'build',
+      distPath: path.join(tmp, 'dist', 'chromium'),
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    buildWriter.writeStarting()
+    buildWriter.writeReady()
+    buildWriter.appendEvent({
+      type: 'compile_success',
+      ts: new Date().toISOString(),
+      command: 'build',
+      browser: 'chromium'
+    })
+
+    const after = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    expect(after.command).toBe('dev')
+    expect(after.pid).toBe(process.ppid)
+    expect(after.runId).toBe(ready.runId)
+    expect(fs.existsSync(devWriter.eventsPath)).toBe(false)
+  })
+
+  it('a build writer takes over a DEAD dev session contract normally (§65)', () => {
+    const devWriter = makeWriter()
+    devWriter.writeReady()
+    const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    ready.pid = 99999999 // certainly not a live pid
+    fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
+
+    const buildWriter = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'chromium',
+      command: 'build',
+      distPath: path.join(tmp, 'dist', 'chromium'),
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    buildWriter.writeStarting()
+
+    const after = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    expect(after.command).toBe('build')
+    expect(after.pid).toBe(process.pid)
+  })
 })
