@@ -81,10 +81,14 @@ describe('chromium exit handler force-kills a stubborn child', () => {
     const child: any = {killed: false, kill: vi.fn(), pid: 99}
     setupProcessSignalHandlers('chrome', child, vi.fn())
 
-    cap.registered.get('SIGINT')?.forEach((h) => h())
+    cap.registered.get('SIGINT')?.forEach((h) => {
+      h()
+    })
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
-    cap.registered.get('exit')?.forEach((h) => h())
+    cap.registered.get('exit')?.forEach((h) => {
+      h()
+    })
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
   })
 })
@@ -112,11 +116,15 @@ describe('firefox exit handler force-kills a stubborn child', () => {
       vi.fn(async () => {})
     )
 
-    cap.registered.get('SIGINT')?.forEach((h) => h())
+    cap.registered.get('SIGINT')?.forEach((h) => {
+      h()
+    })
     await new Promise((r) => setTimeout(r, 20))
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
-    cap.registered.get('exit')?.forEach((h) => h())
+    cap.registered.get('exit')?.forEach((h) => {
+      h()
+    })
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
   })
 })
