@@ -62,7 +62,7 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^26",
     "tsconfig": "*",
-    "typescript": "6.0.2",
+    "typescript": "7.0.2",
     "vitest": "^4.1.9"
   }
 }

@@ -10,6 +10,17 @@ updates:
         update-types:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+      # TypeScript is major-pinned by hand because this workspace splits it two
+      # ways. extension-develop depends on the TypeScript *JS API*
+      # (transpileModule / createSourceFile, used by the classic-concat loader)
+      # and must stay on the 6.x line: TypeScript 7 is the native port and its
+      # npm package exports nothing but `version` / `versionMajorMinor`, so a
+      # blanket bump turns those calls into TypeErrors in user builds. Tooling
+      # that only shells out to `tsc` (repo typecheck, scaffolded templates)
+      # runs 7.x. Any future major needs that split re-checked by a human.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
