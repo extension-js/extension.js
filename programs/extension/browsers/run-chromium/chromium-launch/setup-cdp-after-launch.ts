@@ -106,7 +106,8 @@ export async function setupCdpAfterLaunch(
     profilePath: userDataDir || undefined,
     extensionPaths: selectedExtensionPaths,
     pipeIn: pipeStreams?.input,
-    pipeOut: pipeStreams?.output
+    pipeOut: pipeStreams?.output,
+    logSink: plugin.logSink
   })
 
   // connectToChromeCdp already performs bounded startup retries internally.

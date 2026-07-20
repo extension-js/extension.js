@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {randomUUID} from 'node:crypto'
 import type * as FsTypes from 'node:fs'
 import fs from 'node:fs'
 import * as path from 'node:path'
@@ -26,6 +27,7 @@ import {
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
+import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import {
   buildSourceFeatureIndex,
@@ -46,7 +48,7 @@ import {
 import {resolveConnectableHost} from './connectable-host'
 import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
-import {CONTROL_WS_PATH} from './control-bridge/contracts'
+import {CONTROL_WS_PATH, LOG_EVENT_VERSION} from './control-bridge/contracts'
 import {
   controlPortFilePath,
   legacyControlPortFilePath,
@@ -340,7 +342,10 @@ export async function devServer(
     allowControl?: boolean
     allowEval?: boolean
     authorMode?: boolean
-    browsersPlugin?: {setReloadBroker?: (broker: unknown) => void}
+    browsersPlugin?: {
+      setReloadBroker?: (broker: unknown) => void
+      setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
+    }
   }
   process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
     ? '0'
@@ -465,6 +470,39 @@ export async function devServer(
   const launchedPlugin = extendedOptions.browsersPlugin
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
+  // E21: browser-generated warnings (CDP Log.entryAdded — alarm-period
+  // clamps, CSP refusals, deprecations) never pass through the extension's
+  // console hook, so the SW producer can't report them. The launcher's CDP
+  // controller forwards them here; ingest them into the same ring +
+  // logs.ndjson + consumer fan-out as producer logs.
+  if (launchedPlugin && typeof launchedPlugin.setLogSink === 'function') {
+    launchedPlugin.setLogSink((event) => {
+      try {
+        bridgeBroker.ingestLog({
+          v: LOG_EVENT_VERSION,
+          id: randomUUID(),
+          timestamp: event.timestamp ?? Date.now(),
+          level: event.level,
+          // Browser-emitted entries attach to extension sessions (SW or
+          // extension pages); 'background' is the closest context bucket.
+          context: 'background',
+          messageParts: [event.text],
+          url: event.url,
+          data: {
+            channel: 'browser',
+            ...(event.source ? {source: event.source} : {}),
+            ...(typeof event.lineNumber === 'number'
+              ? {lineNumber: event.lineNumber}
+              : {})
+          },
+          runId: currentInstance.instanceId
+        })
+      } catch {
+        // Best-effort: a log-pipeline hiccup must never break the launch path.
+      }
+    })
   }
 
   let bridgeControlPort: number | null = null

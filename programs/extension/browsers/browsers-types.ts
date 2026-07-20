@@ -292,6 +292,25 @@ export type LogContext =
 export type LogFormat = 'pretty' | 'json' | 'ndjson'
 
 /**
+ * A browser-generated log entry (CDP `Log.entryAdded`: alarm-period clamps,
+ * CSP refusals, deprecation notices, ...) normalized for the host's log
+ * pipeline. These never pass through the page's console hook, so without a
+ * sink they exist only as EXTENSION_VERBOSE stdout and are lost to
+ * logs.ndjson consumers.
+ */
+export interface BrowserLogSinkEvent {
+  level: 'log' | 'info' | 'warn' | 'error' | 'debug'
+  text: string
+  source?: string
+  url?: string
+  lineNumber?: number
+  timestamp?: number
+}
+
+/** Host-provided sink for {@link BrowserLogSinkEvent}s. Must never throw. */
+export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
+
+/**
  * Unified controller interface used by post-launch logging flows.
  * Implemented by both CDP and RDP controllers.
  */

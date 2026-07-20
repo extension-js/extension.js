@@ -932,6 +932,7 @@ export class ChromiumLaunchPlugin {
           extension: extensionsToLoad
         }),
         chromiumBinary: this.options.chromiumBinary,
+        logSink: this.options.logSink,
         bannerPrintedOnce: false,
         cdpController: undefined,
         browserVersionLine
