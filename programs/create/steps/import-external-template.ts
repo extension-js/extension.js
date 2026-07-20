@@ -24,6 +24,113 @@ const NETWORK_TIMEOUT_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 60_000
 })()
 
+// The extension-js/examples branch built-in templates are sourced from. Override
+// for testing a template PR before it merges.
+const EXAMPLES_REF = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
+
+// Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
+// failure. The old path (go-git-it) surfaced BOTH as "choose a valid template
+// name", which is the core of #56 — a slow network read reported as a bad slug.
+export class TemplateNotFoundError extends Error {
+  readonly templateName: string
+  constructor(templateName: string, cause?: unknown) {
+    super(`template not found in catalog: ${templateName}`)
+    this.name = 'TemplateNotFoundError'
+    this.templateName = templateName
+    if (cause) (this as {cause?: unknown}).cause = cause
+  }
+}
+
+export class TemplateDownloadError extends Error {
+  readonly templateName: string
+  constructor(templateName: string, cause: unknown) {
+    const msg =
+      (cause as {message?: string})?.message ?? String(cause)
+    super(msg)
+    this.name = 'TemplateDownloadError'
+    this.templateName = templateName
+    ;(this as {cause?: unknown}).cause = cause
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
+// no git child, so no credential-helper hang, and one gzipped stream instead of
+// a full clone. One automatic retry with backoff. (#56 acceptance 1 & 3.)
+async function downloadArchive(
+  url: string,
+  timeoutMs: number,
+  attempts = 2
+): Promise<Buffer> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const {data} = await axios.get(url, {
+        responseType: 'arraybuffer',
+        maxRedirects: 5,
+        timeout: timeoutMs,
+        headers: {'User-Agent': 'extension-create'}
+      })
+      return Buffer.from(data)
+    } catch (error) {
+      lastError = error
+      if (attempt < attempts) await sleep(400 * attempt)
+    }
+  }
+  throw lastError
+}
+
+// Extract ONLY `<archive-root>/examples/<templateName>/**` from a GitHub zip
+// archive into projectPath. Exported for tests (no network). Throws
+// TemplateNotFoundError when the slug isn't present in the archive.
+export async function extractExamplesTemplateFromZip(
+  zipBuffer: Buffer,
+  templateName: string,
+  projectPath: string
+): Promise<number> {
+  const zip = new AdmZip(zipBuffer)
+  const entries = zip.getEntries()
+  if (!entries.length) {
+    throw new TemplateNotFoundError(templateName, new Error('empty archive'))
+  }
+  // GitHub archives wrap everything in a single top dir (e.g. `examples-main/`).
+  const archiveRoot = entries[0].entryName.split('/')[0]
+  const wanted = `${archiveRoot}/examples/${templateName}/`
+  const files = entries.filter(
+    (e) => !e.isDirectory && e.entryName.startsWith(wanted)
+  )
+  if (!files.length) throw new TemplateNotFoundError(templateName)
+
+  let written = 0
+  for (const entry of files) {
+    const rel = entry.entryName.slice(wanted.length)
+    if (!rel) continue
+    const dest = path.join(projectPath, rel)
+    await fs.mkdir(path.dirname(dest), {recursive: true})
+    await fs.writeFile(dest, entry.getData())
+    written++
+  }
+  return written
+}
+
+// The #56 built-in-template path: pull the examples repo tarball over HTTP and
+// unpack just the one requested template. Replaces the go-git-it full-clone for
+// every catalog slug, so the ~51 remote templates scaffold without git.
+async function importFromExamplesCatalog(
+  templateName: string,
+  projectPath: string
+): Promise<void> {
+  const url = `https://codeload.github.com/extension-js/examples/zip/refs/heads/${EXAMPLES_REF}`
+  let buffer: Buffer
+  try {
+    buffer = await downloadArchive(url, NETWORK_TIMEOUT_MS)
+  } catch (error) {
+    throw new TemplateDownloadError(templateName, error)
+  }
+  await extractExamplesTemplateFromZip(buffer, templateName, projectPath)
+}
+
 function isAuthorOrDevMode(): boolean {
   return (
     process.env.EXTENSION_ENV === 'development' ||
@@ -131,13 +238,10 @@ export async function importExternalTemplate(
   logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   const templateName = path.basename(template)
-  const examplesUrl =
-    'https://github.com/extension-js/examples/tree/main/examples'
   // Default template is `javascript`. `init` remains an alias for the same examples folder.
   const resolvedTemplate = templateName === 'init' ? 'javascript' : template
   const resolvedTemplateName =
     templateName === 'init' ? 'javascript' : templateName
-  const templateUrl = `${examplesUrl}/${resolvedTemplate}`
 
   const isHttp = /^https?:\/\//i.test(template)
   const isGithub = /^https?:\/\/github\.com\//i.test(template)
@@ -165,20 +269,40 @@ export async function importExternalTemplate(
     await fs.mkdir(tempPath, {recursive: true})
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
-      await withTimeout(
-        withSuppressedOutput(async () =>
-          goGitIt(
-            templatePath,
-            destination,
-            messages.installingFromTemplate(projectName, templateName)
-          )
-        ),
-        NETWORK_TIMEOUT_MS,
-        () =>
-          new Error(
-            messages.templateFetchTimedOut(templateName, NETWORK_TIMEOUT_MS)
-          )
-      )
+      // Harden the spawned git so a credential-helper prompt can't hang it
+      // (#56: one of the three stacked triggers — `GIT_TERMINAL_PROMPT=0`
+      // unblocked the pull). go-git-it's execFile inherits process.env.
+      const gitEnvKeys = {
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_ASKPASS: '',
+        GCM_INTERACTIVE: 'never'
+      }
+      const savedEnv: Record<string, string | undefined> = {}
+      for (const [k, v] of Object.entries(gitEnvKeys)) {
+        savedEnv[k] = process.env[k]
+        process.env[k] = v
+      }
+      try {
+        await withTimeout(
+          withSuppressedOutput(async () =>
+            goGitIt(
+              templatePath,
+              destination,
+              messages.installingFromTemplate(projectName, templateName)
+            )
+          ),
+          NETWORK_TIMEOUT_MS,
+          () =>
+            new Error(
+              messages.templateFetchTimedOut(templateName, NETWORK_TIMEOUT_MS)
+            )
+        )
+      } finally {
+        for (const [k, v] of Object.entries(savedEnv)) {
+          if (v === undefined) delete process.env[k]
+          else process.env[k] = v
+        }
+      }
     }
 
     if (isGithub) {
@@ -211,10 +335,11 @@ export async function importExternalTemplate(
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
     } else {
-      // Built-in template names resolve to extension-js/examples tree.
-      await runGoGitIt(templateUrl, tempPath)
-      const srcPath = path.join(tempPath, resolvedTemplateName)
-      await utils.moveDirectoryContents(srcPath, projectPath)
+      // Built-in template names resolve to a single template folder in the
+      // extension-js/examples catalog, fetched as an HTTP tarball (#56) — no git
+      // pack negotiation, no credential-helper hang, and only the one template
+      // is unpacked instead of the whole monorepo.
+      await importFromExamplesCatalog(resolvedTemplateName, projectPath)
     }
 
     // Strip examples-repo scaffolding that should never ship in a user project.
@@ -223,9 +348,25 @@ export async function importExternalTemplate(
     // Cleanup temp
     await fs.rm(tempRoot, {recursive: true, force: true})
   } catch (error: any) {
-    logger.error(
-      messages.installingFromTemplateError(projectName, templateName, error)
-    )
+    // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
+    // failure — the old path reported every failure as "choose a valid template
+    // name", which is the #56 mislabel.
+    if (error instanceof TemplateNotFoundError) {
+      logger.error(
+        messages.templateNotFoundInCatalog(
+          templateName,
+          (error as {cause?: unknown}).cause
+        )
+      )
+    } else if (error instanceof TemplateDownloadError) {
+      logger.error(messages.templateDownloadFailed(templateName, error))
+    } else {
+      logger.error(
+        messages.installingFromTemplateError(projectName, templateName, error)
+      )
+    }
+    // Clean the partial target dir so a retry into the same name is not poisoned.
+    await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})
     throw error
   }
 }
