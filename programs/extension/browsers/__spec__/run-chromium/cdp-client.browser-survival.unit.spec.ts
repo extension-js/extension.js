@@ -119,4 +119,40 @@ describe('stampReadyBrowserExited', () => {
       stampReadyBrowserExited(path.join(tmp, 'dist', 'chromium'), 0)
     ).not.toThrow()
   })
+
+  it('flips a preview contract to error: a dead browser is a dead session (§72)', () => {
+    const outPath = path.join(tmp, 'dist', 'chromium')
+    const metaDir = path.join(tmp, 'dist', 'extension-js', 'chromium')
+    fs.mkdirSync(metaDir, {recursive: true})
+    const readyPath = path.join(metaDir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', command: 'preview', browser: 'chromium'})
+    )
+
+    stampReadyBrowserExited(outPath, 1)
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('browser_exited')
+    expect(ready.browserExitCode).toBe(1)
+  })
+
+  it('keeps a dev contract status intact (the dev server is still alive)', () => {
+    const outPath = path.join(tmp, 'dist', 'chromium')
+    const metaDir = path.join(tmp, 'dist', 'extension-js', 'chromium')
+    fs.mkdirSync(metaDir, {recursive: true})
+    const readyPath = path.join(metaDir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', command: 'dev', browser: 'chromium'})
+    )
+
+    stampReadyBrowserExited(outPath, 15)
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('ready')
+    expect(ready.browserExitCode).toBe(15)
+    expect(typeof ready.browserExitedAt).toBe('string')
+  })
 })
