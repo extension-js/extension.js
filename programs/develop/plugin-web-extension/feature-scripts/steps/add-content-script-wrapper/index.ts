@@ -6,8 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import * as path from 'path'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {

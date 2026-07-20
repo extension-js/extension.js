@@ -6,8 +6,8 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═════╝ ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
-import {createRequire} from 'module'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 

@@ -6,8 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'

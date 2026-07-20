@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
-import * as fs from 'fs'
-import * as path from 'path'
-import os from 'os'
-import {resolveTranspilePackageDirs, isSubPath} from '../transpile-packages'
+import * as fs from 'node:fs'
+import os from 'node:os'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
+import {isSubPath, resolveTranspilePackageDirs} from '../transpile-packages'
 
 describe('transpile-packages', () => {
   it('resolves package directories from project node_modules', () => {

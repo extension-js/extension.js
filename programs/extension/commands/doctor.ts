@@ -6,8 +6,8 @@
 // ╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import path from 'node:path'
 import type {Command} from 'commander'
-import path from 'path'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'

@@ -1,9 +1,9 @@
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
-import {createPlaywrightMetadataWriter} from '../index'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import developPackageJson from '../../package.json'
+import {createPlaywrightMetadataWriter} from '../index'
 
 describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', () => {
   let tmp: string

@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import {describe, it, beforeAll, afterAll, expect} from 'vitest'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {getLocales} from '../get-locales'
 
 // These tests verify that getLocales walks _locales/*/* and returns absolute file paths.

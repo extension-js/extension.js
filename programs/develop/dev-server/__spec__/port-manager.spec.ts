@@ -1,4 +1,4 @@
-import * as net from 'net'
+import * as net from 'node:net'
 import {afterEach, describe, expect, it} from 'vitest'
 import {PortManager} from '../port-manager'
 

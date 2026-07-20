@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
@@ -68,7 +68,7 @@ describe('vue tools', () => {
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
     expect(result?.loaders?.[0].options?.foo).toBe(1)
     expect(result?.plugins?.length).toBeGreaterThan(0)
-    expect(result?.alias?.['vue$']).toContain('/project/node_modules/vue')
+    expect(result?.alias?.vue$).toContain('/project/node_modules/vue')
     expect(result?.alias?.['@vue/runtime-dom']).toContain(
       '/project/node_modules/@vue/runtime-dom'
     )

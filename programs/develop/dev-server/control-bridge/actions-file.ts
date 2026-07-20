@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {BridgeTarget, CommandOp} from './contracts'
 
 export const ACTION_RECORD_VERSION = 1 as const
@@ -73,7 +73,7 @@ export class ActionsFileWriter implements ActionsSink {
   write(record: ActionRecord): void {
     if (!this.started) this.start()
 
-    const line = JSON.stringify(record) + '\n'
+    const line = `${JSON.stringify(record)}\n`
 
     try {
       fs.appendFileSync(this.opts.filePath, line, 'utf-8')

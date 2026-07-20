@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
-import * as fs from 'fs'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
 import {
@@ -42,7 +42,7 @@ export class EmitManifest {
 
               // Remove the $schema field if it exists
               if ('$schema' in jsonContent) {
-                delete jsonContent['$schema']
+                delete jsonContent.$schema
               }
             } catch (error: any) {
               const err = new rspack.WebpackError(

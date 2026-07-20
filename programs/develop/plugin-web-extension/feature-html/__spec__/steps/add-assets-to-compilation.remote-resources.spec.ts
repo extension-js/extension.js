@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest'
-import * as path from 'path'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 function makeCompiler(htmlAbsPath: string, htmlContent: string) {

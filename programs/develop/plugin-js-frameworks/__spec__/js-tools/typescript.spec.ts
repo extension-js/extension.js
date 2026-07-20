@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')

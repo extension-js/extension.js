@@ -8,11 +8,11 @@
 // so the emitted bundle must actually EXECUTE with shared globals, asserted
 // here by running it in a VM with a stubbed document.
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import * as vm from 'node:vm'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import * as vm from 'vm'
 
 const CLASSIC_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-html-classic-')

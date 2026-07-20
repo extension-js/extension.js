@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (!chrome.sidePanel.open) return
 
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    const activeTabId = tabs && tabs[0] && tabs[0].id
+    const activeTabId = tabs?.[0]?.id
     if (!activeTabId) return
 
     try {

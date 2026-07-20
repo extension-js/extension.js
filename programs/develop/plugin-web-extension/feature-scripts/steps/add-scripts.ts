@@ -6,9 +6,9 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler, EntryObject} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'

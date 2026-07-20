@@ -6,9 +6,9 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {stripBom} from '../../lib/parse-json-safe'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'

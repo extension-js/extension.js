@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
+import * as path from 'node:path'
 import colors from 'pintor'
 import {resolveScaffoldPackageManager} from './package-manager'
 
@@ -200,7 +200,7 @@ export function templateDownloadFailed(templateName: string, error: any) {
     `${colors.red('Error')} Couldn't download template ${colors.yellow(
       templateName
     )} from ${colors.yellow('github.com/extension-js/examples')}.\n` +
-    `${colors.red(String((error && error.message) || error))}\n` +
+    `${colors.red(String(error?.message || error))}\n` +
     `${colors.red('Next step: check your network (or GitHub rate limits) and try again; set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
   )
 }

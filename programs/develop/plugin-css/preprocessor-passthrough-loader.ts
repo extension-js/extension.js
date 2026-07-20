@@ -16,7 +16,7 @@
 // knowingly-invalid CSS, so every file that ships uncompiled gets a loud
 // compilation warning telling the author to install the compiler.
 
-import * as path from 'path'
+import * as path from 'node:path'
 import * as messages from './css-lib/messages'
 
 interface PreprocessorPassthroughLoaderContext {

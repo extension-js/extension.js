@@ -6,9 +6,9 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {runInstall} from '../lib/install-runner'
 import * as messages from '../lib/messages'

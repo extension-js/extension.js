@@ -1,6 +1,5 @@
+import * as fs from 'node:fs'
 import type {Compilation, Compiler} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 

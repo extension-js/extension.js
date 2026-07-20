@@ -1,4 +1,4 @@
-import {describe, it, expect, vi} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {FirefoxRDPController} from '../../run-firefox/rdp/rdp-extension-controller'
 
 describe('Firefox banner id (smoke)', () => {

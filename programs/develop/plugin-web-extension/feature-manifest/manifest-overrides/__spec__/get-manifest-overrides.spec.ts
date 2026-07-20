@@ -1,7 +1,9 @@
-import {describe, it, expect, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {getManifestOverrides} from '../../manifest-overrides'
 
-vi.spyOn(require('fs'), 'readFileSync').mockImplementation(() => '{"name":"x"}')
+vi.spyOn(require('node:fs'), 'readFileSync').mockImplementation(
+  () => '{"name":"x"}'
+)
 
 vi.mock('../common', () => ({
   manifestCommon: () => ({background: {page: 'bg.html'}, icons: {}})

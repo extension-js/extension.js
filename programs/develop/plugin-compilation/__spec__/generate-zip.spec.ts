@@ -1,9 +1,9 @@
-import {describe, it, expect, afterEach} from 'vitest'
-import * as fs from 'fs'
-import * as path from 'path'
-import os from 'os'
-import {ZipPlugin} from '../zip'
+import * as fs from 'node:fs'
+import os from 'node:os'
+import * as path from 'node:path'
 import {rspack} from '@rspack/core'
+import {afterEach, describe, expect, it} from 'vitest'
+import {ZipPlugin} from '../zip'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {

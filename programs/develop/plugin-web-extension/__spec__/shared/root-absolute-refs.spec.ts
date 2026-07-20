@@ -1,7 +1,7 @@
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   collectRootAbsoluteRefs,
   resolveRootAbsoluteRef
@@ -59,7 +59,11 @@ describe('resolveRootAbsoluteRef', () => {
       resolveRootAbsoluteRef('//cdn.example.com/x.js', root, publicDir())
     ).toBeUndefined()
     expect(
-      resolveRootAbsoluteRef(path.join(root, 'nscl', 'main.js'), root, publicDir())
+      resolveRootAbsoluteRef(
+        path.join(root, 'nscl', 'main.js'),
+        root,
+        publicDir()
+      )
     ).toBeUndefined()
   })
 

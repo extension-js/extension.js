@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as fs from 'fs'
+import * as fs from 'node:fs'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
@@ -29,7 +29,7 @@ describe('isContentScriptEntry', () => {
     const {isContentScriptEntry} = (await import(
       '../../css-lib/is-content-script'
     )) as any
-    const path = require('path')
+    const path = require('node:path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
     expect(isContentScriptEntry(issuer, manifestPath, '/project')).toBe(true)

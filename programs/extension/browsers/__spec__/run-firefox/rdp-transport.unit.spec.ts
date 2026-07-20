@@ -1,5 +1,5 @@
-import net from 'net'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import net from 'node:net'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 // We test RdpTransport directly. It is the core RDP connection layer.
 // These tests cover per-actor request queuing, error isolation,

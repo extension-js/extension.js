@@ -6,9 +6,9 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'

@@ -4,9 +4,9 @@
 // or explicit browser profile survives a dist wipe, and its cached SW can
 // only resync if the next session rebinds the port it has baked in (#484).
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   controlPortFilePath,

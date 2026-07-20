@@ -26,6 +26,6 @@ export function ready(mode: 'development' | 'production', browser: string) {
       : String(browser || '')
           .charAt(0)
           .toUpperCase() + String(browser || '').slice(1)
-  const pretty = colors.green('ready for ' + mode)
+  const pretty = colors.green(`ready for ${mode}`)
   return `${colors.gray('⏵⏵⏵')} ${cap} ${extensionOutput} ${pretty}.`
 }

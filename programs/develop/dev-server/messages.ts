@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
 
@@ -38,7 +38,7 @@ export function ready(mode: 'development' | 'production', browser: string) {
       : String(browser || '')
           .charAt(0)
           .toUpperCase() + String(browser || '').slice(1)
-  const pretty = colors.green('ready for ' + mode)
+  const pretty = colors.green(`ready for ${mode}`)
   return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }
 

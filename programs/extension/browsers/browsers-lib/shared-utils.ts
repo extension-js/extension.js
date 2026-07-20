@@ -6,10 +6,10 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
-import * as net from 'net'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as net from 'node:net'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
 
 const MANAGED_EPHEMERAL_PROFILE_MARKER = '.extension-js-managed-profile'

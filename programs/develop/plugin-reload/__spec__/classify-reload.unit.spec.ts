@@ -3,9 +3,9 @@
 // Keeping both paths on one classifier guarantees a given change reloads
 // identically whether or not a browser was launched.
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   buildSourceFeatureIndex,

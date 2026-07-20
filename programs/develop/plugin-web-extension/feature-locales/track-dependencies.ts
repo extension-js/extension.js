@@ -6,9 +6,9 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {getLocales} from './get-locales'
 import * as messages from './messages'
 

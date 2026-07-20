@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import EventEmitter from 'events'
-import net from 'net'
+import EventEmitter from 'node:events'
+import net from 'node:net'
 import * as messages from '../../../browsers-lib/messages'
 import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
 

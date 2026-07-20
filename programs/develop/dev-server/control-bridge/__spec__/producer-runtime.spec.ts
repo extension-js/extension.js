@@ -21,13 +21,13 @@ class FakeWebSocket {
     this.sent.push(data)
   }
   close() {
-    this.onclose && this.onclose()
+    this.onclose?.()
   }
   triggerOpen() {
-    this.onopen && this.onopen()
+    this.onopen?.()
   }
   triggerMessage(obj: unknown) {
-    this.onmessage && this.onmessage({data: JSON.stringify(obj)})
+    this.onmessage?.({data: JSON.stringify(obj)})
   }
 }
 
@@ -245,18 +245,18 @@ describe('bridge producer runtime', () => {
       scripting: {
         executeScript: (opts: {target: {tabId: number}}, cb?: () => void) => {
           executed.push(opts)
-          cb && cb()
+          cb?.()
         },
-        insertCSS: (_o: unknown, cb?: () => void) => cb && cb(),
+        insertCSS: (_o: unknown, cb?: () => void) => cb?.(),
         registerContentScripts: (
           scripts: Array<Record<string, unknown>>,
           cb?: () => void
         ) => {
           registered.push(...scripts)
-          cb && cb()
+          cb?.()
         },
         getRegisteredContentScripts: (cb: (s: unknown[]) => void) => cb([]),
-        updateContentScripts: (_s: unknown, cb?: () => void) => cb && cb()
+        updateContentScripts: (_s: unknown, cb?: () => void) => cb?.()
       },
       tabs: {
         query: (
@@ -400,7 +400,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           q: {url?: string; active?: boolean},
           cb: (t: unknown[]) => void
         ) => {
-          if (q && q.url) cb([{id: 9, url: 'https://example.com/'}])
+          if (q?.url) cb([{id: 9, url: 'https://example.com/'}])
           else cb([])
         }
       }
@@ -435,7 +435,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           q: {url?: string; active?: boolean},
           cb: (t: unknown[]) => void
         ) => {
-          if (q && q.active) cb([{id: 5, url: 'https://active.test/'}])
+          if (q?.active) cb([{id: 5, url: 'https://active.test/'}])
           else cb([])
         }
       }
@@ -482,7 +482,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       tabs: {
         query: (q: {url?: string}, cb: (t: unknown[]) => void) => {
-          if (q && q.url) cb([{id: 3, url: 'https://example.com/'}])
+          if (q?.url) cb([{id: 3, url: 'https://example.com/'}])
           else cb([])
         }
       }
@@ -967,7 +967,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             } else {
               announced.push({tabId: opts.target.tabId, args: opts.args})
             }
-            cb && cb()
+            cb?.()
           }
         }
       },
@@ -1008,7 +1008,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           lastError: undefined
         },
         tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
-        scripting: {executeScript: (_o: unknown, cb?: () => void) => cb && cb()}
+        scripting: {executeScript: (_o: unknown, cb?: () => void) => cb?.()}
       },
       {
         fetch: (_url: string) =>
@@ -1076,16 +1076,16 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         },
         tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
         scripting: {
-          executeScript: (_o: unknown, cb?: () => void) => cb && cb(),
+          executeScript: (_o: unknown, cb?: () => void) => cb?.(),
           getRegisteredContentScripts: (cb: (s: unknown[]) => void) =>
             cb(existing),
           registerContentScripts: (s: any[], cb?: () => void) => {
             registered.push(...s)
-            cb && cb()
+            cb?.()
           },
           updateContentScripts: (s: any[], cb?: () => void) => {
             updated.push(...s)
-            cb && cb()
+            cb?.()
           }
         }
       },
@@ -1155,7 +1155,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         local: {
           set: (items: Record<string, unknown>, cb?: () => void) => {
             Object.assign(stored, items)
-            cb && cb()
+            cb?.()
           }
         }
       }
@@ -1187,7 +1187,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
               cb({[key]: Date.now()}),
             remove: (key: string, cb?: () => void) => {
               removed.push(key)
-              cb && cb()
+              cb?.()
             }
           }
         },
@@ -1225,7 +1225,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
               cb({[key]: Date.now() - 60_000}),
             remove: (key: string, cb?: () => void) => {
               removed.push(key)
-              cb && cb()
+              cb?.()
             }
           }
         },
@@ -1277,7 +1277,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         },
         sendMessage: (id: string, msg: unknown, cb?: () => void) => {
           external.push({id, msg})
-          cb && cb()
+          cb?.()
         },
         lastError: undefined
       },
@@ -1288,7 +1288,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       scripting: {
         executeScript: (opts: unknown, cb?: () => void) => {
           execCalls.push(opts)
-          cb && cb()
+          cb?.()
         }
       }
     })
@@ -1331,13 +1331,13 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           getURL: (p: string) => `chrome-extension://abc/${p}`,
           sendMessage: (id: string, msg: unknown, cb?: () => void) => {
             external.push({id, msg})
-            cb && cb()
+            cb?.()
           },
           lastError: undefined
         },
         tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
         scripting: {
-          executeScript: (_o: unknown, cb?: () => void) => cb && cb()
+          executeScript: (_o: unknown, cb?: () => void) => cb?.()
         }
       },
       {

@@ -6,9 +6,9 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-const fs = require('fs')
-const path = require('path')
-const {execSync} = require('child_process')
+const fs = require('node:fs')
+const path = require('node:path')
+const {execSync} = require('node:child_process')
 
 function main() {
   const root = path.resolve(__dirname, '..')

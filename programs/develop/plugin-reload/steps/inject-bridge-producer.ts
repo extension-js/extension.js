@@ -62,7 +62,7 @@ export class InjectBridgeProducer {
                 continue
               }
 
-              const next = source + '\n' + original
+              const next = `${source}\n${original}`
               compilation.updateAsset(asset.name, new sources.RawSource(next))
             }
           }

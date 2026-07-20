@@ -1,4 +1,4 @@
-import * as http from 'http'
+import * as http from 'node:http'
 import {afterEach, describe, expect, it} from 'vitest'
 import {discoverWebSocketDebuggerUrl} from '../../run-chromium/cdp/discovery'
 

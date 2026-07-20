@@ -6,10 +6,10 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import fs from 'node:fs'
+import path from 'node:path'
 // The pure-JS build parses synchronously with no wasm init step
 import {parse as parseModuleSyntax} from 'es-module-lexer/js'
-import fs from 'fs'
-import path from 'path'
 import {validate} from 'schema-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
@@ -190,7 +190,7 @@ function shiftSourceMap(map: any, prefix: string): any {
   const pad = new Array(prefixLineCount).fill('').join(';')
   return {
     ...map,
-    mappings: pad + ';' + map.mappings
+    mappings: `${pad};${map.mappings}`
   }
 }
 
@@ -219,8 +219,7 @@ export default function contentScriptWrapper(
     packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
   )
   const manifest = readManifestCached(manifestPath)
-  const isProd =
-    String((options && options.mode) || '').toLowerCase() === 'production'
+  const isProd = String(options?.mode || '').toLowerCase() === 'production'
   const rewrittenSource = String(source)
 
   const declaredContentJsAbsEntries: Array<{
@@ -929,7 +928,7 @@ export default function contentScriptWrapper(
       `try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {}\n` +
       `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {}\n` +
       `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {}\n`
-    const wrapped = prefix + `${rewrittenSource}\n` + suffix
+    const wrapped = `${prefix}${rewrittenSource}\n${suffix}`
     if (inputSourceMap) {
       this.callback(null, wrapped, shiftSourceMap(inputSourceMap, prefix))
       return
@@ -989,7 +988,7 @@ export default function contentScriptWrapper(
     )}) } catch (error) {}\n` +
     `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {}\n` +
     `export default __EXTENSIONJS_default__\n`
-  const wrappedResult = wrapPrefix + `${cleaned}\n` + wrapSuffix
+  const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
   if (inputSourceMap) {
     this.callback(
       null,

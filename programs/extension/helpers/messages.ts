@@ -49,7 +49,7 @@ export const fmt = {
         return String(input)
       }
     })()
-    return s.length > max ? s.slice(0, max) + '…' : s
+    return s.length > max ? `${s.slice(0, max)}…` : s
   }
 }
 
@@ -134,58 +134,58 @@ ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
 
 ${'Available Commands'}
-- ${code('extension create ' + arg('<project-name|project-path>'))}
+- ${code(`extension create ${arg('<project-name|project-path>')}`)}
   ${commandDescriptions.create}
 
-- ${code('extension dev ' + arg('[project-path|remote-url]'))}
+- ${code(`extension dev ${arg('[project-path|remote-url]')}`)}
   ${commandDescriptions.dev}
 
-- ${code('extension start ' + arg('[project-path|remote-url]'))}
+- ${code(`extension start ${arg('[project-path|remote-url]')}`)}
   ${commandDescriptions.start}
 
-- ${code('extension preview ' + arg('[project-path|remote-url]'))}
+- ${code(`extension preview ${arg('[project-path|remote-url]')}`)}
   ${commandDescriptions.preview}
 
-- ${code('extension build ' + arg('[project-path|remote-url]'))}
+- ${code(`extension build ${arg('[project-path|remote-url]')}`)}
   ${commandDescriptions.build}
 
-- ${code('extension logs ' + arg('[project-path]'))}
+- ${code(`extension logs ${arg('[project-path]')}`)}
   ${commandDescriptions.logs}
 
-- ${code('extension eval ' + arg('<expression> [project-path]'))}
+- ${code(`extension eval ${arg('<expression> [project-path]')}`)}
   ${commandDescriptions.eval}
 
-- ${code('extension storage ' + arg('<get|set> [key] [value] [project-path]'))}
+- ${code(`extension storage ${arg('<get|set> [key] [value] [project-path]')}`)}
   ${commandDescriptions.storage}
 
-- ${code('extension reload ' + arg('[project-path]'))}
+- ${code(`extension reload ${arg('[project-path]')}`)}
   ${commandDescriptions.reload}
 
-- ${code('extension open ' + arg('<popup|options|sidebar> [project-path]'))}
+- ${code(`extension open ${arg('<popup|options|sidebar> [project-path]')}`)}
   ${commandDescriptions.open}
 
-- ${code('extension inspect ' + arg('[project-path] --tab <id>'))}
+- ${code(`extension inspect ${arg('[project-path] --tab <id>')}`)}
   ${commandDescriptions.inspect}
 
-- ${code('extension publish ' + arg('[project-path]'))}
+- ${code(`extension publish ${arg('[project-path]')}`)}
   ${commandDescriptions.publish}
 
-- ${code('extension install ' + arg('<chrome|chromium|edge|firefox>'))}
+- ${code(`extension install ${arg('<chrome|chromium|edge|firefox>')}`)}
   ${commandDescriptions.install}
 
-- ${code('extension install ' + arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>'))}
+- ${code(`extension install ${arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>')}`)}
   Install multiple browsers, browser families, or ${code('all')}
 
 - ${code('extension install --where')}
   Prints the managed browser cache root (or browser install path(s) when a browser name or ${code('--browser')} is provided)
 
-- ${code('extension uninstall ' + arg('<chrome|chromium|edge|firefox> | --all'))}
+- ${code(`extension uninstall ${arg('<chrome|chromium|edge|firefox> | --all')}`)}
   ${commandDescriptions.uninstall}
 
 - ${code('extension uninstall --where')}
   Prints the managed browser cache root (or browser install path(s) when --browser/--all is provided)
 
-- ${code('extension telemetry ' + arg('<enable|disable|status>'))}
+- ${code(`extension telemetry ${arg('<enable|disable|status>')}`)}
   ${commandDescriptions.telemetry}
 
 ${'Common Options'}

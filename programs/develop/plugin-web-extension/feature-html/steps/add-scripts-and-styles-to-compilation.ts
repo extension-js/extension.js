@@ -6,9 +6,9 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import type {FilepathList, PluginInterface} from '../../../types'
@@ -107,7 +107,7 @@ export class AddScriptsAndStylesToCompilation {
               /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi
             let match: RegExpExecArray | null
             while ((match = inlineRe.exec(html))) {
-              if (match[1] && match[1].trim()) return true
+              if (match[1]?.trim()) return true
             }
           } catch {
             // Unreadable page: keep the default bundling path.

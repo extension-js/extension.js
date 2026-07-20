@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 import {pitch} from '../css-parse-guard-loader'
 
 // Regression (G17): a malformed declaration in a plain .css stylesheet
@@ -26,10 +26,8 @@ function runPitch(resourcePath: string) {
     const ctx = {
       resourcePath,
       emitWarning: (w: Error) => warnings.push(w),
-      async:
-        () =>
-        (err: Error | null, content?: string) =>
-          err ? reject(err) : resolve({result: content, warnings})
+      async: () => (err: Error | null, content?: string) =>
+        err ? reject(err) : resolve({result: content, warnings})
     }
     pitch.call(ctx as any)
   })

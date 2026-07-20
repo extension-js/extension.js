@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Mocks
 const defineApply = vi.fn()
@@ -56,8 +56,8 @@ vi.mock('fs', async () => {
     })
   }
 })
-import * as fs from 'fs'
-import * as dotenv from 'dotenv'
+
+import * as fs from 'node:fs'
 
 vi.mock('dotenv', () => ({
   parse: vi.fn((content: any) => {
@@ -76,8 +76,8 @@ vi.mock('dotenv', () => ({
   })
 }))
 
-import {EnvPlugin} from '../env'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {EnvPlugin} from '../env'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -168,7 +168,7 @@ describe('EnvPlugin', () => {
     expect(lastDefineArgs).toBeTruthy()
     // The process shim isn't resolvable here (fs.existsSync mocked to .env
     // paths only), so the inline fallback stub is defined for browser safety.
-    expect(lastDefineArgs['process']).toBeTruthy()
+    expect(lastDefineArgs.process).toBeTruthy()
     expect(lastDefineArgs['process.env']).toBeTruthy()
     // G12: Node-only import.meta accessors are neutralized to undefined so
     // vendored ESM (.mjs) dead branches don't leave a literal `import.meta` in a
@@ -198,7 +198,7 @@ describe('EnvPlugin', () => {
     )
     // With a real shim provided, the broad process / process.env defines are
     // omitted so they don't shadow the polyfill.
-    expect(lastDefineArgs['process']).toBeUndefined()
+    expect(lastDefineArgs.process).toBeUndefined()
     expect(lastDefineArgs['process.env']).toBeUndefined()
   })
 

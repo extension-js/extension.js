@@ -114,10 +114,7 @@ export function registerBuildCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...buildOptions}: BuildOptions
       ) => {
-        if (
-          (buildOptions as any).author ||
-          (buildOptions as any)['authorMode']
-        ) {
+        if ((buildOptions as any).author || (buildOptions as any).authorMode) {
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

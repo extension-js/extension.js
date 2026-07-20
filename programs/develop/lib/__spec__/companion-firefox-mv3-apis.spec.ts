@@ -17,9 +17,9 @@
 // this statically makes the failure mode visible at `vitest` time instead of
 // via "user clicks Inspect, nothing happens, files an issue."
 
-import {spawnSync} from 'child_process'
-import * as fs from 'fs'
-import * as path from 'path'
+import {spawnSync} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
 // Tokens that must NOT appear in the Firefox bundle of any extension.js

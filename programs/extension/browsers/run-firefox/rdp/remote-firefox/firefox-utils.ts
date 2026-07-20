@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {printDevBannerOnce} from '../../../browsers-lib/banner'
 
 async function waitForManifest(outPath: string, timeoutMs = 8000) {
@@ -109,7 +109,7 @@ export function printLogEventPretty(
   },
   showTs: boolean
 ) {
-  const ts = showTs ? new Date(event.timestamp).toISOString() + ' ' : ''
+  const ts = showTs ? `${new Date(event.timestamp).toISOString()} ` : ''
   const level = event.level
   const context = event.context
   const text = event.messageParts[0]

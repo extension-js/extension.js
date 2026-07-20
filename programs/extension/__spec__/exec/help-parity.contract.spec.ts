@@ -13,7 +13,7 @@ import {registerPreviewCommand} from '../../commands/preview'
 import {registerPublishCommand} from '../../commands/publish'
 import {registerStartCommand} from '../../commands/start'
 import {registerTelemetryCommand} from '../../commands/telemetry'
-import {programAIHelp, programUserHelp} from '../../helpers/messages'
+import {programUserHelp} from '../../helpers/messages'
 
 function stripAnsi(input: string): string {
   return input.replace(/\u001b\[[0-9;]*m/g, '')

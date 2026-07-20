@@ -7,9 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Batch 2: edge cases that decide the exact grammar of the static checks.
-import * as fs from 'fs'
-import * as path from 'path'
-import {fileURLToPath} from 'url'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const root = path.join(
   path.dirname(fileURLToPath(import.meta.url)),

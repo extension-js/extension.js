@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -117,7 +117,7 @@ describe('ZipPlugin', () => {
       zipData: {zip: true}
     })
 
-    const fs = await import('fs')
+    const fs = await import('node:fs')
     vi.spyOn(fs, 'readFileSync').mockImplementation(() => {
       throw new Error('fail-read')
     })

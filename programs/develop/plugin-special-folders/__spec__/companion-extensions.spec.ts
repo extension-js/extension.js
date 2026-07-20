@@ -1,10 +1,10 @@
-import {describe, it, expect, vi, afterEach, beforeEach} from 'vitest'
-import * as path from 'path'
-import os from 'os'
+import * as fs from 'node:fs'
+import os from 'node:os'
+import * as path from 'node:path'
+import {fetchExtensionFromStore} from 'extension-from-store'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {resolveCompanionExtensionsConfig} from '../folder-extensions/resolve-config.ts'
 import {resolveCompanionExtensionDirs} from '../folder-extensions/resolve-dirs.ts'
-import * as fs from 'fs'
-import {fetchExtensionFromStore} from 'extension-from-store'
 
 vi.mock('extension-from-store', () => ({
   fetchExtensionFromStore: vi.fn()

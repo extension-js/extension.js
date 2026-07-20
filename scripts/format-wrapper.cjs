@@ -12,8 +12,8 @@
  * If format fails with the known "DLL not found" exit code, warn and exit 0
  * so the install+format+compile pipeline can succeed.
  */
-const path = require('path')
-const {spawnSync} = require('child_process')
+const path = require('node:path')
+const {spawnSync} = require('node:child_process')
 
 const nodeDir = path.dirname(process.execPath)
 const existingPath = process.env.PATH || process.env.Path || ''

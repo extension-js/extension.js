@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {LOG_EVENT_VERSION, type LogEvent} from './contracts'
 
 export interface LogsFileOptions {
@@ -81,7 +81,7 @@ export class LogsFileWriter {
 
     const batch = this.queue
     this.queue = []
-    const payload = batch.join('\n') + '\n'
+    const payload = `${batch.join('\n')}\n`
 
     try {
       fs.appendFileSync(this.opts.filePath, payload, 'utf-8')
@@ -116,13 +116,12 @@ export class LogsFileWriter {
     this.droppedToDisk = 0
 
     try {
-      const sentinel =
-        JSON.stringify({
-          v: LOG_EVENT_VERSION,
-          type: 'gap',
-          reason: 'disk_slow',
-          dropped
-        }) + '\n'
+      const sentinel = `${JSON.stringify({
+        v: LOG_EVENT_VERSION,
+        type: 'gap',
+        reason: 'disk_slow',
+        dropped
+      })}\n`
 
       fs.appendFileSync(this.opts.filePath, sentinel, 'utf-8')
 
@@ -134,14 +133,13 @@ export class LogsFileWriter {
   }
 
   private writeHeader(rotatedFrom: string | null): void {
-    const header =
-      JSON.stringify({
-        v: LOG_EVENT_VERSION,
-        type: 'header',
-        runId: this.opts.runId,
-        startedAt: new Date().toISOString(),
-        rotatedFrom
-      }) + '\n'
+    const header = `${JSON.stringify({
+      v: LOG_EVENT_VERSION,
+      type: 'header',
+      runId: this.opts.runId,
+      startedAt: new Date().toISOString(),
+      rotatedFrom
+    })}\n`
 
     try {
       fs.writeFileSync(this.opts.filePath, header, 'utf-8')

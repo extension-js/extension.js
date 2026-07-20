@@ -27,7 +27,7 @@ function buildCSP(cspObject: Record<string, string[]>) {
   const directives = Object.entries(cspObject).map(
     ([directive, values]) => `${directive} ${values.join(' ')}`
   )
-  return directives.join('; ') + '; '
+  return `${directives.join('; ')}; `
 }
 
 // The dev reload producer (service worker) and HMR client dial the local dev

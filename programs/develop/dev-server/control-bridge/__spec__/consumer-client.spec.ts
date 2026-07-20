@@ -1,12 +1,12 @@
-import {describe, it, expect, afterEach, beforeEach} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {BridgeConsumer, readReadyContract} from '../consumer-client'
-import {startControlServer, type ControlServer} from '../ws-control-server'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {BridgeBroker} from '../broker'
-import {LogRingBuffer} from '../ring-buffer'
+import {BridgeConsumer, readReadyContract} from '../consumer-client'
 import type {IncomingLogEvent} from '../contracts'
+import {LogRingBuffer} from '../ring-buffer'
+import {type ControlServer, startControlServer} from '../ws-control-server'
 
 function incoming(message: string): IncomingLogEvent {
   return {

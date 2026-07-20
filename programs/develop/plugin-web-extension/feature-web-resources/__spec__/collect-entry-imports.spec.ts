@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest'
 import type {Compilation} from '@rspack/core'
+import {describe, expect, it} from 'vitest'
 import {collectContentScriptEntryImports} from '../collect-entry-imports'
 
 type ChunkWithAuxFiles = {auxiliaryFiles: string[]}
@@ -48,7 +48,7 @@ describe('collectContentScriptEntryImports', () => {
 
     const res = collectContentScriptEntryImports(compilation, includeList)
     expect(res['content_scripts/content-a']).toEqual(['a.css', 'a.svg'])
-    expect(res['background']).toBeUndefined()
+    expect(res.background).toBeUndefined()
   })
 
   it('de-dupes auxiliary files', () => {

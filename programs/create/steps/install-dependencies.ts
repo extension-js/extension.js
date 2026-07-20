@@ -6,8 +6,8 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
 import * as messages from '../lib/messages'
 import {isDenoRuntime} from '../lib/package-manager'
@@ -64,7 +64,7 @@ async function updateExtensionDependencyTag(
 
     await fs.promises.writeFile(
       packageJsonPath,
-      JSON.stringify(packageJson, null, 2) + '\n'
+      `${JSON.stringify(packageJson, null, 2)}\n`
     )
 
     return true

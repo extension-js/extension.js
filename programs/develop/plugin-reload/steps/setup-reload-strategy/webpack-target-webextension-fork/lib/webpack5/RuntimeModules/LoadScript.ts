@@ -51,9 +51,7 @@ export default function LoadScriptRuntimeModule(
       const _let = compilation.outputOptions.environment.const ? 'let' : 'var'
 
       const chunkName =
-        ((this as any).chunk && (this as any).chunk.name
-          ? (this as any).chunk.name
-          : '') ||
+        ((this as any).chunk?.name ? (this as any).chunk.name : '') ||
         (compilation &&
         (compilation as any).chunk &&
         (compilation as any).chunk.name

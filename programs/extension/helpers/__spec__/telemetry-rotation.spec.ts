@@ -60,7 +60,7 @@ it('rotates the audit file at the size cap and bounds total disk usage', () => {
     'telemetry',
     'events.jsonl'
   )
-  const backup = auditFile + '.1'
+  const backup = `${auditFile}.1`
 
   expect(fs.existsSync(auditFile)).toBe(true)
   expect(fs.existsSync(backup)).toBe(true)
@@ -82,7 +82,7 @@ it('drops a grossly oversized legacy audit file instead of keeping it as backup'
   trackOne(telemetry, 0)
 
   expect(fs.statSync(auditFile).size).toBeLessThan(1024)
-  expect(fs.existsSync(auditFile + '.1')).toBe(false)
+  expect(fs.existsSync(`${auditFile}.1`)).toBe(false)
 })
 
 it('keeps auditing across rotations without disabling telemetry', () => {

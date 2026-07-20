@@ -18,8 +18,7 @@ export function background(manifest: Manifest) {
   // override's spread would reset `scripts` back to its raw path, so the emitted
   // manifest referenced a file no chunk wrote under that name; G14).
   return (
-    manifest.background &&
-    manifest.background.scripts && {
+    manifest.background?.scripts && {
       background: {
         // All MV2 `background.scripts` are bundled into a single emitted file, so
         // the output must reference it once, dedupe instead of repeating the same

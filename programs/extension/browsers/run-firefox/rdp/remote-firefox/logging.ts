@@ -93,7 +93,7 @@ export function subscribeUnifiedLogging(
       if (type === 'consoleAPICall' || type === 'logMessage') {
         const a = message?.message || message
         level = String(a.level || a.category || 'log').toLowerCase()
-        const arg = (a.arguments && a.arguments[0]) || a.message || a.text
+        const arg = a.arguments?.[0] || a.message || a.text
         text = String(
           (arg && (arg.value || arg.text || arg.message || arg)) || ''
         )
@@ -119,12 +119,7 @@ export function subscribeUnifiedLogging(
       const idx = Math.max(0, levelMap.indexOf(level))
       if (idx < wantIdx) return
 
-      if (
-        wantContexts &&
-        wantContexts.length &&
-        !wantContexts.includes(context)
-      )
-        return
+      if (wantContexts?.length && !wantContexts.includes(context)) return
 
       if (urlFilter && !String(url || '').includes(urlFilter)) return
 

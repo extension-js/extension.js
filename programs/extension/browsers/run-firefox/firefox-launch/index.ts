@@ -6,12 +6,12 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {ChildProcess} from 'child_process'
+import type {ChildProcess} from 'node:child_process'
+import * as fs from 'node:fs'
 import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
   getFirefoxVersion
 } from 'firefox-location2'
-import * as fs from 'fs'
 import locateLibreWolf from 'librewolf-location'
 import locateWaterfox from 'waterfox-location'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'

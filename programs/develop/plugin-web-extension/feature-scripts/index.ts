@@ -6,8 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'

@@ -16,7 +16,7 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   return (
     `${colors.red('ERROR')} in ${colors.yellow('manifest.json')} entrypoint: ` +
     `${addingOrRemoving} ${colors.yellow(typeOfAsset)} in ${colors.underline(
-      folder + '/'
+      `${folder}/`
     )} requires a dev server restart to apply changes.`
   )
 }
