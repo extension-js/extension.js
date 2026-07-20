@@ -382,7 +382,10 @@ export function enhancedProcessManagementTerminating(browser: Browser) {
 }
 
 export function enhancedProcessManagementForceKill(browser: Browser) {
-  return `${getLoggingPrefix('error')} Force killing ${capitalizedBrowserName(browser)} process after timeout`
+  return (
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} did not exit gracefully, forcing the process to close.\n` +
+    `This is a normal cleanup step and does not affect your build output.`
+  )
 }
 
 export function enhancedProcessManagementCleanupError(
@@ -424,7 +427,11 @@ export function generalBrowserError(browser: Browser, error: unknown) {
 
 export function errorConnectingToBrowser(browser: Browser, port?: number) {
   const where = typeof port === 'number' ? ` on port ${port}` : ''
-  return `${getLoggingPrefix('error')} Unable to connect to ${capitalizedBrowserName(browser)}${where}. Too many retries.`
+  return (
+    `${getLoggingPrefix('error')} Unable to connect to ${capitalizedBrowserName(browser)}${where} after several retries.\n` +
+    `Another browser instance is usually still holding that debugging port, often one left over from an earlier dev session.\n` +
+    `Close ${capitalizedBrowserName(browser)} windows opened by Extension.js and run the command again, or pass ${colors.blue('--profile')} ${colors.gray('<path>')} to launch against a separate profile.`
+  )
 }
 
 export function waitingForBrowserDebugger(
@@ -446,11 +453,19 @@ export function addonInstallError(browser: Browser, message: string) {
 // removed: parseMessageLengthError (replaced by shared rdp-wire helpers)
 
 export function messagingClientClosedError(browser: Browser) {
-  return `${getLoggingPrefix('error')} Messaging client closed unexpectedly for ${capitalizedBrowserName(browser)}`
+  return (
+    `${getLoggingPrefix('error')} The ${capitalizedBrowserName(browser)} messaging channel closed unexpectedly.\n` +
+    `The browser exited, or its debugging connection was dropped while the dev session was still running.\n` +
+    `Check whether the browser window was closed by hand, then run the command again.`
+  )
 }
 
 export function connectionClosedError(browser: Browser) {
-  return `${getLoggingPrefix('error')} Connection closed unexpectedly for ${capitalizedBrowserName(browser)}`
+  return (
+    `${getLoggingPrefix('error')} The debugging connection to ${capitalizedBrowserName(browser)} closed unexpectedly.\n` +
+    `Reload and HMR need that connection, so the dev session cannot keep the extension up to date.\n` +
+    `Restart the dev session. If it keeps happening, launch with ${colors.blue('--profile')} ${colors.gray('<path>')} to rule out a corrupted browser profile.`
+  )
 }
 
 export function targetActorHasActiveRequestError(
@@ -850,7 +865,11 @@ export function firefoxRdpClientTestingEvaluation() {
 }
 
 export function firefoxRdpClientFailedToGetMainHTML() {
-  return `${getLoggingPrefix('error')} Failed to get Firefox main HTML`
+  return (
+    `${getLoggingPrefix('error')} Could not read the page document over the Firefox remote debugging protocol.\n` +
+    `The tab usually navigated or closed before the request finished.\n` +
+    `Reload the page and try again. If it persists, restart the dev session.`
+  )
 }
 
 export function firefoxRdpReinjectListAddonsFailed(error: string) {
@@ -943,7 +962,10 @@ export function runningInDevelopment(
 
   if (!management) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      return `${getLoggingPrefix('error')} No management API info received from client for ${manifestName}. Investigate.`
+      return (
+        `${getLoggingPrefix('error')} No management API info received from the client for ${manifestName}.\n` +
+        `The extension may not have finished loading, or the in-browser companion did not attach.`
+      )
     }
   }
 
@@ -1110,7 +1132,11 @@ export function invalidGeckoBinaryPath(p: string) {
 }
 
 export function rdpInvalidRequestPayload() {
-  return `${getLoggingPrefix('error')} Invalid RDP request payload`
+  return (
+    `${getLoggingPrefix('error')} Received an unreadable Firefox remote debugging message.\n` +
+    `The debugging connection is out of sync with the browser, usually after a crash or an abrupt reload.\n` +
+    `Restart the dev session. If it repeats, report it with your Firefox version.`
+  )
 }
 
 // Chromium developer mode guidance (succinct, Vercel-like tone)
