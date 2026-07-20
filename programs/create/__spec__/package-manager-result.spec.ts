@@ -1,8 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Same step-mocking harness as create-install-order.spec.ts: stub every
-// side-effecting step so extensionCreate() runs purely in-memory and we can
-// assert on the returned CreateResult.
 vi.mock('../steps/create-directory', () => ({
   createDirectory: async () => undefined
 }))
@@ -45,11 +42,6 @@ vi.mock('../lib/utils', () => ({
 
 const silentLogger = {log: () => undefined, error: () => undefined}
 
-// Every environment variable `prefers-yarn`'s detectPackageManagerFromEnv reads.
-// The tests must neutralize ALL of them, the test runner itself is launched by
-// a package manager (pnpm), which sets npm_execpath/npm_config_user_agent, so
-// clearing only one would leak the runner's pm into the assertions. vi.stubEnv
-// is used (auto-restored via unstubAllEnvs) so nothing leaks to other files.
 const PM_ENV_VARS = [
   'npm_config_user_agent',
   'npm_execpath',
@@ -95,8 +87,6 @@ describe('CreateResult.packageManager', () => {
   })
 
   it('exposes the resolved package manager on the result', async () => {
-    // user_agent is checked before execPath, so this pins bun regardless of the
-    // pm that launched the test runner.
     vi.stubEnv('npm_config_user_agent', 'bun/1.1.0 npm/? node/v20.0.0')
 
     const [{extensionCreate}, {resolveScaffoldPackageManager}] =

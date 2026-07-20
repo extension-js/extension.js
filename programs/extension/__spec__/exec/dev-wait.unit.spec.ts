@@ -191,13 +191,8 @@ describe('runDevWaitMode', () => {
       Date.now() - (READY_CONTRACT_FRESHNESS_MS + 30_000)
     ).toISOString()
 
-    // A recent contract is fresh.
     expect(isFreshContractPayload({ts: justNow})).toBe(true)
 
-    // A contract older than the fixed window is stale, even though a user
-    // could have passed an arbitrarily large --wait-timeout. Freshness no
-    // longer scales with the timeout, so this can never be widened into a
-    // false positive by a patient wait.
     expect(isFreshContractPayload({ts: wellPastWindow})).toBe(false)
   })
 

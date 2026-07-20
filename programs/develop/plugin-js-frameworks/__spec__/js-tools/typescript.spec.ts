@@ -46,7 +46,6 @@ describe('typescript tools', () => {
   })
 
   it('ensureTypeScriptConfig throws when TS files present but no tsconfig next to package.json', async () => {
-    // Package.json in /project (stop search early)
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       toPosix(String(p)).endsWith('/project/package.json') ? true : false
     )
@@ -64,10 +63,8 @@ describe('typescript tools', () => {
       '../../js-tools/typescript'
     )
 
-    // Detection itself is side-effect-free and just returns false here.
     expect(isUsingTypeScript('/project')).toBe(false)
 
-    // No tsconfig present, but TS files exist -> hard error, no writes
     expect(() => ensureTypeScriptConfig('/project')).toThrowError(
       /Missing tsconfig\.json next to package\.json/
     )
@@ -75,7 +72,6 @@ describe('typescript tools', () => {
   })
 
   it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
-    // Make tsconfig exist
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
         toPosix(String(p)).endsWith('/project/tsconfig.json') ||
@@ -88,7 +84,6 @@ describe('typescript tools', () => {
       return ''
     })
 
-    // Make require.resolve('typescript') succeed
     const originalResolve = (require as any).resolve
     ;(require as any).resolve = vi.fn((id: string) =>
       id === 'typescript' ? '/mock/typescript' : originalResolve(id)
@@ -101,12 +96,6 @@ describe('typescript tools', () => {
   })
 
   it('maybeUseTypeScript succeeds when the project does NOT declare typescript', async () => {
-    // The 12.4% shape from the real-world corpus (112 of 902 TypeScript
-    // projects): tsconfig.json + .ts sources, but no `typescript` dependency.
-    // extension-develop no longer ships its own copy, and nothing in the build
-    // needs one (sources are compiled by swc), so this must resolve rather
-    // than throw an "install typescript" error the way the old optional-dep
-    // contract would have.
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
         toPosix(String(p)).endsWith('/project/tsconfig.json') ||
@@ -114,7 +103,6 @@ describe('typescript tools', () => {
     )
     ;(fs.readFileSync as any).mockImplementation((p: string) => {
       if (toPosix(String(p)).endsWith('package.json')) {
-        // No typescript in either dependency block.
         return JSON.stringify({dependencies: {}, devDependencies: {}})
       }
       return ''
@@ -144,10 +132,7 @@ describe('typescript tools', () => {
   it('defaultTypeScriptConfig scaffolds a moduleResolution TypeScript 7 accepts', async () => {
     const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
     const {compilerOptions} = defaultTypeScriptConfig('/project')
-    // 'node' (node10) was REMOVED in TypeScript 7: scaffolding it made the
-    // generated tsconfig fail the user's own `tsc --noEmit` with TS5108.
     expect(compilerOptions.moduleResolution).toBe('bundler')
-    // 'bundler' is only valid alongside a modern module setting.
     expect(compilerOptions.module).toBe('esnext')
   })
 })

@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 
 describe('filterKeysForThisBrowser', () => {
@@ -30,10 +30,6 @@ describe('filterKeysForThisBrowser', () => {
   })
 
   it('resolves chromium-prefixed keys for safari (MV3 chromium-shaped bundle)', () => {
-    // Regression: Safari ships an MV3, chromium-shaped extension produced by the
-    // converter, so chromium:/chrome: prefixed keys (including manifest_version)
-    // must resolve. Otherwise the emitted Safari manifest has no manifest_version
-    // and is invalid.
     const manifest = {
       name: 'x',
       'chromium:manifest_version': 3,

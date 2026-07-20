@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('@rspack/core', () => ({
   Compilation: {PROCESS_ASSETS_STAGE_ADDITIONS: 0}
@@ -53,7 +53,6 @@ describe('AddToFileDependencies step', () => {
       '/abs/assets/b.png'
     ])
 
-    // Applying again should not duplicate entries
     step.apply(compiler as any)
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png',

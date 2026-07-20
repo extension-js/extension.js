@@ -6,7 +6,6 @@ vi.mock('../../frameworks-lib/integrations', () => ({
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
-// Ensure svelte-loader and typescript resolve
 const originalResolve = (require as any).resolve
 beforeEach(() => {
   ;(require as any).resolve = vi.fn((id: string) =>
@@ -36,7 +35,6 @@ describe('svelte tools', () => {
       (_p: string, dep: string) => dep === 'svelte'
     )
 
-    // Provide custom loader options via loader-options helper
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
@@ -56,7 +54,6 @@ describe('svelte tools', () => {
     )
     expect(svelteRule?.use?.options?.bar).toBe(2)
 
-    // Apply resolver plugin to a fake compiler to verify additions
     const compiler: any = {
       options: {
         resolve: {
@@ -77,7 +74,6 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
-    // Cross-platform path assertions (see webpack-lib/__spec__/platform-utils)
     expect(String(result?.alias?.svelte)).toMatch(
       pathPattern(['svelte', 'src', 'index-client.js'])
     )

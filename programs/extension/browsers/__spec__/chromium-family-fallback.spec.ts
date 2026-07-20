@@ -19,9 +19,6 @@ const edgeExecutable = isWin ? 'msedge.exe' : 'msedge'
 let cacheRoot: string
 let previousCacheDir: string | undefined
 
-// Mirrors the managed layout `extension install` produces via
-// `@puppeteer/browsers install --path <root>/<browser>`:
-// <root>/<browser>/<browser>/<platform>-<buildId>/<archive>/<executable>
 function installFakeBrowser(
   browser: 'chrome' | 'chromium' | 'edge',
   executable: string
@@ -112,8 +109,6 @@ describe('resolveChromiumFamilyFallback', () => {
     it('never proposes the requested browser itself', () => {
       installFakeBrowser('chrome', chromeExecutable)
 
-      // Only Chrome is installed and Chrome is what is missing from the
-      // caller's perspective. The resolver must not echo it back.
       expect(resolveChromiumFamilyFallback(compilation, 'chrome')).toBeNull()
     })
   })

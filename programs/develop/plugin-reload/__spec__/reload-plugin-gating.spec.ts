@@ -1,9 +1,3 @@
-// Regression: the reload pipeline is dev-only. ReloadPlugin must apply its
-// steps in development, and apply NOTHING in production or when the user
-// opts out with EXTENSION_NO_RELOAD=true (--no-reload). This gate used to
-// live inside feature-scripts' ScriptsPlugin; it moved here with the
-// plugin-reload extraction and this spec pins it in its new home.
-
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -16,8 +10,6 @@ vi.mock('fs', async () => {
   }
 })
 
-// Constructable mocks: `new ReloadPlugin(...).apply(compiler)` instantiates
-// the inner steps via `new`, so each mock must be a real constructor.
 const setupReloadStrategyCtor = vi.hoisted(() =>
   vi.fn(function (this: any) {
     this.apply = () => {}

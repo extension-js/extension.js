@@ -1,11 +1,3 @@
-//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
-// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
-// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
-// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
-// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
-//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
-
 import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import {createServer, type Server} from 'node:http'
@@ -74,7 +66,6 @@ describe('extension create from remote', () => {
         [cli, 'create', dest, '--template', url, '--install', 'false'],
         {
           cwd: repoRoot,
-          // Ensure production-like behavior so remote template fetch path is used
           env: {
             ...process.env,
             EXTENSION_ENV: 'test',
@@ -101,7 +92,6 @@ describe('extension create from remote', () => {
       child.on('error', reject)
     })
 
-    // Cleanup
     try {
       fs.rmSync(tmp, {recursive: true, force: true})
     } catch {}
@@ -143,7 +133,6 @@ describe('extension create from remote', () => {
         [cli, 'create', dest, '--template', url, '--install', 'false'],
         {
           cwd: repoRoot,
-          // Ensure production-like behavior so remote template fetch path is used
           env: {
             ...process.env,
             EXTENSION_ENV: 'test',
@@ -177,7 +166,6 @@ describe('extension create from remote', () => {
     )
     expect(manifestJson.name).toBe(path.basename(dest))
 
-    // Cleanup
     try {
       fs.rmSync(tmp, {recursive: true, force: true})
     } catch {}

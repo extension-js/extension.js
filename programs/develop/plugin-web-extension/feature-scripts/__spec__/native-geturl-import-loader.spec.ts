@@ -1,13 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import loader, {
   annotateGetURLDynamicImports
 } from '../steps/native-geturl-import-loader'
 
-// import(chrome.runtime.getURL(...)) receives an absolute
-// chrome-extension:// URL at runtime; lowering it into the bundler module
-// map guarantees `Cannot find module` in real Chrome (report bug 9). The
-// loader opts exactly these calls out of bundling via the webpackIgnore
-// magic comment, leaving every other import() alone.
 describe('native-geturl-import-loader', () => {
   it('annotates import(chrome.runtime.getURL(...)) with webpackIgnore', () => {
     const out = annotateGetURLDynamicImports(
@@ -30,8 +25,8 @@ describe('native-geturl-import-loader', () => {
     const source = [
       "import x from './x.js'",
       "import('./lazy.js').then(console.log)",
-      "import(someVariable)",
-      "const y = import.meta.url",
+      'import(someVariable)',
+      'const y = import.meta.url',
       ''
     ].join('\n')
     expect(annotateGetURLDynamicImports(source)).toBe(source)
@@ -53,7 +48,7 @@ describe('native-geturl-import-loader', () => {
       "const t = `import(chrome.runtime.getURL('y.js'))`",
       "// import(chrome.runtime.getURL('z.js'))",
       "/* import(chrome.runtime.getURL('w.js')) */",
-      "const re = /['\"]import\\(/",
+      'const re = /[\'"]import\\(/',
       ''
     ].join('\n')
     expect(annotateGetURLDynamicImports(source)).toBe(source)

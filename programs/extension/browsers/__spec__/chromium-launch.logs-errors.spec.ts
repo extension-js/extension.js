@@ -1,6 +1,6 @@
-import {describe, it, expect, vi} from 'vitest'
-import {ChromiumLaunchPlugin} from '../run-chromium/chromium-launch'
+import {describe, expect, it, vi} from 'vitest'
 import {createChromiumContext} from '../run-chromium/chromium-context'
+import {ChromiumLaunchPlugin} from '../run-chromium/chromium-launch'
 
 describe('ChromiumLaunchPlugin', () => {
   it('logs a launch error instead of swallowing it', async () => {
@@ -33,7 +33,6 @@ describe('ChromiumLaunchPlugin', () => {
       }
     }
 
-    // Force the internal launch step to throw (simulate spawn/detection failure)
     ;(plugin as any).launchChromium = vi
       .fn()
       .mockRejectedValueOnce(new Error('boom'))

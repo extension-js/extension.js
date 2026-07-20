@@ -53,8 +53,6 @@ describe('FirefoxBinaryDetector.generateFirefoxArgs', () => {
       true
     ).args
     expect(headless).toContain('-headless')
-    // Flag must precede -profile so the headless backend is selected before the
-    // window/compositor initializes.
     expect(headless.indexOf('-headless')).toBeLessThan(
       headless.indexOf('-profile')
     )

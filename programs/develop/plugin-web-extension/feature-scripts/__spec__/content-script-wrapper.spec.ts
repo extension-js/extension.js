@@ -13,11 +13,6 @@ afterEach(() => {
 })
 
 function createTempProject() {
-  // realpathSync mirrors rspack: it hands the loader a canonical (symlink-
-  // resolved) resourcePath, which the loader compares against the canonicalized
-  // manifest/package dirs. mkdtemp returns a symlinked path on macOS
-  // ($TMPDIR -> /var -> /private/var), so resolve it to keep the simulation
-  // faithful, otherwise declared-entry detection would mismatch on symlinks.
   const dir = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
   )
@@ -227,8 +222,6 @@ describe('content-script-wrapper loader', () => {
       vendored
     )
 
-    // The vendored library must not be wrapped: no mount/reload runtime is
-    // prepended and no reinject epilogue is appended to a third-party file.
     expect(wrapped).toBe(vendored)
     expect(wrapped).not.toContain('__EXTJS_WRAPPER_KIND')
     expect(wrapped).not.toContain('__EXTENSIONJS_REINJECT_GENERATION')
@@ -296,13 +289,6 @@ describe('content-script-wrapper loader', () => {
     expect(wrapped).not.toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
   })
 
-  // Regression guard for the Windows path-form divergence (see lib/resource-path):
-  // rspack may hand the loader a resourcePath whose form differs from the
-  // canonicalized manifest dir. Reproduced cross-platform by referencing the
-  // declared entry through a symlinked ancestor (a directory junction, which
-  // Windows can create without elevation). Before the fix the loader compared
-  // raw forms, failed the declared-entry match, and returned the source
-  // unwrapped, exactly the Windows-only CI failure.
   it('wraps a declared entry referenced through a symlinked ancestor dir', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
@@ -318,8 +304,6 @@ describe('content-script-wrapper loader', () => {
     )
     fs.writeFileSync(path.join(contentDir, 'scripts.ts'), 'x', 'utf8')
 
-    // A symlinked view of the project root: the loader is handed a resourcePath
-    // routed through the symlink, while the manifest path it resolves is real.
     const linkedRoot = path.join(
       projectDir,
       '..',

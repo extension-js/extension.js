@@ -6,9 +6,6 @@ import {writeReadmeFile} from '../../steps/write-readme-file'
 import {successfullInstall} from '../messages'
 import {isDenoRuntime} from '../package-manager'
 
-// Simulate a Deno runtime by exposing its runtime global. Deno launches npm
-// packages without `npm_config_user_agent`/`npm_execpath`, so the only reliable
-// signal is `globalThis.Deno` (and `process.versions.deno`).
 function withDenoGlobal(body: () => Promise<void> | void) {
   const hadDeno = 'Deno' in globalThis
   ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}

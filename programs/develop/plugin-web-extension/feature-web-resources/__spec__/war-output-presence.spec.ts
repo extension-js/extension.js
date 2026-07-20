@@ -25,7 +25,6 @@ describe('web_accessible_resources: public-root presence checks', () => {
     const rel = 'pages/oauth-callback.html'
     const warRef = `/${rel}`
 
-    // Simulate built output file presence: <tmpRoot>/dist/pages/oauth-callback.html
     const outputAbs = path.join(tmpRoot, 'dist', rel)
     fs.mkdirSync(path.dirname(outputAbs), {recursive: true})
     fs.writeFileSync(outputAbs, '<html></html>')
@@ -49,14 +48,12 @@ describe('web_accessible_resources: public-root presence checks', () => {
 
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
-    // Should not warn since file exists in the output root
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
   it('does not warn for relative WAR path when file exists in public/', () => {
     const rel = 'pages/oauth-callback.js'
 
-    // Simulate public file presence: <tmpRoot>/public/pages/oauth-callback.js
     const publicAbs = path.join(tmpRoot, 'public', rel)
     fs.mkdirSync(path.dirname(publicAbs), {recursive: true})
     fs.writeFileSync(publicAbs, 'console.log("ok")')
@@ -80,14 +77,12 @@ describe('web_accessible_resources: public-root presence checks', () => {
 
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
-    // Should not warn, since the relative resource is backed by a public/ file
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
   it('does not warn for relative WAR path when file exists in output root', () => {
     const rel = 'sidebar/index.html'
 
-    // Simulate built output file presence: <tmpRoot>/dist/sidebar/index.html
     const outputAbs = path.join(tmpRoot, 'dist', rel)
     fs.mkdirSync(path.dirname(outputAbs), {recursive: true})
     fs.writeFileSync(outputAbs, '<html></html>')
@@ -114,7 +109,6 @@ describe('web_accessible_resources: public-root presence checks', () => {
 
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
-    // Should not warn since the relative resource exists in the built output
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
@@ -130,7 +124,6 @@ describe('web_accessible_resources: public-root presence checks', () => {
 
     const getAsset = vi.fn((name: string) => {
       if (name === rel) {
-        // Simulate in-memory emitted asset
         return {name, source: {source: () => '<html/>'}}
       }
       if (name === 'manifest.json') {
@@ -150,7 +143,6 @@ describe('web_accessible_resources: public-root presence checks', () => {
 
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
-    // Should not warn since getAsset(rel) returned an asset
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 })

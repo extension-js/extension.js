@@ -21,8 +21,6 @@ function makeProject(): string {
   return dir
 }
 
-// Mirror a GitHub codeload zip: everything under a single `examples-main/` root,
-// templates under `examples-main/examples/<slug>/`.
 function makeExamplesZip(): Buffer {
   const zip = new AdmZip()
   zip.addFile('examples-main/README.md', Buffer.from('# examples'))
@@ -55,14 +53,12 @@ describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)'
     )
 
     expect(written).toBe(3)
-    // Files land at the project root, NOT under examples/react/.
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
     expect(fs.existsSync(path.join(project, 'src', 'index.tsx'))).toBe(true)
     expect(
       JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'))
         .name
     ).toBe('react')
-    // A DIFFERENT template's files must not leak in.
     expect(fs.existsSync(path.join(project, 'vue'))).toBe(false)
     expect(fs.readdirSync(project)).not.toContain('examples')
   })

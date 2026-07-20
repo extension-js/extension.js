@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
-import {LogRingBuffer} from '../ring-buffer'
+import {describe, expect, it} from 'vitest'
 import type {IncomingLogEvent} from '../contracts'
+import {LogRingBuffer} from '../ring-buffer'
 
 function evt(message: string): IncomingLogEvent {
   return {
@@ -33,7 +33,7 @@ describe('LogRingBuffer', () => {
     for (let i = 0; i < 5; i++) ring.push(evt(`m${i}`))
     expect(ring.size).toBe(3)
     const seqs = ring.snapshot().map((e) => e.seq)
-    expect(seqs).toEqual([3, 4, 5]) // first two dropped
+    expect(seqs).toEqual([3, 4, 5])
     expect(ring.bufferedFrom).toBe(3)
     expect(ring.nextSequence).toBe(6)
   })
@@ -42,11 +42,10 @@ describe('LogRingBuffer', () => {
     const ring = new LogRingBuffer(2)
     ring.push(evt('a'))
     ring.push(evt('b'))
-    ring.push(evt('c')) // drops 1
-    ring.push(evt('d')) // drops 1
+    ring.push(evt('c'))
+    ring.push(evt('d'))
     const gap = ring.drainDropped()
     expect(gap).toEqual({dropped: 2, reason: 'ring_overflow', sinceSeq: 3})
-    // drain resets
     expect(ring.drainDropped()).toBeNull()
   })
 
@@ -58,7 +57,7 @@ describe('LogRingBuffer', () => {
 
   it('since(seq) returns only newer retained events', () => {
     const ring = new LogRingBuffer(10)
-    for (let i = 0; i < 5; i++) ring.push(evt(`m${i}`)) // seq 1..5
+    for (let i = 0; i < 5; i++) ring.push(evt(`m${i}`))
     expect(ring.since(3).map((e) => e.seq)).toEqual([4, 5])
     expect(ring.since(0).map((e) => e.seq)).toEqual([1, 2, 3, 4, 5])
   })

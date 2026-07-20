@@ -94,7 +94,6 @@ describe('extension logs (one-shot)', () => {
     expect(broken).toContain('ERROR')
     expect(broken).toContain('E_X')
     expect(broken).toContain('restart it')
-    // Non-string message parts are JSON-encoded in pretty mode.
     expect(printedLines().some((l) => l.includes('{"k":"v"}'))).toBe(true)
   })
 

@@ -9,9 +9,7 @@ function makeTempDir(prefix: string) {
   return dir
 }
 
-afterEach(() => {
-  // noop: OS tmp dirs are auto-cleaned; leave artifacts for failure debugging
-})
+afterEach(() => {})
 
 describe('find-nearest-package', () => {
   it('findNearestPackageJson finds nearest package.json upward', async () => {
@@ -37,7 +35,6 @@ describe('find-nearest-package', () => {
     const invalid = path.join(tmp, 'package.json')
     fs.writeFileSync(invalid, '{invalid')
     expect(validatePackageJson(invalid)).toBe(false)
-    // valid
     fs.writeFileSync(invalid, JSON.stringify({name: 'ok'}))
     expect(validatePackageJson(invalid)).toBe(true)
   })

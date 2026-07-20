@@ -2,14 +2,6 @@ import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {ApplyDevDefaults} from '../apply-dev-defaults'
 
-/**
- * Regression: ApplyDevDefaults must run after REPORT-stage manifest patchers
- * (e.g. WAR patch) and after UpdateManifest (SUMMARIZE), so it is the final
- * manifest writer before browser launch.
- *
- * If it runs too early, a later hook can overwrite resolved paths and Chromium
- * may fail with errors like "Side panel file path must exist".
- */
 describe('ApplyDevDefaults', () => {
   it('registers processAssets after REPORT so it runs after WAR patching', () => {
     let capturedStage: number | undefined
@@ -109,11 +101,6 @@ describe('ApplyDevDefaults', () => {
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
 
-  // Under --no-browser the SW re-injects a changed content script into open tabs
-  // via chrome.scripting.executeScript, finding them with chrome.tabs.query. Dev
-  // defaults inject `scripting`/`tabs` (MV3; `tabs` on MV2) and grant
-  // host_permissions covering the content scripts' match patterns so executeScript
-  // is allowed on those tabs even when the source declares no host_permissions.
   function runDevDefaults(manifest: Record<string, unknown>) {
     let updated: string | undefined
     const compilation = {
@@ -157,9 +144,7 @@ describe('ApplyDevDefaults', () => {
       permissions: ['storage']
     })
     expect(out.permissions).toEqual(expect.arrayContaining(['tabs', 'storage']))
-    // MV3-only permissions must NOT leak into an MV2 manifest.
     expect(out.permissions).not.toContain('scripting')
-    // No duplicates when `tabs` is already declared.
     const deduped = runDevDefaults({
       manifest_version: 2,
       name: 'x',
@@ -213,9 +198,6 @@ describe('ApplyDevDefaults', () => {
   })
 
   it('injects content-script host patterns into MV2 `permissions` (Firefox executeScript host access)', () => {
-    // Confirmed on real Firefox: without this, chrome.scripting.executeScript
-    // fails with "Missing host permission for the tab" (MV2 has no
-    // host_permissions key, host access lives in `permissions`).
     const out = runDevDefaults({
       manifest_version: 2,
       name: 'x',

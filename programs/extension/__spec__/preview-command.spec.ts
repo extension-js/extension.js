@@ -2,8 +2,6 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const extensionPreview = vi.fn(
   async (_path: string, _opts: any, launcher: (o: any) => unknown) => {
-    // The command wires the browser launcher as a callback; exercise it the
-    // way develop's plugin would.
     launcher({launched: true})
   }
 )
@@ -56,7 +54,6 @@ describe('extension preview', () => {
       logColor: true,
       noBrowser: false
     })
-    // The launcher callback routes to the CDP-free preview browser runner.
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
   })
 

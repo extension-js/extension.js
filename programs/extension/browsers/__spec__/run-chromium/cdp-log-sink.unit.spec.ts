@@ -1,12 +1,8 @@
 import {describe, expect, it, vi} from 'vitest'
 import type {BrowserLogSinkEvent} from '../../browsers-types'
-import type {CdpProtocolMessage} from '../../run-chromium/chromium-types'
 import type {CDPClient} from '../../run-chromium/cdp/cdp-client'
 import {registerAutoEnableLogging} from '../../run-chromium/cdp/cdp-extension-controller/logging'
-
-// E21: browser-generated Log.entryAdded entries must reach the host log sink
-// (they never pass through the extension's console hook), while console-API
-// events must NOT be routed (the SW producer already ingests those).
+import type {CdpProtocolMessage} from '../../run-chromium/chromium-types'
 
 function createFakeCdp() {
   let handler: ((message: CdpProtocolMessage) => void) | undefined

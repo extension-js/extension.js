@@ -1,9 +1,3 @@
-// Unit coverage for the "readiness producer" modules, the small, pure
-// functions that generate the signal a readiness dashboard (isextensionready)
-// consumes. These were previously exercised only indirectly via the dev-wait
-// contract specs; pinning them directly guards against silent drift in the
-// banner copy and the per-instance CDP/RDP port registry.
-
 import {beforeEach, describe, expect, it} from 'vitest'
 import {
   getInstancePorts,
@@ -13,8 +7,6 @@ import {
 } from '../browsers-lib/instance-registry'
 import {ready} from '../browsers-lib/ready-message'
 
-// pintor may emit ANSI color codes depending on the environment; assert on the
-// plain text so these tests are stable in TTY and non-TTY CI alike.
 const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
 
 describe('ready() banner message', () => {
@@ -33,7 +25,6 @@ describe('ready() banner message', () => {
   })
 
   it('treats edge as an Add-on output while keeping its own capitalized name', () => {
-    // edge is Chromium-based but the runner reports its artifact as an Add-on.
     const msg = stripAnsi(ready('development', 'edge'))
     expect(msg).toContain('Add-on')
     expect(msg).toContain('Edge')
@@ -50,7 +41,6 @@ describe('ready() banner message', () => {
 })
 
 describe('instance port registry', () => {
-  // Module-level singleton state, assert behavior, not isolation between tests.
   beforeEach(() => {
     setInstancePorts('reset-a', {cdpPort: 1, rdpPort: 2})
   })

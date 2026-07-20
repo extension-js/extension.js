@@ -95,9 +95,8 @@ describe('BridgeConsumer (integration)', () => {
 
     broker.ingestLog(incoming('a'))
     broker.ingestLog(incoming('b'))
-    broker.ingestLog(incoming('c')) // ring cap 2 -> overflow -> gap
+    broker.ingestLog(incoming('c'))
 
-    // allow frames to arrive
     await new Promise((r) => setTimeout(r, 150))
     expect(logs).toContain('a')
     expect(logs).toContain('c')

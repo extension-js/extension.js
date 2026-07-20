@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {sassHasDependencyMock} = vi.hoisted(() => ({
   sassHasDependencyMock: vi.fn(() => false)
@@ -29,7 +29,6 @@ describe('sass tools', () => {
 
   it('maybeUseSass resolves without emitting rules when sass is not in use', async () => {
     const sass = await import('../../css-tools/sass')
-    // sass not declared (mock returns false) -> no contract work, returns void.
     await expect(sass.maybeUseSass('/p')).resolves.toBeUndefined()
   })
 })

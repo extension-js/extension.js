@@ -47,7 +47,6 @@ describe('load-loader-options', () => {
   it('logs dev-only message once and loads module when config exists', async () => {
     process.env.EXTENSION_AUTHOR_MODE = 'development'
 
-    // Create a real importable module (.mjs) to avoid ts transpilation complexity
     const mjsPath = path.join(tmpDir, 'svelte.loader.mjs')
     fs.writeFileSync(mjsPath, 'export default { custom: true }\n')
 
@@ -56,13 +55,11 @@ describe('load-loader-options', () => {
     const first = await loadLoaderOptions(tmpDir, 'svelte')
     expect(first).toEqual({custom: true})
 
-    // Logged once with correct message
     expect(logSpy).toHaveBeenCalledTimes(1)
     expect(logSpy).toHaveBeenCalledWith(
       messages.isUsingCustomLoader('svelte.loader.mjs')
     )
 
-    // Call again: should not log again
     const second = await loadLoaderOptions(tmpDir, 'svelte')
     expect(second).toEqual({custom: true})
     expect(logSpy).toHaveBeenCalledTimes(1)

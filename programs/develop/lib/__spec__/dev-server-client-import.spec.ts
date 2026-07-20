@@ -23,13 +23,9 @@ describe('dev-server-client-import', () => {
 
     expect(imports).toHaveLength(2)
 
-    // First entry is the dev-server client with query params
     const [clientEntry, hotEntry] = imports
     const clientPath = clientEntry.split('?')[0]
 
-    // Both paths must be absolute, a bare specifier like
-    // '@rspack/dev-server/client/index.js' would cause
-    // "Module not found" errors in user monorepos.
     expect(
       path.isAbsolute(clientPath),
       `HMR client path must be absolute, got: ${clientPath}`
@@ -39,7 +35,6 @@ describe('dev-server-client-import', () => {
       `HMR hot path must be absolute, got: ${hotEntry}`
     ).toBe(true)
 
-    // Both files must actually exist on disk
     expect(
       fs.existsSync(clientPath),
       `HMR client file missing: ${clientPath}`
@@ -50,12 +45,6 @@ describe('dev-server-client-import', () => {
   })
 
   it('resolves the hot runtime from @rspack/core, a declared dependency (issue #486)', () => {
-    // The HMR runtime must come from a package extension-develop actually
-    // declares. The historical `webpack/hot/dev-server` request only resolved
-    // on npm, where `webpack` was incidentally hoisted in as a transitive peer;
-    // pnpm's strict store and Yarn PnP both reject it, breaking `extension dev`
-    // with "Can't resolve 'webpack/hot/dev-server'". `@rspack/core` ships
-    // `hot/dev-server.js` and is a direct dependency, so it resolves everywhere.
     const fakeCompiler = {
       options: {devServer: {host: '127.0.0.1', port: 8080, hot: 'only'}}
     }
@@ -66,12 +55,6 @@ describe('dev-server-client-import', () => {
   })
 
   it('every prepended HMR specifier roots in a declared dependency (issue #486 guard)', () => {
-    // The invariant that makes #486 non-repeatable, independent of any package
-    // manager's hoisting: both specifiers extension-develop injects into user
-    // entry chains must root in a package it DECLARES. This fails at the source
-    // the moment anyone reintroduces an undeclared package (e.g. `webpack/...`),
-    // whereas an install-based gate can pass by hoisting accident (npm's flat
-    // tree, pnpm's public store) and only breaks in the field under Yarn PnP.
     const pkg = JSON.parse(
       fs.readFileSync(
         path.resolve(__dirname, '..', '..', 'package.json'),
@@ -80,8 +63,6 @@ describe('dev-server-client-import', () => {
     )
     const declared = new Set(Object.keys(pkg.dependencies || {}))
 
-    // Package root of a bare specifier: `@scope/name/sub` -> `@scope/name`,
-    // `name/sub` -> `name`.
     const packageRoot = (spec: string): string => {
       const parts = spec.split('/')
       return spec.startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]
@@ -135,7 +116,6 @@ describe('dev-server-client-import', () => {
         options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
       }
       const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
-      // The browser cannot dial 0.0.0.0. It must be rewritten to loopback.
       expect(clientEntry).toContain('hostname=127.0.0.1')
       expect(clientEntry).not.toContain('hostname=0.0.0.0')
     } finally {

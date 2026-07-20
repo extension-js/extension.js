@@ -80,7 +80,6 @@ describe('getSpecialFoldersDataForCompiler', () => {
       'utf8'
     )
     fs.writeFileSync(contentScript, "document.body.dataset.ok = '1'\n", 'utf8')
-    // A browser-safe npm import must NOT be treated as Node tooling.
     fs.writeFileSync(
       browserImport,
       "import merge from 'lodash/merge'\n",
@@ -102,11 +101,9 @@ describe('getSpecialFoldersDataForCompiler', () => {
     const compiler = {options: {context: dir}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
-    // Node tooling removed…
     expect(data.scripts?.['scripts/build-flow-scanner']).toBeUndefined()
     expect(data.scripts?.['scripts/release-build']).toBeUndefined()
     expect(data.scripts?.['scripts/sync']).toBeUndefined()
-    // …real content scripts (incl. browser-safe npm imports) kept.
     expect(data.scripts?.['scripts/content']).toEqual([contentScript])
     expect(data.scripts?.['scripts/widget']).toEqual([browserImport])
   })
@@ -123,15 +120,12 @@ describe('getSpecialFoldersDataForCompiler', () => {
 
     fs.writeFileSync(contentScript, "document.title = 'ok'\n", 'utf8')
     fs.writeFileSync(injectedScript, "console.log('injected')\n", 'utf8')
-    // A data/generator helper with no Node tell, the Node-tooling filter can't
-    // see it, so only the reference gate can drop it.
     fs.writeFileSync(
       orphanData,
       'data = {cell: 1}\nawait Promise.resolve()\n',
       'utf8'
     )
 
-    // manifest references content.js as a content script.
     fs.writeFileSync(
       path.join(dir, 'manifest.json'),
       JSON.stringify({
@@ -140,7 +134,6 @@ describe('getSpecialFoldersDataForCompiler', () => {
       }),
       'utf8'
     )
-    // background injects injected.js at runtime via a string path (executeScript).
     fs.writeFileSync(
       path.join(dir, 'background.js'),
       "chrome.scripting.executeScript({files: ['/scripts/injected.js']})\n",
@@ -160,15 +153,12 @@ describe('getSpecialFoldersDataForCompiler', () => {
     const compiler = {options: {context: dir}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
-    // Referenced (manifest + runtime-injected string path) kept…
     expect(data.scripts?.['scripts/content']).toEqual([contentScript])
     expect(data.scripts?.['scripts/injected']).toEqual([injectedScript])
-    // …the unreferenced data helper dropped.
     expect(data.scripts?.['scripts/cell']).toBeUndefined()
   })
 
   it('keeps all scripts/ entries when no reference assets are readable (fail open)', () => {
-    // context points at a non-existent dir → no corpus → do not drop anything.
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},
       scripts: {'scripts/a': ['/does-not-exist/scripts/a.js']},

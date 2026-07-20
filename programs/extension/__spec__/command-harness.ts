@@ -1,7 +1,3 @@
-// Shared driver for command specs: registers a command on a fresh commander
-// program, stubs process.exit so actions can be exercised in-process, and
-// translates an exit into its numeric code.
-
 import {Command} from 'commander'
 import {vi} from 'vitest'
 
@@ -18,17 +14,12 @@ export function makeProgram(register: (program: Command) => void): Command {
   return program
 }
 
-/** Stub process.exit to throw an ExitSignal instead of killing the runner. */
 export function stubProcessExit() {
   return vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
     throw new ExitSignal(code ?? 0)
   }) as never)
 }
 
-/**
- * Parse user argv and return the exit code: 0 when the action returned
- * normally, otherwise the code passed to the stubbed process.exit.
- */
 export async function runCli(
   program: Command,
   argv: string[]

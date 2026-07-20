@@ -9,11 +9,6 @@ import {
 } from '../constants'
 import {OPTIONAL_DEPENDENCY_CONTRACTS} from '../optional-deps-contracts'
 
-// Drift guard for the public "supported X" surface. The canonical lists live
-// in ../constants.ts; the README (and the docs site, guarded in the
-// extension.js.org repo) must enumerate the same sets. If this spec fails,
-// either the canonical list or the README moved without the other.
-
 const ROOT_README = path.join(__dirname, '..', '..', '..', '..', 'README.md')
 
 describe('supported surface', () => {
@@ -54,8 +49,6 @@ describe('supported surface', () => {
         `framework '${framework}' has no optional-deps contract`
       ).toHaveProperty(frameworkContracts[framework])
     }
-    // css, css-modules, and tailwind need no contract: css/css-modules are
-    // built into the bundler, tailwind rides through the postcss pipeline.
     for (const contractId of ['sass', 'less', 'postcss']) {
       expect(OPTIONAL_DEPENDENCY_CONTRACTS).toHaveProperty(contractId)
     }
@@ -91,9 +84,6 @@ describe('supported surface', () => {
     ]) {
       expect(readme).toContain(label)
     }
-    // Every named fork in SUPPORTED_BROWSERS is a valid --browser target;
-    // the README only surfaces the engine families, which is fine, but the
-    // canonical array must keep containing the flagship names the table shows.
     for (const flagship of ['chrome', 'edge', 'firefox']) {
       expect(SUPPORTED_BROWSERS).toContain(flagship)
     }

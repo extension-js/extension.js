@@ -41,9 +41,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     for (const dir of createdDirs.splice(0, createdDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {
-        // Ignore cleanup failures in tests.
-      }
+      } catch {}
     }
   })
 
@@ -177,7 +175,6 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
       sendCommand: vi.fn(async () => ({})),
       evaluate: vi.fn(async (sessionId: string) => {
         if (sessionId === 'session:target-manager') {
-          // Intentionally mimic user name/version to create ambiguity.
           return {
             id: 'managerid',
             name: 'User Extension',
@@ -206,14 +203,6 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
   })
 
   it('does not pick a companion target that shares version + manifest_version when names differ', async () => {
-    // Regression: extension-js-devtools companion ships
-    // {name: 'Extension.js', version: '3.0.0', manifest_version: 3}.
-    // User templates ship version 3.0.0 + manifest_version 3 too. Pre-fix the
-    // version-only fallback returned the FIRST target whose version + MV
-    // matched, which is the companion when Chromium iterates targets in the
-    // order extensions were registered. The controller then called
-    // chrome.runtime.reload() on the companion instead of the user's
-    // extension, so manifest/background edits never propagated.
     const outPath = createExtensionFixture({
       name: 'JavaScript Action Example',
       version: '3.0.0',

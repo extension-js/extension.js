@@ -15,9 +15,7 @@ describe('waitForStableManifest', () => {
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {
-        // ignore cleanup failures
-      }
+      } catch {}
     }
   })
 
@@ -121,9 +119,7 @@ describe('waitForStableFiles', () => {
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {
-        // ignore cleanup failures
-      }
+      } catch {}
     }
   })
 

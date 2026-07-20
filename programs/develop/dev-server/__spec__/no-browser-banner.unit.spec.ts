@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
 
 describe('setupNoBrowserBannerOnFirstDone', () => {
@@ -17,7 +17,6 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
       hooks: {
         done: {
           tap: vi.fn((_name: string, fn: (stats: any) => void) => {
-            // Simulate first done without errors
             fn({hasErrors: () => false})
           })
         }

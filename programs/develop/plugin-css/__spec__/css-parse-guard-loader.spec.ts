@@ -4,11 +4,6 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {pitch} from '../css-parse-guard-loader'
 
-// Regression (G17): a malformed declaration in a plain .css stylesheet
-// (commonly tool-generated, e.g. Tailwind scanning a JS template literal)
-// used to hard-fail the build via postcss-loader. Browsers error-recover
-// invalid CSS, so the guard ships the file verbatim with a warning instead.
-
 const BROKEN_CSS = [
   '.ok { color: red; }',
   '.\\[default\\:\\\\u202F\\$\\{N\\(\\`\\$\\{u\\}\\`\\)\\}\\] {',

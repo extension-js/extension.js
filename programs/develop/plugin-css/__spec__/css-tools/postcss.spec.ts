@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
 import postcss from 'postcss'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {hasDependencyMock} = vi.hoisted(() => ({
   hasDependencyMock: vi.fn(() => false)
@@ -37,7 +37,6 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => false
     }))
-    // Simulate presence of postcss.config.js
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
       return {
@@ -49,7 +48,6 @@ describe('postcss detection', () => {
     })
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
-    // Ensure loader configured
     expect(rule.loader).toBeDefined()
     const opts = rule.options?.postcssOptions
     expect(opts?.cwd).toBe('/p')
@@ -57,7 +55,6 @@ describe('postcss detection', () => {
       expect(Array.isArray(opts?.plugins)).toBe(true)
       expect((opts?.plugins as any[]).length).toBe(1)
     } else {
-      // Fallback behavior when postcss-load-config isn't wired as expected
       expect(opts?.config).toBe('/p')
     }
   })
@@ -66,7 +63,6 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => false
     }))
-    // Simulate presence of postcss.config.mjs; still use createRequire path in tests
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
       return {
@@ -97,7 +93,6 @@ describe('postcss detection', () => {
       return {
         ...actual,
         existsSync: (p: string) => {
-          // No file configs
           if (String(p).includes('postcss.config')) return false
           return actual.existsSync(p)
         },
@@ -121,16 +116,7 @@ describe('postcss detection', () => {
     }
   })
 
-  // Tailwind-specific behavior is now limited to ensuring the plugin can be resolved;
-  // we let postcss-load-config discover plugins from the project root.
-
   it('exits with error when Tailwind is present but plugin cannot be resolved', async () => {
-    // With the new behavior we no longer hard-exit when Tailwind cannot be
-    // resolved; we fall back to letting postcss-loader handle discovery.
-    // This test simply verifies that maybeUsePostCss still returns a loader
-    // config when Tailwind is detected but resolution fails.
-
-    // No user configs
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
       return {
@@ -140,7 +126,6 @@ describe('postcss detection', () => {
           (actual as any).readFileSync(p, enc)
       }
     })
-    // Tailwind detected but plugin resolution will fail later when config is loaded
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
@@ -268,8 +253,6 @@ describe('postcss detection', () => {
     expect(Array.isArray(plugins)).toBe(true)
     expect(plugins.length).toBe(3)
 
-    // plugins[0]/[1] are config shim objects that disable string plugin ids
-    // and are not executable by postcss() directly.
     const result = await postcss([plugins[2]] as any).process(
       '@import "tailwindcss";',
       {
@@ -329,7 +312,6 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe(false)
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    // Tailwind + autoprefixer plugin objects
     expect((opts?.plugins as any[]).length).toBe(2)
   })
 
@@ -421,9 +403,7 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe(false)
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    // The config's 'tailwindcss' string entry resolves to the injected
-    // cwd-stable instance directly; no disable shims are needed.
-    expect((opts?.plugins as any[])).toEqual([{postcssPlugin: 'tailwindcss'}])
+    expect(opts?.plugins as any[]).toEqual([{postcssPlugin: 'tailwindcss'}])
     expect(tailwindFactory).toHaveBeenCalled()
   })
 
@@ -496,7 +476,6 @@ describe('postcss detection', () => {
       isUsingTailwind: () => true
     }))
     vi.doMock('../../../lib/has-dependency', () => ({
-      // Simulate config mentions Tailwind but no explicit @tailwindcss/postcss dependency.
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss'
     }))
     vi.doMock('fs', async () => {
@@ -521,8 +500,6 @@ describe('postcss detection', () => {
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect(tailwindPostcssFactory).toHaveBeenCalledWith({base: '/p'})
     expect(tailwindCssFactory).not.toHaveBeenCalled()
-    // The config's 'tailwindcss' string entry resolves to the injected
-    // v4-preferred instance directly; no disable shims are needed.
     expect(opts?.plugins).toEqual([{postcssPlugin: 'tailwindcss-postcss'}])
   })
 
@@ -541,7 +518,6 @@ describe('postcss detection', () => {
       }
     })
     vi.doMock('../../css-tools/tailwind', () => ({
-      // Simulate no declared deps in package.json
       isUsingTailwind: () => false
     }))
     vi.doMock('../../../lib/has-dependency', () => ({

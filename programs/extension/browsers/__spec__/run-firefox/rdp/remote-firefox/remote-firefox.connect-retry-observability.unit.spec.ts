@@ -1,12 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Regression guard for the silent RDP connect loop: ECONNREFUSED retries used
-// to log nothing for the entire budget (150 × 1000ms by default), so a dead
-// port looked like a generic ~150s stall, this masked the launched-port
-// double-derivation bug for as long as it did. connectClient must now emit a
-// periodic progress line naming the port, and the final give-up error must
-// name the port it gave up on.
-
 let connectAttempts = 0
 let succeedOnAttempt = Infinity
 
@@ -80,7 +73,6 @@ describe('RemoteFirefox connect retry observability', () => {
 
     await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
 
-    // Every 10th attempt over a 25-attempt budget → attempts 10 and 20.
     const progressLines = (console.log as any).mock.calls
       .map((c: unknown[]) => String(c[0]))
       .filter((line: string) => line.includes('debugger server'))

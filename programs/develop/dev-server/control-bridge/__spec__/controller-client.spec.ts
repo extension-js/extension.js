@@ -15,11 +15,6 @@ import {
 } from '../session-token'
 import {type ControlServer, startControlServer} from '../ws-control-server'
 
-/**
- * A fake in-bundle executor: connects as a producer, answers `command` frames
- * with a `result`. Stands in for the browser-side executor (Slice 2 #4) so the
- * Node control path is fully testable without a live browser.
- */
 function startFakeExecutor(
   port: number,
   reply: (cmd: any) => any = (cmd) => ({ok: true, value: {echoed: cmd.op}})
@@ -77,8 +72,6 @@ describe('session-token', () => {
   })
 
   it('keeps per-browser tokens independent across sessions', () => {
-    // The pre-fix single-slot file made a second-browser session clobber the
-    // first session's token, and either shutdown deleted it for both.
     const chrome = writeControlToken(dir, 'chrome')
     const chromium = writeControlToken(dir, 'chromium')
     expect(readControlToken(dir, 'chrome')).toBe(chrome)
@@ -98,8 +91,8 @@ describe('session-token', () => {
 
   it('clear removes the legacy mirror only when it is this session token', () => {
     writeControlToken(dir, 'chrome')
-    const chromium = writeControlToken(dir, 'chromium') // re-mirrors legacy
-    clearControlToken(dir, 'chrome') // legacy now holds chromium's token
+    const chromium = writeControlToken(dir, 'chromium')
+    clearControlToken(dir, 'chrome')
     const legacy = path.join(dir, '.extension-js', 'control.token')
     expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(chromium)
 
@@ -122,9 +115,7 @@ describe('BridgeController (integration)', () => {
     controller = null
     try {
       executor?.close()
-    } catch {
-      // ignore
-    }
+    } catch {}
     executor = null
     if (server) {
       await server.close()
@@ -186,7 +177,7 @@ describe('BridgeController (integration)', () => {
   })
 
   it('eval is forbidden without --allow-eval and a token', async () => {
-    const broker = makeServer() // allowControl but not allowEval
+    const broker = makeServer()
     server = await startControlServer({broker})
     executor = await startFakeExecutor(server.port)
 
@@ -225,7 +216,7 @@ describe('BridgeController (integration)', () => {
   })
 
   it('rejects connect when control is disabled (no --allow-control)', async () => {
-    const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'}) // control off
+    const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
     server = await startControlServer({broker})
     controller = new BridgeController({
       controlPort: server.port,

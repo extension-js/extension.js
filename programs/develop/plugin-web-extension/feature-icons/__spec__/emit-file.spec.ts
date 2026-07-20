@@ -2,7 +2,6 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
-// Minimal mock of @rspack/core pieces used in the step
 vi.mock('@rspack/core', () => {
   class RawSource {
     private _buf: any
@@ -22,7 +21,6 @@ vi.mock('@rspack/core', () => {
   }
 })
 
-// Mock fs and path resolution behavior at the API boundaries we use
 const FS = {
   existsSync: vi.fn(),
   readFileSync: vi.fn(() => Buffer.from('file-bytes'))
@@ -40,7 +38,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // No file exists
     FS.existsSync.mockReturnValue(false)
 
     const step = new EmitFile({
@@ -79,7 +76,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Treat only the provided includeList paths as existing
     const existing = new Set([
       '/abs/assets/icon16.png',
       '/abs/assets/icon48.png',
@@ -103,7 +99,6 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
 
-    // Expect emitted assets with normalized destination folders
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
@@ -119,9 +114,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Regression (G16): a manifest pointing at icons-dev/icon48.png while a
-    // popup references the real icons/icon48.png used to flatten both to
-    // icons/icon48.png, different content, same filename → build abort.
     const existing = new Set([
       '/abs/project/icons-dev/icon48.png',
       '/abs/project/images/logo.png'
@@ -151,7 +143,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Only one path exists
     FS.existsSync.mockImplementation(
       (p: string) => toPosix(p) === '/abs/assets/keep.png'
     )
@@ -203,8 +194,6 @@ describe('EmitFile step', () => {
         p === '/abs/assets/weta.png' || p === '/abs/assets/weta-left.png'
     )
 
-    // Keys arrive as `theme/images/<basename>` from the manifest-fields theme
-    // group (one per image, including additional_backgrounds array entries).
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
@@ -228,7 +217,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Only the resolved forms should exist
     FS.existsSync.mockImplementation((p: string) => {
       const normalized = toPosix(p)
       return (
@@ -256,7 +244,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Simulate an icon under public/
     FS.existsSync.mockImplementation((p: string) =>
       toPosix(p).includes('/public/')
     )
@@ -277,7 +264,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // No file exists
     FS.existsSync.mockReturnValue(false)
 
     const step = new EmitFile({
@@ -298,32 +284,25 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // No file exists
     FS.existsSync.mockReturnValue(false)
 
-    // Case 1: extension-root absolute path (leading '/')
     let step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/missing.png']}
     } as any)
     step.apply(compiler as any)
     const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
-    // Hint should appear for extension-root absolute style (leading '/')
     expect(msg1).toMatch(/resolved from the extension output root/i)
 
-    // Reset buckets
     compilation.errors = []
     compilation.warnings = []
 
-    // Case 2: relative path (no hint)
     step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['icons/missing.png']}
     } as any)
     step.apply(compiler as any)
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
-    // For relative paths that are not extension-root absolute, we should
-    // not show the public-root hint.
     expect(msg2).not.toMatch(/resolved from the extension output root/i)
   })
 
@@ -331,7 +310,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // No file exists
     FS.existsSync.mockReturnValue(false)
 
     const step = new EmitFile({
@@ -352,7 +330,6 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Only one of the icons exists
     FS.existsSync.mockImplementation(
       (p: string) => p === '/abs/assets/icon48.png'
     )
@@ -360,7 +337,6 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
-        // Simulate manifest.icons as a size->path object
         icons: {
           16: '/abs/assets/icon16.png',
           48: '/abs/assets/icon48.png'
@@ -370,7 +346,6 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
 
-    // Should error for missing 16 and emit only the 48 asset
     expect(compilation.errors.length).toBe(1)
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]

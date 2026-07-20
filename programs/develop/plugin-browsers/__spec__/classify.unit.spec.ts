@@ -1,26 +1,7 @@
-// Classifier spec for `BrowsersPlugin.apply`.
-//
-// This is the test that would have caught the April 2026 regression, where
-// `Object.keys(compilation.assets)` was used to classify the reload type.
-// Because `compilation.assets` always contains a persistent
-// `background/service_worker.js`, every incremental build was classified as
-// `service-worker`, and content-script hot reload silently never ran.
-//
-// The spec drives the real `BrowsersPlugin` against a fake rspack `Compiler`
-// and captures the `ReloadInstruction` carried on the plugin's `compiled`
-// event. (Reload itself is dispatched through the control-bridge broker, the
-// same executor as `--no-browser`, but the classification under test is the
-// `reloadInstruction` regardless of how it is dispatched.) No browser, no
-// timers, pure logic.
-
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadInstruction} from '../../plugin-reload'
 import {type BrowserController, BrowsersPlugin} from '../index'
-
-// -----------------------------------------------------------------------------
-// Fake Compiler harness
-// -----------------------------------------------------------------------------
 
 interface Harness {
   plugin: BrowsersPlugin
@@ -32,7 +13,6 @@ interface Harness {
     manifest?: Record<string, unknown>
     errors?: any[]
   }): Promise<void>
-  /** The ReloadInstruction carried on the most recent `compiled` event. */
   lastReload(): ReloadInstruction | undefined
 }
 
@@ -40,10 +20,6 @@ const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/chromium'
 
 function createHarness(manifestContentScripts: number = 1): Harness {
-  // `reload` records the ReloadInstruction the plugin classified for each
-  // incremental compile. The plugin dispatches reload through the broker, so we
-  // observe the classification on the `compiled` event rather than on a
-  // controller.reload() call (the launched controller no longer reloads).
   const reload = vi.fn()
   const controller: BrowserController = {
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
@@ -54,12 +30,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
     browserOptions: {browser: 'chromium'} as any
   })
   plugin.extensionsToLoad = [OUTPUT]
-  // Swallow emitted `error` events, Node's EventEmitter throws on
-  // unhandled `error`. Tests assert reload.mock, not emitter events.
   plugin.emitter.on('error', () => {})
-  // The plugin emits `compiled` after every compile; only incremental compiles
-  // that classified a reload carry a `reloadInstruction`. Record those so the
-  // tests can assert the classification.
   plugin.emitter.on(
     'compiled',
     (ev: {reloadInstruction?: ReloadInstruction}) => {
@@ -117,8 +88,6 @@ function createHarness(manifestContentScripts: number = 1): Harness {
         compilation: {
           errors: opts.errors || [],
           options: {context: CONTEXT, output: {path: OUTPUT}},
-          // Simulate the always-present emitted assets. This is what misled
-          // the old classifier, a service_worker asset is ALWAYS here.
           assets: {
             'manifest.json': {},
             'background/service_worker.js': {},
@@ -141,15 +110,9 @@ function createHarness(manifestContentScripts: number = 1): Harness {
 }
 
 async function primeFirstCompile(h: Harness) {
-  // First compile launches the browser and sets isFirstCompile=false.
-  // No reloadInstruction is emitted for the first compile.
   await h.triggerDone()
   expect(h.reload).not.toHaveBeenCalled()
 }
-
-// -----------------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------------
 
 describe('BrowsersPlugin classifier', () => {
   afterEach(() => vi.clearAllMocks())
@@ -163,8 +126,6 @@ describe('BrowsersPlugin classifier', () => {
 
     const instruction = h.lastReload()
     expect(instruction?.type).toBe('content-scripts')
-    // Must pass canonical entry names so selectContentScriptRules can resolve
-    // rules from the manifest. Hashed asset filenames silently don't resolve.
     expect(instruction?.changedContentScriptEntries).toEqual([
       'content_scripts/content-0'
     ])
@@ -201,9 +162,6 @@ describe('BrowsersPlugin classifier', () => {
   })
 
   it('forwards changedAssets on a "full" reload', async () => {
-    // The reload instruction must carry changedAssets so downstream consumers
-    // can inspect which files changed. Without forwarding the list, manifest/
-    // locale edits silently no-op (April 2026 regression).
     const h = createHarness(1)
     await primeFirstCompile(h)
 
@@ -226,11 +184,6 @@ describe('BrowsersPlugin classifier', () => {
   })
 
   it('classifies a project-root _locales edit as "full"', async () => {
-    // Platform-standard layout: _locales/ sits at the project root (sibling
-    // of public/, dist/, package.json), not nested inside src/. After the
-    // resolver flip in feature-locales, the project-root file is what ends
-    // up in fileDependencies, so the classifier must detect a relative
-    // path with no src/ prefix.
     const h = createHarness(1)
     await primeFirstCompile(h)
 
@@ -243,18 +196,6 @@ describe('BrowsersPlugin classifier', () => {
   })
 
   it('emits a notify-only "page" instruction when a non-content-script project edits a page asset', async () => {
-    // Action / popup / options-only extensions declare no content_scripts.
-    // Page asset edits (popup HTML/JS/CSS) are picked up by
-    // rspack-dev-server's livereload broadcast, the HMR client injected
-    // into every extension HTML entry refreshes the open page on its own.
-    //
-    // We deliberately do NOT fire chrome.runtime.reload() here: that path
-    // races livereload, kills the open popup, and produces a visible flash
-    // for every popup save. The reload-matrix harness scenario
-    // "popup-html-edit-popup-open" measures this from CDP ground truth.
-    //
-    // The 'page' instruction only carries the announcement label (stdout /
-    // devtools pill); the producer performs no extension reload for it.
     const h = createHarness(0)
     await primeFirstCompile(h)
 
@@ -299,7 +240,6 @@ describe('BrowsersPlugin classifier', () => {
     h.triggerWatchRun([])
     await h.triggerDone()
 
-    // modifiedFiles was empty, so controller.reload must NOT be called
     expect(h.reload).not.toHaveBeenCalled()
   })
 
@@ -315,8 +255,6 @@ describe('BrowsersPlugin classifier', () => {
 
   it('skips classification on the first compile (controller not yet live)', async () => {
     const h = createHarness(1)
-    // First compile with modifiedFiles set should not trigger a reload,
-    // the controller hasn't been created yet, that's this compile's job.
     h.triggerWatchRun(['src/content/ContentApp.tsx'])
     await h.triggerDone()
 
@@ -326,15 +264,6 @@ describe('BrowsersPlugin classifier', () => {
 
 describe('BuildEmitter', () => {
   it('emit("error") does not throw when no listener is attached', async () => {
-    // Regression: BuildEmitter inherits EventEmitter, which throws
-    // ERR_UNHANDLED_ERROR when 'error' is emitted with no listener. The
-    // CLI awaits extensionDev() but doesn't subscribe to 'error', so a
-    // single rspack compile failure (e.g. user typo in a content script)
-    // would crash the dev process via uncaughtException + cleanup.exit().
-    // BuildEmitter installs a default no-op 'error' listener at construction
-    // so build errors stay informational and the file watcher keeps
-    // running, allowing the user to fix the source and recover on the
-    // next save.
     const {BuildEmitter} = await import('../index')
     const emitter = new BuildEmitter()
     expect(() => emitter.emit('error', {errors: ['boom']})).not.toThrow()

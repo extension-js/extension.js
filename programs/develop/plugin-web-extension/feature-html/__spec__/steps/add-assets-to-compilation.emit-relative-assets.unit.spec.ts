@@ -50,7 +50,6 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
       )
 
       const compiler: any = makeCompilation()
-      // Provide the HTML asset via basename fallback as used in implementation
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -61,7 +60,6 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
-      // The HTML asset is present; ensure the step ran without throwing
       expect(emittedAssetNames.length).toBeGreaterThan(0)
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})

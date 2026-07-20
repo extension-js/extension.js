@@ -50,8 +50,6 @@ describe('programAIHelp', () => {
     const helpCommands = help.commands.map((command) => command.name).sort()
     const describedCommands = Object.keys(commandDescriptions).sort()
 
-    // Adding/removing a CLI command without updating the AI-help JSON would
-    // hand consumers an inaccurate manifest. Keep these in lockstep.
     expect(helpCommands).toEqual(describedCommands)
   })
 
@@ -75,12 +73,6 @@ describe('programAIHelp', () => {
     ])
   })
 
-  // Full-shape snapshot of the AI-help JSON. The assertions above pin
-  // individual fields; this pins the WHOLE manifest so an unintended
-  // addition/removal/rename of any field, which would silently change the
-  // contract AI tooling consumes, fails loudly. The version is fixed so the
-  // snapshot is deterministic across releases; update with `vitest -u` only
-  // when the manifest change is intentional.
   it('matches the published AI-help JSON contract shape', () => {
     expect(programAIHelpJSON('0.0.0-snapshot')).toMatchSnapshot()
   })

@@ -104,12 +104,10 @@ describe('transpile-packages', () => {
     const resource = path.join(realPkg, 'index.ts')
     fs.writeFileSync(resource, 'x')
 
-    // A symlinked view of the package root (junction works on Windows too).
     const linkedPkgRoot = path.join(root, 'linked-pkg')
     fs.symlinkSync(path.join(root, 'real-pkg'), linkedPkgRoot, 'junction')
     const linkedResource = path.join(linkedPkgRoot, 'src', 'index.ts')
 
-    // Resource via the symlink is still recognized as under the real dir.
     expect(isSubPath(linkedResource, path.join(root, 'real-pkg'))).toBe(true)
     fs.rmSync(root, {recursive: true, force: true})
   })

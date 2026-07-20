@@ -27,10 +27,6 @@ describe('content script dev-server runtime stripping', () => {
   })
 
   it('keeps every non-dev-server startup require when several remain (react-refresh entry + wrapped user script)', () => {
-    // Regression: with react projects the startup sequence is
-    //   refresh-entry; hmr-client; user-wrapper; exports = css
-    // The old positional sweep kept only the FIRST leftover require and
-    // deleted the user's content script, shipping a no-op bundle.
     const source = [
       '870(module) {',
       '  $ReactRefreshRuntime$.injectIntoGlobalHook(safeThis)',

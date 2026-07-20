@@ -1,17 +1,8 @@
-//  ██████╗██╗     ██╗
-// ██╔════╝██║     ██║
-// ██║     ██║     ██║
-// ██║     ██║     ██║
-// ╚██████╗███████╗██║
-//  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
-
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
 
-// Resolve extensionCreate from local dist (standalone) or monorepo fallback
 let extensionCreate: (
   projectName: string | undefined,
   opts: any
@@ -35,8 +26,6 @@ let extensionCreate: (
   }
 }
 
-// In the monorepo we import templates metadata from ../../examples/data.
-// For the standalone package/CI, fall back to a minimal set.
 type TemplateMeta = {
   name: string
   uiFramework?: string
@@ -188,7 +177,6 @@ describe('extension create', () => {
         EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
       } as unknown as NodeJS.ProcessEnv
 
-      // Ensure target path does not exist
       fs.rmSync(projectPath, {recursive: true, force: true})
 
       await execFileAsync(
@@ -223,7 +211,6 @@ describe('extension create', () => {
       expect(manifest.version).toBeTruthy()
       expect(manifest.manifest_version).toBeTruthy()
 
-      // Cleanup
       fs.rmSync(projectPath, {recursive: true, force: true})
     },
     120000
@@ -244,10 +231,6 @@ describe('extension create', () => {
         install: true
       })
 
-      // UI frameworks will use either tsx or jsx files.
-      // Non-UI frameworks will use either ts or js files.
-      // TODO: cezaraugusto this is not going to scale well
-      // but better than nothing for now.
       const ext = template.uiFramework
         ? template.uiFramework === 'vue' || template.uiFramework === 'svelte'
           ? 'ts'
@@ -257,7 +240,6 @@ describe('extension create', () => {
           : 'js'
 
       template.uiContext?.forEach((context: string) => {
-        // Expect [context]/index.html for all contexts except 'content'
         if (!context.includes('content')) {
           expect(
             fileExists(template.name, `${context.toLowerCase()}/index.html`)
@@ -268,14 +250,12 @@ describe('extension create', () => {
           expect(
             fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
           ).toBeTruthy()
-          // Expect [uiContext]/[uiContext].[ext] for scripts
         } else {
           expect(
             fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
           ).toBeTruthy()
         }
 
-        // Expect [uiContext]/styles.sass|less|css for styles
         if (template.css === 'sass') {
           expect(
             fileExists(template.name, `${context.toLowerCase()}/styles.scss`)
@@ -290,12 +270,10 @@ describe('extension create', () => {
           ).toBeTruthy()
         }
 
-        // Expect [ContextApp].[ext] for all contexts using frameworks
         if (template.uiFramework) {
           const capitalizedtemplate =
             context?.charAt(0).toUpperCase() + context?.slice(1)
 
-          // Vue uses its own file extension
           const fileExt =
             template.uiFramework === 'vue'
               ? 'vue'
@@ -312,7 +290,6 @@ describe('extension create', () => {
         }
       })
 
-      // Expect images/extension_16.png and expect images/extension_16.png
       if (template.name !== 'init' && template.name !== 'javascript') {
         expect(
           fileExists(template.name, 'images/extension_48.png')
@@ -325,29 +302,22 @@ describe('extension create', () => {
         ).toBeTruthy()
       }
 
-      // Expect manifest.json to exist (root, src, or nested template paths)
       expect(manifestExists(template.name)).toBeTruthy()
 
-      // Expect package.json to exist
       expect(fileExists(template.name, 'package.json')).toBeTruthy()
 
-      // Expect README.md to exist
       expect(fileExists(template.name, 'README.md')).toBeTruthy()
 
-      // Expect .gitignore to exist
       expect(fileExists(template.name, '.gitignore')).toBeTruthy()
 
-      // Expect project to be a .git project
       expect(fileExists(template.name, '.git')).toBeTruthy()
 
       if (template.hasEnv) {
-        // For those who need it: Expect .env.sample
         expect(fileExists(template.name, '.env.example')).toBeTruthy()
       }
 
       if (template.configFiles) {
         template.configFiles.forEach((configFile) => {
-          // Expect every config file declared in the template to exist
           expect(fileExists(template.name, configFile)).toBeTruthy()
         })
       }

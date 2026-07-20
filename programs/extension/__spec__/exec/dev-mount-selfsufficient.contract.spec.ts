@@ -13,23 +13,6 @@ import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
-// REGRESSION GUARD, "the emitted content-script bundle is self-sufficient".
-//
-// This encodes the resolution of the hmr-no-browser GATE: a content script with
-// a default export MUST self-mount from the bundle, independent of the CDP
-// controller, so `extension dev --no-browser`, headless/CI, and remote dev all
-// run content scripts. The original investigation feared a regression where the
-// wrapper loader stops matching the (generated/concat) content-script entry, so
-// the emitted bundle never calls __EXTENSIONJS_mount and nothing mounts unless a
-// launched-browser controller injects it at runtime.
-//
-// A loader-level unit test asserts the wrapper emits the mount in isolation
-// (content-script-wrapper.spec.ts). This complements it at the BUILD level:
-// it runs the real pipeline end-to-end so it also catches "loader not wired to
-// the entry". It uses `build --mode development` (unminified, deterministic, no
-// browser), production minifies __EXTENSIONJS_mount to a mangled name, which is
-// why the build-time grep proxy is only meaningful on a dev build.
-
 function cliRoot(): string {
   return path.resolve(__dirname, '../..')
 }
@@ -41,11 +24,6 @@ function cliBin(): string {
 }
 
 function createFixture(): string {
-  // realpathSync is load-bearing: mkdtemp returns a symlinked path on macOS
-  // ($TMPDIR -> /var/folders, a symlink to /private/var). rspack canonicalizes
-  // a module's resource path, so the wrapper rule's `include` dir must be the
-  // canonical path too or it won't match and the wrapper won't run. We assert
-  // the self-mount, not the symlink-include matching, so canonicalize here.
   const projectDir = realpathSync(
     mkdtempSync(path.join(tmpdir(), 'extjs-mount-guard-'))
   )
@@ -71,7 +49,6 @@ function createFixture(): string {
     }),
     'utf8'
   )
-  // A default-export content script, the framework invokes it on injection.
   writeFileSync(
     path.join(contentDir, 'scripts.js'),
     [
@@ -117,20 +94,11 @@ describe('content-script self-mount build contract', () => {
 
     const bundle = readEmittedContentScript(projectDir)
 
-    // The wrapper ran on the entry and emitted the call that invokes the user's
-    // default export. This is the load-bearing line that makes the bundle
-    // controller-independent.
     expect(bundle).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
-    // And the user's default-export body is present (it is what mounts the UI).
     expect(bundle).toContain('data-extension-root')
   }, 120000)
 
   it('self-mounts even when the project root is a symlinked path (macOS $TMPDIR / CI temp dirs)', () => {
-    // Regression for the symlink-include mismatch: rspack hands the loader a
-    // canonical resourcePath, but the wrapper rule's `include` and the loader's
-    // manifestDir were built from the non-canonical (symlinked) project path, so
-    // the content script was not recognized as a declared entry and lost its
-    // mount. Build THROUGH a symlink to reproduce the original break.
     const realProject = createFixture()
     const linkRoot = realpathSync(
       mkdtempSync(path.join(tmpdir(), 'extjs-link-'))

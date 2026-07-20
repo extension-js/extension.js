@@ -1,6 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// Shared state for mock WebSocket instances, must be declared before vi.mock
 const wsInstances: any[] = []
 
 vi.mock('ws', async () => {
@@ -40,10 +39,6 @@ describe('establishBrowserConnection', () => {
     return wsInstances[wsInstances.length - 1]
   }
 
-  // -----------------------------------------------------------------------
-  // 1. Normal connection flow
-  // -----------------------------------------------------------------------
-
   it('resolves with the WebSocket on successful open', async () => {
     const onMessage = vi.fn()
     const onRejectPending = vi.fn()
@@ -62,10 +57,6 @@ describe('establishBrowserConnection', () => {
     expect(result).toBe(ws)
     expect(onRejectPending).not.toHaveBeenCalled()
   })
-
-  // -----------------------------------------------------------------------
-  // 2. Error before open rejects the promise
-  // -----------------------------------------------------------------------
 
   it('rejects once when error fires before open', async () => {
     const onMessage = vi.fn()
@@ -86,12 +77,6 @@ describe('establishBrowserConnection', () => {
     expect(onRejectPending).toHaveBeenCalledWith('ECONNREFUSED')
   })
 
-  // -----------------------------------------------------------------------
-  // 3. Error + close sequence, both call onRejectPending
-  //    (WebSocket always fires close after error).
-  //    The promise itself rejects only once.
-  // -----------------------------------------------------------------------
-
   it('calls onRejectPending from both error and close handlers', async () => {
     const onMessage = vi.fn()
     const onRejectPending = vi.fn()
@@ -101,7 +86,7 @@ describe('establishBrowserConnection', () => {
       false,
       onMessage,
       onRejectPending
-    ).catch((e: unknown) => e) // prevent unhandled rejection
+    ).catch((e: unknown) => e)
 
     const ws = getLastWs()
     ws.emit('error', new Error('socket hang up'))
@@ -112,10 +97,6 @@ describe('establishBrowserConnection', () => {
     expect(onRejectPending).toHaveBeenCalledWith('socket hang up')
     expect(onRejectPending).toHaveBeenCalledWith('CDP connection closed')
   })
-
-  // -----------------------------------------------------------------------
-  // 4. Close after successful open calls onRejectPending
-  // -----------------------------------------------------------------------
 
   it('calls onRejectPending when connection closes after open', async () => {
     const onMessage = vi.fn()
@@ -132,16 +113,11 @@ describe('establishBrowserConnection', () => {
     ws.emit('open')
     await promise
 
-    // Unexpected close after connection is established
     ws.emit('close')
 
     expect(onRejectPending).toHaveBeenCalledTimes(1)
     expect(onRejectPending).toHaveBeenCalledWith('CDP connection closed')
   })
-
-  // -----------------------------------------------------------------------
-  // 4b. Close BEFORE open rejects the connect promise (no infinite hang)
-  // -----------------------------------------------------------------------
 
   it('rejects when the socket closes before it opens', async () => {
     const onMessage = vi.fn()
@@ -155,17 +131,11 @@ describe('establishBrowserConnection', () => {
     )
 
     const ws = getLastWs()
-    // Chrome accepted the TCP connection then dropped it mid-handshake:
-    // 'close' with no preceding 'open' or 'error'. Previously this hung forever.
     ws.emit('close')
 
     await expect(promise).rejects.toThrow(/closed before/)
     expect(onRejectPending).toHaveBeenCalledWith('CDP connection closed')
   })
-
-  // -----------------------------------------------------------------------
-  // 5. Messages are forwarded to onMessage callback
-  // -----------------------------------------------------------------------
 
   it('forwards messages via onMessage callback', async () => {
     const onMessage = vi.fn()
@@ -182,7 +152,6 @@ describe('establishBrowserConnection', () => {
     ws.emit('open')
     await promise
 
-    // Simulate incoming WS data (toString() is called by the handler)
     const data = {toString: () => '{"id":1,"result":{}}'}
     ws.emit('message', data)
 

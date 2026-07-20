@@ -54,7 +54,6 @@ describe('PortManager port 0 (OS-assigned)', () => {
     const manager = new PortManager(49100)
     const allocation = await manager.allocatePorts()
 
-    // Should start searching from basePort 49100
     expect(allocation.port).toBeGreaterThanOrEqual(49100)
     expect(allocation.port).toBeLessThan(49200)
   })

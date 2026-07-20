@@ -1,16 +1,16 @@
-import {beforeAll, afterAll, describe, expect, it} from 'vitest'
-import {spawn, spawnSync, execFileSync} from 'node:child_process'
+import {execFileSync, spawn, spawnSync} from 'node:child_process'
 import {
-  mkdtempSync,
-  rmSync,
   existsSync,
-  readFileSync,
+  mkdtempSync,
   readdirSync,
+  readFileSync,
+  rmSync,
   statSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 type Runner = {
   name: string
@@ -30,7 +30,6 @@ const previewFixture = resolve(
   '_FUTURE/extension-develop-dist/extension-js-devtools/chrome'
 )
 
-// Resolve pnpm so spawn finds it cross-platform (avoids ENOENT when PATH differs in child/CI)
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
 const pnpmFromBin = join(
@@ -55,7 +54,6 @@ const pnpmCommand = existsSync(pnpmFromBin)
       ? pnpmFromPnpmHome
       : 'pnpm'
 
-// Resolve npm for tests that run npm install (CI may not have npm on PATH)
 const npmFromBin = join(
   repoRoot,
   'node_modules',
@@ -72,7 +70,6 @@ const npmCommand = existsSync(npmFromBin)
     ? npmFromNodeDir
     : 'npm'
 
-// Ensure spawned processes find node and pnpm (e.g. CI sets PNPM_HOME)
 const existingPath = process.env.PATH || process.env.Path || ''
 const pathParts = [nodeDir]
 if (pnpmHome) pathParts.push(pnpmHome)
@@ -143,7 +140,6 @@ function runCommand(
   args: string[],
   options: {cwd?: string; env?: NodeJS.ProcessEnv} = {}
 ) {
-  // On Windows, .cmd files must be run with shell (spawnSync EINVAL otherwise)
   const useShell =
     process.platform === 'win32' &&
     (command.endsWith('.cmd') || command.endsWith('.bat'))
@@ -172,7 +168,6 @@ async function runUntilTimeout(
     stderr: string
     timedOut: boolean
   }>((resolvePromise) => {
-    // On Windows, .cmd/.bat must be run with shell (spawn EINVAL otherwise)
     const useShell =
       process.platform === 'win32' &&
       (command.endsWith('.cmd') || command.endsWith('.bat'))
@@ -221,7 +216,6 @@ async function runUntilTimeout(
       resolvePromise({status, signal, stdout, stderr, timedOut})
     }
 
-    // On Windows process.kill(-pid) does not target process group; use child.kill only
     const useProcessGroupKill = process.platform !== 'win32'
     const timer = setTimeout(() => {
       timedOut = true
@@ -236,9 +230,7 @@ async function runUntilTimeout(
       } catch {
         try {
           child.kill('SIGTERM')
-        } catch {
-          // best-effort only
-        }
+        } catch {}
       }
     }, timeoutMs)
 
@@ -255,9 +247,7 @@ async function runUntilTimeout(
       } catch {
         try {
           child.kill('SIGKILL')
-        } catch {
-          // best-effort only
-        }
+        } catch {}
       }
     }, timeoutMs + 3000)
 
@@ -474,8 +464,6 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
   it('creates explicit template without install', () => {
     if (!runnerReady.get(runner.name)) return
-    // npm exec / npx can intermittently fail with local tarball + template selection
-    // depending on npm runtime behavior; keep deterministic coverage on other runners.
     if (isNpmFamilyExec) return
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
     const projectPath = join(workspace, 'app-template')
@@ -519,8 +507,6 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
   it('builds without install when project has no deps', () => {
     if (!runnerReady.get(runner.name)) return
-    // npm exec / npx can intermittently fail this no-install path with local tarballs
-    // while direct-cli and pnpm dlx paths remain deterministic in CI.
     if (isNpmFamilyExec) return
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
     const projectPath = join(workspace, 'app-build')
@@ -617,7 +603,6 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         )
         expect(createResult.status).toBe(0)
 
-        // Prefer npm when we have a path; on CI (e.g. setup-pnpm) npm may be absent, use runner PM
         const hasNpm = npmCommand !== 'npm'
         const installCmd = hasNpm ? npmCommand : runner.command
         const installArgs =

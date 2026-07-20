@@ -14,14 +14,12 @@ describe('config-loader', () => {
   it('loads CommonJS extension.config.js with stable __dirname when project is ESM (type: module)', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-'))
 
-    // Simulate a project that is ESM by default
     fs.writeFileSync(
       path.join(dir, 'package.json'),
       JSON.stringify({name: 'demo', type: 'module'}, null, 2),
       'utf-8'
     )
 
-    // CommonJS config (intentionally) that relies on __dirname for path building
     fs.writeFileSync(
       path.join(dir, 'extension.config.js'),
       `

@@ -1,12 +1,5 @@
 import {describe, expect, it} from 'vitest'
 
-// Catalog snapshot for the `messages.ts` user-facing string catalog under
-// programs/install. Pins the EXPORT SURFACE, message names and their
-// arity/kind, so an unintended addition, removal, rename, or signature change
-// of any user-facing message fails loudly in review. It does not render the
-// strings (that needs per-message args + would couple the snapshot to
-// ANSI/env), keeping it deterministic. Discovery is glob-based. Update
-// intentionally with `vitest -u`.
 const modules = import.meta.glob(
   ['../**/messages.ts', '!../**/node_modules/**', '!../**/dist/**'],
   {eager: true}

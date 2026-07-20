@@ -1,17 +1,3 @@
-// Real-rspack regression gate for .env injection (corpus cluster
-// compiler-env-not-injected, extension.js's own content-env/new-env examples
-// failed at boot when built for the default `chromium` target). Three
-// behaviors under test:
-//
-//   1. Env files resolve family-wide, mirroring the manifest-prefix contract:
-//      `.env.chrome` applies to a `chromium` build.
-//   2. Reading an EXTENSION_PUBLIC_* var that no env file defines yields
-//      `undefined`, not a boot crash, before the fix, rspack rewrote the
-//      leftover `import.meta.env` to `(void 0)` and the emitted worker
-//      contained `(void 0).EXTENSION_PUBLIC_X` (guaranteed TypeError).
-//   3. Shipping .env files that match no candidate for the target
-//      browser/mode produces a build warning instead of silence.
-
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -127,7 +113,6 @@ describe('build: .env injection (real rspack)', () => {
     })
     const summary = await buildFixture(root)
     expect(summary.errors_count).toBe(0)
-    // A file matched, no unmatched-env warning.
     expect(summary.warnings_count).toBe(0)
 
     const logs = runWorker(root)
@@ -154,7 +139,6 @@ describe('build: .env injection (real rspack)', () => {
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBeGreaterThan(0)
 
-    // The firefox-only value must not leak into a chromium build.
     const logs = runWorker(root)
     expect(logs).toContain('known: undefined')
   }, 120_000)
@@ -163,7 +147,6 @@ describe('build: .env injection (real rspack)', () => {
 describe('getEnvFileCandidates', () => {
   it('mirrors the manifest-prefix family contract', () => {
     const chromium = getEnvFileCandidates('chromium' as any, 'production')
-    // Exact browser first, then family siblings, then generic fallbacks.
     expect(chromium.indexOf('.env.chromium')).toBeLessThan(
       chromium.indexOf('.env.chrome')
     )
@@ -177,7 +160,6 @@ describe('getEnvFileCandidates', () => {
     expect(firefox).toContain('.env.gecko-based')
     expect(firefox).not.toContain('.env.chrome')
 
-    // Safari inherits the chromium family, like its manifest keys.
     expect(getEnvFileCandidates('safari' as any, 'production')).toContain(
       '.env.chrome'
     )

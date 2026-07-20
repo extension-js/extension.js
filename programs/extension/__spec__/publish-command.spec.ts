@@ -1,7 +1,3 @@
-// The publish ACTION (the thin CLI funnel around buildPublishRequest): POST,
-// print the share URL, exit. Request building itself is covered in
-// publish.spec.ts.
-
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {registerPublishCommand} from '../commands/publish'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
