@@ -6,63 +6,63 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import fs from 'fs'
+import {rspack} from '@rspack/core'
+import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import type * as FsTypes from 'fs'
+import fs from 'fs'
 import * as path from 'path'
 import {Writable} from 'stream'
-import {rspack} from '@rspack/core'
-import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import * as messages from './messages'
-import {PortManager} from './port-manager'
-import {isUsingJSFramework} from './frameworks'
-import {type ProjectStructure} from '../lib/project'
-import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
-import {getSpecialFoldersDataForProjectRoot} from '../plugin-special-folders/get-data'
-import {sanitize} from '../lib/sanitize'
-import {setupCleanupHandlers} from './cleanup'
-import {createPlaywrightMetadataWriter} from '../plugin-playwright'
-import {LogRingBuffer} from './control-bridge/ring-buffer'
-import {LogsFileWriter} from './control-bridge/logs-file'
-import {ActionsFileWriter} from './control-bridge/actions-file'
 import {
-  logsPath as sessionLogsPath,
-  actionsPath as sessionActionsPath
-} from '../lib/session-paths'
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadCustomConfig
+} from '../lib/config-loader'
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {asAbsolute, getDistPath} from '../lib/paths'
+import type {ProjectStructure} from '../lib/project'
+import {sanitize} from '../lib/sanitize'
+import {
+  actionsPath as sessionActionsPath,
+  logsPath as sessionLogsPath
+} from '../lib/session-paths'
+import {createPlaywrightMetadataWriter} from '../plugin-playwright'
+import {
+  buildSourceFeatureIndex,
+  classifyReloadFromSources,
+  createChangedSourcesTracker,
+  dispatchReload,
+  readContentScriptCount
+} from '../plugin-reload'
+import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
+import {getSpecialFoldersDataForProjectRoot} from '../plugin-special-folders/get-data'
+import webpackConfig from '../rspack-config'
+import type {DevOptions} from '../types'
+import {setupCleanupHandlers} from './cleanup'
+import {
+  setupCompilerLifecycleHooks,
+  setupNoBrowserBannerOnFirstDone
+} from './compiler-hooks'
+import {resolveConnectableHost} from './connectable-host'
+import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
-import {startControlServer} from './control-bridge/ws-control-server'
+import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import {
   controlPortFilePath,
   legacyControlPortFilePath,
   readPersistedControlPort,
   writePersistedControlPort
 } from './control-bridge/control-port-store'
-import {CONTROL_WS_PATH} from './control-bridge/contracts'
+import {LogsFileWriter} from './control-bridge/logs-file'
+import {LogRingBuffer} from './control-bridge/ring-buffer'
 import {
-  buildSourceFeatureIndex,
-  classifyReloadFromSources,
-  readContentScriptCount,
-  createChangedSourcesTracker,
-  dispatchReload
-} from '../plugin-reload'
-import {resolveConnectableHost} from './connectable-host'
-import webpackConfig from '../rspack-config'
-import type {DevOptions} from '../types'
-import {
-  loadBrowserConfig,
-  loadCommandConfig,
-  loadCustomConfig
-} from '../lib/config-loader'
-import {
-  setupCompilerLifecycleHooks,
-  setupNoBrowserBannerOnFirstDone
-} from './compiler-hooks'
-import {
-  writeControlToken,
-  clearControlToken
+  clearControlToken,
+  writeControlToken
 } from './control-bridge/session-token'
+import {startControlServer} from './control-bridge/ws-control-server'
+import {isUsingJSFramework} from './frameworks'
+import * as messages from './messages'
+import {PortManager} from './port-manager'
 
 function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment in the write target means an emitted asset NAME escapes

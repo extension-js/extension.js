@@ -7,25 +7,25 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import * as messages from '../helpers/messages'
-import {runWaitMode} from './dev-wait'
-import {commandDescriptions} from '../helpers/messages'
+import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
-import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {
-  vendors,
-  validateVendorsOrExit,
-  isSafariVendor,
-  type Browser,
-  parseOptionalBoolean
-} from '../helpers/vendors'
+import * as messages from '../helpers/messages'
+import {commandDescriptions} from '../helpers/messages'
 import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {
+  type Browser,
+  isSafariVendor,
+  parseOptionalBoolean,
+  validateVendorsOrExit,
+  vendors
+} from '../helpers/vendors'
+import {runWaitMode} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -146,113 +146,116 @@ export function registerStartCommand(program: Command) {
       '--author, --author-mode',
       '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
     )
-    .action(async function (
-      pathOrRemoteUrl: string,
-      {browser = 'chromium', ...startOptions}: StartOptions
-    ) {
-      if (startOptions.author || startOptions.authorMode) {
-        process.env.EXTENSION_AUTHOR_MODE = 'true'
-        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
-      }
+    .action(
+      async (
+        pathOrRemoteUrl: string,
+        {browser = 'chromium', ...startOptions}: StartOptions
+      ) => {
+        if (startOptions.author || startOptions.authorMode) {
+          process.env.EXTENSION_AUTHOR_MODE = 'true'
+          if (!process.env.EXTENSION_VERBOSE)
+            process.env.EXTENSION_VERBOSE = '1'
+        }
 
-      const list = vendors(browser)
+        const list = vendors(browser)
 
-      validateVendorsOrExit(list, (invalid, supported) => {
-        // eslint-disable-next-line no-console
-        console.error(messages.unsupportedBrowserFlag(invalid, supported))
-      })
-
-      if (list.some(isSafariVendor)) {
-        console.error(messages.safariCommandNotSupported('start'))
-        process.exit(1)
-      }
-
-      if (startOptions.wait) {
-        const waitResult = await runWaitMode({
-          command: 'start',
-          pathOrRemoteUrl,
-          browsers: list,
-          waitTimeout: startOptions.waitTimeout,
-          waitFormat: startOptions.waitFormat
+        validateVendorsOrExit(list, (invalid, supported) => {
+          // eslint-disable-next-line no-console
+          console.error(messages.unsupportedBrowserFlag(invalid, supported))
         })
 
-        if (waitResult.format === 'json') {
-          // eslint-disable-next-line no-console
-          console.log(
-            JSON.stringify({
-              ok: true,
-              mode: 'wait',
-              command: 'start',
-              browsers: waitResult.browsers,
-              results: waitResult.results
-            })
+        if (list.some(isSafariVendor)) {
+          console.error(messages.safariCommandNotSupported('start'))
+          process.exit(1)
+        }
+
+        if (startOptions.wait) {
+          const waitResult = await runWaitMode({
+            command: 'start',
+            pathOrRemoteUrl,
+            browsers: list,
+            waitTimeout: startOptions.waitTimeout,
+            waitFormat: startOptions.waitFormat
+          })
+
+          if (waitResult.format === 'json') {
+            // eslint-disable-next-line no-console
+            console.log(
+              JSON.stringify({
+                ok: true,
+                mode: 'wait',
+                command: 'start',
+                browsers: waitResult.browsers,
+                results: waitResult.results
+              })
+            )
+          }
+          return
+        }
+
+        const {extensionBuild}: {extensionBuild: any} =
+          await loadExtensionDevelopModule()
+
+        for (const vendor of list) {
+          const logsOption = (startOptions as unknown as {logs?: string}).logs
+          const logContextOption = (
+            startOptions as unknown as {logContext?: string}
+          ).logContext
+
+          const logContexts = parseLogContexts(logContextOption)
+          const logLevel = logsOption || startOptions.logLevel || 'off'
+
+          // Phase 1: Build the extension in production mode
+          await extensionBuild(pathOrRemoteUrl, {
+            browser: vendor as StartOptions['browser'],
+            // CLI surface: a failed build ends this process with the clean
+            // error line. Library imports of extensionBuild reject instead.
+            exitOnError: true,
+            // The build-phase receipt should name the command the user ran.
+            metadataCommand: 'start',
+            polyfill: startOptions.polyfill?.toString() !== 'false',
+            install: startOptions.install,
+            extensions: parseExtensionsList(startOptions.extensions),
+            silent: true
+          })
+
+          const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
+          if (noBrowser) {
+            continue
+          }
+
+          // Phase 2: Launch the browser with the built output via browser API.
+          // The extensionPreview module is still used under the hood to resolve
+          // project structure and extensions-to-load. We call launchBrowser
+          // through the preview module which handles all of this.
+          const {extensionPreview}: {extensionPreview: any} =
+            await loadExtensionDevelopPreviewModule()
+
+          await extensionPreview(
+            pathOrRemoteUrl,
+            {
+              mode: 'production',
+              profile: startOptions.profile,
+              browser: vendor as StartOptions['browser'],
+              chromiumBinary: startOptions.chromiumBinary,
+              geckoBinary: startOptions.geckoBinary,
+              startingUrl: startOptions.startingUrl,
+              port: startOptions.port,
+              host: startOptions.host,
+              noBrowser: false,
+              extensions: parseExtensionsList(startOptions.extensions),
+              metadataCommand: 'start',
+              logLevel,
+              logContexts,
+              logFormat: startOptions.logFormat || 'pretty',
+              logTimestamps: startOptions.logTimestamps !== false,
+              logColor: startOptions.logColor !== false,
+              logUrl: startOptions.logUrl,
+              logTab: startOptions.logTab
+            },
+            (opts: any) => runOnlyPreviewBrowser(opts)
           )
         }
-        return
       }
-
-      const {extensionBuild}: {extensionBuild: any} =
-        await loadExtensionDevelopModule()
-
-      for (const vendor of list) {
-        const logsOption = (startOptions as unknown as {logs?: string}).logs
-        const logContextOption = (
-          startOptions as unknown as {logContext?: string}
-        ).logContext
-
-        const logContexts = parseLogContexts(logContextOption)
-        const logLevel = logsOption || startOptions.logLevel || 'off'
-
-        // Phase 1: Build the extension in production mode
-        await extensionBuild(pathOrRemoteUrl, {
-          browser: vendor as StartOptions['browser'],
-          // CLI surface: a failed build ends this process with the clean
-          // error line. Library imports of extensionBuild reject instead.
-          exitOnError: true,
-          // The build-phase receipt should name the command the user ran.
-          metadataCommand: 'start',
-          polyfill: startOptions.polyfill?.toString() !== 'false',
-          install: startOptions.install,
-          extensions: parseExtensionsList(startOptions.extensions),
-          silent: true
-        })
-
-        const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
-        if (noBrowser) {
-          continue
-        }
-
-        // Phase 2: Launch the browser with the built output via browser API.
-        // The extensionPreview module is still used under the hood to resolve
-        // project structure and extensions-to-load. We call launchBrowser
-        // through the preview module which handles all of this.
-        const {extensionPreview}: {extensionPreview: any} =
-          await loadExtensionDevelopPreviewModule()
-
-        await extensionPreview(
-          pathOrRemoteUrl,
-          {
-            mode: 'production',
-            profile: startOptions.profile,
-            browser: vendor as StartOptions['browser'],
-            chromiumBinary: startOptions.chromiumBinary,
-            geckoBinary: startOptions.geckoBinary,
-            startingUrl: startOptions.startingUrl,
-            port: startOptions.port,
-            host: startOptions.host,
-            noBrowser: false,
-            extensions: parseExtensionsList(startOptions.extensions),
-            metadataCommand: 'start',
-            logLevel,
-            logContexts,
-            logFormat: startOptions.logFormat || 'pretty',
-            logTimestamps: startOptions.logTimestamps !== false,
-            logColor: startOptions.logColor !== false,
-            logUrl: startOptions.logUrl,
-            logTab: startOptions.logTab
-          },
-          (opts: any) => runOnlyPreviewBrowser(opts)
-        )
-      }
-    })
+    )
 }

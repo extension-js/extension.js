@@ -45,12 +45,12 @@ function forEachStringKey<T>(
 }
 
 function getAssetSource(compilation: Compilation, filename: string): string {
-  let assetGetFunction: any = undefined
+  let assetGetFunction: any
   if (typeof compilation.getAsset === 'function') {
     assetGetFunction = compilation.getAsset(filename)
   }
 
-  let assetViaAssets: any = undefined
+  let assetViaAssets: any
 
   if (!assetGetFunction && compilation.assets) {
     assetViaAssets = compilation.assets[filename]
@@ -62,7 +62,7 @@ function getAssetSource(compilation: Compilation, filename: string): string {
     return ''
   }
 
-  let src: unknown = undefined
+  let src: unknown
 
   if (typeof asset.source === 'function') {
     src = asset.source()

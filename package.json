@@ -59,7 +59,8 @@
     "ci:test:plugin-js-frameworks": "pnpm run test:dev",
     "ci:test:plugin-compilation": "pnpm run test:dev",
     "ci:test:toolchain-preflight": "pnpm --dir programs/develop exec vitest run lib/__spec__/optional-deps-resolver.spec.ts",
-    "postcompile": "node scripts/build-extensions.cjs"
+    "postcompile": "node scripts/build-extensions.cjs",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.5",
@@ -79,5 +80,10 @@
     "turbo": "^2.9.14",
     "typescript": "7.0.2",
     "vite": "^8.1.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   }
 }

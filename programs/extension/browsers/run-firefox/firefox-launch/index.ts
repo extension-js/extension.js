@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {ChildProcess} from 'child_process'
+import type {ChildProcess} from 'child_process'
 import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
   getFirefoxVersion

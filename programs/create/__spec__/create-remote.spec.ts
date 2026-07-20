@@ -6,13 +6,13 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import AdmZip from 'adm-zip'
+import {spawn} from 'child_process'
 import * as fs from 'fs'
+import {createServer, type Server} from 'http'
 import * as os from 'os'
 import * as path from 'path'
-import {createServer, type Server} from 'http'
-import AdmZip from 'adm-zip'
-import {describe, it, expect, afterEach} from 'vitest'
-import {spawn} from 'child_process'
+import {afterEach, describe, expect, it} from 'vitest'
 
 function makeZip(structure: Record<string, string>): Buffer {
   const zip = new AdmZip()
@@ -62,7 +62,7 @@ describe('extension create from remote', () => {
       })
       srv.listen(0, '127.0.0.1', () => {
         server = srv
-        // @ts-ignore
+        // @ts-expect-error
         resolve((srv.address() as any).port)
       })
     })
@@ -131,7 +131,7 @@ describe('extension create from remote', () => {
       })
       srv.listen(0, '127.0.0.1', () => {
         server = srv
-        // @ts-ignore
+        // @ts-expect-error
         resolve((srv.address() as any).port)
       })
     })
@@ -209,7 +209,7 @@ describe('extension create from remote', () => {
         })
         srv.listen(0, '127.0.0.1', () => {
           server = srv
-          // @ts-ignore
+          // @ts-expect-error
           resolve((srv.address() as any).port)
         })
       })

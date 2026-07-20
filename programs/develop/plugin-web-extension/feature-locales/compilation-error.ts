@@ -6,7 +6,7 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler, Compilation} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 
 export function pushCompilationError(
   compiler: Compiler,

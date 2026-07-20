@@ -6,7 +6,7 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, sources} from '@rspack/core'
+import {type Compilation, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
 import type {Manifest} from '../../../types'
@@ -57,7 +57,7 @@ function getAssetSource(compilation: Compilation, filename: string) {
 }
 
 function hasWildcardPattern(pattern: string) {
-  return /[*?\[\]]/.test(pattern)
+  return /[*?[\]]/.test(pattern)
 }
 
 function escapeRegex(s: string) {

@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import parse from 'content-security-policy-parser'
-import {type Manifest} from '../../../../types'
+import type {Manifest} from '../../../../types'
 
 function resolveV2Policy(policy: Manifest['content_security_policy']) {
   if (!policy) return undefined
@@ -81,7 +81,7 @@ function loosenConnectSrcForDev(csp: Map<string, string[]>) {
 }
 
 export function patchV2CSP(manifest: Manifest) {
-  let policy: string | undefined = resolveV2Policy(
+  const policy: string | undefined = resolveV2Policy(
     manifest.content_security_policy
   )
 

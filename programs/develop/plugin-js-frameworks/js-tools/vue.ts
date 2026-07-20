@@ -6,18 +6,18 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
-import {createRequire} from 'module'
 import {DefinePlugin} from '@rspack/core'
+import {createRequire} from 'module'
+import * as path from 'path'
 import colors from 'pintor'
-import * as messages from '../js-frameworks-lib/messages'
-import {hasDependency} from '../frameworks-lib/integrations'
-import {JsFramework} from '../../types'
-import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import {
   ensureOptionalContractModuleLoaded,
   ensureOptionalContractPackageResolved
 } from '../../lib/optional-deps-resolver'
+import type {JsFramework} from '../../types'
+import {hasDependency} from '../frameworks-lib/integrations'
+import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
+import * as messages from '../js-frameworks-lib/messages'
 
 type VueLoaderPluginCtor = new (...args: any[]) => {apply(compiler: any): void}
 

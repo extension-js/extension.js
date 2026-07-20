@@ -6,32 +6,32 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {
-  getManifestFieldsData,
-  filterKeysForThisBrowser
+  filterKeysForThisBrowser,
+  getManifestFieldsData
 } from 'browser-extension-manifest-fields'
-import type {PluginInterface, DevOptions} from '../types'
-import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
-import {isUsingReact, maybeUseReact} from './js-tools/react'
-import {maybeUseVue} from './js-tools/vue'
-import {maybeUseSvelte} from './js-tools/svelte'
+import * as fs from 'fs'
+import * as path from 'path'
+import {parseJsonSafe} from '../lib/parse-json-safe'
+import {toResourceKey} from '../lib/resource-path'
+import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
+import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
+import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import type {DevOptions, PluginInterface} from '../types'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 import * as messages from './js-frameworks-lib/messages'
-import {parseJsonSafe} from '../lib/parse-json-safe'
+import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
+import {isUsingReact, maybeUseReact} from './js-tools/react'
+import {maybeUseSvelte} from './js-tools/svelte'
 import {
-  isUsingTypeScript,
   ensureTypeScriptConfig,
-  getUserTypeScriptConfigFile
+  getUserTypeScriptConfigFile,
+  isUsingTypeScript
 } from './js-tools/typescript'
-import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
-import {toResourceKey} from '../lib/resource-path'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
-import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
+import {maybeUseVue} from './js-tools/vue'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'

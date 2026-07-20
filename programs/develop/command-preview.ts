@@ -6,28 +6,28 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
-import {getProjectStructure} from './lib/project'
+import * as path from 'path'
+import * as devServerMessages from './dev-server/messages'
+import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
+import {withDarkMode} from './lib/dark-mode'
+import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import * as messages from './lib/messages'
-import {loadCommandConfig, loadBrowserConfig} from './lib/config-loader'
-import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
-  getDirs,
   computePreviewOutputPath,
-  normalizeBrowser,
-  getDistPath
+  getDirs,
+  getDistPath,
+  normalizeBrowser
 } from './lib/paths'
-import {createPlaywrightMetadataWriter} from './plugin-playwright'
+import {getProjectStructure} from './lib/project'
 import {sanitize} from './lib/sanitize'
-import type {BrowserConfig, PreviewOptions} from './types'
+import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
+import {createPlaywrightMetadataWriter} from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
-import {type CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
+import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
-import {computeExtensionsToLoad} from './lib/extensions-to-load'
-import {withDarkMode} from './lib/dark-mode'
-import * as devServerMessages from './dev-server/messages'
+import type {BrowserConfig, PreviewOptions} from './types'
 
 /**
  * Resolved browser launch options returned by extensionPreview.

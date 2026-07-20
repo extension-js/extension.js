@@ -6,17 +6,17 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
-import packageJson from '../package.json'
-import {asAbsolute, type AbsolutePath} from '../lib/paths'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {
   browserArtifactsDir,
   readyContractPath,
   eventsPath as sessionEventsPath
 } from '../lib/session-paths'
+import packageJson from '../package.json'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
 export type ReadyStatus = 'starting' | 'ready' | 'error'

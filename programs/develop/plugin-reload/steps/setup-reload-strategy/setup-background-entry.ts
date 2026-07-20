@@ -6,16 +6,16 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler} from '@rspack/core'
-import * as reloadMessages from '../../messages'
-import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
-import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {type DevOptions, type Manifest} from '../../../types'
-import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {stripBom} from '../../../lib/parse-json-safe'
+import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
+import type {DevOptions, Manifest} from '../../../types'
+import * as reloadMessages from '../../messages'
 
 export class SetupBackgroundEntry {
   private manifestPath: string
@@ -31,7 +31,9 @@ export class SetupBackgroundEntry {
 
   private getMissingBackgroundError(bgFile: string) {
     if (!fs.existsSync(bgFile) && this.manifestPath) {
-      const manifest = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf8')))
+      const manifest = JSON.parse(
+        stripBom(fs.readFileSync(this.manifestPath, 'utf8'))
+      )
       const patched = filterKeysForThisBrowser(manifest, this.browser)
       const fieldKey =
         patched.manifest_version === 3
@@ -55,7 +57,9 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-    const manifest = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf-8')))
+    const manifest = JSON.parse(
+      stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
+    )
     const browser = this.browser
     // Gecko family (firefox + forks like waterfox/librewolf) gets the gecko
     // reload helper; everything else (chromium family + Safari/webkit) gets the

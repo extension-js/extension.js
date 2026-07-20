@@ -6,10 +6,10 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {CompilationLike} from '../../../browsers-types'
 import * as messages from '../../../browsers-lib/messages'
+import type {CompilationLike} from '../../../browsers-types'
 import {resolveAddonDirectory} from './addons'
-import {MessagingClient} from './messaging-client'
+import type {MessagingClient} from './messaging-client'
 
 function normalizeFirefoxAddonPath(addonPath: string): string {
   const value = String(addonPath)

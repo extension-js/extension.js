@@ -6,8 +6,8 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../types'
+import type {Compiler} from '@rspack/core'
+import type {FilepathList, PluginInterface} from '../../types'
 import {CollectContentEntryImports} from './steps/collect-content-entry-imports'
 
 /**

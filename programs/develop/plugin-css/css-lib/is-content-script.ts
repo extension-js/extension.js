@@ -6,10 +6,10 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
-import {Manifest} from '../../types'
+import * as path from 'path'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
+import type {Manifest} from '../../types'
 
 interface ContentScriptIndex {
   mtimeMs: number

@@ -23,7 +23,7 @@ export {buildExecEnv}
 
 const require = createRequire(import.meta.url)
 
-import {SUPPORTED_PACKAGE_MANAGERS} from './constants'
+import type {SUPPORTED_PACKAGE_MANAGERS} from './constants'
 
 export type PackageManagerName = (typeof SUPPORTED_PACKAGE_MANAGERS)[number]
 
