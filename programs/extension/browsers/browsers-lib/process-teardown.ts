@@ -12,9 +12,8 @@ import * as messages from './messages'
 
 export const FORCE_KILL_GRACE_MS = 5000
 
-// Children we asked to stop (signal handlers, auto-exit, dev-server teardown).
-// A 'close' on one of these is expected; a 'close' on any other child means the
-// browser died out from under a live dev session and must be surfaced loudly.
+// A 'close' on a child we asked to stop is expected; a 'close' on any other
+// child means the browser died mid-session and must be surfaced loudly.
 const terminatedByUs = new WeakSet<ChildProcess>()
 
 export function wasTerminatedByUs(child: ChildProcess | null): boolean {
@@ -40,10 +39,8 @@ function killWindowsTree(child: ChildProcess, sync: boolean): void {
   } catch {}
 }
 
-// Signal-path teardown: ask the browser to stop, then escalate to SIGKILL after
-// a grace window. The timer is unref'd so it never holds the loop open on its
-// own, if the loop drains first, forceKillChildOnExit (run from the 'exit'
-// handler) is the backstop that actually delivers the kill.
+// Signal-path teardown: SIGTERM, then SIGKILL after a grace window. The timer
+// is unref'd; if the loop drains first, forceKillChildOnExit is the backstop.
 export function gracefulTerminateChild(
   child: ChildProcess | null,
   browser: BrowserType
@@ -62,11 +59,8 @@ export function gracefulTerminateChild(
   killTimer.unref?.()
 }
 
-// Exit-path safety net: a Node 'exit' handler gets one synchronous slice,
-// timers and promise continuations never run. So an unref'd SIGKILL timer is
-// dead weight here and a child that ignored SIGTERM would outlive the process.
-// Force-kill synchronously and unconditionally (child.killed only means a
-// signal was sent, not that the process is gone), guarded against ESRCH.
+// Exit-path safety net: an 'exit' handler gets one synchronous slice (no
+// timers), so force-kill synchronously; child.killed only means a signal was sent.
 export function forceKillChildOnExit(
   child: ChildProcess | null,
   browser: BrowserType
@@ -87,9 +81,8 @@ const BENIGN_SOCKET_ERROR_CODES = new Set([
   'ENOTCONN'
 ])
 
-// Errors from a socket the browser is in the middle of closing, the peer hung
-// up while a read was in flight. Not a runner fault; treat as no-op so a
-// graceful shutdown stays graceful instead of force-exiting with code 1.
+// Errors from a socket the browser is closing are not a runner fault; treat as
+// no-op so a graceful shutdown stays graceful instead of exiting with code 1.
 export function isBenignSocketTeardown(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
   const code = (value as {code?: unknown}).code

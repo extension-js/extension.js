@@ -37,9 +37,8 @@ function resolveBuiltInExtensionForBrowser(input: {
     path.join('dist', input.packageName, engine)
   ]
 
-  // Monorepo fallback when watch rebuilds clean programs/develop/dist.
-  // Keep this scoped to the known package location to avoid accidental
-  // traversal to unrelated ../../extensions folders.
+  // Monorepo fallback when watch rebuilds clean programs/develop/dist. Keep
+  // scoped to the known package location to avoid unrelated traversal.
   const normalizedBaseDir = path.normalize(input.baseDir)
   const parentName = path.basename(path.dirname(normalizedBaseDir))
   const baseName = path.basename(normalizedBaseDir)
@@ -58,11 +57,8 @@ function resolveBuiltInExtensionForBrowser(input: {
   return undefined
 }
 
-// Reserved companion package names. The built-in resolver owns these and
-// loads them from a deterministic path. A user-side companion entry that
-// shadows one of these would create a second Chrome unpacked-extension entry
-// (different path = different ID) and surface as a duplicate in
-// chrome://extensions.
+// Reserved companion package names, owned by the built-in resolver. A user
+// companion shadowing one would surface as a duplicate in chrome://extensions.
 const RESERVED_BUILT_IN_NAMES: ReadonlySet<string> = new Set([
   'extension-js-devtools',
   'extension-js-theme'
@@ -125,23 +121,17 @@ export function computeExtensionsToLoad(
     const shouldSkipDevtoolsForNtpConflict =
       userHasNewTabOverride && devtoolsHasNewTabOverride
 
-    // Always load built-in DevTools when available.
     if (devtoolsForBrowser && !shouldSkipDevtoolsForNtpConflict) {
       list.push(devtoolsForBrowser)
     }
 
-    // Always load the theme when available (dev and preview)
     if (themeForBrowser) {
       list.push(themeForBrowser)
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // Add companion extensions (load-only) before the user extension.
-  // Skip companions whose path basename matches a reserved built-in package
-  // so the user can keep the source folders side-by-side with their project
-  // without triggering a second devtools/theme load.
+  // Add companions (load-only) before the user extension; skip paths that
+  // shadow a reserved built-in to avoid a second devtools/theme load.
   for (const p of extraExtensionDirs) {
     if (isReservedBuiltInPath(p)) continue
     list.push(p)
@@ -150,8 +140,7 @@ export function computeExtensionsToLoad(
   // Always load the user extension last to give it precedence on conflicts
   list.push(userExtensionOutputPath)
 
-  // Final dedupe: a companion config + the user output + the resolved
-  // built-in could otherwise emit the same absolute path twice, which
-  // makes Chrome render the same unpacked extension twice on launch.
+  // Final dedupe: companion config + user output + resolved built-in could
+  // emit the same absolute path twice, and Chrome renders it twice on launch.
   return dedupeByResolvedPath(list)
 }

@@ -48,9 +48,6 @@ export function webAccessibleResources(manifest: Manifest) {
 
   // Handle each entry by its own shape rather than keying off the first
   // element: arrays mixing MV2 strings and MV3 objects must not crash here.
-  // String entries in an MV3 manifest are rejected later (resolve-war) with
-  // a proper compilation error; object entries without a resources array are
-  // dropped as malformed.
   const entries = (
     manifest.web_accessible_resources as Array<
       | string

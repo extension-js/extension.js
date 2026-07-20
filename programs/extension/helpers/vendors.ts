@@ -34,10 +34,8 @@ export const vendors = (browser?: Browser | 'all') => {
     : String(value).split(',')
 }
 
-// Install targets differ from run/build targets: `--browser all` runs one
-// browser per engine family, but `install all` must also cover Chromium.
-// It is the default browser for dev/start, so omitting it would leave the
-// default launch target missing from the managed cache.
+// Install targets differ from run/build targets: `install all` must also
+// cover Chromium, the default dev/start launch target.
 export const installTargets = (browser?: Browser | 'all') => {
   return browser === 'all'
     ? ['chrome', 'chromium', 'edge', 'firefox']

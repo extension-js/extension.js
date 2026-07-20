@@ -161,17 +161,13 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
 function loadOrCreateId(file: string): string {
   try {
     if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
-  } catch {
-    // fall through to generating a new id
-  }
+  } catch {}
 
   const id = crypto.randomUUID()
   if (ensureDir(path.dirname(file))) {
     try {
       fs.writeFileSync(file, id, 'utf8')
-    } catch {
-      // ephemeral id is still valid for this run
-    }
+    } catch {}
   }
   return id
 }
@@ -185,9 +181,7 @@ function readConsentFile(file: string): 'enabled' | 'disabled' | null {
     if (raw === 'disabled' || raw === 'off' || raw === '0' || raw === 'no') {
       return 'disabled'
     }
-  } catch {
-    // missing or unreadable, treat as unset
-  }
+  } catch {}
   return null
 }
 
@@ -374,9 +368,7 @@ export class Telemetry {
       }).catch(() => {})
 
       clearTimeout(t)
-    } catch {
-      // best-effort, never crash
-    }
+    } catch {}
   }
 
   shutdown(): void {
@@ -398,10 +390,8 @@ export class Telemetry {
     }
   }
 
-  // The audit log is write-only (flush() sends from the in-memory buffer), so
-  // it must stay bounded: at the cap, roll to a single .1 backup, total disk
-  // usage never exceeds ~2x the cap. Files grossly over the cap (legacy
-  // unbounded growth) are dropped instead of kept as the backup.
+  // The audit log is write-only and must stay bounded: at the cap, roll to a
+  // single .1 backup; files grossly over the cap are dropped, not kept.
   private rotateAuditIfNeeded(auditFile: string): void {
     try {
       const max = auditMaxBytes()
@@ -414,9 +404,7 @@ export class Telemetry {
       } else {
         fs.renameSync(auditFile, backup)
       }
-    } catch {
-      // missing file or failed rotation, appending proceeds either way
-    }
+    } catch {}
   }
 }
 

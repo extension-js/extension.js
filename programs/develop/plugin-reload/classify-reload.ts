@@ -14,21 +14,13 @@ import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/featur
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
 export interface ReloadInstruction {
-  /**
-   * 'page' is a notify-only instruction: the extension itself is NOT reloaded
-   * (rspack-dev-server's livereload refreshes the open surface), but the
-   * signal still travels the bridge so every "Reloading…" surface (stdout,
-   * devtools pill) reflects it.
-   */
+  // 'page' is notify-only: livereload refreshes the surface, but the signal
+  // still travels the bridge so every announcing surface reflects it.
   type: ReloadType | 'page'
   changedContentScriptEntries?: string[]
   changedAssets?: string[]
-  /**
-   * Human context label shared VERBATIM by every surface that announces this
-   * reload, CLI stdout, the page's devtools console line, and the devtools
-   * extension pill, so they can never disagree about what is reloading.
-   * e.g. "content_script (content/scripts.tsx)".
-   */
+  // Human context label shared VERBATIM by every announcing surface, so they
+  // can never disagree. e.g. "content_script (content/scripts.tsx)".
   label?: string
 }
 
@@ -43,11 +35,8 @@ export function formatReloadContextLabel(
   return `${context} (${shown}${extra})`
 }
 
-/**
- * Best-effort page-context name for a page-only edit, mirroring the path
- * heuristics used for the service-worker branch. Only used for the label,
- * never for the reload decision.
- */
+// Best-effort page-context name for a page-only edit. Only used for the
+// label, never for the reload decision.
 export function pageContextFromSources(changedSources: string[]): string {
   const rules: Array<[RegExp, string]> = [
     [/(^|\/)(sidebar|side[-_]?panel)(\.|\/)/i, 'sidebar page'],
@@ -65,26 +54,17 @@ export function pageContextFromSources(changedSources: string[]): string {
   return 'page'
 }
 
-/**
- * Which dev-reload feature owns each project source file, derived from the
- * compilation's chunk graph. Name-pattern heuristics are NOT trustworthy for
- * this decision: a service worker named `background-ultimate.js` fails the
- * `background.`/`service-worker` patterns and would be re-injected as a
- * content script (the SW then never restarts, the wild-corpus anshul bug).
- */
+// Which dev-reload feature owns each source file, from the chunk graph.
+// Name-pattern heuristics are NOT trustworthy for this decision.
 export interface SourceFeatureIndex {
-  /** Sources bundled into a background/* chunk (SW or MV2 scripts). */
   swSources: Set<string>
   /** Source → canonical content_scripts entry names whose chunks contain it. */
   contentEntriesBySource: Map<string, Set<string>>
-  /** Sources bundled only into page chunks (popup/options/devtools/…). */
   pageSources: Set<string>
 }
 
-/** Loader-prefixed module identifier → project-relative resource path(s).
- * Classic-concat entries hide their member files in the
- * `__extensionjs_classic_concat__` resource query, expand those too, since
- * an edit to ANY member recompiles the entry. */
+// Loader-prefixed module identifier to project-relative resource path(s).
+// Classic-concat member files hide in the resource query; expand those too.
 function moduleResourcesFromIdentifier(
   identifier: string,
   contextDir: string
@@ -116,12 +96,8 @@ function moduleResourcesFromIdentifier(
   return out
 }
 
-/**
- * Walk the finished compilation and record, for every bundled source file,
- * which reload feature its chunks belong to. Nameless (async) chunks are
- * skipped, sources reached only through dynamic imports fall back to the
- * name heuristics in {@link classifyReloadFromSources}.
- */
+// Walk the finished compilation and record, for every bundled source file,
+// which reload feature its chunks belong to. Nameless (async) chunks skipped.
 export function buildSourceFeatureIndex(
   compilation: import('@rspack/core').Compilation,
   contextDir: string
@@ -163,35 +139,8 @@ export function buildSourceFeatureIndex(
   return index
 }
 
-/**
- * Pure reload classifier shared by the launched-browser path (BrowsersPlugin,
- * below) and the controller-less path (the dev server's `--no-browser` reload
- * broadcast). Centralizing the decision keeps both paths converged: the same
- * change always resolves to the same {@link ReloadType}, whether it is handed
- * to the CDP controller or broadcast over the control bridge.
- *
- * Decision order per changed file:
- *   1. manifest/_locales (forcedFull) → full reload.
- *   2. Chunk-graph membership ({@link buildSourceFeatureIndex}): background
- *      chunk → service-worker; content chunk → content-scripts (re-injecting
- *      ONLY the entries whose chunks contain a changed file); page chunk →
- *      notify-only page.
- *   3. Emitted static asset (exists at the same relative path in the output
- *      dir: manifest icons, web-accessible resources, DNR rulesets) → full
- *      reload. The browser only re-reads those from disk on an extension
- *      reload, and re-injecting content scripts for an icon edit is a storm
- *      of no-ops (the wild-corpus Sappgulf bug).
- *   4. Name heuristics, as before, for anything the graph can't see.
- *
- * The thunks keep the (cheap) index build and manifest read lazy. They only
- * run when a classification actually needs them.
- *
- * Returns a notify-only `type: 'page'` instruction for page-only edits
- * (popup/options/devtools/newtab HTML/CSS/JS). Those are delivered by
- * rspack-dev-server's livereload broadcast, so firing an extension reload
- * would race it and flash the open surface. The 'page' instruction only
- * carries the announcement label; dispatch never reloads the extension for it.
- */
+// Pure reload classifier shared by the launched-browser and --no-browser
+// paths, so the same change always resolves to the same reload type.
 export function classifyReloadFromSources(opts: {
   changedSources: string[]
   forcedFull?: boolean
@@ -229,10 +178,8 @@ export function classifyReloadFromSources(opts: {
   const pageChanged: string[] = []
   const unknown: string[] = []
   for (const rel of changedSources) {
-    // A source can live in MORE than one chunk family (e.g. a shared module
-    // listed in both background.scripts and content_scripts[].js): record
-    // every membership, so the instruction below can fan out to both reload
-    // paths instead of silently dropping the content half.
+    // A source can live in MORE than one chunk family; record every
+    // membership so the instruction can fan out to both reload paths.
     let known = false
     if (index?.swSources.has(rel)) {
       swChanged.push(rel)
@@ -268,9 +215,7 @@ export function classifyReloadFromSources(opts: {
 
   if (swChanged.length > 0) {
     // A shared module (SW chunk + content chunk) needs BOTH paths: the SW
-    // restart carries the instruction, and changedContentScriptEntries tells
-    // the producer which open-tab content scripts went stale, the restarted
-    // producer heals them from the pending-reinject flag it sets pre-reload.
+    // restart carries the instruction plus the stale content-script entries.
     return {
       type: 'service-worker',
       ...(contentEntries.size > 0
@@ -313,8 +258,6 @@ export function classifyReloadFromSources(opts: {
       )
     }
   }
-
-  // ---- legacy name heuristics: sources the chunk graph can't attribute ----
 
   const isServiceWorkerSource = (rel: string) =>
     /(^|\/)background(\.|\/)/i.test(rel) || /service[-_.]?worker/i.test(rel)
@@ -364,9 +307,7 @@ export function readContentScriptCount(
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
-  } catch {
-    // fall through to disk read
-  }
+  } catch {}
 
   try {
     const manifestPath = path.join(outputPath, 'manifest.json')
@@ -377,9 +318,7 @@ export function readContentScriptCount(
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   return 0
 }

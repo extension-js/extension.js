@@ -83,16 +83,13 @@ export function getAssetsFromHtml(
     ) => {
       const {cleanPath} = cleanAssetUrl(filePathWithParts)
 
-      // Preserve full URL references (http/https) as-is
       if (isUrl(cleanPath)) {
         return cleanPath
       }
 
       if (cleanPath.startsWith('/')) {
-        // For public paths, preserve them as-is
         return cleanPath
       }
-      // If base href is present and is not a URL, resolve relative to base
       const isBaseUrl = isUrl(baseHref || '')
       const baseJoin =
         baseHref && !isBaseUrl
@@ -134,7 +131,6 @@ export function getAssetsFromHtml(
       }
     )
   } catch (error) {
-    // If file doesn't exist or can't be read, return empty assets
     return assets
   }
 
@@ -229,7 +225,6 @@ export function cleanAssetUrl(url: string): {
   return {cleanPath, hash, search}
 }
 
-// Shared helpers used by multiple steps
 export function isHttpLike(inputUrl: string): boolean {
   return /^https?:\/\//i.test(inputUrl) || inputUrl.startsWith('//')
 }
@@ -242,16 +237,8 @@ export function cleanLeading(s: string): string {
   return s.replace(/^\/+/, '').replace(/^\.\//, '').replace(/^\./, '')
 }
 
-/**
- * Join an emitted-asset name from a prefix and an HTML-relative walk, clamped
- * the way Chrome resolves the matching URL: `..` segments cannot climb above
- * the extension root, so leading `..` left after the join are dropped. Without
- * the clamp, an asset referenced from a nested page (`../../../assets/x.png`
- * from `adapters/chrome/popup/popup.html`) produces the asset NAME
- * `../../assets/x.png`, the dev middleware then writes it OUTSIDE the output
- * dir, on top of the source file, and the watcher loops on its own emit
- * forever (the wild-corpus Sappgulf storm).
- */
+// Clamp the joined asset name the way Chrome resolves URLs: `..` cannot climb
+// above the extension root, or the middleware writes outside dist and loops.
 export function joinEmittedAssetName(prefix: string, rel: string): string {
   const parts = path.posix.join(prefix, rel).split('/')
   let i = 0
@@ -302,12 +289,8 @@ export function resolveAbsoluteFsPath(params: {
         const withoutPublicPrefix = normalized.replace(/^public\//, '')
         const candidate = path.join(publicRootForResource, withoutPublicPrefix)
         if (fs.existsSync(candidate)) return candidate
-        // Chrome serves /pages/x.html as chrome-extension://<id>/pages/x.html,
-        // i.e. manifest-relative, resolve the SOURCE file there. Never fall
-        // back into outputRoot: reading our own emitted output as input feeds
-        // already-patched HTML (compiled /feature.js refs) back through the
-        // pipeline, which ENOENTs from the filesystem root and kills the
-        // recompile (first seen on a wild subject's <iframe src="/pages/…">).
+        // Chrome serves /pages/x.html manifest-relative; resolve the SOURCE file
+        // there. Never fall back into outputRoot: re-reading emitted output loops.
         const manifestCandidate = manifestRoot
           ? path.join(manifestRoot, normalized)
           : ''
@@ -347,7 +330,6 @@ interface BaseHrefNode {
 export function getBaseHref(htmlDocument: {
   childNodes?: unknown
 }): string | undefined {
-  // Look for <base href="...">
   const htmlChildren = (htmlDocument.childNodes || []) as BaseHrefNode[]
   for (const node of htmlChildren) {
     if (node?.nodeName !== 'html') continue

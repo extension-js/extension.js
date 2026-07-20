@@ -22,9 +22,7 @@ function resolveFromProject(id: string, projectPath: string) {
     try {
       const req = createRequire(path.join(base, 'package.json'))
       return req.resolve(id)
-    } catch {
-      // Try next base
-    }
+    } catch {}
   }
   return undefined
 }
@@ -52,15 +50,10 @@ export async function maybeUseSvelte(
     dependencyId: 'svelte-loader'
   })
 
-  // No `typescript` check here: svelte-loader does not depend on it (its deps
-  // are loader-utils / svelte-dev-helper / svelte-hmr, peer `svelte`), and
-  // extension-develop no longer ships a copy to satisfy the old install-root
-  // rule. Requiring it would hard-fail Svelte projects that never asked for
-  // TypeScript.
-  // Load custom loader configuration if it exists
+  // No `typescript` check here: svelte-loader does not depend on it, and
+  // requiring it would hard-fail Svelte projects that never asked for TS.
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
-  // Resolve toolchain/runtime from the project when available
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
@@ -127,7 +120,6 @@ export async function maybeUseSvelte(
     alias['svelte/reactivity'] = svelteReactivityClient
   if (svelteLegacyClient) alias['svelte/legacy'] = svelteLegacyClient
 
-  // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {
     apply(compiler: import('@rspack/core').Compiler) {
       const existingMainFields = compiler.options.resolve?.mainFields || []
@@ -135,16 +127,13 @@ export async function maybeUseSvelte(
       const existingAlias = compiler.options.resolve?.alias || {}
       const existingModules = compiler.options.resolve?.modules || []
 
-      // de-duplicate while preserving order
       const dedupe = (arr: string[]) => Array.from(new Set(arr))
 
       compiler.options.resolve = {
         ...compiler.options.resolve,
-        // Respect existing resolver field priority from the host config.
         mainFields: dedupe(existingMainFields),
-        // Keep the host bundler/browser conditions untouched.
-        // Forcing `svelte` as an export condition can resolve server-oriented
-        // package entries that pull `node:` built-ins in browser builds.
+        // Keep the host bundler/browser conditions untouched: a `svelte` export
+        // condition can resolve server entries that pull node: built-ins.
         extensions: dedupe(['.svelte', ...existingExtensions]),
         alias: existingAlias,
         modules: dedupe([

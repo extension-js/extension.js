@@ -23,10 +23,6 @@ export class WarnUponFolderChanges {
   private pendingChanges: PendingChange[] = []
   // Snapshot of files present in pages/ and scripts/ at first compile, used to
   // distinguish "newly added" from "modified" on subsequent invalidations.
-  // `compiler.modifiedFiles` is the union of both events and the warning was
-  // misfiring on every save of an existing scripts/<name>.js. Restart-required
-  // is only correct for genuine additions (rspack scans the folder once at
-  // startup to build the entry list and won't pick up files added after that).
   private knownFolderFiles = new Set<string>()
   private hasSnapshot = false
 
@@ -69,9 +65,8 @@ export class WarnUponFolderChanges {
     for (const folder of ['pages', 'scripts'] as const) {
       const folderPath = path.join(projectPath, folder)
 
-      // Watching a missing folder can trigger an empty startup invalidation in
-      // watch mode. Fall back to the project root so later folder creation is
-      // still detected without causing a bootstrap recompile.
+      // Watching a missing folder can trigger an empty startup invalidation.
+      // Fall back to the project root so later folder creation is detected.
       dependencies.add(fs.existsSync(folderPath) ? folderPath : projectPath)
     }
 
@@ -157,10 +152,8 @@ export class WarnUponFolderChanges {
     const removedFiles = compiler.removedFiles || new Set<string>()
 
     for (const filePath of modifiedFiles) {
-      // Modifications of an existing file are NOT additions. Rspack already
-      // watches the entry and recompiles in place, the "restart required"
-      // warning only applies when a brand-new file appears in the folder
-      // after startup (won't be in the entry list, won't be served).
+      // Modifications of an existing file are NOT additions: rspack recompiles
+      // them in place. "Restart required" only applies to brand-new files.
       const isPreexisting = this.knownFolderFiles.has(filePath)
 
       if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {

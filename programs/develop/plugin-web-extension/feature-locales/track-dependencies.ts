@@ -19,14 +19,12 @@ export function trackLocaleDependencies(
 ): void {
   if (compilation.errors?.length) return
 
-  // Strict project-root layout: only the canonical `<projectRoot>/_locales/`
-  // is scanned. A `_locales/` folder next to the manifest is rejected at
-  // validation time with a migration error, see validation.ts
+  // Only the canonical `<projectRoot>/_locales/` is scanned; a `_locales/`
+  // next to the manifest is rejected at validation time with a migration error.
   const localesFields = getLocales(manifestPath, projectRoot) || []
   let added = 0
 
   for (const thisResource of localesFields) {
-    // Only add JSON files to the dependencies
     if (fs.existsSync(thisResource) && path.extname(thisResource) === '.json') {
       if (!compilation.fileDependencies.has(thisResource)) {
         compilation.fileDependencies.add(thisResource)

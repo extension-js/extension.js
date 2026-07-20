@@ -154,7 +154,6 @@ export class BridgeController {
     return this.connectPromise
   }
 
-  /** Issue a command and resolve with the broker-routed result. */
   async command(input: CommandInput): Promise<ResultFrame> {
     await this.connect()
     const socket = this.socket
@@ -192,9 +191,7 @@ export class BridgeController {
     this.failAllPending(new Error('controller closed'))
     try {
       this.socket?.close()
-    } catch {
-      // ignore
-    }
+    } catch {}
     this.socket = null
   }
 

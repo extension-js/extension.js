@@ -54,7 +54,6 @@ export async function connectToChromeCdp(
   cdpPort: number,
   cdpHost: string = '127.0.0.1'
 ): Promise<CDPClient> {
-  // Wait until Chrome opens the debugging port
   let retries = 0
   const maxRetries = 60
   const backoffMs = 250

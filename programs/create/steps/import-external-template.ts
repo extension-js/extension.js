@@ -29,8 +29,7 @@ const NETWORK_TIMEOUT_MS = (() => {
 const EXAMPLES_REF = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
 
 // Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
-// failure. The old path (go-git-it) surfaced BOTH as "choose a valid template
-// name", which is the core of #56, a slow network read reported as a bad slug.
+// failure; the old path surfaced BOTH as "choose a valid template name" (#56).
 export class TemplateNotFoundError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause?: unknown) {
@@ -55,8 +54,7 @@ export class TemplateDownloadError extends Error {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
-// no git child, so no credential-helper hang, and one gzipped stream instead of
-// a full clone. One automatic retry with backoff. (#56 acceptance 1 & 3.)
+// no git child, so no credential-helper hang (#56). One retry with backoff.
 async function downloadArchive(
   url: string,
   timeoutMs: number,
@@ -81,8 +79,7 @@ async function downloadArchive(
 }
 
 // Extract ONLY `<archive-root>/examples/<templateName>/**` from a GitHub zip
-// archive into projectPath. Exported for tests (no network). Throws
-// TemplateNotFoundError when the slug isn't present in the archive.
+// into projectPath. Throws TemplateNotFoundError when the slug is absent.
 export async function extractExamplesTemplateFromZip(
   zipBuffer: Buffer,
   templateName: string,
@@ -114,8 +111,7 @@ export async function extractExamplesTemplateFromZip(
 }
 
 // The #56 built-in-template path: pull the examples repo tarball over HTTP and
-// unpack just the one requested template. Replaces the go-git-it full-clone for
-// every catalog slug, so the ~51 remote templates scaffold without git.
+// unpack just the requested template, so catalog slugs scaffold without git.
 async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string
@@ -177,12 +173,8 @@ function bundledTemplateDir(templateName: string): string {
   return path.join(__dirname, '..', 'templates', templateName)
 }
 
-// Files the extension-js/examples repo carries for its own gallery + E2E
-// tooling. They have no purpose in a scaffolded user project, `template.meta.json`
-// is the gallery "featured" flag, `template.spec.ts` is the examples E2E spec
-// (and trips `tsc --noEmit` in a fresh project), and the root `screenshot.png`
-// is the gallery thumbnail (the generated README embeds `public/screenshot.png`,
-// not this one). Strip them after copying any template. See issue #476.
+// Gallery + E2E files the extension-js/examples repo carries; useless in a
+// scaffolded project (template.spec.ts even trips tsc --noEmit). Issue #476.
 export const TEMPLATE_SCAFFOLDING_FILES = [
   'template.meta.json',
   'template.spec.ts',
@@ -246,7 +238,6 @@ export async function importExternalTemplate(
   const isGithub = /^https?:\/\/github\.com\//i.test(template)
 
   try {
-    // Ensure the project path exists
     await fs.mkdir(projectPath, {recursive: true})
 
     if (!isHttp && !isGithub && resolvedTemplate === 'javascript') {
@@ -260,7 +251,6 @@ export async function importExternalTemplate(
       // Bundled copy missing (unexpected): fall through to the network fetch
     }
 
-    // Create a temporary directory for fetching remote templates
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'extension-js-create-')
     )
@@ -269,8 +259,7 @@ export async function importExternalTemplate(
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
       // Harden the spawned git so a credential-helper prompt can't hang it
-      // (#56: one of the three stacked triggers, `GIT_TERMINAL_PROMPT=0`
-      // unblocked the pull). go-git-it's execFile inherits process.env.
+      // (#56, `GIT_TERMINAL_PROMPT=0`). go-git-it's execFile inherits process.env.
       const gitEnvKeys = {
         GIT_TERMINAL_PROMPT: '0',
         GIT_ASKPASS: '',
@@ -306,7 +295,6 @@ export async function importExternalTemplate(
 
     if (isGithub) {
       await runGoGitIt(template, tempPath)
-      // If a subfolder exists matching the last path segment, use it; otherwise copy from tempPath
       const candidates = await fs.readdir(tempPath, {withFileTypes: true})
       const preferred = candidates.find(
         (d) => d.isDirectory() && d.name === templateName
@@ -314,7 +302,6 @@ export async function importExternalTemplate(
       const srcPath = preferred ? path.join(tempPath, templateName) : tempPath
       await utils.moveDirectoryContents(srcPath, projectPath)
     } else if (isHttp) {
-      // Download zip and extract
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
@@ -334,22 +321,17 @@ export async function importExternalTemplate(
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
     } else {
-      // Built-in template names resolve to a single template folder in the
-      // extension-js/examples catalog, fetched as an HTTP tarball (#56), no git
-      // pack negotiation, no credential-helper hang, and only the one template
-      // is unpacked instead of the whole monorepo.
+      // Built-in template names resolve to one folder in the extension-js/
+      // examples catalog, fetched as an HTTP tarball; no git, one template (#56).
       await importFromExamplesCatalog(resolvedTemplateName, projectPath)
     }
 
-    // Strip examples-repo scaffolding that should never ship in a user project.
     await removeTemplateScaffoldingFiles(projectPath)
 
-    // Cleanup temp
     await fs.rm(tempRoot, {recursive: true, force: true})
   } catch (error) {
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
-    // failure, the old path reported every failure as "choose a valid template
-    // name", which is the #56 mislabel.
+    // failure; the old path reported every failure as a bad template name (#56).
     if (error instanceof TemplateNotFoundError) {
       logger.error(
         messages.templateNotFoundInCatalog(

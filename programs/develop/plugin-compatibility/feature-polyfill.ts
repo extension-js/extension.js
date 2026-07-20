@@ -26,12 +26,8 @@ export class PolyfillPlugin {
 
   apply(compiler: Compiler) {
     try {
-      // Resolve the polyfill preferring the consumer project first.
-      //
-      // Why: some package managers hoist dependencies to the project root
-      // (or otherwise do not place them under extension-develop/node_modules).
-      // Resolving from `compiler.options.context` avoids hard-coding a nested path
-      // that the bundler may not be able to resolve in all layouts.
+      // Resolve the polyfill preferring the consumer project first: package
+      // managers may hoist it to the project root, not under extension-develop.
       const polyfillPath = cjsRequire.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
         {
@@ -39,8 +35,6 @@ export class PolyfillPlugin {
         }
       )
 
-      // Ensure the module specifier resolves to our absolute polyfill path,
-      // regardless of the consumer project's node_modules layout
       const currentResolve = compiler.options.resolve || {}
       const existingAlias = currentResolve.alias || {}
 
@@ -53,7 +47,6 @@ export class PolyfillPlugin {
         }
       }
 
-      // Provide `browser` by importing the aliased module
       new rspack.ProvidePlugin({
         browser: 'webextension-polyfill'
       }).apply(compiler)

@@ -28,26 +28,12 @@ function createSequentialEntryModule(
   feature: string,
   scriptImports: string[]
 ): string {
-  // Only the JS files are sequenced/concatenated here. CSS is declared by the
-  // caller as a bare entry import (see `finalEntryImports` below) so it extracts
-  // to the canonical `content_scripts/content-N.css` name, routing CSS through
-  // this entry module instead would root its import at a content-script module,
-  // which flips it to `asset/inline` and never emits the file the manifest
-  // declares.
+  // Only JS is sequenced/concatenated here. CSS stays a bare entry import;
+  // routed through this module it flips to asset/inline and never emits.
   const jsFiles = scriptImports
 
-  // Classic content scripts split across multiple files share a single global
-  // scope: the browser injects `content_scripts[].js` in order into one world, so
-  // a top-level `class Base` in one file is visible to a sibling that extends it.
-  // ES-module sequencing (import "a"; import "b";) isolates each file and breaks
-  // those implicit cross-file globals. When every JS file in the group is classic
-  // (no top-level import/export), concatenate their sources into one module so they
-  // share a scope, matching browser semantics and making vanilla multi-file content
-  // scripts a true drop-in. CSS stays as module imports so rspack can extract it.
-  // Only .js/.cjs/.ts can concatenate: .mjs is module-scoped by definition,
-  // and .tsx/.jsx need a JSX transform the concat loader doesn't run. The
-  // loader type-strips .ts members before concatenation, so a tsc-compiled
-  // extension re-pointed at its TS sources keeps its shared-globals contract.
+  // Classic content scripts share one global scope in the browser; ES-module
+  // sequencing breaks that, so all-classic groups concatenate into one module.
   const concatEligible = (f: string) => /\.(js|cjs|ts)$/i.test(f)
   const concatenateClassic =
     jsFiles.length > 1 &&
@@ -173,24 +159,8 @@ export class AddScripts {
       return path.join(manifestDir, entry)
     }
 
-    // Files under the `scripts/` special folder are registered as standalone
-    // entries so bare `scripts/` helpers still get compiled. But when a file is
-    // ALSO declared in a manifest `content_scripts` group it is already built by
-    // that (concatenated) entry, registering a second, standalone entry both
-    // duplicates output and, worse, parses the file in isolation as a
-    // CommonJS-capable module. Vendored UMD libs then trip rspack on their dead
-    // `typeof module === 'object' && require('pkg')` branch (e.g. katex), failing
-    // the build. Collect the content-script-claimed paths so those `scripts/`
-    // duplicates can be skipped below.
-    //
-    // Only content_scripts claims count: a content_scripts group is rewritten in
-    // the emitted manifest to `content_scripts/content-N.js`, so the original
-    // `scripts/foo.js` path is no longer referenced and its standalone output is
-    // pure duplication. Background is deliberately excluded. A manifest can keep
-    // an MV2 `background.scripts: ["scripts/x.js"]` entry pointing at the raw
-    // `scripts/` path (which the concat emits under a *different* name,
-    // `background/scripts.js`), so its standalone `scripts/x.js` output is still
-    // required on disk.
+    // A scripts/ file also claimed by a content_scripts group is already built
+    // by that entry; a standalone duplicate trips rspack on vendored UMD libs.
     const claimedByContentScript = new Set<string>()
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       if (!isContentScriptFeature(feature)) continue

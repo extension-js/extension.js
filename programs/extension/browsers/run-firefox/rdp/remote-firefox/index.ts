@@ -35,12 +35,8 @@ const RETRY_LOG_EVERY_N_ATTEMPTS = 10
 export class RemoteFirefox {
   private readonly options: PluginInterface & {
     browserVersionLine?: string
-    // The concrete, already-resolved RDP debug port the browser was actually
-    // launched on. When set, it is used verbatim, NOT folded back through
-    // deriveDebugPortWithInstance. `port` (PluginInterface) is a *base* port to
-    // derive from; passing the launched port there would double-apply the
-    // offset (e.g. 9230 launched -> 9330 attempted -> ECONNREFUSED, add-on
-    // never installs). See resolveRdpPort.
+    // The already-resolved RDP port the browser launched on; used verbatim.
+    // Deriving from it would double-apply the offset. See resolveRdpPort.
     resolvedRdpPort?: number
   }
   private client: MessagingClient | null = null
@@ -80,12 +76,8 @@ export class RemoteFirefox {
 
   private resolveRdpPort(compilation?: CompilationLike): number {
     const instanceId = (this.options as {instanceId?: string})?.instanceId
-    // A concrete, already-resolved launch port wins outright. It is the actual
-    // port Firefox opened its debugger server on, so it must NOT be re-derived
-    // (deriving folds the per-instance offset in a SECOND time and we connect to
-    // a dead port). The instance registry can only override via instanceId; a
-    // plain single-browser `extension dev` run has no instanceId, so without
-    // this short-circuit we'd fall through to the doubly-derived `desired`.
+    // A concrete launch port wins outright and must NOT be re-derived: deriving
+    // folds the per-instance offset in a SECOND time and dials a dead port.
     const resolvedRdpPort = (this.options as {resolvedRdpPort?: number})
       ?.resolvedRdpPort
     if (typeof resolvedRdpPort === 'number' && resolvedRdpPort > 0) {
@@ -98,10 +90,8 @@ export class RemoteFirefox {
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
     const basePort = (normalizedOptionPort as number) || devPort
-    // `desired` is a deterministic, per-instance derived port (the instance id
-    // is folded into the offset), so it is a safe fallback that stays faithful
-    // to this instance. The process-wide last-launched RDP port is never used.
-    // That was the cross-talk source when chrome + edge ran from one command.
+    // `desired` is a deterministic per-instance derived port, a safe fallback.
+    // The process-wide last-launched RDP port caused chrome+edge cross-talk.
     const desired = deriveDebugPortWithInstance(basePort, instanceId)
 
     const resolved = resolvePortForInstance(instanceId, 'rdp', desired)
@@ -116,23 +106,16 @@ export class RemoteFirefox {
         const client = new MessagingClient()
         await client.connect(port)
         this.client = client
-        // A new RDP connection invalidates actor IDs from any prior connection
-        // (Firefox namespaces them per connection, e.g. server1.conn0.addonsActor2).
-        // Clear connection-scoped caches so we re-resolve them on THIS connection.
-        // Otherwise a retry/reconnect installs against a dead actor and fails
-        // with "noSuchActor". Also re-clear if the transport transparently
-        // reconnects mid-session.
+        // A new RDP connection invalidates prior actor IDs (namespaced per
+        // connection); clear caches so a retry never targets a dead actor.
         this.invalidateConnectionScopedCaches()
         client.on('reconnected', () => this.invalidateConnectionScopedCaches())
         return client
       } catch (error: unknown) {
         if (isErrorWithCode('ECONNREFUSED', error)) {
           lastError = error
-          // ECONNREFUSED is the expected "server not up yet" case, but a fully
-          // silent loop makes a dead port (wrong port, firewall, crashed
-          // Firefox) indistinguishable from a normal slow start for the whole
-          // retry budget (~150s by default). Name the port periodically so
-          // connect-side failures are diagnosable while they happen.
+          // ECONNREFUSED is the expected "server not up yet" case, but a silent
+          // loop hides a dead port; name the port periodically so it's diagnosable.
           if (attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
             console.log(
               messages.waitingForBrowserDebugger(
@@ -161,11 +144,8 @@ export class RemoteFirefox {
     throw lastError
   }
 
-  /**
-   * Drop caches that are only valid for the current RDP connection. Actor IDs
-   * (addonsActor and its probed capability) belong to a specific Firefox
-   * connection; once we reconnect they must be re-resolved via getRoot.
-   */
+  // Actor IDs belong to a specific Firefox connection; once we reconnect
+  // they must be re-resolved via getRoot.
   private invalidateConnectionScopedCaches(): void {
     this.cachedAddonsActor = undefined
   }
@@ -173,7 +153,6 @@ export class RemoteFirefox {
   public async installAddons(compilation: CompilationLike) {
     const {devtools} = this.options
 
-    // Ensure user extension is first, manager after (if present)
     const rawExtensions = toExtensionLoadList(this.options.extension)
     const unique: string[] = Array.from(
       new Set(
@@ -194,7 +173,6 @@ export class RemoteFirefox {
     const extensionsToLoad = userFirst
     const port = this.resolveRdpPort(compilation)
     const client = await this.connectClient(port)
-    // Fetch addonsActor with retries via helper
     const addonsActor: string | undefined = await getAddonsActorWithRetry(
       client,
       this.cachedAddonsActor
@@ -223,16 +201,12 @@ export class RemoteFirefox {
             `[browser] Firefox add-on output did not fully settle before install: ${addonPath}`
           )
         }
-      } catch {
-        // best-effort readiness guard
-      }
+      } catch {}
     }
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       try {
         console.log('[browser] Firefox add-on paths:', candidateAddonPaths)
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     /** ID of the user extension (webpack output), not companion devtools/theme add-ons. */
@@ -278,10 +252,8 @@ export class RemoteFirefox {
       this.derivedExtensionId = primaryUserAddonId
     }
 
-    // Best-effort: if no explicit id yet, try to infer from any moz-extension URL
-    // target. Reaching here means the install reply carried no id, surface that
-    // in author mode so a real regression in the reply is visible instead of
-    // silently degrading to a scanned (or absent) banner id.
+    // Best-effort: if no explicit id yet, infer from any moz-extension URL target.
+    // Author mode surfaces a missing install-reply id instead of degrading silently.
     try {
       if (!this.derivedExtensionId) {
         this.derivedExtensionId = await deriveMozExtensionId(client)
@@ -296,7 +268,6 @@ export class RemoteFirefox {
       }
     } catch {}
 
-    // Print banner with best-effort extensionId when available
     this.lastInstalledAddonPath = primaryAddonPath
 
     const bannerPrinted = await printRunningInDevelopmentSummary(
@@ -332,10 +303,8 @@ export class RemoteFirefox {
       const rdpPort = this.resolveRdpPort()
       const client = this.client || (await this.connectClient(rdpPort))
 
-      // Proactively attach console listeners to all known targets
       await attachConsoleListeners(client)
 
-      // Prepare logging options (mirrors previous inline variables)
       const wantLevel = String(opts.level || 'info').toLowerCase()
       const wantContexts = Array.isArray(opts.contexts)
         ? opts.contexts.map((s) => String(s))
@@ -360,8 +329,6 @@ export class RemoteFirefox {
       })
 
       this.loggingAttached = true
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 }

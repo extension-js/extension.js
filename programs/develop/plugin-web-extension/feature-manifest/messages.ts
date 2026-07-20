@@ -31,7 +31,6 @@ export function serverRestartRequiredFromManifestError(
   fileRemoved: string
 ) {
   const lines: string[] = []
-  // Short actionable message, consistent with MESSAGE_STYLE.md
   lines.push(
     `Entrypoint references changed. Restart the dev server to pick up changes to manifest entrypoints.`
   )

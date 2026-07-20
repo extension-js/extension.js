@@ -74,7 +74,6 @@ export async function writeGitignore(
 
   const linesToAdd = globalLines.filter((line) => !paths.has(line))
 
-  // Remove any trailing empty strings to prevent adding extra newlines
   while (linesToAdd[linesToAdd.length - 1] === '') {
     linesToAdd.pop()
   }
@@ -89,7 +88,6 @@ export async function writeGitignore(
     currentContents.length > 0 && !currentContents.endsWith('\n')
   const contentToAppend = `${shouldPrefixWithNewline ? '\n' : ''}${linesToAdd.join('\n')}`
 
-  // Append the missing lines while preserving final newline behavior.
   await fs.appendFile(gitIgnorePath, contentToAppend).catch((err) => {
     logger.error(err)
     throw err

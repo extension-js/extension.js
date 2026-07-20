@@ -51,11 +51,8 @@ export async function ensureUserProjectDependencies(
       env: suppression.env
     })
   } catch (error) {
-    // The resolved manager can fail through no fault of the project's own
-    // dependency graph, e.g. corepack honoring a `packageManager` pin to a
-    // pnpm too old for the running Node (G28). npm ships with Node itself,
-    // so one retry with it keeps the build alive; `--no-package-lock` avoids
-    // dropping a lockfile the project's real manager never asked for.
+    // The resolved manager can fail through no fault of the project (e.g. a
+    // `packageManager` pin too old for Node); one npm retry keeps the build alive.
     if (pm.name === 'npm') throw error
     // A Deno project's dependencies live in deno.json(c) `npm:` imports,
     // npm cannot install those (and may have no package.json to read at all).
