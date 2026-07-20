@@ -148,6 +148,19 @@ export async function browserConfig(
     } catch {
       // ignore
     }
+
+    // §69: a pinned/persisted profile can serve STALE extension code out of
+    // Firefox's startupCache across a full dev restart — fresh runId and
+    // compiledAt over old behavior, with `rm -rf <profile>` as the only
+    // remedy. The cache is always safe to drop; Firefox rebuilds it on boot.
+    try {
+      fs.rmSync(path.join(profilePath, 'startupCache'), {
+        recursive: true,
+        force: true
+      })
+    } catch {
+      // best-effort; a locked live profile keeps its cache
+    }
   }
 
   // Best-effort: clear crash/sessionstore artifacts for managed profiles.

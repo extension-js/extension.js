@@ -9,6 +9,16 @@
 import {isGeckoBasedBrowser} from '../../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../../types'
 
+// Dev-only (§68): an MV2 event page (`persistent: false`) idles out ~20s into
+// the session and takes the control channel with it — every act verb then
+// fails "no executor connected" and the prescribed remedy (reload) needs the
+// very executor that idled away. A dev session requires a live executor, so
+// the dev manifest forces the background persistent on MV2. Production
+// manifests are untouched; MV3 has no persistent key (invalid there).
+function persistentPatchFor(manifest: Manifest): {persistent?: boolean} {
+  return manifest.manifest_version === 3 ? {} : {persistent: true}
+}
+
 export default function patchBackground(
   manifest: Manifest,
   browser: DevOptions['browser']
@@ -35,7 +45,8 @@ export default function patchBackground(
       return {
         background: {
           ...(manifest.background || {}),
-          scripts: ['background/script.js']
+          scripts: ['background/script.js'],
+          ...persistentPatchFor(manifest)
         }
       }
     }
@@ -44,7 +55,8 @@ export default function patchBackground(
       return {
         background: {
           ...(manifest.background || {}),
-          scripts: ['background/script.js']
+          scripts: ['background/script.js'],
+          ...persistentPatchFor(manifest)
         }
       }
     }
@@ -59,7 +71,8 @@ export default function patchBackground(
 
   return {
     background: {
-      ...manifest.background
+      ...manifest.background,
+      ...persistentPatchFor(manifest)
     }
   }
 }
