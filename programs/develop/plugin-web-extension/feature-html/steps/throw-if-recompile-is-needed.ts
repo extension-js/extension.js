@@ -42,7 +42,7 @@ export class ThrowIfRecompileIsNeeded {
     return false
   }
 
-  private storeInitialHtmlAssets(htmlFields: Record<string, any>) {
+  private storeInitialHtmlAssets(htmlFields: Record<string, unknown>) {
     Object.entries(htmlFields).forEach(([key, resource]) => {
       if (typeof resource !== 'string') {
         return

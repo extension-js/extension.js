@@ -39,7 +39,9 @@ export class CollectContentEntryImports {
             if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
               const keys = Object.keys(entryImports || {})
               const total = keys.reduce(
-                (acc, k) => acc + ((entryImports as any)[k]?.length || 0),
+                (acc, k) =>
+                  acc +
+                  ((entryImports as Record<string, unknown[]>)[k]?.length || 0),
                 0
               )
               console.log(entryImportsSummary(keys.length, total))
