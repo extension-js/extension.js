@@ -6,20 +6,16 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
-import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
   isResourceUnderDirs
 } from '../../../../lib/resource-path'
+import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
-import type {
-  PluginInterface,
-  DevOptions,
-  FilepathList
-} from '../../../../types'
 
 export class AddContentScriptWrapper {
   public static getBridgeScripts(

@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, WebpackError} from '@rspack/core'
-import * as messages from './messages'
+import {type Compilation, WebpackError} from '@rspack/core'
 import {stripBom} from '../../lib/parse-json-safe'
+import * as messages from './messages'
 
 export function isCriticalJsonFeature(feature: string): boolean {
   return (

@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type Manifest, type DevOptions} from '../../../types'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import type {DevOptions, Manifest} from '../../../types'
 
 function isGeckoBrowser(browser: DevOptions['browser']): boolean {
   // Canonical classification covers firefox + forks (waterfox, librewolf) and

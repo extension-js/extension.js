@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -294,7 +294,7 @@ describe('EmitFile step', () => {
     expect(e).toContain('/abs/assets/missing.png')
   })
 
-  it('shows public-root hint only for extension-root absolute (leading \/) paths', async () => {
+  it('shows public-root hint only for extension-root absolute (leading /) paths', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 

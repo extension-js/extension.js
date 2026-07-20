@@ -10,7 +10,7 @@
 // https://github.com/awesome-webextension/webpack-target-webextension
 // Released under the MIT License.
 
-import {type Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 
 const basic = [
   `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {} })()`,

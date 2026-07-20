@@ -6,15 +6,15 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
-import rspack, {sources, Compiler, Compilation} from '@rspack/core'
-import * as messages from '../messages'
-import {
-  setOriginalManifestContent,
-  setCurrentManifestContent
-} from '../manifest-lib/manifest'
-import {type PluginInterface} from '../../../types'
 import {stripBom} from '../../../lib/parse-json-safe'
+import type {PluginInterface} from '../../../types'
+import {
+  setCurrentManifestContent,
+  setOriginalManifestContent
+} from '../manifest-lib/manifest'
+import * as messages from '../messages'
 
 export class EmitManifest {
   public readonly manifestPath: string

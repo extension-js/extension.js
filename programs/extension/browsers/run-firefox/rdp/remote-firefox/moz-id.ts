@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {MessagingClient} from './messaging-client'
+import type {MessagingClient} from './messaging-client'
 
 // Pure core — no RDP client, unit-testable. Pick the `moz-extension://` host to
 // show in the dev banner from the set of open target URLs.
@@ -28,7 +28,9 @@ export function pickMozExtensionHost(
   const hosts = targetUrls
     .map((u) => {
       try {
-        return u && u.startsWith('moz-extension://') ? new URL(u).host : undefined
+        return u && u.startsWith('moz-extension://')
+          ? new URL(u).host
+          : undefined
       } catch {
         return undefined
       }

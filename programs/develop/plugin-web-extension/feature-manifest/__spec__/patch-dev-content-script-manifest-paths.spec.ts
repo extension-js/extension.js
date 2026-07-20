@@ -1,8 +1,8 @@
-import {Compilation} from '@rspack/core'
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
+import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {patchDevContentScriptManifestPaths} from '../steps/patch-dev-content-script-manifest-paths'
 
 // Regression for the 3.14 → 3.15 content-script CSS purge gap. Dev mode runs

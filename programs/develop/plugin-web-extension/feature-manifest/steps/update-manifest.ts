@@ -6,28 +6,29 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import * as path from 'path'
-import {Compiler, Compilation, sources, WebpackError} from '@rspack/core'
-import {getManifestOverrides} from '../manifest-overrides'
+import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {
-  getManifestContent,
   buildCanonicalManifest,
+  getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
-import {PluginInterface, Manifest, DevOptions} from '../../../types'
+import {getManifestOverrides} from '../manifest-overrides'
 
 // A single `content_scripts` entry as carried by the canonical `Manifest`
 // type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
+
 import * as messages from '../messages'
+import {patchChromiumBackground} from './patch-chromium-background'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
-import {patchChromiumBackground} from './patch-chromium-background'
 
 export class UpdateManifest {
   public readonly manifestPath: string

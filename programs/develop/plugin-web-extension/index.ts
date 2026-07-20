@@ -6,24 +6,21 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
-
-// Plugins
-import {ManifestPlugin} from './feature-manifest'
-import {HtmlPlugin} from './feature-html'
-import {ScriptsPlugin as ScriptsPlugin} from './feature-scripts'
-import {LocalesPlugin} from './feature-locales'
-import {JsonPlugin} from './feature-json'
-import {IconsPlugin} from './feature-icons'
-import {WebResourcesPlugin} from './feature-web-resources'
-import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
-
 // Business logic modules
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
-
 // Types
-import type {PluginInterface, FilepathList, DevOptions} from '../types'
+import type {DevOptions, FilepathList, PluginInterface} from '../types'
+import {HtmlPlugin} from './feature-html'
+import {IconsPlugin} from './feature-icons'
+import {JsonPlugin} from './feature-json'
+import {LocalesPlugin} from './feature-locales'
+// Plugins
+import {ManifestPlugin} from './feature-manifest'
+import {ScriptsPlugin} from './feature-scripts'
+import {WebResourcesPlugin} from './feature-web-resources'
+import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
 
 export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'

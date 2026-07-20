@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {type ChildProcess, spawn} from 'child_process'
 import * as fs from 'fs'
-import {spawn, ChildProcess} from 'child_process'
 import {
   hasGuiDisplay,
   isWslEnv,

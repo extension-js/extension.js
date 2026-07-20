@@ -14,8 +14,7 @@ import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
 import * as messages from '../../../browsers-lib/messages'
 import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
-import type {CompilationLike} from '../../../browsers-types'
-import {type PluginInterface} from '../../../browsers-types'
+import type {CompilationLike, PluginInterface} from '../../../browsers-types'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
 import {
   computeCandidateAddonPaths,
@@ -196,7 +195,7 @@ export class RemoteFirefox {
     const port = this.resolveRdpPort(compilation)
     const client = await this.connectClient(port)
     // Fetch addonsActor with retries via helper
-    let addonsActor: string | undefined = await getAddonsActorWithRetry(
+    const addonsActor: string | undefined = await getAddonsActorWithRetry(
       client,
       this.cachedAddonsActor
     )

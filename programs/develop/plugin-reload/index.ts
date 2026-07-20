@@ -6,25 +6,25 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
-import {SetupReloadStrategy} from './steps/setup-reload-strategy'
-import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
-import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
+import type {DevOptions, PluginInterface} from '../types'
 import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
+import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
-import type {PluginInterface, DevOptions} from '../types'
+import {SetupReloadStrategy} from './steps/setup-reload-strategy'
+import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
 export {
-  type ReloadType,
-  type ReloadInstruction,
-  type SourceFeatureIndex,
-  formatReloadContextLabel,
-  pageContextFromSources,
   buildSourceFeatureIndex,
   classifyReloadFromSources,
-  readContentScriptCount
+  formatReloadContextLabel,
+  pageContextFromSources,
+  type ReloadInstruction,
+  type ReloadType,
+  readContentScriptCount,
+  type SourceFeatureIndex
 } from './classify-reload'
 
 export {

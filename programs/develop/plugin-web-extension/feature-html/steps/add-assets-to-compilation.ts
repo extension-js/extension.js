@@ -6,25 +6,25 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler, sources, Compilation} from '@rspack/core'
+import type {FilepathList, PluginInterface} from '../../../types'
+import {reportToCompilation} from '../../shared/compilation-issues'
+import {resolveRootAbsoluteRef} from '../../shared/paths'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {
-  getAssetsFromHtml,
-  isFromIncludeList,
-  getFilePath,
-  isHttpLike,
-  isSpecialScheme,
   cleanLeading,
   computePosixRelative,
+  getAssetsFromHtml,
+  getFilePath,
+  isFromIncludeList,
+  isHttpLike,
+  isSpecialScheme,
   joinEmittedAssetName,
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
-import {reportToCompilation} from '../../shared/compilation-issues'
-import {type FilepathList, type PluginInterface} from '../../../types'
-import {resolveRootAbsoluteRef} from '../../shared/paths'
 
 function warnRemoteResourceReferences(params: {
   compilation: Compilation

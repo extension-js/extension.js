@@ -6,13 +6,13 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compilation, Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, Compilation} from '@rspack/core'
-import * as messages from './messages'
-import {pushCompilationError} from './compilation-error'
 import {stripBom} from '../../lib/parse-json-safe'
+import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
+import * as messages from './messages'
 
 export function validateLocales(
   compiler: Compiler,

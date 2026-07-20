@@ -6,14 +6,14 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
+import {stripBom} from '../../../lib/parse-json-safe'
+import type {FilepathList, PluginInterface} from '../../../types'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
-import {reportToCompilation} from '../../shared/compilation-issues'
-import {type FilepathList, type PluginInterface} from '../../../types'
-import {stripBom} from '../../../lib/parse-json-safe'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string
@@ -135,8 +135,7 @@ function manifestFieldForHtmlFeature(
 
   const has = (key: string) =>
     Object.keys(manifest).some(
-      (manifestKey) =>
-        manifestKey === key || manifestKey.endsWith(`:${key}`)
+      (manifestKey) => manifestKey === key || manifestKey.endsWith(`:${key}`)
     )
 
   if (featureName.startsWith('chrome_url_overrides/')) {

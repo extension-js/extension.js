@@ -8,7 +8,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import {InstallBrowserTarget} from './browser-target'
+import type {InstallBrowserTarget} from './browser-target'
 
 export function resolveBrowsersCacheRoot(): string {
   const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()

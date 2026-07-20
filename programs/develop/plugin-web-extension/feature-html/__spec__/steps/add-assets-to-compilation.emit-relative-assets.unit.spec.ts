@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 function makeCompilation() {
@@ -13,7 +13,7 @@ function makeCompilation() {
     errors: [],
     warnings: [] as any[],
     hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: function (name: string, src: any) {
+    emitAsset: (name: string, src: any) => {
       assets[name] = {
         source: {source: () => (src.source ? src.source() : src)}
       }

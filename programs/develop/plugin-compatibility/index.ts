@@ -6,11 +6,11 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═════╝ ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type Compiler} from '@rspack/core'
-import {PolyfillPlugin} from './feature-polyfill'
-import type {PluginInterface, DevOptions} from '../types'
+import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
+import {PolyfillPlugin} from './feature-polyfill'
 
 export class CompatibilityPlugin {
   public static readonly name: string = 'plugin-compatibility'

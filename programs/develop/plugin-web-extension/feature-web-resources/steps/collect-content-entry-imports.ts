@@ -6,11 +6,11 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, Compiler} from '@rspack/core'
-import {collectContentScriptEntryImports} from '../collect-entry-imports'
+import {Compilation, type Compiler} from '@rspack/core'
 import type {FilepathList} from '../../../types'
-import {getSharedFor} from '../web-resources-lib/shared'
+import {collectContentScriptEntryImports} from '../collect-entry-imports'
 import {entryImportsSummary} from '../web-resources-lib/messages'
+import {getSharedFor} from '../web-resources-lib/shared'
 
 export class CollectContentEntryImports {
   public readonly includeList?: FilepathList

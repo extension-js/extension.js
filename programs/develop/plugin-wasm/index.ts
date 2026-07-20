@@ -6,10 +6,10 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
-import type {PluginInterface, DevOptions} from '../types'
+import * as path from 'path'
+import type {DevOptions, PluginInterface} from '../types'
 
 export class WasmPlugin {
   public static readonly name: string = 'plugin-wasm'

@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 /**
  * `preact-refresh-shim.ts` is the first module in every dev-mode HTML entry
@@ -57,9 +57,7 @@ describe('preact-refresh-shim (dev page)', () => {
   it('does not clobber existing $RefreshReg$ / $RefreshSig$', async () => {
     const realReg = function realRefreshReg() {}
     const realSig = function realRefreshSig() {
-      return function (type: unknown) {
-        return type
-      }
+      return (type: unknown) => type
     }
     ;(globalThis as any).$RefreshReg$ = realReg
     ;(globalThis as any).$RefreshSig$ = realSig

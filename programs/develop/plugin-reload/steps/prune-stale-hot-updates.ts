@@ -6,9 +6,9 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
 
 const HOT_DIR = 'hot'
 
@@ -55,9 +55,7 @@ export class PruneStaleHotUpdates {
         // compare hot-relative posix paths.
         const pruneDir = (dir: string, relPrefix: string) => {
           for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-            const rel = relPrefix
-              ? `${relPrefix}/${entry.name}`
-              : entry.name
+            const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
             const absolute = path.join(dir, entry.name)
             if (entry.isDirectory()) {
               pruneDir(absolute, rel)

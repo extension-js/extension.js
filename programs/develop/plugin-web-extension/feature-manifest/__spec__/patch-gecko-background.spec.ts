@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../types'
 import {patchGeckoBackground} from '../steps/patch-gecko-background'
-import {type Manifest} from '../../../types'
 
 const sw = (extra: Record<string, unknown> = {}): Manifest =>
   ({

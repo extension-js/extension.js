@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type FilepathList, type Manifest} from '../../../../types'
+import type {FilepathList, Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
 function normalizeOutputPath(originalPath: string) {
@@ -16,7 +16,7 @@ function normalizeOutputPath(originalPath: string) {
 
   // Preserve WAR glob patterns verbatim. Normalizing away a leading slash would
   // change the user's intended match from `/*.ext` to `*.ext`.
-  if (/[*?\[\]{}]/.test(unix)) {
+  if (/[*?[\]{}]/.test(unix)) {
     return unix
   }
 

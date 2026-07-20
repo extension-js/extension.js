@@ -38,8 +38,8 @@ export function getExtensionOutputPath(
   // then pick the last remaining entry (user extension is appended last).
   const userCandidates = entries.filter(
     (p) =>
-      !/[\\\/]extension-js-devtools[\\\/]/.test(p) &&
-      !/[\\\/]extension-js-theme[\\\/]/.test(p)
+      !/[\\/]extension-js-devtools[\\/]/.test(p) &&
+      !/[\\/]extension-js-theme[\\/]/.test(p)
   )
 
   return (userCandidates.length ? userCandidates : entries).slice(-1)[0]
