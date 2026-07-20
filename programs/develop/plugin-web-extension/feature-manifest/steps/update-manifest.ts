@@ -8,11 +8,13 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
+import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
   buildCanonicalManifest,
   getManifestContent,
@@ -165,6 +167,21 @@ export class UpdateManifest {
                 messages.fatalManifestShapeFixed(fix.field, fix.detail)
               ) as Error & {file?: string; name?: string}
               warn.name = 'ManifestFatalShapeWarning'
+              warn.file = 'manifest.json'
+              compilation.warnings.push(warn)
+            }
+
+            // Store-readiness hint for AMO submissions: production artifacts
+            // only, so dev recompiles don't repeat it on every save.
+            if (
+              compiler.options.mode === 'production' &&
+              isGeckoBasedBrowser(String(this.browser)) &&
+              missingGeckoDataCollectionPermissions(patchedManifest)
+            ) {
+              const warn = new WebpackError(
+                messages.missingGeckoDataCollectionPermissions()
+              ) as Error & {file?: string; name?: string}
+              warn.name = 'AmoDataCollectionWarning'
               warn.file = 'manifest.json'
               compilation.warnings.push(warn)
             }

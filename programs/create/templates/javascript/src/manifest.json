@@ -2,6 +2,13 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "version": "1.0.0",
   "name": "JavaScript Sidebar Example",
   "description": "JavaScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
