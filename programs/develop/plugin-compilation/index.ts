@@ -6,7 +6,7 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {type Compiler, DefinePlugin} from '@rspack/core'
+import {type Compiler, DefinePlugin, type WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
 import type {PluginInterface} from '../types'
@@ -57,13 +57,14 @@ export class CompilationPlugin {
       'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted',
       'Accessing import.meta directly is unsupported'
     ]
-    ignoreWarnings.push((warning: any) => {
+    ignoreWarnings.push((warning) => {
+      const w = warning as InstanceType<typeof WebpackError> & {
+        module?: {resource?: unknown; userRequest?: unknown}
+      }
       try {
-        const message = String((warning && (warning.message || warning)) || '')
+        const message = String((w && (w.message || w)) || '')
         const modulePath = String(
-          (warning?.module &&
-            (warning.module.resource || warning.module.userRequest)) ||
-            ''
+          (w?.module && (w.module.resource || w.module.userRequest)) || ''
         )
         const isThirdParty = /[\\/]node_modules[\\/]/.test(modulePath)
         if (!isThirdParty) return false
@@ -82,7 +83,9 @@ export class CompilationPlugin {
   public apply(compiler: Compiler): void {
     this.applyIgnoreWarnings(compiler)
 
-    new CaseSensitivePathsPlugin().apply(compiler as any)
+    new CaseSensitivePathsPlugin().apply(
+      compiler as unknown as Parameters<CaseSensitivePathsPlugin['apply']>[0]
+    )
 
     new EnvPlugin({
       manifestPath: this.manifestPath,
@@ -104,8 +107,8 @@ export class CompilationPlugin {
     // Rspack internals required by builtin plugins.)
     try {
       const hasRspackInternals =
-        typeof (compiler as any).__internal__registerBuiltinPlugin ===
-        'function'
+        typeof (compiler as {__internal__registerBuiltinPlugin?: unknown})
+          .__internal__registerBuiltinPlugin === 'function'
       if (hasRspackInternals) {
         new DefinePlugin({
           'process.env.NODE_ENV': JSON.stringify(

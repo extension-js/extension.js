@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
+import type {AnyModule} from '../../lib/optional-deps-resolver'
 import * as messages from './messages'
 
 let userMessageDelivered = false
@@ -37,7 +38,7 @@ export function resolveLoaderConfigPath(
 export async function loadLoaderOptions(
   projectPath: string,
   framework: 'vue' | 'svelte'
-): Promise<any> {
+): Promise<AnyModule> {
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {

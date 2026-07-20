@@ -129,7 +129,7 @@ export async function maybeUseSvelte(
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {
-    apply(compiler: any) {
+    apply(compiler: import('@rspack/core').Compiler) {
       const existingMainFields = compiler.options.resolve?.mainFields || []
       const existingExtensions = compiler.options.resolve?.extensions || []
       const existingAlias = compiler.options.resolve?.alias || {}

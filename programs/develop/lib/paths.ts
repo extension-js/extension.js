@@ -229,7 +229,7 @@ export function ensureDirSync(dir: AbsolutePath) {
 }
 
 export function devtoolsEngineFor(
-  browser: any
+  browser: unknown
 ): 'chrome' | 'edge' | 'chromium' | 'firefox' {
   switch (browser) {
     case 'chrome':

@@ -16,7 +16,7 @@ import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
-) {
+): Manifest {
   // Safari Web Extensions are MV3 and are produced by converting a Chrome-shaped
   // extension (safari-web-extension-converter consumes the chromium build
   // output). Safari/webkit are intentionally NOT chromium-based for launch
@@ -49,15 +49,15 @@ export function filterKeysForThisBrowser(
     // safari/webkit prefixes on safari-family targets
     (isSafariTarget && webkitPrefixes.has(prefix))
 
-  const resolve = (node: any): any => {
+  const resolve = (node: unknown): unknown => {
     if (Array.isArray(node)) {
       return node.map((item) => resolve(item))
     }
 
     if (node && typeof node === 'object') {
-      const result: Record<string, any> = {}
-      const familyMatches: Record<string, any> = {}
-      const specificMatches: Record<string, any> = {}
+      const result: Record<string, unknown> = {}
+      const familyMatches: Record<string, unknown> = {}
+      const specificMatches: Record<string, unknown> = {}
 
       for (const [key, value] of Object.entries(node)) {
         const indexOfColon = key.indexOf(':')
@@ -94,5 +94,5 @@ export function filterKeysForThisBrowser(
     return node
   }
 
-  return resolve(manifest)
+  return resolve(manifest) as Manifest
 }

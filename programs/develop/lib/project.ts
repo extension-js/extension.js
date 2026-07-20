@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
 import {findNearestPackageJson, validatePackageJson} from './package-json'
-import {parseJsonSafe} from './parse-json-safe'
+import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
 
 export interface ProjectStructure {
@@ -429,7 +429,9 @@ export async function getProjectStructure(
   // (no manifest_version plus web-app-only keys) and re-resolve to a real
   // extension manifest elsewhere in the project, or fail with a clear
   // message instead of crashing on PWA-shaped fields downstream.
-  const readManifestObject = (candidatePath: string): any | undefined => {
+  const readManifestObject = (
+    candidatePath: string
+  ): ParsedJson | undefined => {
     try {
       const parsed = parseJsonSafe(fs.readFileSync(candidatePath))
       if (

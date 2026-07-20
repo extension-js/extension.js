@@ -8,7 +8,8 @@
 
 // Guard dev-server client reload in Worker context
 try {
-  const loc: any = (globalThis as any)?.location
+  const loc = (globalThis as {location?: {reload?: unknown}} | undefined)
+    ?.location as {reload?: () => void} | undefined
 
   if (loc && typeof loc.reload !== 'function') {
     loc.reload = () => {}

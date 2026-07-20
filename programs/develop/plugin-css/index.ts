@@ -143,13 +143,14 @@ export class CssPlugin {
     const roots = [path.join(projectPath, 'public'), manifestDir]
     const assetExt =
       /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
-    let compilation: any = null
+    let compilation: import('@rspack/core').Compilation | null = null
     const warned = new Set<string>()
 
     // Minimal/mock compilers in specs don't carry these hooks.
     if (
       !compiler.hooks?.thisCompilation?.tap ||
-      !(compiler.hooks as any)?.normalModuleFactory?.tap
+      !(compiler.hooks as {normalModuleFactory?: {tap?: unknown}})
+        ?.normalModuleFactory?.tap
     ) {
       return
     }
@@ -161,10 +162,14 @@ export class CssPlugin {
 
     compiler.hooks.normalModuleFactory.tap(
       `${CssPlugin.name}:dead-url`,
-      (nmf: any) => {
+      (nmf) => {
         nmf.hooks.beforeResolve.tap(
           `${CssPlugin.name}:dead-url`,
-          (data: any) => {
+          (data: {
+            contextInfo?: {issuer?: unknown}
+            context?: unknown
+            request?: unknown
+          }) => {
             const issuer = String(data?.contextInfo?.issuer || '').split('?')[0]
             if (!/\.(css|scss|sass|less)$/i.test(issuer)) return
 
@@ -185,7 +190,7 @@ export class CssPlugin {
               !isRootRef && !isRelativeRef && assetExt.test(req)
             if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
 
-            const issuerDir = data?.context || path.dirname(issuer)
+            const issuerDir = String(data?.context || path.dirname(issuer))
             const candidates = isRootRef
               ? roots.map((root) => path.join(root, req.slice(1)))
               : [
@@ -206,8 +211,11 @@ export class CssPlugin {
                   raw
                 )
               )
-              ;(warning as any).file = path.relative(manifestDir, issuer)
-              compilation.warnings.push(warning)
+              ;(warning as Error & {file?: string}).file = path.relative(
+                manifestDir,
+                issuer
+              )
+              compilation?.warnings.push(warning)
             }
             return false
           }

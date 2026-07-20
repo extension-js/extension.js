@@ -9,13 +9,14 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import type {ParsedJson} from './parse-json-safe'
 import {canonicalizeDir, isResourceUnderDirs} from './resource-path'
 
 function normalizePath(filePath: string): string {
   return filePath.replace(/\\/g, '/')
 }
 
-function tryReadJson(filePath: string): any | undefined {
+function tryReadJson(filePath: string): ParsedJson | undefined {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
   } catch {
