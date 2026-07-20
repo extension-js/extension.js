@@ -74,8 +74,8 @@ export function patchHtml(
   // a <script src> handlebars) must find the bundle already executed. When
   // the last original tag already sits at the end of body this changes
   // nothing.
-  const bundledScriptNodes: any[] = []
-  let bodyNode: any
+  const bundledScriptNodes: parse5utilities.ParsedNode[] = []
+  let bodyNode: Parameters<typeof parse5utilities.append>[0] | undefined
 
   for (const node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -97,7 +97,7 @@ export function patchHtml(
           const excludedFilePath =
             path.posix.join('/', cleanPath) + (search || '') + (hash || '')
 
-          let thisChildNode: any = childNode
+          let thisChildNode: parse5utilities.ParsedNode = childNode
 
           switch (assetType) {
             // For script types, we have two cases:
@@ -116,8 +116,16 @@ export function patchHtml(
                 )
               } else {
                 if (!firstScriptAttrs) {
-                  firstScriptAttrs = Array.isArray((thisChildNode as any).attrs)
-                    ? [...(thisChildNode as any).attrs]
+                  firstScriptAttrs = Array.isArray(
+                    (thisChildNode as {attrs?: unknown}).attrs
+                  )
+                    ? [
+                        ...(
+                          thisChildNode as {
+                            attrs: Array<{name: string; value: string}>
+                          }
+                        ).attrs
+                      ]
                     : []
                 }
                 bundledScriptNodes.push(thisChildNode)
@@ -135,11 +143,21 @@ export function patchHtml(
                 )
               } else {
                 if (!firstLinkAttrs) {
-                  firstLinkAttrs = Array.isArray((thisChildNode as any).attrs)
-                    ? [...(thisChildNode as any).attrs]
+                  firstLinkAttrs = Array.isArray(
+                    (thisChildNode as {attrs?: unknown}).attrs
+                  )
+                    ? [
+                        ...(
+                          thisChildNode as {
+                            attrs: Array<{name: string; value: string}>
+                          }
+                        ).attrs
+                      ]
                     : []
                 }
-                thisChildNode = parse5utilities.remove(thisChildNode)
+                thisChildNode = parse5utilities.remove(
+                  thisChildNode as Parameters<typeof parse5utilities.remove>[0]
+                )
                 hasCssEntry = true
               }
               break
@@ -185,7 +203,7 @@ export function patchHtml(
       }
 
       if (htmlChildNode.nodeName === 'body') {
-        bodyNode = htmlChildNode
+        bodyNode = htmlChildNode as Parameters<typeof parse5utilities.append>[0]
       }
     }
 
@@ -197,9 +215,13 @@ export function patchHtml(
         // rest. Execution order relative to inline scripts and preserved
         // (root-absolute) tags stays the author's.
         for (const scriptNode of bundledScriptNodes.slice(0, -1)) {
-          parse5utilities.remove(scriptNode)
+          parse5utilities.remove(
+            scriptNode as Parameters<typeof parse5utilities.remove>[0]
+          )
         }
-        const lastScriptNode = bundledScriptNodes[bundledScriptNodes.length - 1]
+        const lastScriptNode = bundledScriptNodes[
+          bundledScriptNodes.length - 1
+        ] as ReturnType<typeof parse5utilities.createNode>
         const propagateScriptAttrs = new Set(['type', 'defer', 'async'])
         lastScriptNode.attrs = [
           {name: 'src', value: getFilePath(feature, '.js', true)},
@@ -244,7 +266,7 @@ export function patchHtmlNested(
           const absolutePath = path.resolve(htmlDir, cleanPath)
           // public-root absolute paths are preserved; others are emitted or linked
 
-          let thisChildNode: any = childNode
+          let thisChildNode: parse5utilities.ParsedNode = childNode
 
           switch (assetType) {
             case 'script': {

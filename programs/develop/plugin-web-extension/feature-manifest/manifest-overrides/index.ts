@@ -50,7 +50,7 @@ export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
     ...pickBackground(mv3)
   }
 
-  const merged: Record<string, any> = {
+  const merged: Record<string, unknown> = {
     ...manifestContent,
     ...omit(common, 'background'),
     ...omit(mv2, 'background'),

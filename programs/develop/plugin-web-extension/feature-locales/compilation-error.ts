@@ -16,7 +16,9 @@ export function pushCompilationError(
   file?: string
 ): void {
   // Unit tests may pass a mocked compiler without `rspack`.
-  const ErrorConstructor = (compiler as any)?.rspack?.WebpackError || Error
+  const ErrorConstructor =
+    (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)?.rspack
+      ?.WebpackError || Error
   const error = new ErrorConstructor(message) as Error & {file?: string}
   error.name = name
 

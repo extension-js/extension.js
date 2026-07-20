@@ -156,7 +156,7 @@ export class AddScripts {
     const newEntries: Record<string, EntryObject> = {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
-    let manifestJson: any = {}
+    let manifestJson: {background?: {type?: unknown}} = {}
     try {
       manifestJson = JSON.parse(
         stripBom(fs.readFileSync(this.manifestPath, 'utf8'))

@@ -46,8 +46,12 @@ export default function ensureHMRForScripts(
   }
 
   const options = this.getOptions()
-  const resourcePath = String((this as any).resourcePath || '')
-  const moduleLayer = String((this as any)?._module?.layer || '')
+  const resourcePath = String(
+    (this as {resourcePath?: unknown}).resourcePath || ''
+  )
+  const moduleLayer = String(
+    (this as unknown as {_module?: {layer?: unknown}})?._module?.layer || ''
+  )
 
   try {
     validate(schema, options, {
@@ -100,7 +104,13 @@ export default function ensureHMRForScripts(
         return source
       }
 
-      let issuer = (this as any)?._module?.issuer
+      interface IssuerLike {
+        resource?: unknown
+        userRequest?: unknown
+        issuer?: IssuerLike | null
+      }
+      let issuer = (this as unknown as {_module?: {issuer?: IssuerLike | null}})
+        ?._module?.issuer
 
       while (issuer) {
         const issuerResource = String(
@@ -144,7 +154,9 @@ export default function ensureHMRForScripts(
   // or the injected guard itself is a parse error that fails the whole dev
   // build. Strict ESM parses provide no `module` binding and keep
   // `import.meta.webpackHot`.
-  const moduleType = String((this as any)?._module?.type || '')
+  const moduleType = String(
+    (this as unknown as {_module?: {type?: unknown}})?._module?.type || ''
+  )
 
   if (moduleType === 'javascript/dynamic') {
     return `${buildReloadCode('module.hot')}${source}`

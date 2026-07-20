@@ -18,7 +18,7 @@ import {
 } from './utils'
 
 export function handleStaticAsset(
-  compilation: any,
+  compilation: unknown,
   htmlEntry: string,
   htmlDir: string,
   absolutePath: string,
@@ -29,7 +29,7 @@ export function handleStaticAsset(
   baseHref: string | undefined,
   includeList: FilepathList,
   extname: string,
-  childNode: any
+  childNode: parse5utilities.ParsedNode
 ) {
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
