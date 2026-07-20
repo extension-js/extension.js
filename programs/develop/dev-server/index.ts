@@ -24,6 +24,7 @@ import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
+  ensureSessionArtifactsIgnoreFile,
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
@@ -423,6 +424,9 @@ export async function devServer(
   // "distPath depends on how the CLI was resolved" report. Derive it once.
   const primaryDistPath = getDistPath(asAbsolute(packageJsonDir), browserName)
   const bridgeLogsAbsPath = sessionLogsPath(packageJsonDir, browserName)
+  // §73 E22: the session root self-ignores so a project with no .gitignore
+  // can't commit the managed profile (cookies/logins) or session logs.
+  ensureSessionArtifactsIgnoreFile(packageJsonDir)
   // The ready contract publishes it project-relative.
   const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
   const bridgeLogFile = new LogsFileWriter({

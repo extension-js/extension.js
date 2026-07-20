@@ -364,3 +364,60 @@ describe('profile-options contract (both launchers)', () => {
     )
   })
 })
+
+describe('session-root ignore guard (§73 E22)', () => {
+  let scratch: string
+
+  beforeEach(() => {
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-e22-guard-'))
+  })
+
+  afterEach(() => {
+    try {
+      fs.rmSync(scratch, {recursive: true, force: true})
+    } catch {}
+  })
+
+  function ignoreFileFor(out: string) {
+    return path.join(path.dirname(out), 'extension-js', '.gitignore')
+  }
+
+  it('a managed profile launch drops a self-ignoring .gitignore in the session root', () => {
+    const out = path.join(scratch, 'project', 'dist', 'chrome')
+    chromiumConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+
+    const content = fs.readFileSync(ignoreFileFor(out), 'utf8')
+    expect(content).toContain('*')
+    expect(content).toContain('never be committed')
+  })
+
+  it('respects an existing (user-edited) ignore file', () => {
+    const out = path.join(scratch, 'project', 'dist', 'chrome')
+    const ignoreFile = ignoreFileFor(out)
+    fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
+    fs.writeFileSync(ignoreFile, 'profiles/\n')
+
+    chromiumConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+
+    expect(fs.readFileSync(ignoreFile, 'utf8')).toBe('profiles/\n')
+  })
+
+  it('an explicit profile writes nothing under dist', () => {
+    const out = path.join(scratch, 'project', 'dist', 'chrome')
+    const explicit = path.join(scratch, 'my-profile')
+    fs.mkdirSync(explicit, {recursive: true})
+    chromiumConfig(makeCompilation(out), {
+      extension: '/ext',
+      browser: 'chrome',
+      profile: explicit
+    } as any)
+
+    expect(fs.existsSync(ignoreFileFor(out))).toBe(false)
+  })
+})

@@ -85,6 +85,38 @@ function hasCopyFrom(
 }
 
 /**
+ * §73 E22: a managed profile is a FULL browser profile (Cookies, History,
+ * Login Data) materialized under `dist/extension-js/`. Scaffolds ignore
+ * `dist`, but adopted projects often have no root .gitignore — committing
+ * that tree ships personal data. The session root defends itself: a
+ * `.gitignore` containing `*` inside `dist/extension-js/` hides the whole
+ * directory (including the ignore file) from git regardless of project
+ * ignore rules, while `dist/<browser>` build output stays committable.
+ * Written once; an existing (possibly user-edited) file is respected.
+ * Mirrors `ensureSessionArtifactsIgnoreFile` in extension-develop's
+ * session-paths owner module — this copy covers run/preview flows that
+ * never start the dev server. Best-effort: never throws.
+ */
+export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
+  try {
+    // managedBaseDir = <distRoot>/extension-js/profiles/<browser>-profile
+    const sessionRoot = path.dirname(path.dirname(managedBaseDir))
+    const ignoreFile = path.join(sessionRoot, '.gitignore')
+    if (fs.existsSync(ignoreFile)) return
+    fs.mkdirSync(sessionRoot, {recursive: true})
+    fs.writeFileSync(
+      ignoreFile,
+      '# Extension.js session state: managed browser profiles (cookies, history,\n' +
+        '# logins), session logs and machine contracts. Personal data lives here —\n' +
+        '# this directory must never be committed or shipped.\n' +
+        '*\n'
+    )
+  } catch {
+    // A hygiene guard must never break a browser launch.
+  }
+}
+
+/**
  * Copy the contents of `source` into `dest`, recursively. Used to seed a managed
  * profile from `copyFromProfile`. No-op (best effort) when `source` is missing.
  */
@@ -152,6 +184,7 @@ export function resolveProfileConfig(
     !fs.existsSync(profilePath) || fs.readdirSync(profilePath).length === 0
 
   fs.mkdirSync(profilePath, {recursive: true})
+  ensureProfileRootIgnoreFile(managedBaseDir)
   if (!persisted) {
     // Only ephemeral, non-kept profiles are reclaimed on browser exit. The
     // marker is what `removeManagedEphemeralProfile` keys off of, so a persisted
