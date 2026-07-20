@@ -73,10 +73,11 @@ export function cssParseErrorShippedVerbatim(
   resourcePath: string,
   error: unknown
 ) {
+  const errObj = error as {reason?: unknown; message?: unknown} | undefined
   const reason =
-    error && typeof error === 'object' && 'reason' in (error as any)
-      ? String((error as any).reason)
-      : String((error as any)?.message || error)
+    error && typeof error === 'object' && 'reason' in error
+      ? String(errObj?.reason)
+      : String(errObj?.message || error)
   return [
     `${colors.yellow('⏵⏵⏵')} Invalid CSS in ${colors.underline(resourcePath)}, ${reason}.`,
     'Browsers skip invalid rules, so the stylesheet was copied as-is instead of failing the build.',

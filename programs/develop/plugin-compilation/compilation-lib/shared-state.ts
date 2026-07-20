@@ -32,7 +32,7 @@ let listenerInstalled = false
 function ensureBannerListener() {
   if (listenerInstalled) return
   listenerInstalled = true
-  ;(process as any).on(BANNER_PRINTED_EVENT, () => {
+  process.on(BANNER_PRINTED_EVENT, () => {
     markBannerPrinted()
   })
 }

@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import colors from 'pintor'
 import {hasDependency} from '../../lib/has-dependency'
+import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import {readProjectDependencies} from '../../lib/project-manifest'
 import type {StyleLoaderOptions} from '../common-style-loaders'
@@ -151,8 +152,8 @@ async function loadUserPostCssConfigObject(
   configPath: string,
   projectPath: string,
   mode: string
-): Promise<any | undefined> {
-  let loaded: any
+): Promise<AnyModule | undefined> {
+  let loaded: AnyModule
 
   try {
     if (configPath.endsWith('.postcssrc') || configPath.endsWith('.json')) {
@@ -185,7 +186,7 @@ async function loadUserPostCssConfigObject(
   return loaded && typeof loaded === 'object' ? loaded : undefined
 }
 
-function unwrapDefaultExport(mod: any): any {
+function unwrapDefaultExport(mod: AnyModule): AnyModule {
   return mod && typeof mod === 'object' && 'default' in mod ? mod.default : mod
 }
 
@@ -200,7 +201,7 @@ function resolveConfigPluginModule(
   name: string,
   projectPath: string,
   configDir: string | undefined
-): any | undefined {
+): AnyModule | undefined {
   const bases = Array.from(
     new Set([projectPath, configDir || ''].filter(Boolean))
   )
@@ -225,19 +226,19 @@ function resolveConfigPluginModule(
 // shape is not understood, so the caller can fall back to postcss-loader's
 // own config loading.
 function resolveConfigPluginList(
-  rawPlugins: any,
+  rawPlugins: AnyModule,
   ctx: {
     projectPath: string
     configDir?: string
-    tailwindInstance?: any
+    tailwindInstance?: AnyModule
     // When the config text references Tailwind as a direct function value,
     // pre-instantiated entries may be legacy creators that throw at runtime;
     // the legacy bypass path knows how to rescue those, so bail out of
     // self-loading when function entries appear under that signal.
     bailOnFunctionEntries?: boolean
   }
-): {plugins: any[]; unresolved: string[]} | undefined {
-  const entries: Array<[any, any]> = []
+): {plugins: AnyModule[]; unresolved: string[]} | undefined {
+  const entries: Array<[AnyModule, AnyModule]> = []
 
   if (Array.isArray(rawPlugins)) {
     for (const entry of rawPlugins) {
@@ -252,7 +253,7 @@ function resolveConfigPluginList(
     return undefined
   }
 
-  const plugins: any[] = []
+  const plugins: AnyModule[] = []
   const unresolved: string[] = []
   let tailwindUsed = false
 
@@ -308,10 +309,10 @@ function resolveConfigPluginList(
   return {plugins, unresolved}
 }
 
-function tryLoadCjsConfig(configPath: string): any | undefined {
+function tryLoadCjsConfig(configPath: string): AnyModule | undefined {
   try {
     const source = fs.readFileSync(configPath, 'utf8')
-    const moduleObj: {exports: any} = {exports: {}}
+    const moduleObj: {exports: AnyModule} = {exports: {}}
     const exportsObj = moduleObj.exports
     const req = createRequire(configPath)
     const fn = new Function(
@@ -329,10 +330,13 @@ function tryLoadCjsConfig(configPath: string): any | undefined {
   }
 }
 
-function normalizeTailwindContentGlobs(config: any, projectPath: string): any {
+function normalizeTailwindContentGlobs(
+  config: AnyModule,
+  projectPath: string
+): AnyModule {
   if (!config || typeof config !== 'object') return config
 
-  const normalizeEntry = (entry: any) => {
+  const normalizeEntry = (entry: AnyModule) => {
     if (typeof entry !== 'string') return entry
 
     if (entry.startsWith('!')) {
@@ -427,7 +431,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
-): Promise<Record<string, any>> {
+): Promise<Record<string, AnyModule>> {
   const userPostCssConfig = findPostCssConfig(projectPath)
   const userConfigMentionsTailwind =
     userConfigMentionsTailwindPlugin(userPostCssConfig)
@@ -440,7 +444,7 @@ export async function maybeUsePostCss(
 
   function getPackageJsonConfig(p: string): {
     hasPostCss: boolean
-    config?: any
+    config?: AnyModule
   } {
     try {
       const raw = fs.readFileSync(path.join(p, 'package.json'), 'utf8')
@@ -470,8 +474,8 @@ export async function maybeUsePostCss(
   // Optionally pre-resolve the Tailwind PostCSS plugin from the project/workspace
   // so postcss-loader never has to require("@tailwindcss/postcss") from the
   // extensionjs cache path when used via npm/npx.
-  let pluginsFromOptions: any[] | undefined
-  let tailwindResolvedInstance: any
+  let pluginsFromOptions: AnyModule[] | undefined
+  let tailwindResolvedInstance: AnyModule
   const shouldInjectTailwindPlugin =
     tailwindConfigured &&
     !pkgHasPostCss &&
@@ -495,7 +499,7 @@ export async function maybeUsePostCss(
         typeof declaredTailwindMajor === 'number' && declaredTailwindMajor < 4
           ? ['tailwindcss', '@tailwindcss/postcss']
           : ['@tailwindcss/postcss', 'tailwindcss']
-      let tailwindMod: any | undefined
+      let tailwindMod: AnyModule | undefined
       let tailwindPluginId: string | undefined
       for (const base of bases) {
         try {
@@ -525,7 +529,7 @@ export async function maybeUsePostCss(
 
         if (typeof tailwindMod === 'function') {
           // Factory form: plugin(options?) -> plugin object
-          let instance: any
+          let instance: AnyModule
 
           try {
             // v4 plugin supports {base}; v3 plugin should receive {config}
@@ -630,9 +634,9 @@ export async function maybeUsePostCss(
   // here, resolve every string plugin against the project (warn and skip the
   // ones that don't resolve anywhere), and bypass postcss-loader's own config
   // loading entirely.
-  let selfResolved: {plugins: any[]; unresolved: string[]} | undefined
+  let selfResolved: {plugins: AnyModule[]; unresolved: string[]} | undefined
   try {
-    let configObject: any
+    let configObject: AnyModule
     if (
       pkgHasPostCss &&
       pkgPostCssConfig &&
@@ -736,7 +740,7 @@ export async function maybeUsePostCss(
   // - signal that PostCSS is in use (via the guards above),
   // - point postcss-loader at the correct project root for config discovery, and
   // - optionally inject a pre-resolved Tailwind plugin instance.
-  const postcssOptions: any = {
+  const postcssOptions: AnyModule = {
     ident: 'postcss',
     cwd: projectPath,
     config:

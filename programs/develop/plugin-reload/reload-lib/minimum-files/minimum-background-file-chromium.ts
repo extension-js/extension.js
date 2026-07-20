@@ -10,7 +10,8 @@
 try {
   // In MV3 Service Worker, self.location is WorkerLocation without reload();
   // Stub it to a no-op to avoid runtime errors from dev-server client.
-  const loc: any = (globalThis as any)?.location
+  const loc = (globalThis as {location?: {reload?: unknown}} | undefined)
+    ?.location as {reload?: () => void} | undefined
 
   if (loc && typeof loc.reload !== 'function') {
     loc.reload = () => {}

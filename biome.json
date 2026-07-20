@@ -11,6 +11,7 @@
       "!templates/**/dist",
       "!templates-artifacts",
       "!**/dist",
+      "!**/.rslib",
       "!**/build",
       "!**/out",
       "!**/coverage",
@@ -52,10 +53,12 @@
   "overrides": [
     {
       "includes": [
-        "programs/develop/plugin-web-extension/**",
+        "programs/develop/**",
         "programs/extension/browsers/run-chromium/cdp/**",
         "programs/extension/browsers/run-firefox/rdp/**",
-        "!**/__spec__/**"
+        "!programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/**",
+        "!**/__spec__/**",
+        "!**/*.spec.ts"
       ],
       "linter": {
         "rules": {

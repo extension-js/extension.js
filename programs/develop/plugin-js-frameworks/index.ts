@@ -13,7 +13,7 @@ import {
   filterKeysForThisBrowser,
   getManifestFieldsData
 } from 'browser-extension-manifest-fields'
-import {parseJsonSafe} from '../lib/parse-json-safe'
+import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
@@ -32,6 +32,24 @@ import {
   isUsingTypeScript
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
+
+// User-authored and default webpack rules arrive in many shapes; this loose
+// view names only the fields the merge/patch helpers probe.
+interface LooseRuleUse {
+  loader?: unknown
+  options?: Record<string, unknown>
+}
+
+interface LooseRuleSetRule {
+  test?: unknown
+  loader?: unknown
+  options?: Record<string, unknown>
+  use?: LooseRuleUse | LooseRuleUse[]
+  oneOf?: unknown
+  rules?: unknown
+  issuerLayer?: unknown
+  [key: string]: unknown
+}
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
@@ -52,11 +70,11 @@ export class JsFrameworksPlugin {
     this.transpilePackages = options.transpilePackages || []
   }
 
-  private findVueLoaderRuleIndices(rules: any[]): number[] {
+  private findVueLoaderRuleIndices(rules: LooseRuleSetRule[]): number[] {
     const indices: number[] = []
     for (let i = 0; i < rules.length; i++) {
-      const rule: any = rules[i]
-      const testStr = String(rule?.test?.toString?.() || rule?.test || '')
+      const rule = rules[i]
+      const testStr = String(rule?.test || '')
       const isVueTest =
         testStr.includes('\\.vue') ||
         testStr.includes('/.vue') ||
@@ -82,7 +100,10 @@ export class JsFrameworksPlugin {
     return indices
   }
 
-  private mergeVueRule(userRule: any, defaultRule: any): any {
+  private mergeVueRule(
+    userRule: LooseRuleSetRule,
+    defaultRule: LooseRuleSetRule
+  ): LooseRuleSetRule {
     const merged = {...userRule}
 
     // Normalize rule to either `loader` + `options` or `use`-based.
@@ -101,13 +122,14 @@ export class JsFrameworksPlugin {
           },
           ...merged.use.slice(1)
         ]
-      } else if (typeof merged.use === 'object') {
+      } else if (typeof merged.use === 'object' && !Array.isArray(merged.use)) {
+        const useObj = merged.use as LooseRuleUse
         merged.use = {
-          ...merged.use,
-          loader: merged.use?.loader || defaultRule?.loader,
+          ...useObj,
+          loader: useObj?.loader || defaultRule?.loader,
           options: {
             ...(defaultRule?.options || {}),
-            ...(merged.use?.options || {})
+            ...(useObj?.options || {})
           }
         }
       }
@@ -122,7 +144,7 @@ export class JsFrameworksPlugin {
     return merged
   }
 
-  private patchReactRefreshRules(rules: any[]) {
+  private patchReactRefreshRules(rules: LooseRuleSetRule[]) {
     for (const rule of rules) {
       if (!rule || typeof rule !== 'object') continue
 
@@ -133,7 +155,7 @@ export class JsFrameworksPlugin {
           : rule.loader
             ? [{loader: rule.loader}]
             : []
-      const hasReactRefreshLoader = uses.some((useEntry: any) =>
+      const hasReactRefreshLoader = uses.some((useEntry) =>
         String(useEntry?.loader || '').includes('react-refresh-loader')
       )
 
@@ -191,12 +213,12 @@ export class JsFrameworksPlugin {
     // Enable SWC sourcemaps whenever the build is expected to emit sourcemaps.
     // - In development we default to on (better DX), unless the user explicitly disables `devtool`.
     // - In production we only enable when the user opts-in via `devtool` (e.g. "hidden-source-map").
-    const devtool = (compiler.options as any).devtool
+    const devtool = (compiler.options as {devtool?: unknown}).devtool
     const wantsSourceMaps =
       devtool !== false && (mode === 'development' || devtool != null)
 
     // Read the manifest once for both content-script detection and target derivation
-    let manifest: any = {}
+    let manifest: ParsedJson = {}
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
     } catch {
@@ -304,15 +326,17 @@ export class JsFrameworksPlugin {
 
     let vueLoadersToAdd = maybeInstallVue?.loaders || []
     if (maybeInstallVue?.loaders?.length) {
-      const vueRuleIndices = this.findVueLoaderRuleIndices(existingRules)
+      const vueRuleIndices = this.findVueLoaderRuleIndices(
+        existingRules as LooseRuleSetRule[]
+      )
       if (vueRuleIndices.length > 0) {
         // Merge our defaults (and any `vue.loader.*` customOptions) into the
         // user's first vue-loader rule, and remove other vue-loader rules.
         const primary = vueRuleIndices[0]
         existingRules[primary] = this.mergeVueRule(
-          existingRules[primary],
-          maybeInstallVue.loaders[0]
-        )
+          existingRules[primary] as LooseRuleSetRule,
+          maybeInstallVue.loaders[0] as LooseRuleSetRule
+        ) as (typeof existingRules)[number]
         for (const idx of vueRuleIndices.slice(1).reverse()) {
           existingRules.splice(idx, 1)
         }
@@ -397,7 +421,7 @@ export class JsFrameworksPlugin {
       }
     }
 
-    const swcRules: any[] = [
+    const swcRules: LooseRuleSetRule[] = [
       {
         ...swcRuleBase,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
@@ -528,7 +552,9 @@ export class JsFrameworksPlugin {
       plugin.apply(compiler)
     })
 
-    this.patchReactRefreshRules(compiler.options.module.rules as any[])
+    this.patchReactRefreshRules(
+      compiler.options.module.rules as LooseRuleSetRule[]
+    )
 
     if (isUsingTypeScript(projectPath) || !!tsConfigPath) {
       compiler.options.resolve.tsConfig = {

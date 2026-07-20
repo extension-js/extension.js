@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Configuration} from '@rspack/core'
+import type {Compilation, Compiler, Configuration} from '@rspack/core'
 import {makeSanitizedConsole} from './lib/branding'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
@@ -50,7 +50,7 @@ export default function webpackConfig(
     throw new Error(messages.manifestInvalidJson(manifestPath, error))
   }
   const manifest = filterKeysForThisBrowser(
-    rawManifest as any,
+    rawManifest as Parameters<typeof filterKeysForThisBrowser>[0],
     devOptions.browser
   )
   // Absolute directory where the user's extension build will be written.
@@ -188,10 +188,10 @@ export default function webpackConfig(
     // the file is missing on disk. The url() is preserved verbatim in the
     // emitted CSS via the `externals` resolver below.
     {
-      apply(compiler: any) {
+      apply(compiler: Compiler) {
         compiler.hooks.afterCompile.tap(
           'warn-missing-css-assets',
-          (compilation: any) => {
+          (compilation: Compilation) => {
             if (missingCssAssets.size === 0) return
             const ErrorCtor = compiler.rspack?.WebpackError || Error
             for (const request of missingCssAssets) {
@@ -213,10 +213,10 @@ export default function webpackConfig(
     // require is preserved verbatim in the emitted bundle via the `externals`
     // resolver below, matching how Chrome loads the script.
     {
-      apply(compiler: any) {
+      apply(compiler: Compiler) {
         compiler.hooks.afterCompile.tap(
           'warn-unresolved-bare-requires',
-          (compilation: any) => {
+          (compilation: Compilation) => {
             if (unresolvedBareRequires.size === 0) return
             const ErrorCtor = compiler.rspack?.WebpackError || Error
             for (const [request, issuer] of unresolvedBareRequires) {
@@ -240,19 +240,18 @@ export default function webpackConfig(
     // Edge no longer load Manifest V2, so the emitted bundle would silently fail to
     // install. Point the author at the realistic paths instead of shipping dead output.
     {
-      apply(compiler: any) {
+      apply(compiler: Compiler) {
         const target = String(devOptions.browser)
         // Family classification: brave/opera/vivaldi/yandex drop MV2 too.
         const isChromiumTarget = isChromiumBasedBrowser(target)
-        if ((manifest as any)?.manifest_version !== 2 || !isChromiumTarget)
-          return
+        if (manifest?.manifest_version !== 2 || !isChromiumTarget) return
         compiler.hooks.thisCompilation.tap(
           'warn-mv2-on-chromium',
-          (compilation: any) => {
+          (compilation: Compilation) => {
             const ErrorCtor = compiler.rspack?.WebpackError || Error
             const usesBlockingWebRequest =
-              Array.isArray((manifest as any).permissions) &&
-              (manifest as any).permissions.includes('webRequestBlocking')
+              Array.isArray(manifest.permissions) &&
+              (manifest.permissions as unknown[]).includes('webRequestBlocking')
             const warning = new ErrorCtor(
               [
                 `This extension declares Manifest V2, which Chrome and Edge no longer load, `,
@@ -296,7 +295,7 @@ export default function webpackConfig(
       // dev-server/index.ts and exported via env; falls back to the bind host.
       host:
         process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
-        (devOptions as any).host,
+        (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,
       controlPort: devOptions.controlPort,
       controlPath: devOptions.controlPath,
@@ -420,7 +419,7 @@ export default function webpackConfig(
 
         callback()
       }
-    ] as any,
+    ] as Configuration['externals'],
     context: packageJsonDir,
     cache: false,
     devtool:
@@ -435,7 +434,7 @@ export default function webpackConfig(
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
       filename:
-        (devOptions.mode || 'development') === ('development' as any) &&
+        (devOptions.mode || 'development') === 'development' &&
         devOptions.hashContentScripts !== false
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
@@ -615,7 +614,9 @@ export default function webpackConfig(
           ? 'info'
           : 'error',
       // Sanitize any bundler/dev-server infra logs to use Extension.js branding
-      console: makeSanitizedConsole('Extension.js') as any
+      console: makeSanitizedConsole('Extension.js') as unknown as NonNullable<
+        Configuration['infrastructureLogging']
+      >['console']
     },
     performance: {
       // PerfBudgetsPlugin (registered above) applies extension-aware,

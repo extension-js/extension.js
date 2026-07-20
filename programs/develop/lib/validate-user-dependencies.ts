@@ -43,8 +43,17 @@ export function assertNoManagedDependencyConflicts(
     )
 
     const managedDeps = new Set<string>([
-      ...Object.keys((programPackageJson as any).dependencies || {}),
-      ...Object.keys((programPackageJson as any).optionalDependencies || {})
+      ...Object.keys(
+        (programPackageJson as {dependencies?: Record<string, string>})
+          .dependencies || {}
+      ),
+      ...Object.keys(
+        (
+          programPackageJson as {
+            optionalDependencies?: Record<string, string>
+          }
+        ).optionalDependencies || {}
+      )
     ])
 
     // Some internal toolchain dependencies (e.g. dev-server peers) can also be

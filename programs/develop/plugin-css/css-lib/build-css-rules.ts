@@ -135,7 +135,7 @@ export async function buildCssRules(
           })
 
       if (missingTool) {
-        ;(use as any[]).push({
+        ;(use as Array<Record<string, unknown>>).push({
           loader: resolveDevelopDistFile('preprocessor-passthrough-loader')
         })
       }

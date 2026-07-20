@@ -83,9 +83,9 @@ export async function extensionDev(
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
     const merged = {
-      ...sanitize(browserConfig as Record<string, any>),
-      ...sanitize(commandConfig as Record<string, any>),
-      ...sanitize(devOptions as Record<string, any>)
+      ...sanitize(browserConfig as object),
+      ...sanitize(commandConfig as object),
+      ...sanitize(devOptions as object)
     } as DevOptions & BrowserConfig
 
     if (
@@ -151,7 +151,7 @@ export async function extensionDev(
       browser,
       geckoBinary,
       browsersPlugin
-    } as any)
+    } as Parameters<typeof devServer>[1])
 
     return emitter
   } catch (error) {

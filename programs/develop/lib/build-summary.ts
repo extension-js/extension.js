@@ -15,17 +15,21 @@ export type BuildSummary = {
   errors_count: number
 }
 
-export function getBuildSummary(browser: string, info: any): BuildSummary {
+export function getBuildSummary(
+  browser: string,
+  info: {
+    assets?: Array<{size?: number}>
+    warnings?: unknown[]
+    errors?: unknown[]
+  } | null
+): BuildSummary {
   const assets = info?.assets || []
 
   return {
     browser,
     total_assets: assets.length,
-    total_bytes: assets.reduce((n: number, a: any) => n + (a.size || 0), 0),
-    largest_asset_bytes: assets.reduce(
-      (m: number, a: any) => Math.max(m, a.size || 0),
-      0
-    ),
+    total_bytes: assets.reduce((n, a) => n + (a.size || 0), 0),
+    largest_asset_bytes: assets.reduce((m, a) => Math.max(m, a.size || 0), 0),
     warnings_count: (info?.warnings || []).length,
     errors_count: (info?.errors || []).length
   }

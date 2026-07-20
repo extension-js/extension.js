@@ -65,7 +65,10 @@ export class WasmPlugin {
     const assetAliases = this.buildAssetAliases(projectRoot)
     compiler.options.resolve.alias = {
       ...assetAliases,
-      ...(compiler.options.resolve.alias as any)
+      ...(compiler.options.resolve.alias as Record<
+        string,
+        string | false | string[]
+      >)
     }
   }
 

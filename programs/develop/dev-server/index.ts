@@ -10,7 +10,7 @@ import type * as FsTypes from 'node:fs'
 import fs from 'node:fs'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
-import {rspack} from '@rspack/core'
+import {rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {
@@ -114,11 +114,21 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
   return false
 }
 
+interface GuardableOutputFs {
+  __extensionjsManifestWriteGuard?: boolean
+  writeFile?: (filePath: string, ...args: unknown[]) => unknown
+  writeFileSync?: (filePath: string, ...args: unknown[]) => unknown
+  createWriteStream?: (filePath: string, ...args: unknown[]) => unknown
+  promises?: {writeFile?: (filePath: string, ...args: unknown[]) => unknown}
+}
+
 function suppressManifestOutputWrites(
-  compiler: any,
+  compiler: unknown,
   manifestOutputPath: string
 ) {
-  const outputFileSystem = compiler?.outputFileSystem as any
+  const outputFileSystem = (
+    compiler as {outputFileSystem?: unknown} | undefined
+  )?.outputFileSystem as GuardableOutputFs | undefined
   if (!outputFileSystem || outputFileSystem.__extensionjsManifestWriteGuard) {
     return
   }
@@ -128,7 +138,7 @@ function suppressManifestOutputWrites(
 
   if (typeof outputFileSystem.writeFile === 'function') {
     const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
-    outputFileSystem.writeFile = (filePath: string, ...args: any[]) => {
+    outputFileSystem.writeFile = (filePath: string, ...args: unknown[]) => {
       if (isManifestPath(filePath)) {
         const callback = args[args.length - 1]
 
@@ -144,7 +154,7 @@ function suppressManifestOutputWrites(
   if (typeof outputFileSystem.writeFileSync === 'function') {
     const originalWriteFileSync =
       outputFileSystem.writeFileSync.bind(outputFileSystem)
-    outputFileSystem.writeFileSync = (filePath: string, ...args: any[]) => {
+    outputFileSystem.writeFileSync = (filePath: string, ...args: unknown[]) => {
       if (isManifestPath(filePath)) return
 
       return originalWriteFileSync(filePath, ...args)
@@ -154,7 +164,10 @@ function suppressManifestOutputWrites(
   if (typeof outputFileSystem.createWriteStream === 'function') {
     const originalCreateWriteStream =
       outputFileSystem.createWriteStream.bind(outputFileSystem)
-    outputFileSystem.createWriteStream = (filePath: string, ...args: any[]) => {
+    outputFileSystem.createWriteStream = (
+      filePath: string,
+      ...args: unknown[]
+    ) => {
       if (isManifestPath(filePath)) {
         const stream = createDiscardWriteStream()
         stream.path = filePath
@@ -172,7 +185,7 @@ function suppressManifestOutputWrites(
     )
     outputFileSystem.promises.writeFile = async (
       filePath: string,
-      ...args: any[]
+      ...args: unknown[]
     ) => {
       if (isManifestPath(filePath)) return
 
@@ -202,7 +215,7 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
   const originalWriteFile = guardedFs.writeFile.bind(guardedFs)
   guardedFs.writeFile = ((
     filePath: FsTypes.PathOrFileDescriptor,
-    ...args: any[]
+    ...args: unknown[]
   ) => {
     if (isManifestPath(filePath)) {
       const callback = args[args.length - 1]
@@ -210,64 +223,81 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
       return
     }
 
-    return (originalWriteFile as any)(filePath, ...args)
+    return (originalWriteFile as (...a: unknown[]) => unknown)(
+      filePath,
+      ...args
+    )
   }) as typeof fs.writeFile
 
   const originalWriteFileSync = guardedFs.writeFileSync.bind(guardedFs)
   guardedFs.writeFileSync = ((
     filePath: FsTypes.PathOrFileDescriptor,
-    ...args: any[]
+    ...args: unknown[]
   ) => {
     if (isManifestPath(filePath)) return
-    return (originalWriteFileSync as any)(filePath, ...args)
+    return (originalWriteFileSync as (...a: unknown[]) => unknown)(
+      filePath,
+      ...args
+    )
   }) as typeof fs.writeFileSync
 
   const originalCreateWriteStream = guardedFs.createWriteStream.bind(guardedFs)
   guardedFs.createWriteStream = ((
     filePath: FsTypes.PathLike,
-    ...args: any[]
+    ...args: unknown[]
   ) => {
     if (isManifestPath(filePath)) {
       const stream = createDiscardWriteStream()
       stream.path = String(filePath)
-      return stream as any
+      return stream as unknown as ReturnType<typeof fs.createWriteStream>
     }
 
-    return (originalCreateWriteStream as any)(filePath, ...args)
+    return (originalCreateWriteStream as (...a: unknown[]) => unknown)(
+      filePath,
+      ...args
+    )
   }) as typeof fs.createWriteStream
 
   const originalOpen = guardedFs.open.bind(guardedFs)
   guardedFs.open = ((
     pathLike: FsTypes.PathLike,
-    flags: any,
-    ...args: any[]
+    flags: unknown,
+    ...args: unknown[]
   ) => {
     const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
-    return (originalOpen as any)(nextPath, flags, ...args)
+    return (originalOpen as (...a: unknown[]) => unknown)(
+      nextPath,
+      flags,
+      ...args
+    )
   }) as typeof fs.open
 
   const originalOpenSync = guardedFs.openSync.bind(guardedFs)
   guardedFs.openSync = ((
     pathLike: FsTypes.PathLike,
-    flags: any,
-    ...args: any[]
+    flags: unknown,
+    ...args: unknown[]
   ) => {
     const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
-    return (originalOpenSync as any)(nextPath, flags, ...args)
+    return (originalOpenSync as (...a: unknown[]) => unknown)(
+      nextPath,
+      flags,
+      ...args
+    )
   }) as typeof fs.openSync
 
   const originalRename = guardedFs.rename.bind(guardedFs)
   guardedFs.rename = ((
     oldPath: FsTypes.PathLike,
     newPath: FsTypes.PathLike,
-    callback: any
+    callback: unknown
   ) => {
     if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
       if (typeof callback === 'function') callback(null)
       return
     }
 
-    return originalRename(oldPath, newPath, callback)
+    return originalRename(oldPath, newPath, callback as FsTypes.NoParamCallback)
   }) as typeof fs.rename
 
   const originalRenameSync = guardedFs.renameSync.bind(guardedFs)
@@ -286,10 +316,13 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     )
     guardedFs.promises.writeFile = (async (
       filePath: unknown,
-      ...args: any[]
+      ...args: unknown[]
     ) => {
       if (isManifestPath(filePath)) return
-      return (originalPromiseWriteFile as any)(filePath, ...args)
+      return (originalPromiseWriteFile as (...a: unknown[]) => unknown)(
+        filePath,
+        ...args
+      )
     }) as typeof fs.promises.writeFile
   }
 
@@ -300,6 +333,15 @@ export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
 ) {
+  // CLI-only extras that ride along on DevOptions without being part of the
+  // public options contract.
+  const extendedOptions = devOptions as DevOptions & {
+    publicHost?: string
+    allowControl?: boolean
+    allowEval?: boolean
+    authorMode?: boolean
+    browsersPlugin?: {setReloadBroker?: (broker: unknown) => void}
+  }
   process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
     ? '0'
     : '1'
@@ -351,7 +393,7 @@ export async function devServer(
   // ready.json, and the baked producer (see resolveConnectableHost).
   const connectableHost = resolveConnectableHost(
     devServerHost,
-    (devOptions as any).publicHost
+    extendedOptions.publicHost
   )
 
   const devServerWebSocketURL = {
@@ -383,10 +425,10 @@ export async function devServer(
     runId: currentInstance.instanceId
   })
 
-  const allowControl = Boolean((devOptions as any).allowControl)
-  const allowEval = Boolean((devOptions as any).allowEval)
+  const allowControl = Boolean(extendedOptions.allowControl)
+  const allowEval = Boolean(extendedOptions.allowEval)
   const authorMode =
-    Boolean((devOptions as any).authorMode) ||
+    Boolean(extendedOptions.authorMode) ||
     process.env.EXTENSION_AUTHOR_MODE === 'development'
   const bridgeActionsFile = allowControl
     ? new ActionsFileWriter({
@@ -420,7 +462,7 @@ export async function devServer(
   // Option B: hand the broker to a launched runner plugin so Chromium reloads
   // through the SW producer (the same executor as `--no-browser`). No-op for the
   // Safari plugin / Firefox (which has no setReloadBroker / keeps RDP).
-  const launchedPlugin = (devOptions as any).browsersPlugin
+  const launchedPlugin = extendedOptions.browsersPlugin
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
   }
@@ -519,7 +561,7 @@ export async function devServer(
     ...safeDevOptions,
     extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,
-    mode: 'development' as any,
+    mode: 'development',
     instanceId: currentInstance.instanceId,
     controlPort: bridgeControlPort,
     controlPath: CONTROL_WS_PATH,
@@ -555,13 +597,13 @@ export async function devServer(
   // (classifyReloadFromSources) so a given change reloads identically whether or
   // not a browser was launched. Gated on the absence of a runner plugin so the
   // launched (and Safari) paths never double-reload.
-  if (!(devOptions as any).browsersPlugin && compiler?.hooks?.watchRun) {
+  if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
     const changedSources = createChangedSourcesTracker(compiler)
     let isFirstBridgeCompile = true
 
     compiler.hooks.done.tapPromise(
       'extjs-no-browser-reload',
-      async (stats: any) => {
+      async (stats: Stats) => {
         const compilation = stats.compilation
         if (compilation.errors && compilation.errors.length > 0) return
 
