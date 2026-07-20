@@ -10,20 +10,11 @@ import {Compilation, type Compiler, sources} from '@rspack/core'
 import {buildBridgeProducerSource} from '../../dev-server/control-bridge/producer-runtime'
 
 // Matches the compiled background entry across engines: Chromium emits
-// background/service_worker.js; Firefox (background.scripts) emits
-// background/scripts.js. `scripts?` covers both the singular and plural forms.
+// background/service_worker.js, Firefox background/scripts.js; scripts? covers both.
 const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|scripts?)\.js$/i
 
-/**
- * Prepends the agent-bridge producer to the compiled background SW so the
- * user extension forwards its console output to the dev-server control WS
- * (agent bridge). The control port + instanceId are read from process.env
- * (set by dev-server/index.ts); when the bridge is unavailable the builder
- * returns '' and nothing is injected.
- *
- * Mirrors InjectScriptsReplayShim: a late processAssets post-process that only
- * touches the background entry, independent of banner-emission ordering.
- */
+// Prepends the agent-bridge producer to the compiled background SW; control
+// port + instanceId come from process.env, nothing injected when unavailable.
 export class InjectBridgeProducer {
   apply(compiler: Compiler) {
     const controlPort = parseInt(
@@ -43,7 +34,7 @@ export class InjectBridgeProducer {
       host
     })
 
-    if (!source) return // bridge unavailable, nothing to inject
+    if (!source) return
 
     compiler.hooks.thisCompilation.tap(
       InjectBridgeProducer.name,

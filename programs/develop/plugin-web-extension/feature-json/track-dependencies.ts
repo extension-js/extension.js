@@ -35,9 +35,8 @@ export function trackJsonDependencies(
           ? thisResource
           : path.join(manifestDir, thisResource)
 
-        // Check the live set directly. The previous `new Set(compilation
-        // .fileDependencies)` copied the entire dependency set on every
-        // resource iteration just to call `.has` on the copy
+        // Check the live set directly: copying compilation.fileDependencies per
+        // resource iteration just to call .has was a real cost.
         if (fs.existsSync(abs) && !compilation.fileDependencies.has(abs)) {
           compilation.fileDependencies.add(abs)
           added++

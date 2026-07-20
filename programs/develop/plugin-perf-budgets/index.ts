@@ -11,9 +11,8 @@ import {type AssetCategory, BUDGET_BYTES, categorizeAsset} from './categorize'
 import {type OversizedAsset, perfBudgetWarning} from './messages'
 
 interface PerfBudgetsPluginOptions {
-  // Disable in dev: unminified bundles are 3–5× larger than prod and trip
-  // the budgets even when the prod artifact is fine. Default: enabled only
-  // for `compiler.options.mode === 'production'`.
+  // Disable in dev: unminified bundles are 3-5x larger than prod and trip the
+  // budgets even when the prod artifact is fine.
   enabled?: boolean
   // Per-category overrides (bytes). Useful for one-off projects that
   // legitimately need a bigger sidebar. Defaults live in BUDGET_BYTES.

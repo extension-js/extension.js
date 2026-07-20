@@ -19,20 +19,12 @@ export class StaticAssetsPlugin {
   }
 
   public apply(compiler: Compiler) {
-    // Defensive defaults in case consumers did not initialize module/rules
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []
 
-    // Content-hash in DEV too. Dev used to emit `assets/[name][ext]`, so two
-    // assets with the same basename in different folders (wild: noscript ships
-    // both `img/ui-custom64.webp` and `img/vintage/ui-custom64.webp`) collided
-    // on one output name and rspack failed the compilation with "Conflict:
-    // Multiple assets emit different content to the same filename", `build`
-    // was fine (it hashes) while `extension dev` never booted at all.
-    // Hashing, not `[path]`: a path-based name can escape the output dir and
-    // clobber sources in the watch loop.
+    // Content-hash in DEV too: same-basename assets in different folders collided
+    // on one output name; hashing, not [path], which can escape the output dir.
     const filenamePattern = 'assets/[name].[contenthash:8][ext]'
-    // Define the default SVG rule
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset',
@@ -41,12 +33,11 @@ export class StaticAssetsPlugin {
       },
       parser: {
         dataUrlCondition: {
-          maxSize: 2 * 1024 // 2kb
+          maxSize: 2 * 1024
         }
       }
     }
 
-    // Check if any existing rule handles SVG files
     const hasCustomSvgRule = compiler.options.module.rules.some((thisRule) => {
       const rule = thisRule as {test?: unknown; use?: unknown} | null
       return Boolean(
@@ -66,9 +57,8 @@ export class StaticAssetsPlugin {
       }
     )
 
-    // Check if any existing rule handles font files.
-    // This allows users to opt into `asset/inline` for strict CSP pages
-    // (e.g. Firefox content scripts where moz-extension:// font loads can be blocked).
+    // Skip when an existing rule handles fonts, letting users opt into
+    // asset/inline for strict CSP pages.
     const hasCustomFontsRule = compiler.options.module.rules.some(
       (thisRule) => {
         const rule = thisRule as RuleSetRule
@@ -86,18 +76,12 @@ export class StaticAssetsPlugin {
         ? []
         : [
             {
-              // Match only the standalone `?url` import query (e.g.
-              // `import href from './icon.png?url'`). An unanchored /url/ also
-              // matched "url" anywhere in a resourceQuery, including inside the
-              // __extensionjs_classic_concat__ payload when a concatenated file
-              // name contains "url" (e.g. clearurls.js), which wrongly turned the
-              // whole content-script/background concat entry into an asset/resource
-              // emitted under a hash name instead of its canonical chunk file.
+              // Match only the standalone ?url import query: an unanchored /url/ also hit
+              // "url" inside classic-concat payloads and hijacked whole entries.
               resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
               type: 'asset/resource'
             }
           ]),
-      // Only add the default SVG rule if there's no custom SVG rule
       ...(hasCustomSvgRule ? [] : [defaultSvgRule]),
       {
         test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
@@ -111,7 +95,6 @@ export class StaticAssetsPlugin {
           }
         }
       },
-      // Only add the default fonts rule if there's no custom fonts rule
       ...(hasCustomFontsRule
         ? []
         : [
@@ -137,13 +120,11 @@ export class StaticAssetsPlugin {
       }
     ]
 
-    // Ensure rules are properly merged and filtered
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
     ].filter((rule): rule is RuleSetRule => Boolean(rule))
 
-    // Author mode: summarize assets rules/configs and emitted outputs
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const rulesEnabled: string[] = []
       rulesEnabled.push(hasCustomSvgRule ? 'SVG(custom)' : 'SVG(default)')
@@ -181,9 +162,7 @@ export class StaticAssetsPlugin {
             else counts.files++
           }
           console.log(messages.assetsEmittedSummary(emitted.length, counts))
-        } catch {
-          // silent
-        }
+        } catch {}
       })
     }
   }

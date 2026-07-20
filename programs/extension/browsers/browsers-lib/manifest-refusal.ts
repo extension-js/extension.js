@@ -9,20 +9,16 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-/**
- * Manifest shapes Chromium refuses to load AT ALL, the refusal surfaces
- * only as a native dialog (or nothing), never as a console error, so the
- * dev session just wedges with no CDP target. Diagnose them before spawn
- * and say why, like the resolved-binary line.
- */
+// Manifest shapes Chromium refuses to load AT ALL surface only as a native
+// dialog, never a console error; diagnose before spawn and say why.
 export type ChromiumManifestRefusal =
   | 'mv2'
   | 'mv3-background-scripts'
   | 'unsupported-manifest-version'
   | null
 
-// Manifests under diagnosis are arbitrary user JSON; a loose view keeps the
-// dozens of shape probes below readable. Every access is runtime-guarded.
+// Manifests under diagnosis are arbitrary user JSON; every access is
+// runtime-guarded.
 // biome-ignore lint/suspicious/noExplicitAny: dynamic manifest JSON diagnostics boundary
 type LooseManifest = any
 
@@ -32,9 +28,8 @@ export function diagnoseChromiumManifestRefusal(
   const m = manifest as Record<string, LooseManifest> | null | undefined
   if (Number(m?.manifest_version) === 2) return 'mv2'
 
-  // Firefox-style MV3: `background.scripts` with no `service_worker`.
-  // Chromium requires background.service_worker in MV3 and refuses the
-  // whole extension; Firefox is the browser this manifest is written for.
+  // Firefox-style MV3 (background.scripts, no service_worker): Chromium refuses
+  // the whole extension; this manifest is written for Firefox.
   if (
     Number(m?.manifest_version) === 3 &&
     Array.isArray(m?.background?.scripts) &&
@@ -44,11 +39,8 @@ export function diagnoseChromiumManifestRefusal(
     return 'mv3-background-scripts'
   }
 
-  // Any other declared value, missing (Chrome treats it as MV1), 1, or a
-  // number above 3, is refused with "Cannot install extension because it
-  // uses an unsupported manifest version" (wild: Custom-salesforce-inspector).
-  // Only diagnose real manifest objects; malformed input is the browser's
-  // problem to report.
+  // Any other declared value (missing, 1, >3) is refused as an unsupported
+  // manifest version; only diagnose real manifest objects.
   if (
     m &&
     typeof m === 'object' &&
@@ -61,25 +53,8 @@ export function diagnoseChromiumManifestRefusal(
   return null
 }
 
-/**
- * Match patterns Chrome's grammar refuses. ONE invalid pattern in
- * content_scripts matches, host_permissions, or web_accessible_resources
- * makes Chrome refuse the WHOLE extension at load. The only shape verified
- * to actually refuse is an invalid HOST WILDCARD (wild: CarbonWise's
- * `*carbonwise*`, CDP loadUnpacked reports "Invalid host wildcard").
- *
- * NOT flagged, all verified live on Chrome 150 (2026-07-11, both CDP
- * loadUnpacked and --load-extension, install ENABLED):
- * - explicit ports (`http://localhost:3000/*`; wild memux loads fine)
- * - WILDCARD ports (`ws://localhost:<star>` with a wildcard port; wild
- *   BinaryBeastMaster/chat-relay installs ENABLED with a live service
- *   worker). The port is not part of the host
- * - query strings / fragments in the path (`?`, `#` are literal path
- *   characters: `.../gcpd/730?tab=majors` and `/page#section` both load;
- *   wild SN-Utils ships a query-string exclude_matches on the store),
- *   flagging them warned "the whole extension will not load" on extensions
- *   that load fine.
- */
+// ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape
+// verified to refuse is an invalid host wildcard. Ports/query/fragments load fine.
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, LooseManifest> | null | undefined
   const patterns: string[] = []
@@ -113,20 +88,8 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
   return [...new Set(invalid)]
 }
 
-/**
- * Chrome's host grammar allows `*`, `*.domain.tld`, or a literal host, a
- * wildcard anywhere else in the host is invalid (wild: CarbonWise matches on
- * a host of `*carbonwise*`). Chrome refuses the whole extension over it.
- *
- * The PORT is not part of the host and may itself be a wildcard. This used to
- * test the whole authority, so a wildcard-port host like `localhost:<star>`
- * read as a mid-host wildcard
- * and warned "the whole extension will not load" about an extension Chrome
- * installs ENABLED (verified live on Chrome 150 via --load-extension: wild
- * BinaryBeastMaster/chat-relay installs enabled with a running service worker).
- * Explicit ports only ever passed by luck, `localhost:3000` contains no `*`
- * to trip the check.
- */
+// Chrome's host grammar allows *, *.domain.tld, or a literal host. The PORT is
+// not part of the host and may itself be a wildcard (verified live on Chrome 150).
 function hasInvalidHostWildcard(pattern: string): boolean {
   const match = /^[a-zA-Z*]+:\/\/([^/]*)/.exec(pattern)
   const authority = match?.[1]
@@ -146,37 +109,8 @@ function hasInvalidHostWildcard(pattern: string): boolean {
   return host !== '*' && !/^\*\.[^*]+$/.test(host)
 }
 
-/**
- * Other manifest shapes Chrome refuses outright, each proven with CDP
- * `Extensions.loadUnpacked` (which, unlike --load-extension, reports the
- * reason), the wild-subject shapes on Chrome 150 (2026-07-11) and the
- * fixture batch on Chrome 150 (2026-07-13). The refusal is silent under
- * --load-extension, so dev must name it instead of printing an ID for an
- * extension that never loads.
- *
- * NOT refusals, verified to LOAD on Chrome 150 (2026-07-13, CDP
- * loadUnpacked); do NOT add these however fatal they look:
- * - MV3 `background.page`; `background.persistent` true or false
- * - icon files with undecodable bytes, and SVG icons, only a MISSING or
- *   0-byte icon file refuses
- * - unknown `permissions` entries; MV2 keys like `browser_action` under MV3
- * - a WAR dictionary with only `use_dynamic_url` beside `resources`
- * - `__MSG_@@predefined__` variables; catalog-key case differences (message
- *   lookup is case-insensitive)
- * And on Firefox 147 (2026-07-13, RDP installTemporaryAddon): explicit AND
- * wildcard ports in match patterns install fine, the old "host must not
- * include a port" grammar is gone; do not resurrect it for gecko.
- *
- * Safari (2026-07-13, macOS 15.7.7): safari-web-extension-converter
- * CONVERTS every one of these shapes with exit 0, missing name, bad locale
- * catalogs, all of it. The converter is not a refusal surface and must not
- * be gated on manifest shapes; Safari's real refusals happen at runtime
- * inside Safari, which has no scriptable install path to verify against.
- * Converter/xcodebuild exit codes still matter (toolchain failures), but
- * they say nothing about manifest validity.
- *
- * `browserVersion` (when known) enables the minimum_chrome_version compare.
- */
+// Shapes proven to refuse via CDP loadUnpacked on Chrome 150; the listed
+// non-refusals and Firefox/Safari tolerances were verified live - do not re-add.
 export function findChromiumLoadBlockers(
   manifest: unknown,
   browserVersion?: string
@@ -185,28 +119,24 @@ export function findChromiumLoadBlockers(
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
-  // "Required value 'name' is missing or invalid.", missing, empty-string,
-  // and non-string names all refuse (fixtures 01/02/26). The develop
-  // pipeline repairs these at emission; this names it for external dists.
+  // "Required value 'name' is missing or invalid": missing, empty, and
+  // non-string names all refuse; this names it for external dists.
   if (typeof m.name !== 'string' || m.name === '') {
     blockers.push(
       `name: missing, empty, or not a string, Chrome requires a non-empty string name and refuses the extension.`
     )
   }
 
-  // "Required value 'version' is missing or invalid. It must be between 1-4
-  // dot-separated integers each between 0 and 65536" (wild stderr:
-  // Ananyakk71/javscript). Same grammar the emission sanitizer repairs.
+  // "Required value 'version' is missing or invalid": 1-4 dot-separated
+  // integers, each 0-65536; same grammar the emission sanitizer repairs.
   if (typeof m.version !== 'string' || !isValidDottedVersion(m.version)) {
     blockers.push(
       `version: missing or invalid, Chrome requires 1-4 dot-separated integers (0-65535) and refuses the extension.`
     )
   }
 
-  // MV3 web_accessible_resources grammar (fixtures 06/07/08): entries must
-  // be dictionaries with `resources` plus at least one of `matches`,
-  // `extension_ids`, or `use_dynamic_url`. MV2's string-array form is legal
-  // on MV2, so this is gated on manifest_version 3.
+  // MV3 web_accessible_resources entries must be dictionaries with resources
+  // plus matches/extension_ids/use_dynamic_url; MV2's string-array form stays legal.
   if (
     Number(m.manifest_version) === 3 &&
     Array.isArray(m.web_accessible_resources)
@@ -237,9 +167,8 @@ export function findChromiumLoadBlockers(
     )
   }
 
-  // content_scripts grammar Chrome refuses over (fixtures 09/10/17/18/27):
-  // 'matches' is required and must be non-empty; js/css entries must be
-  // strings; run_at allows exactly three values.
+  // content_scripts grammar Chrome refuses over: matches required and non-empty,
+  // js/css entries strings, run_at exactly three values.
   const CS_RUN_AT = ['document_start', 'document_end', 'document_idle']
   const csGroups = Array.isArray(m.content_scripts) ? m.content_scripts : []
   csGroups.forEach((group: LooseManifest, index: number) => {
@@ -271,9 +200,8 @@ export function findChromiumLoadBlockers(
     }
   })
 
-  // minimum_chrome_version (fixtures 11/31/32): invalid grammar refuses
-  // outright; a valid value above the running browser refuses with "This
-  // extension requires ... version N or greater", same silent wedge.
+  // minimum_chrome_version: invalid grammar refuses outright; a valid value
+  // above the running browser refuses too, same silent wedge.
   const minVersion = m.minimum_chrome_version
   if (minVersion !== undefined) {
     if (typeof minVersion !== 'string' || !isValidDottedVersion(minVersion)) {
@@ -291,9 +219,8 @@ export function findChromiumLoadBlockers(
     }
   }
 
-  // Chrome caps keyboard shortcuts at 4 ("Too many shortcuts specified for
-  // 'commands': The maximum is 4."). Firefox has no such cap, so ported
-  // Firefox extensions routinely trip it (wild: spotify-hotkeys, 12).
+  // Chrome caps keyboard shortcuts at 4; Firefox has no cap, so ported Firefox
+  // extensions routinely trip it.
   const commands = m?.commands
   if (commands && typeof commands === 'object') {
     const withKeys = Object.values(commands).filter(
@@ -334,15 +261,8 @@ export function findChromiumLoadBlockers(
   return blockers
 }
 
-/**
- * Icon files Chrome cannot load, missing from the extension directory or
- * present but empty (0 bytes, undecodable). Either one makes Chrome refuse
- * the WHOLE extension at load with "Could not load icon '<file>'", surfaced
- * only on stderr/a native dialog (wild: Speak2Type ships a 0-byte
- * icon-128.png; the dev session printed an Extension ID for an extension the
- * browser silently never installed). Checks the same manifest keys Chrome
- * validates at install: `icons` and `*_action.default_icon`.
- */
+// Missing or 0-byte icon files make Chrome refuse the WHOLE extension, only on
+// stderr/native dialog; checks the same keys Chrome validates at install.
 export function findUnloadableIconFiles(
   manifest: unknown,
   extensionDir: string
@@ -391,13 +311,8 @@ export function findUnloadableIconFiles(
   return findings
 }
 
-/**
- * The locale shapes Chrome refuses the whole extension over, all verified
- * live on Chrome 150 (2026-07-13, CDP loadUnpacked; fixtures 03/04/05/20/
- * 22/29). Common in converted/repacked extensions that lost their _locales
- * tree. Verified tolerances: an EMPTY messages.json loads; message-key
- * lookup is case-insensitive; `__MSG_@@predefined__` never needs a catalog.
- */
+// Locale shapes Chrome refuses the whole extension over (verified live);
+// empty messages.json loads, key lookup is case-insensitive.
 export function findLocaleLoadBlockers(
   manifest: unknown,
   extensionDir: string
@@ -436,9 +351,8 @@ export function findLocaleLoadBlockers(
       return blockers
     }
 
-    // "Variable __MSG_x__ used but not defined.", only whole-string
-    // references are flagged (the verified shape), @@predefined variables
-    // are exempt, and the key match is case-insensitive like Chrome's.
+    // "Variable __MSG_x__ used but not defined": only whole-string references are
+    // flagged, @@predefined exempt, key match case-insensitive like Chrome's.
     if (catalogKeys) {
       const refs = new Set<string>()
       collectMsgRefs(m, refs)
@@ -474,11 +388,8 @@ export function findLocaleLoadBlockers(
   return blockers
 }
 
-/**
- * "File does not exist: <path>/schema.json", a storage.managed_schema
- * pointing at a file that is not in the extension directory refuses the
- * whole extension (fixture 19, Chrome 150).
- */
+// A storage.managed_schema pointing at a file not in the extension directory
+// refuses the whole extension.
 export function findMissingManagedSchema(
   manifest: unknown,
   extensionDir: string

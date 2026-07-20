@@ -44,7 +44,6 @@ export async function discoverWebSocketDebuggerUrl(
   port: number,
   isDev: boolean
 ): Promise<string> {
-  // Try /json/version for browser websocket URL
   try {
     const version = (await getJson(host, port, '/json/version')) as Record<
       string,

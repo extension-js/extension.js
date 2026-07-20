@@ -41,10 +41,8 @@ export class SpecialFoldersPlugin {
     const context = compiler.options.context || path.dirname(manifestPath)
     const publicDir = path.join(context, 'public')
 
-    // Chrome resolves a leading '/' from the extension root, so a root-absolute
-    // ref that public/ does not satisfy is served from the source root instead.
-    // Runs whether or not public/ exists, projects with NO public/ dir are
-    // exactly the ones that were broken.
+    // Chrome resolves a leading '/' from the extension root; a root-absolute ref
+    // public/ does not satisfy is served from the source root instead.
     compiler.hooks.thisCompilation.tap(
       SpecialFoldersPlugin.name,
       (compilation: Compilation) => {
@@ -71,7 +69,6 @@ export class SpecialFoldersPlugin {
       }
     )
 
-    // If there is no exact 'public' directory, do nothing here.
     if (fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory()) {
       // Guard against dangerous files in public/ that would overwrite generated assets
       compiler.hooks.thisCompilation.tap(
@@ -93,12 +90,10 @@ export class SpecialFoldersPlugin {
         }
       )
 
-      // Only ignore the root public/manifest.json to avoid overwriting the
-      // generated manifest. Nested public/**/manifest.json should be copied
-      // through (e.g., templates/assets)
+      // Only ignore the root public/manifest.json to avoid overwriting the generated
+      // manifest; nested public/**/manifest.json is copied through.
       const copyIgnore = ['manifest.json']
 
-      // Use Rspack's CopyRspackPlugin by default to mirror public/ into the output root
       new rspack.CopyRspackPlugin({
         patterns: [
           {

@@ -9,7 +9,6 @@
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 
 export type ChromiumContext = {
-  // Controller lifecycle
   getController(): CDPExtensionController | undefined
   setController(c: CDPExtensionController): void
 }

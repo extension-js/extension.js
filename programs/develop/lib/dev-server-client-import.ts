@@ -110,12 +110,8 @@ export function getDevServerHmrImports(compiler: Compiler): string[] {
       : {}
 
   const protocol = String(webSocketURL.protocol || envProtocol || 'ws')
-  // The HMR client must dial a CONNECTABLE host. The bind host (devServer.host /
-  // EXTENSION_DEV_SERVER_HOST) is a wildcard like 0.0.0.0 under
-  // `--host 0.0.0.0` (devcontainer/CI), which the browser can't connect to.
-  // Prefer an explicit client hostname, then the resolved connectable host
-  // exported by dev-server/index.ts, then rewrite any wildcard bind host to
-  // loopback (resolveConnectableHost).
+  // The HMR client must dial a CONNECTABLE host: the bind host can be a wildcard
+  // (0.0.0.0) the browser can't connect to; rewrite wildcards to loopback.
   const envConnectableHost = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
   const hostname = String(
     webSocketURL.hostname ||

@@ -92,7 +92,7 @@ export class FirefoxLaunchPlugin {
   private child: ChildProcess | null = null
   private watchTimeout?: NodeJS.Timeout
   // Set before spawn so the child 'close' handler can find the session's
-  // ready.json and stamp an unexpected browser exit (§71).
+  // ready.json and stamp an unexpected browser exit.
   private extensionOutputPath?: string
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
@@ -100,15 +100,12 @@ export class FirefoxLaunchPlugin {
     this.ctx = ctx
   }
 
-  /**
-   * Run the Firefox launch flow without requiring a bundler compiler instance.
-   * Intended for run-only preview paths.
-   */
+  // Run the Firefox launch flow without a bundler compiler instance;
+  // intended for run-only preview paths.
   public async runOnce(
     compilation: CompilationLike,
     options: LaunchOptions
   ): Promise<void> {
-    // Ensure a logger exists even when no compiler/plugins are involved.
     if (!this.ctx.logger) {
       this.ctx.logger = {
         info: (...a: unknown[]) => console.log(...a),
@@ -207,7 +204,6 @@ export class FirefoxLaunchPlugin {
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
-    // Guard: never launch if compilation has errors
     const compilationErrors: unknown[] =
       (compilation as {errors?: unknown[]})?.errors || []
     if (compilationErrors.length > 0) {
@@ -261,7 +257,6 @@ export class FirefoxLaunchPlugin {
       process.exit(1)
     }
 
-    // In test/dry-run contexts, avoid real spawn
     if (
       this.host.dryRun ||
       process.env.VITEST ||
@@ -273,16 +268,14 @@ export class FirefoxLaunchPlugin {
       return
     }
 
-    // Early detection from output binaries (mirrors Chromium path)
     let browserBinaryLocation: string | null = resolveManagedBinary()
     let skipDetection = Boolean(browserBinaryLocation)
     const engineBased =
       this.host.browser === 'gecko-based' ||
       this.host.browser === 'firefox-based'
     if (!browserBinaryLocation && !engineBased && isWslEnv()) {
-      // WSL+GUI: prefer a Linux-native Firefox so the dev loop stays
-      // entirely on the Linux side. Fall back to the Windows binary via
-      // /mnt/c when no Linux Firefox is installed or no GUI is available.
+      // WSL+GUI: prefer a Linux-native Firefox so the dev loop stays on the Linux
+      // side; fall back to the Windows binary via /mnt/c.
       const linuxFallback = resolveWslLinuxFirefox()
 
       if (linuxFallback) {
@@ -298,7 +291,6 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    // Detect Firefox binary via firefox-location2
     try {
       if (this.host.geckoBinary && typeof this.host.geckoBinary === 'string') {
         // Flatpak: "flatpak:org.mozilla.firefox" is not a filesystem path
@@ -378,7 +370,6 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    // At this point TS: ensure non-null string
     const binaryPath = browserBinaryLocation as string
     const wslFallbackBinary =
       isWslEnv() && !engineBased ? resolveWslFallback() : null
@@ -393,12 +384,10 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    // Prepare extension(s)
     const extensionsToLoad = toExtensionLoadList(this.host.extension)
 
-    // The user extension's dist dir anchors ready.json; companions
-    // (devtools/theme) are filtered out, mirroring getExtensionOutputPath on
-    // the Chromium side.
+    // The user extension's dist dir anchors ready.json; companions are filtered
+    // out, mirroring getExtensionOutputPath on the Chromium side.
     const userExtensionCandidates = extensionsToLoad.filter(
       (p) =>
         !/[\\/]extension-js-devtools[\\/]/.test(p) &&
@@ -410,7 +399,6 @@ export class FirefoxLaunchPlugin {
         : extensionsToLoad
     ).slice(-1)[0]
 
-    // Compute RDP port with availability check
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,
       this.host.instanceId
@@ -433,7 +421,6 @@ export class FirefoxLaunchPlugin {
       return
     }
 
-    // Parse config for binary args
     const firefoxArgs: string[] = []
     const binaryArgsMatch = firefoxCfg.match(/--binary-args="([^"]*)"/)
     if (binaryArgsMatch) {
@@ -454,7 +441,6 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    // Extract profile path
     const profileMatch = firefoxCfg.match(/--profile="([^"]*)"/)
     if (profileMatch) {
       const profilePath = profileMatch[1]
@@ -473,7 +459,6 @@ export class FirefoxLaunchPlugin {
       })
       this.wireChildLifecycle()
 
-      // Connect to RDP
       const ctrl = await setupRdpAfterLaunch(
         this.host as FirefoxPluginRuntime & {[k: string]: unknown},
         compilation,
@@ -492,7 +477,6 @@ export class FirefoxLaunchPlugin {
         }
       } catch {}
     } else {
-      // Launch with default user profile
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.warn?.(
           '[browser] Firefox profile not set; skipping RDP add-on install.'
@@ -576,10 +560,8 @@ export class FirefoxLaunchPlugin {
           messages.browserInstanceExited(this.host.browser)
         )
       }
-      // An exit we didn't ask for used to be fully silent on Gecko: dev kept
-      // printing "Add-on ready", ready.json stayed green, and root-causing
-      // needed an experiment outside the tooling (§71). Say so loudly and
-      // stamp the contract so automation sees the session is browserless.
+      // An unexpected Gecko exit used to be fully silent. Say so loudly and stamp
+      // the contract so automation sees the session is browserless.
       if (!wasTerminatedByUs(child)) {
         this.ctx.logger?.error?.(
           `[browser] ${this.host.browser} exited (code ${
@@ -608,9 +590,8 @@ export class FirefoxLaunchPlugin {
   }
 
   private async cleanupInstance(): Promise<void> {
-    // The shared teardown owns the kill decision and is idempotent (child.killed
-    // guard), so a shutdown that already terminated the child here is a no-op.
-    // The browser is asked to terminate once per shutdown, not once per layer.
+    // The shared teardown owns the kill decision and is idempotent, so a shutdown
+    // that already terminated the child here is a no-op.
     gracefulTerminateChild(this.child, this.host.browser as BrowserType)
   }
 

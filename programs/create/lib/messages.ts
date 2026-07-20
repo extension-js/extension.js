@@ -196,8 +196,7 @@ export function templateNotFoundInCatalog(
 }
 
 // The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
-// credential-helper hang). Surfacing this honestly (with the real cause) is
-// the #56 fix; the old path always said "choose a valid template name".
+// credential-helper hang); surface the real cause, not "choose a valid template".
 export function templateDownloadFailed(templateName: string, error: unknown) {
   return (
     `${colors.red('Error')} Couldn't download template ${colors.yellow(

@@ -9,19 +9,8 @@
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 
-/**
- * Chromium does not run MV3 `background.scripts`. The extension fails to load
- * ("The 'background.scripts' key cannot be used with manifest_version 3"),
- * while Firefox happily uses it as an event page. The mirror of
- * patch-gecko-background: the scripts array is bundled into a single classic
- * file regardless of target, so for Chromium-family MV3 targets we repoint
- * `background` at that emitted bundle via `service_worker` and drop the
- * `scripts` key Chromium rejects. The bundle is classic (no `type: module`),
- * which a classic service worker runs as-is.
- *
- * No-op for Gecko targets, MV2, manifests that already declare a
- * `background.service_worker`, and manifests with no scripts array.
- */
+// Chromium does not run MV3 background.scripts: repoint background at the
+// emitted classic bundle via service_worker, drop the scripts key. No-op for Gecko/MV2.
 export function patchChromiumBackground(
   manifest: Manifest,
   browser: DevOptions['browser']
@@ -37,10 +26,8 @@ export function patchChromiumBackground(
     return manifest
   }
 
-  // Chromium MV3 rejects the extension whenever `background.scripts` is
-  // present, even alongside a valid `service_worker` (cross-browser hybrid
-  // manifests declare both). Drop `scripts` always; when it was the only
-  // entry, repoint `service_worker` at the emitted classic bundle.
+  // Chromium MV3 rejects the extension whenever background.scripts is present,
+  // even beside a valid service_worker; drop scripts always.
   const {scripts, ...rest} = background
 
   return {

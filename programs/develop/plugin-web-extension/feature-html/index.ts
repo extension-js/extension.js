@@ -65,37 +65,30 @@ export class HtmlPlugin {
       ...(this.includeList || {})
     }
 
-    // 1 - Gets the original HTML file and add the HTML file to the compilation.
     new EmitHtmlFile({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 2 - Adds the assets within the HTML file to the compilation,
-    // such as <img>, <iframe>, <link>, <script> etc.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 3 - Adds the scripts and stylesheets within the HTML file
-    // to the compilation.
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 4 - Updates the HTML file with the new assets and entrypoints.
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 5 - Ensure scripts within the HTML file are HMR enabled (development only).
     if ((compiler.options.mode || 'development') !== 'production') {
       const contentScriptEntryPaths = new Set<string>()
       try {
@@ -143,24 +136,20 @@ export class HtmlPlugin {
       })
     }
 
-    // 6 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 7 - Suggest user to recompile if any style
-    // or script path within the HTML file has changed.
-    // This is needed because when can't recompile
-    // entrypoints at runtime.
+    // Suggest recompiling when a style or script path inside the HTML changed;
+    // entrypoints can't be recompiled at runtime.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 8 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
       includeList,

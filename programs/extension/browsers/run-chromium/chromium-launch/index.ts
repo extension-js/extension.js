@@ -143,15 +143,12 @@ export class ChromiumLaunchPlugin {
     private readonly ctx: ChromiumContext
   ) {}
 
-  /**
-   * Run the Chromium launch flow without requiring a bundler compiler instance.
-   * Intended for run-only preview paths.
-   */
+  // Run the Chromium launch flow without a bundler compiler instance;
+  // intended for run-only preview paths.
   public async runOnce(
     compilation: CompilationLike,
     opts?: {enableCdpPostLaunch?: boolean}
   ): Promise<void> {
-    // Ensure we have a logger even without a compiler.
     if (!this.logger) {
       this.logger = {
         info: (...a: unknown[]) => console.log(...a),
@@ -220,9 +217,7 @@ export class ChromiumLaunchPlugin {
           this.logger.error(
             messages.browserLaunchError(this.options.browser, error)
           )
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
     })
   }
@@ -231,7 +226,6 @@ export class ChromiumLaunchPlugin {
     compilation: CompilationLike,
     opts?: {enableCdpPostLaunch?: boolean}
   ) {
-    // Dry-run short-circuit
     if (
       this.options?.dryRun ||
       process.env.VITEST ||
@@ -243,7 +237,6 @@ export class ChromiumLaunchPlugin {
 
     const browser = this.options?.browser
 
-    // Resolve binary (prefer output-resolved, then location helpers)
     let browserBinaryLocation: string | null = null
     let printedGuidance = false
     const normalizePath = (p: string | null): string | null => {
@@ -286,9 +279,8 @@ export class ChromiumLaunchPlugin {
           })
         }
         if (target === 'chromium') {
-          // Chrome for Testing first: it tracks the stable channel Chrome
-          // users actually run, and the chromium-family launch fallback
-          // picks it up automatically for chromium targets.
+          // Chrome for Testing first: it tracks the stable channel Chrome users run,
+          // and the chromium-family launch fallback picks it up automatically.
           return getChromiumInstallGuidance({
             steps: [
               {
@@ -326,9 +318,8 @@ export class ChromiumLaunchPlugin {
 
     browserBinaryLocation = resolveManagedBinary()
 
-    // Managed `chromium` installs are tip-of-tree snapshots (dev channel).
-    // Don't let one silently outrank an installed stable browser: swap to the
-    // system binary when there is one, unless the user opts into the snapshot.
+    // Managed chromium installs are tip-of-tree snapshots (dev channel); swap to
+    // the system stable binary when present unless the user opts into the snapshot.
     if (browser === 'chromium' && browserBinaryLocation) {
       let systemBinary: string | null = null
       try {
@@ -337,9 +328,7 @@ export class ChromiumLaunchPlugin {
         const env = {...process.env}
         delete env.PUPPETEER_CACHE_DIR
         systemBinary = normalizePath(locateChromium({env}) || null)
-      } catch {
-        // best-effort; the managed snapshot remains the fallback
-      }
+      } catch {}
       const choice = utils.chooseChromiumBinaryPreferringStable({
         managedSnapshotBinary: browserBinaryLocation,
         systemBinary: isUsableBinary(systemBinary) ? systemBinary : null,
@@ -368,10 +357,8 @@ export class ChromiumLaunchPlugin {
 
     let skipDetection = Boolean(browserBinaryLocation)
     if (!browserBinaryLocation && isWslEnv()) {
-      // WSL+GUI: prefer a Linux-native browser so the dev loop stays
-      // entirely on the Linux side (CDP, watchers, FDs all behave
-      // normally). Fall back to the Windows binary via /mnt/c when no
-      // Linux browser is installed or no GUI is available.
+      // WSL+GUI: prefer a Linux-native browser so the dev loop stays on the Linux
+      // side; fall back to the Windows binary via /mnt/c when none is available.
       const linuxFallback = resolveWslLinuxBinary(browser)
 
       if (linuxFallback) {
@@ -407,7 +394,6 @@ export class ChromiumLaunchPlugin {
     const looksOfficialChromeBinaryPath = (bin: string): boolean => {
       const p = String(bin || '')
       if (!p) return false
-      // macOS system Chrome install
       if (
         /\/Applications\/Google Chrome(?: (?:Beta|Dev|Canary))?\.app\/Contents\/MacOS\/Google Chrome/i.test(
           p
@@ -415,9 +401,7 @@ export class ChromiumLaunchPlugin {
       ) {
         return true
       }
-      // Windows system Chrome install
       if (/\\Google\\Chrome\\Application\\chrome\.exe$/i.test(p)) return true
-      // Linux system Chrome install (typical)
       if (/\/opt\/google\/chrome\//i.test(p)) return true
       if (/\/google-chrome(?:-stable)?$/i.test(p)) return true
       return false
@@ -477,9 +461,8 @@ export class ChromiumLaunchPlugin {
         break
       }
 
-      // Chromium forks located from the user's system (not managed
-      // downloads). Each maps to its dedicated `*-location` resolver; the
-      // shared not-found block below prints install guidance on miss.
+      // Chromium forks located from the user's system, each via its dedicated
+      // *-location resolver; the shared not-found block prints install guidance.
       case 'brave':
       case 'opera':
       case 'vivaldi':
@@ -515,10 +498,8 @@ export class ChromiumLaunchPlugin {
       case 'chromium': {
         if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
-        // Prefer explicit binary when provided; otherwise KEEP the binary
-        // already resolved above (managed/system choice), overwriting it
-        // with null here would let the post-switch fallback re-resolve the
-        // managed snapshot and undo the stable-over-snapshot preference.
+        // Prefer an explicit binary; otherwise KEEP the binary already resolved above,
+        // or the post-switch fallback would re-resolve the managed snapshot.
         if (this.options?.chromiumBinary) {
           const normalized = normalizePath(String(this.options.chromiumBinary))
           if (!normalized || !fs.existsSync(normalized)) {
@@ -540,9 +521,7 @@ export class ChromiumLaunchPlugin {
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
-          } catch {
-            // ignore; not fatal here
-          }
+          } catch {}
         }
         if (!browserBinaryLocation) {
           browserBinaryLocation = resolveWslFallback()
@@ -554,7 +533,6 @@ export class ChromiumLaunchPlugin {
         if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         try {
-          // Honor explicit env override first
           const override = String(process.env.EDGE_BINARY || '').trim()
           if (override) {
             const normalized = normalizePath(override)
@@ -568,7 +546,6 @@ export class ChromiumLaunchPlugin {
             const located = locateEdge({env})
             const normalized = normalizePath(located || null)
             browserBinaryLocation = normalized
-            // Validate detected path. If not found, show install guidance just like the catch block.
             if (
               !browserBinaryLocation ||
               !fs.existsSync(String(browserBinaryLocation))
@@ -613,9 +590,7 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'chromium-based': {
-        // Prefer explicit binary; otherwise try chromium-location
         browserBinaryLocation = this.options?.chromiumBinary || null
-        // Engine-based requires explicit working binary path
         if (this.options?.chromiumBinary) {
           const normalized = normalizePath(String(this.options.chromiumBinary))
           if (!normalized || !fs.existsSync(normalized)) {
@@ -639,9 +614,7 @@ export class ChromiumLaunchPlugin {
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
         if (!browserBinaryLocation) {
           browserBinaryLocation = resolveWslFallback()
@@ -662,9 +635,8 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = resolveWslFallback()
       }
 
-      // Requested browser missing everywhere, but another managed
-      // chromium-family binary (e.g. from `extension install all`) is a
-      // working substitute, prefer it over aborting with install guidance.
+      // Requested browser missing everywhere, but another managed chromium-family
+      // binary is a working substitute; prefer it over aborting.
       if (
         (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) &&
         (browser === 'chrome' || browser === 'chromium')
@@ -689,7 +661,6 @@ export class ChromiumLaunchPlugin {
       }
 
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-        // Always print pretty guidance for Chromium flavors
         if (browser === 'chromium' || browser === 'chromium-based') {
           printInstallGuidance(getInstallGuidanceText('chromium'), 'chromium')
         }
@@ -715,8 +686,6 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    // Best-effort: derive a human-readable browser version line once; reused
-    // by the always-on line below and the dev/prod banners.
     let browserVersionLine: string | undefined
     try {
       const vLine = getBrowserVersionLine(browserBinaryLocation)
@@ -746,10 +715,8 @@ export class ChromiumLaunchPlugin {
       browserVersionLine || ''
     )?.[1]
 
-    // Manifest shapes modern Chromium refuses outright (MV2, Firefox-style
-    // MV3 background.scripts): the refusal surfaces only as a native modal,
-    // or nothing at all, and the session wedges with no error and no CDP
-    // endpoint. Say why up front, before the spawn.
+    // Manifest shapes modern Chromium refuses outright surface only as a native
+    // modal (or nothing) and wedge the session; say why up front, before the spawn.
     for (const extPath of extensionsToLoad) {
       try {
         const m = JSON.parse(
@@ -861,9 +828,8 @@ export class ChromiumLaunchPlugin {
       usePipe
     )
 
-    // Extract pipe streams for CDP transport (fds 3 & 4 from Chrome)
-    // child.stdio[3] = Writable (we write commands to Chrome)
-    // child.stdio[4] = Readable (Chrome writes responses to us)
+    // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
+    // Chrome, child.stdio[4] reads responses.
     const pipeStreams =
       usePipe && child?.stdio?.[3] && child?.stdio?.[4]
         ? {
@@ -872,7 +838,6 @@ export class ChromiumLaunchPlugin {
           }
         : undefined
 
-    // Verify the debug port is actually bound before proceeding (skip if using pipes)
     if (enableCdp && !pipeStreams) {
       let portReady = false
       for (let attempt = 0; attempt < 10; attempt++) {
@@ -922,9 +887,7 @@ export class ChromiumLaunchPlugin {
             })
           }
         }
-      } catch {
-        // best-effort only; ignore banner errors
-      }
+      } catch {}
 
       const cdpConfig: ChromiumPluginRuntime = {
         ...pickSharedBrowserRuntimeOptions({
@@ -942,12 +905,8 @@ export class ChromiumLaunchPlugin {
       // to avoid pulling in WS/CDP dependencies.
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
-        // Watchdog: when Chrome rejects the extension at launch (invalid MV3
-        // CSP, manifest referencing missing files, ...) macOS shows a modal
-        // that stalls startup, the pipe handshake and target waits below then
-        // hang FOREVER with no error, no CDP endpoint, and a dev session that
-        // looks alive but can never reload. Convert that silent wedge into a
-        // loud, diagnosable failure.
+        // Watchdog: a rejected extension at launch stalls startup behind a macOS modal
+        // and the pipe handshake hangs forever; convert that silent wedge into a loud failure.
         const CDP_SETUP_TIMEOUT_MS = 45_000
         await Promise.race([
           mod.setupCdpAfterLaunch(
@@ -1000,12 +959,8 @@ export class ChromiumLaunchPlugin {
       ? [...chromeFlags, this.options.startingUrl]
       : [...chromeFlags]
 
-    // When using --remote-debugging-pipe, Chrome communicates via fds 3 & 4.
-    // stdio indices: 0=stdin, 1=stdout, 2=stderr, 3=pipe-write, 4=pipe-read.
-    // stderr is PIPED (and drained below) so extension-load rejections reach
-    // the user: with stderr ignored, a manifest Chrome refuses (e.g. MV3 CSP
-    // with 'unsafe-inline') left dev hanging with no error, no CDP endpoint,
-    // and no extension, a silent wedge.
+    // --remote-debugging-pipe talks over fds 3 & 4. stderr is PIPED and drained so
+    // extension-load rejections reach the user instead of silently wedging dev.
     const stdio: import('child_process').StdioOptions = usePipe
       ? ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']
       : ['ignore', 'ignore', 'pipe']
@@ -1065,10 +1020,8 @@ export class ChromiumLaunchPlugin {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
-        // An exit we didn't ask for means the browser died out from under a
-        // live session. Say so loudly and stamp ready.json so automation sees
-        // it too (previously this was silent outside EXTENSION_AUTHOR_MODE,
-        // and preview/start sessions were never stamped at all, §72).
+        // An exit we didn't ask for means the browser died out from under a live
+        // session. Say so loudly and stamp ready.json so automation sees it too.
         if (!wasTerminatedByUs(child)) {
           this.logger.error(
             this.closeHandlerContext?.isDevMode

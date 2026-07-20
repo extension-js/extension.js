@@ -83,13 +83,8 @@ export class CDPExtensionController {
     await this.connectFreshClient()
   }
 
-  /**
-   * Open a fresh browser tab. Used after the extension registers to land the
-   * developer on a `chrome_url_overrides.newtab` surface, that override only
-   * takes effect for tabs created AFTER registration, so the launch tab (which
-   * predates it) shows Chrome's default new tab (#50). Best-effort: a no-op
-   * when disconnected, and callers swallow errors so it never blocks launch.
-   */
+  // Open a fresh tab after registration so chrome_url_overrides.newtab takes
+  // effect (it only applies to tabs created AFTER registration). Best-effort.
   async openTab(url: string): Promise<void> {
     if (!this.cdp) return
     await this.cdp.sendCommand('Target.createTarget', {url})
@@ -98,14 +93,11 @@ export class CDPExtensionController {
   async ensureLoaded(): Promise<ExtensionInfoResult> {
     if (!this.cdp) throw new Error('CDP not connected')
 
-    // Load unpacked extension from output path
     const exists = fs.existsSync(this.outPath)
     if (!exists) throw new Error(`Output path not found: ${this.outPath}`)
 
-    // Before loading this build, evict any prior unpacked load of THIS project
-    // that the persistent profile auto-loaded at startup (a sibling dist path
-    // from an earlier run/CLI resolution), otherwise the profile accumulates
-    // duplicate extension IDs for one project (#49). Best-effort, once.
+    // Evict any prior unpacked load of THIS project the profile auto-loaded, or
+    // duplicate extension IDs accumulate for one project. Best-effort, once.
     if (this.profilePath) {
       try {
         const {uninstallStaleUnpackedLoads} = await import('./ensure')
@@ -119,9 +111,8 @@ export class CDPExtensionController {
       }
     }
 
-    // CDP-first strategy: try Extensions.loadUnpacked (Chrome 126+ with
-    // --enable-unsafe-extension-debugging), then fall back to target derivation
-    // for older Chrome or when the CDP domain isn't available.
+    // CDP-first: try Extensions.loadUnpacked (Chrome 126+), then fall back to
+    // target derivation for older Chrome or a missing CDP domain.
     if (!this.extensionId) {
       try {
         const {loadUnpackedIfNeeded} = await import('./ensure')
@@ -132,7 +123,6 @@ export class CDPExtensionController {
       }
     }
 
-    // Fallback: derive extensionId from Chrome targets (--load-extension path)
     if (!this.extensionId) {
       const id = await this.deriveExtensionIdFromTargets()
       if (id) this.extensionId = id
@@ -144,13 +134,8 @@ export class CDPExtensionController {
         // Verifiably another extension, never adopt it.
         this.extensionId = null
       } else if (ownership === 'unknown' && this.profilePath) {
-        // The profile cannot confirm ownership yet (a freshly created profile
-        // has not flushed its Preferences). 'unknown' is not a yes: instead of
-        // adopting the derived id on trust, re-derive and re-check the shared
-        // decision until the profile converges. We accept the id only once it
-        // verifies as ours, and drop it the moment it verifies as another's; a
-        // still-unconfirmed id is left for the longer-wait derivation below
-        // rather than silently reported as mine.
+        // 'unknown' is not a yes: re-derive and re-check until the profile converges;
+        // adopt the id only once it verifies as ours, drop it if another's.
         for (let attempt = 0; attempt < 5; attempt++) {
           await new Promise((r) => setTimeout(r, 200))
           const candidate =
@@ -170,19 +155,15 @@ export class CDPExtensionController {
       }
     }
 
-    // If already known, verify info
     if (this.extensionId) {
       try {
-        // Try Extensions domain first; if missing, fall back to manifest
         let info: {
           extensionInfo?: {name?: string; version?: string}
         } | null = null
 
         try {
           info = await this.cdp.getExtensionInfo(this.extensionId)
-        } catch {
-          // ignore
-        }
+        } catch {}
 
         if (!info) {
           const manifest = JSON.parse(
@@ -201,13 +182,10 @@ export class CDPExtensionController {
           name: info?.extensionInfo?.name,
           version: info?.extensionInfo?.version
         }
-      } catch {
-        // will reload
-      }
+      } catch {}
     }
 
     try {
-      // If still unknown, derive from targets with a longer wait.
       if (!this.extensionId) {
         this.extensionId = await this.deriveExtensionIdFromTargets(20, 200)
       }
@@ -216,10 +194,8 @@ export class CDPExtensionController {
         throw new Error('Failed to determine extension ID via CDP')
       }
 
-      // After load/derivation, set up runtime/log domains
       await this.enableLogging()
 
-      // Prefer Extensions.getExtensionInfo; fallback to manifest
       let name: string | undefined
       let version: string | undefined
 
@@ -267,10 +243,8 @@ export class CDPExtensionController {
     )
   }
 
-  // Ask the one ownership question. Every site that needs to know whether an
-  // id belongs to the dev extension resolves through this shared decision, so
-  // the tri-state ('mine' | 'not_mine' | 'unknown') is never re-interpreted
-  // per call site. 'unknown' is not a yes, see `ownership.ts`.
+  // The one ownership question: every site resolves through this shared
+  // tri-state decision ('mine' | 'not_mine' | 'unknown'); 'unknown' is not a yes.
   private classifyOwnership(extensionId: string) {
     return classifyExtensionOwnership(
       this.profilePath,
@@ -280,8 +254,6 @@ export class CDPExtensionController {
   }
 
   private async connectFreshClient(): Promise<void> {
-    // Prefer pipe transport (--remote-debugging-pipe) when available;
-    // fall back to WebSocket via --remote-debugging-port.
     if (this.pipeIn && this.pipeOut && !this.pipeIn.destroyed) {
       this.cdp = await connectToChromeCdpViaPipe(
         this.pipeIn,
@@ -292,7 +264,6 @@ export class CDPExtensionController {
       this.cdp = await connectToChromeCdp(this.cdpPort)
     }
 
-    // Proactively enable auto-attach and capture extensionId from service worker targets as soon as they appear
     try {
       await this.cdp.sendCommand('Target.setDiscoverTargets', {
         discover: true
@@ -324,7 +295,6 @@ export class CDPExtensionController {
     })
   }
 
-  // Stream logs when requested: attach to page + extension targets and forward
   async enableUnifiedLogging() {
     if (!this.cdp) return
 
@@ -332,7 +302,6 @@ export class CDPExtensionController {
       await this.cdp.enableAutoAttach()
       await this.cdp.enableRuntimeAndLog()
 
-      // Proactively attach to existing targets and enable Runtime/Log per-session
       try {
         const targets = await this.cdp.getTargets()
 
@@ -351,13 +320,9 @@ export class CDPExtensionController {
             await this.cdp.enableRuntimeAndLog(sessionId)
           }
         }
-      } catch {
-        // ignore
-      }
+      } catch {}
       // Filtering is performed in the caller using event metadata
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   private async enableLogging() {
@@ -385,7 +350,6 @@ export class CDPExtensionController {
             )
 
             if (sessionId && matchesExtension) {
-              // Enable runtime and log domains for this session
               await this.cdp!.sendCommand('Runtime.enable', {}, sessionId)
               await this.cdp!.sendCommand('Log.enable', {}, sessionId)
             }
@@ -398,9 +362,7 @@ export class CDPExtensionController {
               console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
             }
           }
-        } catch {
-          // ignore
-        }
+        } catch {}
       })
     } catch (e) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
@@ -409,7 +371,6 @@ export class CDPExtensionController {
     }
   }
 
-  // Best-effort info retrieval without throwing
   async getInfoBestEffort(): Promise<ExtensionInfoResult | null> {
     try {
       if (!this.cdp) return null
@@ -422,10 +383,8 @@ export class CDPExtensionController {
         if (ownership === 'not_mine') {
           this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
         } else if (ownership === 'unknown' && this.profilePath) {
-          // Best-effort: the id is not confirmed as ours, so re-derive rather
-          // than report a possibly-foreign extension's name/version. Adopt the
-          // result only if it is not verifiably someone else's; otherwise keep
-          // the existing id (still unconfirmed, never asserted as mine).
+          // Best-effort: the id is not confirmed ours, so re-derive rather than report a
+          // possibly-foreign extension's name/version; adopt only if not verifiably another's.
           const rederived = await this.deriveExtensionIdFromTargets(6, 150)
           if (rederived && this.classifyOwnership(rederived) !== 'not_mine') {
             this.extensionId = rederived
@@ -449,9 +408,7 @@ export class CDPExtensionController {
           )
           name = manifest?.name
           version = manifest?.version
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
       return {extensionId: this.extensionId, name, version}
     } catch (error) {

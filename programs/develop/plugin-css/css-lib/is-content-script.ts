@@ -17,10 +17,8 @@ interface ContentScriptIndex {
   contentPaths: Set<string>
 }
 
-// This function is wired as a webpack `issuer` predicate, so it runs once per
-// module per CSS rule. Re-reading + re-parsing the manifest on every call is a
-// real hot-path cost, so cache the derived content-script path set and only
-// rebuild when the manifest's mtime changes (keeps watch-mode correctness)
+// Wired as a webpack issuer predicate (hot path): cache the derived
+// content-script path set and rebuild only when the manifest mtime changes.
 const indexCache = new Map<string, ContentScriptIndex>()
 
 function getContentScriptIndex(

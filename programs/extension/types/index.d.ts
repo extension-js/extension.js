@@ -58,7 +58,6 @@ declare global {
   }
 }
 
-// Asset imports (CSS modules + static images)
 type CSSContentData = Readonly<Record<string, string>>
 type CSSModuleData = Readonly<Record<string, string>>
 

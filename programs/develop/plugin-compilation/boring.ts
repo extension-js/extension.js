@@ -44,9 +44,8 @@ export class BoringPlugin {
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
-      // A throw here escapes hooks.done into Watching._done and kills the
-      // watch loop for the rest of the session (a mid-save manifest is
-      // routinely invalid JSON), so this read must never propagate.
+      // A throw here escapes hooks.done into Watching._done and kills the watch loop
+      // (a mid-save manifest is routinely invalid JSON); never propagate.
       let manifestName: string | undefined
       try {
         const parsedName = parseJsonSafe(
@@ -62,9 +61,8 @@ export class BoringPlugin {
       const line = messages.boring(manifestName || 'Extension', duration, stats)
 
       try {
-        // Rspack/webpack do not always populate `compilation.modifiedFiles` for
-        // asset-only rebuilds (e.g. HTML popup edits). Merge with the compiler's
-        // watch set so the post-banner suppression below still clears on HTML changes.
+        // Rspack does not always populate modifiedFiles for asset-only rebuilds; merge
+        // with the compiler watch set so suppression clears on HTML changes.
         const fromCompilation = Array.from(
           (stats?.compilation as {modifiedFiles?: Set<string>} | undefined)
             ?.modifiedFiles || []
@@ -88,9 +86,8 @@ export class BoringPlugin {
           if (hasUserFileChange) this.sawUserInvalidation = true
         }
 
-        // During startup with browser launch enabled, multiple successful
-        // compiles can happen before the banner is printed. Keep only the last
-        // one and flush it when the banner arrives to avoid noisy duplicates
+        // Multiple successful compiles can precede the banner during startup; keep
+        // only the last and flush it when the banner arrives.
         if (
           browserLaunchEnabled &&
           !isBannerPrinted() &&
@@ -102,10 +99,8 @@ export class BoringPlugin {
           return
         }
 
-        // Runner startup can produce extra successful passes before any real
-        // source invalidation happens. Keep one post-banner success line and
-        // suppress additional startup-only duplicates until the first user/source
-        // invalidation event
+        // Runner startup can produce extra successful passes; keep one post-banner
+        // success line and suppress duplicates until the first real invalidation.
         if (browserLaunchEnabled && !hasErrors && !hasWarnings) {
           if (!this.sawUserInvalidation) {
             if (!this.printedPostBannerStartupSuccess) {

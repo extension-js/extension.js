@@ -11,9 +11,8 @@ const HARD_EXIT_GRACE_MS = 5_000
 
 function isProcessAlive(pid: number): boolean {
   try {
-    // Signal 0 performs the existence/permission check without delivering
-    // anything. EPERM means the pid exists but belongs to another user,
-    // still alive for watchdog purposes.
+    // Signal 0 checks existence/permission without delivering; EPERM means the
+    // pid exists under another user, still alive for watchdog purposes.
     process.kill(pid, 0)
     return true
   } catch (error) {
@@ -21,19 +20,8 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-/**
- * Exit this process when the given parent pid dies (`--parent-pid`).
- *
- * Wrappers that spawn `extension dev` otherwise have to own the whole
- * process group to guarantee teardown; when a wrapper dies HARD (SIGKILL,
- * crash, CI reaper), the orphaned dev keeps watching and compiling, and the
- * next session's builds race it inside one dist. Watching the parent pid
- * directly closes that hole: on death we deliver SIGTERM to ourselves so the
- * regular cleanup handlers (dev server stop, port manager, browser plugins)
- * run, with a hard exit as backstop.
- *
- * Returns a cancel function.
- */
+// Exit when the parent pid dies (--parent-pid): an orphaned dev otherwise races
+// the next session's builds. SIGTERM self-delivery runs cleanup. Returns cancel.
 export function setupParentWatchdog(
   parentPid: number,
   options?: {

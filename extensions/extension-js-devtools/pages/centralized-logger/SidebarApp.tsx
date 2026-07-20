@@ -10,7 +10,6 @@ import React, {useEffect, useMemo, useState} from 'react'
 
 import {Toaster} from '@/components/ui/sonner'
 
-// Components
 import {FiltersRow} from './controls/FiltersRow'
 import {SettingsAside} from './controls/SettingsAside'
 import {ActionsRow} from './controls/ActionsRow'
@@ -65,7 +64,6 @@ export default function SidebarApp() {
     }
   }, [])
 
-  // Load persisted UI settings
   useEffect(() => {
     try {
       chrome.storage.session.get(
@@ -131,7 +129,6 @@ export default function SidebarApp() {
     } catch {}
   }, [])
 
-  // Persist on change
   useEffect(() => {
     try {
       chrome.storage.session.set({

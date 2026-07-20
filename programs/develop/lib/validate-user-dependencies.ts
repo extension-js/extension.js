@@ -22,15 +22,8 @@ function isReferencedAsModuleSpecifier(
   return specifierRe.test(configSource)
 }
 
-// Ensures the user's project does not declare packages that are
-// managed by Extension.js itself. Managed packages live in the
-// develop program's package.json (dependencies/optionalDependencies).
-// If a conflict is found, throw a helpful error so the current command
-// aborts. Throwing (not process.exit) matters: this fires during config
-// load, and the same code path serves programmatic hosts that embed
-// extension-develop, a hard exit here kills the whole host process.
-// `userManifestPath` is the project's manifest: package.json or deno.json(c),
-// dependencies are read from whichever manifests its directory holds.
+// Rejects user projects that declare packages managed by Extension.js itself.
+// Throwing (not process.exit) matters: programmatic hosts embed this code path.
 export function assertNoManagedDependencyConflicts(
   userManifestPath: string,
   projectPath: string
@@ -56,9 +49,8 @@ export function assertNoManagedDependencyConflicts(
       )
     ])
 
-    // Some internal toolchain dependencies (e.g. dev-server peers) can also be
-    // legitimately installed by user projects. Do not treat these as "managed"
-    // to avoid false-positive conflict errors.
+    // Some internal toolchain dependencies can legitimately be installed by user
+    // projects; do not treat these as managed, avoiding false conflicts.
     managedDeps.delete('webpack')
 
     // Only enforce when the same package is referenced in user's extension.config.(js|mjs)

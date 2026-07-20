@@ -40,11 +40,8 @@ export async function createDirectory(
 
     const conflictingFiles = await Promise.all(
       currentDir
-        // .gitignore, .DS_Store, etc
         .filter((file) => !file.startsWith('.'))
-        // Logs of yarn/npm
         .filter((file) => !file.endsWith('.log'))
-        // Whatever we think is appropriate
         .filter((file) => !allowlist.includes(file))
         .map(async (file) => {
           const stats = await fs.lstat(path.join(projectPath, file))
@@ -52,7 +49,6 @@ export async function createDirectory(
         })
     )
 
-    // If directory has conflicting files, abort
     if (conflictingFiles.length > 0) {
       const conflictMessage = await messages.directoryHasConflicts(
         projectPath,

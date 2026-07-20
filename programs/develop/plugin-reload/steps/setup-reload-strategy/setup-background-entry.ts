@@ -61,9 +61,8 @@ export class SetupBackgroundEntry {
       stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
     )
     const browser = this.browser
-    // Gecko family (firefox + forks like waterfox/librewolf) gets the gecko
-    // reload helper; everything else (chromium family + Safari/webkit) gets the
-    // chromium one.
+    // Gecko family (firefox + forks) gets the gecko reload helper; everything else
+    // (chromium family + Safari/webkit) gets the chromium one.
     const isGecko = isGeckoBasedBrowser(String(browser))
     const minimumBgScript = resolveDevelopDistFile(
       isGecko ? 'minimum-firefox-file' : 'minimum-chromium-file'
@@ -97,16 +96,8 @@ export class SetupBackgroundEntry {
       return
     }
 
-    // chromium / safari / manifest v3 or v2.
-    //
-    // Safari is classified as neither a chromium- nor a gecko-based browser, so
-    // its prefixed manifest_version keys (chromium:/firefox:) do not resolve and
-    // `manifestVersion` is undefined here. `patch-background` injects a
-    // background.service_worker for every non-gecko manifest that is not
-    // explicitly MV2 (undefined included), so the default branch below must
-    // register the matching entry. Otherwise the patched manifest references
-    // background/service_worker.js that no chunk emits, and the persist-manifest
-    // gate fails the first build with a "files were not emitted to disk" error.
+    // Safari resolves neither chromium: nor firefox: prefixed manifest_version, so
+    // the default branch must register the service-worker entry patch-background expects.
     if (manifestVersion === 2) {
       const bgScripts = manifestBg?.scripts
 

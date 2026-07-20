@@ -37,7 +37,6 @@ import {markManagedEphemeralProfile} from './shared-utils'
 export type ProfileKind = 'system' | 'explicit' | 'managed'
 
 export interface ResolveProfileInput {
-  /** The raw `profile` option as supplied by the user. */
   rawProfile?: string | false
   /** Managed-profile base directory: `<distRoot>/extension-js/profiles/<browser>-profile`. */
   managedBaseDir: string
@@ -49,20 +48,15 @@ export interface ResolveProfileInput {
   keepProfileChanges?: boolean
   /** `copyFromProfile` option, seed the managed profile as a copy of this path. */
   copyFromProfile?: string
-  /**
-   * Resolve a relative explicit profile path. Each launcher passes its own
-   * resolver (against the rspack compilation context) so this module stays
-   * free of launcher-specific path logic.
-   */
+  // Resolve a relative explicit profile path; each launcher passes its own
+  // resolver so this module stays free of launcher-specific path logic.
   resolveExplicit: (trimmedProfile: string) => string
 }
 
 export interface ResolvedProfile {
   kind: ProfileKind
-  /**
-   * The directory the launcher should point the browser at, or `''` for the
-   * system kind (no `--user-data-dir` / `--profile` should be emitted).
-   */
+  // The directory the browser should be pointed at, or '' for the system kind
+  // (no --user-data-dir / --profile emitted).
   profilePath: string
   /** True when the managed profile is persisted (no cleanup on exit). */
   persisted: boolean
@@ -84,22 +78,10 @@ function hasCopyFrom(
   )
 }
 
-/**
- * §73 E22: a managed profile is a FULL browser profile (Cookies, History,
- * Login Data) materialized under `dist/extension-js/`. Scaffolds ignore
- * `dist`, but adopted projects often have no root .gitignore — committing
- * that tree ships personal data. The session root defends itself: a
- * `.gitignore` containing `*` inside `dist/extension-js/` hides the whole
- * directory (including the ignore file) from git regardless of project
- * ignore rules, while `dist/<browser>` build output stays committable.
- * Written once; an existing (possibly user-edited) file is respected.
- * Mirrors `ensureSessionArtifactsIgnoreFile` in extension-develop's
- * session-paths owner module — this copy covers run/preview flows that
- * never start the dev server. Best-effort: never throws.
- */
+// A managed profile is a FULL browser profile (Cookies, History, Login Data).
+// A '*' .gitignore inside dist/extension-js hides it from git; write-once, best-effort.
 export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   try {
-    // managedBaseDir = <distRoot>/extension-js/profiles/<browser>-profile
     const sessionRoot = path.dirname(path.dirname(managedBaseDir))
     const ignoreFile = path.join(sessionRoot, '.gitignore')
     if (fs.existsSync(ignoreFile)) return
@@ -116,10 +98,8 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   }
 }
 
-/**
- * Copy the contents of `source` into `dest`, recursively. Used to seed a managed
- * profile from `copyFromProfile`. No-op (best effort) when `source` is missing.
- */
+// Copy source into dest recursively, seeding a managed profile from
+// copyFromProfile; best-effort no-op when source is missing.
 export function seedProfileFrom(source: string, dest: string) {
   if (!fs.existsSync(source)) return
   fs.mkdirSync(dest, {recursive: true})
@@ -128,11 +108,8 @@ export function seedProfileFrom(source: string, dest: string) {
   fs.cpSync(source, dest, {recursive: true})
 }
 
-/**
- * Resolve (and materialize on disk) the profile a run gets. Behavior-preserving
- * for the default ephemeral path and explicit paths; adds `false` (system),
- * `copyFromProfile` (seed) and `keepProfileChanges` (persist + skip cleanup).
- */
+// Resolve (and materialize) the profile a run gets: default ephemeral, explicit
+// paths, false (system), copyFromProfile (seed), keepProfileChanges (persist).
 export function resolveProfileConfig(
   input: ResolveProfileInput
 ): ResolvedProfile {
@@ -146,9 +123,8 @@ export function resolveProfileConfig(
     resolveExplicit
   } = input
 
-  // `profile: false` and the env switch both mean: the browser's own default
-  // profile. Nothing is created, seeded or cleaned. An empty or whitespace-only
-  // string is NOT false, it falls through to the managed default below.
+  // profile: false and the env switch both mean the browser's own default
+  // profile; an empty string is NOT false and falls through to the managed default.
   if (rawProfile === false || useSystemProfile) {
     return {kind: 'system', profilePath: '', persisted: false}
   }
@@ -174,22 +150,16 @@ export function resolveProfileConfig(
     profilePath = path.join(managedBaseDir, human)
   }
 
-  // Capture freshness BEFORE creating the directory. A target is "fresh" when it
-  // does not exist yet or is empty. `copyFromProfile` seeds only a fresh target,
-  // so the seed is copy-once: an ephemeral profile (always a new dir) is seeded
-  // every run, while a persisted/kept `dev` profile is seeded once on creation
-  // and the user's later changes survive subsequent runs instead of being
-  // clobbered by a re-seed every launch.
+  // Capture freshness BEFORE creating the directory: copyFromProfile seeds only a
+  // fresh target, so persisted profiles seed once and user changes survive.
   const isFreshTarget =
     !fs.existsSync(profilePath) || fs.readdirSync(profilePath).length === 0
 
   fs.mkdirSync(profilePath, {recursive: true})
   ensureProfileRootIgnoreFile(managedBaseDir)
   if (!persisted) {
-    // Only ephemeral, non-kept profiles are reclaimed on browser exit. The
-    // marker is what `removeManagedEphemeralProfile` keys off of, so a persisted
-    // or kept profile (no marker) survives. That is how `keepProfileChanges`
-    // skips cleanup.
+    // Only ephemeral, non-kept profiles are reclaimed on exit; the marker is what
+    // removeManagedEphemeralProfile keys off, so kept profiles survive.
     markManagedEphemeralProfile(profilePath)
   }
 

@@ -83,7 +83,6 @@ const perTabBuffers = new Map<number, LogEvent[]>()
 const subscribers = new Set<chrome.runtime.Port>()
 let captureStacks = false
 
-// Load settings
 try {
   chrome.storage.session.get(['logger_capture_stacks'], (data) => {
     captureStacks = Boolean(data?.logger_capture_stacks)
@@ -100,10 +99,7 @@ try {
   chrome.storage.session.onChanged.addListener(onSessionChanged as never)
 } catch {}
 
-// External token support removed
-
 function uuid(): string {
-  // Simple UUID v4-ish for event IDs
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8
@@ -152,7 +148,6 @@ function handleClientMessage(port: chrome.runtime.Port, msg: ClientMessage) {
   const senderFrameId = port.sender?.frameId
   const incognito = port.sender?.tab?.incognito
   const windowId = port.sender?.tab?.windowId
-  // Per-sender rate limiting (optional hardening)
   const rateKey = senderExtensionId || `tab:${senderTabId ?? 'unknown'}`
   if (!allowRate(rateKey)) return
 
@@ -210,7 +205,6 @@ if (import.meta.env.EXTENSION_BROWSER !== 'firefox') {
   })
 }
 
-// Recent dedupe to avoid accidental duplicates
 const recentKeys: string[] = []
 const recentSet = new Set<string>()
 
@@ -241,7 +235,6 @@ function enrichEventAndBroadcast(event: LogEvent) {
     if (old) recentSet.delete(old)
   }
 
-  // Enrich hostname/title if possible
   if (event.url && !event.hostname) {
     try {
       const url = new URL(event.url)
@@ -312,7 +305,6 @@ export function appendExternalLog(partial: {
 
   appendEventWithEnrich(event)
 }
-// Rate limit map (per sender)
 const RATE_WINDOW_MS = 1000
 const RATE_LIMIT = 200
 const rateMap = new Map<string, {ts: number; count: number}>()
@@ -407,7 +399,6 @@ function logLifecycle(
   appendEventWithEnrich(event)
 }
 
-// Extension lifecycle
 chrome.runtime.onInstalled.addListener((details) => {
   logLifecycle('info', [
     'extension installed',
@@ -440,7 +431,6 @@ chrome.runtime.onStartup.addListener(() => {
   } catch {}
 })
 
-// Tabs lifecycle
 chrome.tabs.onCreated.addListener((tab) => {
   logLifecycle('info', ['tab created'], {
     tabId: tab.id ?? undefined,

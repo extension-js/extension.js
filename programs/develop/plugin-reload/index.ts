@@ -89,24 +89,20 @@ export class ReloadPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // Inject the SW-side `__extjsScriptsReplay` shim so the controller can
-    // re-execute previously-issued `chrome.scripting.executeScript` calls
-    // after a user edits a file in /scripts/*, bringing programmatic
-    // injection HMR closer to parity with declarative content_scripts.
+    // Inject the SW-side __extjsScriptsReplay shim so the controller can re-run
+    // prior scripting.executeScript calls after /scripts/* edits.
     new InjectScriptsReplayShim().apply(compiler)
 
-    // Inject the agent-bridge producer so the background SW forwards its
-    // console output to the dev-server control WS (agent bridge).
-    // No-ops when the control bridge is unavailable.
+    // Inject the agent-bridge producer so the background SW forwards console
+    // output to the dev-server control WS; no-op when the bridge is unavailable.
     new InjectBridgeProducer().apply(compiler)
 
     // Forward content-script console to the SW relay (multi-context logs).
     // No-ops when the control bridge is unavailable.
     new InjectBridgeRelay().apply(compiler)
 
-    // Hot chunks are fetched from the extension origin (disk), so they live
-    // in the loadable dist, prune superseded generations so a long editing
-    // session doesn't accumulate hundreds of stale files in "what ships".
+    // Hot chunks are fetched from the extension origin (disk), so prune superseded
+    // generations or long sessions accumulate stale files in what ships.
     new PruneStaleHotUpdates().apply(compiler)
   }
 }

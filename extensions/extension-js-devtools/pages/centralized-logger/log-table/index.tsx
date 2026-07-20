@@ -192,7 +192,6 @@ export function LogTableView({
                       </TableCell>
                     ))}
                   </TableRow>
-                  {/* expanded content row */}
                   <TableRow className="border-b-0">
                     <TableCell
                       className="border-b-0"

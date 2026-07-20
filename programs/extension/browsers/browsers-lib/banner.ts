@@ -14,17 +14,14 @@ import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import * as messages from './messages'
 
-// Inline shared-state flag: in the standalone browser package we only need
-// the boolean so other modules can query whether the banner was already
-// emitted during this process lifetime.
+// Inline shared-state flag: the standalone browser package only needs the
+// boolean marking whether the banner was already emitted this process.
 let bannerPrinted = false
 export const BANNER_PRINTED_EVENT = 'extensionjs:banner-printed'
 function markBannerPrinted() {
   bannerPrinted = true
-  // Cross-package signal so develop's shared-state can flush any compile
-  // line that arrived before the banner was visible. Without this, the
-  // first deferred line stays parked until the next `done` hook, which
-  // makes the initial run silent and double-prints on first reload.
+  // Cross-package signal so develop's shared-state can flush a compile line that
+  // arrived before the banner; otherwise it parks until the next done hook.
   process.emit(BANNER_PRINTED_EVENT)
 }
 export function isBannerPrinted(): boolean {
@@ -111,11 +108,8 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
   }
 }
 
-// Mirror Chrome's `crx_file::id_util::GenerateIdForPath` so we can surface the
-// same extension ID Chrome assigns to an unpacked extension loaded via
-// `--load-extension=<path>`. Needed for extensions with no manifest `key` and
-// no runtime surface (no background, no content scripts, no action), without
-// this fallback the dev banner has no ID to render and gets suppressed
+// Mirror Chrome's id_util::GenerateIdForPath so unpacked extensions with no
+// key and no runtime surface still get their real ID in the dev banner.
 function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
   if (!extensionPath || typeof extensionPath !== 'string') return ''
 
@@ -231,15 +225,8 @@ export async function printDevBannerOnce(opts: {
     }
   }
 
-  // Consume the update-suffix env var only at the moment we're committed
-  // to printing. Earlier in the function we may bail (manifest not yet on
-  // disk, extensionId not yet derivable), Chromium's launch flow calls
-  // this twice on the same process: an early call before the manifest is
-  // stable that would early-return, and a later one after CDP wires up.
-  // If we consumed the suffix at the top, the early call would delete it
-  // and the visible banner would lose the "(version X.Y.Z is available!)"
-  // hint. Reading it here, after every early-return, makes both browsers
-  // surface the suffix consistently.
+  // Consume the update-suffix env var only once committed to printing: the
+  // launch flow calls this twice and an early consume would lose the hint.
   const updateSuffix = readUpdateSuffixOnce()
 
   console.log(messages.emptyLine())
@@ -327,7 +314,6 @@ export async function printProdBannerOnce(opts: {
       )
       console.log(messages.emptyLine())
     } else {
-      // Fallback: manifest-only summary using the unified dev/preview layout.
       const message = {
         data: {
           id: '',
@@ -356,11 +342,8 @@ export async function printProdBannerOnce(opts: {
       console.log(messages.emptyLine())
     }
   } catch {
-    // Fallback: if anything goes wrong, still try to print a minimal card.
-    // We cannot re-read the manifest here (it likely failed above), so we
-    // print a short summary using only the information already available.
-    // Don't consume the suffix on this path, leave it for a later
-    // banner attempt that has more information to work with.
+    // Fallback: still print a minimal card from information already available;
+    // don't consume the suffix, leave it for a better-informed later attempt.
     console.log(messages.emptyLine())
     console.log(
       ` 🧩 ${colors.brightBlue('Extension.js')}\n` +

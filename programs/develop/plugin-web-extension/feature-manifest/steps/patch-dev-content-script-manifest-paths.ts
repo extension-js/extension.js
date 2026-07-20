@@ -14,14 +14,8 @@ import type {Compilation} from '@rspack/core'
 import type {Manifest} from '../../../types'
 import {parseCanonicalContentScriptAsset} from '../../feature-scripts/contracts'
 
-/**
- * After each dev compile, canonical content bundles emit as
- * `content_scripts/content-N.<fullhash>.js`. Point manifest `content_scripts` at those
- * filenames so page reloads load the same bytes as reinject (avoids stale cache).
- *
- * Also removes stale hashed files from previous builds so resolveEmittedContentScriptFile
- * always finds the current bundle unambiguously.
- */
+// Point manifest content_scripts at the hashed dev bundles so page reloads
+// load the same bytes as reinject; stale prior-build files are removed.
 export function patchDevContentScriptManifestPaths(
   compilation: Compilation,
   manifest: Manifest
@@ -58,11 +52,8 @@ function resolveDevContentScriptDeclaredPath(
   ext: 'js' | 'css',
   assetNames: Set<string>
 ): string {
-  // Parse the numeric index from the declared path itself rather than
-  // using the array position.  MAIN world bridge entries are created at
-  // canonical indices that differ from their array position, so relying
-  // on groupIndex would produce a wrong canonical name and the path
-  // would never resolve to its hashed counterpart.
+  // Parse the numeric index from the declared path, not the array position:
+  // MAIN world bridge entries sit at canonical indices that differ from it.
   const parsed = parseCanonicalContentScriptAsset(declaredPath)
   if (!parsed || parsed.extension !== ext) return declaredPath
 
@@ -88,19 +79,8 @@ function findHashedContentScriptAsset(
   return undefined
 }
 
-/**
- * Delete hashed content script files from previous builds that are no longer
- * referenced by the manifest. Prevents ambiguity when resolving files by glob
- * and avoids unbounded disk growth during long dev sessions.
- *
- * Treats `compilation.getAssets()` as the source of truth for what this
- * compilation just emitted under `content_scripts/`. Anything on disk under
- * that directory matching a `<stem>.<hash>.<ext>` shape that is NOT in the
- * emitted set is a leftover from a prior rebuild and gets unlinked. This
- * covers both the canonical `content-N.<hash>.<ext>` bundle and named CSS
- * chunks like `content-index.<hash>.css` (emitted by content-script CSS
- * imports via `import.meta.url`).
- */
+// Delete hashed content-script files no longer referenced by the manifest;
+// getAssets() is the source of truth for what this compile emitted.
 function purgeStaleHashedContentScripts(
   compilation: Compilation,
   currentNames: Set<string>
@@ -130,11 +110,7 @@ function purgeStaleHashedContentScripts(
 
       try {
         fs.unlinkSync(path.join(csDir, name))
-      } catch {
-        // Best-effort cleanup; ignore errors.
-      }
+      } catch {}
     }
-  } catch {
-    // Ignore readdir failures.
-  }
+  } catch {}
 }

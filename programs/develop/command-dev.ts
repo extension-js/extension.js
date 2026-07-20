@@ -76,10 +76,8 @@ export async function extensionDev(
       )
     }
 
-    // Merge per-browser + per-command defaults from extension.config.js so user
-    // values (profile, startingUrl, browserFlags, preferences, etc.) reach the
-    // launcher. CLI devOptions take precedence, sanitize strips `undefined`
-    // so unset CLI fields fall through to extension.config.js
+    // Merge per-browser + per-command defaults from extension.config.js; CLI
+    // devOptions take precedence, sanitize strips undefined so unset falls through.
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
     const merged = {
@@ -155,9 +153,8 @@ export async function extensionDev(
 
     return emitter
   } catch (error) {
-    // Always surface a minimal error so users aren't left with a silent exit.
-    // Contract errors (missing tsconfig, bad manifest, …) print once, clean,
-    // no stack, author mode keeps the full trace.
+    // Always surface a minimal error: contract errors print once, clean, no stack;
+    // author mode keeps the full trace.
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(error)
     } else {

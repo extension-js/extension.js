@@ -45,10 +45,8 @@ export interface BridgeBrokerOptions {
   now?: () => number
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
-  // Called once, the first time the extension's service worker (the "executor")
-  // connects over the control channel. Lets the dev server stamp a distinct
-  // "runtime attached" signal into ready.json, separate from the compile-ready
-  // status, so tooling can wait for the extension to actually be attached.
+  // Called once when the extension's SW first connects over the control channel;
+  // stamps a distinct "runtime attached" signal into ready.json.
   onExecutorAttached?: () => void
 }
 
@@ -69,12 +67,8 @@ const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
   'inspect'
 ])
 
-/**
- * Why a controller's eval is (or isn't) permitted, decided once at hello.
- * Anything but 'ok' denies with a cause-specific message, the catch-all
- * "requires --allow-eval and a valid token" made every leg (flag missing,
- * token unreadable, token stale) look identical to the caller.
- */
+// Why a controller's eval is (or isn't) permitted, decided once at hello;
+// each denial names its specific cause instead of a catch-all.
 type EvalGate = 'ok' | 'eval-disabled' | 'no-token' | 'token-mismatch'
 
 const EVAL_DENIED: Record<Exclude<EvalGate, 'ok'>, string> = {
@@ -89,14 +83,8 @@ const EVAL_DENIED: Record<Exclude<EvalGate, 'ok'>, string> = {
     'session, reconnect the controller, or restart the dev session'
 }
 
-/**
- * Why no executor (producer) is connected, in priority order. Like EVAL_DENIED
- * this splits a catch-all, "is the dev session running?" made a stale cached
- * SW mid-resync, a never-started browser, and an idled-out worker all look
- * identical, and each has a different remediation. Builders take elapsed
- * seconds where a timestamp exists. The 'no executor connected' prefix is
- * load-bearing: specs and downstream matchers key on it.
- */
+// Why no executor is connected, in priority order; each cause has a different
+// remediation. The 'no executor connected' prefix is load-bearing for specs.
 type ExecutorAbsence =
   | 'stale-resync-pending'
   | 'never-connected'
@@ -124,22 +112,12 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
  * past this the stale hello no longer explains the absence. */
 const STALE_RESYNC_HINT_MS = 30_000
 
-/**
- * §53. How long after session start to stay quiet about a reload that reached
- * zero producers. During startup the browser is still launching and the SW is
- * still connecting, so a zero-delivery edit is expected, not a problem, warning
- * then would cry wolf on every cold start. Past this window an undelivered edit
- * is a real "reloads aren't reaching the page" signal and gets surfaced once.
- */
+// How long after session start to stay quiet about a reload that reached zero
+// producers: during startup that's expected; past it, surface once.
 const UNDELIVERED_RELOAD_GRACE_MS = 10_000
 
-/**
- * §53. Operator-facing warnings for a dev-loop reload that reached no page,
- * keyed by why no producer is attached. Distinct from EXECUTOR_ABSENT (which
- * answers a controller's blocked command with "retry"): these address the
- * developer who just saved a file and saw nothing happen. The dev server prints
- * one of these; the broker only decides which (or none).
- */
+// Operator-facing warnings for a dev-loop reload that reached no page, keyed
+// by why no producer is attached. The dev server prints; the broker decides.
 const UNDELIVERED_RELOAD_WARN: Record<
   'never-connected' | 'recently-disconnected',
   string
@@ -188,39 +166,23 @@ export class BridgeBroker {
   private readonly evalGate = new Map<BridgeConnection, EvalGate>()
   private readonly pending = new Map<string, Pending>()
   private staleResyncTimes: number[] = []
-  /** True once any producer hello has been accepted this run. */
   private producerEverConnected = false
-  /** Broker clock at session start, the anchor for §53's startup grace. */
+  // Broker clock at session start, the anchor for the startup grace window.
   private readonly sessionStartedAt: number
-  /**
-   * §53 dedup: the absence kind we last warned about for an undelivered reload.
-   * Set when a warning is emitted, cleared on the next producer attach, so a
-   * rapid edit loop warns once per attach-state transition (not once per save)
-   * yet a later detach can warn again.
-   */
+  // Dedup: the absence kind last warned about for an undelivered reload.
+  // Cleared on producer attach so warnings fire once per attach transition.
   private lastUndeliveredWarnKind:
     | 'never-connected'
     | 'recently-disconnected'
     | null = null
   /** Fired once, on the first producer hello, to stamp ready.json. */
   private readonly onExecutorAttached?: () => void
-  /** When the last accepted producer's socket closed (broker clock). */
   private lastProducerDisconnectedAt: number | null = null
-  /**
-   * When the last stale-instance producer hello arrived. Unlike
-   * staleResyncTimes (rate limiting, pruned to 60s) this is diagnosis state
-   * and is stamped even for rate-limited hellos.
-   */
+  // When the last stale-instance producer hello arrived; diagnosis state,
+  // stamped even for rate-limited hellos (unlike staleResyncTimes).
   private lastStaleHelloAt: number | null = null
-  /**
-   * Latest reload broadcast not yet provably delivered. Latched when the
-   * broadcast reached zero producers (SW not started yet, or stopped after
-   * idling out) and, for content-scripts reloads, until a producer confirms
-   * reinjection ran with a `reload-ack`, a successful socket write proves
-   * nothing when the SW is wedged-but-connected (bug 27). Delivered once to
-   * the next producer that says hello, so an edit made while the SW was away
-   * (or dead at the pump) still applies instead of silently reloading nothing.
-   */
+  // Latest reload broadcast not yet provably delivered. Latched until a producer
+  // confirms (reload-ack for content scripts) or the next producer hello.
   private pendingReload?: ReloadFrame
 
   constructor(options: BridgeBrokerOptions) {
@@ -311,20 +273,8 @@ export class BridgeBroker {
     }
   }
 
-  /**
-   * Dev-loop reload broadcast for the controller-less path. On a compile under
-   * `--no-browser` (no CDP controller to drive granular reinjection), the dev
-   * server calls this to push a typed {@link ReloadFrame} to every connected
-   * producer (the service worker), which performs the actual reload.
-   *
-   * NOT gated on `allowControl`: this is the dev loop reloading the developer's
-   * own extension on save, not an arbitrary controller-issued command. The
-   * launched-browser path never calls this, the controller owns reload there,
-   * so the two paths converge on one decision without double-reloading.
-   *
-   * Returns the number of producers notified (0 when the SW hasn't connected
-   * yet, e.g. before the first compile finishes writing the background bundle).
-   */
+  // Dev-loop reload broadcast for the controller-less (--no-browser) path. NOT
+  // gated on allowControl; returns the number of producers notified.
   broadcastReload(instruction: {
     type: DevReloadKind
     changedContentScriptEntries?: string[]
@@ -351,15 +301,8 @@ export class BridgeBroker {
       }
     }
 
-    // Latch the newest instruction so the next producer hello (SW started
-    // late, woken after an idle stop, or restarted after wedging) still
-    // applies it. A write to a connected socket is NOT delivery: a
-    // content-scripts reload stays latched until the producer's reload-ack
-    // confirms reinjection actually ran (bug 27), real reinjection acks
-    // within milliseconds, and re-running a content script on replay is no
-    // worse than two quick edits. Full/SW reloads can't ack (runtime.reload()
-    // kills the worker, and replaying one on hello would loop the restart),
-    // so for those a successful write still clears the latch.
+    // Latch the newest instruction so the next producer hello still applies it.
+    // Content-scripts reloads stay latched until reload-ack; full/SW clear on write.
     this.pendingReload =
       notified === 0 || frame.reloadType === 'content-scripts'
         ? frame
@@ -368,20 +311,8 @@ export class BridgeBroker {
     return notified
   }
 
-  /**
-   * §53. After a dev-loop {@link broadcastReload} reached zero producers, decide
-   * whether to surface a one-line operator warning that the edit isn't reaching
-   * any page. Returns the message the FIRST time an attach-state warrants it, or
-   * null when:
-   *   - still inside the startup grace window (browser launching / SW connecting),
-   *   - a stale producer just resynced (a full-reload is already in flight and
-   *     the latched edit rides along), or
-   *   - this same absence kind was already warned (deduped until the next attach).
-   *
-   * The broker owns this decision because it alone tracks attach state; the dev
-   * server prints what this returns. A zero-delivery reload is otherwise a silent
-   * no-op indistinguishable from a broken tool on heavy sites / auth walls.
-   */
+  // After a broadcast reached zero producers, decide whether to warn once that
+  // the edit isn't reaching any page (grace-gated, deduped per attach state).
   undeliveredReloadWarning(): string | null {
     const now = this.now()
 
@@ -389,9 +320,8 @@ export class BridgeBroker {
     // a zero-delivery edit is expected. Stay quiet until the grace window ends.
     if (now - this.sessionStartedAt < UNDELIVERED_RELOAD_GRACE_MS) return null
 
-    // A stale-instance producer just dialed in and was told to full-reload; the
-    // resynced worker reconnects within seconds and picks up the latched edit.
-    // Warning during that self-healing transition would cry wolf.
+    // A stale producer just resynced; the restarted worker reconnects in seconds
+    // and picks up the latched edit, so warning now would cry wolf.
     if (
       this.lastStaleHelloAt != null &&
       now - this.lastStaleHelloAt < STALE_RESYNC_HINT_MS
@@ -410,12 +340,8 @@ export class BridgeBroker {
     return UNDELIVERED_RELOAD_WARN[kind]
   }
 
-  /**
-   * Keepalive for the dev extension's MV3 service worker: receiving any
-   * WebSocket message resets its ~30s idle timer, so the dev server pings
-   * all producers on an interval shorter than that. Without this, a quiet
-   * extension's SW stops between edits and reload broadcasts reach nothing.
-   */
+  // MV3 SW keepalive: any WebSocket message resets its ~30s idle timer, so ping
+  // on a shorter interval or reload broadcasts reach nothing between edits.
   pingProducers(): number {
     let pinged = 0
     for (const [conn, role] of this.roles) {
@@ -447,8 +373,6 @@ export class BridgeBroker {
     }
   }
 
-  // --- internals ---
-
   /** At most 3 stale-producer resync reloads per rolling minute. */
   private allowStaleProducerResync(): boolean {
     const now = this.now()
@@ -467,17 +391,8 @@ export class BridgeBroker {
     }
 
     if (hello.instanceId !== this.instanceId) {
-      // A producer with a stale instanceId is a live background SW from a
-      // PREVIOUS dev session: Chrome caches the extension service-worker
-      // script, so a reused profile can keep running old code whose baked
-      // instanceId (and formerly, control port) predate this server. Just
-      // rejecting it would strand the extension, its producer retries
-      // forever and no reload could ever reach it. Instead, tell it to
-      // full-reload itself: the restarted SW re-reads the fresh bundle from
-      // disk (current port + instanceId) and connects cleanly. Storm-guarded
-      // so a persistent mismatch (e.g. a second project pointed at this
-      // port) can't reload-cycle an extension forever. Controllers/consumers
-      // are simply rejected. They are not the extension.
+      // A stale instanceId is a live SW from a PREVIOUS session (Chrome caches SW
+      // scripts); tell it to full-reload so it re-reads the fresh bundle. Storm-guarded.
       if (hello.role === 'producer') {
         // Diagnosis state, stamped even when the resync below is rate-limited:
         // a stale hello explains a later "no executor connected" either way.
@@ -510,9 +425,8 @@ export class BridgeBroker {
 
       this.roles.set(conn, 'controller')
 
-      // eval is gated independently: it needs --allow-eval AND a token match.
-      // The failing leg is recorded per connection so a later eval denial can
-      // name the actual cause instead of a catch-all.
+      // eval is gated independently: --allow-eval AND a token match; the failing leg
+      // is recorded per connection so a later denial names the actual cause.
       this.evalGate.set(conn, this.gateEval(hello.token))
       conn.send(this.controllerReady())
       return
@@ -527,17 +441,11 @@ export class BridgeBroker {
 
     if (hello.role === 'producer') {
       this.producerEverConnected = true
-      // A producer is back: clear the §53 undelivered-reload dedup so that if it
-      // later disconnects, the next stranded edit warns again (the attach state
-      // genuinely transitioned).
+      // A producer is back: clear the undelivered-reload dedup so a later detach
+      // can warn again (the attach state genuinely transitioned).
       this.lastUndeliveredWarnKind = null
-      // The extension's service worker attached. Stamp ready.json's runtime
-      // signal. Fired on EVERY producer hello (not just the first): the callback
-      // is idempotent, and firing every time closes a startup race, the control
-      // server accepts connections before the dev server has wired this callback,
-      // so a hello arriving in that window would otherwise lose the stamp forever.
-      // Later hellos (SW reconnects) then land it. Cheap: an already-stamped
-      // contract is a single read that returns early.
+      // Stamp ready.json's runtime signal on EVERY producer hello: idempotent, and
+      // firing each time closes the startup race where the callback wasn't wired yet.
       try {
         this.onExecutorAttached?.()
       } catch {
@@ -570,12 +478,8 @@ export class BridgeBroker {
     }
   }
 
-  /**
-   * Name WHY no producer is connected right now. Priority: a fresh
-   * stale-instance hello (resync in flight, strictly more actionable than
-   * either other cause) > nothing ever connected this run > a producer was
-   * here and left.
-   */
+  // Name WHY no producer is connected: fresh stale-instance hello > nothing ever
+  // connected > a producer was here and left.
   private diagnoseExecutorAbsence(): string {
     const now = this.now()
 
@@ -602,9 +506,8 @@ export class BridgeBroker {
   private gateEval(token: string | undefined): EvalGate {
     if (!this.allowEval) return 'eval-disabled'
     if (!token) return 'no-token'
-    // No server-side token with --allow-eval set shouldn't happen (the dev
-    // server writes one whenever eval is enabled), treat it as a mismatch,
-    // since no presented token can be valid.
+    // No server-side token with --allow-eval set shouldn't happen; treat as a
+    // mismatch since no presented token can be valid.
     if (!this.controlToken || token !== this.controlToken) {
       return 'token-mismatch'
     }

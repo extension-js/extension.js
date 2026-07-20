@@ -26,7 +26,6 @@ export async function commonStyleLoaders(
 ): Promise<RuleSetRule['use']> {
   const styleLoaders: RuleSetRule['use'] = []
 
-  // Handle PostCSS for Tailwind, Sass, or Less
   if (
     isUsingPostCss(projectPath) ||
     isUsingTailwind(projectPath) ||
@@ -35,9 +34,8 @@ export async function commonStyleLoaders(
   ) {
     const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
     if (maybeInstallPostCss.loader) {
-      // Pitches ahead of postcss-loader: a plain .css file that doesn't parse
-      // ships verbatim with a warning instead of failing the build (G17),
-      // browsers error-recover invalid CSS, so the build must too.
+      // Pitches ahead of postcss-loader: a plain .css file that doesn't parse ships
+      // verbatim with a warning; browsers error-recover invalid CSS, so must the build.
       styleLoaders.push({
         loader: resolveDevelopDistFile('css-parse-guard-loader')
       })
@@ -47,10 +45,8 @@ export async function commonStyleLoaders(
     }
   }
 
-  // Handle Sass/Less loaders
   if (opts.loader) {
     styleLoaders.push({
-      // Use either external loader or builtin
       loader: opts.loader,
       options: {
         ...opts.loaderOptions,

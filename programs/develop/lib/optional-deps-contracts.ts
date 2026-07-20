@@ -12,19 +12,15 @@ import type {
   OptionalDependencyVerificationRule
 } from './optional-dependency-types'
 
-// Every package a contract can suggest installing is already bundled as a hard
-// dependency of extension-develop. Treat that package.json as the single source
-// of truth for versions so the install hints we print can never drift from what
-// actually ships (previously the versions were hand-duplicated here and had
-// silently diverged, e.g. hinting less-loader@12 while shipping 13).
+// The develop package.json is the single source of truth for hint versions so
+// install hints can never drift from what ships.
 const BUNDLED_DEPENDENCY_VERSIONS: Record<string, string> = {
   ...((developPackageJson as {dependencies?: Record<string, string>})
     .dependencies || {})
 }
 
-// Build a `name@version` spec pinned to the bundled version. Falls back to the
-// bare name if a package somehow isn't bundled, keeping the hint usable rather
-// than throwing at import time.
+// Build a name@version spec pinned to the bundled version; fall back to the
+// bare name so hints stay usable rather than throwing.
 function spec(packageId: string): string {
   const version = BUNDLED_DEPENDENCY_VERSIONS[packageId]
   return version ? `${packageId}@${version}` : packageId
@@ -49,12 +45,8 @@ function defineContract(
   return contract
 }
 
-// NOTE: there is deliberately no `typescript` contract. Nothing in the build
-// needs the package: sources are compiled by swc, and the classic-concat
-// loader strips types with swc too. It was only ever satisfiable because
-// extension-develop shipped a 24MB copy of its own; verifying it after that
-// copy was dropped would hard-fail every project that uses TypeScript without
-// declaring it (112 of 902 in the real-world corpus).
+// Deliberately no typescript contract: swc compiles sources and strips types;
+// verifying it would hard-fail TS projects that don't declare the package.
 const OPTIONAL_DEPENDENCY_CONTRACTS = {
   'react-refresh': defineContract({
     id: 'react-refresh',
@@ -72,12 +64,8 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   'preact-refresh': defineContract({
     id: 'preact-refresh',
     integration: 'Preact',
-    // Note on @rspack/plugin-preact-refresh: 2.x is the rspack-2.x-native major:
-    // it declares `@rspack/core` ^2.0.0 as a peer and keeps the
-    // `runtimeModule.constructor?.name` fallback that 1.1.5 introduced. (Earlier
-    // 1.1.4 only checked `runtimeModule.constructorName`, which is `undefined`
-    // in rspack 2.x, so the HMR runtime intercept was never appended and
-    // `$RefreshReg$` stayed undefined when the user's bundle evaluated.)
+    // @rspack/plugin-preact-refresh 2.x is the rspack-2.x-native major; 1.1.4's
+    // constructorName check is undefined on rspack 2.x so the intercept never ran.
     installPackages: specs([
       '@prefresh/core',
       '@prefresh/utils',

@@ -31,10 +31,8 @@ function deriveBundleId(appName: string) {
   return `dev.extensionjs.${bundleSegment(appName)}`
 }
 
-/**
- * Apple bundle identifiers: dot-separated segments of alphanumerics and
- * hyphens, each starting with a letter, at least two segments (reverse-DNS).
- */
+// Apple bundle identifiers: dot-separated alphanumeric/hyphen segments,
+// each starting with a letter, at least two segments (reverse-DNS).
 export function isValidBundleId(value: string): boolean {
   return /^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z][A-Za-z0-9-]*)+$/.test(value)
 }
@@ -45,9 +43,7 @@ function readManifest(extensionDir: string): Record<string, unknown> {
     if (fs.existsSync(manifestPath)) {
       return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) || {}
     }
-  } catch {
-    // best-effort; fall through to defaults
-  }
+  } catch {}
   return {}
 }
 
@@ -128,13 +124,8 @@ export function builtAppPath(config: SafariBuildConfig) {
   )
 }
 
-/**
- * Arguments passed to `xcodebuild`. Local builds use ad-hoc signing (identity
- * `-`): a Developer ID isn't required, yet the embedded `.appex` still gets a
- * signature so `ValidateEmbeddedBinary` passes. Fully disabling signing leaves
- * the appex unsigned and that validation step fails. Real distribution signing
- * belongs to a separate deployment stage.
- */
+// xcodebuild args. Local builds use ad-hoc signing (identity '-') so the
+// embedded .appex still passes ValidateEmbeddedBinary; real signing is a deploy stage.
 export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
   return [
     '-project',
@@ -151,10 +142,6 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     'build'
   ]
 }
-
-// ---------------------------------------------------------------------------
-// Manifest fingerprinting, detect when the generated Xcode project is stale
-// ---------------------------------------------------------------------------
 
 export function manifestFingerprintPath(config: SafariBuildConfig): string {
   return path.join(config.projectLocation, '.manifest-fingerprint')
@@ -186,13 +173,8 @@ function normalizeManifest(raw: string): string {
   }
 }
 
-/**
- * v2 fingerprint: manifest content PLUS the identity inputs baked into the
- * generated Xcode project (app name, bundle id, platform). An identity change
- * must re-run the converter or the project keeps shipping the old identity.
- * A v1 fingerprint (raw normalized manifest, no JSON envelope) never matches
- * this shape, so old projects regenerate once and migrate automatically.
- */
+// v2 fingerprint: manifest content PLUS identity inputs (app name, bundle id,
+// platform); identity changes re-run the converter, v1 shapes migrate once.
 export function composeProjectFingerprint(config: SafariBuildConfig): string {
   return JSON.stringify({
     v: 2,
@@ -221,19 +203,8 @@ export function isProjectStale(config: SafariBuildConfig): boolean {
   return stored !== composeProjectFingerprint(config)
 }
 
-// ---------------------------------------------------------------------------
-// Xcode user-settings preservation across project regeneration
-// ---------------------------------------------------------------------------
-
-/**
- * The converter does not honor --bundle-identifier verbatim: it writes the
- * appex id as `<identifier>.Extension` but derives the PARENT app id from the
- * identifier's namespace plus the app-name segment (observed on Xcode 16/26).
- * With a user-provided id whose last segment differs from the app name, the
- * prefixes mismatch and ValidateEmbeddedBinary fails the build. Rewrite both
- * PRODUCT_BUNDLE_IDENTIFIERs so the project always carries exactly the
- * configured identity: app = <bundleId>, appex = <bundleId>.Extension.
- */
+// The converter derives the parent app id from the app name, not verbatim from
+// --bundle-identifier; rewrite both PRODUCT_BUNDLE_IDENTIFIERs to the configured identity.
 export function alignBundleIdentifiers(
   pbxprojContent: string,
   bundleId: string
@@ -265,7 +236,6 @@ export function extractXcodeUserSettings(
     const m = new RegExp(`\\b${key}\\s*=\\s*([^;]+);`).exec(pbxprojContent)
     if (m) {
       const val = m[1].trim()
-      // Only preserve if the value looks intentionally set (not empty or placeholder)
       if (val && val !== '""' && val !== "''") {
         found[key] = val
       }
@@ -282,10 +252,8 @@ export function applyXcodeUserSettings(
   for (const [key, value] of Object.entries(settings)) {
     const existing = new RegExp(`\\b${key}\\s*=\\s*[^;]+;`, 'g')
     if (existing.test(result)) {
-      // Replace all occurrences with the preserved value.
       result = result.replace(existing, `${key} = ${value};`)
     } else {
-      // Inject into every buildSettings block.
       result = result.replace(
         /buildSettings\s*=\s*\{/g,
         `buildSettings = {\n\t\t\t\t${key} = ${value};`

@@ -9,17 +9,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-/**
- * Stamp an unexpected browser exit into the session's ready.json (additive
- * fields; the develop-side writer preserves them across recompiles, like
- * cdpPort) so automation reading the contract sees the session is browserless
- * instead of trusting a green status whose reloads go nowhere.
- *
- * For run-only commands (preview/start) a dead browser IS a dead session, so
- * the status flips to error (§72); a dev session keeps its compile status (the
- * dev server is still alive) with the exit evidence alongside. Shared by the
- * Chromium and Firefox launchers (§71: Firefox death used to be fully silent).
- */
+// Stamp an unexpected browser exit into the session's ready.json so automation
+// sees a browserless session. Run-only commands flip to error; dev keeps compile status.
 export function stampReadyBrowserExited(
   extensionOutputPath: string | undefined,
   code: number | null
