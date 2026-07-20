@@ -58,9 +58,7 @@ export function findExtensionDevelopRoot(): string | null {
       if (pkg.name === 'extension-develop') {
         return packageRoot
       }
-    } catch {
-      // Ignore JSON parse errors
-    }
+    } catch {}
   }
 
   return null
@@ -80,9 +78,7 @@ export function resolveDevelopInstallRoot(): string | undefined {
   try {
     const candidateRoot = findDevelopRootFrom(__dirname)
     if (candidateRoot) return candidateRoot
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   try {
     const pkgPath = cjsRequire.resolve('extension-develop/package.json', {

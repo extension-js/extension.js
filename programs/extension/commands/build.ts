@@ -171,9 +171,8 @@ export function registerBuildCommand(program: Command) {
           process.exit(1)
         }
 
-        // Safari packaging preflight. Non-macOS is a warn-and-skip (the
-        // web-extension bundle in dist/safari still builds and can be packaged
-        // later on a Mac); a macOS host with a broken/missing Xcode is fatal.
+        // Safari packaging preflight. Non-macOS is a warn-and-skip; a macOS
+        // host with a broken/missing Xcode is fatal.
         let safariPackagingEnabled = true
         if (list.some(isSafariVendor)) {
           const preflight = safariBuildPreflight()

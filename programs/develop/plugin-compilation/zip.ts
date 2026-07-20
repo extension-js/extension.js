@@ -34,12 +34,8 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
-/**
- * Resolve an i18n manifest name (`__MSG_appName__`) against the default
- * locale's messages.json so the zip is named after the real extension name,
- * not the placeholder slug (§73 F29: msgappname-1.0.0.zip). Falls back to the
- * project dir basename when the message cannot be resolved.
- */
+// Resolve an i18n manifest name (__MSG_appName__) against the default locale's
+// messages.json so the zip carries the real name; falls back to dir basename.
 function resolveManifestName(
   rawName: unknown,
   manifest: {default_locale?: unknown},
@@ -57,9 +53,7 @@ function resolveManifestName(
       const parsed = parseJsonSafe(fs.readFileSync(messagesPath, 'utf-8'))
       const message = parsed?.[msgMatch[1]]?.message
       if (typeof message === 'string' && message.trim()) return message
-    } catch {
-      // try the next root
-    }
+    } catch {}
   }
   return fallback
 }
@@ -73,9 +67,7 @@ async function getFilesToZip(projectDir: string): Promise<string[]> {
   try {
     const content = fs.readFileSync(gitignorePath, 'utf8')
     if (content) ig.add(content)
-  } catch {
-    // Ignore errors reading .gitignore
-  }
+  } catch {}
 
   const files = await glob('**/*', {cwd: projectDir, dot: true})
   return files.filter((file) => !ig.ignores(file))
@@ -114,9 +106,8 @@ export class ZipPlugin {
 
         const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
 
-        // §73 F29: a missing default-locale folder makes the packaged zip
-        // rejectable by every store, and the ADM-ZIP failure that follows
-        // hides that root cause. Say it precisely, up front.
+        // A missing default-locale folder makes the zip store-rejectable, and
+        // the ADM-ZIP failure that follows hides the root cause; warn up front.
         if (manifest.default_locale) {
           const localeRoot = this.zipData.zipSource ? packageJsonDir : outPath
           const messagesPath = path.join(
@@ -159,9 +150,6 @@ export class ZipPlugin {
             )
           })
 
-          // "dist" before the browser name for dirname of the output path
-          // For example, if outPath is "dist/chrome", then the source path
-          // will be "dist/my-extension-1.0.0-source.zip"
           const sourcePath = path.join(
             path.dirname(outPath),
             `${name}-source.zip`
@@ -188,7 +176,6 @@ export class ZipPlugin {
           distZip.writeZip(distPath)
           created.push({kind: 'dist', path: distPath})
         }
-        // After writing zips, emit a single summary (author mode)
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           const sourceItem = created.find((c) => c.kind === 'source')
           const distItem = created.find((c) => c.kind === 'dist')

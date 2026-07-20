@@ -20,10 +20,8 @@ type ChromiumLogger = {
   warn?: (...args: unknown[]) => void
 }
 
-// Known Linux install locations, in preference order. Real binaries come
-// before bash wrappers so `--remote-debugging-pipe` keeps its FDs open
-// (the Debian/Ubuntu `google-chrome` script uses process substitution,
-// which closes extra FDs on exec, see issue covered by WXT PR #2055).
+// Known Linux install locations, in preference order. Real binaries come before
+// bash wrappers so `--remote-debugging-pipe` keeps its FDs open.
 const LINUX_BROWSER_PATHS: Record<string, string[]> = {
   chrome: [
     '/opt/google/chrome/chrome',
@@ -43,11 +41,8 @@ const LINUX_BROWSER_PATHS: Record<string, string[]> = {
   edge: ['/opt/microsoft/msedge/msedge', '/usr/bin/microsoft-edge']
 }
 
-/**
- * Native Linux browser binary for use under WSL+GUI. Prefers real binaries
- * over wrapper scripts. Returns null when not in WSL, when no GUI is
- * available, or when no candidate exists on disk.
- */
+// Native Linux browser binary for WSL+GUI; prefers real binaries over wrapper
+// scripts. Returns null outside WSL+GUI or when no candidate exists on disk.
 export function resolveWslLinuxBinary(browser: string): string | null {
   if (!isWslEnv() || !hasGuiDisplay()) return null
   const candidates = LINUX_BROWSER_PATHS[browser] || LINUX_BROWSER_PATHS.chrome
@@ -75,11 +70,8 @@ function looksLikeChromeWrapperScript(filePath: string): boolean {
   return CHROME_WRAPPER_BASENAMES.has(basename(filePath))
 }
 
-/**
- * Under WSL+GUI, swap a Chrome wrapper script for the real binary if
- * present. The wrapper closes extra file descriptors on exec, which
- * breaks `--remote-debugging-pipe`. No-op outside WSL+GUI.
- */
+// Under WSL+GUI, swap a Chrome wrapper script for the real binary: the wrapper
+// closes extra FDs on exec, which breaks `--remote-debugging-pipe`.
 export function preferRealChromeBinary(
   binary: string | null | undefined
 ): string | null {

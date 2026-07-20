@@ -13,14 +13,8 @@ import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
 import {canonicalizeDir, isResourceUnderDirs} from '../../../lib/resource-path'
 import type {PluginInterface} from '../../../types'
 
-/**
- * Registers the loader that keeps `import(chrome.runtime.getURL(...))`
- * native. The argument is an absolute chrome-extension:// URL at runtime, so
- * the bundler's module map can never satisfy it, lowered calls throw
- * `Cannot find module 'chrome-extension://<id>/...'` in real Chrome while
- * the source loads fine unpacked. TraceRuntimeLoadedFiles ships the target
- * files; this step keeps the call site resolvable by the browser.
- */
+// Keep `import(chrome.runtime.getURL(...))` native: the argument is a runtime
+// chrome-extension:// URL the bundler's module map can never satisfy.
 export class KeepGetURLImportsNative {
   private readonly manifestPath: string
 

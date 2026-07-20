@@ -68,10 +68,8 @@ import * as messages from './messages'
 import {PortManager} from './port-manager'
 
 function shouldWriteAssetToDisk(filePath: string) {
-  // A `..` segment in the write target means an emitted asset NAME escapes
-  // the output dir (dist/chromium/../../assets/x). Writing it would clobber
-  // a SOURCE file, which the watcher then reports as a user edit, a
-  // self-feeding recompile loop that reloads the extension once per second.
+  // A `..` segment means an emitted asset NAME escapes the output dir; writing
+  // it would clobber a SOURCE file and start a self-feeding recompile loop.
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
 }
@@ -353,26 +351,21 @@ export async function devServer(
     : '1'
 
   const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
-  // Plain manifest+scripts extensions ship no project manifest; the project
-  // root is then the manifest's directory. `build` already tolerates this
-  // shape, dev must not crash on dirname(undefined). Deno projects anchor
-  // on deno.json(c) when no package.json exists.
+  // Plain manifest+scripts extensions ship no project manifest; the project root
+  // is then the manifest's directory. Deno projects anchor on deno.json(c).
   const projectManifestPath = packageJsonPath || denoJsonPath
   const packageJsonDir = projectManifestPath
     ? path.dirname(projectManifestPath)
     : path.dirname(manifestPath)
 
-  // Get command defaults from extension.config.js (located at project root)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
-  // Get browser defaults from extension.config.js (located at project root)
   const browserConfig = await loadBrowserConfig(
     packageJsonDir,
     devOptions.browser
   )
 
-  // Initialize port manager and allocate a port for this instance. Probe on the
-  // same host the server binds, so a port free on localhost but taken on the
-  // configured host isn't picked (and vice versa).
+  // Probe on the same host the server binds, so a port free on localhost but
+  // taken on the configured host isn't picked (and vice versa).
   const portManager = new PortManager(8080)
   const desiredPort =
     typeof devOptions.port === 'string'
@@ -393,10 +386,7 @@ export async function devServer(
   const port = portAllocation.port
 
   // `devServerHost` is the BIND host (e.g. 0.0.0.0 in a devcontainer). Clients
-  // (the in-page HMR ws and the SW control-bridge producer) must dial a
-  // CONNECTABLE host instead: a wildcard bind address is not a valid client
-  // target. Derive it once here and propagate it to the HMR client URL,
-  // ready.json, and the baked producer (see resolveConnectableHost).
+  // must dial a CONNECTABLE host: a wildcard bind is not a valid client target.
   const connectableHost = resolveConnectableHost(
     devServerHost,
     extendedOptions.publicHost
@@ -409,23 +399,17 @@ export async function devServer(
   }
   process.env.EXTENSION_DEV_SERVER_PROTOCOL = devServerWebSocketURL.protocol
   process.env.EXTENSION_DEV_SERVER_HOST = devServerHost
-  // Connectable host for in-browser clients (HMR ws + control-bridge producer).
   process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = connectableHost
   process.env.EXTENSION_DEV_SERVER_PORT = String(port)
   process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
 
-  // --- Agent bridge (Slice 1): dedicated control WS + logs.ndjson ---
-  // Best-effort and local-only. Runs alongside (never blocks) the dev server.
   const browserName = String(devOptions.browser || 'chromium')
-  // One canonical dist output path per browser, shared with `build`/`preview`
-  // (all three route through getDistPath). Re-joining `dist/<browser>` inline at
-  // each use site let the rspack output, the manifest path, and the ready.json
-  // `distPath` field drift apart across code paths/versions, the root of the
-  // "distPath depends on how the CLI was resolved" report. Derive it once.
+  // One canonical dist output path per browser, shared with `build`/`preview`.
+  // Inline `dist/<browser>` joins let output/manifest/ready.json paths drift.
   const primaryDistPath = getDistPath(asAbsolute(packageJsonDir), browserName)
   const bridgeLogsAbsPath = sessionLogsPath(packageJsonDir, browserName)
-  // §73 E22: the session root self-ignores so a project with no .gitignore
-  // can't commit the managed profile (cookies/logins) or session logs.
+  // The session root self-ignores so a project with no .gitignore can't
+  // commit the managed profile (cookies/logins) or session logs.
   ensureSessionArtifactsIgnoreFile(packageJsonDir)
   // The ready contract publishes it project-relative.
   const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
@@ -450,9 +434,8 @@ export async function devServer(
     allowControl && allowEval
       ? writeControlToken(packageJsonDir, browserName)
       : undefined
-  // The metadata writer is created later (it needs the resolved control port),
-  // but the broker fires onExecutorAttached whenever the SW connects, which is
-  // always after that. A mutable holder bridges the ordering.
+  // The metadata writer is created later (it needs the resolved control port);
+  // the SW connects after that, so a mutable holder bridges the ordering.
   let stampExecutorAttached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
@@ -468,19 +451,15 @@ export async function devServer(
     onExecutorAttached: () => stampExecutorAttached?.()
   })
 
-  // Option B: hand the broker to a launched runner plugin so Chromium reloads
-  // through the SW producer (the same executor as `--no-browser`). No-op for the
-  // Safari plugin / Firefox (which has no setReloadBroker / keeps RDP).
+  // Hand the broker to a launched runner plugin so Chromium reloads through the
+  // SW producer (same executor as --no-browser). No-op for Safari and Firefox.
   const launchedPlugin = extendedOptions.browsersPlugin
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
   }
 
-  // E21: browser-generated warnings (CDP Log.entryAdded — alarm-period
-  // clamps, CSP refusals, deprecations) never pass through the extension's
-  // console hook, so the SW producer can't report them. The launcher's CDP
-  // controller forwards them here; ingest them into the same ring +
-  // logs.ndjson + consumer fan-out as producer logs.
+  // Browser-generated warnings (CDP Log.entryAdded) never pass through the
+  // extension's console hook; the launcher forwards them into the same pipeline.
   if (launchedPlugin && typeof launchedPlugin.setLogSink === 'function') {
     launchedPlugin.setLogSink((event) => {
       try {
@@ -515,12 +494,8 @@ export async function devServer(
     bridgeLogFile.start()
     bridgeActionsFile?.start()
 
-    // Prefer the port of the previous session for this project+browser: a
-    // reused profile can still be running a CACHED background SW with that
-    // old port baked in, and only a reachable server can tell it to resync
-    // (broker sends it a full-reload on the stale hello). Falls back to an
-    // ephemeral port when the persisted one is taken (e.g. a concurrent
-    // instance).
+    // Prefer the previous session's port: a reused profile may still run a CACHED
+    // SW with it baked in, and only a reachable server can tell it to resync.
     const controlPortFile = controlPortFilePath(packageJsonDir, browserName)
     const preferredControlPort =
       readPersistedControlPort(controlPortFile) ??
@@ -550,9 +525,7 @@ export async function devServer(
     // Control port could not bind; the dev server still runs without the bridge.
     try {
       bridgeLogFile.close()
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   // Expose control-channel coordinates to the compiler (same process) so the
@@ -565,14 +538,10 @@ export async function devServer(
   process.once('exit', () => {
     try {
       bridgeLogFile.close()
-    } catch {
-      // ignore
-    }
+    } catch {}
     try {
       bridgeActionsFile?.close()
-    } catch {
-      // ignore
-    }
+    } catch {}
     // Never leave a usable eval token behind after the session ends.
     if (bridgeControlToken) {
       clearControlToken(packageJsonDir, browserName)
@@ -615,13 +584,9 @@ export async function devServer(
     }
   })
 
-  // Get webpack config defaults from extension.config.js
   const customWebpackConfig = await loadCustomConfig(packageJsonDir)
   const finalConfig = customWebpackConfig(baseConfig)
 
-  // Use merge to combine the base config with the custom config.
-  // This way if the user define properties we don't have a default for,
-  // they will be included in the final config.
   const compilerConfig = merge(finalConfig, {})
 
   const compiler = rspack(compilerConfig)
@@ -629,16 +594,8 @@ export async function devServer(
   installManifestDiskWriteGuard(manifestOutputPath)
   suppressManifestOutputWrites(compiler, manifestOutputPath)
 
-  // --- Controller-less reload-on-change (--no-browser / headless / remote) ---
-  // When a CDP controller is present (launched browser) it owns reload, driving
-  // granular content-script reinjection from the BrowsersPlugin `done` hook. The
-  // `browsersPlugin` is absent under `--no-browser`, so nothing would otherwise
-  // reload the extension on save. Here we tap the same compile lifecycle and
-  // broadcast the SAME typed reload decision over the control bridge; the SW
-  // producer self-reloads. The two paths converge on one classifier
-  // (classifyReloadFromSources) so a given change reloads identically whether or
-  // not a browser was launched. Gated on the absence of a runner plugin so the
-  // launched (and Safari) paths never double-reload.
+  // Under --no-browser no CDP controller owns reload, so broadcast the same
+  // classified reload decision over the control bridge; gated to avoid double-reload.
   if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
     const changedSources = createChangedSourcesTracker(compiler)
     let isFirstBridgeCompile = true
@@ -691,9 +648,8 @@ export async function devServer(
   })
   stampExecutorAttached = () => metadata.stampExecutorAttached()
 
-  // Surface invalidation/fatal startup diagnostics during startup.
-  // Done-hook warning/error output is registered earlier in CompilationPlugin
-  // so it prints before browser launch hooks.
+  // Surface invalidation/fatal startup diagnostics during startup. Done-hook
+  // warning/error output is registered earlier so it prints before launch hooks.
   setupCompilerLifecycleHooks(compiler)
 
   if (devOptions.noBrowser) {
@@ -706,14 +662,12 @@ export async function devServer(
   }
 
   // Say so when the requested port was taken. Compare numerically: a CLI
-  // --port arrives as a string, and '55835' !== 55835 used to print
-  // "port 55835 is in use; using 55835 instead" on every run.
+  // --port arrives as a string, and '55835' !== 55835 misreported every run.
   const requestedPort = Number(devOptions.port)
   if (Number.isFinite(requestedPort) && requestedPort !== port) {
     console.log(messages.portInUse(requestedPort, port))
   }
 
-  // webpack-dev-server configuration
   const serverConfig: Configuration = {
     host: devServerHost,
     allowedHosts: 'all',
@@ -742,10 +696,8 @@ export async function devServer(
         // Avoid a startup recompile caused by chokidar "add" events for
         // existing files in watched folders.
         ignoreInitial: true,
-        // Default to native FS events (FSEvents/inotify): polling wakes the
-        // CPU every interval and adds up to `interval`ms of HMR latency.
-        // Opt into polling only where native events are unreliable (some
-        // network shares, bind-mounted Docker volumes) via EXTENSION_WATCH_POLL
+        // Native FS events by default: polling wakes the CPU and adds HMR latency.
+        // EXTENSION_WATCH_POLL opts into polling where native events are unreliable.
         ...(process.env.EXTENSION_WATCH_POLL === 'true'
           ? {
               usePolling: true,
@@ -762,20 +714,14 @@ export async function devServer(
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` (prepended to
-    // HTML entry chains in development) does not throw. Content scripts do not
-    // rely on that client: StripContentScriptDevServerRuntime strips HMR startup
-    // from `content_scripts/content-*.js` bundles, so re-enabling liveReload no
-    // longer triggers content-script reload loops, and it is the only path
-    // that delivers HTML-entry edits to already-open extension pages once
-    // rspack 2.x stopped bumping stats.hash on asset-only rebuilds.
+    // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` does not
+    // throw; content bundles strip HMR startup, so liveReload cannot loop them.
     hot: true,
     liveReload: true
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler)
 
-  // Startup watchdog to surface hangs
   const START_TIMEOUT_MS = parseInt(
     String(process.env.EXTENSION_START_TIMEOUT_MS || '30000'),
     10
@@ -802,6 +748,5 @@ export async function devServer(
     process.exit(1)
   }
 
-  // Setup cleanup handlers for graceful shutdown
   setupCleanupHandlers(devServer, portManager)
 }

@@ -8,12 +8,10 @@
 
 import colors from 'pintor'
 
-// Prefix candidates (try swapping if desired): '⏵', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
-    // Author mode: magenta, clearly branded, keeps three-element prefix shape
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return colors.brightMagenta(base)
   }
@@ -24,12 +22,9 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   return colors.green('⏵⏵⏵')
 }
 
-// Standard code style across all messages
 const code = (text: string) => colors.blue(text)
-// Helper to ensure arguments are gray
 const arg = (text: string) => colors.gray(text)
 
-// Pretty-format helpers for human-readable, Vercel-like tone
 export const fmt = {
   heading: (title: string) => colors.underline(colors.blue(title)),
   label: (k: string) => colors.gray(k.toUpperCase()),

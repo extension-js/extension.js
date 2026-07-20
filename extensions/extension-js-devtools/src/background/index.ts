@@ -174,19 +174,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initManagerUI()
 })
 
-// Broadcast reload-state pings to the content-script overlay so the floating
-// pill can render a "Reloading…" indicator while the user's unpacked
-// extension is cycling.
-//
-// Two signal sources, one broadcast:
-//  1. The bridge producer injected into the user's extension forwards the
-//     dev-server ReloadFrame here (onMessageExternal), it carries the
-//     server-built context label ("content_script (content/scripts.tsx)"),
-//     and fires next to the actual reload action, so the pill shows the same
-//     string the CLI printed to stdout.
-//  2. chrome.management onDisabled/onEnabled/onInstalled, ground truth for
-//     full extension restarts (the producer dies mid-reload and can't confirm
-//     those itself).
+// Broadcast reload-state pings to the content-script overlay pill. Two signal
+// sources: the bridge producer (onMessageExternal) and chrome.management events.
 function isUserDevExtensionForReload(
   info: chrome.management.ExtensionInfo
 ): boolean {
@@ -280,8 +269,7 @@ if (typeof chrome.management?.onEnabled?.addListener === 'function') {
 
 if (typeof chrome.management?.onInstalled?.addListener === 'function') {
   // Reloaded unpacked extensions fire onInstalled with reason=update without
-  // necessarily flipping onDisabled first. Treat that as a "reloaded" event
-  // so the pill clears its spinner even on the install-only path.
+  // flipping onDisabled first; treat it as "reloaded" so the pill clears.
   chrome.management.onInstalled.addListener((info) => {
     if (!isUserDevExtensionForReload(info)) return
     broadcastReloadState('reloaded', lastReloadLabel)

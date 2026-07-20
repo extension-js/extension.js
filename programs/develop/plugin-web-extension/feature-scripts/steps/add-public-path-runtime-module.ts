@@ -6,8 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// This source file is adapted from
-// https://github.com/awesome-webextension/webpack-target-webextension
+// Adapted from https://github.com/awesome-webextension/webpack-target-webextension
 // Released under the MIT License.
 
 import type {Compiler} from '@rspack/core'
@@ -19,14 +18,8 @@ const basic = [
 
 const weakRuntimeCheck = [
   ...basic,
-  // IMPORTANT: In MAIN world content scripts (and other non-extension pages),
-  // extension APIs are not present. The runtime module must not throw during
-  // initialization, because other generated runtime code may probe it eagerly.
-  //
-  // We intentionally avoid the upstream "throwing getter" here. When no runtime
-  // is present we provide a minimal `{ runtime: { getURL } }` shim that returns
-  // the input path unchanged, and the publicPath assignment below already guards
-  // on `(isBrowser || isChrome)` before using `runtime.runtime.getURL(...)`.
+  // In MAIN world content scripts extension APIs are absent; must not throw at
+  // init. A minimal getURL shim replaces the upstream "throwing getter".
   `var runtime = isBrowser ? globalThis.browser : isChrome ? globalThis.chrome : { runtime: { getURL: x => x } }`
 ]
 

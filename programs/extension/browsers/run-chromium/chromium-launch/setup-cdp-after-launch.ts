@@ -20,10 +20,8 @@ import {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
-// True when the emitted manifest overrides the new tab page. The dist manifest
-// is already browser-de-prefixed (chromium:/chrome: collapsed to plain keys),
-// but check the common prefixes too in case a raw --load-extension dir the
-// compiler never touched is being run.
+// True when the emitted manifest overrides the new tab page. Also check the
+// prefixed keys: a raw --load-extension dir may never have been de-prefixed.
 function manifestDeclaresNewtabOverride(outPath: string): boolean {
   try {
     const manifest = JSON.parse(
@@ -45,7 +43,6 @@ export async function setupCdpAfterLaunch(
   chromiumArgs: string[],
   pipeStreams?: {input: Readable; output: Writable}
 ): Promise<void> {
-  // Try to find the --load-extension flag for getting the user extension's output path
   const loadExtensionFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -66,7 +63,6 @@ export async function setupCdpAfterLaunch(
       ? [extensionOutputPath]
       : extensionPaths
 
-  // Try to find the --remote-debugging-port flag (for CDP port)
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--remote-debugging-port=')
   )
@@ -78,7 +74,6 @@ export async function setupCdpAfterLaunch(
         plugin.instanceId
       )
 
-  // Log the Chrome user data directory and debug port if in development
   const userDataDirFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--user-data-dir=')
   )
@@ -159,8 +154,6 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  // Print the development banner as early as possible with a best-effort
-  // ID lookup. A later pass can still enrich details if needed.
   if (mode === 'development') {
     try {
       earlyBannerPrinted = await printDevBannerOnce({
@@ -175,7 +168,6 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  // Get extension and environment info after ensuring everything is loaded
   let extensionControllerInfo: {
     extensionId: string
     name?: string
@@ -262,11 +254,8 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  // A chrome_url_overrides.newtab surface only applies to tabs opened AFTER the
-  // extension registers; the browser's launch tab predates registration and so
-  // shows Chrome's default new tab. Now that the extension is loaded, open a
-  // fresh new tab so the developer lands on THEIR new-tab surface (#50). Skipped
-  // when the user asked for a specific startingUrl or passed --no-open.
+  // The launch tab predates extension registration, so it shows the default new
+  // tab; open a fresh tab onto the newtab override. Skipped for startingUrl/--no-open.
   try {
     if (
       extensionControllerInfo &&

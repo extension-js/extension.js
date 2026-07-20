@@ -6,13 +6,8 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Unified manifest-fields change detector.
-//
-// Replaces five independent ThrowIf* plugins that each registered their own
-// watchRun + processAssets hooks at stage OPTIMIZE_COMPATIBILITY (5110) and
-// each called getManifestFieldsData() separately on every manifest save.
-// This class calls getManifestFieldsData() once per manifest change and diffs
-// all four categories (scripts, html, icons, critical json) in a single pass.
+// Unified manifest-fields change detector: replaces five ThrowIf* plugins,
+// reading manifest fields once per change and diffing all categories at once.
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
@@ -133,14 +128,8 @@ export class ManifestFieldsChangeDetector {
 
     const html = (fields.html || {}) as Record<string, string>
 
-    // `browser-extension-manifest-fields` returns icons keyed by icon group
-    // (`manifest.icons`, `action.default_icon`, etc.) where each value is an
-    // *array* of resolved icon paths, one per declared size. Treating that
-    // record as `Record<string, string>` left the snapshot as an
-    // Array<Array<string>>, which made `diffArray` compare inner arrays by
-    // reference (always unequal) and fired a spurious "Restart the dev
-    // server" error on every rebuild, with the offending `pathBefore`
-    // displayed as a comma-joined dump of every icon path
+    // Icons come keyed by group with ARRAY values (one path per size); flatten
+    // them, else diffArray compares inner arrays by reference and misfires.
     const iconsRaw = fields.icons as
       | Record<string, string | string[]>
       | string[]
@@ -163,10 +152,8 @@ export class ManifestFieldsChangeDetector {
   }
 
   apply(compiler: Compiler): void {
-    // Only active in development
     if (compiler.options.mode === 'production') return
 
-    // Initialize snapshot
     try {
       this.prev = this.readSnapshot()
     } catch {
@@ -194,7 +181,6 @@ export class ManifestFieldsChangeDetector {
             return
           }
 
-          // Diff each category
           const scriptsDiff = diffArray(this.prev.scripts, next.scripts)
           const htmlDiff = diffRecord(this.prev.html, next.html)
           const iconsDiff = diffArray(this.prev.icons, next.icons)

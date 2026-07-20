@@ -49,10 +49,8 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
 
   const original = manifest.content_scripts
 
-  // Idempotency guard: later manifest writers may re-read a manifest asset that
-  // already contains emitted `content_scripts/content-*.js` entries. Reapplying
-  // the MAIN-world bridge insertion against that shape would inflate the array
-  // and reference non-existent bundles like `content-7.js`.
+  // Idempotency guard: re-applying the bridge insertion to an already-bundled
+  // manifest would inflate the array and reference non-existent bundles.
   if (isAlreadyBundledContentScripts(original)) {
     return {content_scripts: original}
   }
@@ -60,21 +58,14 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   const originalCount = original.length
   const result: Array<Record<string, unknown>> = []
 
-  // 1) Keep user-defined content scripts indices stable and
-  // insert MAIN-world bridges *before* their MAIN-world entries.
-  //
-  // Bridge order matters: it must run first so MAIN world can read the
-  // extension base URL before HMR initializes.
+  // Keep user content-script indices stable; insert MAIN-world bridges before
+  // their entries so MAIN world reads the base URL before HMR initializes.
   let bridgeOrdinal = 0
   for (let index = 0; index < original.length; index++) {
     const contentObj: ContentObj & Record<string, unknown> =
       original[index] || {}
-    // Manifest overrides work by getting the manifest.json
-    // before compilation and re-naming the files to be
-    // bundled. But in reality the compilation returns here
-    // all the bundled files into a single script plus the
-    // public files path. The hack below is to prevent having
-    // multiple bundles with the same name.
+    // The compilation bundles all files into a single script plus public
+    // paths; dedupe below prevents multiple bundles with the same name.
     const contentJs = [...new Set(contentObj.js || [])]
     const contentCss = [...new Set(contentObj.css || [])]
 

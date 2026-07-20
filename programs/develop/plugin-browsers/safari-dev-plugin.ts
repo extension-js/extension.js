@@ -68,7 +68,6 @@ export class SafariDevPlugin implements RunnerPlugin {
         return
       }
 
-      // Otherwise resync in the background; the hook returns immediately.
       this.active = true
       void this.drain(target)
     })
@@ -101,9 +100,8 @@ export class SafariDevPlugin implements RunnerPlugin {
     try {
       await this.packager(target.outputPath, mode)
     } catch (error) {
-      // Never swallow. On a failed first package the app never opened, so keep
-      // firstRun true and let the next compile retry the full flow; a failed
-      // resync still drains pending so the next save packages.
+      // Never swallow. On a failed first package keep firstRun true so the next
+      // compile retries the full flow; a failed resync still drains pending.
       this.emitter.emit('error', {
         errors: [error instanceof Error ? error.message : String(error)]
       })

@@ -58,7 +58,6 @@ export function resolveMainWorldBridgeSourcePath(options?: {
   const packageRoot = options?.packageRoot || findPackageRoot(lookupDir)
 
   return resolveExistingFile([
-    // Source tree: same directory as this file.
     path.resolve(lookupDir, 'main-world-bridge'),
     // Monorepo/source tree fallback when running from compiled output.
     packageRoot
@@ -82,10 +81,8 @@ export function getMainWorldBridgeScripts(
 
   try {
     const raw = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
-    // Resolve browser-prefixed keys (`chromium:world`, `firefox:world`, …)
-    // before scanning: the emitted manifest inserts bridges against the
-    // FILTERED manifest, so the entries compiled here must key off the same
-    // shape or the manifest references bridge bundles that never build.
+    // Resolve browser-prefixed keys before scanning: entries compiled here
+    // must key off the same FILTERED shape the emitted manifest uses.
     const resolved = filterKeysForThisBrowser(raw, browser)
     const contentScripts: Array<{world?: unknown}> = Array.isArray(
       resolved?.content_scripts
@@ -100,7 +97,6 @@ export function getMainWorldBridgeScripts(
       return bridgeScripts
     }
 
-    // Create bridge entries for each MAIN world content script
     let bridgeOrdinal = 0
     for (let i = 0; i < contentScripts.length; i++) {
       const cs = contentScripts[i]

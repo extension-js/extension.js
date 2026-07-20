@@ -49,11 +49,8 @@ export class TraceRuntimeLoadedFiles {
     compiler.hooks.thisCompilation.tap(
       TraceRuntimeLoadedFiles.name,
       (compilation) => {
-        // SUMMARIZE runs after minification: the copied files stay verbatim
-        // (classic scripts share top-level globals, so they must not be
-        // minified or wrapped), and the scan sees the final user bundles but
-        // not the dev-server runtimes injected at the REPORT stages (whose
-        // chunk-loading code calls importScripts with computed URLs).
+        // SUMMARIZE runs after minification: copied files stay verbatim
+        // (classic scripts share globals) and the scan sees final user bundles.
         compilation.hooks.processAssets.tap(
           {
             name: TraceRuntimeLoadedFiles.name,
@@ -124,10 +121,8 @@ export class TraceRuntimeLoadedFiles {
           if (copied != null) {
             next.push(copied)
 
-            // wasm-bindgen --target no-modules pairs X.js with X_bg.wasm and
-            // fetches it relative to the worker (the first-party Chrome
-            // sample does exactly this). The fetch itself is computed, so
-            // copy the sibling through when it exists, silently otherwise.
+            // wasm-bindgen --target no-modules pairs X.js with X_bg.wasm via a
+            // computed fetch, so copy the sibling through when it exists.
             if (sourceRel.endsWith('.js')) {
               copyIfExists(
                 compilation,
@@ -147,15 +142,12 @@ export class TraceRuntimeLoadedFiles {
     const manifestDir = path.dirname(this.manifestPath)
     const seen = new Set<string>()
 
-    // fetch() and friends resolve against the PAGE URL, and pages get
-    // relocated in dist (popup.html -> action/index.html), so the author's
-    // relative base is gone from the emitted layout. The entry's source dir
-    // approximates it for the common page-keeps-its-files-beside-it layouts.
+    // fetch() resolves against the PAGE URL, and pages get relocated in dist,
+    // so the entry's source dir approximates the author's lost relative base.
     const entrySourceDirs = collectEntrySourceDirs(compiler)
 
-    // Content scripts (and scripts/ folder helpers, which are injected into
-    // pages) run inside web pages, where a relative fetch() resolves against
-    // the WEBSITE, nothing of theirs can be traced into the package.
+    // Content scripts (and injected scripts/ helpers) run inside web pages,
+    // where a relative fetch() resolves against the WEBSITE, untraceable.
     const jsAssets = compilation
       .getAssets()
       .filter(
@@ -170,8 +162,7 @@ export class TraceRuntimeLoadedFiles {
 
       for (const literal of extractFetchedFileLiterals(content)) {
         // Runtime resolution base is the asset's own URL directory: page
-        // scripts sit beside their page in dist, and workers fetch against
-        // the worker URL.
+        // scripts sit beside their page in dist, workers fetch off the worker URL.
         const distRel = resolveExtensionPath(literal, asset.name)
         if (!distRel || seen.has(distRel)) continue
         seen.add(distRel)
@@ -216,9 +207,8 @@ export class TraceRuntimeLoadedFiles {
           continue
         }
 
-        // Only extensioned paths warn: a bare "/v1/users"-style literal is
-        // far likelier an API route on a user-configured host than a file
-        // the author expected in the package.
+        // Only extensioned paths warn: a bare "/v1/users"-style literal is far
+        // likelier an API route than a file the author expected in the package.
         if (/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
           const warn = new WebpackError(
             messages.fetchedFileDependencyMissing(asset.name, literal, distRel)
@@ -237,9 +227,8 @@ export class TraceRuntimeLoadedFiles {
     const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
     const seen = new Set<string>()
 
-    // chrome.runtime.getURL literals resolve against the extension ROOT
-    // regardless of the calling context, so, unlike relative fetch(),
-    // content scripts and scripts/ helpers are traceable here.
+    // getURL literals resolve against the extension ROOT regardless of context,
+    // so, unlike relative fetch(), content scripts are traceable here.
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
@@ -253,11 +242,8 @@ export class TraceRuntimeLoadedFiles {
         assetName: asset.name
       }))
 
-    // Copied files chain: a getURL'd module can call getURL again, a copied
-    // raw module keeps its static relative import/export-from graph (Chrome
-    // resolves those against the module's own URL. The root must not ship
-    // without its siblings), and a getURL'd HTML page pulls its own src/href
-    // subresources along (the redirect-stub-to-real-page pattern).
+    // Copied files chain: a getURL'd module can call getURL again, keep a
+    // static relative import graph, or be an HTML page with subresources.
     for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
       const next: PendingScan[] = []
 
@@ -275,9 +261,8 @@ export class TraceRuntimeLoadedFiles {
                   literal,
                   baseRel: ''
                 })),
-                // Runtime-set HTML surfaces (setPopup/setOptions) resolve
-                // against the extension root exactly like getURL, but are
-                // not manifest refs, so the page pipeline never sees them.
+                // Runtime-set HTML surfaces (setPopup/setOptions) resolve like
+                // getURL but are not manifest refs; the page pipeline misses them.
                 ...extractRuntimeSurfaceLiterals(item.content).map(
                   (literal) => ({
                     literal,
@@ -313,8 +298,7 @@ export class TraceRuntimeLoadedFiles {
           seen.add(distRel)
 
           // Manifest-declared surfaces are compiled and relocated by the
-          // main pipeline, copying their raw sources would ship stale
-          // duplicates.
+          // main pipeline, copying their raw sources would ship duplicates.
           if (declaredSurfaces.has(distRel)) continue
           if (compilation.getAsset(distRel)) continue
           // public/ files land at the output root via the special-folders
@@ -352,9 +336,8 @@ export class TraceRuntimeLoadedFiles {
             continue
           }
 
-          // Warn only for extensioned getURL misses found in JS: HTML
-          // subresource misses inherit the page author's problem, and
-          // extensionless getURL args are often origin/base computations.
+          // Warn only for extensioned getURL misses found in JS: HTML misses
+          // are the page author's problem, extensionless args often origin math.
           if (item.kind === 'js' && /\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
             const warn = new WebpackError(
               isStaticImport
@@ -406,12 +389,8 @@ export class TraceRuntimeLoadedFiles {
       const content = asset.source.source().toString()
       if (!hasWebpackChunkLoadingRuntime(content)) continue
 
-      // Prebuilt webpack bundles address lazy chunks by NUMERIC id through
-      // publicPath concatenation (`__webpack_require__.p + id + ".js"` and
-      // the miniCss twin), so the chunk filenames never exist as literals
-      // anywhere, literal tracing is blind to them by construction. Numeric
-      // js/css siblings of the bundle's source dir ARE those chunks; copy
-      // them through verbatim (plus .map twins).
+      // Prebuilt webpack bundles address lazy chunks by NUMERIC id via
+      // publicPath concat, so literal tracing is blind; copy numeric siblings.
       const assetDirRel = path.posix.dirname(unixify(asset.name))
       const sourceDirs = new Set<string>()
       const entryDir = entrySourceDirs.get(asset.name.replace(/\.js$/i, ''))
@@ -479,10 +458,8 @@ export class TraceRuntimeLoadedFiles {
   }
 }
 
-/**
- * Entry name -> directory of the entry's first filesystem import, for
- * approximating where a relocated page's source files live.
- */
+// Entry name -> directory of the entry's first filesystem import, for
+// approximating where a relocated page's source files live.
 function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
   const entrySourceDirs = new Map<string, string>()
   const entryOption = compiler.options.entry
@@ -507,13 +484,8 @@ function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
   return entrySourceDirs
 }
 
-/**
- * True when the code carries the webpack chunk-loading runtime shape:
- * the webpackChunk/webpackJsonp global arrays, the runtime's own
- * ChunkLoadError literal (survives minification, unlike the mangled
- * __webpack_require__ identifier), or an unminified publicPath
- * concatenation.
- */
+// True when the code carries the webpack chunk-loading runtime shape (the
+// ChunkLoadError literal survives minification, unlike mangled identifiers).
 function hasWebpackChunkLoadingRuntime(source: string): boolean {
   return (
     /\bwebpackChunk|\bwebpackJsonp\b/.test(source) ||
@@ -522,7 +494,6 @@ function hasWebpackChunkLoadingRuntime(source: string): boolean {
   )
 }
 
-/** Copy a file through verbatim when it exists; no warning otherwise. */
 function copyIfExists(
   compilation: Compilation,
   abs: string,
@@ -538,11 +509,8 @@ function copyIfExists(
   }
 }
 
-/**
- * Copy a runtime-loaded file through to the output verbatim, or push a build
- * warning when the referenced file cannot be found. Returns the file content
- * when a copy happened (callers may want to scan it further), null otherwise.
- */
+// Copy a runtime-loaded file through verbatim, or push a build warning when
+// missing. Returns the copied content so callers can scan it further.
 function copyThroughOrWarn(
   compilation: Compilation,
   opts: {
@@ -593,11 +561,8 @@ function copyThroughOrWarn(
   return null
 }
 
-/**
- * The literal may have been authored against a source file that compiles to
- * .js (e.g. `injected.ts` referenced as "injected.js"). Surface that in the
- * warning so authors know these files are copied as-is, not compiled.
- */
+// The literal may target a source file that compiles to .js (injected.ts as
+// "injected.js"). Surface that: these files are copied as-is, not compiled.
 function findSourceSibling(abs: string): string | undefined {
   if (!abs.endsWith('.js')) return undefined
   const base = abs.slice(0, -'.js'.length)
@@ -610,12 +575,8 @@ function unixify(filePath: string): string {
   return filePath.replace(/\\/g, '/')
 }
 
-/**
- * Resolve a runtime URL literal the way the browser does, against a base
- * path inside the extension origin, and return the extension-root-relative
- * output path, or null for anything that isn't a same-origin file reference
- * (remote URLs, other schemes, protocol-relative URLs).
- */
+// Resolve a runtime URL literal the way the browser does and return the
+// extension-root-relative path, or null for non-same-origin references.
 export function resolveExtensionPath(
   literal: string,
   basePath: string
@@ -636,11 +597,8 @@ export function resolveExtensionPath(
   }
 }
 
-/**
- * Source paths the manifest declares as compiled surfaces (pages, workers,
- * content scripts). These relocate in dist, so getURL tracing must not copy
- * their raw sources through, the main pipeline owns them.
- */
+// Source paths the manifest declares as compiled surfaces. These relocate in
+// dist, so getURL tracing must not copy their raw sources through.
 function manifestDeclaredSourcePaths(
   manifest: TracedManifest | undefined
 ): Set<string> {
@@ -675,13 +633,8 @@ function manifestDeclaredSourcePaths(
   return declared
 }
 
-/**
- * Extract string-literal arguments of chrome.runtime.getURL /
- * browser.runtime.getURL calls. Matching on `runtime.getURL(` keeps aliased
- * or user-defined getURL functions out while surviving minification (the
- * chrome global's member chain is never mangled). Computed arguments cannot
- * be traced statically and are skipped.
- */
+// Extract string-literal getURL arguments. Matching on `runtime.getURL(`
+// keeps user-defined getURL functions out while surviving minification.
 function extractGetURLLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
@@ -699,18 +652,8 @@ function extractGetURLLiterals(source: string): string[] {
   return literals
 }
 
-/**
- * Extract HTML surface paths set at runtime: chrome.action.setPopup(
- * {popup: "Alt.html"}) (plus browserAction/pageAction MV2 variants),
- * chrome.sidePanel.setOptions({path: "panel.html"}), and
- * chrome.offscreen.createDocument({url: "offscreen.html"}) (§67 — offscreen
- * documents are never manifest refs, so this is their ONLY route into dist).
- * Chrome resolves these against the extension root, but they are not manifest
- * refs, so the page pipeline never compiles them, untraced they silently
- * vanish from dist and the surface opens a 404 panel. Matching on the member
- * chain (`action.setPopup(`) keeps user-defined functions out while surviving
- * minification, mirroring extractGetURLLiterals.
- */
+// Extract HTML surface paths set at runtime (setPopup/setOptions/
+// createDocument): never manifest refs, so untraced they vanish from dist.
 export function extractRuntimeSurfaceLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
@@ -744,11 +687,8 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
   return literals
 }
 
-/**
- * Extract src/href attribute values from an HTML file copied through by
- * getURL tracing, so the page's subresource closure ships with it. Remote
- * and other-scheme URLs are filtered later by resolveExtensionPath.
- */
+// Extract src/href attribute values from an HTML file copied through by
+// getURL tracing, so the page's subresource closure ships with it.
 function extractHtmlSubresourceLiterals(html: string): string[] {
   const literals: string[] = []
   const attrRe = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gi
@@ -761,14 +701,8 @@ function extractHtmlSubresourceLiterals(html: string): string[] {
   return literals
 }
 
-/**
- * Extract module specifiers a raw (unbundled) ES module resolves against its
- * own URL at runtime: static `import ... from "./x.js"`, side-effect
- * `import "./x.js"`, re-exports (`export {a} from` / `export * from`), and
- * literal dynamic `import("./x.js")`. Only same-origin file specifiers
- * (./ ../ or /-anchored) qualify, bare package specifiers cannot resolve in
- * the browser and belong to the bundler, not the copy-through path.
- */
+// Extract module specifiers a raw (unbundled) ES module resolves against its
+// own URL: static/dynamic imports and re-exports of ./ ../ or /-anchored files.
 export function extractStaticImportLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
@@ -849,12 +783,8 @@ function extractInjectedFileLiterals(source: string): string[] {
   return literals
 }
 
-/**
- * Extract string-literal URLs the code loads at runtime through same-origin
- * request APIs: fetch(), XMLHttpRequest#open(method, url), and
- * new URL(url, <own-location base>). Computed arguments cannot be traced
- * statically and are skipped.
- */
+// Extract string-literal URLs loaded via same-origin request APIs: fetch(),
+// xhr.open(method, url), new URL(url, own-location base). Computed args skip.
 function extractFetchedFileLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
@@ -910,10 +840,8 @@ function extractFetchedFileLiterals(source: string): string[] {
   return literals
 }
 
-/**
- * Reduce a same-origin URL literal to a filesystem-joinable path (query and
- * hash stripped), or null for remote/other-scheme references.
- */
+// Reduce a same-origin URL literal to a filesystem-joinable path (query and
+// hash stripped), or null for remote/other-scheme references.
 function fetchLiteralToFsPath(literal: string): string | null {
   const trimmed = literal.trim()
   if (!trimmed) return null
@@ -923,11 +851,8 @@ function fetchLiteralToFsPath(literal: string): string | null {
   return noQuery ? unixify(noQuery) : null
 }
 
-/**
- * Blank out // and /* *\/ comments (string-aware) so commented-out calls do
- * not produce copies or missing-file warnings. Contents are replaced with
- * spaces to keep offsets stable.
- */
+// Blank out line and block comments (string-aware) so commented-out calls do
+// not produce copies or warnings; contents become spaces to keep offsets.
 function blankComments(source: string): string {
   let out = ''
   let i = 0
@@ -975,15 +900,8 @@ function blankComments(source: string): string {
   return out
 }
 
-/**
- * Given the index of an opening paren, return the argument text up to the
- * matching close paren (string-aware), or null when unbalanced. No size cap:
- * minifiers hoist completion callbacks into the call's own argument list, so
- * the args of an executeScript call can legitimately span many kilobytes
- * (a ~5KB template literal in the callback used to silently disable tracing
- * for the whole file). Valid JS always balances, so the scan stops at the
- * real closing paren.
- */
+// Return the argument text up to the matching close paren (string-aware), or
+// null when unbalanced. No size cap: minified args can span many kilobytes.
 function readBalancedArgs(code: string, openIndex: number): string | null {
   if (code[openIndex] !== '(') return null
   const cap = code.length
@@ -1006,12 +924,8 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
   return null
 }
 
-/**
- * Return the index of the closing quote (string-aware skip). Template
- * literals skip over their `${...}` interpolations, which may nest strings
- * and further templates, without this, the inner backtick of a nested
- * template ends the scan early and every scanner downstream desyncs.
- */
+// Return the index of the closing quote, skipping template `${...}` blocks;
+// without this a nested backtick desyncs every scanner downstream.
 function skipString(code: string, start: number, cap: number): number {
   const quote = code[start]
   for (let i = start + 1; i < cap; i++) {
@@ -1027,10 +941,8 @@ function skipString(code: string, start: number, cap: number): number {
   return cap
 }
 
-/**
- * Given the index just past `${`, return the index of the matching `}` (or
- * cap), skipping nested strings, templates, and object literals.
- */
+// Given the index just past `${`, return the index of the matching `}` (or
+// cap), skipping nested strings, templates, and object literals.
 function skipTemplateExpression(
   code: string,
   start: number,
@@ -1052,7 +964,6 @@ function skipTemplateExpression(
   return cap
 }
 
-/** Split argument text on top-level commas, tracking nesting and strings. */
 function splitTopLevelArgs(args: string): string[] {
   const parts: string[] = []
   let depth = 0
@@ -1081,10 +992,8 @@ function splitTopLevelArgs(args: string): string[] {
   return parts
 }
 
-/**
- * Return the string value when the whole argument is a single static string
- * literal; null for identifiers, concatenations, and template interpolation.
- */
+// Return the string value when the whole argument is a single static string
+// literal; null for identifiers, concatenations, and template interpolation.
 function pureStringLiteral(arg: string): string | null {
   const match = /^\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1\s*$/.exec(arg)
   if (!match) return null

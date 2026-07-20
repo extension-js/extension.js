@@ -501,15 +501,8 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     return null
   }
 
-  // Hardcoded surface colors. Tailwind v4 routes `bg-neutral-900` through the
-  // CSS variable `--color-neutral-900`, and CSS variables inherit through open
-  // shadow roots, so a host page that overrides that variable (or one of the
-  // shadcn `--background`/`--card`/etc. tokens this project also defines) can
-  // bleed transparency or any other color into our overlay. `bg-opacity-100`
-  // is a no-op in Tailwind v4 (it generates zero rules), so the safety net I
-  // added earlier was illusory. Inline-styling the dialog/card/launcher
-  // surfaces with concrete RGB removes every layer of indirection and makes
-  // the overlay opaque regardless of host-page CSS or Tailwind version.
+  // Hardcoded surface colors: Tailwind v4 color variables inherit through open
+  // shadow roots, so host-page overrides could bleed into the overlay.
   const SURFACE_DIALOG = '#0a0a0a' // neutral-950 equivalent, fully opaque
   const SURFACE_CARD = '#171717' // neutral-900 equivalent
   const SURFACE_LAUNCHER = '#0a0a0a'
@@ -522,18 +515,15 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
         <DialogPrimitive.Portal container={portalContainer}>
           <DialogContent
             // Radix scans the *direct* children of `Content` for a `Title` and
-            // emits an a11y warning when none is found. The Title used to live
-            // inside a wrapping `<div>`, which tripped that check on every
-            // open, render it as a direct child instead.
+            // warns when none is found, so render the Title as a direct child.
             style={{
               backgroundColor: SURFACE_DIALOG,
               borderColor: BORDER_NEUTRAL,
               color: '#f5f5f5',
               opacity: 1
             }}
-            // Row template: Title, Description, diagnostics card (intrinsic
-            // height, just what the User-extension box needs), then the error
-            // tabs section taking the remaining 1fr.
+            // Row template: Title, Description, intrinsic-height diagnostics
+            // card, then the error tabs section taking the remaining 1fr.
             className="pointer-events-auto fixed left-1/2 top-1/2 z-[2147483647] grid grid-rows-[auto_auto_auto_1fr] h-[min(640px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[760px] overflow-hidden -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-[0_20px_48px_rgba(0,0,0,0.6)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-bottom-[52%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-bottom-[52%]"
           >
             <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight text-red-400">
@@ -573,9 +563,8 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
                 onValueChange={(v) => setErrorTab(v as 'all' | 'page' | 'content')}
                 className="flex min-h-0 flex-1 flex-col"
               >
-                {/* TabsList and the "Copy tab view" button share a single row
-                    now that the section heading is gone, so the button no
-                    longer overlaps the tab triggers. */}
+                {/* TabsList and the "Copy tab view" button share a single row,
+                    so the button no longer overlaps the tab triggers. */}
                 <div className="flex items-center justify-between gap-2">
                   <TabsList className="w-fit border border-neutral-800 bg-neutral-950">
                     <TabsTrigger value="all">All ({allErrors.length})</TabsTrigger>
@@ -688,11 +677,8 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647] flex items-center gap-2">
         <Button
           onClick={() => setOpen(true)}
-          // `rounded-full` makes the launcher fully circular. The background
-          // is forced via inline style (concrete RGB) so it stays solid
-          // regardless of host-page CSS variable overrides; z-index lifted to
-          // the max signed 32-bit value so the pill always wins over any
-          // host-page stacking context.
+          // Background forced via inline RGB so it stays solid regardless of
+          // host CSS variable overrides; max z-index so the pill always wins.
           style={{
             backgroundColor: SURFACE_LAUNCHER,
             borderColor: BORDER_NEUTRAL,

@@ -147,13 +147,8 @@ export default function ensureHMRForScripts(
     )
   }
 
-  // `import.meta` is ONLY legal in module parses. A page script that rspack
-  // resolves as `javascript/dynamic` (classic script parse, e.g. any .js in
-  // a `"type": "commonjs"` package, which is exactly what the classic-concat
-  // pipeline feeds through here) must get the CJS `module.hot` API instead,
-  // or the injected guard itself is a parse error that fails the whole dev
-  // build. Strict ESM parses provide no `module` binding and keep
-  // `import.meta.webpackHot`.
+  // `import.meta` is ONLY legal in module parses: a `javascript/dynamic`
+  // (classic script) parse must get the CJS `module.hot` API instead.
   const moduleType = String(
     (this as unknown as {_module?: {type?: unknown}})?._module?.type || ''
   )
@@ -166,14 +161,7 @@ export default function ensureHMRForScripts(
   }
 
   // `javascript/auto` infers module-vs-script FROM THE SOURCE SYNTAX, so the
-  // injected guard itself must not change the verdict: `import.meta` in the
-  // wrapper flips a classic script into a strict ES-module parse, turning
-  // every sloppy-mode construct in the user's own code into a build error,
-  // and a multi-MB one-line data script full of legacy octal escapes melts
-  // rspack's per-error snippet rendering into gigabytes (Rapid-Journal,
-  // 2026-07-11). Pick the API the source's own syntax already selects:
-  // static import/export or import.meta means module parse; anything else
-  // (including sources es-module-lexer cannot lex) stays a script.
+  // injected guard must pick the API the source's own syntax already selects.
   const callback = this.async()
   esModuleLexerInit
     .then(() => {
@@ -198,7 +186,6 @@ function buildReloadCode(hot: string): string {
   return `
 if (${hot}) {
   try {
-    // Accept updates for HTML-attached scripts and clear common containers
     ${hot}.accept();
     ${hot}.dispose(function() {
       try {
@@ -207,16 +194,13 @@ if (${hot}) {
           while (el.firstChild) el.removeChild(el.firstChild);
         };
 
-        // Clear default template container
         clear(document.getElementById('app'));
 
-        // Also clear any extension-root wrappers if present
         var roots = document.querySelectorAll('[data-extension-root]');
         roots.forEach(function(node) {
           clear(node);
         });
       } catch (err) {
-        // 'err' is local in this catch, keep for error clarity
         console.error('Error clearing HTML containers', err);
       }
     });

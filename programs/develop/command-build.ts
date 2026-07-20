@@ -43,12 +43,8 @@ export async function extensionBuild(
 ): Promise<BuildSummary> {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
-  // exitOnError is a CLI affordance: the CLI wrapper passes true so a failed
-  // build ends its own process after the clean error line. As a library
-  // import (`extensionBuild` from extension-develop), a failed build must be
-  // a rejected promise, the old `?? true` default process.exit(1)'d inside
-  // embedding hosts (@extension.dev/mcp's server died mid-session on any
-  // sample whose build legitimately fails).
+  // The CLI wrapper passes exitOnError=true; as a library import a failed
+  // build must be a rejected promise, never a process.exit inside the host.
   const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest
   const browser = normalizeBrowser(
     buildOptions?.browser || 'chrome',
@@ -81,7 +77,6 @@ export async function extensionBuild(
       ])
 
     const debug = isAuthor
-    // Guard: only error if user references managed deps in extension.config.js
     const userManifestPath =
       projectStructure.packageJsonPath || projectStructure.denoJsonPath
     if (userManifestPath) {
@@ -94,11 +89,8 @@ export async function extensionBuild(
 
     const distPath = getDistPath(packageJsonDir, browser)
 
-    // Vite-style `emptyOutDir` semantics: wipe the per-browser dist before the
-    // build so the output is deterministic regardless of prior `extension dev`
-    // runs (which leave stale hashed bundles behind under `output.clean: false`)
-    // or any rspack-side regression in `output.clean`. Cheap, idempotent, and
-    // matches what users intuit from running `build`
+    // Vite-style `emptyOutDir`: wipe the per-browser dist before the build so
+    // output is deterministic despite stale hashed bundles from prior dev runs.
     try {
       fs.rmSync(distPath, {recursive: true, force: true})
     } catch {
@@ -127,12 +119,6 @@ export async function extensionBuild(
       config: mergedExtensionsConfig
     })
 
-    // Mode override: defaults to 'production' for distribution-ready dists.
-    // Surfacing this as a CLI flag matches Vite/webpack and lets users
-    // produce a dev-mode dist without flipping to `extension dev`. NODE_ENV
-    // is aligned to mode so user-source `process.env.NODE_ENV` reflects the
-    // intent and downstream tooling that keys off it (React, etc.) gets the
-    // expected build behavior.
     const resolvedMode: 'development' | 'production' | 'none' =
       buildOptions?.mode === 'development' ||
       buildOptions?.mode === 'none' ||
@@ -197,9 +183,8 @@ export async function extensionBuild(
         }
 
         if (!buildOptions?.silent && stats) {
-          // The summary is informational; a throw here would leave this
-          // promise pending and the process would exit 0 without ever
-          // reaching the error handling below.
+          // The summary is informational; a throw here would leave this promise
+          // pending and the process would exit 0 before the error handling below.
           try {
             console.log(messages.buildWebpack(manifestDir, stats, browser))
           } catch {
@@ -218,9 +203,8 @@ export async function extensionBuild(
 
           summary = getBuildSummary(browser, info)
 
-          // §73 transport: hosts that shell out to `extension build` (the
-          // MCP) cannot see the returned summary, so persist it as a machine
-          // contract next to ready.json. Best-effort, informational only.
+          // Hosts that shell out to `extension build` cannot see the returned
+          // summary, so persist it next to ready.json. Best-effort only.
           try {
             const summaryFile = buildSummaryPath(packageJsonDir, browser)
             fs.mkdirSync(nodePath.dirname(summaryFile), {recursive: true})
@@ -246,7 +230,6 @@ export async function extensionBuild(
           }
           resolve()
         } else {
-          // Print sanitized bundler output using stats.toString
           handleStatsErrors(stats)
 
           if (!shouldExitOnError) {
@@ -257,10 +240,8 @@ export async function extensionBuild(
       })
     })
 
-    // Safari is packaged from the freshly built dist (convert + xcodebuild).
-    // The packager is injected by the CLI so develop stays decoupled from the
-    // browser-runner package. Identity/packaging inputs: CLI flags win over
-    // extension.config.js `browser.safari`.
+    // Safari is packaged from the freshly built dist; the packager is injected
+    // by the CLI so develop stays decoupled. CLI flags win over `browser.safari`.
     if (
       (browser === 'safari' || browser === 'webkit-based') &&
       buildOptions?.safariPackager

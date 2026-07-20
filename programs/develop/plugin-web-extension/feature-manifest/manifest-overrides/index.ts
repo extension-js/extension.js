@@ -14,20 +14,17 @@ import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 
 export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
-  // Load the manifest content from the manifestPath if not provided.
   const manifestContent: Manifest =
     manifest || JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
 
-  // Helper to omit a top-level key from a shallow object
   const omit = (obj: Record<string, unknown> | undefined, key: string) => {
     if (!obj) return {}
     const {[key]: _ignored, ...rest} = obj
     return rest
   }
 
-  // Each manifest-overrides aggregator returns a plain object whose `background`
-  // contribution is either absent or a `{background: {...}}` object. This reads
-  // that contribution as a shallow record without an `as any` escape.
+  // Each aggregator's `background` contribution is absent or a {background: {...}}
+  // object; read it as a shallow record without an `as any` escape.
   const pickBackground = (
     obj: Record<string, unknown>
   ): Record<string, unknown> => {

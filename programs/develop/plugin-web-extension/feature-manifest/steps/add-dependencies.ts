@@ -21,9 +21,7 @@ export class AddDependencies {
       'manifest:add-dependency',
       (compilation) => {
         // Register even when the compile errored: the watcher only watches the
-        // LAST compilation's fileDependencies, so skipping here would unwatch
-        // the manifest for the rest of the session and a manifest fix could
-        // never trigger the recompile that clears the error (§66).
+        // LAST compilation's fileDependencies; skipping would unwatch the manifest.
         const deps = compilation.fileDependencies
 
         if (this.dependencyList) {

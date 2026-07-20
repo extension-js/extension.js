@@ -141,7 +141,6 @@ export function setupLoggerClient(
       } catch {}
     })
 
-    // Tear-down signals
     window.addEventListener(
       'pagehide',
       () => {
@@ -163,7 +162,6 @@ export function setupLoggerClient(
       {capture: true}
     )
 
-    // Observe session setting for network capture and stacks
     try {
       chrome.storage?.session?.get?.(
         ['logger_capture_network', 'logger_capture_stacks'],
@@ -198,10 +196,8 @@ export function setupLoggerClient(
       )
     } catch {}
 
-    // Network errors-only capture wrappers (posting gated by networkMode)
     {
       try {
-        // fetch wrapper
         const origFetch = (window as any).fetch?.bind(window)
         if (typeof origFetch === 'function') {
           ;(window as any).fetch = async (...args: any[]) => {
@@ -234,7 +230,6 @@ export function setupLoggerClient(
           }
         }
 
-        // XHR wrapper
         const X: any = (window as any).XMLHttpRequest
         if (X && X.prototype) {
           const open = X.prototype.open

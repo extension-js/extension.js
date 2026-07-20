@@ -26,11 +26,8 @@ export class CompatibilityPlugin {
   }
 
   public apply(compiler: Compiler) {
-    // Includes firefox + forks (waterfox, librewolf) and the
-    // gecko-based/firefox-based aliases.
     const isGeckoFamily = isGeckoBasedBrowser(String(this.browser))
 
-    // Allow browser polyfill as needed
     if (this.polyfill) {
       if (!isGeckoFamily) {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {

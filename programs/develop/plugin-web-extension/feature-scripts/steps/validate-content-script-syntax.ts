@@ -9,20 +9,8 @@
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {isCanonicalContentScriptAsset} from '../contracts'
 
-/**
- * Parse-check every emitted content-script bundle and FAIL the compile on a
- * SyntaxError. swc tolerates some early errors (e.g. a top-level `let x` +
- * `const {x}` redeclaration) and happily emits them into the bundle, and the
- * browser then silently skips the unparsable file: no console error, no
- * injection, dev's "Reloading content_script…" reloading nothing. Real-world
- * hit: Origin-pod__OriginBrain shipped exactly that shape and looked healthy
- * everywhere while its content script never ran.
- *
- * `new Function(source)` only COMPILES the source (nothing executes), so this
- * is a cheap, safe V8 parse, the same engine family that will load the file.
- * Content scripts are always injected as classic scripts, so function-body
- * parsing is the right (slightly lenient) approximation.
- */
+// Parse-check emitted content-script bundles and FAIL the compile on a
+// SyntaxError: swc emits some early errors and the browser silently skips them.
 export class ValidateContentScriptSyntax {
   apply(compiler: Compiler): void {
     if (!compiler?.hooks?.thisCompilation?.tap) return

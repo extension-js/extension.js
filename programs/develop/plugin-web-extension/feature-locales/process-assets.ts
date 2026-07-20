@@ -33,7 +33,6 @@ export function processLocaleAssets(
 
     // Resources from the manifest lib can come as undefined.
     if (thisResource) {
-      // Only process .json files
       if (path.extname(thisResource) !== '.json') {
         continue
       }
@@ -59,10 +58,8 @@ export function processLocaleAssets(
 
       const source = fs.readFileSync(thisResource)
       const rawSource = new sources.RawSource(source)
-      // Always emit locales at the bundle root: `_locales/...`
-      // regardless of where the source `_locales/` lives (project root or
-      // next to manifest). Compute the relative path from the resolved
-      // locales root so the dist asset key stays platform-correct.
+      // Always emit locales at the bundle root (`_locales/...`) regardless of
+      // where the source `_locales/` lives (project root or next to manifest).
       const localesRoot =
         resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
       const relativeToLocales = path.relative(localesRoot, thisResource)

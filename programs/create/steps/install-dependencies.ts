@@ -120,9 +120,8 @@ export async function installDependencies(
     return
   }
 
-  // `prefers-yarn` can't see Deno (no npm_config_user_agent); when the CLI
-  // itself runs under Deno, install with `deno install` so dependencies are
-  // resolved from the scaffolded deno.jsonc manifest.
+  // `prefers-yarn` can't see Deno (no npm_config_user_agent); under Deno,
+  // install with `deno install` so deps resolve from the scaffolded deno.jsonc.
   const command = isDenoRuntime() ? 'deno' : await utils.getInstallCommand()
   const dependenciesArgs =
     command === 'deno' ? ['install'] : getInstallArgs(command)
@@ -131,7 +130,6 @@ export async function installDependencies(
   logger.log(installMessage)
 
   try {
-    // Create the node_modules directory if it doesn't exist
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
     const stdio =

@@ -19,19 +19,14 @@ import type {PackageManagerName} from './package-manager'
 import {resolvePackageManager} from './package-manager'
 import {hasProjectDependency} from './project-manifest'
 
-// Verbose-mode escape hatch shared with the rest of the develop pipeline
-// (rspack-config, stats-handler, dev-server hooks all read this same flag).
-// Default output stays a single human-readable install hint; opting in with
-// EXTENSION_VERBOSE=1 restores the full structured diagnostic payload that
-// upstream debug surfaces still consume.
+// Verbose-mode escape hatch shared with the rest of the develop pipeline;
+// EXTENSION_VERBOSE=1 restores the full structured diagnostic payload.
 function isVerboseMode(): boolean {
   return String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 }
 
-// pnpm, yarn and bun all add a dev dependency with `add -D`; npm uses
-// `install -D`. The package manager is detected from the *user project's*
-// working directory (projectPath), never `process.cwd()`, the dev server's
-// cwd is extension-develop, not the project being built.
+// pnpm, yarn and bun add a dev dependency with `add -D`; npm uses `install -D`.
+// Detect from the user project's dir, never process.cwd() (the dev server's).
 function installVerbForPackageManager(name: PackageManagerName): string {
   if (name === 'npm') return 'install -D'
   if (name === 'deno') return 'add --dev'
@@ -47,11 +42,8 @@ function formatInstallHint(
   return `${name} ${verb} ${packageSpecs.join(' ')}`
 }
 
-// Single dual-mode formatter every throw site in this resolver routes
-// through. In default mode it returns a one-line, package-manager-aware
-// install hint a developer can act on without parsing JSON; in verbose mode
-// it appends the structured diagnostic payload (unchanged top-level shape)
-// that callers and debug tooling still read.
+// Single dual-mode formatter every throw site routes through: a one-line
+// install hint by default, plus the structured diagnostics in verbose mode.
 function formatResolverError(args: {
   integration: string
   dependencyId: string
@@ -183,11 +175,8 @@ function resolveFromKnownLocations(
   const direct = resolveDependency(dependencyId, projectPath)?.resolvedPath
   if (direct) return direct
 
-  // Pnpm with strict resolution sometimes hides peer-tooling like `preact`
-  // behind a symlink chain that Node's resolver can't traverse from
-  // extension-develop's package context. If the user's package.json declares
-  // the dependency we trust their package manager installed it, the
-  // bundler will still surface a clean error later if the install was a lie.
+  // Strict pnpm can hide peer-tooling behind symlinks Node cannot traverse
+  // from here; if the user's package.json declares it, trust the install.
   if (declaresDependency(projectPath, dependencyId)) {
     return projectPath
   }
@@ -485,13 +474,8 @@ export function getContractVerificationFailuresFromKnownLocations(
     }
 
     const failure = evaluateModuleContextRule(rule, fromPackagePath)
-    // Pnpm strict layouts hide the user-side framework (preact, vue, etc.)
-    // from the contract tooling's pnpm dir because it isn't a peer dep
-    // there. The bundler aliases the framework at compile time, so the
-    // module-context check is only useful for catching genuine missing
-    // peers, not user-declared deps that webpack/rspack will route via
-    // resolve.alias. Trust the project package.json the same way the
-    // install-root path does.
+    // Strict pnpm hides user-side frameworks from the contract tooling's dir;
+    // the bundler aliases them at compile time, so trust project package.json.
     if (failure && declaresDependency(projectPath, failure)) continue
     if (failure) failures.push(failure)
   }

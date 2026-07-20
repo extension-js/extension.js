@@ -61,29 +61,19 @@ export async function maybeUseReact(
   let jsxDevRuntimePath: string | undefined
   try {
     reactPath = requireFromProject.resolve('react')
-  } catch {
-    // Do nothing
-  }
+  } catch {}
   try {
     reactDomPath = requireFromProject.resolve('react-dom')
-  } catch {
-    // Do nothing
-  }
+  } catch {}
   try {
     reactDomClientPath = requireFromProject.resolve('react-dom/client')
-  } catch {
-    // Do nothing
-  }
+  } catch {}
   try {
     jsxRuntimePath = requireFromProject.resolve('react/jsx-runtime')
-  } catch {
-    // Do nothing
-  }
+  } catch {}
   try {
     jsxDevRuntimePath = requireFromProject.resolve('react/jsx-dev-runtime')
-  } catch {
-    // Do nothing
-  }
+  } catch {}
 
   const alias: Record<string, string> = {}
   if (reactPath) alias.react$ = reactPath
@@ -111,8 +101,7 @@ export async function maybeUseReact(
       contractId: 'react-refresh',
       projectPath,
       dependencyId: '@rspack/plugin-react-refresh',
-      // v1 exported the plugin as `module.exports` (the module itself is the
-      // ctor); v2 exports a namespace object with a named `ReactRefreshRspackPlugin`.
+      // v1 exports the ctor as module.exports; v2 exports a namespace object.
       // Resolve the named export first so both major versions work.
       moduleAdapter: (mod) =>
         ((mod && (mod.default || mod.ReactRefreshRspackPlugin)) ||

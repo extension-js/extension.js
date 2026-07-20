@@ -56,7 +56,6 @@ export async function moveDirectoryContents(
     const destPath = path.join(destination, entry.name)
 
     if (entry.isDirectory()) {
-      // Recursively move subdirectories
       await moveDirectoryContents(sourcePath, destPath)
     } else if (entry.isSymbolicLink()) {
       try {
@@ -87,7 +86,6 @@ export async function moveDirectoryContents(
     }
   }
 
-  // Remove the now-empty source directory
   await fs.rm(source, {recursive: true, force: true})
 }
 

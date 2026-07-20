@@ -39,12 +39,8 @@ export interface BuildEventMap {
 export class BuildEmitter extends EventEmitter<BuildEventMap> {
   constructor() {
     super()
-    // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' is emitted without
-    // a listener. Build errors here are rspack/swc compile failures that are
-    // already printed by the bundler, losing them shouldn't kill the dev
-    // process and prevent recovery on the next save. Install a default
-    // listener so user-installed handlers still fire (EventEmitter delivers
-    // to all listeners) while the emit itself is non-throwing.
+    // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' has no listener;
+    // a default listener keeps compile-failure emits from killing dev.
     this.on('error', () => {})
   }
 }
@@ -77,12 +73,8 @@ export interface BrowserLaunchOptions {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
-  /**
-   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
-   * (E21): alarm-period clamps, CSP refusals, deprecation notices. These never
-   * pass through the extension's console hook, so the SW producer can't report
-   * them; the launcher forwards them here instead. Chromium-only.
-   */
+  // Browser-generated CDP Log.entryAdded entries never pass through the
+  // extension's console hook; the launcher forwards them here. Chromium-only.
   logSink?: BrowserLogSink
 }
 
@@ -163,7 +155,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   constructor(private readonly options: BrowsersPluginOptions) {}
 
   /**
-   * Option B: the dev server injects the control-bridge broker so a launched
+   * The dev server injects the control-bridge broker so a launched
    * Chromium reloads through the SW producer (the same path as `--no-browser`),
    * not the CDP controller. Called once, before the first compile.
    */
@@ -171,12 +163,8 @@ export class BrowsersPlugin implements RunnerPlugin {
     this.reloadBroker = broker
   }
 
-  /**
-   * E21: the dev server injects a sink that routes browser-generated
-   * `Log.entryAdded` entries into the control-bridge log pipeline
-   * (ring + logs.ndjson + consumer fan-out). Called once, before the
-   * first compile, alongside {@link setReloadBroker}.
-   */
+  // The dev server injects a sink that routes browser-generated Log.entryAdded
+  // entries into the control-bridge log pipeline. Called once, before first compile.
   setLogSink(sink: BrowserLogSink): void {
     this.logSink = sink
   }
@@ -200,17 +188,8 @@ export class BrowsersPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // Classify reload type from modified source files. Asset-name heuristics
-      // are unreliable because `compilation.assets` contains every emitted
-      // asset on each compile (including a persistent background/service_worker.js),
-      // which made every classification resolve to 'service-worker' even when
-      // only a content script changed.
-      //
-      // Page-only edits (popup/options/devtools/newtab HTML/CSS/JS) classify to
-      // `undefined`: rspack-dev-server's livereload broadcast already refreshes
-      // those open surfaces, so firing chrome.runtime.reload() would race it and
-      // flash the surface. See scripts/reload-matrix/scenarios.mjs scenario
-      // "popup-html-edit-popup-open" for the ground-truth assertion.
+      // Classify reload from changed sources, not asset names (every compile
+      // emits all assets). Page-only edits stay undefined: livereload covers them.
       let reloadInstruction: ReloadInstruction | undefined
 
       if (!this.isFirstCompile) {
@@ -239,7 +218,6 @@ export class BrowsersPlugin implements RunnerPlugin {
             logSink: this.logSink
           })
 
-          // Enable unified logging when requested
           const logLevel = this.options.browserOptions.logLevel || 'off'
           if (logLevel !== 'off' && this.controller) {
             await this.controller.enableUnifiedLogging({
@@ -258,10 +236,8 @@ export class BrowsersPlugin implements RunnerPlugin {
           })
         }
       } else if (this.reloadBroker) {
-        // Launched-browser reload through the shared dispatch seam: it routes to
-        // the SW producer over the control bridge, the SAME executor as
-        // `--no-browser`, for both Chromium and Firefox. The CDP/RDP controller
-        // is kept only for logging / source inspection. Honors EXTENSION_NO_RELOAD.
+        // Launched-browser reload routes to the SW producer over the control
+        // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
         await dispatchReload(reloadInstruction, {
           broker: this.reloadBroker
         })

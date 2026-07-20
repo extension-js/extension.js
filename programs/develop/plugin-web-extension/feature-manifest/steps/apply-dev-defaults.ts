@@ -22,28 +22,20 @@ import {
   patchWebResourcesV3
 } from './apply-dev-defaults-lib/patch-web-resources'
 
-// Dev instrumentation injects these permissions into the dist manifest. When
-// USER source exercises one the manifest never declared, the flow works in dev
-// and ships broken (§64) — the masking is invisible until production. `tabs`
-// is excluded: most chrome.tabs calls are legal without the permission, so a
-// warning there would be mostly noise. Checked per era below.
+// Dev instrumentation injects these into the dist manifest; user code relying on
+// an undeclared one ships broken. `tabs` is excluded: warnings would be noise.
 const INJECTED_PERMISSION_APIS = ['storage', 'scripting', 'management'] as const
 
-/**
- * Scan the project's own source files (from the module graph, so only files
- * the build actually uses) for chrome.<api>/browser.<api> usage whose
- * permission is dev-injected but not declared in the manifest. Reads the raw
- * files from disk: emitted bundles contain the injected producer/relay, which
- * legitimately uses these APIs and would false-positive every project.
- */
+// Scan the module graph's own source files for chrome/browser API usage whose
+// permission is dev-injected but undeclared. Emitted bundles would false-positive.
 export function findInjectedOnlyPermissionUses(
   compilation: Pick<Compilation, 'modules'>,
   declared: Set<string>,
   injected: readonly string[]
 ): Map<string, string> {
-  const hits = new Map<string, string>() // api -> first offending file
+  const firstOffenderByApi = new Map<string, string>()
   const candidates = injected.filter((api) => !declared.has(api))
-  if (!candidates.length) return hits
+  if (!candidates.length) return firstOffenderByApi
 
   for (const module of compilation.modules) {
     const resource = (module as {resource?: string}).resource
@@ -58,13 +50,13 @@ export function findInjectedOnlyPermissionUses(
       continue
     }
     for (const api of candidates) {
-      if (hits.has(api)) continue
+      if (firstOffenderByApi.has(api)) continue
       const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
-      if (useRe.test(source)) hits.set(api, resource)
+      if (useRe.test(source)) firstOffenderByApi.set(api, resource)
     }
-    if (hits.size === candidates.length) break
+    if (firstOffenderByApi.size === candidates.length) break
   }
-  return hits
+  return firstOffenderByApi
 }
 
 /**
@@ -107,9 +99,7 @@ export class ApplyDevDefaults {
                         'manifest: No manifest.json path. Unable to apply dev defaults.'
                       )
                 )
-              } catch {
-                // ignore
-              }
+              } catch {}
               return
             }
 
@@ -132,12 +122,8 @@ export class ApplyDevDefaults {
                 )
               : []
 
-            // MV3 only, and only when there are content scripts: ensure the
-            // extension has host access to the pages its content scripts run on,
-            // so the SW can chrome.scripting.executeScript the fresh script into
-            // already-open tabs on save (the controller-less content-script
-            // reload under --no-browser). Union with any declared host
-            // permissions; never written to the production manifest.
+            // MV3 with content scripts: grant host access so the SW can inject the
+            // fresh script into already-open tabs on save. Never ships to production.
             const hostPermissionsPatch =
               canonicalManifest.manifest_version === 3 &&
               contentScriptMatches.length > 0
@@ -159,20 +145,8 @@ export class ApplyDevDefaults {
                   ? patchV3CSP(canonicalManifest)
                   : patchV2CSP(canonicalManifest),
 
-              // Dev-only permissions for the control bridge + reload loop:
-              //   - scripting: re-inject the fresh content script into open tabs
-              //     on save (chrome.scripting.executeScript).
-              //   - tabs: chrome.tabs.query({url}) to find those tabs.
-              //   - management: used by the bridge act verbs.
-              //   - storage: the producer's pending-reinject flag that survives
-              //     runtime.reload() (onInstalled does not fire for it), so the
-              //     restarted SW heals open tabs after a SW/full reload.
-              // MV2 also needs the content-script host patterns IN `permissions`
-              // (MV2 has no host_permissions key), or chrome.scripting.executeScript
-              // fails with "Missing host permission for the tab" on Firefox.
-              // storage is injected in BOTH eras (§64 era-consistency): the
-              // producer's pending-reinject flag lives in storage.local on MV2
-              // exactly as on MV3.
+              // Dev-only permissions for the control bridge + reload loop. MV2 also
+              // needs content-script host patterns in `permissions` (no host_permissions).
               ...(canonicalManifest.manifest_version === 3
                 ? {
                     permissions: [
@@ -205,10 +179,8 @@ export class ApplyDevDefaults {
                   : patchWebResourcesV2(canonicalManifest)
             }
 
-            // §64: warn when the user's own source leans on a permission only
-            // the dev instrumentation injected — the flow works all through
-            // dev and fails in production, where only declared permissions
-            // survive.
+            // Warn when the user's own source leans on a permission only the dev
+            // instrumentation injected: it works in dev and fails in production.
             try {
               const declared = new Set<string>([
                 ...((canonicalManifest.permissions as string[]) || []),
