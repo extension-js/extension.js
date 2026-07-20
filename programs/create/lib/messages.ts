@@ -124,7 +124,7 @@ export function scanningPossiblyConflictingFiles() {
   return `${statusPrefix} Scanning for conflicting files...`
 }
 
-export function createDirectoryError(projectName: string, error: any) {
+export function createDirectoryError(projectName: string, error: unknown) {
   return `${colors.red('Error')} Couldn't create directory ${colors.blue(
     projectName
   )}.\n${colors.red(String(error))}\n${colors.red(
@@ -138,7 +138,7 @@ export function writingTypeDefinitions(projectName: string) {
   )}...`
 }
 
-export function writingTypeDefinitionsError(error: any) {
+export function writingTypeDefinitionsError(error: unknown) {
   return `${colors.red(
     'Error'
   )} Couldn't write the extension type definitions.\n${colors.red(
@@ -162,7 +162,7 @@ export function installingFromTemplate(
 export function installingFromTemplateError(
   projectName: string,
   template: string,
-  error: any
+  error: unknown
 ) {
   return `${colors.red('Error')} Couldn't find template ${colors.yellow(
     template
@@ -182,7 +182,10 @@ export function templateFetchTimedOut(templateName: string, ms: number) {
 
 // A genuine "this slug is not in the catalog", distinct from a download/timeout
 // failure, which the old code mislabelled as "template not found" (#56).
-export function templateNotFoundInCatalog(templateName: string, error?: any) {
+export function templateNotFoundInCatalog(
+  templateName: string,
+  error?: unknown
+) {
   return (
     `${colors.red('Error')} Template ${colors.yellow(templateName)} ` +
     `is not in the extension-js/examples catalog.\n` +
@@ -195,12 +198,12 @@ export function templateNotFoundInCatalog(templateName: string, error?: any) {
 // The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
 // credential-helper hang). Surfacing this honestly (with the real cause) is
 // the #56 fix; the old path always said "choose a valid template name".
-export function templateDownloadFailed(templateName: string, error: any) {
+export function templateDownloadFailed(templateName: string, error: unknown) {
   return (
     `${colors.red('Error')} Couldn't download template ${colors.yellow(
       templateName
     )} from ${colors.yellow('github.com/extension-js/examples')}.\n` +
-    `${colors.red(String(error?.message || error))}\n` +
+    `${colors.red(String((error as Error | undefined)?.message || error))}\n` +
     `${colors.red('Next step: check your network (or GitHub rate limits) and try again; set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
   )
 }
@@ -262,7 +265,7 @@ export function installingDependenciesFailed(
 
 export function installingDependenciesProcessError(
   projectName: string,
-  error: any
+  error: unknown
 ) {
   return `${colors.red(
     'Error'
@@ -273,10 +276,10 @@ export function installingDependenciesProcessError(
   )}`
 }
 
-export function cantInstallDependencies(projectName: string, error: any) {
+export function cantInstallDependencies(projectName: string, error: unknown) {
   return `${colors.red('Error')} Couldn't install dependencies for ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error?.message || error))}\n${colors.red(
+  )}.\n${colors.red(String((error as Error | undefined)?.message || error))}\n${colors.red(
     'Next step: check your package manager settings, then try again.'
   )}`
 }
@@ -287,7 +290,7 @@ export function writingPackageJsonMetadata() {
 
 export function writingPackageJsonMetadataError(
   projectName: string,
-  error: any
+  error: unknown
 ) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'package.json'
@@ -300,7 +303,7 @@ export function writingDenoJsonc() {
   return `${statusPrefix} Writing ${colors.yellow('deno.jsonc')}...`
 }
 
-export function writingDenoJsoncError(projectName: string, error: any) {
+export function writingDenoJsoncError(projectName: string, error: unknown) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'deno.jsonc'
   )} for ${colors.blue(projectName)}.\n${colors.red(
@@ -314,7 +317,7 @@ export function writingManifestJsonMetadata() {
 
 export function writingManifestJsonMetadataError(
   projectName: string,
-  error: any
+  error: unknown
 ) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'manifest.json'
@@ -331,7 +334,10 @@ export function writingGitIgnore() {
   return `${statusPrefix} Writing ${colors.yellow('.gitignore')}...`
 }
 
-export function writingReadmeMetaDataEError(projectName: string, error: any) {
+export function writingReadmeMetaDataEError(
+  projectName: string,
+  error: unknown
+) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'README.md'
   )} for ${colors.blue(projectName)}.\n${colors.red(
@@ -343,7 +349,7 @@ export function folderExists(projectName: string) {
   return `${statusPrefix} Ensuring ${colors.blue(projectName)} exists...`
 }
 
-export function writingDirectoryError(error: any) {
+export function writingDirectoryError(error: unknown) {
   return `${colors.red(
     'Error'
   )} Couldn't check directory writability.\n${colors.red(
@@ -351,7 +357,7 @@ export function writingDirectoryError(error: any) {
   )}\n${colors.red('Next step: check the path and permissions, then try again.')}`
 }
 
-export function cantSetupBuiltInTests(projectName: string, error: any) {
+export function cantSetupBuiltInTests(projectName: string, error: unknown) {
   return `${colors.red(
     'Error'
   )} Couldn't set up built-in tests for ${colors.yellow(projectName)}.\n${colors.red(

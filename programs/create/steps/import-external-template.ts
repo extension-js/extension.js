@@ -234,7 +234,7 @@ export async function importExternalTemplate(
   projectPath: string,
   projectName: string,
   template: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const templateName = path.basename(template)
   // Default template is `javascript`. `init` remains an alias for the same examples folder.
@@ -346,7 +346,7 @@ export async function importExternalTemplate(
 
     // Cleanup temp
     await fs.rm(tempRoot, {recursive: true, force: true})
-  } catch (error: any) {
+  } catch (error) {
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure, the old path reported every failure as "choose a valid template
     // name", which is the #56 mislabel.

@@ -88,9 +88,9 @@ export function registerPublishCommand(program: Command) {
       let req: PublishRequest
       try {
         req = buildPublishRequest(opts)
-      } catch (err: any) {
+      } catch (err) {
         // eslint-disable-next-line no-console
-        console.error(err?.message || 'publish failed')
+        console.error((err as Error | undefined)?.message || 'publish failed')
         process.exit(1)
       }
 
@@ -101,14 +101,16 @@ export function registerPublishCommand(program: Command) {
           headers: req.headers,
           body: req.body
         })
-      } catch (err: any) {
+      } catch (err) {
         // eslint-disable-next-line no-console
-        console.error(`Could not reach ${req.url}: ${err?.message || err}`)
+        console.error(
+          `Could not reach ${req.url}: ${(err as Error | undefined)?.message || err}`
+        )
         process.exit(1)
       }
 
       const text = await res.text()
-      let data: any
+      let data: {message?: unknown; shareUrl?: unknown}
 
       try {
         data = JSON.parse(text)

@@ -241,7 +241,10 @@ async function launchFirefox(
     }
   )
 
-  await launcher.runOnce(compilationLike, launchRequest as any)
+  await launcher.runOnce(
+    compilationLike,
+    launchRequest as unknown as Parameters<typeof launcher.runOnce>[1]
+  )
 
   // Resolve the RDP controller created during launch (when available).
   // In dry-run / VITEST paths launch() short-circuits and no controller

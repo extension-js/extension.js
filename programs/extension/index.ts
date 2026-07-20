@@ -130,9 +130,9 @@ checkUpdates().then((updateMessage) => {
 const extensionJs = program
 
 extensionJs
-  .name(cliPackageJson.name)
-  .description(cliPackageJson.description)
-  .version(cliPackageJson.version)
+  .name(String(cliPackageJson.name))
+  .description(String(cliPackageJson.description))
+  .version(String(cliPackageJson.version))
   .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
   .option('--format <pretty|json>', 'output format for --ai-help', 'pretty')
@@ -159,7 +159,7 @@ extensionJs.on('option:ai-help', () => {
     // eslint-disable-next-line no-console
     console.log(
       JSON.stringify(
-        messages.programAIHelpJSON(cliPackageJson.version),
+        messages.programAIHelpJSON(String(cliPackageJson.version)),
         null,
         2
       )

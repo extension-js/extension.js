@@ -181,5 +181,6 @@ export interface FileConfig {
    * configuration. Receives and returns a bundler `Configuration` object.
    * Typed loosely to avoid requiring bundler types in consumer projects.
    */
+  // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
   config?: (config: any) => any
 }
