@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeEach, vi, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
@@ -7,6 +7,7 @@ vi.mock('fs', async () => {
     readFileSync: vi.fn()
   }
 })
+
 import * as fs from 'fs'
 
 // Mock deps used inside the plugin implementation
@@ -119,8 +120,9 @@ describe('CompilationPlugin', () => {
     }
     return {
       compiler,
-      emitDone: (stats: any, done = () => {}) =>
-        doneHandlers.forEach((handler) => handler(stats, done))
+      emitDone: (stats: any, done = () => {}) => {
+        for (const handler of doneHandlers) handler(stats, done)
+      }
     }
   }
 

@@ -27,14 +27,17 @@ const createFakeCompiler = () => {
       tap: (_name: string, callback: () => void) => {
         watchRunCallbacks.push(callback)
       },
-      __invokeAll: () => watchRunCallbacks.forEach((cb) => cb())
+      __invokeAll: () => {
+        for (const cb of watchRunCallbacks) cb()
+      }
     },
     thisCompilation: {
       tap: (_name: string, callback: (c: any) => void) => {
         thisCompilationCallbacks.push(callback)
       },
-      __invokeAll: (compilationInstance: any) =>
-        thisCompilationCallbacks.forEach((cb) => cb(compilationInstance))
+      __invokeAll: (compilationInstance: any) => {
+        for (const cb of thisCompilationCallbacks) cb(compilationInstance)
+      }
     }
   }
 

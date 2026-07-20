@@ -205,7 +205,7 @@ async function loadConfigFileUncached(
     try {
       if (!absolutePath.endsWith('.mjs')) {
         const requireFn = createRequire(import.meta.url)
-        let required
+        let required: any
 
         try {
           required = requireFn(absolutePath)
