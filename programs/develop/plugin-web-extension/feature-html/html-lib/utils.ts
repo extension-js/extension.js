@@ -6,9 +6,9 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
-import * as path from 'path'
 import type {FilepathList} from '../../../types'
 import {parseHtml} from './parse-html'
 

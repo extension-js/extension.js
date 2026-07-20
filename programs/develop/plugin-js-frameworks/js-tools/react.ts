@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import type {RspackPluginInstance} from '@rspack/core'
-import {createRequire} from 'module'
-import * as path from 'path'
 import colors from 'pintor'
 import {
   loadOptionalContractModuleWithoutInstall,
@@ -86,7 +86,7 @@ export async function maybeUseReact(
   }
 
   const alias: Record<string, string> = {}
-  if (reactPath) alias['react$'] = reactPath
+  if (reactPath) alias.react$ = reactPath
   if (reactDomPath) alias['react-dom$'] = reactDomPath
   if (reactDomClientPath) alias['react-dom/client'] = reactDomClientPath
   if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath

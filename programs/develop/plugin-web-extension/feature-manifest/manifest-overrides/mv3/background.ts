@@ -14,8 +14,7 @@ export function backgroundServiceWorker(manifest: Manifest) {
   // override for why re-spreading `...manifest.background` here clobbers other
   // keys in the aggregate merge (G14).
   return (
-    manifest.background &&
-    manifest.background.service_worker && {
+    manifest.background?.service_worker && {
       background: {
         service_worker: (() => {
           const raw = String(manifest.background.service_worker)

@@ -6,9 +6,9 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {createHash} from 'crypto'
-import * as fs from 'fs'
-import * as path from 'path'
+import {createHash} from 'node:crypto'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import colors from 'pintor'
 import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'

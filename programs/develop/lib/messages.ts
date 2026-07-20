@@ -6,11 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {StatsAsset} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import colors from 'pintor'
-import packageJson from '../package.json'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
 import {stripBom} from './parse-json-safe'
@@ -37,7 +36,7 @@ export const fmt = {
         return String(input)
       }
     })()
-    return s.length > max ? s.slice(0, max) + '…' : s
+    return s.length > max ? `${s.slice(0, max)}…` : s
   }
 }
 

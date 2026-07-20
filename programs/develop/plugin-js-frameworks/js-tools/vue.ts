@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {DefinePlugin} from '@rspack/core'
-import {createRequire} from 'module'
-import * as path from 'path'
 import colors from 'pintor'
 import {
   ensureOptionalContractModuleLoaded,
@@ -54,10 +54,8 @@ export async function maybeUseVue(
       projectPath,
       dependencyId: 'vue-loader',
       moduleAdapter: (mod: any) => {
-        return ((mod && mod.VueLoaderPlugin) ||
-          (mod &&
-            mod.default &&
-            mod.default.VueLoaderPlugin)) as VueLoaderPluginCtor
+        return (mod?.VueLoaderPlugin ||
+          mod?.default?.VueLoaderPlugin) as VueLoaderPluginCtor
       }
     })
 
@@ -112,7 +110,7 @@ export async function maybeUseVue(
   const vueRuntimeCore = resolveFromProject('@vue/runtime-core')
   const vueShared = resolveFromProject('@vue/shared')
 
-  if (vuePath) alias['vue$'] = vuePath
+  if (vuePath) alias.vue$ = vuePath
   if (vueRuntimeDom) alias['@vue/runtime-dom'] = vueRuntimeDom
   if (vueRuntimeCore) alias['@vue/runtime-core'] = vueRuntimeCore
   if (vueShared) alias['@vue/shared'] = vueShared

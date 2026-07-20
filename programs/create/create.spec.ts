@@ -6,9 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
 
 // Resolve extensionCreate from local dist (standalone) or monorepo fallback
@@ -62,8 +62,8 @@ try {
   DEFAULT_TEMPLATE = {name: 'javascript'}
 }
 
-import {execFile} from 'child_process'
-import {promisify} from 'util'
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
@@ -84,7 +84,7 @@ function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
     __dirname,
     'dist',
-    'test-template-' + templateName
+    `test-template-${templateName}`
   )
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
@@ -111,7 +111,7 @@ async function removeAllTemplateFolders() {
       const templatePath = path.resolve(
         __dirname,
         'dist',
-        'test-template-' + template.name
+        `test-template-${template.name}`
       )
 
       console.log('Removing template:', templatePath)
@@ -236,7 +236,7 @@ describe('extension create', () => {
       const templatePath = path.join(
         __dirname,
         'dist',
-        'test-template-' + template.name
+        `test-template-${template.name}`
       )
 
       await extensionCreate(templatePath, {

@@ -1,8 +1,8 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as path from 'path'
-import * as fs from 'fs'
-import {PolyfillPlugin} from '../feature-polyfill'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
+import {PolyfillPlugin} from '../feature-polyfill'
 
 describe('PolyfillPlugin', () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('PolyfillPlugin', () => {
   it('provides the browser global when polyfill can be resolved', async () => {
     // Create a real temp folder with the expected polyfill file
     const tmp = await fs.promises.mkdtemp(
-      path.join(require('os').tmpdir(), 'polyfill-')
+      path.join(require('node:os').tmpdir(), 'polyfill-')
     )
     const nodeModules = path.join(
       tmp,

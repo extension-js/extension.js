@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import locateBrave from 'brave-location'
 import locateChrome, {
   getInstallGuidance as getChromeInstallGuidance,
@@ -19,9 +21,7 @@ import locateEdge, {
   getInstallGuidance as getEdgeInstallGuidance,
   getEdgeVersion
 } from 'edge-location'
-import * as fs from 'fs'
 import locateOpera from 'opera-location2'
-import * as path from 'path'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
 import {
@@ -984,7 +984,7 @@ export class ChromiumLaunchPlugin {
       const hint = /timed out|did not complete/i.test(message)
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
-      console.error('[browser] ' + message + hint)
+      console.error(`[browser] ${message}${hint}`)
     }
   }
 

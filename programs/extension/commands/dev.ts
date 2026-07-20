@@ -185,7 +185,7 @@ export function registerDevCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...devOptions}: DevOptions
       ) => {
-        if ((devOptions as any).author || (devOptions as any)['authorMode']) {
+        if ((devOptions as any).author || (devOptions as any).authorMode) {
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

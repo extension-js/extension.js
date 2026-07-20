@@ -1,19 +1,19 @@
-import {describe, it, expect, afterEach, beforeEach} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {BridgeController} from '../controller-client'
-import {startControlServer, type ControlServer} from '../ws-control-server'
-import {BridgeBroker} from '../broker'
 import {ActionsFileWriter} from '../actions-file'
+import {BridgeBroker} from '../broker'
 import {CONTROL_WS_PATH} from '../contracts'
+import {BridgeController} from '../controller-client'
 import {
-  writeControlToken,
-  readControlToken,
   clearControlToken,
-  controlTokenPath
+  controlTokenPath,
+  readControlToken,
+  writeControlToken
 } from '../session-token'
+import {type ControlServer, startControlServer} from '../ws-control-server'
 
 /**
  * A fake in-bundle executor: connects as a producer, answers `command` frames

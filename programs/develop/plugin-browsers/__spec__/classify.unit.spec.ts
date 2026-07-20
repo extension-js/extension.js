@@ -13,7 +13,7 @@
 // `reloadInstruction` regardless of how it is dispatched.) No browser, no
 // timers, pure logic.
 
-import * as path from 'path'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadInstruction} from '../../plugin-reload'
 import {type BrowserController, BrowsersPlugin} from '../index'

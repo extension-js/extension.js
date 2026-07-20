@@ -6,10 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import fs from 'fs'
-import {createRequire} from 'module'
-import path from 'path'
-import {pathToFileURL} from 'url'
+import fs from 'node:fs'
+import {createRequire} from 'node:module'
+import path from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 const require = createRequire(import.meta.url)
 

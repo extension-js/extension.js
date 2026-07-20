@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as crypto from 'crypto'
-import * as net from 'net'
+import * as crypto from 'node:crypto'
+import * as net from 'node:net'
 
 async function findAvailablePortNear(
   startPort: number,

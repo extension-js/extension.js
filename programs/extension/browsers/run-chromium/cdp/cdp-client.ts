@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Readable, Writable} from 'stream'
+import type {Readable, Writable} from 'node:stream'
 import WebSocket from 'ws'
 import {
   CDP_COMMAND_TIMEOUT_MS,
@@ -352,7 +352,7 @@ export class CDPClient {
 
         const data = JSON.stringify(message)
         if (this.transport === 'pipe' && this.pipeOut) {
-          this.pipeOut.write(data + '\0')
+          this.pipeOut.write(`${data}\0`)
         } else if (this.ws) {
           this.ws.send(data)
         }

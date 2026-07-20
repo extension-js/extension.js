@@ -1,7 +1,7 @@
-import * as fs from 'fs'
-import * as fsp from 'fs/promises'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // The default `javascript` template (and its `init` alias) now ships with the

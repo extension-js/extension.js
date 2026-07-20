@@ -1,13 +1,16 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {validateLocales} from '../validation'
 
 const makeCompiler = (context: string) => ({
   options: {context},
   rspack: {WebpackError: Error}
 })
-const makeCompilation = () => ({warnings: [] as unknown[], errors: [] as unknown[]})
+const makeCompilation = () => ({
+  warnings: [] as unknown[],
+  errors: [] as unknown[]
+})
 
 describe('validateLocales author-mode diagnostics (unit)', () => {
   const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -21,7 +24,8 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
   })
 
   afterEach(() => {
-    if (fs.existsSync(tmpRoot)) fs.rmSync(tmpRoot, {recursive: true, force: true})
+    if (fs.existsSync(tmpRoot))
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
     if (prevAuthorMode === undefined) delete process.env.EXTENSION_AUTHOR_MODE
     else process.env.EXTENSION_AUTHOR_MODE = prevAuthorMode
     vi.restoreAllMocks()
@@ -40,7 +44,9 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
     expect(result).toBe(true)
     expect(
       log.mock.calls.some(([line]) =>
-        String(line).includes('manifest.json could not be read for locale validation')
+        String(line).includes(
+          'manifest.json could not be read for locale validation'
+        )
       )
     ).toBe(true)
   })

@@ -28,9 +28,7 @@ export function pickMozExtensionHost(
   const hosts = targetUrls
     .map((u) => {
       try {
-        return u && u.startsWith('moz-extension://')
-          ? new URL(u).host
-          : undefined
+        return u?.startsWith('moz-extension://') ? new URL(u).host : undefined
       } catch {
         return undefined
       }

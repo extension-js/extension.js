@@ -1,9 +1,9 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {createRequire as nodeCreateRequire} from 'module'
+import * as fs from 'node:fs'
+import {createRequire as nodeCreateRequire} from 'node:module'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import postcss from 'postcss'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 describe('postcss integration (tailwind arbitrary classes)', () => {
   let tmpRoot = ''

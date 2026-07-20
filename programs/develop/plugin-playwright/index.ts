@@ -6,9 +6,8 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {
@@ -172,7 +171,7 @@ function ensureDirSync(dirPath: string) {
 function writeJsonAtomic(filePath: string, value: unknown) {
   try {
     const tmpPath = `${filePath}.tmp-${process.pid}`
-    fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2) + '\n', 'utf-8')
+    fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
     fs.renameSync(tmpPath, filePath)
   } catch {
     // best-effort only

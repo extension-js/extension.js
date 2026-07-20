@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as fs from 'fs'
+import * as fs from 'node:fs'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {toolsHasDependencyMock} = vi.hoisted(() => ({
   toolsHasDependencyMock: vi.fn(() => false)
@@ -26,11 +26,8 @@ vi.mock('../../lib/messages', () => ({
   installingRootDependencies: (name: string) => `[installing ${name}]`
 }))
 
-// Load after mocks
-import {isUsingSass, maybeUseSass} from '../css-tools/sass'
-import {isUsingLess, maybeUseLess} from '../css-tools/less'
-import {isUsingPostCss, maybeUsePostCss} from '../css-tools/postcss'
-import {isUsingTailwind, getTailwindConfigFile} from '../css-tools/tailwind'
+import {maybeUsePostCss} from '../css-tools/postcss'
+import {getTailwindConfigFile} from '../css-tools/tailwind'
 
 const originalRequireResolve = (require as any).resolve
 
@@ -74,7 +71,7 @@ describe('isContentScriptEntry', () => {
     const {isContentScriptEntry} = (await import(
       '../css-lib/is-content-script'
     )) as any
-    const path = require('path')
+    const path = require('node:path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
     expect(isContentScriptEntry(issuer, manifestPath, '/project')).toBe(true)

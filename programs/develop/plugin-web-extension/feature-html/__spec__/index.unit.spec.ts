@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
-import {HtmlPlugin} from '../index'
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../plugin-web-extension/feature-scripts/contracts'
+import {HtmlPlugin} from '../index'
 
 function makeCompiler(mode: 'development' | 'production') {
   const rules: any[] = []

@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {type ChildProcess, type StdioOptions, spawn} from 'child_process'
-import * as fs from 'fs'
+import {type ChildProcess, type StdioOptions, spawn} from 'node:child_process'
+import * as fs from 'node:fs'
 import {
   hasGuiDisplay,
   isWslEnv,
@@ -50,8 +50,7 @@ const LINUX_BROWSER_PATHS: Record<string, string[]> = {
  */
 export function resolveWslLinuxBinary(browser: string): string | null {
   if (!isWslEnv() || !hasGuiDisplay()) return null
-  const candidates =
-    LINUX_BROWSER_PATHS[browser] || LINUX_BROWSER_PATHS['chrome']
+  const candidates = LINUX_BROWSER_PATHS[browser] || LINUX_BROWSER_PATHS.chrome
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
   }
