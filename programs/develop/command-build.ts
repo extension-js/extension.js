@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {
@@ -22,6 +23,7 @@ import {generateExtensionTypes} from './lib/generate-extension-types'
 import * as messages from './lib/messages'
 import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
+import {buildSummaryPath} from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   ensureTypeScriptConfig,
@@ -212,6 +214,17 @@ export async function extensionBuild(
           })
 
           summary = getBuildSummary(browser, info)
+
+          // §73 transport: hosts that shell out to `extension build` (the
+          // MCP) cannot see the returned summary, so persist it as a machine
+          // contract next to ready.json. Best-effort, informational only.
+          try {
+            const summaryFile = buildSummaryPath(packageJsonDir, browser)
+            fs.mkdirSync(nodePath.dirname(summaryFile), {recursive: true})
+            fs.writeFileSync(summaryFile, JSON.stringify(summary))
+          } catch {
+            // Never fail a green build over the informational contract.
+          }
 
           if (summary.warnings_count > 0) {
             console.log(
