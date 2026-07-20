@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import {PassThrough} from 'stream'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../run-chromium/cdp/discovery', () => ({
   discoverWebSocketDebuggerUrl: vi.fn(),
@@ -89,7 +89,7 @@ describe('CDPClient pipe transport', () => {
     // Find the IDs from what was written
     const sent: any[] = []
     pipeOut.removeAllListeners('data')
-    // Re-read — the messages already flushed. Use handleMessage directly.
+    // Re-read, the messages already flushed. Use handleMessage directly.
     // Instead, manually extract IDs from the pending requests
     const pendingIds = Array.from(
       (client as any).pendingRequests.keys()

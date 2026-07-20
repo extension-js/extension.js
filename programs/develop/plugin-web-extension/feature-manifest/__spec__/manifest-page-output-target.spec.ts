@@ -1,5 +1,5 @@
 // BUGS_TO_FIX §39 addendum: a root-absolute manifest page ref
-// (`options_page: "/page/options.html"`) resolves from the EXTENSION root —
+// (`options_page: "/page/options.html"`) resolves from the EXTENSION root,
 // when the file really lives at the project root the html pipeline compiles
 // it, so the dist manifest must point at the compiled surface instead of the
 // raw path nothing emits. public/ keeps precedence.

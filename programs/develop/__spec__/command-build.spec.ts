@@ -1,6 +1,7 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
   return {
@@ -98,13 +99,13 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 import {extensionBuild} from '../command-build'
-import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as configLoaderMod from '../lib/config-loader'
-import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
-import * as messages from '../lib/messages'
-import webpackConfig from '../rspack-config'
+import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
+import * as messages from '../lib/messages'
 import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
+import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
+import webpackConfig from '../rspack-config'
 
 describe('webpack/command-build', () => {
   // fs is mocked; configure per-test behavior below
@@ -392,7 +393,7 @@ describe('webpack/command-build', () => {
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
   })
 
-  it('rejects (never process.exit) on build errors BY DEFAULT — library hosts embed extensionBuild (§37)', async () => {
+  it('rejects (never process.exit) on build errors BY DEFAULT, library hosts embed extensionBuild (§37)', async () => {
     // Prove the default path, not the vitest escape hatch: with VITEST unset
     // and no exitOnError option, a failed build must reject the promise. The
     // old `exitOnError ?? true` default killed embedding hosts

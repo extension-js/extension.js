@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -18,35 +18,35 @@ export interface FatalShapeFix {
 /**
  * Repair author-manifest shapes that make Chrome refuse to load the whole
  * extension. Loading via --load-extension surfaces the refusal as a native
- * modal dialog (no CDP, no console), so a dev session just wedges — the
+ * modal dialog (no CDP, no console), so a dev session just wedges, the
  * browser never binds its debug endpoint. Both shapes below were found in
  * the wild and are unambiguous to fix:
  *
- * - `"name"` missing, empty, or not a string — Chrome refuses with
+ * - `"name"` missing, empty, or not a string, Chrome refuses with
  *   "Required value 'name' is missing or invalid" (verified live on Chrome
  *   150 via CDP loadUnpacked for all three shapes). Coerce scalars,
  *   fall back to "Unnamed Extension".
- * - `"version"` missing entirely — Chrome refuses with "Required value
+ * - `"version"` missing entirely, Chrome refuses with "Required value
  *   'version' is missing or invalid" (wild: Ananyakk71/javscript). Inject
  *   "0.0.0" so the session can attach.
- * - `"version": 1.0` — JSON authors write a number; Chrome requires a string
+ * - `"version": 1.0`, JSON authors write a number; Chrome requires a string
  *   of 1-4 dot-separated integers. String() preserves the intent.
  * - `"version": "x.y.z"` (any string that is not 1-4 dot-separated integers
- *   0-65535) — a placeholder the author never filled in; Chrome refuses the
+ *   0-65535), a placeholder the author never filled in; Chrome refuses the
  *   whole extension over it. Salvage the numeric parts when there are any,
  *   fall back to "0.0.0" otherwise.
- * - `"default_icon": ""` (in action/browser_action/page_action) — an empty
+ * - `"default_icon": ""` (in action/browser_action/page_action), an empty
  *   icon path rejects the extension. Empty means "no icon": drop the key.
  * - An icon path (`icons`, `*_action.default_icon`) whose file exists but is
- *   0 bytes (wild: Speak2Type ships an empty icon-128.png) — Chrome cannot
+ *   0 bytes (wild: Speak2Type ships an empty icon-128.png), Chrome cannot
  *   decode it and refuses the whole extension with "Could not load icon".
  *   Requires `manifestDir` to resolve the paths; drop the entry.
  * - `'unsafe-inline'` in `content_security_policy.extension_pages`
- *   script-src — Chrome refuses the whole extension with "Insecure CSP
+ *   script-src, Chrome refuses the whole extension with "Insecure CSP
  *   value" (wild: zenwerk/tonikakuyare). MV3 never honors it, so stripping
  *   it changes nothing but the refusal.
  * - A named (non-`_execute_*`) command whose `description` is missing,
- *   empty, or not a string — Chrome refuses the whole extension with
+ *   empty, or not a string, Chrome refuses the whole extension with
  *   "Invalid value for 'commands[N].description'" (seen live loading a
  *   built extension). Fall back to the command name so the shortcut stays
  *   registered and the session can attach.
@@ -67,7 +67,7 @@ export function sanitizeFatalManifestShapes(
     out.name = isScalar ? String(from) : 'Unnamed Extension'
     fixes.push({
       field: 'name',
-      detail: `replaced ${JSON.stringify(from)} with "${out.name}" — Chrome requires a non-empty string name and refuses the whole extension otherwise`
+      detail: `replaced ${JSON.stringify(from)} with "${out.name}", Chrome requires a non-empty string name and refuses the whole extension otherwise`
     })
   }
 
@@ -76,7 +76,7 @@ export function sanitizeFatalManifestShapes(
     fixes.push({
       field: 'version',
       detail:
-        'added "0.0.0" — the required version key was missing and Chrome refuses the whole extension without it'
+        'added "0.0.0", the required version key was missing and Chrome refuses the whole extension without it'
     })
   }
 
@@ -85,7 +85,7 @@ export function sanitizeFatalManifestShapes(
     out.version = String(out.version)
     fixes.push({
       field: 'version',
-      detail: `coerced ${from} (${typeof JSON.parse(from)}) to the string "${out.version}" — Chrome rejects a non-string version`
+      detail: `coerced ${from} (${typeof JSON.parse(from)}) to the string "${out.version}", Chrome rejects a non-string version`
     })
   }
 
@@ -97,7 +97,7 @@ export function sanitizeFatalManifestShapes(
     out.version = salvageVersion(out.version)
     fixes.push({
       field: 'version',
-      detail: `replaced "${from}" with "${out.version}" — Chrome requires 1-4 dot-separated integers (0-65535) and refuses the whole extension otherwise`
+      detail: `replaced "${from}" with "${out.version}", Chrome requires 1-4 dot-separated integers (0-65535) and refuses the whole extension otherwise`
     })
   }
 
@@ -118,14 +118,14 @@ export function sanitizeFatalManifestShapes(
       fixes.push({
         field: `${actionKey}.default_icon`,
         detail:
-          'removed the empty default_icon — Chrome rejects the whole extension over it'
+          'removed the empty default_icon, Chrome rejects the whole extension over it'
       })
     }
   }
 
   if (manifestDir) {
     const emptyIconDetail = (ref: string) =>
-      `removed "${ref}" — the file is empty (0 bytes) and Chrome refuses the whole extension over an icon it cannot load`
+      `removed "${ref}". The file is empty (0 bytes) and Chrome refuses the whole extension over an icon it cannot load`
 
     const isEmptyIconFile = (ref: unknown): ref is string => {
       if (typeof ref !== 'string' || ref.trim() === '') return false
@@ -193,7 +193,7 @@ export function sanitizeFatalManifestShapes(
       fixes.push({
         field: 'content_security_policy.extension_pages',
         detail:
-          "removed 'unsafe-inline' from script-src — Chrome refuses the whole extension over an insecure CSP value in extension pages"
+          "removed 'unsafe-inline' from script-src, Chrome refuses the whole extension over an insecure CSP value in extension pages"
       })
     }
   }
@@ -215,7 +215,7 @@ export function sanitizeFatalManifestShapes(
       entry.description = name
       fixes.push({
         field: `commands.${name}.description`,
-        detail: `replaced ${JSON.stringify(from)} with "${name}" — Chrome requires a non-empty string description on named commands and refuses the whole extension otherwise`
+        detail: `replaced ${JSON.stringify(from)} with "${name}", Chrome requires a non-empty string description on named commands and refuses the whole extension otherwise`
       })
     }
   }

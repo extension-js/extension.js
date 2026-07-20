@@ -1,14 +1,14 @@
-import {describe, it, expect, vi, afterEach} from 'vitest'
 import * as http from 'http'
 import * as net from 'net'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import {
-  discoverWebSocketDebuggerUrl,
-  checkChromeRemoteDebugging
+  checkChromeRemoteDebugging,
+  discoverWebSocketDebuggerUrl
 } from '../../run-chromium/cdp/discovery'
 
 // ---------------------------------------------------------------------------
-// Helpers — tiny HTTP server for testing discovery
+// Helpers, tiny HTTP server for testing discovery
 // ---------------------------------------------------------------------------
 
 function createCdpServer(

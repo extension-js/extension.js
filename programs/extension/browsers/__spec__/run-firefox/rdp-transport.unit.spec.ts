@@ -1,11 +1,10 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import net from 'net'
-
-// We test RdpTransport directly — it is the core RDP connection layer.
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
+// We test RdpTransport directly. It is the core RDP connection layer.
 // These tests cover per-actor request queuing, error isolation,
 // disconnect cleanup, and event forwarding.
 import {RdpTransport} from '../../run-firefox/rdp/remote-firefox/transport'
-import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -109,7 +108,7 @@ describe('RdpTransport', () => {
   })
 
   // -----------------------------------------------------------------------
-  // 2. Per-actor queuing — only one in-flight request per actor
+  // 2. Per-actor queuing, only one in-flight request per actor
   // -----------------------------------------------------------------------
 
   it('queues a second request to the same actor until the first resolves', async () => {
@@ -148,7 +147,7 @@ describe('RdpTransport', () => {
 
     await new Promise((r) => setTimeout(r, 30))
 
-    // Respond in reverse order — both are in-flight concurrently
+    // Respond in reverse order, both are in-flight concurrently
     sendResponse(sock, {from: 'tab-B', type: 'attached'})
     sendResponse(sock, {from: 'tab-A', type: 'attached'})
 
@@ -250,7 +249,7 @@ describe('RdpTransport', () => {
     const r2 = transport.request({to: 'tab-1', type: 'op2'})
     const r3 = transport.request({to: 'tab-1', type: 'op3'})
 
-    // Respond to each in sequence — each response should flush the next
+    // Respond to each in sequence, each response should flush the next
     await new Promise((r) => setTimeout(r, 30))
     sendResponse(sock, {from: 'tab-1', result: 'res1'})
     const res1 = await r1

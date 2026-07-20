@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import locateChrome, {
   getInstallGuidance as getChromeInstallGuidance,
@@ -207,8 +207,8 @@ export function firefoxRdpRuntimeCapabilitySummary(
 ) {
   const txt =
     state === 'available'
-      ? 'browser.scripting available — content-script edits will preserve background/popup state'
-      : 'browser.scripting unavailable — content-script edits will fall back to addon reinstall'
+      ? 'browser.scripting available, content-script edits will preserve background/popup state'
+      : 'browser.scripting unavailable, content-script edits will fall back to addon reinstall'
   return `${getLoggingPrefix('info')} Firefox RDP runtime capability: ${txt}`
 }
 
@@ -300,7 +300,7 @@ export function mv3BackgroundScriptsNotSupportedByChromium(
   extensionPath: string
 ) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker — Chromium refuses to load it.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker, Chromium refuses to load it.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     `The browser rejects it at launch with no console error, so the dev session cannot attach.\n` +
     `Run it on the browser it targets (${colors.blue('--browser firefox')}) or declare ${colors.blue('background.service_worker')} for Chromium.`
@@ -330,13 +330,13 @@ export function chromiumInvalidMatchPatterns(
   const shown = patterns.slice(0, 6)
   const more = patterns.length - shown.length
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares match patterns Chrome refuses — the whole extension will not load.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares match patterns Chrome refuses, the whole extension will not load.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     shown
       .map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`)
       .join('') +
     (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
-    `A match pattern's host wildcard must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')} — ` +
+    `A match pattern's host wildcard must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')}, ` +
     `a wildcard anywhere else in the host is invalid. ` +
     `Replace the host with ${colors.blue('*')} or ${colors.blue('*.domain.tld')} in the source manifest.`
   )
@@ -347,7 +347,7 @@ export function chromiumManifestLoadBlockers(
   blockers: string[]
 ) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This manifest declares shapes Chrome refuses — the whole extension will not load.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This manifest declares shapes Chrome refuses, the whole extension will not load.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     blockers
       .map((blocker) => `${colors.gray('REASON')} ${colors.red(blocker)}\n`)
@@ -563,12 +563,12 @@ export function prettyPuppeteerInstallGuidance(
   body.push(`  ${colors.bold(colors.blue(installCommand))}`)
   // Chromium managed installs are unbranded tip-of-tree snapshots; Chrome for
   // Testing tracks the stable channel and satisfies chromium targets via the
-  // chromium-family launch fallback — offer it as the recommended alternative.
+  // chromium-family launch fallback, offer it as the recommended alternative.
   if (browserNorm === 'chromium') {
     body.push('')
     body.push(
       colors.gray(
-        'Or install Chrome for Testing (stable channel) — chromium targets use it automatically:'
+        'Or install Chrome for Testing (stable channel), chromium targets use it automatically:'
       )
     )
     body.push('')
@@ -636,7 +636,7 @@ export function safariRequiresMacOS(platform: string) {
 
 export function safariPackagingSkippedNonMac(platform: string) {
   return (
-    `${getLoggingPrefix('warn')} Safari packaging needs macOS with Xcode — detected ` +
+    `${getLoggingPrefix('warn')} Safari packaging needs macOS with Xcode, detected ` +
     `${colors.gray(prettyPlatform(platform))}, so the Xcode packaging step is skipped.\n` +
     `The web-extension build in ${colors.yellow('dist/safari')} is still complete and can be ` +
     `packaged later on a Mac with ${colors.blue('extension build --browser=safari')}.`
@@ -707,7 +707,7 @@ export function safariToolFailed(
 export function safariConverterWarnings(warnings: string[]) {
   return (
     `${getLoggingPrefix('warn')} safari-web-extension-converter reported ` +
-    `${colors.yellow(String(warnings.length))} warning(s) — some manifest keys/APIs ` +
+    `${colors.yellow(String(warnings.length))} warning(s), some manifest keys/APIs ` +
     `may not be supported by Safari:\n` +
     warnings.map((line) => `  ${colors.gray('•')} ${line}`).join('\n')
   )
@@ -717,7 +717,7 @@ export function safariDefaultBundleIdNote(bundleId: string) {
   return (
     `${getLoggingPrefix('info')} Using the generated bundle id ${colors.gray(bundleId)}. ` +
     `For an app you plan to distribute, set your own with ${colors.blue('--bundle-id')} ` +
-    `now — changing it later makes Safari treat the extension as a new identity.`
+    `now, changing it later makes Safari treat the extension as a new identity.`
   )
 }
 
@@ -753,7 +753,7 @@ export function safariNextSteps(appName: string) {
 }
 
 export function safariRegistered(appName: string) {
-  return `${getLoggingPrefix('success')} Safari recognizes ${colors.brightBlue(appName)} — finish enabling it with the steps above.`
+  return `${getLoggingPrefix('success')} Safari recognizes ${colors.brightBlue(appName)}, finish enabling it with the steps above.`
 }
 
 export function safariNotYetRegistered(appName: string) {
@@ -761,15 +761,15 @@ export function safariNotYetRegistered(appName: string) {
 }
 
 export function safariRebuilt(appName: string) {
-  return `${getLoggingPrefix('success')} Rebuilt ${colors.brightBlue(appName)} — reload the page (or toggle the extension) in Safari to see changes.`
+  return `${getLoggingPrefix('success')} Rebuilt ${colors.brightBlue(appName)}, reload the page (or toggle the extension) in Safari to see changes.`
 }
 
 export function safariProjectStale() {
-  return `${getLoggingPrefix('info')} manifest.json or identity options changed since the Xcode project was generated — regenerating project.`
+  return `${getLoggingPrefix('info')} manifest.json or identity options changed since the Xcode project was generated, regenerating project.`
 }
 
 export function safariForcedRegeneration() {
-  return `${getLoggingPrefix('info')} --force-regenerate set — regenerating the Xcode project.`
+  return `${getLoggingPrefix('info')} --force-regenerate set, regenerating the Xcode project.`
 }
 
 export function safariRegenerationDiscards(preservedKeys: string[]) {
@@ -789,7 +789,7 @@ export function safariSettingsPreserved(keys: string[]) {
 }
 
 export function safariSkippingConversion() {
-  return `${getLoggingPrefix('info')} Xcode project is up to date with manifest.json — skipping conversion.`
+  return `${getLoggingPrefix('info')} Xcode project is up to date with manifest.json, skipping conversion.`
 }
 
 // Generic source inspector errors (Firefox-specific helpers)

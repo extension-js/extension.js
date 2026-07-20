@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import locateBrave from 'brave-location'
 import locateChrome, {
@@ -20,8 +20,8 @@ import locateEdge, {
   getEdgeVersion
 } from 'edge-location'
 import * as fs from 'fs'
-import * as path from 'path'
 import locateOpera from 'opera-location2'
+import * as path from 'path'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
 import {
@@ -29,7 +29,6 @@ import {
   printProdBannerOnce
 } from '../../browsers-lib/banner'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
-import * as messages from '../../browsers-lib/messages'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
@@ -38,22 +37,23 @@ import {
   findMissingManagedSchema,
   findUnloadableIconFiles
 } from '../../browsers-lib/manifest-refusal'
+import * as messages from '../../browsers-lib/messages'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
+import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   pickSharedBrowserRuntimeOptions,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
-import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import type {
   BrowserLogger,
   BrowserType,
   CompilationLike
 } from '../../browsers-types'
-import type {ChromiumContext} from '../chromium-context'
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {checkChromeRemoteDebugging} from '../cdp/discovery'
+import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,
   ChromiumPluginRuntime
@@ -294,7 +294,7 @@ export class ChromiumLaunchPlugin {
             steps: [
               {
                 summary:
-                  'Install Chrome for Testing (recommended — stable channel; chromium targets use it automatically)',
+                  'Install Chrome for Testing (recommended, stable channel; chromium targets use it automatically)',
                 command: 'npx extension install chrome'
               },
               {
@@ -387,8 +387,8 @@ export class ChromiumLaunchPlugin {
         }
       }
     }
-    // Swap any Chrome wrapper script for the real binary under WSL+GUI
-    // — the wrapper closes extra FDs on exec, breaking CDP pipe.
+    // Swap any Chrome wrapper script for the real binary under WSL+GUI,
+    // because the wrapper closes extra FDs on exec, breaking CDP pipe.
     browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
 
     const getBrowserVersionLine = (bin: string): string => {
@@ -517,7 +517,7 @@ export class ChromiumLaunchPlugin {
         if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         // Prefer explicit binary when provided; otherwise KEEP the binary
-        // already resolved above (managed/system choice) — overwriting it
+        // already resolved above (managed/system choice), overwriting it
         // with null here would let the post-switch fallback re-resolve the
         // managed snapshot and undo the stable-over-snapshot preference.
         if (this.options?.chromiumBinary) {
@@ -665,7 +665,7 @@ export class ChromiumLaunchPlugin {
 
       // Requested browser missing everywhere, but another managed
       // chromium-family binary (e.g. from `extension install all`) is a
-      // working substitute — prefer it over aborting with install guidance.
+      // working substitute, prefer it over aborting with install guidance.
       if (
         (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) &&
         (browser === 'chrome' || browser === 'chromium')
@@ -748,16 +748,13 @@ export class ChromiumLaunchPlugin {
     )?.[1]
 
     // Manifest shapes modern Chromium refuses outright (MV2, Firefox-style
-    // MV3 background.scripts): the refusal surfaces only as a native modal —
-    // or nothing at all — and the session wedges with no error and no CDP
+    // MV3 background.scripts): the refusal surfaces only as a native modal,
+    // or nothing at all, and the session wedges with no error and no CDP
     // endpoint. Say why up front, before the spawn.
     for (const extPath of extensionsToLoad) {
       try {
         const m = JSON.parse(
-          fs.readFileSync(
-            path.join(String(extPath), 'manifest.json'),
-            'utf8'
-          )
+          fs.readFileSync(path.join(String(extPath), 'manifest.json'), 'utf8')
         )
         const refusal = diagnoseChromiumManifestRefusal(m)
         if (refusal === 'mv2') {
@@ -766,9 +763,7 @@ export class ChromiumLaunchPlugin {
         } else if (refusal === 'mv3-background-scripts') {
           // eslint-disable-next-line no-console
           console.warn(
-            messages.mv3BackgroundScriptsNotSupportedByChromium(
-              String(extPath)
-            )
+            messages.mv3BackgroundScriptsNotSupportedByChromium(String(extPath))
           )
         } else if (refusal === 'unsupported-manifest-version') {
           // eslint-disable-next-line no-console
@@ -802,7 +797,7 @@ export class ChromiumLaunchPlugin {
           )
         }
       } catch {
-        // unreadable manifest — the browser will complain on its own
+        // unreadable manifest. The browser will complain on its own
       }
     }
 
@@ -888,7 +883,7 @@ export class ChromiumLaunchPlugin {
       }
       if (!portReady && process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.logger.warn?.(
-          `[browser] Debug port ${selectedPort} not bound after spawn — CDP may fail`
+          `[browser] Debug port ${selectedPort} not bound after spawn. CDP may fail`
         )
       }
     }
@@ -949,7 +944,7 @@ export class ChromiumLaunchPlugin {
         const mod = await import('./setup-cdp-after-launch')
         // Watchdog: when Chrome rejects the extension at launch (invalid MV3
         // CSP, manifest referencing missing files, ...) macOS shows a modal
-        // that stalls startup — the pipe handshake and target waits below then
+        // that stalls startup, the pipe handshake and target waits below then
         // hang FOREVER with no error, no CDP endpoint, and a dev session that
         // looks alive but can never reload. Convert that silent wedge into a
         // loud, diagnosable failure.
@@ -968,7 +963,7 @@ export class ChromiumLaunchPlugin {
                   new Error(
                     `CDP setup did not complete within ${
                       CDP_SETUP_TIMEOUT_MS / 1000
-                    }s. Chrome likely rejected the extension at launch — open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to files missing from the output. Reload/HMR cannot attach until this is fixed.`
+                    }s. Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to files missing from the output. Reload/HMR cannot attach until this is fixed.`
                   )
                 ),
               CDP_SETUP_TIMEOUT_MS
@@ -983,11 +978,11 @@ export class ChromiumLaunchPlugin {
         }
       }
     } catch (error) {
-      // A dead CDP wire means no reload delivery for the whole session —
+      // A dead CDP wire means no reload delivery for the whole session,
       // always tell the user (previously author-mode-only, i.e. silent).
       const message = String(error && (error as Error).message)
       const hint = /timed out|did not complete/i.test(message)
-        ? " Chrome likely rejected the extension at launch — open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
+        ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
       console.error('[browser] ' + message + hint)
     }
@@ -1010,7 +1005,7 @@ export class ChromiumLaunchPlugin {
     // stderr is PIPED (and drained below) so extension-load rejections reach
     // the user: with stderr ignored, a manifest Chrome refuses (e.g. MV3 CSP
     // with 'unsafe-inline') left dev hanging with no error, no CDP endpoint,
-    // and no extension — a silent wedge.
+    // and no extension, a silent wedge.
     const stdio: import('child_process').StdioOptions = usePipe
       ? ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']
       : ['ignore', 'ignore', 'pipe']
@@ -1033,7 +1028,7 @@ export class ChromiumLaunchPlugin {
         )
       }
 
-      // Drain stderr (required — an unread pipe eventually blocks Chrome) and
+      // Drain stderr (required, an unread pipe eventually blocks Chrome) and
       // surface extension-load rejections, which otherwise die silently.
       const stderrStream = (child as any).stdio?.[2]
       if (stderrStream && typeof stderrStream.on === 'function') {
@@ -1044,9 +1039,13 @@ export class ChromiumLaunchPlugin {
           while ((newline = pending.indexOf('\n')) !== -1) {
             const line = pending.slice(0, newline).trim()
             pending = pending.slice(newline + 1)
-            if (/Failed to load extension|Manifest file is missing or unreadable|Manifest is not valid JSON/i.test(line)) {
+            if (
+              /Failed to load extension|Manifest file is missing or unreadable|Manifest is not valid JSON/i.test(
+                line
+              )
+            ) {
               this.logger.error(
-                `[browser] Chrome rejected an extension at launch — reload/HMR cannot attach until this is fixed:\n${line}`
+                `[browser] Chrome rejected an extension at launch, reload/HMR cannot attach until this is fixed:\n${line}`
               )
             }
           }
@@ -1061,14 +1060,14 @@ export class ChromiumLaunchPlugin {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
         // An exit we didn't ask for means the dev browser died out from under
-        // a live session — compiles keep "succeeding" while every reload goes
+        // a live session, compiles keep "succeeding" while every reload goes
         // nowhere. Say so loudly and stamp ready.json so automation sees it
         // too (previously this was silent outside EXTENSION_AUTHOR_MODE).
         if (!wasTerminatedByUs(child) && this.closeHandlerContext?.isDevMode) {
           this.logger.error(
             `[browser] ${this.options.browser} exited mid-session (code ${
               code ?? 'unknown'
-            }). The dev server is still running but reloads cannot be delivered — restart "extension dev" to relaunch the browser.`
+            }). The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.`
           )
           stampReadyBrowserExited(
             this.closeHandlerContext.extensionOutputPath,

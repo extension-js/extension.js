@@ -1,6 +1,6 @@
-import {describe, it, expect, vi} from 'vitest'
-import {UpdateManifest} from '../steps/update-manifest'
+import {describe, expect, it, vi} from 'vitest'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
+import {UpdateManifest} from '../steps/update-manifest'
 
 vi.mock('../../lib/utils', () => ({
   getManifestContent: (_c: any, _p: string) => ({
@@ -64,8 +64,10 @@ describe('UpdateManifest', () => {
     expect(out.icons).toBeDefined()
     // A css-only group must reference the entry chunk the compiler actually
     // emits (content_scripts/content-N.js), not a legacy content_scripts-N
-    // stub that nothing emits — the persist guard fails the build over it.
-    expect(out.content_scripts?.[0]?.js).toEqual(['content_scripts/content-0.js'])
+    // stub that nothing emits, the persist guard fails the build over it.
+    expect(out.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.js'
+    ])
   })
 
   it('resolves the css-only dev stub to the hashed emitted asset', () => {
@@ -97,7 +99,9 @@ describe('UpdateManifest', () => {
     )
     new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
-    expect(out.content_scripts?.[1]?.js).toEqual(['content_scripts/content-3.js'])
+    expect(out.content_scripts?.[1]?.js).toEqual([
+      'content_scripts/content-3.js'
+    ])
   })
 
   it('updates asset in production as well', () => {

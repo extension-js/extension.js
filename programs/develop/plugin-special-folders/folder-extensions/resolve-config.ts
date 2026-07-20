@@ -4,11 +4,12 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {fetchExtensionFromStore} from 'extension-from-store'
 import * as fs from 'fs'
 import * as path from 'path'
-import {fetchExtensionFromStore} from 'extension-from-store'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 import type {CompanionExtensionsConfig} from './types'
 import {
   isDir,
@@ -17,7 +18,6 @@ import {
   normalizeCompanionConfig,
   toAbs
 } from './utils'
-import {isGeckoBasedBrowser} from '../../lib/constants'
 
 type StoreBrowser = 'chrome' | 'edge' | 'firefox'
 

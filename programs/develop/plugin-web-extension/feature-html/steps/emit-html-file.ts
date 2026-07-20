@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
@@ -50,7 +50,7 @@ export class EmitHtmlFile {
 
             if (!fs.existsSync(resolved)) {
               // A root-absolute ref that public/ owns is served verbatim at
-              // the output root by the special-folders pipeline — nothing to
+              // the output root by the special-folders pipeline, nothing to
               // compile here and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
               if (
@@ -71,7 +71,7 @@ export class EmitHtmlFile {
                 )
               } else {
                 // Chrome refuses to load an extension whose popup, options,
-                // devtools, background, or override page is missing — fail
+                // devtools, background, or override page is missing, fail
                 // the build the same way instead of emitting a manifest that
                 // points at a page that is never produced. Sandbox/sidebar
                 // surfaces are not load-checked by every browser, so they

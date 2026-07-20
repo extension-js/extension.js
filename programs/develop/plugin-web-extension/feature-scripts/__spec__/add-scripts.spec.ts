@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {AddScripts} from '../steps/add-scripts'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
+import {AddScripts} from '../steps/add-scripts'
 
 const tempDirs: string[] = []
 
@@ -140,9 +140,7 @@ describe('AddScripts', () => {
     expect(entryPath).toContain('__extensionjs_classic_concat__')
 
     // Decode the query data and verify both files are listed in order
-    const match = entryPath.match(
-      /[?&]__extensionjs_classic_concat__=([^&]+)/
-    )
+    const match = entryPath.match(/[?&]__extensionjs_classic_concat__=([^&]+)/)
     expect(match).toBeTruthy()
     const data = JSON.parse(decodeURIComponent(match![1]))
     expect(data.js).toEqual([basePath, childPath])
@@ -193,7 +191,7 @@ describe('AddScripts', () => {
     // Regression: a multi-JS content-script group with CSS used to embed the CSS
     // inside the concat module. Its issuer then resolved to a content-script JS
     // file, flipping the CSS rule to asset/inline so content_scripts/content-N.css
-    // was never emitted — while the manifest still declared it ("not emitted to
+    // was never emitted, while the manifest still declared it ("not emitted to
     // disk"). CSS must stay a bare entry import (no issuer -> extracted to file).
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
@@ -248,7 +246,7 @@ describe('AddScripts', () => {
 
   it('does not register a scripts/ folder entry for a file already in content_scripts (G7)', () => {
     // Regression: a file living under scripts/ AND declared in content_scripts
-    // used to be registered twice — once in the content_scripts concat and once
+    // used to be registered twice, once in the content_scripts concat and once
     // as a standalone scripts/ entry. The standalone entry parsed vendored UMD
     // libs in isolation and rspack failed on their dead `require('pkg')` branch.
     const projectDir = createTempProject()
@@ -268,7 +266,10 @@ describe('AddScripts', () => {
       JSON.stringify({
         manifest_version: 3,
         content_scripts: [
-          {matches: ['<all_urls>'], js: ['scripts/thirdParty/katex.js', 'scripts/thirdParty/texmath.js']}
+          {
+            matches: ['<all_urls>'],
+            js: ['scripts/thirdParty/katex.js', 'scripts/thirdParty/texmath.js']
+          }
         ]
       }),
       'utf8'

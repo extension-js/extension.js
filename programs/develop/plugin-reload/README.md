@@ -15,14 +15,14 @@ It is responsible for:
   scripts so reinjection stays browser-owned
 - classifying a watch-mode change into a reload instruction
   (`full` / `service-worker` / `content-scripts` / notify-only `page`)
-- dispatching that instruction over the control-bridge broker — the same
+- dispatching that instruction over the control-bridge broker, the same
   executor for launched browsers and `--no-browser`
 
 ## Entry point
 
 `index.ts` exposes two seams:
 
-- `ReloadPlugin` — the rspack plugin applied by `rspack-config.ts`. It must
+- `ReloadPlugin`, the rspack plugin applied by `rspack-config.ts`. It must
   register AFTER `plugin-web-extension`: `SetupReloadStrategy` decorates the
   background/content entries that `feature-scripts`' `AddScripts` declares.
   The whole pipeline no-ops in production and under
@@ -49,7 +49,7 @@ Applied by `ReloadPlugin` in order:
 - `classify-reload.ts`
   The pure reload classifier. Decision order per changed file: forced-full
   (manifest/_locales) → chunk-graph membership → emitted static asset →
-  name heuristics. Also defines `ReloadType` / `ReloadInstruction` — the
+  name heuristics. Also defines `ReloadType` / `ReloadInstruction`, the
   control-bridge `contracts.ts` mirrors `ReloadType`; update them together.
 
 - `reload-dispatch.ts`
@@ -64,7 +64,7 @@ Applied by `ReloadPlugin` in order:
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
-  sense — they ride the same bridge and the same dev-only gate.
+  sense, they ride the same bridge and the same dev-only gate.
 
 ## Contracts
 
@@ -74,10 +74,10 @@ that contract; it does not define it.
 
 ## Testing
 
-- `__spec__/reload-plugin-gating.spec.ts` — dev-only gating
-- `__spec__/classify-reload.unit.spec.ts` — classifier decisions
-- `__spec__/reload-dispatch.unit.spec.ts` — dispatch seam
-- `__spec__/setup-background-entry.spec.ts`, `__spec__/inject-scripts-replay-shim.spec.ts`, `__spec__/strip-content-script-dev-server-runtime.spec.ts` — step behavior
+- `__spec__/reload-plugin-gating.spec.ts`, dev-only gating
+- `__spec__/classify-reload.unit.spec.ts`, classifier decisions
+- `__spec__/reload-dispatch.unit.spec.ts`, dispatch seam
+- `__spec__/setup-background-entry.spec.ts`, `__spec__/inject-scripts-replay-shim.spec.ts`, `__spec__/strip-content-script-dev-server-runtime.spec.ts`, step behavior
 
 `BrowsersPlugin`-level classification integration is covered from
 `plugin-browsers/__spec__/classify.unit.spec.ts`. Behavioral reload

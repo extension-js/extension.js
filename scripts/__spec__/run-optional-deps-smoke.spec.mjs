@@ -1,7 +1,7 @@
-import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import test from 'node:test'
 import {pathToFileURL} from 'node:url'
 import {
   assertLocalWorkspacePackagesExist,
@@ -9,8 +9,8 @@ import {
   getLocalWorkspacePackagePaths,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
-  shouldUsePackedExtensionForSmoke,
-  shouldRetryCleanupError
+  shouldRetryCleanupError,
+  shouldUsePackedExtensionForSmoke
 } from '../run-optional-deps-smoke.mjs'
 
 const originalPlatform = process.platform
@@ -81,7 +81,7 @@ test('shouldUsePackedExtensionForSmoke packs yarn/bun from the source under test
   assert.equal(shouldUsePackedExtensionForSmoke('yarn'), true)
   assert.equal(shouldUsePackedExtensionForSmoke('bun'), true)
   // deno packs too, but consumes the packages via deno.jsonc `links` to the
-  // extracted tarballs — `deno install` silently ignores file: specifiers.
+  // extracted tarballs, `deno install` silently ignores file: specifiers.
   assert.equal(shouldUsePackedExtensionForSmoke('deno'), true)
 })
 
@@ -153,7 +153,7 @@ test('getLocalWorkspacePackagePaths entries resolve to real directories on disk'
     const packageJsonPath = path.join(dir, 'package.json')
     await assert.doesNotReject(
       fs.access(packageJsonPath),
-      `${name} package at ${dir} is missing package.json — is it still a workspace package?`
+      `${name} package at ${dir} is missing package.json, is it still a workspace package?`
     )
   }
 })

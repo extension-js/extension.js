@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import {WebSocket} from 'ws'
@@ -26,12 +26,12 @@ export interface ReadyContractInfo {
   status?: string
   /** Dev-server pid; absent in pre-4.1 contracts. */
   pid?: number
-  /** Browser CDP port, stamped post-launch — may lag `status: 'ready'`. */
+  /** Browser CDP port, stamped post-launch, may lag `status: 'ready'`. */
   cdpPort?: number
   /** Stamped when the launched browser exits while the server keeps running. */
   browserExitedAt?: string
   browserExitCode?: number
-  /** When the compile finished (ISO) — the meaning of `status: 'ready'`. */
+  /** When the compile finished (ISO), the meaning of `status: 'ready'`. */
   compiledAt?: string
   /** When the extension's service worker attached to the control channel (ISO). */
   executorAttachedAt?: string

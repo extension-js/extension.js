@@ -4,7 +4,7 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -78,7 +78,7 @@ export function cssParseErrorShippedVerbatim(
       ? String((error as any).reason)
       : String((error as any)?.message || error)
   return [
-    `${colors.yellow('⏵⏵⏵')} Invalid CSS in ${colors.underline(resourcePath)} — ${reason}.`,
+    `${colors.yellow('⏵⏵⏵')} Invalid CSS in ${colors.underline(resourcePath)}, ${reason}.`,
     'Browsers skip invalid rules, so the stylesheet was copied as-is instead of failing the build.',
     'PostCSS/Tailwind processing was NOT applied to this file. Fix the CSS to re-enable it.'
   ].join('\n')
@@ -90,7 +90,7 @@ export function preprocessorShippedUncompiled(
 ) {
   const pkg = tool === 'sass' ? 'sass' : 'less'
   return [
-    `${colors.yellow('⏵⏵⏵')} ${colors.underline(resourcePath)} shipped UNCOMPILED — ${colors.brightBlue(`"${pkg}"`)} is not installed in this project.`,
+    `${colors.yellow('⏵⏵⏵')} ${colors.underline(resourcePath)} shipped UNCOMPILED, ${colors.brightBlue(`"${pkg}"`)} is not installed in this project.`,
     `The raw ${tool === 'sass' ? 'Sass/SCSS' : 'Less'} source was copied as-is into the output .css, which browsers will treat as broken CSS (unstyled surfaces).`,
     `Install it to compile this file, for example: ${colors.gray(`npm install --save-dev ${pkg}`)}`
   ].join('\n')
@@ -100,7 +100,7 @@ export function deadCssUrlRef(issuerPath: string, request: string) {
   return [
     `Missing file in ${colors.underline(issuerPath)}.`,
     `The ${colors.yellow(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
-    `Chrome applies the rest of the stylesheet and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`,
+    `Chrome applies the rest of the stylesheet and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`,
     '',
     `${colors.red('NOT FOUND')} ${colors.underline(request)}`
   ].join('\n')

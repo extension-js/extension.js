@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
@@ -45,7 +45,7 @@ describe('cssInContentScriptLoader', () => {
       // Regression guard: `resourceQuery: {not: [/url/]}` used to silently
       // bypass PostCSS for `?url` imports, shipping raw CSS (including
       // uncompiled `@import "tailwindcss"`). The rule must cover every
-      // CSS specifier the issuer can produce — no query-string escape hatch.
+      // CSS specifier the issuer can produce, no query-string escape hatch.
       expect(rule.resourceQuery).toBeUndefined()
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
@@ -65,11 +65,10 @@ describe('cssInContentScriptLoader', () => {
 
     const scssRule: any = (rules as any[]).find(
       (r) =>
-        String(r.test) === String(/\.(sass|scss)$/) &&
-        r.type === 'asset/inline'
+        String(r.test) === String(/\.(sass|scss)$/) && r.type === 'asset/inline'
     )
     expect(scssRule).toBeDefined()
-    // Must NOT use sass-loader (it is not installed) — plain CSS chain only.
+    // Must NOT use sass-loader (it is not installed), plain CSS chain only.
     expect(
       (scssRule.use as any[]).some((u) =>
         String(u?.loader || u).includes('sass-loader')

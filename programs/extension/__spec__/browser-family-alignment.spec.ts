@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   CHROMIUM_BASED_BROWSERS,
-  GECKO_BASED_BROWSERS,
   CHROMIUM_FAMILY_ALIASES,
+  GECKO_BASED_BROWSERS,
   GECKO_FAMILY_ALIASES,
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
@@ -18,7 +18,7 @@ import {
 // substring-permissive (manifest prefixes and env files should treat any
 // *chromium* name as chromium-family), the launch layer's is exact-set
 // (binary selection must not guess for unknown names). What must NOT differ
-// is the shared vocabulary — a browser name one package classifies and the
+// is the shared vocabulary, a browser name one package classifies and the
 // other doesn't is exactly how `--browser chromium` got refused in the
 // field. This spec derives both vocabularies from develop's exported lists,
 // so extending one package without the other fails here, in review.
@@ -28,12 +28,19 @@ describe('browser-family alignment across packages', () => {
       new Set([...CHROMIUM_BASED_BROWSERS, ...CHROMIUM_FAMILY_ALIASES])
     )
     expect(new Set(FIREFOX_BROWSERS)).toEqual(
-      new Set([...GECKO_BASED_BROWSERS, ...GECKO_FAMILY_ALIASES, 'firefox-based'])
+      new Set([
+        ...GECKO_BASED_BROWSERS,
+        ...GECKO_FAMILY_ALIASES,
+        'firefox-based'
+      ])
     )
   })
 
   it('predicates agree on every name in the shared vocabulary', () => {
-    for (const name of [...CHROMIUM_BASED_BROWSERS, ...CHROMIUM_FAMILY_ALIASES]) {
+    for (const name of [
+      ...CHROMIUM_BASED_BROWSERS,
+      ...CHROMIUM_FAMILY_ALIASES
+    ]) {
       expect(isChromiumBasedBrowser(name), name).toBe(true)
       expect(isChromiumBrowser(name), name).toBe(true)
       expect(isGeckoBasedBrowser(name), name).toBe(false)

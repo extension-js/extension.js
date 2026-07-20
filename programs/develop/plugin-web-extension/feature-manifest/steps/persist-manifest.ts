@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import rspack, {Compilation, type Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -160,7 +160,7 @@ export class PersistManifestToDisk {
               'The previous manifest.json was kept to avoid loading a broken extension.',
               'Most often this is one of:',
               '  • An outdated Extension.js. Run `npm ls extension` and update to the',
-              '    latest — this missing-entry class (e.g. engine-family targets like',
+              '    latest, this missing-entry class (e.g. engine-family targets like',
               '    `chromium-based`) was fixed in 4.0.0.',
               '  • A skipped chunk on an incremental rebuild. Save a source file again,',
               '    or restart after removing the `dist/` folder for a clean build.'

@@ -33,7 +33,7 @@ The feature is wired from `index.ts`, in every mode:
   Reads manifest script fields, validates paths, creates Rspack entries, and synthesizes a sequential data-url entry when a single content-script group declares multiple files.
 
 - `steps/add-content-script-wrapper/*`
-  Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export — without it, production tree-shakes the entire content-script body.
+  Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export, without it, production tree-shakes the entire content-script body.
 
 - `steps/trace-runtime-loaded-files.ts`
   Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads).

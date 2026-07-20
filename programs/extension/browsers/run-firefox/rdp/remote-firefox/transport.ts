@@ -4,12 +4,12 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import net from 'net'
 import EventEmitter from 'events'
-import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
+import net from 'net'
 import * as messages from '../../../browsers-lib/messages'
+import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
 
 type Deferred = {
   resolve: (v?: unknown) => void
@@ -175,7 +175,7 @@ export class RdpTransport extends EventEmitter {
 
   private onEnd(): void {
     // A closed socket can never deliver replies for in-flight/queued requests.
-    // Reject them so callers stop hanging — the reconnect path replaces this
+    // Reject them so callers stop hanging, the reconnect path replaces this
     // transport without calling disconnect(), so this is the only rejection
     // point on a peer-initiated close.
     this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))

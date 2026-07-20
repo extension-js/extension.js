@@ -4,7 +4,7 @@
 // ██║██║     ██║   ██║██║╚██╗██║╚════██║
 // ██║╚██████╗╚██████╔╝██║ ╚████║███████║
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -65,7 +65,7 @@ export function iconsEmitSummary(
   }
 ) {
   return (
-    `Icons ${colors.yellow(feature)} — ` +
+    `Icons ${colors.yellow(feature)}, ` +
     `entries ${colors.gray(String(stats.entries))}, ` +
     `public ${colors.gray(String(stats.underPublic))}, ` +
     `emitted ${colors.gray(String(stats.emitted))}, ` +
@@ -83,7 +83,7 @@ export function iconsNormalizationSummary(
   changedCount: number
 ) {
   return (
-    `Icons include normalization — keys ${colors.gray(String(beforeKeys.length))} → ${colors.gray(String(afterKeys.length))}, ` +
+    `Icons include normalization, keys ${colors.gray(String(beforeKeys.length))} → ${colors.gray(String(afterKeys.length))}, ` +
     `normalized ${colors.gray(String(changedCount))}`
   )
 }

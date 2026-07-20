@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {StatsAsset} from '@rspack/core'
 import * as fs from 'fs'
@@ -73,7 +73,7 @@ export function resolvedWorkspaceManifest(
       : manifestDir
   const display = path.relative(projectPath, packageDir) || packageDir
   return `${getLoggingPrefix('info')} ${colors.gray(
-    'Workspace root detected — resolved extension package:'
+    'Workspace root detected, resolved extension package:'
   )} ${colors.brightBlue(display)}`
 }
 
@@ -91,7 +91,7 @@ export function remoteFetchTimedOut(target: string, ms: number) {
 export function manifestInvalidJson(manifestPath: string, error: unknown) {
   const detail = error instanceof Error ? error.message : String(error)
   return (
-    `${getLoggingPrefix('error')} Could not parse manifest.json — it is not valid JSON.\n` +
+    `${getLoggingPrefix('error')} Could not parse manifest.json. It is not valid JSON.\n` +
     `${colors.red('Fix the syntax error and try again.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
     `${colors.red(detail)}`
@@ -100,7 +100,7 @@ export function manifestInvalidJson(manifestPath: string, error: unknown) {
 
 export function notAnExtensionManifestError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest — it has no ${colors.yellow('manifest_version')} field.\n` +
+    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest. It has no ${colors.yellow('manifest_version')} field.\n` +
     `${colors.red(
       'This looks like a PWA web-app manifest. Point Extension.js at the directory that contains your extension manifest.'
     )}\n` +
@@ -126,7 +126,7 @@ export function manifestNotFoundError(
       : `Did you mean to point at one of these workspace packages?`
   const suggestions = candidates
     .map((candidate) => {
-      // Suggest the directory that contains the manifest — that's the path the
+      // Suggest the directory that contains the manifest, that's the path the
       // user passes to `extension dev`, not the manifest file itself.
       const dir =
         path.basename(candidate) === 'manifest.json'
@@ -171,7 +171,7 @@ export function projectInstallFallbackToNpm(pmName: string) {
 }
 
 export function projectInstallScriptsDisabled(pmName: string) {
-  return `${getLoggingPrefix('info')} Installing project dependencies with ${pmName}. Lifecycle scripts are disabled for safety — set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
+  return `${getLoggingPrefix('info')} Installing project dependencies with ${pmName}. Lifecycle scripts are disabled for safety, set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
 }
 
 export function buildWebpack(

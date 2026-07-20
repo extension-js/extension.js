@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Configuration} from '@rspack/core'
 import * as fs from 'fs'
@@ -104,13 +104,13 @@ export default function webpackConfig(
 
   // CSS `url()` references to relative assets that don't exist on disk are
   // collected here (by the `externals` resolver below) and surfaced as build
-  // warnings — rather than hard-failing the build the way an unresolved module
+  // warnings, rather than hard-failing the build the way an unresolved module
   // normally would. A browser tolerates a missing background image/font (it
   // 404s it and still loads the extension), so vendored/third-party CSS that
   // ships without every referenced asset should not block the build.
   const missingCssAssets = new Set<string>()
 
-  // Bare CommonJS `require()` calls that resolve to no module — vendored,
+  // Bare CommonJS `require()` calls that resolve to no module, vendored,
   // pre-bundled scripts commonly carry dead server-runtime branches
   // (handlebars 1.0's Rhino/Narwhal-era `require('file')`/`require('system')`).
   // Chrome runs such a classic script as-is; the call only throws if that code
@@ -181,7 +181,7 @@ export default function webpackConfig(
     }),
     // Extension-aware performance budgets (per-category thresholds tuned
     // for content scripts vs. service workers vs. cold UI pages). Replaces
-    // rspack's stock single-threshold `performance.hints` — see the
+    // rspack's stock single-threshold `performance.hints`, see the
     // `performance` block below where hints are disabled.
     new PerfBudgetsPlugin({budgets: devOptions.perfBudgets}),
     // Warn (don't fail) for CSS url() assets that were left unresolved because
@@ -223,7 +223,7 @@ export default function webpackConfig(
               const warning = new ErrorCtor(
                 `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
                   `resolve to any module; the call is left verbatim in the output. ` +
-                  `Chrome loads the script anyway — it only throws if that code path ` +
+                  `Chrome loads the script anyway. It only throws if that code path ` +
                   `runs (vendored pre-bundled libraries often carry dead require() ` +
                   `branches). Install the package if it's a real dependency, or set ` +
                   `EXTENSION_STRICT_REFS=true to make this fail the build.`
@@ -255,7 +255,7 @@ export default function webpackConfig(
               (manifest as any).permissions.includes('webRequestBlocking')
             const warning = new ErrorCtor(
               [
-                `This extension declares Manifest V2, which Chrome and Edge no longer load — `,
+                `This extension declares Manifest V2, which Chrome and Edge no longer load, `,
                 `the ${target} build will not install. Options:`,
                 ``,
                 `  • Build for Firefox (still supports MV2):  extension build --browser firefox`,
@@ -263,7 +263,7 @@ export default function webpackConfig(
                 `  • Or ship both from one source with browser-prefixed keys`,
                 `    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)`,
                 usesBlockingWebRequest
-                  ? `\n  Note: this extension uses webRequestBlocking, which MV3 replaces with\n  declarativeNetRequest — a code change, not just a manifest edit.`
+                  ? `\n  Note: this extension uses webRequestBlocking, which MV3 replaces with\n  declarativeNetRequest, a code change, not just a manifest edit.`
                   : ''
               ]
                 .filter((line) => line !== '')
@@ -306,7 +306,7 @@ export default function webpackConfig(
 
   // Wire the browser lifecycle plugin when a launcher is provided.
   // BrowsersPlugin wraps the browser API (programs/extension/browsers/)
-  // behind rspack hooks — launching on first compile, reloading on
+  // behind rspack hooks, launching on first compile, reloading on
   // subsequent compiles, and emitting events for CLI telemetry.
   if (devOptions.browsersPlugin) {
     const browsersPlugin = devOptions.browsersPlugin
@@ -321,7 +321,7 @@ export default function webpackConfig(
     // `chrome-extension://` and `moz-extension://` URLs (commonly written as
     // `chrome-extension://__MSG_@@extension_id__/…` in CSS `url()` / `cursor`)
     // are runtime self-references resolved by the browser against the live
-    // extension origin — not build-time modules. Mark them external so the
+    // extension origin, not build-time modules. Mark them external so the
     // bundler leaves the string verbatim instead of trying to read the scheme
     // (which fails with "Unhandled scheme"). The `__MSG_@@extension_id__`
     // i18n placeholder is preserved untouched.
@@ -361,7 +361,7 @@ export default function webpackConfig(
         // A CSS url() (or new URL()) that points at a relative asset which is
         // not on disk: leave it verbatim instead of failing the build. Only
         // scheme-less, relative requests qualify, and only when the target file
-        // genuinely doesn't exist — existing assets still resolve and bundle
+        // genuinely doesn't exist, existing assets still resolve and bundle
         // normally. The missing path is recorded so it surfaces as a warning.
         if (
           dependencyType === 'url' &&
@@ -382,14 +382,14 @@ export default function webpackConfig(
         }
 
         // A bare CommonJS require() that resolves nowhere: vendored,
-        // pre-bundled scripts carry dead server-runtime branches — handlebars
-        // 1.0's Rhino/Narwhal-era require('file')/require('system') — that
+        // pre-bundled scripts carry dead server-runtime branches, handlebars
+        // 1.0's Rhino/Narwhal-era require('file')/require('system'), that
         // never execute in a browser. Chrome loads the script as-is, so
         // failing the whole build over them is bundler-only semantics
         // (4.0.3 force-parsed every file as strict ESM and shipped the
         // require verbatim by accident; isModule:'unknown' made these real
         // CJS dependencies). Externalize as 'commonjs' so the emitted bundle
-        // keeps `require("…")` verbatim — it throws only if the dead branch
+        // keeps `require("…")` verbatim, it throws only if the dead branch
         // ever runs, exactly like the unbundled script in Chrome. Relative
         // and absolute requests stay fatal (a typo'd local path is a real
         // authoring bug), and EXTENSION_STRICT_REFS=true restores the error.
@@ -449,7 +449,7 @@ export default function webpackConfig(
             }
           : '[name].js',
       // CSS output naming (cssFilename, cssChunkFilename) is owned by
-      // CssPlugin — see plugin-css/index.ts.
+      // CssPlugin, see plugin-css/index.ts.
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
       hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
@@ -458,7 +458,7 @@ export default function webpackConfig(
       }
     },
     watchOptions: {
-      // Ignore paths by SEGMENT, never by substring — a project that merely
+      // Ignore paths by SEGMENT, never by substring, a project that merely
       // has "dist" somewhere in its absolute path (a checkout named
       // "dedistract", a file named redistribute.js) must stay watched, or the
       // dev session silently never recompiles. Only the real build output,
@@ -485,7 +485,7 @@ export default function webpackConfig(
       // Prefer browser fields and conditions; avoid Node-targeted builds
       mainFields: ['browser', 'module', 'main'],
       // Pick the right exports condition for the request kind. ESM imports
-      // get `import`, CJS requires get `require` — packages like
+      // get `import`, CJS requires get `require`, packages like
       // `@babel/runtime` ship distinct files per condition, and using
       // `import` for a CJS `require()` returns an ESM namespace
       // (`{ default: fn }`) that the caller cannot invoke as a function
@@ -508,12 +508,12 @@ export default function webpackConfig(
               path.join(process.cwd(), 'node_modules')
             ]
           : ['node_modules', path.join(process.cwd(), 'node_modules')],
-      // Root-absolute requests that rspack itself resolves — notably `url(/img/x.png)`
+      // Root-absolute requests that rspack itself resolves, notably `url(/img/x.png)`
       // inside a COMPILED stylesheet, which the CSS parser treats as a module
       // request and fails on ("Can't resolve '/img/x.png'"). `roots` is the
       // purpose-built option for server-relative URLs: public/ first (it owns
       // the output root), then the extension root, matching how Chrome resolves
-      // a leading '/'. Refs in HTML are handled separately — they never become
+      // a leading '/'. Refs in HTML are handled separately. They never become
       // rspack requests.
       // The extension root is the MANIFEST dir, which is not always the
       // package.json dir (noscript keeps its manifest in src/).
@@ -548,14 +548,14 @@ export default function webpackConfig(
       // (less-loader, sass-loader, …). Add its node_modules as a resolution
       // fallback so those loaders can be referenced by bare name in the CSS
       // rules: the user project's own copy still wins (project chain first),
-      // and the bundled copy is used otherwise — the same [project, develop]
+      // and the bundled copy is used otherwise, the same [project, develop]
       // order the old per-loader absolute-path resolution used.
       //
       // rspack treats absolute entries in `modules` as literal directories
       // with no node-style upward traversal, so we must list both places a
       // package manager can put the bundled loaders relative to
       // extension-develop: nested under its own node_modules (non-hoisted),
-      // and — the common case — hoisted up as a sibling in the node_modules
+      // and (the common case) hoisted up as a sibling in the node_modules
       // that *contains* extension-develop. The old require.resolve-based
       // resolution walked up and so caught the hoisted copy for free; when
       // running via `npx`/`exec` extension-develop lives in the package
@@ -641,7 +641,7 @@ export default function webpackConfig(
       // when a vendor ESM module (e.g. tslib.es6.mjs) gets hoisted into a factory
       // that rspack names with CJS convention `(module, __webpack_exports__, ...)`,
       // the refresh prologue injected at the tail references `__webpack_module__`
-      // — which is not the factory's parameter — yielding a
+      // (which is not the factory's parameter) yielding a
       // `__webpack_module__ is not defined` ReferenceError at runtime on sidebar/
       // newtab/HTML entries that pull in tslib transitively.
       concatenateModules: devOptions.mode === 'production',

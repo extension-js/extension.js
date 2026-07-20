@@ -4,7 +4,7 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../lib/develop-context'
@@ -36,7 +36,7 @@ export async function commonStyleLoaders(
     const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
     if (maybeInstallPostCss.loader) {
       // Pitches ahead of postcss-loader: a plain .css file that doesn't parse
-      // ships verbatim with a warning instead of failing the build (G17) —
+      // ships verbatim with a warning instead of failing the build (G17),
       // browsers error-recover invalid CSS, so the build must too.
       styleLoaders.push({
         loader: resolveDevelopDistFile('css-parse-guard-loader')

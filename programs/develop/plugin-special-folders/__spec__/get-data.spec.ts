@@ -1,7 +1,7 @@
-import {describe, it, expect, vi, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {getSpecialFoldersDataForCompiler} from '../get-data'
 
 const getSpecialFoldersDataMock = vi.fn()
@@ -74,10 +74,18 @@ describe('getSpecialFoldersDataForCompiler', () => {
       "const fx = require('fs-extra'); const z = require('zip-dir');\n",
       'utf8'
     )
-    fs.writeFileSync(importsBuiltin, "import {readFile} from 'node:fs/promises'\n", 'utf8')
+    fs.writeFileSync(
+      importsBuiltin,
+      "import {readFile} from 'node:fs/promises'\n",
+      'utf8'
+    )
     fs.writeFileSync(contentScript, "document.body.dataset.ok = '1'\n", 'utf8')
     // A browser-safe npm import must NOT be treated as Node tooling.
-    fs.writeFileSync(browserImport, "import merge from 'lodash/merge'\n", 'utf8')
+    fs.writeFileSync(
+      browserImport,
+      "import merge from 'lodash/merge'\n",
+      'utf8'
+    )
 
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},
@@ -115,9 +123,13 @@ describe('getSpecialFoldersDataForCompiler', () => {
 
     fs.writeFileSync(contentScript, "document.title = 'ok'\n", 'utf8')
     fs.writeFileSync(injectedScript, "console.log('injected')\n", 'utf8')
-    // A data/generator helper with no Node tell — the Node-tooling filter can't
+    // A data/generator helper with no Node tell, the Node-tooling filter can't
     // see it, so only the reference gate can drop it.
-    fs.writeFileSync(orphanData, 'data = {cell: 1}\nawait Promise.resolve()\n', 'utf8')
+    fs.writeFileSync(
+      orphanData,
+      'data = {cell: 1}\nawait Promise.resolve()\n',
+      'utf8'
+    )
 
     // manifest references content.js as a content script.
     fs.writeFileSync(
@@ -166,7 +178,9 @@ describe('getSpecialFoldersDataForCompiler', () => {
     const compiler = {options: {context: '/does-not-exist'}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
-    expect(data.scripts?.['scripts/a']).toEqual(['/does-not-exist/scripts/a.js'])
+    expect(data.scripts?.['scripts/a']).toEqual([
+      '/does-not-exist/scripts/a.js'
+    ])
   })
 
   it('auto-configures companion extensions scan from extensions/', () => {

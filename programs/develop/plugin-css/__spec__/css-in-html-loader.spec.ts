@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
@@ -41,7 +41,7 @@ describe('cssInHtmlLoader', () => {
     for (const rule of rules as any[]) {
       // Regression guard: `resourceQuery: {not: [/url/]}` used to silently
       // bypass PostCSS for `?url` imports. The rule must cover every CSS
-      // specifier the issuer can produce — no query-string escape hatch.
+      // specifier the issuer can produce, no query-string escape hatch.
       expect(rule.resourceQuery).toBeUndefined()
       expect(typeof rule.issuer).toBe('function')
       expect(rule.issuer('content.js')).toBe(false)

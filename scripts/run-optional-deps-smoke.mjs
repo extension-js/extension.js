@@ -6,16 +6,16 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import fs from 'node:fs/promises'
-import fsSync from 'node:fs'
+import {spawn, spawnSync} from 'node:child_process'
 import crypto from 'node:crypto'
+import fsSync from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import {fileURLToPath, pathToFileURL} from 'node:url'
-import {spawn, spawnSync} from 'node:child_process'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -38,7 +38,7 @@ const cliBrowserTarget =
   browserIndex >= 0 ? process.argv[browserIndex + 1] : undefined
 
 // `default` (the implicit value) runs the standard fixture AND the React
-// content-dev fixture — the latter is the only smoke that exercises the
+// content-dev fixture. The latter is the only smoke that exercises the
 // content-script-wrapper + browser-shim graph that broke in a9153af9.
 // `default-only` runs the standard fixture without the React fixture, for
 // cases where a contributor wants the lighter check.
@@ -242,7 +242,7 @@ function runLong(command, args, cwd, env = baseEnv, opts = {}) {
 
 // Single source of truth for the local workspace packages the smoke fixture
 // file-links against. Keep this in sync when renaming/adding `programs/*`
-// packages — `assertLocalWorkspacePackagesExist()` and the helper spec validate
+// packages, `assertLocalWorkspacePackagesExist()` and the helper spec validate
 // that every path here exists on disk, so stale entries fail fast in the
 // "Test optional deps smoke helpers" CI step (before the slow smoke lanes).
 function getLocalWorkspacePackagePaths() {
@@ -316,7 +316,7 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
     }
 
     if (pm === 'deno') {
-      // `deno install` SILENTLY IGNORES `file:` dependencies in package.json —
+      // `deno install` SILENTLY IGNORES `file:` dependencies in package.json,
       // both tarball and directory forms (verified on deno 2.9: no error, no
       // node_modules entry, no bin). Deno's mechanism for local npm packages
       // is the deno.json `links` field, which needs an extracted DIRECTORY.
@@ -699,7 +699,7 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
     // Bun and Yarn classic cannot resolve workspace:* ranges inside a
     // file-linked CLI package, so install every local package from its freshly
     // packed tarball (deno: by exact version, content supplied via deno.jsonc
-    // `links` to the extracted tarball — deno ignores file: deps entirely).
+    // `links` to the extracted tarball, deno ignores file: deps entirely).
     // The tarballs carry concrete versions for the sibling `extension-*`
     // packages, so listing all four as top-level deps satisfies extension's
     // transitive requirements with no workspace context and no dependency on
@@ -838,7 +838,7 @@ function installAndBuild(workdir, pm) {
     // The local workspace packages reach deno via the `links` field pointing
     // at the extracted pack tarballs (see packLocalWorkspacePackagesForSmoke):
     // `deno install` silently ignores `file:` deps in package.json, so the
-    // pre-links version of this lane never installed the CLI at all — it only
+    // pre-links version of this lane never installed the CLI at all. It only
     // passed on machines where a GLOBAL `extension` bin sat on PATH (the
     // "validated locally" trap; CI runners have none and failed exit 127).
     const linksRoot = path.join(workdir, DENO_LINKS_DIR)
@@ -1033,7 +1033,7 @@ async function main() {
     installAndBuild(workdir, packageManager)
 
     // Optional fork/engine build-target assertion. Builds one non-default
-    // target through the local CLI (PM-independent — the Chromium/Gecko family
+    // target through the local CLI (PM-independent, the Chromium/Gecko family
     // routing and dist-target contract do not vary by package manager) and
     // asserts a non-empty dist/<target>. No fork binary is required: `build`
     // only emits artifacts, it does not launch a browser.
@@ -1073,7 +1073,7 @@ async function main() {
     // shims (preact-refresh-shim, main-world-bridge, minimum-script-file).
     // It is also the ONLY smoke that compiled the user fixture far enough to
     // catch the ESM-banner-leaking-into-browser regression captured in
-    // a9153af9. Run it on every matrix cell, not just windows/npm — the
+    // a9153af9. Run it on every matrix cell, not just windows/npm, the
     // bug was platform-agnostic; only the dispatch was platform-specific.
     // The `--scenario default` opt-out exists for cases where a contributor
     // wants to run only the lighter check; CI passes no scenario so it runs.

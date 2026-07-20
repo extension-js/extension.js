@@ -4,7 +4,7 @@
 // ██   ██║╚════██║██║   ██║██║╚██╗██║
 // ╚█████╔╝███████║╚██████╔╝██║ ╚████║
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import * as fs from 'fs'

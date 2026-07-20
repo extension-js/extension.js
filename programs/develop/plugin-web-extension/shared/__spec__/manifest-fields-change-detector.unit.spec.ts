@@ -1,4 +1,4 @@
-import {describe, it, expect, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 let mockFields: any = {scripts: {}, html: {}, icons: {}, json: {}}
 
@@ -6,14 +6,11 @@ vi.mock('browser-extension-manifest-fields', () => ({
   getManifestFieldsData: () => mockFields
 }))
 
-vi.mock(
-  '../../feature-scripts/steps/add-content-script-wrapper',
-  () => ({
-    AddContentScriptWrapper: {
-      getBridgeScripts: () => ({})
-    }
-  })
-)
+vi.mock('../../feature-scripts/steps/add-content-script-wrapper', () => ({
+  AddContentScriptWrapper: {
+    getBridgeScripts: () => ({})
+  }
+}))
 
 import {ManifestFieldsChangeDetector} from '../manifest-fields-change-detector'
 
@@ -241,7 +238,7 @@ describe('ManifestFieldsChangeDetector', () => {
   it('treats real-shape icons (Record<string, string[]>) as a flat list', async () => {
     // `browser-extension-manifest-fields` returns icons keyed by icon group
     // (`icons`, `action`, `browser_action`, …) where each value is an array
-    // of resolved paths — one per declared size. Before flattening, the
+    // of resolved paths, one per declared size. Before flattening, the
     // snapshot was Array<Array<string>> and `prev[i] !== next[i]` always
     // tripped (different array references) → spurious error every rebuild
     // with a comma-joined dump as `pathBefore`.
@@ -261,7 +258,7 @@ describe('ManifestFieldsChangeDetector', () => {
     plugin.apply(compiler as any)
     await compiler._triggerWatchRun()
 
-    // Same logical content, fresh array references — must NOT trip diff
+    // Same logical content, fresh array references, must NOT trip diff
     mockFields = {
       scripts: {},
       html: {},

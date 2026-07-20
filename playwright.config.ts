@@ -4,7 +4,7 @@
 // ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║
 // ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
 // ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {defineConfig, devices} from '@playwright/test'
 
@@ -34,14 +34,14 @@ export default defineConfig({
   // Increase retries for both CI and local
   retries: process.env.CI ? 3 : 2,
 
-  // Single worker — DELIBERATE.
+  // Single worker, DELIBERATE.
   //
   // The content-reload spec (`template.content-reload.spec.ts`) edits source
   // files in `templates/<example>/src/...` to assert that the dev server
   // reinjects the change into an already-open tab. With multiple workers,
   // the chromium worker's mid-flight edit ("Open sidebar RELOADED_<ts>")
-  // leaks into the dist read by another worker's `template.assets.spec.ts`
-  // — surfacing as deterministic Firefox-only "pill text mismatch" failures
+  // leaks into the dist read by another worker's `template.assets.spec.ts`,
+  // surfacing as deterministic Firefox-only "pill text mismatch" failures
   // even though the underlying implementation is correct.
   //
   // Until the reload spec moves to per-test isolated working copies (a

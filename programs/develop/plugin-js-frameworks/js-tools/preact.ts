@@ -4,7 +4,7 @@
 // ██   ██║╚════██║╚════╝██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██║███╗██║██║   ██║██╔══██╗██╔═██╗ ╚════██║
 // ╚█████╔╝███████║      ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗╚███╔███╔╝╚██████╔╝██║  ██║██║  ██╗███████║
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {createRequire} from 'module'
 import * as path from 'path'
@@ -37,7 +37,7 @@ export async function maybeUsePreact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingPreact(projectPath)) return undefined
 
-  // Preact fast-refresh is intentionally disabled — Preact falls back to full
+  // Preact fast-refresh is intentionally disabled, Preact falls back to full
   // live-reload in dev (the app still mounts and updates on change; it just
   // doesn't preserve component state across edits).
   //
@@ -45,8 +45,8 @@ export async function maybeUsePreact(
   // release) vendors a @prefresh/webpack runtime module that references the
   // bare CJS `module` symbol (`__prefresh_utils__.shouldBind(module)`). rspack
   // 2.x's module-argument optimization decides that runtime module doesn't use
-  // `module` — the reference is loader-injected, so rspack's parser never sees
-  // it — and renames the factory parameter to
+  // `module`. The reference is loader-injected, so rspack's parser never sees
+  // it, and renames the factory parameter to
   // `__unused_rspack___webpack_module__`. At eval the runtime hits
   // `module is not defined`, which throws before the app (and the injected
   // live-reload client) can run, so the Preact page never mounts in dev and
@@ -59,7 +59,7 @@ export async function maybeUsePreact(
   // PreactRefreshPlugin resolve/load/apply block (see git history for this
   // file) and bump the bundled plugin/rspack. The `preact: dev html` e2e gate
   // in extension-js/examples confirms when it's safe.
-  // Upstream: TODO — file against rspack / @rspack/plugin-preact-refresh.
+  // Upstream: TODO, file against rspack / @rspack/plugin-preact-refresh.
 
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
@@ -82,7 +82,7 @@ export async function maybeUsePreact(
   const alias: Record<string, string> = {}
 
   // Alias `preact` to the project-resolved package directory (not the entry
-  // file — webpack treats the value as a prefix for sub-paths like
+  // file, webpack treats the value as a prefix for sub-paths like
   // `preact/hooks`). Without this, pnpm strict layouts can leave `preact`
   // unresolvable for `preact/compat` sub-imports.
   if (preactDir) {

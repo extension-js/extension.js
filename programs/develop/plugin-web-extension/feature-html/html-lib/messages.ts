@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as path from 'path'
 import colors from 'pintor'
@@ -37,7 +37,7 @@ export function javaScriptError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
@@ -62,7 +62,7 @@ export function cssError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
@@ -89,7 +89,7 @@ export function staticAssetError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')

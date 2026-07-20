@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import {createRequire} from 'module'
@@ -30,7 +30,7 @@ function normalizeHotValue(value: unknown): string {
 // path, so the injected entry never depends on the user's node_modules layout
 // or on any package manager's hoisting. A specifier for a package we do not
 // declare only resolves by hoisting accident (npm's flat tree, pnpm's public
-// virtual store) and breaks under strict linkers — Yarn PnP rejected the old
+// virtual store) and breaks under strict linkers, Yarn PnP rejected the old
 // `webpack/hot/dev-server` because extension-develop never declared `webpack`
 // (issue #486). `@rspack/core` ships the equivalent `hot/dev-server.js` via its
 // `./hot/*` exports map and IS a direct dependency, so it resolves everywhere.

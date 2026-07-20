@@ -4,12 +4,12 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RuleSetRule} from '@rspack/core'
-import {isContentScriptEntry} from './css-lib/is-content-script'
-import {buildCssRules, type PreprocessorUsage} from './css-lib/build-css-rules'
 import type {DevOptions} from '../types'
+import {buildCssRules, type PreprocessorUsage} from './css-lib/build-css-rules'
+import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export async function cssInHtmlLoader(
   projectPath: string,

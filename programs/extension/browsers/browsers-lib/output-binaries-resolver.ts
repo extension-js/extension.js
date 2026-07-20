@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -207,7 +207,7 @@ export function resolveFromBinaries(
 
   // No candidate path matched: do a shallow recursive search up to depth 6.
   // (Reaching here means the loop above returned nothing, so the previous
-  // `matched` flag was always false at this point — removed as dead state.)
+  // `matched` flag was always false at this point, removed as dead state.)
   const names = executableNamesFor(browser)
   for (const root of scanRoots) {
     const found = findExecutableUnder(root, names, 6)
@@ -219,7 +219,7 @@ export function resolveFromBinaries(
 }
 
 // When the requested chromium-family browser has no managed install, another
-// managed chromium-family binary is a working substitute — this keeps
+// managed chromium-family binary is a working substitute. This keeps
 // `extension install all` + `extension dev` working even though `install all`
 // and the dev default can drift apart across versions.
 export function resolveChromiumFamilyFallback(

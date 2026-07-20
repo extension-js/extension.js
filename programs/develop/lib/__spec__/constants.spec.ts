@@ -1,14 +1,14 @@
-import {describe, it, expect} from 'vitest'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {
   CERTIFICATE_DESTINATION_PATH,
   CHROMIUM_BASED_BROWSERS,
-  GECKO_BASED_BROWSERS,
   CHROMIUM_FAMILY_ALIASES,
+  GECKO_BASED_BROWSERS,
   GECKO_FAMILY_ALIASES,
-  SUPPORTED_BROWSERS,
   isChromiumBasedBrowser,
-  isGeckoBasedBrowser
+  isGeckoBasedBrowser,
+  SUPPORTED_BROWSERS
 } from '../constants'
 
 describe('constants', () => {
@@ -45,7 +45,7 @@ describe('constants', () => {
 
   it('classifies every family alias with its own predicate', () => {
     // The alias arrays feed env-file resolution and the cross-package
-    // alignment spec — an alias a predicate rejects is unreachable there.
+    // alignment spec, an alias a predicate rejects is unreachable there.
     for (const name of CHROMIUM_FAMILY_ALIASES) {
       expect(isChromiumBasedBrowser(name), name).toBe(true)
       expect(isGeckoBasedBrowser(name), name).toBe(false)
@@ -57,7 +57,14 @@ describe('constants', () => {
   })
 
   it('classifies fork browsers by engine family', () => {
-    for (const b of ['chrome', 'brave', 'opera', 'vivaldi', 'yandex', 'chromium-based']) {
+    for (const b of [
+      'chrome',
+      'brave',
+      'opera',
+      'vivaldi',
+      'yandex',
+      'chromium-based'
+    ]) {
       expect(isChromiumBasedBrowser(b)).toBe(true)
     }
     for (const b of ['firefox', 'waterfox', 'librewolf', 'gecko-based']) {

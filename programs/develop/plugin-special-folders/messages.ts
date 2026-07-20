@@ -4,7 +4,7 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -26,7 +26,7 @@ export function specialFoldersSetupSummary(
   copyEnabled: boolean,
   ignoredCount: number
 ) {
-  return `Special folders setup — public=${String(hasPublic)}, copy=${String(copyEnabled)}, ignored=${String(ignoredCount)}`
+  return `Special folders setup, public=${String(hasPublic)}, copy=${String(copyEnabled)}, ignored=${String(ignoredCount)}`
 }
 
 export function specialFolderChangeDetected(
@@ -34,5 +34,5 @@ export function specialFolderChangeDetected(
   folder: 'pages' | 'scripts',
   relativePath: string
 ) {
-  return `Special folders change — ${action} in ${folder}/: ${relativePath}`
+  return `Special folders change, ${action} in ${folder}/: ${relativePath}`
 }

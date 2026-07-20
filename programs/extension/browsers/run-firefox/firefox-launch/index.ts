@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {ChildProcess} from 'child_process'
 import locateFirefox, {
@@ -555,8 +555,8 @@ export class FirefoxLaunchPlugin {
 
   private async cleanupInstance(): Promise<void> {
     // The shared teardown owns the kill decision and is idempotent (child.killed
-    // guard), so a shutdown that already terminated the child here is a no-op —
-    // the browser is asked to terminate once per shutdown, not once per layer.
+    // guard), so a shutdown that already terminated the child here is a no-op.
+    // The browser is asked to terminate once per shutdown, not once per layer.
     gracefulTerminateChild(this.child, this.host.browser as BrowserType)
   }
 

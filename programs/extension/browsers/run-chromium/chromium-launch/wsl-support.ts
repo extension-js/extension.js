@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {type ChildProcess, type StdioOptions, spawn} from 'child_process'
 import * as fs from 'fs'
@@ -23,7 +23,7 @@ type ChromiumLogger = {
 // Known Linux install locations, in preference order. Real binaries come
 // before bash wrappers so `--remote-debugging-pipe` keeps its FDs open
 // (the Debian/Ubuntu `google-chrome` script uses process substitution,
-// which closes extra FDs on exec — see issue covered by WXT PR #2055).
+// which closes extra FDs on exec, see issue covered by WXT PR #2055).
 const LINUX_BROWSER_PATHS: Record<string, string[]> = {
   chrome: [
     '/opt/google/chrome/chrome',

@@ -4,8 +4,8 @@
 // `chrome.scripting.executeScript` calls after a user edits a file in
 // `/scripts/*`.
 
-import {describe, it, expect, vi} from 'vitest'
-import {sources, Compilation} from '@rspack/core'
+import {Compilation, sources} from '@rspack/core'
+import {describe, expect, it, vi} from 'vitest'
 import {InjectScriptsReplayShim} from '../steps/inject-scripts-replay-shim'
 
 function makeCompiler() {
@@ -86,7 +86,7 @@ describe('InjectScriptsReplayShim', () => {
     expect(getAssetSource('scripts/script-one.js')).toBe('/* user script */')
   })
 
-  it('is idempotent — does not re-prepend if the shim is already present', () => {
+  it('is idempotent, does not re-prepend if the shim is already present', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
     new InjectScriptsReplayShim().apply(compiler)
@@ -96,7 +96,7 @@ describe('InjectScriptsReplayShim', () => {
     )
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
-    // Should equal the input — no double-prepend.
+    // Should equal the input, no double-prepend.
     expect(out).toBe('/* __extjsScriptsReplayInstalled marker */ /* user sw */')
   })
 })

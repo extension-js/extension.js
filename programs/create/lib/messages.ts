@@ -4,7 +4,7 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'path'
 import colors from 'pintor'
@@ -180,12 +180,9 @@ export function templateFetchTimedOut(templateName: string, ms: number) {
   )
 }
 
-// A genuine "this slug is not in the catalog" — distinct from a download/timeout
+// A genuine "this slug is not in the catalog", distinct from a download/timeout
 // failure, which the old code mislabelled as "template not found" (#56).
-export function templateNotFoundInCatalog(
-  templateName: string,
-  error?: any
-) {
+export function templateNotFoundInCatalog(templateName: string, error?: any) {
   return (
     `${colors.red('Error')} Template ${colors.yellow(templateName)} ` +
     `is not in the extension-js/examples catalog.\n` +
@@ -196,7 +193,7 @@ export function templateNotFoundInCatalog(
 }
 
 // The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
-// credential-helper hang). Surfacing this honestly — with the real cause — is
+// credential-helper hang). Surfacing this honestly (with the real cause) is
 // the #56 fix; the old path always said "choose a valid template name".
 export function templateDownloadFailed(templateName: string, error: any) {
   return (

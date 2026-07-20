@@ -113,7 +113,7 @@ describe('resolveChromiumFamilyFallback', () => {
       installFakeBrowser('chrome', chromeExecutable)
 
       // Only Chrome is installed and Chrome is what is missing from the
-      // caller's perspective — the resolver must not echo it back.
+      // caller's perspective. The resolver must not echo it back.
       expect(resolveChromiumFamilyFallback(compilation, 'chrome')).toBeNull()
     })
   })

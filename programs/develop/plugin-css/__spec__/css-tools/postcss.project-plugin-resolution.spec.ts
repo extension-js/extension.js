@@ -1,12 +1,12 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Regression coverage for project-first PostCSS plugin resolution: string
 // plugins from the user's config must resolve from the PROJECT's
 // node_modules (postcss-loader resolves them relative to itself, which
-// breaks whenever the CLI is installed outside the project — npx, global,
+// breaks whenever the CLI is installed outside the project, npx, global,
 // isolated prefix). Unresolvable plugins warn and are skipped instead of
 // failing the build.
 describe('project-first postcss plugin resolution', () => {

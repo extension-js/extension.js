@@ -4,13 +4,13 @@
 // ╚════██║██╔══╝  ╚════██║╚════██║██║██║   ██║██║╚██╗██║╚════╝██╔═══╝ ██╔══██║   ██║   ██╔══██║╚════██║
 // ███████║███████╗███████║███████║██║╚██████╔╝██║ ╚████║      ██║     ██║  ██║   ██║   ██║  ██║███████║
 // ╚══════╝╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'path'
 
 /**
  * THE owner of every on-disk session-state path. Dev sessions are
- * per project+browser, so every artifact here must embed the browser key —
+ * per project+browser, so every artifact here must embed the browser key,
  * a per-project single slot gets clobbered the moment a second browser
  * session starts on the same project (the control.token defect: session B's
  * start overwrote session A's eval token, and either shutdown deleted it
@@ -21,7 +21,7 @@ import * as path from 'path'
  *
  * Two roots with different lifetimes:
  * - `<project>/.extension-js/` survives dist wipes. Anything a browser
- *   profile may have baked in (ports, tokens) lives here — a profile can
+ *   profile may have baked in (ports, tokens) lives here. A profile can
  *   outlive dist/, and state that dies with dist strands the profile's
  *   cached service worker (issue #484).
  * - `<project>/dist/extension-js/<browser>/` dies with dist. Machine
@@ -48,10 +48,7 @@ export function legacyControlPortFilePath(
   return path.join(browserArtifactsDir(projectPath, browser), 'control-port')
 }
 
-export function controlTokenPath(
-  projectPath: string,
-  browser: string
-): string {
+export function controlTokenPath(projectPath: string, browser: string): string {
   return path.join(sessionStateDir(projectPath), `control-token-${browser}`)
 }
 

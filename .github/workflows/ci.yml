@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Static gates run against source — no `pnpm compile` needed. Both were
+      # Static gates run against source, no `pnpm compile` needed. Both were
       # previously unenforced in CI: biome lint had no workflow, and there was
       # no `typecheck` script at all. Adding the typecheck gate immediately
       # caught two `import type {DevOptions} from './types'` paths in
@@ -57,6 +57,10 @@ jobs:
       # degraded to `any`).
       - name: Lint
         run: pnpm lint
+
+      # House rule: no em dashes in source, comments, or docs.
+      - name: Check prose
+        run: pnpm check:prose
 
       - name: Typecheck
         run: pnpm typecheck
@@ -92,7 +96,7 @@ jobs:
       - name: Install xvfb (cli suite)
         # ci:test:cli is a vitest unit-test suite; it does not need real
         # browser binaries. Previously this step also `apt-get install`ed
-        # firefox + chromium and exported their paths into env vars —
+        # firefox + chromium and exported their paths into env vars,
         # but nothing in the repo reads those env vars (`grep -rn
         # EXTENSION_TEST_GECKO_BINARY`/EXTENSION_TEST_CHROMIUM_BINARY
         # finds zero consumers). On Ubuntu 24.04 (noble), `apt-get
@@ -155,7 +159,7 @@ jobs:
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
-    # Only run Windows tests on PRs and main — skip on workflow_dispatch unless explicitly needed
+    # Only run Windows tests on PRs and main, skip on workflow_dispatch unless explicitly needed
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout

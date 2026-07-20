@@ -4,10 +4,10 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Session-lifecycle exercise: runs the control channel through the process
-// boundaries no unit spec crosses — dev-server crash + restart against a
+// boundaries no unit spec crosses, dev-server crash + restart against a
 // profile whose cached service worker has the OLD port/instanceId baked in
 // (issue #484), dist wipes under a kept profile, two-browser sessions on one
 // project (the eval-token clobber), and MV3 idle windows. Drives everything
@@ -78,7 +78,7 @@ const childEnv = {
   EXTENSION_AUTHOR_MODE: 'true'
 }
 
-// Every spawned dev session, for the end-of-run sweep — a SIGKILLed scenario
+// Every spawned dev session, for the end-of-run sweep, a SIGKILLed scenario
 // must not leak browsers into the next one (or into CI).
 const liveSessions = new Set()
 
@@ -147,10 +147,14 @@ function writeFixture(dir) {
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2))
   writeFileSync(
     join(dir, 'package.json'),
-    JSON.stringify({name: 'session-lifecycle-fixture', version: '1.0.0'}, null, 2)
+    JSON.stringify(
+      {name: 'session-lifecycle-fixture', version: '1.0.0'},
+      null,
+      2
+    )
   )
-  // Top-level SW code runs on every worker start — including the full-reload
-  // a stale worker is told to perform on resync — so the counter advancing
+  // Top-level SW code runs on every worker start, including the full-reload
+  // a stale worker is told to perform on resync, so the counter advancing
   // proves fresh code ran after a restart, whichever way Chrome got there.
   writeFileSync(
     join(dir, 'background.js'),
@@ -223,7 +227,7 @@ async function stopClean(session) {
   await waitExit(session.child, 2000)
 }
 
-/** Crash simulation: no cleanup handlers run — ready.json, the persisted
+/** Crash simulation: no cleanup handlers run, ready.json, the persisted
  * port file, and the browser profile are all left behind, which is exactly
  * the state the restart scenarios need. */
 async function killUnclean(session) {
@@ -236,9 +240,13 @@ function readyPath(projectDir, browserName) {
 }
 
 // After an UNCLEAN kill the previous session's ready.json survives, still
-// saying "ready" — polling would happily return the corpse. Callers that
+// saying "ready", polling would happily return the corpse. Callers that
 // restart pass the dead session's instanceId so only the NEW contract counts.
-async function waitForReady(projectDir, browserName = browser, {rejectInstanceId} = {}) {
+async function waitForReady(
+  projectDir,
+  browserName = browser,
+  {rejectInstanceId} = {}
+) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     if (existsSync(readyPath(projectDir, browserName))) {
@@ -256,8 +264,9 @@ async function waitForReady(projectDir, browserName = browser, {rejectInstanceId
           )
         }
       } catch (err) {
-        if (String(err.message || '').startsWith('dev reported error')) throw err
-        // partial write — retry
+        if (String(err.message || '').startsWith('dev reported error'))
+          throw err
+        // partial write, retry
       }
     }
     await new Promise((r) => setTimeout(r, 300))
@@ -290,7 +299,7 @@ async function waitForExecutor(projectDir, browserName = browser) {
       try {
         if (parseJsonResult(res.stdout, 'executor probe').ok) return
       } catch {
-        // not JSON yet — keep polling
+        // not JSON yet, keep polling
       }
     }
     await new Promise((r) => setTimeout(r, 500))
@@ -330,13 +339,17 @@ async function assertVerbsWork(projectDir, browserName = browser) {
   )
   assert(set.ok, `storage set failed: ${JSON.stringify(set)}`)
 
-  const marker = await readStorageKey(projectDir, 'lifecycleMarker', browserName)
+  const marker = await readStorageKey(
+    projectDir,
+    'lifecycleMarker',
+    browserName
+  )
   assert(marker === 'alive', `storage round-trip lost the value: ${marker}`)
 
   // What this gates is the eval PIPELINE: token accepted (a Forbidden here
   // is the token-clobber regression) and the command routed to a live
   // executor (Unavailable = no executor). MV3 Chromium then refuses the
-  // actual evaluation by CSP with a documented Unsupported — that outcome
+  // actual evaluation by CSP with a documented Unsupported, that outcome
   // still proves both legs under test.
   const evalResult = await actJson(
     ['eval', '1 + 1', projectDir, `--browser=${browserName}`],
@@ -406,8 +419,7 @@ async function scenarioBaseline({root}) {
 
     const doctor = await runDoctor(projectDir)
     assert(
-      doctor.code === 0 &&
-        doctor.checks.every((c) => c.status !== 'fail'),
+      doctor.code === 0 && doctor.checks.every((c) => c.status !== 'fail'),
       `doctor reported failures on a healthy session: ${JSON.stringify(doctor.checks)}`
     )
   } finally {
@@ -436,7 +448,9 @@ async function scenarioRestartKeptProfile({root}) {
 
     // Doctor must name the crash: live-looking contract, dead pid.
     const postCrash = await runDoctor(projectDir)
-    const serverCheck = postCrash.checks.find((c) => c.check === 'server-process')
+    const serverCheck = postCrash.checks.find(
+      (c) => c.check === 'server-process'
+    )
     assert(
       serverCheck?.status === 'fail',
       `doctor missed the dead dev server: ${JSON.stringify(postCrash.checks)}`
@@ -449,11 +463,11 @@ async function scenarioRestartKeptProfile({root}) {
 
     assert(
       ready2.controlPort === ready1.controlPort,
-      `restart did not prefer the persisted port (was ${ready1.controlPort}, now ${ready2.controlPort}) — a profile-cached SW would dial a dead port forever`
+      `restart did not prefer the persisted port (was ${ready1.controlPort}, now ${ready2.controlPort}), a profile-cached SW would dial a dead port forever`
     )
     assert(
       ready2.instanceId !== ready1.instanceId,
-      'restart reused the instanceId — stale-SW detection would be blind'
+      'restart reused the instanceId, stale-SW detection would be blind'
     )
 
     // Only a resynced (or relaunch-refreshed) SW can answer this.
@@ -493,7 +507,7 @@ async function scenarioDistWipeKeptProfile({root}) {
     const ready2 = await waitForReady(projectDir)
     assert(
       ready2.controlPort === ready1.controlPort,
-      `port not rebound across a dist wipe (was ${ready1.controlPort}, now ${ready2.controlPort}) — .extension-js state did not survive`
+      `port not rebound across a dist wipe (was ${ready1.controlPort}, now ${ready2.controlPort}), .extension-js state did not survive`
     )
 
     await waitForExecutor(projectDir)
@@ -519,7 +533,7 @@ async function scenarioTwoBrowser({root}) {
   }).catch(() => null)
   if (!install || install.code !== 0) {
     return {
-      skipped: `could not install the pinned ${secondBrowser} binary — run \`extension install ${secondBrowser}\` and re-run`
+      skipped: `could not install the pinned ${secondBrowser} binary, run \`extension install ${secondBrowser}\` and re-run`
     }
   }
 
@@ -545,7 +559,7 @@ async function scenarioTwoBrowser({root}) {
       controlTokenFile(projectDir, secondBrowser),
       'utf8'
     )
-    assert(tokenA !== tokenB, 'per-browser tokens are identical — shared slot?')
+    assert(tokenA !== tokenB, 'per-browser tokens are identical, shared slot?')
 
     await killUnclean(b)
     b = null
@@ -556,7 +570,7 @@ async function scenarioTwoBrowser({root}) {
   }
 }
 
-// MV3 SW dormancy horizon: verbs must work FIRST TRY after idle windows —
+// MV3 SW dormancy horizon: verbs must work FIRST TRY after idle windows,
 // this gates the producer keepalive contract.
 async function scenarioIdleWindow({root}) {
   const projectDir = makeProject(root, 'idle')
@@ -625,7 +639,7 @@ async function scenarioRestartPortLost({root}) {
       // reports whether verbs come back, however the session gets there)
     } catch {
       console.log(
-        '  probe: executor did NOT recover with the port file lost (documented limitation — the persisted port is the resync path)'
+        '  probe: executor did NOT recover with the port file lost (documented limitation, the persisted port is the resync path)'
       )
     }
   } finally {
@@ -647,7 +661,10 @@ const SCENARIOS = {
 function selectedScenarios() {
   const raw = parseArg('--scenario', DEFAULT_SCENARIOS.join(','))
   if (raw === 'all') return ALL_SCENARIOS
-  const names = raw.split(',').map((s) => s.trim()).filter(Boolean)
+  const names = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
   for (const name of names) {
     if (!SCENARIOS[name]) {
       throw new Error(
@@ -661,7 +678,7 @@ function selectedScenarios() {
 async function main() {
   if (process.platform === 'win32') {
     console.log(
-      'session-lifecycle exercise needs POSIX process groups — skipping on win32'
+      'session-lifecycle exercise needs POSIX process groups, skipping on win32'
     )
     return
   }
@@ -672,9 +689,7 @@ async function main() {
   }
 
   const names = selectedScenarios()
-  console.log(
-    `session-lifecycle: ${names.join(', ')} (browser=${browser})`
-  )
+  console.log(`session-lifecycle: ${names.join(', ')} (browser=${browser})`)
 
   const failures = []
   for (const name of names) {
@@ -683,7 +698,7 @@ async function main() {
     try {
       const outcome = await SCENARIOS[name]({root})
       if (outcome?.skipped) {
-        console.log(`SKIP: ${name} — ${outcome.skipped}`)
+        console.log(`SKIP: ${name}, ${outcome.skipped}`)
       } else {
         console.log(`PASS: ${name}`)
       }

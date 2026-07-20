@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RspackDevServer} from '@rspack/dev-server'
 import {setupAutoExit} from './auto-exit'
@@ -65,14 +65,14 @@ export function setupCleanupHandlers(
     }
   }
 
-  // An uncaught exception leaves the process in an undefined state — tear down
+  // An uncaught exception leaves the process in an undefined state, tear down
   process.on('uncaughtException', async (error) => {
     console.error('[Extension.js Runner] Uncaught exception.', error)
     await cleanup()
   })
 
   // A stray rejection (common from browser plugins / CDP during long HMR
-  // sessions) should NOT kill the dev server — log it and keep serving
+  // sessions) should NOT kill the dev server, log it and keep serving
   process.on('unhandledRejection', (reason, promise) => {
     console.error('[Extension.js Runner] Unhandled rejection.', promise, reason)
   })

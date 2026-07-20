@@ -63,7 +63,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     expect(msg).toContain('Chromium is not available')
     expect(msg).toContain('npx extension install chromium')
     expect(msg).toContain(
-      'Or install Chrome for Testing (stable channel) — chromium targets use it automatically:'
+      'Or install Chrome for Testing (stable channel), chromium targets use it automatically:'
     )
     expect(msg).toContain('npx extension install chrome')
   })

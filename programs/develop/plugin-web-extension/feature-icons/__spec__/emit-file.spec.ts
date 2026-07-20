@@ -121,7 +121,7 @@ describe('EmitFile step', () => {
 
     // Regression (G16): a manifest pointing at icons-dev/icon48.png while a
     // popup references the real icons/icon48.png used to flatten both to
-    // icons/icon48.png — different content, same filename → build abort.
+    // icons/icon48.png, different content, same filename → build abort.
     const existing = new Set([
       '/abs/project/icons-dev/icon48.png',
       '/abs/project/images/logo.png'

@@ -1,7 +1,7 @@
 // Regression gate: companion devtools/theme extensions must not call MV3-only
 // chrome APIs in their Firefox bundles. When they do, Firefox MV2 throws
 // "TypeError: chrome.X is undefined" at background load and the entire
-// companion extension fails to register — which makes the user's own extension
+// companion extension fails to register, which makes the user's own extension
 // appear partially broken in about:debugging (Inspect button on the user's
 // addon may still open, but neighbour cards in the runtime list are dead, and
 // historically this masked itself as "Inspect doesn't work for action/locales
@@ -17,15 +17,15 @@
 // this statically makes the failure mode visible at `vitest` time instead of
 // via "user clicks Inspect, nothing happens, files an issue."
 
-import {describe, it, expect} from 'vitest'
+import {spawnSync} from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
-import {spawnSync} from 'child_process'
+import {describe, expect, it} from 'vitest'
 
 // Tokens that must NOT appear in the Firefox bundle of any extension.js
 // companion. Each is either MV3-only or requires a permission Firefox MV2
 // does not grant on the companion manifest. The leading "chrome." anchor is
-// load-bearing — bare "action" or "webNavigation" appear elsewhere innocently
+// load-bearing, bare "action" or "webNavigation" appear elsewhere innocently
 // (e.g. browser_action keys, navigation log strings). The trailing "."
 // disambiguates property access from substring matches inside identifiers
 // (e.g. "chrome.action" inside a comment string vs. an actual call site).
@@ -89,7 +89,7 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
   const bundlePath = firefoxBundlePath(packageDir)
   if (fs.existsSync(bundlePath)) return true
 
-  // No prebuilt bundle — invoke the package's own build:firefox script. CI
+  // No prebuilt bundle, invoke the package's own build:firefox script. CI
   // generally has dist/ already; this branch protects local dev runs and
   // freshly-cloned checkouts.
   if (!ensureCliBuilt()) return false

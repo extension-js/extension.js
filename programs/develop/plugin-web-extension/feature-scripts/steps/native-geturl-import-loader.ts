@@ -4,13 +4,13 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 /**
  * Rspack loader that keeps `import(chrome.runtime.getURL(...))` NATIVE.
  *
  * A dynamic import whose argument goes through runtime.getURL receives an
- * absolute chrome-extension:// URL at runtime — the bundler's module map can
+ * absolute chrome-extension:// URL at runtime, the bundler's module map can
  * never contain that key, so lowering the call into the bundler runtime
  * guarantees `Cannot find module 'chrome-extension://<id>/...'` in real
  * Chrome. The target files themselves ship via TraceRuntimeLoadedFiles'
@@ -28,7 +28,7 @@ export function annotateGetURLDynamicImports(source: string): string {
   const n = source.length
   let i = 0
   // Tracks the previous significant (non-space, non-comment) character so a
-  // leading `/` can be classified as regex-start vs division — a regex
+  // leading `/` can be classified as regex-start vs division, a regex
   // literal's quotes/parens must not desync the scan of code we rewrite.
   let prevSignificant = ''
 

@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
@@ -17,7 +17,7 @@ function isGeckoBrowser(browser: DevOptions['browser']): boolean {
 }
 
 /**
- * Firefox does not run MV3 `background.service_worker` — it is disabled, and the
+ * Firefox does not run MV3 `background.service_worker`. It is disabled, and the
  * add-on fails to install ("background.service_worker is currently disabled. Add
  * background.scripts."). Firefox uses an event page via `background.scripts`.
  *

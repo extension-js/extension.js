@@ -4,15 +4,15 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs/promises'
+import * as path from 'path'
 import * as messages from '../lib/messages'
 import {isDenoRuntime} from '../lib/package-manager'
 import {
-  resolveExtensionBinary,
   getTemplateAwareScripts,
+  resolveExtensionBinary,
   resolveExtensionDevDependencyVersion
 } from './write-package-json'
 
@@ -36,7 +36,7 @@ function renderJsoncEntries(entries: Record<string, string>): string {
 }
 
 // In primary mode deno.jsonc IS the project manifest: npm dependencies are
-// declared as `npm:` specifiers in `imports` — `deno install` resolves them,
+// declared as `npm:` specifiers in `imports`, `deno install` resolves them,
 // `nodeModulesDir: "auto"` materializes them in a real node_modules the
 // bundler can resolve from, and the Extension.js toolchain reads the imports
 // for framework/CSS/TypeScript detection. In companion mode (monorepo
@@ -54,7 +54,7 @@ function renderDenoJsonc(
       `${renderJsoncEntries(imports)}\n` +
       `  },\n` +
       `\n`
-    : `  // Dependencies stay declared in package.json — \`deno install\` resolves\n` +
+    : `  // Dependencies stay declared in package.json, \`deno install\` resolves\n` +
       `  // them from there, and the Extension.js toolchain reads them for\n` +
       `  // framework detection. Keep Deno-native settings and tasks here.\n` +
       `\n`
@@ -124,7 +124,7 @@ interface WriteDenoJsoncOptions {
   /**
    * When true, deno.jsonc becomes the project's only manifest: template
    * dependencies move into `imports` and package.json is removed
-   * (issue #482 — deno.jsonc instead of package.json).
+   * (issue #482, deno.jsonc instead of package.json).
    */
   primary?: boolean
 }

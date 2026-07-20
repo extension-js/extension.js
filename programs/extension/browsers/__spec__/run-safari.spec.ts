@@ -1,35 +1,35 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import * as messages from '../browsers-lib/messages'
+import {launchBrowser} from '../index'
 import {
-  resolveSafariBuildConfig,
-  composeConverterArgs,
-  composeXcodebuildArgs,
-  macOsSchemeName,
-  xcodeProjectPath,
-  builtAppPath,
-  manifestFingerprintPath,
-  saveManifestFingerprint,
-  isProjectStale,
-  pbxprojPath,
-  extractXcodeUserSettings,
+  safariBuildPreflight,
+  safariPreflightError,
+  toolOutputTail
+} from '../run-safari/safari-launch'
+import {
+  alignBundleIdentifiers,
   applyXcodeUserSettings,
   backupAndRestoreXcodeSettings,
+  builtAppPath,
+  composeConverterArgs,
+  composeXcodebuildArgs,
+  extractXcodeUserSettings,
+  isProjectStale,
   isValidBundleId,
-  alignBundleIdentifiers
+  macOsSchemeName,
+  manifestFingerprintPath,
+  pbxprojPath,
+  resolveSafariBuildConfig,
+  saveManifestFingerprint,
+  xcodeProjectPath
 } from '../run-safari/safari-launch/safari-config'
 import {
   detectSafariToolchain,
   isMacOS
 } from '../run-safari/safari-launch/toolchain'
-import {launchBrowser} from '../index'
-import {
-  safariPreflightError,
-  safariBuildPreflight,
-  toolOutputTail
-} from '../run-safari/safari-launch'
-import * as messages from '../browsers-lib/messages'
 
 function makeCompilation(out: string) {
   return {options: {output: {path: out}}} as any
@@ -365,7 +365,7 @@ describe('launchBrowser safari boundary', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Manifest fingerprinting — staleness detection
+// Manifest fingerprinting, staleness detection
 // ---------------------------------------------------------------------------
 
 describe('manifest fingerprinting', () => {
@@ -452,7 +452,7 @@ describe('manifest fingerprinting', () => {
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
-    // Simulate a manifest edit — add a new permission
+    // Simulate a manifest edit, add a new permission
     writeManifest(distDir, {
       name: 'Evolving',
       permissions: ['storage', 'tabs']
@@ -483,7 +483,7 @@ describe('manifest fingerprinting', () => {
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
-    // Rewrite with pretty formatting — same content, different whitespace
+    // Rewrite with pretty formatting, same content, different whitespace
     fs.writeFileSync(
       path.join(distDir, 'manifest.json'),
       JSON.stringify(manifest, null, 2)
@@ -609,11 +609,9 @@ describe('safari pipeline staleness integration', () => {
     fs.mkdirSync(projDir, {recursive: true})
     fs.writeFileSync(
       path.join(projDir, 'project.pbxproj'),
-      [
-        'buildSettings = {',
-        '  PRODUCT_NAME = "$(TARGET_NAME)";',
-        '};'
-      ].join('\n')
+      ['buildSettings = {', '  PRODUCT_NAME = "$(TARGET_NAME)";', '};'].join(
+        '\n'
+      )
     )
   }
 
@@ -656,9 +654,7 @@ describe('safari pipeline staleness integration', () => {
     manifest: Record<string, unknown>,
     opts?: {
       existingTeam?: string
-      converterProduces?: (
-        config: ReturnType<typeof configFor>
-      ) => void
+      converterProduces?: (config: ReturnType<typeof configFor>) => void
     }
   ): Promise<{logs: string[]}> {
     writeManifest(distDir, manifest)
@@ -686,7 +682,8 @@ describe('safari pipeline staleness integration', () => {
 
       // Simulate the converter writing a fresh project.
       const produceFn =
-        opts?.converterProduces || ((c: ReturnType<typeof configFor>) => fakeConvert(c))
+        opts?.converterProduces ||
+        ((c: ReturnType<typeof configFor>) => fakeConvert(c))
       produceFn(config)
 
       restore()
@@ -748,7 +745,7 @@ describe('safari pipeline staleness integration', () => {
   })
 
   it('user Xcode configuration survives regeneration', async () => {
-    // First build — creates the project
+    // First build, creates the project
     await runFakePipeline({name: 'SignedExt', permissions: ['storage']})
 
     // Simulate the user configuring a signing team in Xcode by rewriting the

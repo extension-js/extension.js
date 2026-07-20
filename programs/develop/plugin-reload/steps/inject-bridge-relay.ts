@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'

@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export type Browser =
   | 'chrome'
@@ -35,8 +35,8 @@ export const vendors = (browser?: Browser | 'all') => {
 }
 
 // Install targets differ from run/build targets: `--browser all` runs one
-// browser per engine family, but `install all` must also cover Chromium —
-// it is the default browser for dev/start, so omitting it would leave the
+// browser per engine family, but `install all` must also cover Chromium.
+// It is the default browser for dev/start, so omitting it would leave the
 // default launch target missing from the managed cache.
 export const installTargets = (browser?: Browser | 'all') => {
   return browser === 'all'

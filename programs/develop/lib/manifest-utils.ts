@@ -4,9 +4,9 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Manifest, DevOptions} from '../types'
+import type {DevOptions, Manifest} from '../types'
 import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
 // Canonical browser-key resolver. Single source of truth: the manifest-emission
@@ -20,7 +20,7 @@ export function filterKeysForThisBrowser(
   // Safari Web Extensions are MV3 and are produced by converting a Chrome-shaped
   // extension (safari-web-extension-converter consumes the chromium build
   // output). Safari/webkit are intentionally NOT chromium-based for launch
-  // classification — they run through Xcode, not a Chromium binary — but for
+  // classification (they run through Xcode, not a Chromium binary) but for
   // MANIFEST key resolution they must inherit the chromium family, or their
   // chromium:/firefox: prefixed keys (including manifest_version) resolve to
   // nothing and the emitted manifest is invalid.
@@ -28,14 +28,15 @@ export function filterKeysForThisBrowser(
     browser === 'safari' ||
     browser === 'webkit-based' ||
     String(browser).includes('webkit')
-  const isChromiumTarget = isChromiumBasedBrowser(String(browser)) || isSafariTarget
+  const isChromiumTarget =
+    isChromiumBasedBrowser(String(browser)) || isSafariTarget
   const isGeckoTarget = isGeckoBasedBrowser(String(browser))
 
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
   // Safari's own prefixes. Safari inherits the chromium family (see note
   // above), but `safari:`/`webkit:` keys are more specific and must win over
-  // chromium-family keys — for BOTH `safari` and `webkit-based` targets.
+  // chromium-family keys, for BOTH `safari` and `webkit-based` targets.
   const webkitPrefixes = new Set(['safari', 'webkit'])
 
   const isFamilyPrefix = (prefix: string): boolean =>

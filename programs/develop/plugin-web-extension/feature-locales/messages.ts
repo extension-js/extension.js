@@ -4,7 +4,7 @@
 // ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
 // ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 export function manifestNotFoundMessageOnly(absPath: string) {
   return `Check for a valid manifest.json file.\n\nNOT FOUND ${absPath}`
@@ -59,7 +59,7 @@ export function localesIncludeSummary(
   const dl = defaultLocale
     ? `default_locale=${defaultLocale}`
     : 'default_locale=<none>'
-  return `Locales include summary — manifest=${String(hasManifest)}, localesRoot=${String(hasLocalesRoot)}, ${dl}`
+  return `Locales include summary, manifest=${String(hasManifest)}, localesRoot=${String(hasLocalesRoot)}, ${dl}`
 }
 
 export function localesEmitSummary(
@@ -84,7 +84,7 @@ export function localesMustBeAtProjectRoot(
 ) {
   return (
     '_locales/ is canonically placed at the project root (sibling of ' +
-    'package.json, public/, dist/) — mirroring public/ and how Chrome ' +
+    'package.json, public/, dist/), mirroring public/ and how Chrome ' +
     'reads locales from the extension root in dist. Found in the legacy ' +
     'next-to-manifest location; the build will use it, but consider ' +
     'moving it for consistency with public/ and to silence this warning.\n\n' +

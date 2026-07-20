@@ -2,7 +2,7 @@ name: CI – Reload Matrix Smoke
 
 # EXPERIMENTAL / MANUAL. The reload-matrix harness measures ground-truth
 # service-worker-restart and page-navigation counts for `extension dev` against
-# real Chrome via CDP — the most user-visible correctness signal we have. It
+# real Chrome via CDP, the most user-visible correctness signal we have. It
 # lives in the separate extension-js/examples repo and, in `local` mode, is
 # hardcoded to resolve the CLI from `<monorepo>/programs/extension/dist/cli.cjs`
 # and its fixtures from `<monorepo>/_FUTURE/examples/examples`, both relative to

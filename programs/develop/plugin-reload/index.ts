@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -47,12 +47,12 @@ export {
  *   (re-exported above from classify-reload.ts / reload-dispatch.ts)
  *
  * Registration order matters: this plugin must be applied AFTER
- * plugin-web-extension — SetupReloadStrategy decorates the background and
+ * plugin-web-extension, SetupReloadStrategy decorates the background and
  * content-script entries that feature-scripts' AddScripts declares.
  *
  * The whole pipeline is dev-only; `EXTENSION_NO_RELOAD=true` opts out. The
  * every-mode content-script wrapper (mount lifecycle) is NOT part of this
- * plugin — it lives in feature-scripts/steps/add-content-script-wrapper.
+ * plugin. It lives in feature-scripts/steps/add-content-script-wrapper.
  */
 export class ReloadPlugin {
   public static readonly name = 'plugin-reload'
@@ -91,7 +91,7 @@ export class ReloadPlugin {
 
     // Inject the SW-side `__extjsScriptsReplay` shim so the controller can
     // re-execute previously-issued `chrome.scripting.executeScript` calls
-    // after a user edits a file in /scripts/* — bringing programmatic
+    // after a user edits a file in /scripts/*, bringing programmatic
     // injection HMR closer to parity with declarative content_scripts.
     new InjectScriptsReplayShim().apply(compiler)
 
@@ -105,7 +105,7 @@ export class ReloadPlugin {
     new InjectBridgeRelay().apply(compiler)
 
     // Hot chunks are fetched from the extension origin (disk), so they live
-    // in the loadable dist — prune superseded generations so a long editing
+    // in the loadable dist, prune superseded generations so a long editing
     // session doesn't accumulate hundreds of stale files in "what ships".
     new PruneStaleHotUpdates().apply(compiler)
   }

@@ -4,16 +4,16 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Readable, Writable} from 'stream'
 import WebSocket from 'ws'
-import type {CdpProtocolMessage, CdpTargetInfo} from '../chromium-types'
-import * as messages from '../../browsers-lib/messages'
 import {
   CDP_COMMAND_TIMEOUT_MS,
   CDP_HEARTBEAT_INTERVAL_MS
 } from '../../browsers-lib/constants'
+import * as messages from '../../browsers-lib/messages'
+import type {CdpProtocolMessage, CdpTargetInfo} from '../chromium-types'
 import {discoverWebSocketDebuggerUrl} from './discovery'
 import {getExtensionInfo} from './extensions'
 import {establishBrowserConnection} from './ws'
@@ -177,7 +177,7 @@ export class CDPClient {
       // NEVER end() the pipe here: closing the --remote-debugging-pipe is
       // Chromium's browser-shutdown signal (it's how Puppeteer closes the
       // browser). Ending it as "cleanup" turns any dead-connection verdict
-      // into killing the user's dev browser. Detach quietly instead — the
+      // into killing the user's dev browser. Detach quietly instead, the
       // fds close with our process, which is when the browser SHOULD exit.
       try {
         this.pipeIn?.removeAllListeners()
@@ -216,20 +216,20 @@ export class CDPClient {
         if (this.transport === 'pipe') {
           // A timed-out heartbeat over the pipe means the browser is STALLED,
           // not gone (extension reloads can wedge the DevTools/UI thread for
-          // a while — family B: a real browser death fires pipe 'close'
+          // a while, family B: a real browser death fires pipe 'close'
           // instead). Tearing down here used to end() the pipe, which is
-          // Chromium's shutdown signal — i.e. we killed the wedged-but-alive
+          // Chromium's shutdown signal, i.e. we killed the wedged-but-alive
           // dev browser. Log once and keep the heartbeat: if the browser
           // recovers, the session resumes on its own.
           if (!this.heartbeatStallWarned) {
             this.heartbeatStallWarned = true
             console.warn(
-              '[CDP] Browser is not answering CDP commands (heartbeat timed out). Keeping the session — it resumes automatically if the browser recovers.'
+              '[CDP] Browser is not answering CDP commands (heartbeat timed out). Keeping the session, it resumes automatically if the browser recovers.'
             )
           }
           return
         }
-        // WebSocket transport: a dead ws really is dead — close it.
+        // WebSocket transport: a dead ws really is dead, close it.
         if (this.isDev()) {
           console.warn('[CDP] Heartbeat failed, connection appears dead')
         }

@@ -4,7 +4,7 @@
 // ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
 // ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
@@ -21,7 +21,7 @@ export function trackLocaleDependencies(
 
   // Strict project-root layout: only the canonical `<projectRoot>/_locales/`
   // is scanned. A `_locales/` folder next to the manifest is rejected at
-  // validation time with a migration error — see validation.ts
+  // validation time with a migration error, see validation.ts
   const localesFields = getLocales(manifestPath, projectRoot) || []
   let added = 0
 

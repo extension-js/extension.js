@@ -4,12 +4,12 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import fs from 'fs'
+import {createRequire} from 'module'
 import path from 'path'
 import {pathToFileURL} from 'url'
-import {createRequire} from 'module'
 
 const require = createRequire(import.meta.url)
 

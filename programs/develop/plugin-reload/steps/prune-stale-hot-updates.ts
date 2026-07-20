@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -17,7 +17,7 @@ const HOT_DIR = 'hot'
  *
  * The HMR runtime resolves hot chunks against the extension origin
  * (publicPath = chrome-extension://<id>/), so the files under hot/ are
- * fetched FROM DISK and must ship in the loadable dist — but only the
+ * fetched FROM DISK and must ship in the loadable dist, but only the
  * current generation is ever requested (currentHash -> nextHash). Without
  * pruning, every edit leaves its .js/.json/.map generation behind forever:
  * an afternoon of editing puts hundreds of stale files in the "what ships"

@@ -4,20 +4,20 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
-import * as path from 'path'
 import {createRequire} from 'module'
+import * as path from 'path'
 import {resolveDevelopInstallRoot} from './develop-context'
-import {getOptionalDependencyContract} from './optional-deps-contracts'
-import {hasProjectDependency} from './project-manifest'
-import {resolvePackageManager} from './package-manager'
-import type {PackageManagerName} from './package-manager'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
 } from './optional-dependency-types'
+import {getOptionalDependencyContract} from './optional-deps-contracts'
+import type {PackageManagerName} from './package-manager'
+import {resolvePackageManager} from './package-manager'
+import {hasProjectDependency} from './project-manifest'
 
 // Verbose-mode escape hatch shared with the rest of the develop pipeline
 // (rspack-config, stats-handler, dev-server hooks all read this same flag).
@@ -30,7 +30,7 @@ function isVerboseMode(): boolean {
 
 // pnpm, yarn and bun all add a dev dependency with `add -D`; npm uses
 // `install -D`. The package manager is detected from the *user project's*
-// working directory (projectPath), never `process.cwd()` — the dev server's
+// working directory (projectPath), never `process.cwd()`, the dev server's
 // cwd is extension-develop, not the project being built.
 function installVerbForPackageManager(name: PackageManagerName): string {
   if (name === 'npm') return 'install -D'
@@ -38,7 +38,10 @@ function installVerbForPackageManager(name: PackageManagerName): string {
   return 'add -D'
 }
 
-function formatInstallHint(projectPath: string, packageSpecs: string[]): string {
+function formatInstallHint(
+  projectPath: string,
+  packageSpecs: string[]
+): string {
   const {name} = resolvePackageManager({cwd: projectPath})
   const verb = installVerbForPackageManager(name)
   return `${name} ${verb} ${packageSpecs.join(' ')}`
@@ -178,7 +181,7 @@ function resolveFromKnownLocations(
   // Pnpm with strict resolution sometimes hides peer-tooling like `preact`
   // behind a symlink chain that Node's resolver can't traverse from
   // extension-develop's package context. If the user's package.json declares
-  // the dependency we trust their package manager installed it — the
+  // the dependency we trust their package manager installed it, the
   // bundler will still surface a clean error later if the install was a lie.
   if (declaresDependency(projectPath, dependencyId)) {
     return projectPath
@@ -469,7 +472,7 @@ export function getContractVerificationFailuresFromKnownLocations(
     // from the contract tooling's pnpm dir because it isn't a peer dep
     // there. The bundler aliases the framework at compile time, so the
     // module-context check is only useful for catching genuine missing
-    // peers — not user-declared deps that webpack/rspack will route via
+    // peers, not user-declared deps that webpack/rspack will route via
     // resolve.alias. Trust the project package.json the same way the
     // install-root path does.
     if (failure && declaresDependency(projectPath, failure)) continue
@@ -545,7 +548,6 @@ function buildDiagnostics(input: {
   }
 }
 
-
 export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
@@ -583,8 +585,7 @@ export async function ensureOptionalPackageResolved(
       integration: input.integration,
       dependencyId: input.dependencyId,
       headline,
-      installSpecs:
-        missing.length > 0 ? missing : contract.installPackages,
+      installSpecs: missing.length > 0 ? missing : contract.installPackages,
       projectPath: input.projectPath,
       diagnostics: {...diagnostics, missing}
     })

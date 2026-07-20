@@ -4,15 +4,15 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 
 // The single answer the tooling gets when it asks whether an extension id
 // belongs to the extension being developed. Ownership is a tri-state, not a
-// boolean: there is a real moment — a freshly created profile that has not
-// flushed its `Preferences` yet — where the answer is legitimately not yet
+// boolean: there is a real moment, a freshly created profile that has not
+// flushed its `Preferences` yet, where the answer is legitimately not yet
 // knowable. `unknown` is NOT a yes; callers must resolve it explicitly
 // (defer, retry, re-derive) rather than adopt an id on trust.
 export type OwnershipVerdict = 'mine' | 'not_mine' | 'unknown'
@@ -47,7 +47,7 @@ function collectPreferenceFiles(profilePath: string): string[] {
   return prefCandidates
 }
 
-// The `dist` ancestor of an output path — the root every per-browser and
+// The `dist` ancestor of an output path, the root every per-browser and
 // per-version build of ONE project shares. `/proj/dist/chrome` and the legacy
 // `/proj/dist/extension-js/chrome` both resolve to `/proj/dist`, which is how we
 // recognize a sibling build of the same project without touching other projects.
@@ -70,7 +70,7 @@ function isUnder(child: string, parent: string): boolean {
 // `dist` root but not equal to the current output. `extension dev` loads a
 // fresh build into the persistent profile without evicting the previous load,
 // so when the dist path shifts (a different CLI resolution) the profile keeps
-// both — two extension IDs / two service workers for one project (#49).
+// both, two extension IDs / two service workers for one project (#49).
 // Evicting these before loading the current build leaves exactly one copy.
 export function findStaleUnpackedExtensionIds(
   profilePath: string | undefined,
@@ -135,7 +135,9 @@ export function classifyExtensionOwnership(
       const info = settings?.[extensionId]
       const storedPath = String(info?.path || '')
       if (!storedPath) continue
-      return normalizePath(storedPath) === normalizedOutPath ? 'mine' : 'not_mine'
+      return normalizePath(storedPath) === normalizedOutPath
+        ? 'mine'
+        : 'not_mine'
     } catch {
       // Ignore malformed preference files.
     }

@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import patchBackground from '../apply-dev-defaults-lib/patch-background'
-import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
 import {patchV2CSP, patchV3CSP} from '../apply-dev-defaults-lib/patch-csp'
+import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
 import {
   patchWebResourcesV2,
   patchWebResourcesV3
@@ -84,7 +84,7 @@ describe('ApplyDevDefaults patch helpers', () => {
         const csp = patchV3CSP(restrictive()).extension_pages
         expect(csp).toContain('ws://192.168.0.7:*')
         expect(csp).toContain('http://192.168.0.7:*')
-        // loopback entries stay — local surfaces still dial 127.0.0.1
+        // loopback entries stay, local surfaces still dial 127.0.0.1
         expect(csp).toContain('ws://127.0.0.1:*')
       })
     })

@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
@@ -61,7 +61,7 @@ describe('preact tools', () => {
     const result = await maybeUsePreact('/p')
     // Fast-refresh is intentionally disabled (rspack 2.x renames the prefresh
     // runtime's `module` arg → `module is not defined` at eval). Preact falls
-    // back to live-reload, so no plugin is contributed — only the alias map.
+    // back to live-reload, so no plugin is contributed, only the alias map.
     expect(result?.plugins).toEqual([])
     expect(result?.alias?.react).toContain(
       '/project/node_modules/preact/compat'

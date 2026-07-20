@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 /**
  * Dev-only banner prepended to the background service worker / script. Wraps
@@ -21,7 +21,7 @@
  *
  * Storage: in-memory `Map` keyed by tabId. Lives on the SW's globalThis, so
  * it survives across multiple `executeScript` calls in the same SW lifetime
- * and dies when Chrome cycles the SW. That's fine for dev — the next click
+ * and dies when Chrome cycles the SW. That's fine for dev, the next click
  * after a SW restart re-records the call.
  */
 export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
@@ -61,7 +61,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
         var world = injection.world ? String(injection.world) : undefined;
         var entry = { files: files, world: world, sig: serialize({ files: files, world: world }) };
         var existing = registry.get(tabId) || [];
-        // Dedupe by signature — repeated identical injections (e.g. user
+        // Dedupe by signature, repeated identical injections (e.g. user
         // clicks the action twice) shouldn't stack in the replay list.
         if (existing.some(function (e) { return e.sig === entry.sig; })) return;
         existing.push(entry);

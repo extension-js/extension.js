@@ -8,10 +8,10 @@
 //
 // The spec drives the real `BrowsersPlugin` against a fake rspack `Compiler`
 // and captures the `ReloadInstruction` carried on the plugin's `compiled`
-// event. (Reload itself is dispatched through the control-bridge broker — the
-// same executor as `--no-browser` — but the classification under test is the
+// event. (Reload itself is dispatched through the control-bridge broker, the
+// same executor as `--no-browser`, but the classification under test is the
 // `reloadInstruction` regardless of how it is dispatched.) No browser, no
-// timers — pure logic.
+// timers, pure logic.
 
 import * as path from 'path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
@@ -54,7 +54,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
     browserOptions: {browser: 'chromium'} as any
   })
   plugin.extensionsToLoad = [OUTPUT]
-  // Swallow emitted `error` events — Node's EventEmitter throws on
+  // Swallow emitted `error` events, Node's EventEmitter throws on
   // unhandled `error`. Tests assert reload.mock, not emitter events.
   plugin.emitter.on('error', () => {})
   // The plugin emits `compiled` after every compile; only incremental compiles
@@ -118,7 +118,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
           errors: opts.errors || [],
           options: {context: CONTEXT, output: {path: OUTPUT}},
           // Simulate the always-present emitted assets. This is what misled
-          // the old classifier — a service_worker asset is ALWAYS here.
+          // the old classifier, a service_worker asset is ALWAYS here.
           assets: {
             'manifest.json': {},
             'background/service_worker.js': {},
@@ -229,7 +229,7 @@ describe('BrowsersPlugin classifier', () => {
     // Platform-standard layout: _locales/ sits at the project root (sibling
     // of public/, dist/, package.json), not nested inside src/. After the
     // resolver flip in feature-locales, the project-root file is what ends
-    // up in fileDependencies — so the classifier must detect a relative
+    // up in fileDependencies, so the classifier must detect a relative
     // path with no src/ prefix.
     const h = createHarness(1)
     await primeFirstCompile(h)
@@ -245,7 +245,7 @@ describe('BrowsersPlugin classifier', () => {
   it('emits a notify-only "page" instruction when a non-content-script project edits a page asset', async () => {
     // Action / popup / options-only extensions declare no content_scripts.
     // Page asset edits (popup HTML/JS/CSS) are picked up by
-    // rspack-dev-server's livereload broadcast — the HMR client injected
+    // rspack-dev-server's livereload broadcast, the HMR client injected
     // into every extension HTML entry refreshes the open page on its own.
     //
     // We deliberately do NOT fire chrome.runtime.reload() here: that path
@@ -315,7 +315,7 @@ describe('BrowsersPlugin classifier', () => {
 
   it('skips classification on the first compile (controller not yet live)', async () => {
     const h = createHarness(1)
-    // First compile with modifiedFiles set should not trigger a reload —
+    // First compile with modifiedFiles set should not trigger a reload,
     // the controller hasn't been created yet, that's this compile's job.
     h.triggerWatchRun(['src/content/ContentApp.tsx'])
     await h.triggerDone()

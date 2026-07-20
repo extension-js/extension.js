@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 const POLL_INTERVAL_MS = 2_000
 const HARD_EXIT_GRACE_MS = 5_000
@@ -12,7 +12,7 @@ const HARD_EXIT_GRACE_MS = 5_000
 function isProcessAlive(pid: number): boolean {
   try {
     // Signal 0 performs the existence/permission check without delivering
-    // anything. EPERM means the pid exists but belongs to another user —
+    // anything. EPERM means the pid exists but belongs to another user,
     // still alive for watchdog purposes.
     process.kill(pid, 0)
     return true

@@ -22,7 +22,7 @@ describe('dispatchReload', () => {
   // Reload is dispatched through the control-bridge broker (the in-extension SW
   // producer) for BOTH launched (Chromium CDP + Firefox RDP) and `--no-browser`.
   // A launched browser's controller is kept only for logging / source
-  // inspection, never reload — so the seam is broker-only.
+  // inspection, never reload, so the seam is broker-only.
   it('broadcasts over the broker with the shared label + changed files', async () => {
     const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
     await dispatchReload(CS, {broker})
@@ -53,7 +53,7 @@ describe('dispatchReload', () => {
     )
   })
 
-  // §53: a reload that reaches zero producers is a silent no-op — on heavy
+  // §53: a reload that reaches zero producers is a silent no-op, on heavy
   // sites / auth walls where the SW never attaches, that looks like a broken
   // tool. The broker hands back a single deduped hint; dispatch surfaces it.
   it('warns with the broker hint when a reload reaches zero producers (§53)', async () => {
@@ -61,7 +61,7 @@ describe('dispatchReload', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const broker = {
       broadcastReload: vi.fn().mockReturnValue(0),
-      undeliveredReloadWarning: vi.fn().mockReturnValue('SW not attached — …')
+      undeliveredReloadWarning: vi.fn().mockReturnValue('SW not attached, …')
     }
     await dispatchReload(CS, {broker})
     expect(warn).toHaveBeenCalledTimes(1)
@@ -85,7 +85,10 @@ describe('dispatchReload', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const undeliveredReloadWarning = vi.fn().mockReturnValue('should not show')
     await dispatchReload(CS, {
-      broker: {broadcastReload: vi.fn().mockReturnValue(1), undeliveredReloadWarning}
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        undeliveredReloadWarning
+      }
     })
     expect(undeliveredReloadWarning).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
@@ -98,7 +101,7 @@ describe('dispatchReload', () => {
   })
 
   it('is a no-op when no broker is present', async () => {
-    // Nothing to dispatch to — must not throw.
+    // Nothing to dispatch to, must not throw.
     await expect(dispatchReload(CS, {})).resolves.toBeUndefined()
   })
 

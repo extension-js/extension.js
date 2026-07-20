@@ -13,7 +13,7 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 
 Related workspaces:
 
-- `extensions/*` — built-in extensions loaded by Extension.js
+- `extensions/*`, built-in extensions loaded by Extension.js
 
 Templates used by `extension create` live in the external
 [extension-js/examples](https://github.com/extension-js/examples) repo; CI hydrates
@@ -51,13 +51,13 @@ EXTENSION_AUTHOR_MODE=development
 
 Use two terminals: one watching builds, another to run the CLI locally.
 
-### Terminal 1 — Watch builds
+### Terminal 1, Watch builds
 
 ```sh
 pnpm watch
 ```
 
-### Terminal 2 — Run local CLI (mirrors released `extension`)
+### Terminal 2, Run local CLI (mirrors released `extension`)
 
 ```sh
 pnpm extension <command> [args] [flags]
@@ -76,14 +76,14 @@ cd my-extension && pnpm dev
 
 ## Useful scripts (root)
 
-- `pnpm compile` — Build all workspaces (produces `dist/` used by the local CLI)
-- `pnpm watch` — Build once then watch all programs for changes
-- `pnpm extension` — Run the local CLI at `programs/extension/dist/cli.cjs`
-- `pnpm test` — Run all tests across packages via Turbo
-- `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build` — Focused test groups
-- `pnpm test:e2e` — Playwright end-to-end tests
-- `pnpm lint` — Biome lint (config in `biome.json`)
-- `pnpm format` — Biome format write
+- `pnpm compile`, Build all workspaces (produces `dist/` used by the local CLI)
+- `pnpm watch`, Build once then watch all programs for changes
+- `pnpm extension`, Run the local CLI at `programs/extension/dist/cli.cjs`
+- `pnpm test`, Run all tests across packages via Turbo
+- `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build`, Focused test groups
+- `pnpm test:e2e`, Playwright end-to-end tests
+- `pnpm lint`, Biome lint (config in `biome.json`)
+- `pnpm format`, Biome format write
 
 Tip: run a single package’s script with Turbo filters, e.g.:
 
@@ -129,6 +129,6 @@ git clean -xfd && pnpm install && pnpm compile
 
 ## Communication
 
-- Discussions and questions: join our Discord — https://discord.gg/v9h2RgeTSN
+- Discussions and questions: join our Discord, https://discord.gg/v9h2RgeTSN
 
 Thanks again for contributing! 🙌

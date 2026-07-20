@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {
   RDP_MAX_RETRIES,
@@ -36,7 +36,7 @@ export class RemoteFirefox {
   private readonly options: PluginInterface & {
     browserVersionLine?: string
     // The concrete, already-resolved RDP debug port the browser was actually
-    // launched on. When set, it is used verbatim — NOT folded back through
+    // launched on. When set, it is used verbatim, NOT folded back through
     // deriveDebugPortWithInstance. `port` (PluginInterface) is a *base* port to
     // derive from; passing the launched port there would double-apply the
     // offset (e.g. 9230 launched -> 9330 attempted -> ECONNREFUSED, add-on
@@ -80,7 +80,7 @@ export class RemoteFirefox {
 
   private resolveRdpPort(compilation?: CompilationLike): number {
     const instanceId = (this.options as {instanceId?: string})?.instanceId
-    // A concrete, already-resolved launch port wins outright — it is the actual
+    // A concrete, already-resolved launch port wins outright. It is the actual
     // port Firefox opened its debugger server on, so it must NOT be re-derived
     // (deriving folds the per-instance offset in a SECOND time and we connect to
     // a dead port). The instance registry can only override via instanceId; a
@@ -100,8 +100,8 @@ export class RemoteFirefox {
     const basePort = (normalizedOptionPort as number) || devPort
     // `desired` is a deterministic, per-instance derived port (the instance id
     // is folded into the offset), so it is a safe fallback that stays faithful
-    // to this instance. The process-wide last-launched RDP port is never used —
-    // that was the cross-talk source when chrome + edge ran from one command.
+    // to this instance. The process-wide last-launched RDP port is never used.
+    // That was the cross-talk source when chrome + edge ran from one command.
     const desired = deriveDebugPortWithInstance(basePort, instanceId)
 
     const resolved = resolvePortForInstance(instanceId, 'rdp', desired)
@@ -118,8 +118,8 @@ export class RemoteFirefox {
         this.client = client
         // A new RDP connection invalidates actor IDs from any prior connection
         // (Firefox namespaces them per connection, e.g. server1.conn0.addonsActor2).
-        // Clear connection-scoped caches so we re-resolve them on THIS connection
-        // — otherwise a retry/reconnect installs against a dead actor and fails
+        // Clear connection-scoped caches so we re-resolve them on THIS connection.
+        // Otherwise a retry/reconnect installs against a dead actor and fails
         // with "noSuchActor". Also re-clear if the transport transparently
         // reconnects mid-session.
         this.invalidateConnectionScopedCaches()
@@ -279,7 +279,7 @@ export class RemoteFirefox {
     }
 
     // Best-effort: if no explicit id yet, try to infer from any moz-extension URL
-    // target. Reaching here means the install reply carried no id — surface that
+    // target. Reaching here means the install reply carried no id, surface that
     // in author mode so a real regression in the reply is visible instead of
     // silently degrading to a scanned (or absent) banner id.
     try {

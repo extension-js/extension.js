@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
+  commandDescriptions,
   programAIHelp,
-  programAIHelpJSON,
-  commandDescriptions
+  programAIHelpJSON
 } from '../messages'
 
 describe('programAIHelp', () => {
@@ -77,8 +77,8 @@ describe('programAIHelp', () => {
 
   // Full-shape snapshot of the AI-help JSON. The assertions above pin
   // individual fields; this pins the WHOLE manifest so an unintended
-  // addition/removal/rename of any field — which would silently change the
-  // contract AI tooling consumes — fails loudly. The version is fixed so the
+  // addition/removal/rename of any field, which would silently change the
+  // contract AI tooling consumes, fails loudly. The version is fixed so the
   // snapshot is deterministic across releases; update with `vitest -u` only
   // when the manifest change is intentional.
   it('matches the published AI-help JSON contract shape', () => {

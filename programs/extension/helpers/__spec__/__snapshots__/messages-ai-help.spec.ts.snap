@@ -128,7 +128,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "open",
-      "summary": "Opens an extension surface — popup, options, sidebar, action, or command (requires --allow-control)",
+      "summary": "Opens an extension surface: popup, options, sidebar, action, or command (requires --allow-control)",
       "supportsSourceInspection": false,
     },
     {

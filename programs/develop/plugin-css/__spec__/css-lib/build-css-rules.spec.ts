@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [])
@@ -21,7 +21,7 @@ function hasPassthrough(rule: any) {
   )
 }
 
-describe('buildCssRules — missing-preprocessor passthrough (bug 26)', () => {
+describe('buildCssRules, missing-preprocessor passthrough (bug 26)', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('attaches the warn-loudly passthrough loader to scss/less rules when the compilers are absent', async () => {

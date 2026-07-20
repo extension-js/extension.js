@@ -4,13 +4,13 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 
 /**
- * Manifest shapes Chromium refuses to load AT ALL — the refusal surfaces
+ * Manifest shapes Chromium refuses to load AT ALL, the refusal surfaces
  * only as a native dialog (or nothing), never as a console error, so the
  * dev session just wedges with no CDP target. Diagnose them before spawn
  * and say why, like the resolved-binary line.
@@ -39,8 +39,8 @@ export function diagnoseChromiumManifestRefusal(
     return 'mv3-background-scripts'
   }
 
-  // Any other declared value — missing (Chrome treats it as MV1), 1, or a
-  // number above 3 — is refused with "Cannot install extension because it
+  // Any other declared value, missing (Chrome treats it as MV1), 1, or a
+  // number above 3, is refused with "Cannot install extension because it
   // uses an unsupported manifest version" (wild: Custom-salesforce-inspector).
   // Only diagnose real manifest objects; malformed input is the browser's
   // problem to report.
@@ -61,17 +61,17 @@ export function diagnoseChromiumManifestRefusal(
  * content_scripts matches, host_permissions, or web_accessible_resources
  * makes Chrome refuse the WHOLE extension at load. The only shape verified
  * to actually refuse is an invalid HOST WILDCARD (wild: CarbonWise's
- * `*carbonwise*` — CDP loadUnpacked reports "Invalid host wildcard").
+ * `*carbonwise*`, CDP loadUnpacked reports "Invalid host wildcard").
  *
  * NOT flagged, all verified live on Chrome 150 (2026-07-11, both CDP
  * loadUnpacked and --load-extension, install ENABLED):
  * - explicit ports (`http://localhost:3000/*`; wild memux loads fine)
  * - WILDCARD ports (`ws://localhost:<star>` with a wildcard port; wild
  *   BinaryBeastMaster/chat-relay installs ENABLED with a live service
- *   worker) — the port is not part of the host
+ *   worker). The port is not part of the host
  * - query strings / fragments in the path (`?`, `#` are literal path
  *   characters: `.../gcpd/730?tab=majors` and `/page#section` both load;
- *   wild SN-Utils ships a query-string exclude_matches on the store) —
+ *   wild SN-Utils ships a query-string exclude_matches on the store),
  *   flagging them warned "the whole extension will not load" on extensions
  *   that load fine.
  */
@@ -109,7 +109,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
 }
 
 /**
- * Chrome's host grammar allows `*`, `*.domain.tld`, or a literal host — a
+ * Chrome's host grammar allows `*`, `*.domain.tld`, or a literal host, a
  * wildcard anywhere else in the host is invalid (wild: CarbonWise matches on
  * a host of `*carbonwise*`). Chrome refuses the whole extension over it.
  *
@@ -119,7 +119,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
  * and warned "the whole extension will not load" about an extension Chrome
  * installs ENABLED (verified live on Chrome 150 via --load-extension: wild
  * BinaryBeastMaster/chat-relay installs enabled with a running service worker).
- * Explicit ports only ever passed by luck — `localhost:3000` contains no `*`
+ * Explicit ports only ever passed by luck, `localhost:3000` contains no `*`
  * to trip the check.
  */
 function hasInvalidHostWildcard(pattern: string): boolean {
@@ -144,26 +144,26 @@ function hasInvalidHostWildcard(pattern: string): boolean {
 /**
  * Other manifest shapes Chrome refuses outright, each proven with CDP
  * `Extensions.loadUnpacked` (which, unlike --load-extension, reports the
- * reason) — the wild-subject shapes on Chrome 150 (2026-07-11) and the
+ * reason), the wild-subject shapes on Chrome 150 (2026-07-11) and the
  * fixture batch on Chrome 150 (2026-07-13). The refusal is silent under
  * --load-extension, so dev must name it instead of printing an ID for an
  * extension that never loads.
  *
- * NOT refusals — verified to LOAD on Chrome 150 (2026-07-13, CDP
+ * NOT refusals, verified to LOAD on Chrome 150 (2026-07-13, CDP
  * loadUnpacked); do NOT add these however fatal they look:
  * - MV3 `background.page`; `background.persistent` true or false
- * - icon files with undecodable bytes, and SVG icons — only a MISSING or
+ * - icon files with undecodable bytes, and SVG icons, only a MISSING or
  *   0-byte icon file refuses
  * - unknown `permissions` entries; MV2 keys like `browser_action` under MV3
  * - a WAR dictionary with only `use_dynamic_url` beside `resources`
  * - `__MSG_@@predefined__` variables; catalog-key case differences (message
  *   lookup is case-insensitive)
  * And on Firefox 147 (2026-07-13, RDP installTemporaryAddon): explicit AND
- * wildcard ports in match patterns install fine — the old "host must not
+ * wildcard ports in match patterns install fine, the old "host must not
  * include a port" grammar is gone; do not resurrect it for gecko.
  *
  * Safari (2026-07-13, macOS 15.7.7): safari-web-extension-converter
- * CONVERTS every one of these shapes with exit 0 — missing name, bad locale
+ * CONVERTS every one of these shapes with exit 0, missing name, bad locale
  * catalogs, all of it. The converter is not a refusal surface and must not
  * be gated on manifest shapes; Safari's real refusals happen at runtime
  * inside Safari, which has no scriptable install path to verify against.
@@ -180,12 +180,12 @@ export function findChromiumLoadBlockers(
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
-  // "Required value 'name' is missing or invalid." — missing, empty-string,
+  // "Required value 'name' is missing or invalid.", missing, empty-string,
   // and non-string names all refuse (fixtures 01/02/26). The develop
   // pipeline repairs these at emission; this names it for external dists.
   if (typeof m.name !== 'string' || m.name === '') {
     blockers.push(
-      `name: missing, empty, or not a string — Chrome requires a non-empty string name and refuses the extension.`
+      `name: missing, empty, or not a string, Chrome requires a non-empty string name and refuses the extension.`
     )
   }
 
@@ -194,7 +194,7 @@ export function findChromiumLoadBlockers(
   // Ananyakk71/javscript). Same grammar the emission sanitizer repairs.
   if (typeof m.version !== 'string' || !isValidDottedVersion(m.version)) {
     blockers.push(
-      `version: missing or invalid — Chrome requires 1-4 dot-separated integers (0-65535) and refuses the extension.`
+      `version: missing or invalid, Chrome requires 1-4 dot-separated integers (0-65535) and refuses the extension.`
     )
   }
 
@@ -209,13 +209,13 @@ export function findChromiumLoadBlockers(
     m.web_accessible_resources.forEach((entry: any, index: number) => {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         blockers.push(
-          `web_accessible_resources[${index}]: MV2-style entry — MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
+          `web_accessible_resources[${index}]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
         )
         return
       }
       if (entry.resources === undefined) {
         blockers.push(
-          `web_accessible_resources[${index}]: 'resources' is required — Chrome refuses the extension without it.`
+          `web_accessible_resources[${index}]: 'resources' is required, Chrome refuses the extension without it.`
         )
       }
       if (
@@ -224,7 +224,7 @@ export function findChromiumLoadBlockers(
         entry.use_dynamic_url === undefined
       ) {
         blockers.push(
-          `web_accessible_resources[${index}]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources — Chrome refuses the extension without it.`
+          `web_accessible_resources[${index}]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources, Chrome refuses the extension without it.`
         )
       }
     })
@@ -239,11 +239,11 @@ export function findChromiumLoadBlockers(
     if (!group || typeof group !== 'object') return
     if (group.matches === undefined) {
       blockers.push(
-        `content_scripts[${index}]: 'matches' is required — Chrome refuses the extension without it.`
+        `content_scripts[${index}]: 'matches' is required, Chrome refuses the extension without it.`
       )
     } else if (Array.isArray(group.matches) && group.matches.length === 0) {
       blockers.push(
-        `content_scripts[${index}].matches: there must be at least one match — Chrome refuses the extension over an empty list.`
+        `content_scripts[${index}].matches: there must be at least one match, Chrome refuses the extension over an empty list.`
       )
     }
     for (const listKey of ['js', 'css']) {
@@ -252,26 +252,26 @@ export function findChromiumLoadBlockers(
       list.forEach((entry: any, entryIndex: number) => {
         if (typeof entry !== 'string') {
           blockers.push(
-            `content_scripts[${index}].${listKey}[${entryIndex}]: expected a string, got ${typeof entry} — Chrome refuses the extension.`
+            `content_scripts[${index}].${listKey}[${entryIndex}]: expected a string, got ${typeof entry}, Chrome refuses the extension.`
           )
         }
       })
     }
     if (group.run_at !== undefined && !CS_RUN_AT.includes(group.run_at)) {
       blockers.push(
-        `content_scripts[${index}].run_at: expected "document_start", "document_end" or "document_idle", got ${JSON.stringify(group.run_at)} — Chrome refuses the extension.`
+        `content_scripts[${index}].run_at: expected "document_start", "document_end" or "document_idle", got ${JSON.stringify(group.run_at)}, Chrome refuses the extension.`
       )
     }
   })
 
   // minimum_chrome_version (fixtures 11/31/32): invalid grammar refuses
   // outright; a valid value above the running browser refuses with "This
-  // extension requires ... version N or greater" — same silent wedge.
+  // extension requires ... version N or greater", same silent wedge.
   const minVersion = m.minimum_chrome_version
   if (minVersion !== undefined) {
     if (typeof minVersion !== 'string' || !isValidDottedVersion(minVersion)) {
       blockers.push(
-        `minimum_chrome_version: invalid value ${JSON.stringify(minVersion)} — Chrome refuses the extension.`
+        `minimum_chrome_version: invalid value ${JSON.stringify(minVersion)}, Chrome refuses the extension.`
       )
     } else if (
       browserVersion &&
@@ -279,7 +279,7 @@ export function findChromiumLoadBlockers(
       compareDottedVersions(minVersion, browserVersion) > 0
     ) {
       blockers.push(
-        `minimum_chrome_version: requires ${minVersion} but the resolved browser is ${browserVersion} — the browser refuses the extension.`
+        `minimum_chrome_version: requires ${minVersion} but the resolved browser is ${browserVersion}, the browser refuses the extension.`
       )
     }
   }
@@ -294,7 +294,7 @@ export function findChromiumLoadBlockers(
     )
     if (withKeys.length > 4) {
       blockers.push(
-        `commands: ${withKeys.length} shortcuts declared with "suggested_key" — Chrome allows at most 4.`
+        `commands: ${withKeys.length} shortcuts declared with "suggested_key", Chrome allows at most 4.`
       )
     }
   }
@@ -308,18 +308,18 @@ export function findChromiumLoadBlockers(
     const css = Array.isArray(group?.css) ? group.css : []
     if (js.length === 0 && css.length === 0) {
       blockers.push(
-        `content_scripts[${index}]: declares neither "js" nor "css" — Chrome requires at least one.`
+        `content_scripts[${index}]: declares neither "js" nor "css", Chrome requires at least one.`
       )
     }
   })
 
-  // "Value 'key' is missing or invalid." — a manifest key must be a valid
+  // "Value 'key' is missing or invalid.", a manifest key must be a valid
   // base64 public key (wild: queup ships one with broken padding).
   const key = m?.key
   if (key !== undefined) {
     if (typeof key !== 'string' || !isValidBase64(key)) {
       blockers.push(
-        `key: not a valid base64 public key — Chrome refuses the extension.`
+        `key: not a valid base64 public key, Chrome refuses the extension.`
       )
     }
   }
@@ -328,7 +328,7 @@ export function findChromiumLoadBlockers(
 }
 
 /**
- * Icon files Chrome cannot load — missing from the extension directory or
+ * Icon files Chrome cannot load, missing from the extension directory or
  * present but empty (0 bytes, undecodable). Either one makes Chrome refuse
  * the WHOLE extension at load with "Could not load icon '<file>'", surfaced
  * only on stderr/a native dialog (wild: Speak2Type ships a 0-byte
@@ -358,7 +358,7 @@ export function findUnloadableIconFiles(
     }
     if (reason) {
       findings.push(
-        `${field}: icon "${ref}" ${reason} — Chrome refuses the whole extension over an icon it cannot load.`
+        `${field}: icon "${ref}" ${reason}, Chrome refuses the whole extension over an icon it cannot load.`
       )
     }
   }
@@ -408,7 +408,7 @@ export function findLocaleLoadBlockers(
     try {
       if (!fs.existsSync(catalogPath)) {
         blockers.push(
-          `default_locale: "${defaultLocale}" is declared but _locales/${defaultLocale}/messages.json is missing — Chrome refuses the whole extension.`
+          `default_locale: "${defaultLocale}" is declared but _locales/${defaultLocale}/messages.json is missing, Chrome refuses the whole extension.`
         )
       } else {
         try {
@@ -421,7 +421,7 @@ export function findLocaleLoadBlockers(
           )
         } catch {
           blockers.push(
-            `default_locale: _locales/${defaultLocale}/messages.json is not valid JSON — Chrome refuses the whole extension.`
+            `default_locale: _locales/${defaultLocale}/messages.json is not valid JSON, Chrome refuses the whole extension.`
           )
         }
       }
@@ -429,7 +429,7 @@ export function findLocaleLoadBlockers(
       return blockers
     }
 
-    // "Variable __MSG_x__ used but not defined." — only whole-string
+    // "Variable __MSG_x__ used but not defined.", only whole-string
     // references are flagged (the verified shape), @@predefined variables
     // are exempt, and the key match is case-insensitive like Chrome's.
     if (catalogKeys) {
@@ -438,14 +438,14 @@ export function findLocaleLoadBlockers(
       for (const ref of refs) {
         if (!catalogKeys.has(ref.toLowerCase())) {
           blockers.push(
-            `__MSG_${ref}__: used in the manifest but not defined in _locales/${defaultLocale}/messages.json — Chrome refuses the whole extension.`
+            `__MSG_${ref}__: used in the manifest but not defined in _locales/${defaultLocale}/messages.json, Chrome refuses the whole extension.`
           )
         }
       }
     }
   } else {
     // "Localization used, but default_locale wasn't specified in the
-    // manifest." — a populated _locales tree with no default_locale.
+    // manifest.", a populated _locales tree with no default_locale.
     try {
       if (fs.existsSync(localesDir)) {
         const hasCatalog = fs
@@ -455,12 +455,12 @@ export function findLocaleLoadBlockers(
           )
         if (hasCatalog) {
           blockers.push(
-            `_locales: a locales tree exists but the manifest declares no default_locale — Chrome refuses the whole extension.`
+            `_locales: a locales tree exists but the manifest declares no default_locale, Chrome refuses the whole extension.`
           )
         }
       }
     } catch {
-      // unreadable dir — the browser will complain on its own
+      // unreadable dir. The browser will complain on its own
     }
   }
 
@@ -468,7 +468,7 @@ export function findLocaleLoadBlockers(
 }
 
 /**
- * "File does not exist: <path>/schema.json" — a storage.managed_schema
+ * "File does not exist: <path>/schema.json", a storage.managed_schema
  * pointing at a file that is not in the extension directory refuses the
  * whole extension (fixture 19, Chrome 150).
  */
@@ -483,11 +483,11 @@ export function findMissingManagedSchema(
     const abs = path.join(extensionDir, schema.replace(/^\//, ''))
     if (!fs.existsSync(abs)) {
       return [
-        `storage.managed_schema: "${schema}" does not exist in the extension directory — Chrome refuses the whole extension.`
+        `storage.managed_schema: "${schema}" does not exist in the extension directory, Chrome refuses the whole extension.`
       ]
     }
   } catch {
-    // unreadable — the browser will complain on its own
+    // unreadable. The browser will complain on its own
   }
   return []
 }

@@ -4,7 +4,7 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compilation} from '@rspack/core'
 
@@ -23,9 +23,9 @@ export interface CssAssetResult {
 /**
  * Resolves the CSS asset emitted for a given entry feature.
  *
- * First tries the canonical name (`<feature>.css`).  If that misses —
+ * First tries the canonical name (`<feature>.css`).  If that misses,
  * which can happen when rspack's native CSS (`experiments.css`) splits
- * the stylesheet into a chunk whose name differs from the entry — it
+ * the stylesheet into a chunk whose name differs from the entry, it
  * falls back to inspecting the entrypoint's actual chunk files.
  */
 export function resolveCssAsset(

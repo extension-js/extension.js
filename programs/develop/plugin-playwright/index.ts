@@ -4,7 +4,7 @@
 // ██╔═══╝ ██║     ██╔══██║  ╚██╔╝  ██║███╗██║██╔══██╗██║██║   ██║██╔══██║   ██║
 // ██║     ███████╗██║  ██║   ██║   ╚███╔███╔╝██║  ██║██║╚██████╔╝██║  ██║   ██║
 // ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -55,7 +55,7 @@ export type ReadyMetadata = {
   browserExitCode?: number | null
   // Runtime attachment signal. `status: 'ready'` means "compiled + dist written";
   // these mean "the extension's service worker has connected to the control
-  // channel and can be driven" — stamped by the control broker on the first
+  // channel and can be driven", stamped by the control broker on the first
   // producer hello, preserved across recompiles. Tooling that needs to act
   // (storage/reload/eval) should wait for `runtime: 'attached'`, not just ready.
   runtime?: 'attached'
@@ -248,7 +248,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // Preserve fields the browser launcher wrote post-launch: ready.json is
     // first written before the browser binds its debug port, so a recompile here
     // must not clobber the real CDP port (read by the MCP source-inspect tool).
-    // Likewise browserExitedAt/browserExitCode — the launcher stamps them when
+    // Likewise browserExitedAt/browserExitCode, the launcher stamps them when
     // the browser dies out from under a live session, and a compile succeeding
     // afterwards must not erase that evidence (compiles don't need a browser).
     try {

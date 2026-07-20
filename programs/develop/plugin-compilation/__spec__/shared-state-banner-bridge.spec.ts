@@ -1,10 +1,10 @@
 // Pins the bridge between programs/extension's banner.ts and develop's
 // shared-state. Before the bridge, a compile that finished before the
 // browser banner was printed would stay parked in `pendingCompilationLine`
-// until the next `done` hook checked the env var — which made the initial
+// until the next `done` hook checked the env var, which made the initial
 // run silent and double-printed on the first reload.
 
-import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const BANNER_PRINTED_EVENT = 'extensionjs:banner-printed'
 

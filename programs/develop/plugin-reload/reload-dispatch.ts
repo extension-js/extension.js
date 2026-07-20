@@ -4,14 +4,14 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as path from 'path'
 import colors from 'pintor'
 import type {ReloadInstruction} from './classify-reload'
 
-// Every dev mode — launched (Chromium CDP / Firefox RDP) and `--no-browser` —
+// Every dev mode, launched (Chromium CDP / Firefox RDP) and `--no-browser`,
 // reloads through the control-bridge `broker` (the in-extension SW producer's
 // chrome.scripting re-injection). A launched browser's CDP/RDP controller is
 // kept only for logging / source inspection, NOT reload.
@@ -36,7 +36,10 @@ export interface ReloadExecutor {
 }
 
 /** Broadcast a reload over the control bridge to the SW producer. */
-function viaBroker(broker: ReloadBroker, instruction: ReloadInstruction): number {
+function viaBroker(
+  broker: ReloadBroker,
+  instruction: ReloadInstruction
+): number {
   return broker.broadcastReload({
     type: instruction.type,
     changedContentScriptEntries: instruction.changedContentScriptEntries,
@@ -48,7 +51,7 @@ function viaBroker(broker: ReloadBroker, instruction: ReloadInstruction): number
 /**
  * The one stdout announcement per dispatched reload. Prints the SAME label the
  * producer echoes into the page's devtools console and the devtools-extension
- * pill renders — one server-built string, three surfaces, zero drift.
+ * pill renders, one server-built string, three surfaces, zero drift.
  */
 export function formatReloadingLine(label: string): string {
   return `Reloading ${colors.brightBlue(label)}…`
@@ -76,7 +79,7 @@ export async function dispatchReload(
 
     // Announce only when at least one live extension instance received the
     // signal (`notified` producers). With zero producers nothing reloads
-    // anywhere — printing "Reloading…" would be a lie. This also covers
+    // anywhere, printing "Reloading…" would be a lie. This also covers
     // `--no-browser` before/without an attached browser.
     if (notified > 0) {
       if (instruction.label) console.log(formatReloadingLine(instruction.label))
@@ -94,7 +97,7 @@ export async function dispatchReload(
 }
 
 export interface ChangedSourcesSnapshot {
-  /** A manifest.json / _locales change — forces a full reload regardless of which other files changed. */
+  /** A manifest.json / _locales change, forces a full reload regardless of which other files changed. */
   forcedFull: boolean
   /** Project-relative, forward-slashed paths of every file changed since the last compile. */
   changedSources: string[]
@@ -127,7 +130,7 @@ export function createChangedSourcesTracker(
     const contextDir = compiler.options.context || ''
     for (const file of modifiedFiles) {
       const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
-      // rspack sometimes reports the watch root itself as modified — it
+      // rspack sometimes reports the watch root itself as modified, it
       // relativizes to '' and would leak into the reload label as a dangling
       // comma ("(src/a.js, )").
       if (!normalized) continue

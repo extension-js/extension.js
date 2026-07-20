@@ -3,7 +3,10 @@ import {classicConcatEntry} from '../../shared/classic-concat'
 
 const parse = (entry: string) => {
   const query = entry.slice(entry.indexOf('=') + 1)
-  return JSON.parse(decodeURIComponent(query)) as {feature: string; js: string[]}
+  return JSON.parse(decodeURIComponent(query)) as {
+    feature: string
+    js: string[]
+  }
 }
 
 describe('classicConcatEntry', () => {
@@ -12,7 +15,7 @@ describe('classicConcatEntry', () => {
     // injected EXACTLY ONCE, no error. Concatenating it twice redeclares its
     // top-level bindings and turns the whole group into a SyntaxError
     // ("Identifier 'NativeSkipper' has already been declared"), so an extension
-    // Chrome runs fine failed to build — wild: ThomasTavernier/Improve-Crunchyroll
+    // Chrome runs fine failed to build, wild: ThomasTavernier/Improve-Crunchyroll
     // lists .../watch/player/skippers/skippers.js twice.
     const entry = classicConcatEntry('content_scripts/content-1', [
       '/p/shared/a.js',
@@ -41,6 +44,8 @@ describe('classicConcatEntry', () => {
 
   it('leaves a group with no duplicates untouched', () => {
     const js = ['/p/a.js', '/p/b.js', '/p/c.js']
-    expect(parse(classicConcatEntry('content_scripts/content-0', js)).js).toEqual(js)
+    expect(
+      parse(classicConcatEntry('content_scripts/content-0', js)).js
+    ).toEqual(js)
   })
 })

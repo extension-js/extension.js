@@ -4,15 +4,15 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 // Instance-port fidelity: every piece of tooling (a reload, a readiness check,
 // a source inspection) must stay faithful to its own instance's debug port. The
 // registry used to fall back to a process-wide last-launched port whenever the
 // instance id was missing, so with two live instances in one process (chrome +
 // edge from one `dev` command) the earlier instance's tooling silently captured
-// the later browser. These specs simulate two concurrent instances per engine —
-// no real browser — and cover the faithful case, today's cross-talk case, and
+// the later browser. These specs simulate two concurrent instances per engine,
+// no real browser, and cover the faithful case, today's cross-talk case, and
 // the cannot-tell case, plus the single-browser-unchanged invariant.
 
 import {beforeEach, describe, expect, it} from 'vitest'
@@ -23,12 +23,12 @@ import {
   resolvePortForInstance,
   setInstancePorts
 } from '../browsers-lib/instance-registry'
-import {RemoteFirefox} from '../run-firefox/rdp/remote-firefox'
 import {deriveDebugPortWithInstance} from '../browsers-lib/shared-utils'
+import {RemoteFirefox} from '../run-firefox/rdp/remote-firefox'
 
 // The registry is a module-global singleton; isolate every test by re-seeding
 // two live instances (chrome launched first, then edge) before each case. There
-// is no public "clear" — pool: forks + maxWorkers: 1 keeps the module fresh per
+// is no public "clear", pool: forks + maxWorkers: 1 keeps the module fresh per
 // file, and each test only asserts on ids it set itself.
 const CHROME_CDP = 9222
 const EDGE_CDP = 9333
@@ -38,11 +38,14 @@ const EDGE_RDP = 6111
 beforeEach(() => {
   // Two concurrent instances in one process. Edge launches LAST, so the old
   // process-wide fallback would have resolved everything to edge's ports.
-  setInstancePorts('chrome-instance', {cdpPort: CHROME_CDP, rdpPort: CHROME_RDP})
+  setInstancePorts('chrome-instance', {
+    cdpPort: CHROME_CDP,
+    rdpPort: CHROME_RDP
+  })
   setInstancePorts('edge-instance', {cdpPort: EDGE_CDP, rdpPort: EDGE_RDP})
 })
 
-describe('resolvePortForInstance — the one shared contract', () => {
+describe('resolvePortForInstance, the one shared contract', () => {
   it('faithful: a known instance resolves to its OWN registered port (cdp + rdp)', () => {
     expect(resolvePortForInstance('chrome-instance', 'cdp')).toBe(CHROME_CDP)
     expect(resolvePortForInstance('edge-instance', 'cdp')).toBe(EDGE_CDP)
@@ -82,15 +85,13 @@ describe('resolvePortForInstance — the one shared contract', () => {
 
   it('known-but-unregistered instance defers to the caller fallback, never another instance port', () => {
     // The launcher may register a port slightly after a waiter starts. Until
-    // then we return the caller's own per-instance default — not edge's port.
+    // then we return the caller's own per-instance default, not edge's port.
     const myDefault = 9555
     expect(resolvePortForInstance('not-yet-registered', 'cdp', myDefault)).toBe(
       myDefault
     )
     // And without a fallback we yield undefined (poll again) rather than edge.
-    expect(
-      resolvePortForInstance('not-yet-registered', 'cdp')
-    ).toBeUndefined()
+    expect(resolvePortForInstance('not-yet-registered', 'cdp')).toBeUndefined()
   })
 
   it('a caller-supplied fallback is honored for the cannot-tell case (no throw)', () => {
@@ -106,7 +107,7 @@ describe('resolvePortForInstance — the one shared contract', () => {
   })
 })
 
-describe('chromium readiness — faithful per-instance CDP resolution', () => {
+describe('chromium readiness, faithful per-instance CDP resolution', () => {
   // Re-create the resolution the readiness waiter performs: prefer this
   // instance's registered port, else fall back to the caller's own derived
   // port. (waitForChromeRemoteDebugging would poll the network beyond this; we
@@ -114,7 +115,8 @@ describe('chromium readiness — faithful per-instance CDP resolution', () => {
   const resolveReadinessPort = (derived: number, instanceId?: string) => {
     try {
       const fromRegistry = resolvePortForInstance(instanceId, 'cdp', derived)
-      if (typeof fromRegistry === 'number' && fromRegistry > 0) return fromRegistry
+      if (typeof fromRegistry === 'number' && fromRegistry > 0)
+        return fromRegistry
     } catch {
       // matches readiness.ts: swallow and keep the derived port
     }
@@ -142,7 +144,7 @@ describe('chromium readiness — faithful per-instance CDP resolution', () => {
   })
 })
 
-describe('firefox RemoteFirefox.resolveRdpPort — faithful per-instance RDP resolution', () => {
+describe('firefox RemoteFirefox.resolveRdpPort, faithful per-instance RDP resolution', () => {
   // resolveRdpPort is private; reach it via the prototype the way the codebase's
   // own internals do, with no network and no real Firefox.
   const callResolve = (
@@ -155,9 +157,7 @@ describe('firefox RemoteFirefox.resolveRdpPort — faithful per-instance RDP res
       port,
       extension: []
     } as unknown as ConstructorParameters<typeof RemoteFirefox>[0])
-    return (
-      inst as unknown as {resolveRdpPort: () => number}
-    ).resolveRdpPort()
+    return (inst as unknown as {resolveRdpPort: () => number}).resolveRdpPort()
   }
 
   it('faithful: firefox tooling for an instance reaches that instance RDP port', () => {
@@ -185,7 +185,7 @@ describe('firefox RemoteFirefox.resolveRdpPort — faithful per-instance RDP res
   })
 
   // resolvedRdpPort carries the CONCRETE port the launcher actually started
-  // Firefox on (already through findAvailablePortNear). It must be used as-is —
+  // Firefox on (already through findAvailablePortNear). It must be used as-is,
   // never re-derived. Regression for: launcher passed 9230 but the installer
   // connected to 9330 (offset double-applied) -> ECONNREFUSED, add-on never
   // installed, content-script reload silently never mounted.
@@ -201,9 +201,7 @@ describe('firefox RemoteFirefox.resolveRdpPort — faithful per-instance RDP res
       resolvedRdpPort,
       extension: []
     } as unknown as ConstructorParameters<typeof RemoteFirefox>[0])
-    return (
-      inst as unknown as {resolveRdpPort: () => number}
-    ).resolveRdpPort()
+    return (inst as unknown as {resolveRdpPort: () => number}).resolveRdpPort()
   }
 
   it('pinned: a concrete launched port with no instance id is used verbatim, NOT re-derived', () => {

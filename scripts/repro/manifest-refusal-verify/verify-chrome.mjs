@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Drive real Chrome via CDP Extensions.loadUnpacked for every fixture and
 // record the exact acceptance/refusal per shape. One browser, sequential loads.
@@ -15,7 +15,9 @@ import {fileURLToPath} from 'url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const fixturesRoot = path.join(here, 'fixtures')
-const index = JSON.parse(fs.readFileSync(path.join(fixturesRoot, 'index.json'), 'utf8'))
+const index = JSON.parse(
+  fs.readFileSync(path.join(fixturesRoot, 'index.json'), 'utf8')
+)
 
 const CHROME = process.env.CHROME_BIN
 if (!CHROME || !fs.existsSync(CHROME)) {
@@ -26,16 +28,20 @@ if (!CHROME || !fs.existsSync(CHROME)) {
 const profile = path.join(here, 'profile')
 fs.rmSync(profile, {recursive: true, force: true})
 
-const chrome = spawn(CHROME, [
-  '--headless=new',
-  '--remote-debugging-port=0',
-  '--enable-unsafe-extension-debugging',
-  `--user-data-dir=${profile}`,
-  '--no-first-run',
-  '--no-default-browser-check',
-  '--disable-features=DisableLoadExtensionCommandLineSwitch',
-  'about:blank'
-], {stdio: ['ignore', 'pipe', 'pipe']})
+const chrome = spawn(
+  CHROME,
+  [
+    '--headless=new',
+    '--remote-debugging-port=0',
+    '--enable-unsafe-extension-debugging',
+    `--user-data-dir=${profile}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-features=DisableLoadExtensionCommandLineSwitch',
+    'about:blank'
+  ],
+  {stdio: ['ignore', 'pipe', 'pipe']}
+)
 
 let wsUrl = null
 const wsReady = new Promise((resolve, reject) => {
@@ -49,7 +55,10 @@ const wsReady = new Promise((resolve, reject) => {
   chrome.stderr.on('data', onData)
   chrome.stdout.on('data', onData)
   chrome.on('exit', (code) => reject(new Error(`chrome exited early: ${code}`)))
-  setTimeout(() => reject(new Error('timeout waiting for DevTools endpoint')), 30000)
+  setTimeout(
+    () => reject(new Error('timeout waiting for DevTools endpoint')),
+    30000
+  )
 })
 
 try {
@@ -86,11 +95,16 @@ try {
     const outcome = reply.error ? 'REFUSED' : 'LOADED'
     const detail = reply.error ? reply.error.message : `id=${reply.result?.id}`
     const verdict =
-      (expect === 'refuse') === (outcome === 'REFUSED') ? 'as-expected' : 'SURPRISE'
+      (expect === 'refuse') === (outcome === 'REFUSED')
+        ? 'as-expected'
+        : 'SURPRISE'
     results.push({id, expect, outcome, verdict, detail})
     console.log(`${id}\t${outcome}\t${verdict}\t${detail}`)
   }
-  fs.writeFileSync(path.join(here, 'results-chrome.json'), JSON.stringify(results, null, 2))
+  fs.writeFileSync(
+    path.join(here, 'results-chrome.json'),
+    JSON.stringify(results, null, 2)
+  )
 } finally {
   chrome.kill('SIGKILL')
 }

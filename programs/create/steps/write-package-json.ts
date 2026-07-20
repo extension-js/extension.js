@@ -4,11 +4,11 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs/promises'
 import {readFileSync} from 'fs'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import * as messages from '../lib/messages'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
@@ -82,7 +82,7 @@ interface OverridePackageJsonOptions {
 
 // `less` rides in transitively via extension-develop (Less compilation support).
 // Its postinstall only installs Playwright inside less.js's own dev monorepo and
-// is a no-op when installed as a dependency — so pnpm's "Ignored build scripts"
+// is a no-op when installed as a dependency, so pnpm's "Ignored build scripts"
 // warning is pure noise. Suppress it in every scaffold so `pnpm install` is clean.
 const BUILD_NOOP_DEPENDENCIES = ['less']
 
@@ -111,7 +111,7 @@ function engineVersionOverrideFromEnv(): string | undefined {
 }
 
 // `extension-create` publishes in lockstep with `extension`, so our own package
-// version is the RESOLVED engine version to pin when the caller gave none —
+// version is the RESOLVED engine version to pin when the caller gave none,
 // reproducible, and matching the toolchain that produced the scaffold. Falls
 // back to `undefined` (→ `latest`) only if the manifest can't be read.
 function ownCreatePackageVersion(): string | undefined {
@@ -119,7 +119,9 @@ function ownCreatePackageVersion(): string | undefined {
     const pkg = JSON.parse(
       readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
     )
-    return typeof pkg.version === 'string' && pkg.version ? pkg.version : undefined
+    return typeof pkg.version === 'string' && pkg.version
+      ? pkg.version
+      : undefined
   } catch {
     return undefined
   }
@@ -182,7 +184,7 @@ export async function overridePackageJson(
     packageJson.packageManager || getPackageManagerSpecFromEnv()
 
   // Pre-approve dependency build scripts so a single install "just works" with
-  // no manual approve-builds step — across pnpm and bun (npm/yarn run scripts by
+  // no manual approve-builds step, across pnpm and bun (npm/yarn run scripts by
   // default and ignore these keys). Native ML builds are only approved when the
   // project actually pulls the transformers stack, keeping plain scaffolds clean.
   const declaredDeps = {

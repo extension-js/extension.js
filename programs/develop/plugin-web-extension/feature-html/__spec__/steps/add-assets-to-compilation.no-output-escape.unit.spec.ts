@@ -63,7 +63,7 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
   it('a nested page referencing ../../../assets/<icon> emits INSIDE the output dir', () => {
     // The wild-corpus Sappgulf storm: popup.html at adapters/chrome/popup/
     // references ../../../assets/icon16.png. The emitted asset name used to be
-    // ../../assets/icon16.png — the dev middleware wrote it OVER the source
+    // ../../assets/icon16.png, the dev middleware wrote it OVER the source
     // file, and the watcher recompiled on its own emit once per second.
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-no-escape-')

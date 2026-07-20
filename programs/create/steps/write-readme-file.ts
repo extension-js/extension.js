@@ -4,14 +4,14 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs/promises'
-import * as messages from '../lib/messages'
-import * as utils from '../lib/utils'
-import {isDenoRuntime} from '../lib/package-manager'
+import * as path from 'path'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
+import * as messages from '../lib/messages'
+import {isDenoRuntime} from '../lib/package-manager'
+import * as utils from '../lib/utils'
 
 async function pathExists(target: string): Promise<boolean> {
   try {
@@ -28,7 +28,7 @@ export async function writeReadmeFile(
   logger: {log(...args: any[]): void; error(...args: any[]): void}
 ) {
   // Always overwrite the template's README so the scaffolded project
-  // reads as the user's own — not the upstream template's marketing
+  // reads as the user's own, not the upstream template's marketing
   // README. The bulk script in the examples repo keeps those rich,
   // template-specific READMEs for browsing on GitHub.
 

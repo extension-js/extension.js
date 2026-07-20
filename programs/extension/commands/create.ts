@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
@@ -29,7 +29,7 @@ export function registerCreateCommand(program: Command) {
     )
     .option(
       '--install [boolean]',
-      'whether or not to install the dependencies after creating the project (disabled by default — pass --install to opt in)',
+      'whether or not to install the dependencies after creating the project (disabled by default, pass --install to opt in)',
       parseOptionalBoolean,
       false
     )

@@ -121,7 +121,9 @@ describe('classifyReloadFromSources', () => {
 })
 
 describe('classifyReloadFromSources with a chunk-graph source index', () => {
-  const index = (over: Partial<SourceFeatureIndex> = {}): SourceFeatureIndex => ({
+  const index = (
+    over: Partial<SourceFeatureIndex> = {}
+  ): SourceFeatureIndex => ({
     swSources: new Set<string>(),
     contentEntriesBySource: new Map<string, Set<string>>(),
     pageSources: new Set<string>(),
@@ -130,7 +132,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
 
   it('classifies an unconventionally named SW source as service-worker (anshul regression)', () => {
     // `background-ultimate.js` fails the /background(\.|\/)/ name pattern and
-    // used to be re-injected as a content script — the SW never restarted.
+    // used to be re-injected as a content script. The SW never restarted.
     const result = classifyReloadFromSources({
       changedSources: ['background-ultimate.js'],
       getContentScriptCount: count(1),
@@ -187,7 +189,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
 
   it('a shared SW+content source fans out to both reload paths (firefox-tab-switcher regression)', () => {
     // A module listed in both background.scripts and content_scripts[].js
-    // used to classify SW-only — the SW restarted while every open tab kept
+    // used to classify SW-only, the SW restarted while every open tab kept
     // the stale content world. The instruction stays 'service-worker' (the
     // restart carries it) but must name the stale content entries and say so.
     const result = classifyReloadFromSources({
@@ -271,9 +273,9 @@ describe('buildSourceFeatureIndex', () => {
     ])
     const idx = buildSourceFeatureIndex(compilation, ctx)
     expect(idx.swSources.has('background-ultimate.js')).toBe(true)
-    expect(
-      idx.contentEntriesBySource.get('content/content-script.js')
-    ).toEqual(new Set(['content_scripts/content-0']))
+    expect(idx.contentEntriesBySource.get('content/content-script.js')).toEqual(
+      new Set(['content_scripts/content-0'])
+    )
     expect(idx.pageSources.has('popup/popup.js')).toBe(true)
   })
 

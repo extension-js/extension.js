@@ -1,11 +1,11 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {
-  SUPPORTED_PACKAGE_MANAGERS,
-  SUPPORTED_UI_FRAMEWORKS,
+  SUPPORTED_BROWSERS,
   SUPPORTED_CSS_TECH,
-  SUPPORTED_BROWSERS
+  SUPPORTED_PACKAGE_MANAGERS,
+  SUPPORTED_UI_FRAMEWORKS
 } from '../constants'
 import {OPTIONAL_DEPENDENCY_CONTRACTS} from '../optional-deps-contracts'
 
@@ -25,7 +25,12 @@ describe('supported surface', () => {
       'bun',
       'deno'
     ])
-    expect(SUPPORTED_UI_FRAMEWORKS).toEqual(['react', 'preact', 'vue', 'svelte'])
+    expect(SUPPORTED_UI_FRAMEWORKS).toEqual([
+      'react',
+      'preact',
+      'vue',
+      'svelte'
+    ])
     expect(SUPPORTED_CSS_TECH).toEqual([
       'css',
       'css-modules',
@@ -87,7 +92,7 @@ describe('supported surface', () => {
       expect(readme).toContain(label)
     }
     // Every named fork in SUPPORTED_BROWSERS is a valid --browser target;
-    // the README only surfaces the engine families, which is fine — but the
+    // the README only surfaces the engine families, which is fine, but the
     // canonical array must keep containing the flagship names the table shows.
     for (const flagship of ['chrome', 'edge', 'firefox']) {
       expect(SUPPORTED_BROWSERS).toContain(flagship)

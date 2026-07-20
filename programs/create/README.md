@@ -29,7 +29,7 @@ import {extensionCreate} from 'extension-create'
 await extensionCreate('my-extension', {})
 
 // Create a React extension and install its dependencies
-// (dependency install is opt-in — users normally run their own
+// (dependency install is opt-in, since users normally run their own
 // `npm install` so output is what they expect)
 await extensionCreate('my-react-extension', {
   template: 'react',

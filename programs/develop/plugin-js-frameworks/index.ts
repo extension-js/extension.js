@@ -4,7 +4,7 @@
 // ██   ██║╚════██║╚════╝██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██║███╗██║██║   ██║██╔══██╗██╔═██╗ ╚════██║
 // ╚█████╔╝███████║      ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗╚███╔███╔╝╚██████╔╝██║  ██║██║  ██╗███████║
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import {
@@ -167,7 +167,7 @@ export class JsFrameworksPlugin {
       ])
     )
     // Every entry AND every probe of these path sets goes through
-    // `toResourceKey` — a set built with `path.resolve` but probed with
+    // `toResourceKey`, a set built with `path.resolve` but probed with
     // `path.normalize` (or vice versa) never matches on Windows, where only
     // the resolved form carries the drive letter.
     const contentScriptLikePaths = new Set<string>()
@@ -219,8 +219,8 @@ export class JsFrameworksPlugin {
 
     // Browsers parse a script as an ES module only where the platform declares
     // it: `<script type="module">` in an HTML page, or a `"type": "module"`
-    // background service worker. Everything else — plain `<script src>` page
-    // scripts, classic workers — loads as a classic script, so only declared
+    // background service worker. Everything else, plain `<script src>` page
+    // scripts, classic workers, loads as a classic script, so only declared
     // modules may be force-marked `javascript/esm` below.
     const platformModulePaths = new Set<string>()
     try {
@@ -325,7 +325,7 @@ export class JsFrameworksPlugin {
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       // Explicit `javascript/auto` so rspack detects script-vs-module from the
       // file itself. Left implicit, rspack infers the type from the nearest
-      // package.json `"type"` field — but Chrome never reads package.json:
+      // package.json `"type"` field, but Chrome never reads package.json:
       // a project with `"type": "commonjs"` (Node tooling) still loads its
       // `"type": "module"` service worker graph as ESM, and one with
       // `"type": "module"` still loads classic sloppy content scripts. The
@@ -359,7 +359,7 @@ export class JsFrameworksPlugin {
         minify: false,
         // Auto-detect script vs module per file. Browsers load content scripts
         // and background.scripts as classic sloppy-mode scripts, where legacy
-        // octal escapes and loose semantics are legal — forcing every file
+        // octal escapes and loose semantics are legal, forcing every file
         // through strict-mode ESM parsing rejects Chrome-valid extensions (and
         // multi-MB data scripts full of octal escapes melt the SWC diagnostic
         // renderer). Files with import/export still parse as strict modules.
@@ -448,7 +448,7 @@ export class JsFrameworksPlugin {
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
         // Classic multi-file concat entries (content_scripts AND MV2
         // background.scripts) carry the __extensionjs_classic_concat__ query and
-        // are always plain concatenated classic scripts sharing one scope — never
+        // are always plain concatenated classic scripts sharing one scope, never
         // ES modules. They must be excluded here or Rspack marks the synthetic
         // entry `javascript/esm` and emits it as a hash-named asset instead of the
         // canonical `background/scripts.js` chunk (a content_scripts concat only
@@ -488,7 +488,7 @@ export class JsFrameworksPlugin {
       // rule, so this adds `type: 'javascript/esm'` on top of the loader
       // rule above without duplicating it. The content-script exclusion
       // covers a file declared both as a content script and a module page
-      // script — the content-script instance must stay classic.
+      // script, the content-script instance must stay classic.
       ...(platformModulePaths.size > 0
         ? [
             {

@@ -1,7 +1,7 @@
-import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {afterEach, describe, expect, it} from 'vitest'
 import {
   overridePackageJson,
   resolveExtensionDevDependencyVersion
@@ -200,7 +200,7 @@ describe('overridePackageJson template-aware scripts', () => {
   })
 })
 
-describe('resolveExtensionDevDependencyVersion (#57 — never silently pin "latest")', () => {
+describe('resolveExtensionDevDependencyVersion (#57, never silently pin "latest")', () => {
   const saved = {
     engine: process.env.EXTENSION_CREATE_ENGINE_VERSION,
     mcp: process.env.EXTENSION_MCP_CLI_VERSION
@@ -214,20 +214,21 @@ describe('resolveExtensionDevDependencyVersion (#57 — never silently pin "late
     }
     if (saved.engine !== undefined)
       process.env.EXTENSION_CREATE_ENGINE_VERSION = saved.engine
-    if (saved.mcp !== undefined) process.env.EXTENSION_MCP_CLI_VERSION = saved.mcp
+    if (saved.mcp !== undefined)
+      process.env.EXTENSION_MCP_CLI_VERSION = saved.mcp
   })
 
   it('caret-ranges a stable caller version, pins a prerelease exactly', () => {
     expect(resolveExtensionDevDependencyVersion('4.0.13')).toBe('^4.0.13')
-    expect(
-      resolveExtensionDevDependencyVersion('4.0.14-canary.123.abc')
-    ).toBe('4.0.14-canary.123.abc')
+    expect(resolveExtensionDevDependencyVersion('4.0.14-canary.123.abc')).toBe(
+      '4.0.14-canary.123.abc'
+    )
   })
 
   it('falls back to an env override when the caller threads no version', () => {
     delete process.env.EXTENSION_CREATE_ENGINE_VERSION
     process.env.EXTENSION_MCP_CLI_VERSION = '4.0.14-canary.999.deadbeef'
-    // The MCP calls extensionCreate without cliVersion — it must still pin the
+    // The MCP calls extensionCreate without cliVersion. It must still pin the
     // engine it is actually driving, not float "latest".
     expect(resolveExtensionDevDependencyVersion()).toBe(
       '4.0.14-canary.999.deadbeef'

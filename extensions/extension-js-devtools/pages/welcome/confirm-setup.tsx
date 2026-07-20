@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝   ██║   ██║   ██║██║   ██║██║     ╚════██║
 // ██████╔╝███████╗ ╚████╔╝    ██║   ╚██████╔╝╚██████╔╝███████╗███████║
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as React from 'react'
 import {
@@ -109,7 +109,7 @@ export function ConfirmSetupDialog() {
                   If you are using{' '}
                   <span className="font-mono">content_scripts</span>, the first
                   time you visit a targeted page you will see a local network
-                  access prompt. This is expected—click Allow to continue.
+                  access prompt. This is expected. Click Allow to continue.
                   Without it, content script reloads may not work reliably.
                 </p>
               </div>

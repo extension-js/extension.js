@@ -5,7 +5,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Inventory `_FUTURE/examples/examples/*` perf warnings.
 //
@@ -73,7 +73,7 @@ function listExampleDirs() {
 }
 
 // Parse a captured build output and extract perf-warning facts.
-// The plugin-perf-budgets PerfBudgetWarning is the authoritative signal —
+// The plugin-perf-budgets PerfBudgetWarning is the authoritative signal,
 // rspack's stock single-threshold warning is disabled in rspack-config.ts,
 // so the only "Build succeeded with N warning(s)" line that should fire
 // for size-related issues comes from us.
@@ -94,12 +94,12 @@ function parseBuildOutput(text) {
   //   <name>
   //     size:   470.0 KiB
   //     budget: 150.0 KiB  (over by 213%)
-  //     role:   content script — injected on every page navigation
+  //     role:   content script, injected on every page navigation
   //
   // Anchoring on `size:`/`budget:` pairs avoids the dist-tree false
   // positives where every emitted file is listed with its size.
   // Per-asset blocks may appear two ways:
-  //   (a) raw warning text — entries on their own lines (\n separated)
+  //   (a) raw warning text, entries on their own lines (\n separated)
   //   (b) routed through Extension.js' Performance formatter, which
   //       flattens to one line with `│` separators. Accept both.
   const oversized = []
@@ -208,7 +208,7 @@ function printSummary(results) {
 
   const banner = (title) => `\n${'━'.repeat(72)}\n${title}\n${'━'.repeat(72)}`
 
-  console.log(banner(`Inventory — browser=${browser}`))
+  console.log(banner(`Inventory, browser=${browser}`))
   console.log(
     `Total: ${results.length}   Clean: ${clean.length}   With warnings: ${withWarn.length}   Failed: ${failed.length}`
   )

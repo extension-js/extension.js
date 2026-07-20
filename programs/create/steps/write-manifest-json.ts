@@ -4,12 +4,12 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs/promises'
-import * as messages from '../lib/messages'
+import * as path from 'path'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
+import * as messages from '../lib/messages'
 
 export async function writeManifestJson(
   projectPath: string,

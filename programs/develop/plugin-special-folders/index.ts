@@ -4,15 +4,15 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'path'
+import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler, type Compilation, rspack} from '@rspack/core'
-import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+import * as path from 'path'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'
+import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -43,7 +43,7 @@ export class SpecialFoldersPlugin {
 
     // Chrome resolves a leading '/' from the extension root, so a root-absolute
     // ref that public/ does not satisfy is served from the source root instead.
-    // Runs whether or not public/ exists — projects with NO public/ dir are
+    // Runs whether or not public/ exists, projects with NO public/ dir are
     // exactly the ones that were broken.
     compiler.hooks.thisCompilation.tap(
       SpecialFoldersPlugin.name,

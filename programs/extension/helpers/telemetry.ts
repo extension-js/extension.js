@@ -4,12 +4,12 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import os from 'node:os'
-import fs from 'node:fs'
-import path from 'node:path'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 export type TelemetryEvent = 'command_executed' | 'command_failed'
 
@@ -186,7 +186,7 @@ function readConsentFile(file: string): 'enabled' | 'disabled' | null {
       return 'disabled'
     }
   } catch {
-    // missing or unreadable — treat as unset
+    // missing or unreadable, treat as unset
   }
   return null
 }
@@ -375,7 +375,7 @@ export class Telemetry {
 
       clearTimeout(t)
     } catch {
-      // best-effort — never crash
+      // best-effort, never crash
     }
   }
 
@@ -399,7 +399,7 @@ export class Telemetry {
   }
 
   // The audit log is write-only (flush() sends from the in-memory buffer), so
-  // it must stay bounded: at the cap, roll to a single .1 backup — total disk
+  // it must stay bounded: at the cap, roll to a single .1 backup, total disk
   // usage never exceeds ~2x the cap. Files grossly over the cap (legacy
   // unbounded growth) are dropped instead of kept as the backup.
   private rotateAuditIfNeeded(auditFile: string): void {
@@ -415,7 +415,7 @@ export class Telemetry {
         fs.renameSync(auditFile, backup)
       }
     } catch {
-      // missing file or failed rotation — appending proceeds either way
+      // missing file or failed rotation, appending proceeds either way
     }
   }
 }

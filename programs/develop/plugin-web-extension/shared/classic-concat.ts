@@ -4,7 +4,7 @@
 // ╚════██║██╔══██║██╔══██║██╔══██╗██╔══╝  ██║  ██║
 // ███████║██║  ██║██║  ██║██║  ██║███████╗██████╔╝
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 
@@ -15,7 +15,7 @@ import * as fs from 'fs'
  * Bundling each file as a separate ES module isolates those scopes and breaks
  * the implicit cross-file globals. When every file in a group is classic (no
  * top-level import/export), the group is concatenated into one module by the
- * classic-concat loader instead — matching browser semantics.
+ * classic-concat loader instead, matching browser semantics.
  */
 export function isClassicScript(filePath: string): boolean {
   try {
@@ -34,12 +34,12 @@ export function isClassicScript(filePath: string): boolean {
  * (enabling watch-mode rebuilds) and generates a V3 source map.
  */
 export function classicConcatEntry(feature: string, jsFiles: string[]): string {
-  // Chrome DEDUPES a file listed twice in one content_scripts `js` array — it
+  // Chrome DEDUPES a file listed twice in one content_scripts `js` array, it
   // injects it exactly once (verified live on Chrome 150: the same file listed
   // twice executes once, no error). Concatenating it twice instead redeclares
   // its top-level bindings and makes the whole group a SyntaxError
   // ("Identifier 'NativeSkipper' has already been declared"), so an extension
-  // that runs fine in Chrome failed to build — wild:
+  // that runs fine in Chrome failed to build, wild:
   // ThomasTavernier/Improve-Crunchyroll lists .../skippers/skippers.js twice.
   // First occurrence wins, preserving execution order.
   const deduped = [...new Set(jsFiles)]

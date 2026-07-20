@@ -4,13 +4,13 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RuleSetRule} from '@rspack/core'
-import {commonStyleLoaders} from '../common-style-loaders'
-import {createSassLoaderOptions} from '../css-tools/sass'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import type {DevOptions} from '../../types'
+import {commonStyleLoaders} from '../common-style-loaders'
+import {createSassLoaderOptions} from '../css-tools/sass'
 
 export interface PreprocessorUsage {
   useSass?: boolean

@@ -60,7 +60,8 @@
     "ci:test:plugin-compilation": "pnpm run test:dev",
     "ci:test:toolchain-preflight": "pnpm --dir programs/develop exec vitest run lib/__spec__/optional-deps-resolver.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:prose": "node scripts/check-prose.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.5",
