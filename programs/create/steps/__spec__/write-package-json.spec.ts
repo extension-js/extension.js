@@ -1,8 +1,11 @@
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {overridePackageJson} from '../write-package-json'
+import {
+  overridePackageJson,
+  resolveExtensionDevDependencyVersion
+} from '../write-package-json'
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-pkg-'))
@@ -194,6 +197,59 @@ describe('overridePackageJson template-aware scripts', () => {
       expect(pkg.scripts.build).toBe('custom build')
       expect(pkg.scripts.preview).toBe('custom preview')
     })
+  })
+})
+
+describe('resolveExtensionDevDependencyVersion (#57 — never silently pin "latest")', () => {
+  const saved = {
+    engine: process.env.EXTENSION_CREATE_ENGINE_VERSION,
+    mcp: process.env.EXTENSION_MCP_CLI_VERSION
+  }
+  afterEach(() => {
+    for (const key of [
+      'EXTENSION_CREATE_ENGINE_VERSION',
+      'EXTENSION_MCP_CLI_VERSION'
+    ]) {
+      delete process.env[key]
+    }
+    if (saved.engine !== undefined)
+      process.env.EXTENSION_CREATE_ENGINE_VERSION = saved.engine
+    if (saved.mcp !== undefined) process.env.EXTENSION_MCP_CLI_VERSION = saved.mcp
+  })
+
+  it('caret-ranges a stable caller version, pins a prerelease exactly', () => {
+    expect(resolveExtensionDevDependencyVersion('4.0.13')).toBe('^4.0.13')
+    expect(
+      resolveExtensionDevDependencyVersion('4.0.14-canary.123.abc')
+    ).toBe('4.0.14-canary.123.abc')
+  })
+
+  it('falls back to an env override when the caller threads no version', () => {
+    delete process.env.EXTENSION_CREATE_ENGINE_VERSION
+    process.env.EXTENSION_MCP_CLI_VERSION = '4.0.14-canary.999.deadbeef'
+    // The MCP calls extensionCreate without cliVersion — it must still pin the
+    // engine it is actually driving, not float "latest".
+    expect(resolveExtensionDevDependencyVersion()).toBe(
+      '4.0.14-canary.999.deadbeef'
+    )
+
+    process.env.EXTENSION_CREATE_ENGINE_VERSION = '4.1.0'
+    expect(resolveExtensionDevDependencyVersion()).toBe('^4.1.0')
+  })
+
+  it('pins its own lockstep package version instead of "latest" when nothing is provided', () => {
+    delete process.env.EXTENSION_CREATE_ENGINE_VERSION
+    delete process.env.EXTENSION_MCP_CLI_VERSION
+    const ownVersion = JSON.parse(
+      require('node:fs').readFileSync(
+        path.join(__dirname, '..', '..', 'package.json'),
+        'utf8'
+      )
+    ).version as string
+    const resolved = resolveExtensionDevDependencyVersion()
+    expect(resolved).not.toBe('latest')
+    const expected = ownVersion.includes('-') ? ownVersion : `^${ownVersion}`
+    expect(resolved).toBe(expected)
   })
 })
 
