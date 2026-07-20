@@ -333,12 +333,11 @@ export function resolveUserDeclaredWAR(
       const builtAbs = path.join(outputRoot || '', res)
       const publicAbsMaybe = path.join(projectPath, 'public', res)
       const asset2 =
-        typeof (compilation as any).getAsset === 'function'
-          ? (compilation as any).getAsset(res)
+        typeof compilation.getAsset === 'function'
+          ? compilation.getAsset(res)
           : undefined
       const assetEmitted =
-        Boolean(asset2 && (asset2 as any).name === res) ||
-        fs.existsSync(builtAbs)
+        Boolean(asset2 && asset2.name === res) || fs.existsSync(builtAbs)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
         // Resource exists either under public/ or in the emitted output; treat

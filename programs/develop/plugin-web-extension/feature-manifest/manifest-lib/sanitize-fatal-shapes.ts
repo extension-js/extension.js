@@ -58,7 +58,7 @@ export function sanitizeFatalManifestShapes(
   manifest: Manifest
   fixes: FatalShapeFix[]
 } {
-  const out = manifest as Record<string, any>
+  const out = manifest as Record<string, unknown>
   const fixes: FatalShapeFix[] = []
 
   if (typeof out.name !== 'string' || out.name === '') {
@@ -106,7 +106,8 @@ export function sanitizeFatalManifestShapes(
     if (!action || typeof action !== 'object' || Array.isArray(action)) {
       continue
     }
-    const icon = action.default_icon
+    const actionObj = action as Record<string, unknown>
+    const icon = actionObj.default_icon
     const isEmptyString = icon === ''
     const isEmptyObject =
       icon !== null &&
@@ -114,7 +115,7 @@ export function sanitizeFatalManifestShapes(
       !Array.isArray(icon) &&
       Object.keys(icon).length === 0
     if (isEmptyString || isEmptyObject) {
-      delete action.default_icon
+      delete actionObj.default_icon
       fixes.push({
         field: `${actionKey}.default_icon`,
         detail:
@@ -139,15 +140,16 @@ export function sanitizeFatalManifestShapes(
 
     const icons = out.icons
     if (icons && typeof icons === 'object' && !Array.isArray(icons)) {
+      const iconsObj = icons as Record<string, unknown>
       let dropped = false
-      for (const [size, ref] of Object.entries(icons)) {
+      for (const [size, ref] of Object.entries(iconsObj)) {
         if (isEmptyIconFile(ref)) {
-          delete icons[size]
+          delete iconsObj[size]
           dropped = true
           fixes.push({field: `icons.${size}`, detail: emptyIconDetail(ref)})
         }
       }
-      if (dropped && Object.keys(icons).length === 0) delete out.icons
+      if (dropped && Object.keys(iconsObj).length === 0) delete out.icons
     }
 
     for (const actionKey of ['action', 'browser_action', 'page_action']) {
@@ -155,18 +157,20 @@ export function sanitizeFatalManifestShapes(
       if (!action || typeof action !== 'object' || Array.isArray(action)) {
         continue
       }
-      const icon = action.default_icon
+      const actionObj = action as Record<string, unknown>
+      const icon = actionObj.default_icon
       if (isEmptyIconFile(icon)) {
-        delete action.default_icon
+        delete actionObj.default_icon
         fixes.push({
           field: `${actionKey}.default_icon`,
           detail: emptyIconDetail(icon)
         })
       } else if (icon && typeof icon === 'object' && !Array.isArray(icon)) {
         let dropped = false
-        for (const [size, ref] of Object.entries(icon)) {
+        const iconMap = icon as Record<string, unknown>
+        for (const [size, ref] of Object.entries(iconMap)) {
           if (isEmptyIconFile(ref)) {
-            delete icon[size]
+            delete iconMap[size]
             dropped = true
             fixes.push({
               field: `${actionKey}.default_icon.${size}`,
@@ -174,13 +178,16 @@ export function sanitizeFatalManifestShapes(
             })
           }
         }
-        if (dropped && Object.keys(icon).length === 0)
-          delete action.default_icon
+        if (dropped && Object.keys(iconMap).length === 0)
+          delete actionObj.default_icon
       }
     }
   }
 
-  const csp = out.content_security_policy
+  const csp = out.content_security_policy as
+    | Record<string, unknown>
+    | null
+    | undefined
   if (
     csp &&
     typeof csp === 'object' &&
@@ -207,7 +214,7 @@ export function sanitizeFatalManifestShapes(
       if (!command || typeof command !== 'object' || Array.isArray(command)) {
         continue
       }
-      const entry = command as Record<string, any>
+      const entry = command as Record<string, unknown>
       if (typeof entry.description === 'string' && entry.description.trim()) {
         continue
       }

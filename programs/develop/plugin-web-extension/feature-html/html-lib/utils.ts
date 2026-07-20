@@ -101,35 +101,38 @@ export function getAssetsFromHtml(
       return path.join(baseJoin, cleanPath)
     }
 
-    parseHtml(htmlDocument as any, ({filePath, childNode, assetType}) => {
-      const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
+    parseHtml(
+      htmlDocument as ReturnType<typeof parse5utilities.createNode>,
+      ({filePath, childNode, assetType}) => {
+        const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
 
-      switch (assetType) {
-        case 'script': {
-          assets.js?.push(fileAbsolutePath)
-          // The HTML spec matches the module type ASCII case-insensitively
-          const scriptType = (childNode as any)?.attrs?.find(
-            (attr: any) => attr.name === 'type'
-          )?.value
-          if (String(scriptType || '').toLowerCase() === 'module') {
-            assets.moduleJs?.push(fileAbsolutePath)
-          }
-          break
-        }
-        case 'css':
-          assets.css?.push(fileAbsolutePath)
-          break
-        case 'staticSrc':
-        case 'staticHref':
-          if (filePath.startsWith('#')) {
+        switch (assetType) {
+          case 'script': {
+            assets.js?.push(fileAbsolutePath)
+            // The HTML spec matches the module type ASCII case-insensitively
+            const scriptType = childNode?.attrs?.find(
+              (attr) => attr.name === 'type'
+            )?.value
+            if (String(scriptType || '').toLowerCase() === 'module') {
+              assets.moduleJs?.push(fileAbsolutePath)
+            }
             break
           }
-          assets.static?.push(fileAbsolutePath)
-          break
-        default:
-          break
+          case 'css':
+            assets.css?.push(fileAbsolutePath)
+            break
+          case 'staticSrc':
+          case 'staticHref':
+            if (filePath.startsWith('#')) {
+              break
+            }
+            assets.static?.push(fileAbsolutePath)
+            break
+          default:
+            break
+        }
       }
-    })
+    )
   } catch (error) {
     // If file doesn't exist or can't be read, return empty assets
     return assets
@@ -335,18 +338,24 @@ export function resolveAbsoluteFsPath(params: {
   }
 }
 
-export function getBaseHref(htmlDocument: any): string | undefined {
+interface BaseHrefNode {
+  nodeName?: string
+  attrs?: Array<{name: string; value?: string}>
+  childNodes?: BaseHrefNode[]
+}
+
+export function getBaseHref(htmlDocument: {
+  childNodes?: unknown
+}): string | undefined {
   // Look for <base href="...">
-  const htmlChildren = htmlDocument.childNodes || []
+  const htmlChildren = (htmlDocument.childNodes || []) as BaseHrefNode[]
   for (const node of htmlChildren) {
     if (node?.nodeName !== 'html') continue
     for (const child of node.childNodes || []) {
       if (child?.nodeName !== 'head') continue
       for (const headChild of child.childNodes || []) {
         if (headChild?.nodeName === 'base') {
-          const href = headChild.attrs?.find(
-            (a: any) => a.name === 'href'
-          )?.value
+          const href = headChild.attrs?.find((a) => a.name === 'href')?.value
           if (href) return href
         }
       }

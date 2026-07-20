@@ -26,11 +26,15 @@ export function validateJsonAsset(
   let parsed: unknown
   try {
     parsed = JSON.parse(stripBom(buf.toString('utf-8')))
-  } catch (e: any) {
+  } catch (e) {
     const err = new WebpackError(
-      messages.invalidJsonSyntax(feature, filePath, String(e?.message || e))
+      messages.invalidJsonSyntax(
+        feature,
+        filePath,
+        String((e as Error | undefined)?.message || e)
+      )
     )
-    ;(err as any).file = filePath
+    ;(err as Error & {file?: string}).file = filePath
     err.name = 'JSONInvalidSyntax'
     compilation.errors.push(err)
     return false
@@ -41,7 +45,7 @@ export function validateJsonAsset(
       const err = new WebpackError(
         messages.invalidRulesetStructure(feature, filePath)
       )
-      ;(err as any).file = filePath
+      ;(err as Error & {file?: string}).file = filePath
       err.name = 'DNRInvalidRuleset'
 
       compilation.errors.push(err)
@@ -57,7 +61,7 @@ export function validateJsonAsset(
       const err = new WebpackError(
         messages.invalidManagedSchemaStructure(feature, filePath)
       )
-      ;(err as any).file = filePath
+      ;(err as Error & {file?: string}).file = filePath
       err.name = 'ManagedSchemaInvalid'
 
       compilation.errors.push(err)

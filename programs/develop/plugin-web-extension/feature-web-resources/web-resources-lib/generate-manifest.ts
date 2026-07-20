@@ -229,7 +229,7 @@ export function generateManifestPatches(
 
   for (const [entryName, resources] of Object.entries(entryImports)) {
     const contentScript = canonicalManifest.content_scripts?.find(
-      (script: any) =>
+      (script: {js?: string[]}) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
 

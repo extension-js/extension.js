@@ -178,7 +178,8 @@ export class ManifestFieldsChangeDetector {
       (compilerArg, done) => {
         try {
           const modifiedFiles =
-            (compilerArg as any).modifiedFiles || new Set<string>()
+            (compilerArg as {modifiedFiles?: Set<string>}).modifiedFiles ||
+            new Set<string>()
           if (!modifiedFiles.has(this.manifestPath)) {
             done()
             return

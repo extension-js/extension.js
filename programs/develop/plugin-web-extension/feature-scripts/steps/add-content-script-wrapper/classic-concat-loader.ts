@@ -101,16 +101,32 @@ export function collectClassicGlobalNames(
   })
   const names: string[] = []
 
+  // Acorn AST nodes traversed dynamically; every field is runtime-checked, so
+  // the walker sees a loose recursive shape instead of acorn's node union.
+  interface LooseAstNode {
+    type?: unknown
+    kind?: unknown
+    name?: unknown
+    id?: LooseAstNode | null
+    left?: LooseAstNode
+    value?: LooseAstNode
+    argument?: LooseAstNode
+    properties?: Array<LooseAstNode | null>
+    elements?: Array<LooseAstNode | null>
+    declarations?: LooseAstNode[]
+    [key: string]: unknown
+  }
+
   // A binding target is either a plain identifier or a destructuring pattern;
   // recurse so `var {a, b: {c}, ...rest} = o` contributes a, c and rest.
-  const addBindingNames = (node: any): void => {
+  const addBindingNames = (node: LooseAstNode | null | undefined): void => {
     if (!node || typeof node.type !== 'string') return
     switch (node.type) {
       case 'Identifier':
         names.push(String(node.name))
         return
       case 'ObjectPattern':
-        for (const prop of node.properties) {
+        for (const prop of node.properties || []) {
           if (!prop) continue
           // RestElement has `argument`; Property has `value` (the binding
           // target, since `key` is the source property name, not a binding).
@@ -120,7 +136,7 @@ export function collectClassicGlobalNames(
         }
         return
       case 'ArrayPattern':
-        for (const element of node.elements) addBindingNames(element)
+        for (const element of node.elements || []) addBindingNames(element)
         return
       case 'AssignmentPattern':
         // `var {a = 1} = o` / `var [b = 2] = arr`. The default is on the right.
@@ -134,7 +150,10 @@ export function collectClassicGlobalNames(
     }
   }
 
-  const visit = (node: any, topLevel: boolean): void => {
+  const visit = (
+    node: LooseAstNode | null | undefined,
+    topLevel: boolean
+  ): void => {
     if (!node || typeof node.type !== 'string') return
 
     if (node.type === 'VariableDeclaration') {
@@ -143,7 +162,7 @@ export function collectClassicGlobalNames(
       // check covers both statements and for/for-in/for-of heads, which the
       // TypeScript implementation needed two separate branches for.
       if (topLevel || node.kind === 'var') {
-        for (const declarator of node.declarations) {
+        for (const declarator of node.declarations || []) {
           addBindingNames(declarator.id)
         }
       }
@@ -165,9 +184,9 @@ export function collectClassicGlobalNames(
       if (NON_CHILD_KEYS.has(key)) continue
       const child = node[key]
       if (Array.isArray(child)) {
-        for (const item of child) visit(item, false)
+        for (const item of child) visit(item as LooseAstNode, false)
       } else {
-        visit(child, false)
+        visit(child as LooseAstNode, false)
       }
     }
   }
@@ -183,7 +202,7 @@ interface ClassicConcatLoaderContext {
   resourcePath: string
   resourceQuery: string
   addDependency(dep: string): void
-  callback(err: Error | null, content?: string, sourceMap?: any): void
+  callback(err: Error | null, content?: string, sourceMap?: unknown): void
 }
 
 const BASE64 =

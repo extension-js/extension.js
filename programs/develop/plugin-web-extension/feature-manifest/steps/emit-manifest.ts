@@ -33,7 +33,7 @@ export class EmitManifest {
             stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
           },
           () => {
-            let jsonContent: Record<string, any>
+            let jsonContent: Record<string, unknown>
 
             try {
               // Read and parse the manifest file
@@ -44,9 +44,9 @@ export class EmitManifest {
               if ('$schema' in jsonContent) {
                 delete jsonContent.$schema
               }
-            } catch (error: any) {
+            } catch (error) {
               const err = new rspack.WebpackError(
-                messages.manifestInvalidError(error)
+                messages.manifestInvalidError(error as NodeJS.ErrnoException)
               ) as Error & {file?: string}
               err.file = 'manifest.json'
               compilation.errors.push(err)
