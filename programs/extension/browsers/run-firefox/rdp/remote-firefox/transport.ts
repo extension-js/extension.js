@@ -36,7 +36,11 @@ export class RdpTransport extends EventEmitter {
   private conn?: net.Socket
   private incoming: Buffer = Buffer.alloc(0)
   private active = new Map<string, ActiveEntry>()
-  private pending: Array<{to: string; payload: any; deferred: Deferred}> = []
+  private pending: Array<{
+    to: string
+    payload: Record<string, unknown>
+    deferred: Deferred
+  }> = []
 
   async connect(port: number, host: string = '127.0.0.1'): Promise<void> {
     await new Promise<void>((resolve, reject) => {
@@ -76,7 +80,9 @@ export class RdpTransport extends EventEmitter {
     this.pending = []
   }
 
-  async request(payload: any & {to?: string}): Promise<unknown> {
+  async request(
+    payload: Record<string, unknown> & {to?: string}
+  ): Promise<unknown> {
     const to = typeof payload?.to === 'string' ? payload.to : 'root'
     const frame = {...payload, to}
     return await new Promise((resolve, reject) => {
