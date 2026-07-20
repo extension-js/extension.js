@@ -8,7 +8,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {CDPClient} from '../cdp-client'
+import type {CDPClient} from '../cdp-client'
 
 export async function deriveExtensionIdFromTargetsHelper(
   cdp: CDPClient,
@@ -200,7 +200,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         )
 
         if (!typeOk) continue
-        const urlMatch = url.match(/^chrome-extension:\/\/([^\/]+)/)
+        const urlMatch = url.match(/^chrome-extension:\/\/([^/]+)/)
 
         if (!urlDerivedId && urlMatch?.[1]) {
           urlDerivedId = String(urlMatch[1])

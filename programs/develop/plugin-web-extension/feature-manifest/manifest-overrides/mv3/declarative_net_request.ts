@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {FilepathList, Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {type Manifest, type FilepathList} from '../../../../types'
 
 export function declarativeNetRequest(manifest: Manifest) {
   return (

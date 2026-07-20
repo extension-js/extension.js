@@ -6,12 +6,12 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
+import type {FilepathList, PluginInterface, ThemeIcon} from '../../types'
 import * as messages from './messages'
-import {EmitFile} from './steps/emit-file'
-import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {normalizeIconIncludeKeys} from './normalize-keys'
-import type {ThemeIcon, FilepathList, PluginInterface} from '../../types'
+import {AddToFileDependencies} from './steps/add-to-file-dependencies'
+import {EmitFile} from './steps/emit-file'
 
 /**
  * IconsPlugin is responsible for handling the icon files defined

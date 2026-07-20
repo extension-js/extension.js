@@ -1,19 +1,19 @@
+import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import {spawnSync} from 'node:child_process'
 import {Command} from 'commander'
 import {describe, expect, it} from 'vitest'
-import {programAIHelp, programUserHelp} from '../../helpers/messages'
+import {registerActCommands} from '../../commands/act'
+import {registerBuildCommand} from '../../commands/build'
 import {registerCreateCommand} from '../../commands/create'
 import {registerDevCommand} from '../../commands/dev'
-import {registerStartCommand} from '../../commands/start'
-import {registerPreviewCommand} from '../../commands/preview'
-import {registerBuildCommand} from '../../commands/build'
-import {registerLogsCommand} from '../../commands/logs'
-import {registerActCommands} from '../../commands/act'
-import {registerPublishCommand} from '../../commands/publish'
 import {registerInstallCommand} from '../../commands/install'
+import {registerLogsCommand} from '../../commands/logs'
+import {registerPreviewCommand} from '../../commands/preview'
+import {registerPublishCommand} from '../../commands/publish'
+import {registerStartCommand} from '../../commands/start'
 import {registerTelemetryCommand} from '../../commands/telemetry'
+import {programAIHelp, programUserHelp} from '../../helpers/messages'
 
 function stripAnsi(input: string): string {
   return input.replace(/\u001b\[[0-9;]*m/g, '')
@@ -170,7 +170,7 @@ describe('CLI help parity contract', () => {
 
     const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[\/\\]browsers/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers/i)
   })
 
   it('contract #10: uninstall --where prints managed cache path and exits 0', () => {
@@ -185,7 +185,7 @@ describe('CLI help parity contract', () => {
 
     const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[\/\\]browsers/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers/i)
   })
 
   it('contract #11: install --where with --browser prints browser-specific path', () => {
@@ -200,7 +200,7 @@ describe('CLI help parity contract', () => {
 
     const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]firefox/i)
   })
 
   it('contract #12: uninstall --where --all prints browser-specific paths', () => {
@@ -215,9 +215,8 @@ describe('CLI help parity contract', () => {
 
     const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]chrome/i)
-    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]edge/i)
-    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]chrome/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]edge/i)
+    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]firefox/i)
   })
-
 })

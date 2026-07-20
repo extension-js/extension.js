@@ -6,10 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {RspackDevServer} from '@rspack/dev-server'
-import {PortManager} from './port-manager'
+import type {RspackDevServer} from '@rspack/dev-server'
 import {setupAutoExit} from './auto-exit'
 import * as messages from './messages'
+import type {PortManager} from './port-manager'
 
 /**
  * Closes the dev server and terminates the port manager instance.

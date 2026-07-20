@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {RdpTransport} from './transport'
 import type {RdpTarget} from './rdp-types'
+import type {RdpTransport} from './transport'
 
 export async function listTabs(transport: RdpTransport): Promise<RdpTarget[]> {
   const response = (await transport.request({

@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type Compilation} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 
 export interface CssAssetResult {
   /** Whether a CSS asset was found for this feature. */

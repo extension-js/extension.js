@@ -88,7 +88,7 @@ export default function AutoPublicPathRuntimeModule(
         ]),
         `}`,
         // MAIN world: ignore page-origin scriptUrl when extension base is known.
-        `if (__extjsBase && scriptUrl && !/^((chrome|moz)-extension):\/\//.test(scriptUrl)) {`,
+        `if (__extjsBase && scriptUrl && !/^((chrome|moz)-extension):///.test(scriptUrl)) {`,
         Template.indent([`scriptUrl = __extjsBase;`]),
         `}`,
         'if (!scriptUrl) {',

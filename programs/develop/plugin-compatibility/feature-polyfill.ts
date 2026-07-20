@@ -6,10 +6,10 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═════╝ ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import rspack, {type Compiler} from '@rspack/core'
 import {createRequire} from 'module'
-import rspack, {Compiler} from '@rspack/core'
+import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
-import type {PluginInterface, DevOptions} from '../types'
 
 const cjsRequire = createRequire(import.meta.url)
 

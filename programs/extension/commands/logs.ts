@@ -6,9 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Command} from 'commander'
 import fs from 'fs'
 import path from 'path'
-import type {Command} from 'commander'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 type LogsOptions = {
@@ -176,7 +176,7 @@ export function registerLogsCommand(program: Command) {
       '--output <pretty|json|ndjson>',
       'output format. Defaults to pretty on a TTY, ndjson when piped'
     )
-    .action(async function (projectPathArg: string, options: LogsOptions) {
+    .action(async (projectPathArg: string, options: LogsOptions) => {
       const projectPath = path.resolve(projectPathArg || process.cwd())
       const browser = options.browser || 'chromium'
       const format = resolveFormat(options)

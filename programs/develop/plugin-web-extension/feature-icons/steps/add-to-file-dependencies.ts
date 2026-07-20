@@ -6,11 +6,11 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler, Compilation} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../../types'
-import {iconValuesToStrings} from '../normalize-keys'
+import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../messages'
+import {iconValuesToStrings} from '../normalize-keys'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string

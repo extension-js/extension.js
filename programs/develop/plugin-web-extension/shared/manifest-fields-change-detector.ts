@@ -14,13 +14,13 @@
 // This class calls getManifestFieldsData() once per manifest change and diffs
 // all four categories (scripts, html, icons, critical json) in a single pass.
 
-import {Compilation, Compiler, WebpackError} from '@rspack/core'
+import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
-import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
-import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
+import type {DevOptions, PluginInterface} from '../../types'
 import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
-import type {DevOptions, PluginInterface} from '../../types'
+import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
+import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
 
 function isCriticalJsonFeatureKey(key: string): boolean {
   return (

@@ -6,8 +6,8 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type Compiler, type RuleSetRule} from '@rspack/core'
-import type {PluginInterface, DevOptions} from '../types'
+import type {Compiler, RuleSetRule} from '@rspack/core'
+import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {

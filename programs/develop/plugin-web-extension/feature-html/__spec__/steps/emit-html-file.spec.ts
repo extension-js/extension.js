@@ -1,6 +1,6 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
-import {Compiler, Compilation} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 import * as fs from 'fs'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {EmitHtmlFile} from '../../steps/emit-html-file'
 
 vi.mock('fs', () => ({

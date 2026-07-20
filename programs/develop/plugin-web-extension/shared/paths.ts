@@ -10,7 +10,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {type FilepathList} from '../../types'
+import type {FilepathList} from '../../types'
 
 export function isFromFilepathList(
   filePath: string,

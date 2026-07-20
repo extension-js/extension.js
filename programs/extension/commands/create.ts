@@ -6,13 +6,13 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import type {Command} from 'commander'
-import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
-import {commandDescriptions} from '../helpers/messages'
-import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
+import {createRequire} from 'module'
+import * as path from 'path'
 import {getCliPackageJson} from '../helpers/cli-package-json'
+import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
+import {commandDescriptions} from '../helpers/messages'
 import {parseOptionalBoolean} from '../helpers/vendors'
 
 const require = createRequire(import.meta.url)
@@ -37,39 +37,41 @@ export function registerCreateCommand(program: Command) {
       '--source <source>',
       'attribution tag for where this create was initiated (e.g. cli, templates); recorded in anonymous telemetry only'
     )
-    .action(async function (
-      pathOrRemoteUrl: string,
-      {template, install}: CreateOptions
-    ) {
-      if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
-        try {
-          process.env.EXTENSION_CREATE_DEVELOP_ROOT =
-            resolveExtensionDevelopRoot()
-        } catch {
+    .action(
+      async (pathOrRemoteUrl: string, {template, install}: CreateOptions) => {
+        if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
           try {
-            const developPkg = require.resolve('extension-develop/package.json')
-            process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(developPkg)
+            process.env.EXTENSION_CREATE_DEVELOP_ROOT =
+              resolveExtensionDevelopRoot()
           } catch {
-            // Some extension-develop builds don't export package.json.
-            // Fallback to the main entry and infer package root.
             try {
-              const developEntry = require.resolve('extension-develop')
-              process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
-                path.dirname(developEntry)
+              const developPkg = require.resolve(
+                'extension-develop/package.json'
               )
+              process.env.EXTENSION_CREATE_DEVELOP_ROOT =
+                path.dirname(developPkg)
             } catch {
-              // Leave unset if extension-develop is not available
+              // Some extension-develop builds don't export package.json.
+              // Fallback to the main entry and infer package root.
+              try {
+                const developEntry = require.resolve('extension-develop')
+                process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
+                  path.dirname(developEntry)
+                )
+              } catch {
+                // Leave unset if extension-develop is not available
+              }
             }
           }
         }
-      }
-      // Load the matching create runtime from the regular dependency graph.
-      const {extensionCreate} = await import('extension-create')
+        // Load the matching create runtime from the regular dependency graph.
+        const {extensionCreate} = await import('extension-create')
 
-      await extensionCreate(pathOrRemoteUrl, {
-        template,
-        install,
-        cliVersion: getCliPackageJson().version
-      })
-    })
+        await extensionCreate(pathOrRemoteUrl, {
+          template,
+          install,
+          cliVersion: getCliPackageJson().version
+        })
+      }
+    )
 }

@@ -6,11 +6,11 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
+import * as fs from 'fs'
+import type {FilepathList, PluginInterface} from '../../../types'
 import {getAssetsFromHtml} from '../html-lib/utils'
-import {type FilepathList, type PluginInterface} from '../../../types'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string

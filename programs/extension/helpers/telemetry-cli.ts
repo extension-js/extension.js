@@ -7,14 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import colors from 'pintor'
+import {getCliPackageJson} from './cli-package-json'
 import {
-  Telemetry,
   resolveTelemetryConsent,
   resolveTelemetryStorage,
-  writeConsent,
-  type TelemetrySource
+  Telemetry,
+  type TelemetrySource,
+  writeConsent
 } from './telemetry'
-import {getCliPackageJson} from './cli-package-json'
 
 type KnownCommand =
   | 'create'
@@ -153,7 +153,7 @@ function printOptOutNoticeIfFirstRun(): void {
 if (consent.enabled) {
   printOptOutNoticeIfFirstRun()
 
-  process.on('beforeExit', async function () {
+  process.on('beforeExit', async () => {
     if (!tracked) {
       if ((process.exitCode ?? 0) === 0) {
         markCommandSuccess()
@@ -164,11 +164,11 @@ if (consent.enabled) {
     await telemetry.flush()
   })
 
-  process.on('uncaughtException', function () {
+  process.on('uncaughtException', () => {
     markCommandFailure()
   })
 
-  process.on('unhandledRejection', function () {
+  process.on('unhandledRejection', () => {
     markCommandFailure()
   })
 }

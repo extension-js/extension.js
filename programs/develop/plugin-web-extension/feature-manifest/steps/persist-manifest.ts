@@ -6,9 +6,9 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import rspack, {Compilation, type Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import rspack, {Compilation, Compiler} from '@rspack/core'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
 
 function readJsonSafe(source: string) {

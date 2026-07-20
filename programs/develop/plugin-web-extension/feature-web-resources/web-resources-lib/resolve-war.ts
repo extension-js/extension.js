@@ -6,7 +6,7 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, sources, WebpackError} from '@rspack/core'
+import {type Compilation, sources, WebpackError} from '@rspack/core'
 import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -63,7 +63,10 @@ function emitDirectoryAsAssets(
       if (!entry.isFile()) continue
       const outName = unixify(path.relative(baseDir, full))
       if (!compilation.getAsset(outName)) {
-        compilation.emitAsset(outName, new sources.RawSource(fs.readFileSync(full)))
+        compilation.emitAsset(
+          outName,
+          new sources.RawSource(fs.readFileSync(full))
+        )
       }
       compilation.fileDependencies.add(full)
     }
@@ -251,7 +254,7 @@ export function resolveUserDeclaredWAR(
           isPublicRootLike(res) ? toPublicOutput(res) : res
         )
 
-    if (/[*?\[\]{}]/.test(res)) {
+    if (/[*?[\]{}]/.test(res)) {
       pushResource(matches, res, extra)
       return
     }

@@ -6,13 +6,13 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {getFilename} from '../../../shared/paths'
-import {type Manifest} from '../../../../types'
+import type {Manifest} from '../../../../types'
 import {
   getCanonicalContentScriptCssAssetName,
   getCanonicalContentScriptJsAssetName,
   parseCanonicalContentScriptAsset
 } from '../../../feature-scripts/contracts'
+import {getFilename} from '../../../shared/paths'
 
 interface ContentObj {
   js?: string[] | undefined

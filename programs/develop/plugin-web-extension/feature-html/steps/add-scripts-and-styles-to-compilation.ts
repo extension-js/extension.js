@@ -6,17 +6,14 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
-import * as htmlUtils from '../html-lib/utils'
-import {
-  isClassicScript,
-  classicConcatEntry
-} from '../../shared/classic-concat'
-import {type FilepathList, type PluginInterface} from '../../../types'
+import * as path from 'path'
 import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import type {FilepathList, PluginInterface} from '../../../types'
+import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
+import * as htmlUtils from '../html-lib/utils'
 
 export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string

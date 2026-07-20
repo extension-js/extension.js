@@ -6,12 +6,12 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import {createRequire} from 'module'
+import * as path from 'path'
 import colors from 'pintor'
-import * as messages from '../js-frameworks-lib/messages'
+import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
-import {JsFramework} from '../../types'
+import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
 

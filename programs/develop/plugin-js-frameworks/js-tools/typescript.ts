@@ -6,13 +6,13 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 import colors from 'pintor'
-import * as messages from '../js-frameworks-lib/messages'
-import {isUsingJSFramework} from '../frameworks-lib/integrations'
-import {type DevOptions} from '../../types'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import type {DevOptions} from '../../types'
+import {isUsingJSFramework} from '../frameworks-lib/integrations'
+import * as messages from '../js-frameworks-lib/messages'
 
 let hasShownUserMessage = false
 

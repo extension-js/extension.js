@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as path from 'path'
+import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {type Manifest} from '../../../../types'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 

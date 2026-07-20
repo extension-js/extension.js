@@ -6,21 +6,21 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
+import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
-import {EmitHtmlFile} from './steps/emit-html-file'
+import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
 import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
-import {UpdateHtmlFile} from './steps/update-html-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
-import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
+import {EmitHtmlFile} from './steps/emit-html-file'
 import {HandleCommonErrors} from './steps/handle-common-errors'
-import type {FilepathList, PluginInterface, DevOptions} from '../../types'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
-import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
+import {UpdateHtmlFile} from './steps/update-html-file'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file

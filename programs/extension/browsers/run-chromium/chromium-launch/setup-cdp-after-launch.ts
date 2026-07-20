@@ -9,15 +9,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type {Readable, Writable} from 'stream'
-import type {CompilationLike} from '../../browsers-types'
-import * as messages from '../../browsers-lib/messages'
-import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import * as messages from '../../browsers-lib/messages'
+import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../cdp/cdp-extension-controller'
-import {type ChromiumPluginRuntime} from '../chromium-types'
+import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
 // True when the emitted manifest overrides the new tab page. The dist manifest

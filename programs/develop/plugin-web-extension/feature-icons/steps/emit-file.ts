@@ -6,13 +6,13 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, sources, Compilation} from '@rspack/core'
-import * as messages from '../messages'
+import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
+import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
-import {type FilepathList, type PluginInterface} from '../../../types'
 
 export class EmitFile {
   public readonly manifestPath: string

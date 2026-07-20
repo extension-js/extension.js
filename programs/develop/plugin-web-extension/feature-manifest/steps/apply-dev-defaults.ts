@@ -6,19 +6,19 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, Compiler, sources} from '@rspack/core'
-import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
-import {
-  patchWebResourcesV2,
-  patchWebResourcesV3
-} from './apply-dev-defaults-lib/patch-web-resources'
-import patchBackground from './apply-dev-defaults-lib/patch-background'
-import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
+import {Compilation, type Compiler, sources} from '@rspack/core'
+import type {DevOptions, PluginInterface} from '../../../types'
 import {
   getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
-import type {PluginInterface, DevOptions} from '../../../types'
+import patchBackground from './apply-dev-defaults-lib/patch-background'
+import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
+import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
+import {
+  patchWebResourcesV2,
+  patchWebResourcesV3
+} from './apply-dev-defaults-lib/patch-web-resources'
 
 /**
  * Applies dev-only manifest patches (CSP, permissions, background, WAR for reload).

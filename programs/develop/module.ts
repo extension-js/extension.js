@@ -13,41 +13,41 @@ import {extensionBuild} from './command-build'
 import {extensionDev} from './command-dev'
 import {extensionPreview} from './command-preview'
 import {
-  type FileConfig,
-  type BuildOptions,
-  type DevOptions,
-  type PreviewOptions,
-  type Manifest
-} from './types'
-import {
-  BuildEmitter,
-  type CompiledEvent,
-  type BuildErrorEvent,
+  type BrowserController,
   type BrowserLauncherFn,
   type BrowserLaunchOptions,
-  type BrowserController
+  BuildEmitter,
+  type BuildErrorEvent,
+  type CompiledEvent
 } from './plugin-browsers'
-import {type ReloadType, type ReloadInstruction} from './plugin-reload'
+import type {ReloadInstruction, ReloadType} from './plugin-reload'
+import type {
+  BuildOptions,
+  DevOptions,
+  FileConfig,
+  Manifest,
+  PreviewOptions
+} from './types'
 
 export {
   extensionBuild,
-  BuildOptions,
+  type BuildOptions,
   extensionDev,
-  DevOptions,
+  type DevOptions,
   // extensionPreview is available via the lightweight 'extension-develop/preview'
   // entry point. It is re-exported here for backward compatibility but new
   // consumers should import from 'extension-develop/preview' to avoid pulling
   // in the full bundler toolchain.
   extensionPreview,
-  PreviewOptions,
-  FileConfig,
-  Manifest,
+  type PreviewOptions,
+  type FileConfig,
+  type Manifest,
   BuildEmitter,
-  CompiledEvent,
-  BuildErrorEvent,
-  ReloadType,
-  ReloadInstruction,
-  BrowserLauncherFn,
-  BrowserLaunchOptions,
-  BrowserController
+  type CompiledEvent,
+  type BuildErrorEvent,
+  type ReloadType,
+  type ReloadInstruction,
+  type BrowserLauncherFn,
+  type BrowserLaunchOptions,
+  type BrowserController
 }

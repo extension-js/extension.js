@@ -9,23 +9,22 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {program} from 'commander'
-import checkUpdates from './helpers/check-updates'
-import * as messages from './helpers/messages'
-import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
-import {markCommandSuccess, markCommandFailure} from './helpers/telemetry-cli'
-import {getCliPackageJson} from './helpers/cli-package-json'
-
+import {registerActCommands} from './commands/act'
+import {registerBuildCommand} from './commands/build'
 import {registerCreateCommand} from './commands/create'
 import {registerDevCommand} from './commands/dev'
-import {registerStartCommand} from './commands/start'
-import {registerPreviewCommand} from './commands/preview'
-import {registerBuildCommand} from './commands/build'
-import {registerLogsCommand} from './commands/logs'
-import {registerActCommands} from './commands/act'
-import {registerPublishCommand} from './commands/publish'
-import {registerInstallCommand} from './commands/install'
-import {registerTelemetryCommand} from './commands/telemetry'
 import {registerDoctorCommand} from './commands/doctor'
+import {registerInstallCommand} from './commands/install'
+import {registerLogsCommand} from './commands/logs'
+import {registerPreviewCommand} from './commands/preview'
+import {registerPublishCommand} from './commands/publish'
+import {registerStartCommand} from './commands/start'
+import {registerTelemetryCommand} from './commands/telemetry'
+import checkUpdates from './helpers/check-updates'
+import {getCliPackageJson} from './helpers/cli-package-json'
+import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
+import * as messages from './helpers/messages'
+import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
 
 // Public type surface for `extension.config.js`. Re-exported from the root so
 // consumers can annotate their config with `import('extension').FileConfig`.
@@ -37,10 +36,10 @@ import {registerDoctorCommand} from './commands/doctor'
 // extension to resolve under consumer `node16`/`nodenext` module resolution
 // (TS2834). Without it the type silently degrades to `any` under skipLibCheck.
 export type {
-  FileConfig,
   BrowserConfig,
   BrowserType,
-  CompanionExtensionsConfig
+  CompanionExtensionsConfig,
+  FileConfig
 } from './config-types.js'
 
 const cliPackageJson = getCliPackageJson()
@@ -153,7 +152,7 @@ registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)
 
-extensionJs.on('option:ai-help', function () {
+extensionJs.on('option:ai-help', () => {
   const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()
 
   if (format === 'json') {

@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type Compiler} from '@rspack/core'
-import * as messages from './messages'
+import type {Compiler} from '@rspack/core'
 import {scrubBrand} from '../lib/branding'
+import * as messages from './messages'
 
 export function setupCompilerLifecycleHooks(compiler: Compiler): void {
   const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'

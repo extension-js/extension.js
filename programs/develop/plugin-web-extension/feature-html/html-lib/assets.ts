@@ -7,15 +7,15 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
-import * as path from 'path'
 import * as parse5utilities from 'parse5-utilities'
+import * as path from 'path'
+import type {FilepathList} from '../../../types'
+import {isFromFilepathList} from '../../shared/paths'
 import {
   getFilePath,
   getHtmlPageDeclaredAssetPath,
   joinEmittedAssetName
 } from './utils'
-import {isFromFilepathList} from '../../shared/paths'
-import {type FilepathList} from '../../../types'
 
 export function handleStaticAsset(
   compilation: any,

@@ -6,13 +6,13 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {Compilation, type Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {Compiler, Compilation} from '@rspack/core'
+import type {FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
-import {validateLocales} from './validation'
 import {processLocaleAssets} from './process-assets'
 import {trackLocaleDependencies} from './track-dependencies'
-import {type FilepathList, type PluginInterface} from '../../types'
+import {validateLocales} from './validation'
 
 /**
  * LocalesPlugin is responsible for emitting the locales files

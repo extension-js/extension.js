@@ -6,11 +6,11 @@
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {type Compilation, sources, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compilation, sources, WebpackError} from '@rspack/core'
-import * as messages from './messages'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
+import * as messages from './messages'
 
 function getProjectPathFromCompilation(
   compilation: Compilation,

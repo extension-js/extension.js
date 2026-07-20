@@ -1,8 +1,8 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import type {Compilation, Compiler} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
-import {Compiler, Compilation} from '@rspack/core'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 

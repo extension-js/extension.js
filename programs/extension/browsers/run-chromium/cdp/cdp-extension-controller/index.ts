@@ -15,7 +15,7 @@ import type {
   CdpProtocolParams,
   CdpTargetInfo
 } from '../../chromium-types'
-import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import {type CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {readManifestInfo} from './ensure'

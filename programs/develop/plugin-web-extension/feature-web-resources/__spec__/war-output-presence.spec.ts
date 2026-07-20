@@ -1,8 +1,8 @@
-import {Compilation} from '@rspack/core'
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 describe('web_accessible_resources: public-root presence checks', () => {

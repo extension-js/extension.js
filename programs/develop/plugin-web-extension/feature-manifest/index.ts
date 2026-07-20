@@ -6,19 +6,17 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
+import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
-
+import {AddDependencies} from './steps/add-dependencies'
+import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 // Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
-import {UpdateManifest} from './steps/update-manifest'
-import {PatchWAR} from './steps/patch-war'
-import {ApplyDevDefaults} from './steps/apply-dev-defaults'
-import {PersistManifestToDisk} from './steps/persist-manifest'
-import {AddDependencies} from './steps/add-dependencies'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
-
-import type {FilepathList, PluginInterface, DevOptions} from '../../types'
+import {PatchWAR} from './steps/patch-war'
+import {PersistManifestToDisk} from './steps/persist-manifest'
+import {UpdateManifest} from './steps/update-manifest'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.

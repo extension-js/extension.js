@@ -8,7 +8,7 @@
 
 import colors from 'pintor'
 import {printLogEventJson, printLogEventPretty} from './firefox-utils'
-import {MessagingClient} from './messaging-client'
+import type {MessagingClient} from './messaging-client'
 import type {RdpMessage} from './rdp-types'
 
 export async function attachConsoleListeners(client: MessagingClient) {
@@ -88,7 +88,7 @@ export function subscribeUnifiedLogging(
         | 'popup'
         | 'options'
         | 'devtools' = 'page'
-      let tabId: number | undefined = undefined
+      let tabId: number | undefined
 
       if (type === 'consoleAPICall' || type === 'logMessage') {
         const a = message?.message || message

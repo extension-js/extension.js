@@ -6,17 +6,17 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
+import type {RspackPluginInstance} from '@rspack/core'
 import {createRequire} from 'module'
-import {type RspackPluginInstance} from '@rspack/core'
+import * as path from 'path'
 import colors from 'pintor'
-import * as messages from '../js-frameworks-lib/messages'
-import {hasDependency} from '../frameworks-lib/integrations'
-import {JsFramework} from '../../types'
 import {
   loadOptionalContractModuleWithoutInstall,
   resolveOptionalContractPackageWithoutInstall
 } from '../../lib/optional-deps-resolver'
+import type {JsFramework} from '../../types'
+import {hasDependency} from '../frameworks-lib/integrations'
+import * as messages from '../js-frameworks-lib/messages'
 
 type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 

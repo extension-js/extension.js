@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import type {CompilationLike} from '../../browsers-types'
-import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
 import type {FirefoxPluginLike, FirefoxPluginRuntime} from '../firefox-types'
+import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
 
 export async function setupRdpAfterLaunch(
   plugin: FirefoxPluginRuntime & {[k: string]: unknown},
@@ -35,7 +35,7 @@ export async function setupRdpAfterLaunch(
             // ignore
           }
         }
-        const ms = baseMs * Math.pow(2, i)
+        const ms = baseMs * 2 ** i
         await new Promise((r) => setTimeout(r, ms))
       }
     }

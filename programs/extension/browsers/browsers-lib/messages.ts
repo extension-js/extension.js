@@ -6,28 +6,28 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
-import * as os from 'os'
-import {createRequire} from 'module'
-import colors from 'pintor'
 import locateChrome, {
-  locateChromeOrExplain,
+  getInstallGuidance as getChromeInstallGuidance,
   getChromeVersion,
-  getInstallGuidance as getChromeInstallGuidance
+  locateChromeOrExplain
 } from 'chrome-location2'
 import locateChromium, {
-  getChromiumVersion,
-  getInstallGuidance as getChromiumInstallGuidance
+  getInstallGuidance as getChromiumInstallGuidance,
+  getChromiumVersion
 } from 'chromium-location'
 import locateEdge, {
-  getEdgeVersion,
-  getInstallGuidance as getEdgeInstallGuidance
+  getInstallGuidance as getEdgeInstallGuidance,
+  getEdgeVersion
 } from 'edge-location'
 import locateFirefox, {
-  getFirefoxVersion,
-  getInstallGuidance as getFirefoxInstallGuidance
+  getInstallGuidance as getFirefoxInstallGuidance,
+  getFirefoxVersion
 } from 'firefox-location2'
+import * as fs from 'fs'
+import {createRequire} from 'module'
+import * as os from 'os'
+import * as path from 'path'
+import colors from 'pintor'
 import type {BrowserType} from '../browsers-types'
 
 type Browser = BrowserType
@@ -221,7 +221,7 @@ export function browserNotInstalledError(
   browserBinaryLocation: string
 ) {
   const isUnreachable =
-    browserBinaryLocation == 'null'
+    browserBinaryLocation === 'null'
       ? `Browser ${capitalizedBrowserName(browser)} is not installed\n`
       : `Can't find the path for browser ${capitalizedBrowserName(browser)}\n`
 
@@ -233,7 +233,7 @@ export function browserNotInstalledError(
     return (
       `\n\n${getLoggingPrefix('info')} WSL detected\n` +
       `- Install a Linux browser in WSL, or\n` +
-      `- Provide a Windows binary path via ${colors.blue('--chromium-binary')} ${colors.gray(`\"${example}\"`)}\n` +
+      `- Provide a Windows binary path via ${colors.blue('--chromium-binary')} ${colors.gray(`"${example}"`)}\n` +
       `  (Tip: a shell alias like ${colors.gray('google-chrome=...')} won't be used by Extension.js; use a real path or wrapper script.)`
     )
   })()

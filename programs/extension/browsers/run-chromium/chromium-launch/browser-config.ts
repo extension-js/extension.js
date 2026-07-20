@@ -8,22 +8,22 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {type CompilationLike} from '../../browsers-types'
+import * as messages from '../../browsers-lib/messages'
+import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
 import {
-  type PluginInterface,
-  type DefaultBrowserFlags
-} from '../../browsers-types'
-import {
+  cleanupOldTempProfiles,
+  deriveDebugPortWithInstance,
   filterBrowserFlags,
   mergeChromiumFeatureSwitches,
   parseEnvBrowserFlags,
-  deriveDebugPortWithInstance,
   prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
-import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
-import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
-import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
-import * as messages from '../../browsers-lib/messages'
+import type {
+  CompilationLike,
+  DefaultBrowserFlags,
+  PluginInterface
+} from '../../browsers-types'
 import {
   chromeMasterPreferences,
   edgeMasterPreferences

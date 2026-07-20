@@ -1,6 +1,6 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {UpdateHtmlFile} from '../../steps/update-html-file'
 
 vi.mock('../../html-lib/patch-html', async () => {
@@ -28,7 +28,7 @@ describe('UpdateHtmlFile', () => {
     const assets: Record<string, any> = {'feature/index.html': {}}
     const innerCompilation: any = {
       hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-      updateAsset: function (name: string, src: any) {
+      updateAsset: (name: string, src: any) => {
         assets[name] = {
           source: {source: () => (src.source ? src.source() : src)}
         }

@@ -1,7 +1,7 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 let developInstallRoot: string | undefined
 
@@ -44,6 +44,8 @@ describe('optional-deps-resolver', () => {
   })
 
   afterEach(() => {
+    delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    delete process.env.EXTENSION_VERBOSE
     fs.rmSync(projectPath, {recursive: true, force: true})
     fs.rmSync(runtimePath, {recursive: true, force: true})
     for (const extraPath of auxPaths) {
@@ -394,10 +396,7 @@ describe('optional-deps-resolver', () => {
   // Drive the package-manager detector through a lockfile fixture in the
   // project root (its first detection signal) so the suite resolves a manager
   // deterministically without spawning a real install.
-  function writeLockfile(
-    rootDir: string,
-    pm: 'pnpm' | 'yarn' | 'npm' | 'bun'
-  ) {
+  function writeLockfile(rootDir: string, pm: 'pnpm' | 'yarn' | 'npm' | 'bun') {
     const lockfileByPm: Record<string, string> = {
       pnpm: 'pnpm-lock.yaml',
       yarn: 'yarn.lock',
@@ -411,11 +410,6 @@ describe('optional-deps-resolver', () => {
     }
     fs.writeFileSync(path.join(rootDir, lockfileByPm[pm]), '', 'utf8')
   }
-
-  afterEach(() => {
-    delete process.env.EXTENSION_JS_PACKAGE_MANAGER
-    delete process.env.EXTENSION_VERBOSE
-  })
 
   it('default-mode error is a single human-readable line carrying a pnpm install hint', async () => {
     delete process.env.EXTENSION_VERBOSE
