@@ -18,7 +18,9 @@ import {
 import packageJson from '../package.json'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
-export type ReadyStatus = 'starting' | 'ready' | 'error'
+// 'stopped' is stamped at watch close so a dead session can never keep
+// advertising status:"ready" to controllers (§66/§71 honesty).
+export type ReadyStatus = 'starting' | 'ready' | 'error' | 'stopped'
 
 export type ReadyMetadata = {
   schemaVersion: 2
@@ -314,6 +316,22 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         compiledAt: null
       })
     },
+    // Stamp a terminal status at watch close so a controller can never read a
+    // green "ready" over a dead pid (§66/§71). Read-modify-write to keep the
+    // session's provenance (cdpPort, browser exit evidence) intact.
+    writeShutdown() {
+      try {
+        if (!fs.existsSync(readyPath)) return
+        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+        prev.status = 'stopped'
+        prev.code = 'shutdown'
+        prev.message = 'the dev session ended (watch closed)'
+        prev.ts = nowISO()
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // best-effort only
+      }
+    },
     // Stamp the runtime-attached signal when the extension's service worker
     // first connects to the control channel. Read-modify-write so it never
     // disturbs the compile status or the launcher-stamped cdpPort/exit fields;
@@ -437,6 +455,11 @@ export class PlaywrightPlugin {
         command: this.command,
         browser: this.browser
       })
+      // The event alone leaves ready.json advertising "ready" for a pid that
+      // is about to be gone; controllers then dial a dead control port (§66).
+      // Dev only: a completed `start` run's ready.json is a receipt that
+      // --wait accepts after the process exits, and must stay "ready".
+      if (this.command === 'dev') this.writer.writeShutdown()
     })
   }
 }
