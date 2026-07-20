@@ -72,6 +72,16 @@ import {
   spawnChromiumProcess
 } from './wsl-support'
 
+// Shape of the stats value the injected compiler hands to the done hook;
+// tolerates both real rspack Stats and the mock compilers specs pass.
+interface LaunchDoneStats {
+  hasErrors?: () => boolean
+  compilation: CompilationLike & {
+    options: {mode?: string}
+    errors?: unknown[]
+  }
+}
+
 async function maybePrintDevBanner(args: {
   compilation: CompilationLike
   chromiumConfig: string[]
@@ -175,10 +185,21 @@ export class ChromiumLaunchPlugin {
     await this.launchChromium(compilation, opts)
   }
 
-  apply(compiler: any) {
+  apply(compiler: unknown) {
+    const host = compiler as {
+      getInfrastructureLogger?: (name: string) => BrowserLogger
+      hooks: {
+        done: {
+          tapPromise: (
+            name: string,
+            cb: (stats: LaunchDoneStats) => Promise<void>
+          ) => void
+        }
+      }
+    }
     this.logger =
-      typeof compiler?.getInfrastructureLogger === 'function'
-        ? compiler.getInfrastructureLogger('ChromiumLaunchPlugin')
+      typeof host?.getInfrastructureLogger === 'function'
+        ? host.getInfrastructureLogger('ChromiumLaunchPlugin')
         : ({
             info: (...a: unknown[]) => console.log(...a),
             warn: (...a: unknown[]) => console.warn(...a),
@@ -186,7 +207,7 @@ export class ChromiumLaunchPlugin {
             debug: (...a: unknown[]) => console.debug?.(...a)
           } as BrowserLogger)
 
-    compiler.hooks.done.tapPromise('chromium:launch', async (stats: any) => {
+    host.hooks.done.tapPromise('chromium:launch', async (stats) => {
       try {
         const hasErrors =
           typeof stats?.hasErrors === 'function'
@@ -1030,7 +1051,13 @@ export class ChromiumLaunchPlugin {
 
       // Drain stderr (required, an unread pipe eventually blocks Chrome) and
       // surface extension-load rejections, which otherwise die silently.
-      const stderrStream = (child as any).stdio?.[2]
+      const stderrStream = (
+        child as {
+          stdio?: Array<{
+            on?: (ev: string, cb: (chunk: Buffer) => void) => void
+          }>
+        }
+      ).stdio?.[2]
       if (stderrStream && typeof stderrStream.on === 'function') {
         let pending = ''
         stderrStream.on('data', (chunk: Buffer) => {

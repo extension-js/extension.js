@@ -12,7 +12,7 @@ import * as messages from '../lib/messages'
 export async function initializeGitRepository(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const gitCommand = 'git'
   const gitArgs = ['init', '--quiet']

@@ -11,7 +11,7 @@ import checkForUpdate from 'update-check'
 import {getCliPackageJson} from './cli-package-json'
 import * as messages from './messages'
 
-function isStableVersion(version: string) {
+function isStableVersion(version: string | undefined) {
   const v = semver.parse(version)
   return Boolean(v && v.prerelease.length === 0)
 }

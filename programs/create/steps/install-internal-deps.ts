@@ -268,7 +268,7 @@ async function installOptionalDependencies(
   developRoot: string,
   projectPath: string,
   plan: OptionalDepsPlan,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   if (plan.dependencies.length === 0) return
 
@@ -307,7 +307,7 @@ async function installOptionalDependencies(
 
 export async function installInternalDependencies(
   projectPath: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   if (
     process.env.EXTENSION_ENV === 'test' ||

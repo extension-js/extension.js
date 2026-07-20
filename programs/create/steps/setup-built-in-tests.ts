@@ -13,7 +13,7 @@ import * as messages from '../lib/messages'
 export async function setupBuiltInTests(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   try {
     // Remove the existing test spec templates.spec.ts
@@ -22,7 +22,7 @@ export async function setupBuiltInTests(
     if (fs.existsSync(testSpecPath)) {
       fs.unlinkSync(testSpecPath)
     }
-  } catch (error: any) {
+  } catch (error) {
     logger.error(messages.cantSetupBuiltInTests(projectName, error))
     throw error
   }

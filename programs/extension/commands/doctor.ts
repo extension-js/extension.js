@@ -37,7 +37,18 @@ const EXECUTOR_ATTACH_GRACE_MS = 10_000
  * the grace window since compiledAt, and no evidence the browser has given up
  * (the SW has not attached and the browser has not exited).
  */
-function isExecutorAttachGrace(ready: any): boolean {
+function isExecutorAttachGrace(
+  ready:
+    | {
+        executorAttachedAt?: unknown
+        runtime?: unknown
+        browserExitedAt?: unknown
+        compiledAt?: unknown
+        ts?: unknown
+      }
+    | null
+    | undefined
+): boolean {
   // Once the SW has attached, absence is a real regression, never a grace warn.
   if (ready?.executorAttachedAt || ready?.runtime === 'attached') return false
   // A browser that exited under a live server is a real failure, not launching.
@@ -77,7 +88,7 @@ export async function runDoctor(
     readControlToken,
     readPersistedControlPort,
     controlPortFilePath
-  }: any = await loadExtensionDevelopBridgeModule()
+  } = await loadExtensionDevelopBridgeModule()
 
   // 1. ready-contract
   const ready = readReadyContract(projectPath, browser)
@@ -133,8 +144,8 @@ export async function runDoctor(
     let alive = true
     try {
       process.kill(ready.pid, 0)
-    } catch (err: any) {
-      alive = err?.code === 'EPERM'
+    } catch (err) {
+      alive = (err as NodeJS.ErrnoException | undefined)?.code === 'EPERM'
     }
     if (alive) {
       results.push({
@@ -210,16 +221,16 @@ export async function runDoctor(
       connectTimeoutMs: CONNECT_TIMEOUT_MS
     })
 
-    let readyFrame: any = null
+    let readyFrame: {capabilities?: {eval?: unknown}} | null = null
     try {
       readyFrame = await controller.connect()
       results.push({
         check: 'control-channel',
         status: 'pass',
-        detail: `connected, capabilities: ${JSON.stringify(readyFrame.capabilities ?? {})}`
+        detail: `connected, capabilities: ${JSON.stringify(readyFrame?.capabilities ?? {})}`
       })
-    } catch (err: any) {
-      const message = String(err?.message || err)
+    } catch (err) {
+      const message = String((err as Error | undefined)?.message || err)
       const code = /code (\d+)/.exec(message)?.[1]
       let detail = message
       let remediation =
@@ -312,7 +323,7 @@ export async function runDoctor(
               'then reload the extension or restart the dev session'
           })
         }
-      } catch (err: any) {
+      } catch (err) {
         if (isExecutorAttachGrace(ready)) {
           results.push({
             check: 'executor',
@@ -328,7 +339,7 @@ export async function runDoctor(
           results.push({
             check: 'executor',
             status: 'fail',
-            detail: `probe did not complete: ${String(err?.message || err)}`,
+            detail: `probe did not complete: ${String((err as Error | undefined)?.message || err)}`,
             remediation:
               'Retry shortly; if it persists reload the extension or restart the dev session'
           })
@@ -401,9 +412,9 @@ export function registerDoctorCommand(program: Command): void {
       let results: DoctorCheckResult[]
       try {
         results = await runDoctor(projectPathArg, opts)
-      } catch (err: any) {
+      } catch (err) {
         // eslint-disable-next-line no-console
-        console.error(String(err?.message || err))
+        console.error(String((err as Error | undefined)?.message || err))
         process.exit(1)
       }
 

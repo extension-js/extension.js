@@ -39,7 +39,7 @@ function getTagFallback(version: string) {
 async function updateExtensionDependencyTag(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const packageJsonPath = path.join(projectPath, 'package.json')
 
@@ -110,7 +110,7 @@ async function hasDependenciesToInstall(projectPath: string) {
 export async function installDependencies(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
@@ -171,7 +171,7 @@ export async function installDependencies(
         )
       )
     }
-  } catch (error: any) {
+  } catch (error) {
     logger.error(
       messages.installingDependenciesProcessError(projectName, error)
     )

@@ -21,10 +21,15 @@ export type ChromiumManifestRefusal =
   | 'unsupported-manifest-version'
   | null
 
+// Manifests under diagnosis are arbitrary user JSON; a loose view keeps the
+// dozens of shape probes below readable. Every access is runtime-guarded.
+// biome-ignore lint/suspicious/noExplicitAny: dynamic manifest JSON diagnostics boundary
+type LooseManifest = any
+
 export function diagnoseChromiumManifestRefusal(
   manifest: unknown
 ): ChromiumManifestRefusal {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   if (Number(m?.manifest_version) === 2) return 'mv2'
 
   // Firefox-style MV3: `background.scripts` with no `service_worker`.
@@ -76,7 +81,7 @@ export function diagnoseChromiumManifestRefusal(
  *   that load fine.
  */
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   const patterns: string[] = []
 
   for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
@@ -176,7 +181,7 @@ export function findChromiumLoadBlockers(
   manifest: unknown,
   browserVersion?: string
 ): string[] {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
@@ -206,28 +211,30 @@ export function findChromiumLoadBlockers(
     Number(m.manifest_version) === 3 &&
     Array.isArray(m.web_accessible_resources)
   ) {
-    m.web_accessible_resources.forEach((entry: any, index: number) => {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-        blockers.push(
-          `web_accessible_resources[${index}]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
-        )
-        return
+    m.web_accessible_resources.forEach(
+      (entry: LooseManifest, index: number) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          blockers.push(
+            `web_accessible_resources[${index}]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
+          )
+          return
+        }
+        if (entry.resources === undefined) {
+          blockers.push(
+            `web_accessible_resources[${index}]: 'resources' is required, Chrome refuses the extension without it.`
+          )
+        }
+        if (
+          entry.matches === undefined &&
+          entry.extension_ids === undefined &&
+          entry.use_dynamic_url === undefined
+        ) {
+          blockers.push(
+            `web_accessible_resources[${index}]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources, Chrome refuses the extension without it.`
+          )
+        }
       }
-      if (entry.resources === undefined) {
-        blockers.push(
-          `web_accessible_resources[${index}]: 'resources' is required, Chrome refuses the extension without it.`
-        )
-      }
-      if (
-        entry.matches === undefined &&
-        entry.extension_ids === undefined &&
-        entry.use_dynamic_url === undefined
-      ) {
-        blockers.push(
-          `web_accessible_resources[${index}]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources, Chrome refuses the extension without it.`
-        )
-      }
-    })
+    )
   }
 
   // content_scripts grammar Chrome refuses over (fixtures 09/10/17/18/27):
@@ -235,7 +242,7 @@ export function findChromiumLoadBlockers(
   // strings; run_at allows exactly three values.
   const CS_RUN_AT = ['document_start', 'document_end', 'document_idle']
   const csGroups = Array.isArray(m.content_scripts) ? m.content_scripts : []
-  csGroups.forEach((group: any, index: number) => {
+  csGroups.forEach((group: LooseManifest, index: number) => {
     if (!group || typeof group !== 'object') return
     if (group.matches === undefined) {
       blockers.push(
@@ -249,7 +256,7 @@ export function findChromiumLoadBlockers(
     for (const listKey of ['js', 'css']) {
       const list = group[listKey]
       if (!Array.isArray(list)) continue
-      list.forEach((entry: any, entryIndex: number) => {
+      list.forEach((entry: LooseManifest, entryIndex: number) => {
         if (typeof entry !== 'string') {
           blockers.push(
             `content_scripts[${index}].${listKey}[${entryIndex}]: expected a string, got ${typeof entry}, Chrome refuses the extension.`
@@ -290,7 +297,7 @@ export function findChromiumLoadBlockers(
   const commands = m?.commands
   if (commands && typeof commands === 'object') {
     const withKeys = Object.values(commands).filter(
-      (command: any) => command?.suggested_key
+      (command: LooseManifest) => command?.suggested_key
     )
     if (withKeys.length > 4) {
       blockers.push(
@@ -303,7 +310,7 @@ export function findChromiumLoadBlockers(
   const contentScripts = Array.isArray(m?.content_scripts)
     ? m.content_scripts
     : []
-  contentScripts.forEach((group: any, index: number) => {
+  contentScripts.forEach((group: LooseManifest, index: number) => {
     const js = Array.isArray(group?.js) ? group.js : []
     const css = Array.isArray(group?.css) ? group.css : []
     if (js.length === 0 && css.length === 0) {
@@ -340,7 +347,7 @@ export function findUnloadableIconFiles(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   const findings: string[] = []
 
   const check = (field: string, ref: unknown) => {
@@ -395,7 +402,7 @@ export function findLocaleLoadBlockers(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
@@ -476,7 +483,7 @@ export function findMissingManagedSchema(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, any> | null | undefined
+  const m = manifest as Record<string, LooseManifest> | null | undefined
   const schema = m?.storage?.managed_schema
   if (typeof schema !== 'string' || schema.trim() === '') return []
   try {

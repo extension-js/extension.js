@@ -23,6 +23,22 @@ type LogsOptions = {
   output?: 'pretty' | 'json' | 'ndjson'
 }
 
+// Bridge log events are dynamic ndjson lines; this loose view names every
+// field the filters and printers probe.
+interface LogEventLike {
+  type?: unknown
+  eventType?: unknown
+  context?: unknown
+  level?: unknown
+  seq?: unknown
+  url?: unknown
+  hostname?: unknown
+  tabId?: unknown
+  messageParts?: unknown
+  code?: unknown
+  remediation?: unknown
+}
+
 // Increasing verbosity; selecting a level includes it + everything more severe.
 const LEVEL_ORDER = ['error', 'warn', 'info', 'debug', 'trace']
 
@@ -35,7 +51,7 @@ function levelRank(level: string): number {
 // `--url` accepts a glob (`*` = any run of chars) or a plain substring (no `*`).
 // Matched against the event's url, then hostname. Shared verbatim with the MCP
 // extension_logs tool, keep the two in lockstep.
-function makeUrlMatcher(pattern: string): (event: any) => boolean {
+function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   const hasGlob = pattern.includes('*')
   let re: RegExp | null = null
 
@@ -46,7 +62,7 @@ function makeUrlMatcher(pattern: string): (event: any) => boolean {
     re = new RegExp(escaped)
   }
 
-  return (event: any): boolean => {
+  return (event: LogEventLike): boolean => {
     const candidates = [event.url, event.hostname].filter(
       (v) => typeof v === 'string'
     ) as string[]
@@ -67,16 +83,17 @@ function makeFilter(opts: LogsOptions) {
   const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
   const tabId = opts.tab != null && opts.tab !== '' ? Number(opts.tab) : null
 
-  return (event: any): boolean => {
+  return (event: LogEventLike): boolean => {
     if (!event || typeof event !== 'object') return false
     if (event.type === 'header') return false
 
     if (opts.signalsOnly && event.eventType !== 'dx.signal') return false
 
-    if (contexts && !contexts.has(event.context)) return false
+    if (contexts && !contexts.has(String(event.context))) return false
 
     if (minLevel !== 'all' && minLevel !== 'off') {
-      if (levelRank(event.level) > levelRank(minLevel)) return false
+      if (levelRank(String(event.level || '')) > levelRank(minLevel))
+        return false
     }
 
     if (
@@ -104,7 +121,7 @@ function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
   return process.stdout.isTTY ? 'pretty' : 'ndjson'
 }
 
-function printEvent(event: any, format: 'pretty' | 'json' | 'ndjson') {
+function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
   if (format === 'ndjson') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(event))
@@ -199,7 +216,7 @@ export function registerLogsCommand(program: Command) {
       }
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
       for (const line of lines) {
-        let event: any
+        let event: LogEventLike
         try {
           event = JSON.parse(line)
         } catch {
@@ -214,9 +231,9 @@ async function followLogs(
   projectPath: string,
   browser: string,
   format: 'pretty' | 'json' | 'ndjson',
-  matches: (e: any) => boolean
+  matches: (e: LogEventLike) => boolean
 ) {
-  const {BridgeConsumer, readReadyContract}: any =
+  const {BridgeConsumer, readReadyContract} =
     await loadExtensionDevelopBridgeModule()
 
   const ready = readReadyContract(projectPath, browser)
@@ -233,10 +250,10 @@ async function followLogs(
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,
     reconnect: true,
-    onLog: (event: any) => {
+    onLog: (event: LogEventLike) => {
       if (matches(event)) printEvent(event, format)
     },
-    onGap: (gap: any) => {
+    onGap: (gap: {dropped?: unknown; reason?: unknown}) => {
       // eslint-disable-next-line no-console
       console.error(
         `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`

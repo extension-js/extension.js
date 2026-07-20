@@ -53,6 +53,8 @@ type DevOptions = {
   allowControl?: boolean
   allowEval?: boolean
   parentPid?: string | number
+  author?: boolean
+  authorMode?: boolean
 }
 
 export function registerDevCommand(program: Command) {
@@ -185,7 +187,7 @@ export function registerDevCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...devOptions}: DevOptions
       ) => {
-        if ((devOptions as any).author || (devOptions as any).authorMode) {
+        if (devOptions.author || devOptions.authorMode) {
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'
@@ -280,8 +282,7 @@ export function registerDevCommand(program: Command) {
           return
         }
 
-        const {extensionDev}: {extensionDev: any} =
-          await loadExtensionDevelopModule()
+        const {extensionDev} = await loadExtensionDevelopModule()
         const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
 
         for (const vendor of list) {
@@ -295,7 +296,7 @@ export function registerDevCommand(program: Command) {
             devOptions.logLevel ||
             'off') as string
 
-          const devArgs: any = {
+          const devArgs: Record<string, unknown> = {
             ...devOptions,
             profile:
               devOptions.profile === false || devOptions.profile === 'false'

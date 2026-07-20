@@ -140,8 +140,7 @@ export function registerPreviewCommand(program: Command) {
           if (isRemote) process.env.EXTJS_LIGHT = '1'
         }
 
-        const {extensionPreview}: {extensionPreview: any} =
-          await loadExtensionDevelopPreviewModule()
+        const {extensionPreview} = await loadExtensionDevelopPreviewModule()
 
         for (const vendor of list) {
           const logsOption = (previewOptions as unknown as {logs?: string}).logs
@@ -173,7 +172,8 @@ export function registerPreviewCommand(program: Command) {
             },
             // Browser launcher callback, runs browser code from extension/browser/
             // without pulling rspack into the preview path
-            (opts: any) => runOnlyPreviewBrowser(opts)
+            (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
+              runOnlyPreviewBrowser(opts)
           )
         }
       }

@@ -25,7 +25,7 @@ function markBannerPrinted() {
   // line that arrived before the banner was visible. Without this, the
   // first deferred line stays parked until the next `done` hook, which
   // makes the initial run silent and double-prints on first reload.
-  ;(process as any).emit(BANNER_PRINTED_EVENT)
+  process.emit(BANNER_PRINTED_EVENT)
 }
 export function isBannerPrinted(): boolean {
   return bannerPrinted
