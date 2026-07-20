@@ -89,7 +89,6 @@ function installGlobalHandlersOnce(): void {
   process.on('SIGHUP', cleanupAllInstances)
   // Windows-specific (Ctrl+Break / some console close scenarios)
   process.on('SIGBREAK', cleanupAllInstances)
-  // Opportunistic fallback before exit
   process.on('beforeExit', cleanupAllInstances)
 
   process.on('uncaughtException', async (error) => {

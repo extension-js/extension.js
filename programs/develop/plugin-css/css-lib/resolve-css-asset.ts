@@ -9,14 +9,9 @@
 import type {Compilation} from '@rspack/core'
 
 export interface CssAssetResult {
-  /** Whether a CSS asset was found for this feature. */
   found: boolean
-  /**
-   * When the asset lives under a name that differs from the canonical
-   * `<feature>.css` (e.g. a chunk split by rspack's native CSS), this
-   * holds the public href to use in the injected `<link>` tag.
-   * Undefined when the canonical name matched directly.
-   */
+  // The public href for the injected <link> when the asset name differs from the
+  // canonical <feature>.css; undefined when the canonical name matched.
   href: string | undefined
 }
 
@@ -32,12 +27,10 @@ export function resolveCssAsset(
   compilation: Compilation,
   feature: string
 ): CssAssetResult {
-  // Fast path: canonical asset name
   if (compilation.getAsset(`${feature}.css`)) {
     return {found: true, href: undefined}
   }
 
-  // Slow path: walk entrypoint chunks for any emitted .css file
   const entrypoint = compilation.entrypoints?.get(feature)
   if (entrypoint) {
     for (const chunk of entrypoint.chunks) {

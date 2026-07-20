@@ -6,30 +6,8 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Asset categorization for browser-extension performance budgets.
-//
-// Browser extensions have a different size profile than web apps:
-//   • content scripts inject on EVERY page navigation, small budget;
-//   • MV3 service workers wake from cold each time the event-page sleeps,
-//     small budget keeps wake-up latency low;
-//   • UI pages (sidebar, popup, options, devtools, newtab) are cold and
-//     opened on demand, generous budget;
-//   • images, fonts, locales, manifest.json don't have a code-splitting
-//     fix, silenced from the budget warning entirely.
-//
-// Hand-optimized extensions (uBlock Origin, Bitwarden, 1Password) keep
-// content scripts well under 100 KiB, but framework-based templates
-// (Vue, React, Preact, Svelte) ship a runtime that's ~150–225 KiB
-// minified before any user code, and a real UI on top easily lands
-// in the 300–500 KiB range. Shipping framework extensions in the wild
-// (Bitwarden ~500–700 KiB SW, MetaMask multi-MiB UI pages, Grammarly
-// 2–3 MiB content scripts) sit well above the old 256/200/500 KiB
-// numbers. We set the budgets to 512/512/1024 KiB so the warning still
-// fires on real outliers (multi-MiB AI sidebars, heavyweight WASM SWs)
-// without crying wolf on every framework template scaffolded by
-// `extension create`. Projects that legitimately need a tighter or
-// looser budget can override per-category via `perfBudgets` in
-// `extension.config.{js,ts}`.
+// Extension-specific budgets: content scripts inject on every navigation and
+// SWs wake cold, but framework runtimes make 512/512/1024 KiB the realistic bar.
 
 export type AssetCategory =
   | 'content-script'
@@ -64,9 +42,8 @@ export function categorizeAsset(rawName: string): AssetCategory {
 
   if (/(^|\/)content_scripts\//.test(name)) return 'content-script'
 
-  // MV3 service worker; MV2 background scripts. Both wake from cold, both
-  // share the same budget. Match `background/service_worker.js`,
-  // `background/scripts.js`, and a top-level `service_worker.js` fallback.
+  // MV3 service worker and MV2 background scripts both wake from cold and share
+  // one budget; match both emitted names plus the top-level fallback.
   if (
     /(^|\/)background\//.test(name) ||
     /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)

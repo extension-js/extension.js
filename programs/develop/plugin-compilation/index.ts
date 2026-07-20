@@ -92,19 +92,16 @@ export class CompilationPlugin {
       browser: this.browser || 'chrome'
     }).apply(compiler)
 
-    // The CleanDistFolderPlugin will remove the dist folder
-    // before the compilation starts. This is a problem
-    // for preview mode, where we don't want to clean the
-    // folder that is being used by the preview server.
+    // CleanDistFolderPlugin removes dist before compilation, a problem for preview
+    // mode which serves from that folder.
     if (this.clean) {
       new CleanDistFolderPlugin({
         browser: this.browser || 'chrome'
       }).apply(compiler)
     }
 
-    // Define NODE_ENV when running under a real Rspack compiler.
-    // (Unit tests often pass a lightweight compiler stub that doesn't expose
-    // Rspack internals required by builtin plugins.)
+    // Define NODE_ENV only under a real Rspack compiler; unit tests pass stubs
+    // without the internals builtin plugins require.
     try {
       const hasRspackInternals =
         typeof (compiler as {__internal__registerBuiltinPlugin?: unknown})
@@ -116,11 +113,8 @@ export class CompilationPlugin {
           )
         }).apply(compiler)
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // Register packaging only for production builds when requested
     if (
       (this.zip || this.zipSource) &&
       compiler.options.mode === 'production'

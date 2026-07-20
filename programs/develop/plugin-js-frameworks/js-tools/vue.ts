@@ -61,7 +61,6 @@ export async function maybeUseVue(
       }
     })
 
-  // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'vue')
 
   const defaultLoaders: JsFramework['loaders'] = [
@@ -81,13 +80,8 @@ export async function maybeUseVue(
   const defaultPlugins: JsFramework['plugins'] = [
     new VueLoaderPlugin() as unknown as RspackPluginInstance,
     new DefinePlugin({
-      // Drop the Options API in production so Vue's runtime tree-shakes the
-      // ~10–20 KiB of options-handling code paths. Content scripts ship in
-      // every page navigation and pay the size cost on every load, the
-      // smaller bundle keeps content_scripts/content-*.js inside the
-      // extension performance budget. Dev keeps the Options API enabled so
-      // existing components written in that style still work without a
-      // build-mode-specific surprise.
+      // Drop the Options API in production so Vue tree-shakes 10-20 KiB from bundles
+      // content scripts pay for on every navigation; dev keeps it enabled.
       __VUE_OPTIONS_API__: JSON.stringify(!isProd),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(!isProd),
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(!isProd)

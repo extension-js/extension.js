@@ -42,8 +42,7 @@ export class FirefoxRDPController {
       geckoBinary: plugin.geckoBinary,
       instanceId: plugin.instanceId,
       port: debugPort,
-      // The launcher hands us the concrete port Firefox was actually started
-      // with (already passed through findAvailablePortNear). Pin it so the
+      // The launcher hands us the concrete port Firefox started with; pin it so the
       // add-on install connects to THAT port instead of re-deriving it.
       resolvedRdpPort: normalizedDebugPort,
       browserVersionLine: plugin.browserVersionLine

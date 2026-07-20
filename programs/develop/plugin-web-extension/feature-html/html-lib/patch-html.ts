@@ -59,7 +59,6 @@ export function patchHtml(
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 
-  // Delegate CSS asset resolution to plugin-css.
   const cssAsset = resolveCssAsset(compilation, feature)
   let hasCssEntry = cssAsset.found
   const cssHrefOverride = cssAsset.href
@@ -67,13 +66,8 @@ export function patchHtml(
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
   let firstLinkAttrs: Array<{name: string; value: string}> | undefined
-  // Bundled <script src> tags collected during the walk. The bundle tag
-  // replaces the LAST of them IN PLACE (instead of an end-of-body append):
-  // classic scripts execute at their tag's position, so an inline <script>
-  // consumer below a head-positioned library tag (Handlebars.compile beside
-  // a <script src> handlebars) must find the bundle already executed. When
-  // the last original tag already sits at the end of body this changes
-  // nothing.
+  // Bundled <script src> tags collected during the walk. The bundle tag replaces
+  // the LAST of them IN PLACE so inline consumers below still find it executed.
   const bundledScriptNodes: parse5utilities.ParsedNode[] = []
   let bodyNode: Parameters<typeof parse5utilities.append>[0] | undefined
 
@@ -81,8 +75,6 @@ export function patchHtml(
     if (node.nodeName !== 'html') continue
 
     for (const htmlChildNode of node.childNodes) {
-      // We don't really care whether the asset is in the head or body
-      // element, as long as it's not a regular text node, we're good.
       if (
         htmlChildNode.nodeName === 'head' ||
         htmlChildNode.nodeName === 'body'
@@ -92,7 +84,6 @@ export function patchHtml(
           const {cleanPath, hash, search} = cleanAssetUrl(filePath)
           const absolutePath = path.resolve(htmlDir, cleanPath)
           const extname = getExtname(absolutePath)
-          // public-root absolute paths are preserved; others become bundled entries
 
           const excludedFilePath =
             path.posix.join('/', cleanPath) + (search || '') + (hash || '')
@@ -100,15 +91,8 @@ export function patchHtml(
           let thisChildNode: parse5utilities.ParsedNode = childNode
 
           switch (assetType) {
-            // For script types, we have two cases:
-            // 1. If the file is excluded, we replace the src attribute
-            // with the excluded file path (absolute path).
-            // 2. If the file is not excluded, we remove the script tag
-            // from the HTML file and set the JS bundle index since we compile
-            // all JS files into a single bundle.
             case 'script': {
               if (cleanPath.startsWith('/')) {
-                // Public-root absolute scripts are preserved as-is
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'src',
@@ -132,10 +116,9 @@ export function patchHtml(
                 hasJsEntry = true
               }
               break
-            } // For CSS types, we have the same cases of script types.
+            }
             case 'css': {
               if (cleanPath.startsWith('/')) {
-                // Public-root absolute styles are preserved as-is
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'href',
@@ -162,15 +145,6 @@ export function patchHtml(
               }
               break
             }
-            // For static assets, we have three cases:
-            // 1. If the file is excluded, we replace the src or href attribute
-            // with the excluded file path (absolute path).
-            // 2. If the file is not excluded and is a compilation entry,
-            // we replace the src or href attribute with the entryname
-            // from the compilation entry.
-            // 3. If the file is not excluded and is not a compilation entry,
-            // we replace the src or href attribute with the resolved path
-            // from the assets folder.
             case 'staticHref':
             case 'staticSrc': {
               thisChildNode = handleStaticAsset(
@@ -196,7 +170,6 @@ export function patchHtml(
       }
 
       if (htmlChildNode.nodeName === 'head') {
-        // Create the link tag for the CSS bundle.
         if (hasCssEntry) {
           injectCssLink(htmlChildNode, feature, firstLinkAttrs, cssHrefOverride)
         }
@@ -211,9 +184,8 @@ export function patchHtml(
     // point for the extension even during development.
     if (hasJsEntry || compilation.options.mode !== 'production') {
       if (bundledScriptNodes.length > 0) {
-        // Swap the last original tag for the bundle tag in place; drop the
-        // rest. Execution order relative to inline scripts and preserved
-        // (root-absolute) tags stays the author's.
+        // Swap the last original tag for the bundle tag in place; drop the rest.
+        // Execution order relative to inline and preserved tags stays the author's.
         for (const scriptNode of bundledScriptNodes.slice(0, -1)) {
           parse5utilities.remove(
             scriptNode as Parameters<typeof parse5utilities.remove>[0]
@@ -237,14 +209,11 @@ export function patchHtml(
     return parse5utilities.stringify(htmlDocument)
   }
 
-  // If we get here, we didn't find an html node
   return ''
 }
 
-/**
- * Patches a nested HTML: preserve original script/link tags,
- * only rewrite static assets, and warn about missing public-root assets.
- */
+// Patches a nested HTML: preserve original script/link tags, rewrite only
+// static assets, and warn about missing public-root assets.
 export function patchHtmlNested(
   compilation: Compilation,
   htmlEntry: string
@@ -264,7 +233,6 @@ export function patchHtmlNested(
           const htmlDir = path.dirname(htmlEntry)
           const {cleanPath, hash, search} = cleanAssetUrl(filePath)
           const absolutePath = path.resolve(htmlDir, cleanPath)
-          // public-root absolute paths are preserved; others are emitted or linked
 
           let thisChildNode: parse5utilities.ParsedNode = childNode
 
@@ -273,7 +241,6 @@ export function patchHtmlNested(
               if (cleanPath.startsWith('/')) {
                 warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
 
-                // Keep as-is (but normalize URL for query/hash)
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'src',

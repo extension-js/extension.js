@@ -6,8 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
 import * as path from 'node:path'
 import type {CompilationLike} from '../../browsers-types'
 

@@ -18,19 +18,13 @@ import {discoverWebSocketDebuggerUrl} from './discovery'
 import {getExtensionInfo} from './extensions'
 import {establishBrowserConnection} from './ws'
 
-// Restrict browser-root auto-attach to extension-relevant target types.
-// Excluding page/iframe prevents third-party OAuth popups (claude.ai, Google, etc.)
-// from being pulled into our CDP session, which Chrome flags as "a debugger is
-// attached" and surfaces as "Debugger paused in another tab" when those popups
-// ship anti-debug `debugger;` statements. enableAutoAttach() below stays filter-less
-// for the unified-logging path, which needs page coverage.
+// Restrict browser-root auto-attach to extension-relevant target types;
+// attaching pages/iframes trips anti-debug checks in third-party OAuth popups.
 export const EXTENSION_AUTO_ATTACH_FILTER: Array<{
   type?: string
   exclude?: boolean
 }> = [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
 
-// Chrome DevTools Protocol client for the dev-time extension controller
-// Handles communication with Chrome's remote debugging interface
 export class CDPClient {
   private port: number
   private host: string
@@ -157,9 +151,7 @@ export class CDPClient {
     this.pendingRequests.forEach(({reject, timeout}, id) => {
       try {
         reject(new Error(reason))
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       if (timeout) clearTimeout(timeout)
       this.pendingRequests.delete(id)
@@ -170,19 +162,14 @@ export class CDPClient {
     this.stopHeartbeat()
 
     if (this.transport === 'pipe') {
-      // NEVER end() the pipe here: closing the --remote-debugging-pipe is
-      // Chromium's browser-shutdown signal (it's how Puppeteer closes the
-      // browser). Ending it as "cleanup" turns any dead-connection verdict
-      // into killing the user's dev browser. Detach quietly instead, the
-      // fds close with our process, which is when the browser SHOULD exit.
+      // NEVER end() the pipe here: closing --remote-debugging-pipe is Chromium's
+      // shutdown signal; detach quietly, the fds close when our process exits.
       try {
         this.pipeIn?.removeAllListeners()
         // Keep draining so Chromium's pipe writer never blocks on a full
         // buffer once nobody consumes events.
         this.pipeIn?.resume()
-      } catch {
-        // ignore
-      }
+      } catch {}
       this.pipeIn = null
       this.pipeOut = null
     }
@@ -190,9 +177,7 @@ export class CDPClient {
     if (this.ws) {
       try {
         this.ws.close()
-      } catch {
-        // ignore
-      }
+      } catch {}
       this.ws = null
     }
   }
@@ -210,13 +195,8 @@ export class CDPClient {
         this.heartbeatStallWarned = false
       } catch {
         if (this.transport === 'pipe') {
-          // A timed-out heartbeat over the pipe means the browser is STALLED,
-          // not gone (extension reloads can wedge the DevTools/UI thread for
-          // a while, family B: a real browser death fires pipe 'close'
-          // instead). Tearing down here used to end() the pipe, which is
-          // Chromium's shutdown signal, i.e. we killed the wedged-but-alive
-          // dev browser. Log once and keep the heartbeat: if the browser
-          // recovers, the session resumes on its own.
+          // A timed-out heartbeat over the pipe means the browser is STALLED, not gone
+          // (a real death fires pipe 'close'). Log once and keep the heartbeat.
           if (!this.heartbeatStallWarned) {
             this.heartbeatStallWarned = true
             console.warn(
@@ -316,7 +296,6 @@ export class CDPClient {
     }
   }
 
-  // Send a command to the CDP endpoint
   async sendCommand(
     method: string,
     params: Record<string, unknown> = {},
@@ -369,7 +348,6 @@ export class CDPClient {
     })
   }
 
-  // Target and Session Management
   async getTargets(): Promise<CdpTargetInfo[]> {
     const response = (await this.sendCommand('Target.getTargets')) as
       | {targetInfos?: CdpTargetInfo[]}
@@ -412,7 +390,6 @@ export class CDPClient {
     }
   }
 
-  // Evaluate JavaScript in the page context
   async evaluate(
     sessionId: string,
     expression: string,

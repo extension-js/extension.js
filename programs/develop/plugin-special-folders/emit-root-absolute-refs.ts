@@ -6,20 +6,8 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Root-absolute reference fallback (Chrome semantics).
-//
-// Chrome resolves a leading `/` from the EXTENSION ROOT. Extension.js only ever
-// served such refs from `public/`, so a wild extension that keeps its assets at
-// the source root shipped a broken build: the file was never copied to the
-// output root, and the ref 404'd at runtime.
-//
-// This runs over the EMITTED assets rather than the sources, so one pass covers
-// every producer uniformly, <script src="/x.js">, <link href="/x.css"> and
-// CSS `url(/img/x.svg)` alike, without teaching each pipeline about root refs.
-//
-// Strictly additive: `public/` still wins, and only refs that actually exist at
-// the extension root are claimed. A genuinely broken ref stays broken and is
-// still reported.
+// Root-absolute reference fallback (Chrome resolves a leading '/' from the
+// EXTENSION ROOT): runs over EMITTED assets, additive, public/ still wins.
 
 import * as fs from 'node:fs'
 import {type Compilation, rspack} from '@rspack/core'
@@ -38,16 +26,12 @@ export function emitRootAbsoluteRefs(
   publicDir: string
 ) {
   const scanned = new Set<string>()
-  // JS modules copied verbatim by this pass keep their static import graph,
-  // Chrome resolves those specifiers against the module's own URL, so the
-  // closure must ship too or the import fetch 404s (the root-absolute sibling
-  // of the getURL static-import trace in trace-runtime-loaded-files).
+  // JS modules copied verbatim keep their static import graph, so the closure
+  // must ship too or the import fetch 404s at runtime.
   let pendingJs: Array<{name: string; content: string}> = []
 
-  // Fixed point: a CSS file we copy in for a root ref can itself carry root
-  // refs (`/css/opt.css` -> `url(/img/warn.svg)`). It is not an asset yet when
-  // the first scan runs, so a single pass would silently miss the svg. Keep
-  // scanning newly emitted assets until nothing new turns up.
+  // Fixed point: a copied CSS file can itself carry root refs; keep scanning
+  // newly emitted assets until nothing new turns up.
   for (let pass = 0; pass < 10; pass++) {
     const refs = new Set<string>()
 

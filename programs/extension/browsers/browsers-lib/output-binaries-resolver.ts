@@ -11,11 +11,9 @@ import * as path from 'node:path'
 import type {CompilationLike} from '../browsers-types'
 
 function computeSharedCacheRoot(): string {
-  // Highest priority: explicit override
   const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
   if (explicit) return path.resolve(explicit)
 
-  // Respect XDG cache on Linux
   const isWin = process.platform === 'win32'
   const isMac = process.platform === 'darwin'
 
@@ -34,7 +32,6 @@ function computeSharedCacheRoot(): string {
         'browsers'
       )
     }
-    // Fallback to cwd if envs are missing (rare)
     return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
   }
 
@@ -48,7 +45,6 @@ function computeSharedCacheRoot(): string {
     return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
   }
 
-  // Linux / others
   const xdg = String(process.env.XDG_CACHE_HOME || '').trim()
 
   if (xdg) return path.join(xdg, 'extension.js', 'browsers')
@@ -73,12 +69,10 @@ export function getCompilationOutputPath(compilation: CompilationLike): string {
 }
 
 export function computeBinariesBaseDir(compilation: CompilationLike) {
-  // New default: per-user shared cache
   if (process.env.EXTENSIONJS_BINARIES_IN_DIST !== '1') {
     return computeSharedCacheRoot()
   }
 
-  // Legacy fallback: project dist
   const outputDir = getCompilationOutputPath(compilation)
 
   if (outputDir) {
@@ -129,13 +123,8 @@ export function managedBrowserCacheEnv(
     return {}
   }
 
-  // Managed installs are stored as:
-  // - Chrome:   <root>/chrome/chrome/<platformOrVersion>/...
-  // - Chromium: <root>/chromium/chromium/<platformOrVersion>/...
-  // - Firefox:  <root>/firefox/firefox/<platformOrChannel>/...
-  //
-  // Puppeteer cache resolvers expect to see platform directories (mac_*/linux*/win*)
-  // at the base path, so we point them at the *nested* folder.
+  // Managed installs nest as <root>/<browser>/<browser>/<platformOrVersion>/...;
+  // Puppeteer cache resolvers expect platform dirs at the base, so point at the nested folder.
   if (browser === 'chrome') {
     return {PUPPETEER_CACHE_DIR: path.join(root, 'chrome', 'chrome')}
   }
@@ -190,9 +179,7 @@ export function resolveFromBinaries(
       for (const dir of versionDirs) {
         candidateFiles.push(...buildCandidates(dir, browser))
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 
   for (const candidate of candidateFiles) {
@@ -200,14 +187,9 @@ export function resolveFromBinaries(
       if (candidate && fs.existsSync(candidate)) {
         return candidate
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 
-  // No candidate path matched: do a shallow recursive search up to depth 6.
-  // (Reaching here means the loop above returned nothing, so the previous
-  // `matched` flag was always false at this point, removed as dead state.)
   const names = executableNamesFor(browser)
   for (const root of scanRoots) {
     const found = findExecutableUnder(root, names, 6)
@@ -219,9 +201,7 @@ export function resolveFromBinaries(
 }
 
 // When the requested chromium-family browser has no managed install, another
-// managed chromium-family binary is a working substitute. This keeps
-// `extension install all` + `extension dev` working even though `install all`
-// and the dev default can drift apart across versions.
+// managed family binary is a working substitute (install-all vs dev-default drift).
 export function resolveChromiumFamilyFallback(
   compilation: CompilationLike,
   requested: 'chrome' | 'chromium' = 'chromium'
@@ -343,7 +323,6 @@ function buildCandidates(
       )
     }
   } else {
-    // firefox
     if (process.platform === 'darwin') {
       out.push(
         path.join(dir, 'Firefox.app', 'Contents', 'MacOS', 'firefox'),
@@ -381,7 +360,6 @@ function executableNamesFor(
       ? ['msedge.exe']
       : ['msedge', 'microsoft-edge']
   }
-  // firefox
   return process.platform === 'win32' ? ['firefox.exe'] : ['firefox']
 }
 
@@ -416,9 +394,7 @@ function findExecutableUnder(
         }
       }
     }
-  } catch {
-    // Ignore
-  }
+  } catch {}
 
   return null
 }

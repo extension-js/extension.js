@@ -16,9 +16,7 @@ async function waitForManifest(outPath: string, timeoutMs = 8000) {
   while (Date.now() - start < timeoutMs) {
     try {
       if (fs.existsSync(manifestPath)) return true
-    } catch {
-      // ignore
-    }
+    } catch {}
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
   return false
@@ -59,7 +57,6 @@ export async function printRunningInDevelopmentSummary(
       }
     }
 
-    // Fallback to last candidate if none matched
     if (!chosenPath && candidateAddonPaths.length > 0) {
       chosenPath = candidateAddonPaths[candidateAddonPaths.length - 1]
     }

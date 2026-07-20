@@ -30,13 +30,11 @@ export function resolveCompanionExtensionDirs(opts: {
 
   const found: string[] = []
 
-  // Explicit paths first (stable order)
   for (const p of explicitPaths) {
     const abs = toAbs(projectRoot, p)
     if (isValidExtensionRoot(abs)) found.push(abs)
   }
 
-  // Scan a directory for <dir>/*/manifest.json (one level deep)
   if (scanDir) {
     const absScan = toAbs(projectRoot, scanDir)
 
@@ -80,7 +78,6 @@ export function resolveCompanionExtensionDirs(opts: {
     }
   }
 
-  // De-dupe while preserving order
   const unique: string[] = []
   const seen = new Set<string>()
 

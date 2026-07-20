@@ -20,8 +20,6 @@ import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-da
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions, PluginInterface} from '../types'
-// import {maybeUseAngular} from './js-tools/angular'
-// import {maybeUseSolid} from './js-tools/solid'
 import * as messages from './js-frameworks-lib/messages'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
@@ -188,10 +186,8 @@ export class JsFrameworksPlugin {
         ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
       ])
     )
-    // Every entry AND every probe of these path sets goes through
-    // `toResourceKey`, a set built with `path.resolve` but probed with
-    // `path.normalize` (or vice versa) never matches on Windows, where only
-    // the resolved form carries the drive letter.
+    // Every entry AND probe of these path sets goes through toResourceKey: mixing
+    // path.resolve and path.normalize never matches on Windows (drive letter).
     const contentScriptLikePaths = new Set<string>()
     const scriptsDir = toResourceKey(path.resolve(projectPath, 'scripts'))
     const isfeatureScriptsContentLike = (resourcePath: string) => {
@@ -210,20 +206,16 @@ export class JsFrameworksPlugin {
       )
     }
 
-    // Enable SWC sourcemaps whenever the build is expected to emit sourcemaps.
-    // - In development we default to on (better DX), unless the user explicitly disables `devtool`.
-    // - In production we only enable when the user opts-in via `devtool` (e.g. "hidden-source-map").
+    // Enable SWC sourcemaps whenever the build emits sourcemaps: dev defaults on
+    // unless devtool is disabled; production only on devtool opt-in.
     const devtool = (compiler.options as {devtool?: unknown}).devtool
     const wantsSourceMaps =
       devtool !== false && (mode === 'development' || devtool != null)
 
-    // Read the manifest once for both content-script detection and target derivation
     let manifest: ParsedJson = {}
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
-    } catch {
-      // Fail silently
-    }
+    } catch {}
 
     const contentScripts = Array.isArray(manifest?.content_scripts)
       ? manifest.content_scripts
@@ -239,11 +231,8 @@ export class JsFrameworksPlugin {
       }
     }
 
-    // Browsers parse a script as an ES module only where the platform declares
-    // it: `<script type="module">` in an HTML page, or a `"type": "module"`
-    // background service worker. Everything else, plain `<script src>` page
-    // scripts, classic workers, loads as a classic script, so only declared
-    // modules may be force-marked `javascript/esm` below.
+    // Browsers parse a script as an ES module only where the platform declares it;
+    // everything else loads classic, so only declared modules are force-marked ESM below.
     const platformModulePaths = new Set<string>()
     try {
       const browserManifest = filterKeysForThisBrowser(manifest, this.browser)
@@ -291,7 +280,6 @@ export class JsFrameworksPlugin {
     )
     const preferTypeScript = !!tsConfigPath || isUsingTypeScript(projectPath)
 
-    // Derive transpile targets from extension manifest for leaner output
     let targets: string[] = ['chrome >= 100']
 
     if (manifest?.minimum_chrome_version) {
@@ -330,8 +318,6 @@ export class JsFrameworksPlugin {
         existingRules as LooseRuleSetRule[]
       )
       if (vueRuleIndices.length > 0) {
-        // Merge our defaults (and any `vue.loader.*` customOptions) into the
-        // user's first vue-loader rule, and remove other vue-loader rules.
         const primary = vueRuleIndices[0]
         existingRules[primary] = this.mergeVueRule(
           existingRules[primary] as LooseRuleSetRule,
@@ -347,13 +333,8 @@ export class JsFrameworksPlugin {
 
     const swcRuleBase = {
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      // Explicit `javascript/auto` so rspack detects script-vs-module from the
-      // file itself. Left implicit, rspack infers the type from the nearest
-      // package.json `"type"` field, but Chrome never reads package.json:
-      // a project with `"type": "commonjs"` (Node tooling) still loads its
-      // `"type": "module"` service worker graph as ESM, and one with
-      // `"type": "module"` still loads classic sloppy content scripts. The
-      // platform-declared-ESM marker rule below still wins where it matches.
+      // Explicit javascript/auto so rspack detects script-vs-module from the file
+      // itself; Chrome never reads package.json "type", unlike rspack's default inference.
       type: 'javascript/auto',
       include: Array.from(new Set([tsRoot, ...swcIncludeDirs])),
       exclude: [
@@ -377,16 +358,11 @@ export class JsFrameworksPlugin {
         module: {
           type: 'es6'
         },
-        // Keep SWC in transform-only mode. Production minification is handled
-        // by Rspack optimization, and disabling SWC minify preserves magic
-        // comments like /* webpackIgnore: true */ for native dynamic imports
+        // Keep SWC transform-only: Rspack owns production minification, and disabling
+        // SWC minify preserves magic comments like /* webpackIgnore: true */.
         minify: false,
-        // Auto-detect script vs module per file. Browsers load content scripts
-        // and background.scripts as classic sloppy-mode scripts, where legacy
-        // octal escapes and loose semantics are legal, forcing every file
-        // through strict-mode ESM parsing rejects Chrome-valid extensions (and
-        // multi-MB data scripts full of octal escapes melt the SWC diagnostic
-        // renderer). Files with import/export still parse as strict modules.
+        // Auto-detect script vs module per file: content scripts and background.scripts
+        // load as classic sloppy scripts where octal escapes are legal; forced ESM rejects them.
         isModule: 'unknown',
         sourceMap: wantsSourceMaps,
         env: {targets},
@@ -470,23 +446,11 @@ export class JsFrameworksPlugin {
       {
         ...swcRuleBase,
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
-        // Classic multi-file concat entries (content_scripts AND MV2
-        // background.scripts) carry the __extensionjs_classic_concat__ query and
-        // are always plain concatenated classic scripts sharing one scope, never
-        // ES modules. They must be excluded here or Rspack marks the synthetic
-        // entry `javascript/esm` and emits it as a hash-named asset instead of the
-        // canonical `background/scripts.js` chunk (a content_scripts concat only
-        // dodges this by matching `isfeatureScriptsContentLike` below).
+        // Classic concat entries (content_scripts AND MV2 background.scripts) share one
+        // scope and are never ESM; excluded here or Rspack emits hash-named assets.
         resourceQuery: {not: /__extensionjs_classic_concat__/},
-        // Page/background scripts stay `javascript/auto` (explicit, via the
-        // base rule) so Rspack detects script-vs-module per file (import/export → ESM),
-        // matching how browsers load a plain `<script src>` page script as a
-        // classic sloppy-mode script. Force-parsing these as strict ESM
-        // rejected Chrome-valid classic scripts and melted the diagnostic
-        // renderer on multi-MB legacy-octal data scripts. Platform-declared
-        // modules (`<script type="module">`, `"type": "module"` service
-        // workers) are marked `javascript/esm` by the dedicated rule below so
-        // their legal top-level await parses even without import/export.
+        // Page/background scripts stay javascript/auto so script-vs-module is detected
+        // per file, matching browser loading; platform-declared modules get ESM below.
         exclude: [
           ...swcRuleBase.exclude,
           (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
@@ -508,11 +472,8 @@ export class JsFrameworksPlugin {
           }
         }
       },
-      // Platform-declared ES modules only. Rspack merges every matching
-      // rule, so this adds `type: 'javascript/esm'` on top of the loader
-      // rule above without duplicating it. The content-script exclusion
-      // covers a file declared both as a content script and a module page
-      // script, the content-script instance must stay classic.
+      // Platform-declared ES modules only; rspack merges matching rules, and the
+      // content-script exclusion keeps a doubly-declared file's cs instance classic.
       ...(platformModulePaths.size > 0
         ? [
             {
@@ -562,7 +523,6 @@ export class JsFrameworksPlugin {
       }
     }
 
-    // Author mode: summarize JS frameworks and configs
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const integrations: string[] = []
 
@@ -599,10 +559,8 @@ export class JsFrameworksPlugin {
       )
       return
     }
-    // dev/watch: beforeRun never fires, so begin configuring eagerly and also
-    // gate the first compilation on the same promise via watchRun. This closes
-    // the race where the compiler could read module.rules / resolve.alias before
-    // the (async) framework-contract resolution finished mutating them
+    // dev/watch: beforeRun never fires, so configure eagerly and gate the first
+    // compilation via watchRun, closing the race with async contract resolution.
     const configuring = this.configureOptions(compiler)
     compiler.hooks.watchRun.tapPromise(
       JsFrameworksPlugin.name,

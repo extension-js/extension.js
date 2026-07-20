@@ -48,10 +48,8 @@ export class UpdateManifest {
       const css = contentObj.css ?? []
       const js = contentObj.js ?? []
       if (css.length && !js.length) {
-        // The group's entry always emits a JS chunk (it carries the CSS HMR
-        // runtime), named after the canonical group index, which can differ
-        // from the array position once MAIN-world bridges are inserted, so
-        // read the index back from the rewritten css path.
+        // The group's entry always emits a JS chunk named after the canonical group
+        // index, which can differ from array position; read it back from the css path.
         const canonicalIndex =
           parseCanonicalContentScriptAsset(css[0])?.index ?? index
         contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
@@ -68,10 +66,8 @@ export class UpdateManifest {
         compilation.hooks.processAssets.tap(
           {
             name: 'manifest:update-manifest',
-            // Run after env substitution but before REPORT-stage manifest
-            // patchers. Later patchers read manifest.json from assets, so they
-            // must see the canonical rewritten paths, and the write-to-disk
-            // flow must persist those canonical paths before Chromium loads.
+            // Run after env substitution but before REPORT-stage patchers, which read
+            // manifest.json from assets and must see the canonical rewritten paths.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE + 1
           },
           () => {
@@ -101,12 +97,8 @@ export class UpdateManifest {
 
             const overrides = getManifestOverrides(this.manifestPath, manifest)
 
-            // During development, if user has only CSS files in content_scripts,
-            // we add a JS file to the content_scripts bundle so that
-            // these files can be dynamically imported, thus allowing HMR.
-            // Must run before patchDevContentScriptManifestPaths so the
-            // canonical js name it injects resolves to the hashed emitted
-            // asset like every other content-script reference.
+            // Dev-only: content_scripts with only CSS get a JS file so styles can be
+            // dynamically imported (HMR). Must run before patchDevContentScriptManifestPaths.
             if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =
@@ -136,9 +128,7 @@ export class UpdateManifest {
                       if (hasCss && hasJs && cs.js?.length === 1) {
                         devCssStubsAdded++
                       }
-                    } catch {
-                      // Ignore guard errors
-                    }
+                    } catch {}
                   }
                 }
                 console.log(
@@ -147,16 +137,11 @@ export class UpdateManifest {
                     devCssStubsAdded
                   )
                 )
-              } catch {
-                // Ignore guard errors
-              }
+              } catch {}
             }
 
-            // Repair shapes Chrome refuses to load the extension over
-            // (numeric version, empty default_icon, icon paths that resolve
-            // to 0-byte files). --load-extension surfaces the refusal only
-            // as a native modal, wedging the dev session before CDP binds,
-            // so repair, and warn so the author fixes the source manifest.
+            // Repair shapes Chrome refuses to load over (numeric version, empty or 0-byte
+            // icons): --load-extension surfaces refusal only as a native modal. Warn too.
             const sanitized = sanitizeFatalManifestShapes(
               patchedManifest,
               path.dirname(this.manifestPath)

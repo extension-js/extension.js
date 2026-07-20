@@ -54,10 +54,8 @@ export class AddContentScriptWrapper {
     const includeMatcher = (resource: string): boolean =>
       isResourceUnderDirs(resource, includeDirs)
 
-    // Classic concat loader: runs on files that carry the
-    // __extensionjs_classic_concat__ query parameter. Must be registered
-    // before the content-script-wrapper so the wrapper receives the
-    // concatenated source + source map from the concat loader.
+    // Classic concat loader must be registered before the content-script-wrapper
+    // so the wrapper receives the concatenated source + source map.
     compiler.options.module.rules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       resourceQuery: /__extensionjs_classic_concat__/,

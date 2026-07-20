@@ -27,7 +27,6 @@ const shouldGenerateDts = (() => {
 })()
 
 const externals = [
-  // React / Preact
   'react-refresh',
   '@rspack/plugin-react-refresh',
   '@rspack/plugin-preact-refresh',
@@ -35,13 +34,11 @@ const externals = [
   '@prefresh/utils',
   '@prefresh/webpack',
 
-  // Vue / Svelte
   'vue-loader',
   '@vue/compiler-sfc',
   'vue-style-loader',
   'svelte-loader',
 
-  // Style loaders
   'sass-loader',
   'less-loader',
   'postcss-loader',
@@ -51,13 +48,8 @@ const externals = [
   'ws'
 ]
 
-// Browser-side runtime files: HMR shims and minimum placeholder scripts.
-// These are emitted as standalone assets and end up running INSIDE the
-// user's extension at runtime (HTML page scripts, content scripts, service
-// workers). They MUST NOT receive the Node-only `createRequire` banner,
-// `node:module` is unresolvable in a web target and causes "Reading from
-// 'node:module' is not handled by plugins" when rspack later bundles user
-// code that pulls these wrappers in as content/background entries.
+// Browser-side runtime files run INSIDE the user's extension; they must not
+// receive the Node-only createRequire banner (node:module is unresolvable there).
 const browserEntries = {
   'minimum-script-file': path.resolve(
     __dirname,
@@ -82,11 +74,8 @@ const browserEntries = {
   )
 }
 
-// Node-side: the main library entry, the preview entry, plus rspack loaders
-// (ensure-hmr-for-scripts, feature-scripts-content-script-wrapper). Loaders
-// execute inside rspack's loader runner at build time, so they live on Node
-// and need the CJS-shim banner so bundled bare `require()` /
-// `require.resolve()` sites keep working in pure ESM.
+// Node-side entries and rspack loaders run at build time on Node, so they need
+// the CJS-shim banner for bundled bare require()/require.resolve() sites.
 const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
@@ -122,10 +111,8 @@ export default defineConfig({
     // Disable caching to avoid rspack module graph panics in CI builds.
     rspack: {
       cache: false,
-      // Polyfill CJS globals in ESM output (target: node). Source files that
-      // compute paths via `__dirname` / `__filename` (e.g. develop-context,
-      // package-manager) would otherwise hit ReferenceError after the ESM
-      // flip. The `node-module` mode replaces them via `import.meta.url`.
+      // Polyfill CJS globals in ESM output (target: node): __dirname/__filename
+      // would otherwise hit ReferenceError after the ESM flip.
       node: {
         __dirname: 'node-module',
         __filename: 'node-module'
@@ -138,19 +125,15 @@ export default defineConfig({
       syntax: 'es2022',
       dts: shouldGenerateDts,
       source: {entry: nodeEntries},
-      // Inject a CJS-style `require` so bundled bare `require(...)` /
-      // `require.resolve(...)` sites in Node-side code keep working in pure
-      // ESM. createRequire is not available as a global in ESM. Limited to
-      // node-target lib so browser-side wrappers don't pick up `node:module`.
+      // Inject a CJS-style require for bundled bare require() sites in Node-side
+      // code; limited to node-target lib so browser wrappers skip node:module.
       banner: {
         js: 'import { createRequire as __extjsCreateRequire } from "node:module"; const require = __extjsCreateRequire(import.meta.url);'
       },
       output: {
         target: 'node',
-        // Emit ESM-aware polyfills for CJS-only globals so source files that
-        // use `__dirname` / `__filename` keep working after the format flip
-        // to ESM. Without this, references blow up at runtime as
-        // `ReferenceError`.
+        // Emit ESM-aware polyfills for __dirname/__filename so they keep working
+        // after the format flip to ESM.
         filename: {js: '[name].mjs'},
         externals
       }

@@ -29,9 +29,8 @@ import * as path from 'node:path'
 // Route every such comparison through these helpers so the safe form is the
 // default and can't be half-applied.
 
-// Resolve a directory to its real, symlink-resolved path. Native first (so it
-// matches rspack's resource path), then the JS realpath, then the raw path if
-// the directory does not exist yet.
+// Resolve a directory to its real, symlink-resolved path: native first (matches
+// rspack), then JS realpath, then the raw path if the dir doesn't exist yet.
 export function canonicalizeDir(dir: string): string {
   try {
     return fs.realpathSync.native(dir)
@@ -44,10 +43,8 @@ export function canonicalizeDir(dir: string): string {
   }
 }
 
-// Canonicalize a resource (file) path so it can be compared against
-// `canonicalizeDir`-derived paths. We canonicalize the file's DIRECTORY (which
-// exists during a build even when the resource itself is virtual, realpath on
-// the file could throw) and re-append the basename.
+// Canonicalize the file's DIRECTORY (exists during a build even when the
+// resource is virtual) and re-append the basename.
 export function canonicalizeResourcePath(resourcePath: string): string {
   if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
     return resourcePath
@@ -64,15 +61,8 @@ export function canonicalizeResourcePath(resourcePath: string): string {
   }
 }
 
-// Membership key for comparing a path against an rspack resource path via a
-// Set/Map. `canonicalizeResourcePath` alone is NOT enough for equality checks:
-// on Windows a drive-less absolute (`\project\sw.js`, the shape `path.join`
-// and `path.normalize` preserve) never string-equals the drive-lettered form
-// rspack reports (`D:\project\sw.js`, the shape `path.resolve` produces), so a
-// set built with one and probed with the other silently never matches, on
-// exactly one platform. `path.resolve` pins both sides to the same rooted
-// form; drive-letter casing is then folded because `realpathSync.native` only
-// normalizes it for paths that exist on disk.
+// Membership key for path comparison: path.resolve pins both sides to the same
+// rooted form on Windows, where drive-less and drive-lettered shapes never equal.
 export function toResourceKey(resourcePath: string): string {
   if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
     return resourcePath
@@ -84,10 +74,8 @@ export function toResourceKey(resourcePath: string): string {
   return key
 }
 
-// True when `resource` resolves to a path inside any of `dirs`. `dirs` are
-// expected to already be `canonicalizeDir`-resolved; the resource is
-// canonicalized the same way here so cross-platform form differences don't
-// break containment. Suitable as an rspack rule `include` function condition.
+// True when resource resolves inside any of dirs (already canonicalized);
+// suitable as an rspack rule include condition.
 export function isResourceUnderDirs(resource: string, dirs: string[]): boolean {
   if (typeof resource !== 'string' || resource.length === 0) return false
   const candidate = canonicalizeResourcePath(resource)

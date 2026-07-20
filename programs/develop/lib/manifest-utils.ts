@@ -9,21 +9,14 @@
 import type {DevOptions, Manifest} from '../types'
 import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
-// Canonical browser-key resolver. Single source of truth: the manifest-emission
-// path (feature-manifest/manifest-lib/manifest.ts) and feature-scripts/
-// feature-html all re-export this. Prefixed keys win deterministically over a
-// plain key (applied last), independent of source order.
+// Canonical browser-key resolver, re-exported by manifest/scripts/html paths.
+// Prefixed keys win deterministically over a plain key, independent of source order.
 export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ): Manifest {
-  // Safari Web Extensions are MV3 and are produced by converting a Chrome-shaped
-  // extension (safari-web-extension-converter consumes the chromium build
-  // output). Safari/webkit are intentionally NOT chromium-based for launch
-  // classification (they run through Xcode, not a Chromium binary) but for
-  // MANIFEST key resolution they must inherit the chromium family, or their
-  // chromium:/firefox: prefixed keys (including manifest_version) resolve to
-  // nothing and the emitted manifest is invalid.
+  // Safari/webkit are not chromium-based for launch classification, but for
+  // MANIFEST keys they must inherit the chromium family or prefixed keys resolve to nothing.
   const isSafariTarget =
     browser === 'safari' ||
     browser === 'webkit-based' ||
@@ -34,9 +27,8 @@ export function filterKeysForThisBrowser(
 
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
-  // Safari's own prefixes. Safari inherits the chromium family (see note
-  // above), but `safari:`/`webkit:` keys are more specific and must win over
-  // chromium-family keys, for BOTH `safari` and `webkit-based` targets.
+  // safari:/webkit: keys are more specific and must win over chromium-family
+  // keys, for BOTH safari and webkit-based targets.
   const webkitPrefixes = new Set(['safari', 'webkit'])
 
   const isFamilyPrefix = (prefix: string): boolean =>
@@ -44,10 +36,7 @@ export function filterKeysForThisBrowser(
     (isGeckoTarget && geckoPrefixes.has(prefix))
 
   const isSpecificPrefix = (prefix: string): boolean =>
-    // exact browser match (e.g., 'firefox', 'edge')
-    prefix === browser ||
-    // safari/webkit prefixes on safari-family targets
-    (isSafariTarget && webkitPrefixes.has(prefix))
+    prefix === browser || (isSafariTarget && webkitPrefixes.has(prefix))
 
   const resolve = (node: unknown): unknown => {
     if (Array.isArray(node)) {
@@ -62,13 +51,11 @@ export function filterKeysForThisBrowser(
       for (const [key, value] of Object.entries(node)) {
         const indexOfColon = key.indexOf(':')
 
-        // Retain plain keys.
         if (indexOfColon === -1) {
           result[key] = resolve(value)
           continue
         }
 
-        // Bucket matching browser:key overrides; drop non-matching ones.
         const prefix = key.substring(0, indexOfColon)
         const strippedKey = key.substring(indexOfColon + 1)
         if (isSpecificPrefix(prefix)) {
@@ -78,9 +65,7 @@ export function filterKeysForThisBrowser(
         }
       }
 
-      // Precedence (deterministic, independent of source order):
-      // plain < family prefix (chromium:/gecko:/…) < specific prefix
-      // (exact browser, or safari:/webkit: on safari-family targets).
+      // Precedence (deterministic): plain < family prefix < specific prefix.
       for (const [strippedKey, value] of Object.entries(familyMatches)) {
         result[strippedKey] = value
       }

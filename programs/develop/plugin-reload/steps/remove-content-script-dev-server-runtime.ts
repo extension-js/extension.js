@@ -13,12 +13,8 @@ const DEV_SERVER_STRONG_MARKERS = [
   '@rspack/dev-server/client/utils/ansiHTML.js',
   '[HMR] Waiting for update signal from WDS...'
 ]
-// Strings that also occur in ordinary user code (a `WebSocketClient` class, a
-// ported webpack project carrying its own `module.hot.check()`). One weak hit
-// alone must NOT strip the module, that deletes the user's content script,
-// so weak markers only count when at least two of them co-occur.
-// `.hot.check()` is substring-matched with the leading dot so it covers both
-// `module.hot.check()` and rspack's renamed `__webpack_module__.hot.check()`.
+// Weak markers also occur in user code; one hit alone must NOT strip the
+// module, so weak markers only count when at least two co-occur.
 const DEV_SERVER_WEAK_MARKERS = [
   'webpack-dev-server',
   'WebSocketClient',
@@ -38,12 +34,8 @@ export function stripDevServerStartupFromContentScript(source: string): string {
     const moduleBody = getModuleBody(source, moduleId)
     if (!moduleBody) continue
 
-    // Strip ONLY modules identified as dev-server runtime by their content,
-    // never by their position in the startup sequence. The startup list can
-    // legitimately hold several non-dev-server requires, e.g. with react
-    // projects the react-refresh entry AND the user's wrapped content script
-    // both precede the CSS entry module, and a positional sweep deletes the
-    // user's script (the whole bundle then boots as a no-op).
+    // Strip ONLY modules identified as dev-server runtime by content, never by
+    // startup position; a positional sweep deletes the user's script.
     const strongHit = DEV_SERVER_STRONG_MARKERS.some((marker) =>
       moduleBody.includes(marker)
     )

@@ -53,21 +53,16 @@ export class EmitFile {
             for (const entry of stringEntries) {
               // Resources from the manifest lib can come as undefined.
               if (entry) {
-                // Normalize manifest paths:
-                // - Leading "/" means extension root (public root), backed by the project "public/" folder
-                // - Relative paths are resolved from manifest directory
-                // - Absolute OS paths are used as-is
+                // Normalize manifest paths: leading '/' means extension root (public/); relative
+                // resolves from the manifest dir; absolute OS paths are used as-is.
                 const manifestDir = path.dirname(this.manifestPath)
 
                 let resolved = entry
 
                 if (!fs.existsSync(resolved)) {
                   if (path.isAbsolute(entry) && entry.startsWith(projectPath)) {
-                    // OS-absolute path under the project root. This can happen
-                    // when upstream helpers resolve manifest fields into
-                    // absolute filesystem paths. If the basename lives under
-                    // project public/, prefer that location; otherwise, keep
-                    // the absolute path.
+                    // OS-absolute path under the project root: prefer public/<basename> when it
+                    // exists there, otherwise keep the absolute path.
                     const basename = path.basename(entry)
                     const publicCandidate = path.join(publicDir, basename)
 
@@ -115,11 +110,8 @@ export class EmitFile {
                       ? publicCandidate
                       : path.join(projectPath, entry.slice(1))
                   } else {
-                    // For bare / relative icon paths coming from manifest fields, also
-                    // respect the public/ convention before falling back to the
-                    // manifest directory. This keeps behavior consistent with
-                    // web_accessible_resources and allows icons declared as
-                    // "icon.png" to live under public/icon.png.
+                    // Bare/relative icon paths also respect the public/ convention before falling
+                    // back to the manifest directory, consistent with web_accessible_resources.
                     const publicCandidate = path.join(publicDir, entry)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
@@ -159,23 +151,17 @@ export class EmitFile {
                       path.join(projectPath, 'public', entry.slice(1))
                     ))
 
-                // Missing file: error and skip
                 if (!fs.existsSync(resolved)) {
-                  // Treat leading '/' (extension-root style) as extension
-                  // output-root (public root). OS-absolute filesystem paths
-                  // under the project root are handled separately above and
-                  // do not get the public-root hint.
+                  // Leading '/' (extension-root style) maps to the output/public root;
+                  // OS-absolute paths are handled separately above and skip the hint.
                   const isPublicRoot =
                     entry.startsWith('/') && !entry.startsWith(projectPath)
                   const parts = String(feature).split('/')
                   const group = parts[0]
                   const sub = parts[1] || ''
 
-                  // Build a display path consistent with HTML and web-resources features:
-                  // - For extension-root style (leading '/') NOT OS-absolute, show <project>/public/<entry>
-                  //   since those paths are served from the extension public root.
-                  // - For OS-absolute paths, show as-is
-                  // - Otherwise, resolve relative to project root
+                  // Display path consistent with HTML/web-resources features: public-root style
+                  // shows <project>/public/<entry>; OS-absolute as-is; else relative to project root.
                   const displayPath =
                     !path.isAbsolute(entry) && isPublicRoot
                       ? path.join(projectPath, 'public', entry.slice(1))
@@ -210,9 +196,7 @@ export class EmitFile {
                 if (isUnderPublic) {
                   try {
                     compilation.fileDependencies.add(resolved)
-                  } catch {
-                    // ignore
-                  }
+                  } catch {}
 
                   underPublicCount++
                   continue
@@ -223,13 +207,6 @@ export class EmitFile {
 
                 const basename = path.basename(resolved)
 
-                // Determine output directory from feature key. Supported keys:
-                // - icons
-                // - action/default_icon
-                // - browser_action/default_icon
-                // - browser_action/theme_icons
-                // - page_action/default_icon
-                // - sidebar_action/default_icon
                 const parts = String(feature).split('/')
                 const group = parts[0]
                 const sub = parts[1] || ''
@@ -249,20 +226,15 @@ export class EmitFile {
                 ) {
                   outputDir = 'browser_action'
                 } else if (group === 'theme' && sub === 'images') {
-                  // Theme image keys arrive as `theme/images/<basename>`, so the
-                  // file must land under `theme/images/` to match the path the
-                  // theme manifest override writes into the manifest.
+                  // Theme image keys arrive as theme/images/<basename>, so the file must land
+                  // there to match the path the theme manifest override writes.
                   outputDir = 'theme/images'
                 }
 
                 let filename = `${outputDir}/${basename}`
 
-                // Icons keep their manifest-relative location so they can't
-                // collide with another emitted asset that legitimately owns
-                // icons/<basename>, e.g. a popup-referenced image (G16).
-                // Files outside the manifest directory have no in-project
-                // location to preserve and keep the flattened fallback.
-                // Mirrors iconOutputPath() in the manifest overrides.
+                // Icons keep their manifest-relative location so they can't collide with
+                // another emitted asset that owns icons/<basename>. Mirrors iconOutputPath().
                 if (outputDir === 'icons') {
                   const relFromManifest = path
                     .relative(manifestDir, resolved)

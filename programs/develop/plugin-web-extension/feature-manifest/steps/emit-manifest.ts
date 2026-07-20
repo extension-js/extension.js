@@ -36,11 +36,9 @@ export class EmitManifest {
             let jsonContent: Record<string, unknown>
 
             try {
-              // Read and parse the manifest file
               const content = fs.readFileSync(this.manifestPath, 'utf-8')
               jsonContent = JSON.parse(stripBom(content))
 
-              // Remove the $schema field if it exists
               if ('$schema' in jsonContent) {
                 delete jsonContent.$schema
               }
@@ -53,9 +51,8 @@ export class EmitManifest {
               return
             }
 
-            // Keep the sanitized source manifest available to later plugins without
-            // losing the original author intent. UpdateManifest is the single
-            // canonical writer that rewrites browser-specific fields and paths.
+            // Keep the sanitized source manifest available to later plugins;
+            // UpdateManifest is the single canonical writer of browser-specific fields.
             const jsonString = JSON.stringify(jsonContent, null, 2)
             setOriginalManifestContent(compilation, jsonString)
             setCurrentManifestContent(compilation, jsonString)

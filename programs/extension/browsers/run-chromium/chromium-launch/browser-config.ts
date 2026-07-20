@@ -29,39 +29,27 @@ import {
   edgeMasterPreferences
 } from './master-preferences'
 
-// Define the default flags as a constant for maintainability and type checking
-// Removed redundant and outdated flags for better performance
 export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
-  // Disable Chrome's native first run experience.
   '--no-first-run',
-  // Disables client-side phishing detection
   '--disable-client-side-phishing-detection',
-  // Disable sync to keep UI minimal and avoid account prompts
   '--disable-sync',
   // Disable some built-in extensions that aren't affected by '--disable-extensions'
   '--disable-component-extensions-with-background-pages',
-  // Disable installation of default apps
   '--disable-default-apps',
   // Disables the Discover feed on NTP
   '--disable-features=InterestFeedContentSuggestions',
   // Disables Chrome translation, both the manual option and the popup prompt when a
   // page with differing language is detected.
   '--disable-features=Translate',
-  // Hide scrollbars from screenshots.
   '--hide-scrollbars',
-  // Mute any audio
   '--mute-audio',
-  // Disable the default browser check, do not prompt to set it as such
   '--no-default-browser-check',
   // Avoids blue bubble "user education" nudges
   // (eg., "... give your browser a new look", Memory Saver)
   '--ash-no-nudges',
-  // Disable the 2023+ search engine choice screen
   '--disable-search-engine-choice-screen',
-  // Avoid the startup dialog for
-  // `Do you want the application "Chromium.app" to accept incoming network connections?`.
-  // Also disables the Chrome Media Router which creates background networking activity
-  // to discover cast targets.
+  // Avoid the macOS incoming-connections dialog and disable the Chrome Media
+  // Router's background cast-discovery networking.
   '--disable-features=MediaRoute',
   // Use mock keychain on Mac to prevent the blocking permissions dialog about
   // "Chrome wants to use your confidential information stored in your keychain"
@@ -76,7 +64,6 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disables Domain Reliability Monitoring, which tracks whether the browser
   // has difficulty contacting Google-owned sites and uploads reports to Google.
   '--disable-domain-reliability',
-  // Disable syncing to a Google account
   '--disable-sync',
   // Don't send hyperlink auditing pings
   '--no-pings',
@@ -85,11 +72,8 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disable the load extension command line switch
   // @ts-expect-error - this is a valid flag
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
-  // Chromium 152+ disables unpacked "developer" extensions (command-line
-  // loaded included) with DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the
-  // first runtime.reload(), which permanently kills the extension mid dev
-  // session (SW/manifest edits trigger exactly that reload). Older versions
-  // ignore unknown feature names, so this is safe across the family.
+  // Chromium 152+ disables unpacked developer extensions on the first
+  // runtime.reload(), permanently killing the extension mid dev session.
   // @ts-expect-error - this is a valid flag
   '--disable-features=ExtensionDisableUnsupportedDeveloper',
   // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
@@ -150,7 +134,6 @@ export function browserConfig(
 ) {
   const extensionsToLoad = toExtensionLoadList(configOptions.extension)
 
-  // Use ephemeral profile under dist unless explicit profile provided
   const devWantsCDP = compilation?.options?.mode === 'development'
   const rawProfile = configOptions.profile
   const useSystemProfile =
@@ -184,9 +167,8 @@ export function browserConfig(
     `${configOptions.browser}-profile`
   )
 
-  // One shared decision about what profile this run gets (system / explicit /
-  // managed), including copyFromProfile seeding and keepProfileChanges
-  // persistence. The launcher only expresses the result as Chromium launch args.
+  // One shared decision about what profile this run gets; the launcher only
+  // expresses the result as Chromium launch args.
   const resolved = resolveProfileConfig({
     rawProfile,
     managedBaseDir,
@@ -194,11 +176,8 @@ export function browserConfig(
     persistProfile: configOptions.persistProfile,
     keepProfileChanges: configOptions.keepProfileChanges,
     copyFromProfile: configOptions.copyFromProfile,
-    // Resolve relative profile paths against the rspack compilation context
-    // (the project root that owns extension.config.js), not process.cwd().
-    // Otherwise running examples sequentially from a parent dir collapses
-    // every example to the same shared profile, and Chrome carries the
-    // previous example's --load-extension path into the next session.
+    // Resolve relative profile paths against the compilation context, not cwd():
+    // otherwise sequential examples collapse onto one shared profile.
     resolveExplicit: (trimmedProfile) =>
       path.isAbsolute(trimmedProfile)
         ? trimmedProfile
@@ -213,7 +192,6 @@ export function browserConfig(
     console.log(messages.creatingUserProfile(shownPath(userProfilePath)))
 
     if (!resolved.persisted) {
-      // Best-effort cleanup of old managed temp profiles; exclude current basename
       try {
         const maxAgeHours = parseInt(
           String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
@@ -224,9 +202,7 @@ export function browserConfig(
           path.basename(userProfilePath),
           Number.isFinite(maxAgeHours) ? maxAgeHours : 12
         )
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   }
 
@@ -241,26 +217,20 @@ export function browserConfig(
         configOptions.browser,
         configOptions.preferences
       )
-    } catch {
-      // best-effort only
-    }
+    } catch {}
   }
 
-  // Get excluded flags (if any)
   const excludeFlags = configOptions.excludeBrowserFlags || []
 
-  // Filter out excluded flags
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
-  // Compute instance-based CDP port using shared helper
   const cdpPort = deriveDebugPortWithInstance(
     configOptions.port,
     configOptions.instanceId
   )
 
-  // Linux containers (Docker, Podman, devcontainers) and CI runners often lack
-  // a usable setuid sandbox. Without this, Chromium can exit before
-  // --remote-debugging-port binds, which breaks CDP-based dev tooling.
+  // Linux containers and CI often lack a usable setuid sandbox; without this
+  // Chromium can exit before the debugging port binds.
   const isLinuxContainer =
     process.platform === 'linux' &&
     (process.env.CI === 'true' ||
@@ -273,28 +243,22 @@ export function browserConfig(
     ? ['--no-sandbox', '--disable-setuid-sandbox']
     : []
 
-  // Enhanced flags for AI usage - ensure clean termination
   const aiOptimizedFlags = [
-    // AI-optimized flags for better process management
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
     '--disable-features=TranslateUI',
 
-    // Ensure clean shutdown
     '--disable-hang-monitor',
     '--disable-prompt-on-repost',
 
-    // Memory management for AI usage
     '--memory-pressure-off',
     '--max_old_space_size=4096',
     '--disable-dev-shm-usage'
   ]
 
-  // Flags set by default:
-  // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
-  // Added useful flags for tooling:
-  // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
+  // Default flags: chrome-launcher's flags.ts; tooling flags per
+  // chrome-flags-for-tools.md.
   const baseFlags = [
     ...(extensionsToLoad.length
       ? [`--load-extension=${extensionsToLoad.join()}`]

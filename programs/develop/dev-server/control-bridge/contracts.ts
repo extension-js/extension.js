@@ -180,17 +180,8 @@ export interface ReloadFrame {
   changedFiles?: string[]
 }
 
-/**
- * Producer → server receipt confirmation for a {@link ReloadFrame}: the SW's
- * message pump actually processed the frame. A successful socket write proves
- * nothing when the worker is wedged-but-connected (bug 27: the server printed
- * "Reloading content_script…" while no scripting.executeScript ever left the
- * producer). The broker latches a content-scripts reload until this ack
- * arrives and replays the latch to the next producer hello, so an edit that
- * landed on a dead pump still converges on the next SW start. Full/SW reloads
- * are not latched-until-ack (replaying a restart would loop it); their
- * convergence is the boot-time pending-reinject heal.
- */
+// Producer-to-server receipt confirmation for a ReloadFrame: a socket write
+// proves nothing when the SW is wedged; the broker latches cs reloads until this ack.
 export interface ReloadAckFrame {
   type: 'reload-ack'
   reloadType: DevReloadKind

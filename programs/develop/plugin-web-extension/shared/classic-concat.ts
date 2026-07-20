@@ -8,15 +8,8 @@
 
 import * as fs from 'node:fs'
 
-/**
- * Classic scripts loaded side by side (content_scripts arrays, multiple
- * <script src> tags in one HTML page) share a single global scope in the
- * browser: a top-level `var storage` in one file is visible to its siblings.
- * Bundling each file as a separate ES module isolates those scopes and breaks
- * the implicit cross-file globals. When every file in a group is classic (no
- * top-level import/export), the group is concatenated into one module by the
- * classic-concat loader instead, matching browser semantics.
- */
+// Classic side-by-side scripts share one global scope in the browser; when a
+// group is all-classic it is concatenated by the classic-concat loader to match.
 export function isClassicScript(filePath: string): boolean {
   try {
     const src = fs.readFileSync(filePath, 'utf8')
@@ -26,22 +19,11 @@ export function isClassicScript(filePath: string): boolean {
   }
 }
 
-/**
- * Build the stub entry the classic-concat loader consumes. Instead of baking
- * file contents into a data: URI (which rspack never watches and cannot
- * source-map), the stub resolves to a real file (the first one) carrying a
- * query with the full file list; the loader reads each file via addDependency
- * (enabling watch-mode rebuilds) and generates a V3 source map.
- */
+// The stub resolves to a real file carrying the file list in a query (not a
+// data: URI): rspack can watch each file and generate a V3 source map.
 export function classicConcatEntry(feature: string, jsFiles: string[]): string {
-  // Chrome DEDUPES a file listed twice in one content_scripts `js` array, it
-  // injects it exactly once (verified live on Chrome 150: the same file listed
-  // twice executes once, no error). Concatenating it twice instead redeclares
-  // its top-level bindings and makes the whole group a SyntaxError
-  // ("Identifier 'NativeSkipper' has already been declared"), so an extension
-  // that runs fine in Chrome failed to build, wild:
-  // ThomasTavernier/Improve-Crunchyroll lists .../skippers/skippers.js twice.
-  // First occurrence wins, preserving execution order.
+  // Chrome DEDUPES a file listed twice in one content_scripts js array (verified
+  // live); concatenating it twice makes a SyntaxError, so first occurrence wins.
   const deduped = [...new Set(jsFiles)]
   const queryData = encodeURIComponent(
     JSON.stringify({feature, js: deduped, css: []})
