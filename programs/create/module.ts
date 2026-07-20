@@ -44,10 +44,8 @@ export interface CreateResult {
   projectName: string
   template: string
   depsInstalled: boolean
-  // The package manager the scaffold was created with, the one used to install
-  // dependencies (when `install: true`) and the one whose commands the printed
-  // next-steps reference (when `install: false`). Programmatic hosts read this
-  // to render correct next steps instead of re-deriving it from a lockfile.
+  // The package manager the scaffold was created with; programmatic hosts read
+  // this to render correct next steps instead of re-deriving from a lockfile.
   packageManager: ScaffoldPackageManager
 }
 
@@ -77,12 +75,8 @@ export async function extensionCreate(
   await createDirectory(projectPath, projectName, logger)
   await importExternalTemplate(projectPath, projectName, template, logger)
 
-  // Deno-created scaffolds get deno.jsonc as the project manifest instead of
-  // package.json (issue #482): dependencies live in `imports` as npm:
-  // specifiers, which `deno install` resolves and the toolchain reads for
-  // framework detection. Monorepo templates keep package.json (npm workspaces
-  // have no Deno analog in our scaffold) with a tasks-only deno.jsonc beside
-  // it. Both are written before install so `deno install` sees them.
+  // Deno-created scaffolds get deno.jsonc instead of package.json (issue #482);
+  // monorepo templates keep package.json with a tasks-only deno.jsonc beside it.
   const isMonorepoTemplate = String(template).toLowerCase().includes('monorepo')
   if (isDenoRuntime() && !isMonorepoTemplate) {
     await writeDenoJsonc(

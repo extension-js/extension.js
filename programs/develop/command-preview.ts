@@ -68,7 +68,6 @@ export async function extensionPreview(
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-  // Guard: only error if user references managed deps in extension.config.js
   const userManifestPath =
     projectStructure.packageJsonPath || projectStructure.denoJsonPath
   if (userManifestPath) {
@@ -132,9 +131,8 @@ export async function extensionPreview(
     )
   }
 
-  // Load command + browser defaults from the project root (package.json dir).
-  // When start.ts delegates here, honor the user's `commands.start.*` keys,
-  // otherwise `extension start` would silently read `commands.preview.*`.
+  // Load command + browser defaults from the project root; when start.ts
+  // delegates here, honor commands.start.* rather than commands.preview.*.
   const commandConfig = await loadCommandConfig(packageJsonDir, metadataCommand)
   const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
@@ -202,7 +200,6 @@ export async function extensionPreview(
     ...safePreviewOptions,
     extensions: resolvedExtensionsConfig,
     chromiumBinary: mergedChromiumBinary,
-    // Normalize Gecko binary hints for engine-based behavior
     geckoBinary: mergedGeckoBinary
   }
 
@@ -219,9 +216,8 @@ export async function extensionPreview(
     })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
-    // IMPORTANT: __dirname changes after publishing (compiled output lives in dist/).
-    // Always anchor relative paths at the @programs/develop package root to keep
-    // companion extensions (devtools/theme) stable across monorepo + published builds.
+    // __dirname changes after publishing; anchor relative paths at the package
+    // root so companion extensions stay stable across monorepo + published builds.
     path.resolve(__dirname, '..'),
     'production',
     browser,

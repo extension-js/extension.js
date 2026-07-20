@@ -16,7 +16,6 @@ export async function setupBuiltInTests(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   try {
-    // Remove the existing test spec templates.spec.ts
     const testSpecPath = path.join(projectPath, 'tests', 'templates.spec.ts')
 
     if (fs.existsSync(testSpecPath)) {

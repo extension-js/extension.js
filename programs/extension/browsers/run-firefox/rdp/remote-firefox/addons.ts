@@ -31,9 +31,7 @@ export function resolveAddonDirectory(
     if (stat.isFile()) {
       candidate = path.dirname(candidate)
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   const hasManifest = fs.existsSync(path.join(candidate, 'manifest.json'))
   if (hasManifest) return candidate

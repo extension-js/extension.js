@@ -48,9 +48,7 @@ export class CleanDistFolderPlugin {
           setTimeout(() => {
             try {
               fs.rmSync(distPath, {recursive: true, force: true})
-            } catch {
-              // Ignore
-            }
+            } catch {}
           }, 100)
           return
         }

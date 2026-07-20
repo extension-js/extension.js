@@ -12,12 +12,8 @@ export function parseFlatpakBinary(binary: string): {appId: string} | null {
   return appId ? {appId} : null
 }
 
-/**
- * Whether the launched Firefox should run headless. Honors the standard
- * `MOZ_HEADLESS` env var (set by CI, Playwright, and our reload gates) so a
- * displayless host gets the headless widget backend rather than crashing the
- * SWGL compositor. Headed (interactive) `extension dev` is unaffected.
- */
+// Honors MOZ_HEADLESS (CI, Playwright, reload gates) so a displayless host
+// gets the headless widget backend instead of crashing the SWGL compositor.
 export function isFirefoxHeadlessRequested(
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
@@ -32,12 +28,8 @@ export class FirefoxBinaryDetector {
     additionalArgs: string[] = [],
     headless = false
   ): {binary: string; args: string[]} {
-    // The explicit `-headless` flag selects Firefox's headless widget backend
-    // up front. Relying on MOZ_HEADLESS env alone lets the normal window/SWGL
-    // compositor initialize first, which on a displayless host crashes with
-    // "RenderCompositorSWGL failed mapping default framebuffer" before the RDP
-    // server is ready. The flag avoids that, so headless CI/sandboxes can drive
-    // the launched browser.
+    // The explicit -headless flag selects the headless backend up front; env alone
+    // lets the SWGL compositor initialize first and crash on displayless hosts.
     const headlessArgs = headless ? ['-headless'] : []
 
     // Flatpak: rewrite to `flatpak run` with sandbox filesystem access

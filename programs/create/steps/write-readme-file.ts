@@ -27,10 +27,8 @@ export async function writeReadmeFile(
   projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
-  // Always overwrite the template's README so the scaffolded project
-  // reads as the user's own, not the upstream template's marketing
-  // README. The bulk script in the examples repo keeps those rich,
-  // template-specific READMEs for browsing on GitHub.
+  // Always overwrite the template's README so the scaffold reads as the user's
+  // own; the examples repo keeps the rich template READMEs for browsing.
 
   const installCommand = await utils.getInstallCommand()
   // Deno runs package.json scripts through `deno task <name>` and forwards

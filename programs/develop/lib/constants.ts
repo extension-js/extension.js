@@ -23,10 +23,8 @@ export const CHROMIUM_BASED_BROWSERS = [
 ]
 export const GECKO_BASED_BROWSERS = ['firefox', 'waterfox', 'librewolf']
 
-// Family alias names accepted anywhere a browser NAME selects an engine
-// family (env-file resolution, manifest prefixes, launch targets). Kept next
-// to the fork lists above so alignment specs derive both vocabularies from
-// one place instead of each call site growing its own copy.
+// Family alias names accepted anywhere a browser NAME selects an engine family;
+// kept beside the fork lists so alignment specs derive both from one place.
 export const CHROMIUM_FAMILY_ALIASES = [
   'chromium',
   'chrome',
@@ -40,9 +38,8 @@ export const SUPPORTED_BROWSERS = [
   ...GECKO_BASED_BROWSERS
 ]
 
-// Canonical "supported X" lists. README/docs enumerations are asserted against
-// these in __spec__/supported-surface.spec.ts, extend the list first, then the
-// docs, or the drift guard fails.
+// Canonical "supported X" lists; docs enumerations are asserted against these
+// in the supported-surface drift guard. Extend the list first.
 export const SUPPORTED_PACKAGE_MANAGERS = [
   'npm',
   'pnpm',
@@ -67,9 +64,8 @@ export const SUPPORTED_CSS_TECH = [
   'tailwind'
 ] as const
 
-// Single source of truth for engine-family classification. Fork browsers inherit
-// their family's chrome:/firefox: scoped manifest keys; the generic
-// '*-based'/'chromium'/'gecko' aliases are matched by substring.
+// Single source of truth for engine-family classification; forks inherit their
+// family's scoped manifest keys, '*-based' aliases match by substring.
 export function isChromiumBasedBrowser(browser: string): boolean {
   return (
     CHROMIUM_BASED_BROWSERS.includes(browser) ||

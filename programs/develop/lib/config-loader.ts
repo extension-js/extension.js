@@ -28,9 +28,8 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   const dirname = path.dirname(absolutePath)
   const requireFn = createRequire(absolutePath)
 
-  // Emulate Node's CJS wrapper so __filename/__dirname match the *real* file.
-  // This avoids the old workaround of copying extension.config.js to a temp .cjs,
-  // which breaks configs that compute paths using __dirname (e.g., profile paths).
+  // Emulate Node's CJS wrapper so __filename/__dirname match the real file,
+  // avoiding the temp-.cjs copy that broke __dirname-relative configs.
   const module = {exports: {} as ParsedJson}
   const exports = module.exports
 
@@ -39,7 +38,6 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
     filename: absolutePath
   }).runInThisContext()
 
-  // Execute config with correct filename/dirname.
   fn(exports, requireFn, module, absolutePath, dirname)
   return module.exports?.default || module.exports
 }
@@ -90,9 +88,7 @@ function preloadEnvFilesFromDir(
         break
       }
     }
-  } catch {
-    // Best-effort env loading for config stage
-  }
+  } catch {}
   return {loadedAny, envDir}
 }
 
@@ -142,19 +138,15 @@ async function loadConfigFileUncached(
 ): Promise<FileConfig> {
   const projectDir = path.dirname(absolutePath)
 
-  // Preload env so extension.config.js can read process.env.*
   preloadEnvFiles(projectDir)
 
   try {
-    // Prefer CommonJS loader for .cjs files
     if (absolutePath.endsWith('.cjs')) {
       const requireFn = createRequire(import.meta.url)
       const required = requireFn(absolutePath)
       return required?.default || required
     }
 
-    // Try to load as ESM module first
-    // If the file references import.meta.env, create a temporary shimmed copy
     let esmImportPath = absolutePath
     // Tracks a temp dir holding the env-shimmed copy so we can delete it right
     // after import, the serialized environment must not linger on disk.
@@ -184,9 +176,7 @@ async function loadConfigFileUncached(
         fs.writeFileSync(tmpPath, `${shimHeader}${replaced}`, 'utf-8')
         esmImportPath = tmpPath
       }
-    } catch {
-      // best-effort shim; if reading fails, proceed without it
-    }
+    } catch {}
 
     try {
       const module = await import(pathToFileURL(esmImportPath).href)
@@ -195,14 +185,11 @@ async function loadConfigFileUncached(
       if (shimTmpDir) {
         try {
           fs.rmSync(shimTmpDir, {recursive: true, force: true})
-        } catch {
-          // best-effort cleanup
-        }
+        } catch {}
       }
     }
   } catch (err: unknown) {
     const error = err as Error
-    // If ESM import fails, attempt CommonJS require for non-.mjs files
     try {
       if (!absolutePath.endsWith('.mjs')) {
         const requireFn = createRequire(import.meta.url)
@@ -211,9 +198,8 @@ async function loadConfigFileUncached(
         try {
           required = requireFn(absolutePath)
         } catch (requireErr) {
-          // If Node refuses to require because it treats .js as ESM due to package.json "type": "module",
-          // but the file content clearly uses CommonJS (e.g., references to require in ESM scope),
-          // copy to a temporary .cjs file and require that instead.
+          // If Node refuses to require a CJS-content .js file (package.json "type":
+          // "module"), copy to a temporary .cjs and require that instead.
           const message =
             String(error?.message || '') +
             ' ' +
@@ -225,7 +211,6 @@ async function loadConfigFileUncached(
 
           if (looksLikeCommonJsInEsm) {
             try {
-              // Preferred: evaluate CommonJS config with stable __dirname/__filename.
               required = loadCommonJsConfigWithStableDirname(absolutePath)
             } catch {
               // Fallback: legacy behavior (temp copy + require). This may break __dirname,
@@ -244,9 +229,7 @@ async function loadConfigFileUncached(
               } finally {
                 try {
                   fs.rmSync(tmpDir, {recursive: true, force: true})
-                } catch {
-                  // best-effort cleanup
-                }
+                } catch {}
               }
             }
           } else {
@@ -255,11 +238,8 @@ async function loadConfigFileUncached(
         }
         return required?.default || required
       }
-    } catch {
-      // fallthrough to JSON parse
-    }
+    } catch {}
 
-    // As a last resort, try to parse as JSON (for rare cases)
     try {
       const content = fs.readFileSync(absolutePath, 'utf-8')
       return JSON.parse(content)
@@ -281,7 +261,6 @@ export async function loadCustomConfig(projectPath: string) {
         if (userConfig && typeof userConfig.config === 'function') {
           return userConfig.config
         }
-        // Support plain object configuration by merging on top of base
         if (userConfig?.config && typeof userConfig.config === 'object') {
           const partial = userConfig.config as Configuration
           return (config: Configuration) => {
@@ -372,19 +351,12 @@ export async function loadBrowserConfig(
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
 
-          // Semantics:
-          // - 'chromium' == managed Chromium (system or Puppeteer cache).
-          //   It should NOT automatically adopt engine-based configs that
-          //   expect an explicit binary path.
-          // - 'chromium-based' == engine-based; requires a working chromiumBinary.
-          //   It may fall back to 'chromium' for shared config when missing.
-          // - Similarly for 'firefox' vs 'gecko-based'.
+          // 'chromium' = managed install, must not adopt engine-based configs expecting
+          // an explicit binary; '*-based' = engine config requiring one. Same for gecko.
           if (browser === 'chromium-based') {
-            // Prefer explicit engine-based config, then fall back to generic Chromium.
             if (browsers['chromium-based']) return browsers['chromium-based']
             if (browsers.chromium) return browsers.chromium
           } else if (browser === 'gecko-based') {
-            // Prefer explicit engine-based config, then fall back to Firefox.
             if (browsers['gecko-based']) return browsers['gecko-based']
             if (browsers.firefox) return browsers.firefox
           } else {

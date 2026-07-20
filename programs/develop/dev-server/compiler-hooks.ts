@@ -77,7 +77,6 @@ export function setupCompilerDoneDiagnostics(
         if (str) console.warn(scrubBrand(str))
       }
 
-      // Warn when nothing is being built on the first pass
       if (!reportedNoEntries && typeof port === 'number') {
         const info = stats.toJson({
           all: false,

@@ -9,9 +9,6 @@
 import type {PluginInterface} from '../browsers-types'
 import type {FirefoxRDPController} from './rdp/rdp-extension-controller'
 
-/**
- * Narrowed plugin options used through the Firefox flow.
- */
 export type FirefoxPluginLike = Pick<
   PluginInterface,
   | 'extension'
@@ -37,9 +34,6 @@ export type FirefoxPluginLike = Pick<
   browser: PluginInterface['browser']
 }
 
-/**
- * Runtime state in Firefox flow.
- */
 export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   rdpController?: FirefoxRDPController
   browserVersionLine?: string

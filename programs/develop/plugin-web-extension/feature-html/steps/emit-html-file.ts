@@ -37,10 +37,8 @@ export class EmitHtmlFile {
 
           if (resource) {
             if (typeof resource !== 'string') continue
-            // Normalize HTML resource path relative to manifest:
-            // - Leading "/" means extension root (manifest dir)
-            // - Relative paths are resolved from manifest dir
-            // - Absolute OS paths are used as-is
+            // Normalize HTML resource paths: leading '/' means extension root, relative
+            // resolves from the manifest dir, absolute OS paths are used as-is.
             const projectDir = path.dirname(this.manifestPath)
             const resolved = path.isAbsolute(resource)
               ? resource
@@ -49,9 +47,8 @@ export class EmitHtmlFile {
                 : path.join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
-              // A root-absolute ref that public/ owns is served verbatim at
-              // the output root by the special-folders pipeline, nothing to
-              // compile here and nothing missing.
+              // A root-absolute ref that public/ owns is served verbatim at the output root;
+              // nothing to compile and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
               if (
                 relToProject &&
@@ -70,12 +67,8 @@ export class EmitHtmlFile {
                   'warning'
                 )
               } else {
-                // Chrome refuses to load an extension whose popup, options,
-                // devtools, background, or override page is missing, fail
-                // the build the same way instead of emitting a manifest that
-                // points at a page that is never produced. Sandbox/sidebar
-                // surfaces are not load-checked by every browser, so they
-                // warn instead.
+                // Chrome refuses to load an extension whose popup/options/devtools/background
+                // page is missing; fail the build the same way. Sandbox/sidebar only warn.
                 const isLoadChecked =
                   !featureName.startsWith('sandbox/') &&
                   featureName !== 'sidebar/index'
@@ -103,7 +96,6 @@ export class EmitHtmlFile {
         processAssetsHook.tap(
           {
             name: 'AddAssetsToCompilationPlugin',
-            // Derive new assets from the existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
           },
           () => runner()
@@ -116,12 +108,8 @@ export class EmitHtmlFile {
   }
 }
 
-/**
- * Map an HTML includeList feature key (the emitted page path, e.g.
- * `action/index`) back to the manifest field the user actually wrote, so
- * missing-file errors point at their own manifest. Field presence is checked
- * browser-prefix tolerant (`chrome:action` counts as `action`).
- */
+// Map an HTML includeList feature key back to the manifest field the user
+// wrote, browser-prefix tolerant, so errors point at their own manifest.
 function manifestFieldForHtmlFeature(
   featureName: string,
   manifestPath: string

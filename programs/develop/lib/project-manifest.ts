@@ -10,11 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type ParsedJson, stripBom} from './parse-json-safe'
 
-/**
- * Files that mark a directory as a project root and declare its dependencies.
- * package.json is the npm-family manifest; deno.json(c) is Deno's, where npm
- * dependencies appear as `npm:` specifiers in the `imports` map.
- */
+// Files that mark a directory as a project root and declare its dependencies:
+// package.json (npm family) and deno.json(c) (npm: specifiers in imports).
 export const PROJECT_MANIFEST_FILENAMES = [
   'package.json',
   'deno.jsonc',
@@ -23,11 +20,8 @@ export const PROJECT_MANIFEST_FILENAMES = [
 
 export const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
 
-/**
- * Removes JSONC extensions (// and block comments, trailing commas) so the
- * result parses with JSON.parse. String contents, including commas and
- * comment-looking sequences inside them, are preserved verbatim.
- */
+// Removes JSONC extensions (comments, trailing commas) so the result parses
+// with JSON.parse; string contents are preserved verbatim.
 export function stripJsoncExtensions(text: string): string {
   let out = ''
   let i = 0
@@ -107,20 +101,14 @@ export function stripJsoncExtensions(text: string): string {
   return out
 }
 
-/**
- * JSON.parse for JSONC input (comments + trailing commas tolerated).
- * Empty input parses as `{}`; invalid syntax still throws.
- */
+// JSON.parse for JSONC input; empty input parses as {}, invalid syntax throws.
 export function parseJsoncSafe(text: string | Buffer): ParsedJson {
   const stripped = stripJsoncExtensions(stripBom(text))
   return JSON.parse(stripped.trim() || '{}')
 }
 
-/**
- * Parses an `npm:` import specifier into its package name and version range.
- * Handles `npm:pkg@ver`, `npm:@scope/pkg@ver`, the path form `npm:/pkg@ver/sub`,
- * and versionless `npm:pkg` (version `*`).
- */
+// Parses an npm: import specifier into package name and version range,
+// including scoped, path-form, and versionless shapes.
 export function parseNpmSpecifier(
   specifier: unknown
 ): {name: string; version: string} | undefined {
@@ -151,19 +139,13 @@ export function findDenoConfigPath(projectDir: string): string | undefined {
     const candidate = path.join(projectDir, filename)
     try {
       if (fs.statSync(candidate).isFile()) return candidate
-    } catch {
-      // Keep looking.
-    }
+    } catch {}
   }
   return undefined
 }
 
-/**
- * Dependencies a deno.json(c) declares through `npm:` specifiers in its
- * `imports` map. Both the npm package name and the import alias are
- * registered: the alias is what project source imports, the package name is
- * what lands in node_modules, dependency checks may ask for either.
- */
+// Dependencies a deno.json(c) declares through npm: specifiers; both the
+// package name and the import alias are registered.
 export function readDenoConfigDependencies(
   denoConfigPath: string
 ): Record<string, string> {
@@ -222,11 +204,8 @@ function readPackageJsonDependencies(
   }
 }
 
-/**
- * The project's declared dependencies, merged across every manifest present
- * in `projectDir`: package.json dependency fields and deno.json(c) `npm:`
- * imports. package.json wins when both declare the same package.
- */
+// The project's declared dependencies merged across manifests;
+// package.json wins when both declare the same package.
 export function readProjectDependencies(
   projectDir: string
 ): Record<string, string> {
@@ -251,10 +230,6 @@ export function hasProjectDependency(
   return packageName in readProjectDependencies(projectDir)
 }
 
-/**
- * Walks up from `startPath` to the nearest directory containing a project
- * manifest (package.json or deno.json(c)).
- */
 export function findNearestProjectManifestDirSync(
   startPath: string,
   maxDepth = 6
@@ -275,11 +250,8 @@ export function findNearestProjectManifestDirSync(
   return undefined
 }
 
-/**
- * Find-up variant that returns the manifest file path itself, preferring
- * package.json when a directory holds more than one manifest. Walks to the
- * filesystem root, mirroring findNearestPackageJsonSync.
- */
+// Find-up variant returning the manifest path itself, preferring package.json;
+// walks to the filesystem root like findNearestPackageJsonSync.
 export function findNearestProjectManifestSync(
   manifestPath: string
 ): string | null {
@@ -291,19 +263,15 @@ export function findNearestProjectManifestSync(
       const candidate = path.join(currentDir, filename)
       try {
         if (fs.statSync(candidate).isFile()) return candidate
-      } catch {
-        // Keep walking.
-      }
+      } catch {}
     }
     if (currentDir === root) return null
     currentDir = path.dirname(currentDir)
   }
 }
 
-/**
- * Walks up from the extension manifest to the nearest deno.json(c), mirroring
- * findNearestPackageJson's contract (walks to the filesystem root).
- */
+// Walks up from the extension manifest to the nearest deno.json(c),
+// mirroring findNearestPackageJson's contract.
 export function findNearestDenoConfigSync(manifestPath: string): string | null {
   const root = path.parse(manifestPath).root
   let currentDir = path.dirname(manifestPath)

@@ -27,19 +27,15 @@ export function setupAutoExit(
   let autoExitTimer: NodeJS.Timeout | null = null
   let forceKillTimer: NodeJS.Timeout | null = null
 
-  // Determine the auto-exit timeout in ms
   const autoExitMs = parseMilliseconds(autoExitMsRaw)
   if (autoExitMs === null) {
-    // Auto-exit not enabled; return a no-op cancel function
     return () => {}
   }
 
-  // Log that auto-exit mode is enabled
   try {
     console.log(messages.autoExitModeEnabled(autoExitMs))
   } catch {}
 
-  // Set up the timer for graceful exit
   autoExitTimer = setTimeout(async () => {
     try {
       console.log(messages.autoExitTriggered(autoExitMs))
@@ -47,14 +43,12 @@ export function setupAutoExit(
     await onCleanup()
   }, autoExitMs)
 
-  // Determine the force-kill timeout in ms (defaults to 4s after auto-exit)
   const parsedForceKillMs = parseMilliseconds(forceKillMsRaw)
   const forceKillMs =
     parsedForceKillMs !== null && parsedForceKillMs > 0
       ? parsedForceKillMs
       : autoExitMs + 4000
 
-  // Set up the timer for forced process exit
   forceKillTimer = setTimeout(() => {
     try {
       console.log(messages.autoExitForceKill(forceKillMs))

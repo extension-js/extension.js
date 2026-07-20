@@ -143,13 +143,8 @@ export interface SafariBuildPreflight {
   message?: string
 }
 
-/**
- * Preflight for `build`: a non-macOS host is not an error, the web-extension
- * bundle is still produced and can be packaged later on a Mac, so packaging
- * is skipped with a warning. A macOS host with a broken/missing Xcode stays
- * fatal because the user can act on it locally. `dev` keeps the stricter
- * safariPreflightError(): a Safari dev loop without packaging is pointless.
- */
+// Build preflight: a non-macOS host skips packaging with a warning (bundle is
+// still produced); a macOS host with broken Xcode stays fatal. dev stays strict.
 export function safariBuildPreflight(): SafariBuildPreflight {
   const tc = detectSafariToolchain()
 
@@ -258,9 +253,8 @@ async function runSafariPipeline(
       logger.warn?.(messages.safariConverterWarnings(warnings))
     }
 
-    // The converter derives the parent-app id from the app name, not from
-    // --bundle-identifier, align both targets to the configured identity or
-    // ValidateEmbeddedBinary fails when a user-set id doesn't match the name.
+    // The converter derives the parent-app id from the app name, not
+    // --bundle-identifier; align both targets or ValidateEmbeddedBinary fails.
     const projFile = pbxprojPath(config)
     if (fs.existsSync(projFile)) {
       fs.writeFileSync(

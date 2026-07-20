@@ -30,11 +30,8 @@ export function isUsingLess(projectPath: string): boolean {
   return false
 }
 
-/**
- * Resolve (and install if missing) the less-loader contract. The actual loader
- * rules are emitted by the content-script/HTML CSS loaders. This only ensures
- * the optional dependency is present before that chain runs.
- */
+// Resolve (and install if missing) the less-loader contract; the actual loader
+// rules are emitted by the content-script/HTML CSS loaders.
 export async function maybeUseLess(projectPath: string): Promise<void> {
   if (!isUsingLess(projectPath)) return
 

@@ -23,7 +23,5 @@ export function checkManifestInPublic(
       err.file = 'manifest.json'
       compilation.errors.push(err)
     }
-  } catch {
-    // ignore guard errors
-  }
+  } catch {}
 }

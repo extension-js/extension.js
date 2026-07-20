@@ -11,7 +11,6 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
-// Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
@@ -49,17 +48,11 @@ export class ManifestPlugin {
       )
     }
 
-    // 1 - Emit the manifest to the assets bundle.
-    // It doesn't change the manifest, it just ensures
-    // it's emitted to the assets bundle so other plugins
-    // can modify it.
     new EmitManifest({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
 
-    // 2 - This is the end result of the manifest plugin, it updates the
-    // 3- Manifest with the output path of relevant files.
     new UpdateManifest({
       manifestPath: this.manifestPath,
       browser: this.browser
@@ -72,7 +65,6 @@ export class ManifestPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // 4 - Apply dev-only defaults (CSP, permissions, reload WAR). Development only.
     new ApplyDevDefaults({
       manifestPath: this.manifestPath,
       browser: this.browser
@@ -82,11 +74,8 @@ export class ManifestPlugin {
     // observes a partially written file during startup reloads.
     new PersistManifestToDisk().apply(compiler)
 
-    // 6 - Ensure this manifest is stored as file dependency
-    // so webpack can watch and trigger changes.
     new AddDependencies([this.manifestPath]).apply(compiler)
 
-    // 7 - Deprecation warnings for legacy paths (development only)
     new ManifestLegacyWarnings().apply(compiler)
   }
 }

@@ -64,7 +64,6 @@ function warnRemoteResourceReferences(params: {
 
   for (const anyUrl of staticAssets || []) {
     if (isHttpLike(anyUrl) && !isSpecialScheme(anyUrl)) {
-      // Warn on common stylesheet remotes referenced via generic collectors
       if (/\.css(\?|#|$)/i.test(anyUrl)) {
         reportToCompilation(
           compilation,
@@ -114,11 +113,8 @@ function warnMissingPublicRootResources(params: {
     const publicRootAbs = path.join(publicRootForResource, trimmed)
     const outputRootAssetAbs = path.join(outputRoot, trimmed)
 
-    // A ref that exists at the extension root is valid (Chrome resolves '/'
-    // from there) and is copied into the output root by emitRootAbsoluteRefs.
-    // Resolve against the manifest dir like emitRootAbsoluteRefs does, the
-    // compiler context can sit above the extension root (monorepo layouts),
-    // and checking there misses the file and warns about a ref that ships.
+    // A ref that exists at the extension root is valid and copied by
+    // emitRootAbsoluteRefs; resolve against the manifest dir, not the compiler context.
     if (
       resolveRootAbsoluteRef(
         publicRootUrl,
@@ -162,19 +158,15 @@ function checkMissingLocalEntries(params: {
   const {compilation, compiler, resource, manifestDir, projectRoot, js, css} =
     params
 
-  // Chrome silently 404s a missing local ref and runs the page anyway, so a
-  // dead reference is a warning by default, likely dead code, not a broken
-  // build. EXTENSION_STRICT_REFS=true restores the failure for CI.
+  // Chrome silently 404s a missing local ref and runs the page, so a dead ref
+  // warns by default; EXTENSION_STRICT_REFS=true restores the failure for CI.
   const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
 
   const check = (url: string) => {
     if (!url || isHttpLike(url) || isSpecialScheme(url)) return
 
-    // Treat root URLs as public-root references (handled elsewhere).
-    // NOTE: this used to read `!path.isAbsolute(url)`, which is never true on
-    // POSIX (every '/'-prefixed string is absolute there) so root refs fell
-    // through to the existsSync() below and were reported as missing files.
-    // A root ref is a '/'-path that does NOT live inside the project.
+    // Treat root URLs as public-root references (handled elsewhere): a root ref is
+    // a '/'-path that does NOT live inside the project.
     if (url.startsWith('/') && !url.startsWith(projectRoot)) return
 
     if (!fs.existsSync(url)) {
@@ -194,8 +186,6 @@ function checkMissingLocalEntries(params: {
   js?.forEach(check)
   css?.forEach(check)
 }
-
-// resolveAbsoluteFsPath moved to html-lib/utils
 
 function emitNestedHtmlAndReferencedAssets(params: {
   compilation: Compilation
@@ -218,10 +208,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
   )
 
   assetsFromHtml.forEach((assetFromHtml) => {
-    // A reference that doesn't resolve to a real source file (remote URL kept
-    // verbatim, root URL with no source counterpart, author typo) must not
-    // throw here: an uncaught ENOENT inside processAssets fails the whole
-    // compilation and wedges the watch loop.
+    // A ref that doesn't resolve to a real source file must not throw here: an
+    // uncaught ENOENT inside processAssets wedges the watch loop.
     if (!path.isAbsolute(assetFromHtml) || !fs.existsSync(assetFromHtml)) {
       return
     }
@@ -297,7 +285,6 @@ export class AddAssetsToCompilation {
             const publicRootForResource = path.join(projectRoot, 'public')
             const outputRoot = compilation.options?.output?.path || ''
 
-            // Remote references warnings
             warnRemoteResourceReferences({
               compilation,
               compiler,
@@ -308,7 +295,6 @@ export class AddAssetsToCompilation {
               staticAssets: parsedAssets?.static
             })
 
-            // Additionally scan raw HTML for remote <script>/<link> tags missed by parser
             try {
               const remoteRefRe =
                 /<(script|link)[^>]+?(src|href)=["']((https?:)?\/\/[^"']+)["'][^>]*>/gi
@@ -333,11 +319,8 @@ export class AddAssetsToCompilation {
                   )
                 }
               }
-            } catch {
-              // ignore
-            }
+            } catch {}
 
-            // Public-root warnings
             warnMissingPublicRootResources({
               compilation,
               compiler,
@@ -350,7 +333,6 @@ export class AddAssetsToCompilation {
               css: parsedAssets?.css
             })
 
-            // Local missing entries (non-HTTP, non-root public)
             checkMissingLocalEntries({
               compilation,
               compiler,
@@ -372,7 +354,6 @@ export class AddAssetsToCompilation {
                   manifestRoot: manifestDir
                 })
 
-              // If root URL exists in source public, skip
               if (
                 isRootUrl &&
                 fs.existsSync(
@@ -409,9 +390,7 @@ export class AddAssetsToCompilation {
               if (isUnderPublicRoot) {
                 try {
                   compilation.fileDependencies.add(absoluteFsPath)
-                } catch {
-                  // ignore
-                }
+                } catch {}
 
                 continue
               }
@@ -421,7 +400,6 @@ export class AddAssetsToCompilation {
                 computePosixRelative(resource as string, absoluteFsPath)
               )
 
-              // Skip emitting if the asset is in the include list and is not a nested HTML
               const isNestedHtml = asset.endsWith('.html')
 
               const nestedHtmlAsset = isNestedHtml
@@ -454,14 +432,8 @@ export class AddAssetsToCompilation {
                 }
               }
 
-              // Chrome serves every packed file at its source path
-              // (chrome-extension://<id>/images/logo.png), so script-side
-              // references to the same file (chrome.runtime.getURL, a
-              // runtime-created <img> src) only keep working in the built
-              // extension if the file also exists there. Emit a copy at the
-              // manifest-relative source path alongside the assets/ one.
-              // public/ files already land at the output root and HTML pages
-              // have their own feature emission, so both stay excluded.
+              // Chrome serves every packed file at its source path, so script-side refs only
+              // keep working if the file exists there too; emit a copy at the source path.
               if (!isNestedHtml && fs.existsSync(absoluteFsPath)) {
                 const manifestRelative = path.relative(
                   manifestDir,
@@ -492,7 +464,6 @@ export class AddAssetsToCompilation {
               }
             }
           }
-          // end runner
         }
 
         // Fallback for test environments where processAssets hook isn't mocked

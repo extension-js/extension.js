@@ -31,9 +31,7 @@ export async function setupRdpAfterLaunch(
             console.warn(
               `[browser] Firefox RDP setup retry ${i + 1}/${attempts}: ${msg}`
             )
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
         const ms = baseMs * 2 ** i
         await new Promise((r) => setTimeout(r, ms))
@@ -42,12 +40,10 @@ export async function setupRdpAfterLaunch(
     throw lastError
   }
 
-  // Reuse controller if already connected to avoid duplicate connections
   if (!plugin.rdpController) {
     await retry(() => controller.ensureLoaded(compilation))
     plugin.rdpController = controller
   } else {
-    // Ensure already-connected controller is ready
     await retry(
       () =>
         (
@@ -58,6 +54,5 @@ export async function setupRdpAfterLaunch(
     )
   }
 
-  // Dev banner parity: print once after ensureLoaded
   return controller
 }
