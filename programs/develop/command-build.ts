@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Configuration} from '@rspack/core'
-import * as fs from 'fs'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {
   loadBrowserConfig,

@@ -1,7 +1,7 @@
-import * as fsp from 'fs/promises'
-import * as os from 'os'
-import * as path from 'path'
-import {describe, it, expect} from 'vitest'
+import * as fsp from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 import {writeGitignore} from '../write-gitignore'
 
 describe('writeGitignore', () => {

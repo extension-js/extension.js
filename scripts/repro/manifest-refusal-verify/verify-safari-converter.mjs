@@ -9,10 +9,10 @@
 // What does safari-web-extension-converter do with each refusal fixture?
 // Records exit code + the error/warning lines. This is Safari's first (and
 // scriptable) refusal surface. The converter runs Safari's manifest parse.
-import {spawnSync} from 'child_process'
-import * as fs from 'fs'
-import * as path from 'path'
-import {fileURLToPath} from 'url'
+import {spawnSync} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const batches = ['fixtures', 'fixtures2']

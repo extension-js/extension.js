@@ -63,7 +63,7 @@ function setExtensionBaseUrl() {
     if (base) {
       window[EXTJS_BASE_KEY] = base
       try {
-        const docEl = document && document.documentElement
+        const docEl = document?.documentElement
         if (docEl && typeof docEl.setAttribute === 'function') {
           docEl.setAttribute(EXTJS_BASE_ATTR, base)
         }
@@ -94,7 +94,7 @@ function resolveExtensionUrl(inputUrl) {
   try {
     // If it's something like "/file.js?x#y", keep only pathname.
     if (p.startsWith('/')) {
-      p = new URL('https://example.invalid' + p).pathname
+      p = new URL(`https://example.invalid${p}`).pathname
     } else if (p.includes('?') || p.includes('#')) {
       p = p.split('?')[0].split('#')[0]
     }
@@ -103,7 +103,7 @@ function resolveExtensionUrl(inputUrl) {
   }
 
   if (!p) return null
-  if (!p.startsWith('/')) p = '/' + p
+  if (!p.startsWith('/')) p = `/${p}`
   return String(getURL(p))
 }
 
@@ -127,7 +127,7 @@ function injectScript(src) {
       } catch {
         // Ignore
       }
-      reject(new Error('Failed to load script: ' + src))
+      reject(new Error(`Failed to load script: ${src}`))
     }
     ;(document.head || document.documentElement).appendChild(el)
   })

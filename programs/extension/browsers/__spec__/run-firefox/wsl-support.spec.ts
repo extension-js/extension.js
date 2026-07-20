@@ -1,5 +1,5 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import {EventEmitter} from 'events'
+import {EventEmitter} from 'node:events'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('child_process', () => ({spawn: vi.fn()}))
 vi.mock('fs', () => ({existsSync: vi.fn()}))
@@ -18,7 +18,7 @@ const loadModule = async () =>
   await import('../../run-firefox/firefox-launch/wsl-support')
 
 const getSpawnMock = async () => {
-  const mod = await import('child_process')
+  const mod = await import('node:child_process')
   return mod.spawn as unknown as ReturnType<typeof vi.fn>
 }
 
@@ -72,7 +72,7 @@ describe('firefox wsl-support', () => {
   it('resolves Windows Firefox path on WSL', async () => {
     const mod = await loadModule()
     process.env.WSL_DISTRO_NAME = 'Ubuntu'
-    const fs = await import('fs')
+    const fs = await import('node:fs')
     const existsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
     existsSync.mockImplementation(
       (p) => p === '/mnt/c/Program Files/Mozilla Firefox/firefox.exe'
@@ -99,7 +99,7 @@ describe('firefox wsl-support', () => {
     const mod = await loadModule()
     process.env.WSL_DISTRO_NAME = 'Ubuntu'
     process.env.DISPLAY = ':0'
-    const fs = await import('fs')
+    const fs = await import('node:fs')
     const existsSync = fs.existsSync as unknown as ReturnType<typeof vi.fn>
     existsSync.mockImplementation((p) => p === '/usr/bin/firefox')
     expect(mod.resolveWslLinuxBinary()).toBe('/usr/bin/firefox')

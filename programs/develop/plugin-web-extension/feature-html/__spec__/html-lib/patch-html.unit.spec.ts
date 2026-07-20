@@ -1,6 +1,6 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {describe, expect, it} from 'vitest'
 import {patchHtml} from '../../html-lib/patch-html'
 

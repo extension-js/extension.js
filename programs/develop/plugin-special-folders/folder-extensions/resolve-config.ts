@@ -6,9 +6,9 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
-import * as fs from 'fs'
-import * as path from 'path'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import type {CompanionExtensionsConfig} from './types'
 import {

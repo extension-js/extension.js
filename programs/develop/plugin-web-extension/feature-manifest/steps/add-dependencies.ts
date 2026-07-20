@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
 import * as messages from '../messages'
 
 export class AddDependencies {

@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createRequire} from 'node:module'
 import type {Compiler} from '@rspack/core'
-import {createRequire} from 'module'
 import {resolveConnectableHost} from '../dev-server/connectable-host'
 
 const cjsRequire = createRequire(import.meta.url)

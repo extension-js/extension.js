@@ -1,9 +1,8 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import type {Asset, Compilation} from '@rspack/core'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {WebResourcesPlugin} from '..'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
 
@@ -866,9 +865,7 @@ describe('generateManifestPatches', () => {
       )
 
       expect(compilation.warnings.length).toBeGreaterThan(0)
-      const msg = String(
-        (compilation.warnings[0] && compilation.warnings[0].message) || ''
-      )
+      const msg = String(compilation.warnings[0]?.message || '')
       expect(msg).toContain('NOT FOUND')
 
       const updated = JSON.parse(

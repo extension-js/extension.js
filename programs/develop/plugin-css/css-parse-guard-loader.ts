@@ -19,7 +19,7 @@
 // gets a warning and the stylesheet ships verbatim, matching what the
 // browser would do with it.
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 import postcss from 'postcss'
 import * as messages from './css-lib/messages'
 

@@ -1,8 +1,8 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import * as fs from 'fs'
-import * as path from 'path'
-import os from 'os'
+import * as fs from 'node:fs'
+import os from 'node:os'
+import * as path from 'node:path'
 import AdmZip from 'adm-zip'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {extractLocalZip} from '../zip'
 
 const created: string[] = []

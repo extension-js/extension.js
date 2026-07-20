@@ -6,27 +6,14 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import locateChrome, {
-  getInstallGuidance as getChromeInstallGuidance,
-  getChromeVersion,
-  locateChromeOrExplain
-} from 'chrome-location2'
-import locateChromium, {
-  getInstallGuidance as getChromiumInstallGuidance,
-  getChromiumVersion
-} from 'chromium-location'
-import locateEdge, {
-  getInstallGuidance as getEdgeInstallGuidance,
-  getEdgeVersion
-} from 'edge-location'
-import locateFirefox, {
-  getInstallGuidance as getFirefoxInstallGuidance,
-  getFirefoxVersion
-} from 'firefox-location2'
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {getChromeVersion, locateChromeOrExplain} from 'chrome-location2'
+import locateChromium, {getChromiumVersion} from 'chromium-location'
+import locateEdge, {getEdgeVersion} from 'edge-location'
+import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
 import type {BrowserType} from '../browsers-types'
 
@@ -242,7 +229,7 @@ export function browserNotInstalledError(
     `${getLoggingPrefix('error')} ${isUnreachable}` +
     `Either install the missing browser or choose a different one via ` +
     `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.\n\n` +
-    `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}` +
+    `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || `${capitalizedBrowserName(browser)}BROWSER`)}` +
     wslHint
   )
 }
@@ -596,7 +583,7 @@ export function prettyPuppeteerInstallGuidance(
     body.push(`${dim('INSTALL PATH')} ${colors.underline(finalCachePath)}`)
   }
   body.push(`${dim('NEXT')} Re-run your command after the install finishes.`)
-  return body.join('\n') + '\n'
+  return `${body.join('\n')}\n`
 }
 
 // Firefox specific messages

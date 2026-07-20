@@ -8,9 +8,9 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {execFileSync} from 'child_process'
-import {existsSync, readFileSync} from 'fs'
-import {pathToFileURL} from 'url'
+import {execFileSync} from 'node:child_process'
+import {existsSync, readFileSync} from 'node:fs'
+import {pathToFileURL} from 'node:url'
 
 const DEFAULT_REPO_URL = 'https://github.com/extension-js/extension.js'
 const DEFAULT_HIGHLIGHTS_FILE = 'RELEASE_HIGHLIGHTS.md'
@@ -257,8 +257,8 @@ function formatDiscord({highlights, buckets, notesUrl}) {
 function buildTweet({version, highlights, buckets, notesUrl}) {
   const headline =
     highlights[0] ||
-    (buckets.features[0] && buckets.features[0].subject) ||
-    (buckets.fixes[0] && buckets.fixes[0].subject) ||
+    buckets.features[0]?.subject ||
+    buckets.fixes[0]?.subject ||
     'New release'
   // Strip markdown emphasis/links for plain-text platforms.
   const plain = headline

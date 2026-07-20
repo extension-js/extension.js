@@ -6,9 +6,9 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {type Compiler, type RuleSetRule, WebpackError} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {hasDependency} from '../lib/has-dependency'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
@@ -243,7 +243,7 @@ function findBrowserslistSource(projectPath: string): string | undefined {
     if (fs.existsSync(packageJsonPath)) {
       const raw = fs.readFileSync(packageJsonPath, 'utf8')
       const pkg = JSON.parse(raw || '{}')
-      if (pkg && pkg.browserslist) return `${packageJsonPath}#browserslist`
+      if (pkg?.browserslist) return `${packageJsonPath}#browserslist`
     }
   } catch {}
 

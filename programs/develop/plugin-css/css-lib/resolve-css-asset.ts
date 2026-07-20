@@ -33,7 +33,7 @@ export function resolveCssAsset(
   feature: string
 ): CssAssetResult {
   // Fast path: canonical asset name
-  if (compilation.getAsset(feature + '.css')) {
+  if (compilation.getAsset(`${feature}.css`)) {
     return {found: true, href: undefined}
   }
 
@@ -43,7 +43,7 @@ export function resolveCssAsset(
     for (const chunk of entrypoint.chunks) {
       for (const file of chunk.files) {
         if (file.endsWith('.css')) {
-          return {found: true, href: '/' + file}
+          return {found: true, href: `/${file}`}
         }
       }
     }

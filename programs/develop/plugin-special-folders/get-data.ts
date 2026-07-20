@@ -6,10 +6,10 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import fs from 'node:fs'
+import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import fs from 'fs'
-import path from 'path'
 import type {FilepathList} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 

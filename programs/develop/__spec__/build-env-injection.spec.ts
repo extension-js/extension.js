@@ -12,11 +12,11 @@
 //   3. Shipping .env files that match no candidate for the target
 //      browser/mode produces a build warning instead of silence.
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
-import * as vm from 'vm'
 import {getEnvFileCandidates} from '../plugin-compilation/env'
 
 const ROOTS: string[] = []

@@ -14,21 +14,18 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
 }))
 const openTabSpy = vi.fn(async () => {})
 
-vi.mock(
-  '../../run-chromium/cdp/cdp-extension-controller',
-  () => {
-    class CDPExtensionController {
-      constructor(args: any) {
-        ctorSpy(args)
-      }
-      connect = connectSpy
-      ensureLoaded = ensureLoadedSpy
-      getInfoBestEffort = getInfoBestEffortSpy
-      openTab = openTabSpy
+vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
+  class CDPExtensionController {
+    constructor(args: any) {
+      ctorSpy(args)
     }
-    return {CDPExtensionController}
+    connect = connectSpy
+    ensureLoaded = ensureLoadedSpy
+    getInfoBestEffort = getInfoBestEffortSpy
+    openTab = openTabSpy
   }
-)
+  return {CDPExtensionController}
+})
 
 vi.mock('../../browsers-lib/shared-utils', () => ({
   deriveDebugPortWithInstance: vi.fn(() => 9333)
@@ -39,11 +36,11 @@ vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce: vi.fn(async () => true)
 }))
 
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import * as banner from '../../browsers-lib/banner'
+import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
 const tempDirs: string[] = []
 
@@ -207,7 +204,12 @@ describe('setupCdpAfterLaunch', () => {
 
     await setupCdpAfterLaunch(
       compilation,
-      {browser: 'chromium', port: 9333, instanceId: 'i', startingUrl: 'https://example.com'} as any,
+      {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com'
+      } as any,
       chromiumArgs
     )
     expect(openTabSpy).not.toHaveBeenCalled()

@@ -1,5 +1,5 @@
-import {EventEmitter} from 'events'
-import {describe, expect, it, vi, afterEach} from 'vitest'
+import {EventEmitter} from 'node:events'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {evaluate} from '../../../../run-firefox/rdp/remote-firefox/evaluate'
 
 class MockRdpClient extends EventEmitter {

@@ -6,9 +6,9 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {type Compilation, sources} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -69,7 +69,7 @@ function globToRegex(pattern: string) {
     .split('*')
     .map((seg) => escapeRegex(seg))
     .join('.*')
-  return new RegExp('^' + escaped + '$')
+  return new RegExp(`^${escaped}$`)
 }
 
 function isCoveredByExistingGlobs(

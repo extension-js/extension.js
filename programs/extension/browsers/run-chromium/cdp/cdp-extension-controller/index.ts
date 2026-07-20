@@ -6,9 +6,9 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
-import type {Readable, Writable} from 'stream'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import type {Readable, Writable} from 'node:stream'
 import * as messages from '../../../browsers-lib/messages'
 import type {
   CdpProtocolMessage,

@@ -6,13 +6,13 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {
   filterKeysForThisBrowser,
   getManifestFieldsData
 } from 'browser-extension-manifest-fields'
-import * as fs from 'fs'
-import * as path from 'path'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'

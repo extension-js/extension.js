@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {CssPlugin} from '../index'
 
@@ -36,7 +36,11 @@ function armPlugin(projectDir: string) {
       thisCompilation: {tap: (_: any, fn: any) => (onCompilation = fn)},
       normalModuleFactory: {
         tap: (_: any, fn: any) =>
-          fn({hooks: {beforeResolve: {tap: (__: any, cb: any) => (beforeResolve = cb)}}})
+          fn({
+            hooks: {
+              beforeResolve: {tap: (__: any, cb: any) => (beforeResolve = cb)}
+            }
+          })
       },
       beforeRun: {tapPromise: () => {}},
       watchRun: {tapPromise: () => {}}
@@ -91,7 +95,11 @@ describe('CssPlugin dead url() tolerance (§23: Chrome silently 404s them)', () 
     ).toBeUndefined()
     // bare specifier without an asset extension -> stays with the resolver
     expect(
-      resolve({request: 'some-pkg/styles.css', context: dir, contextInfo: {issuer}})
+      resolve({
+        request: 'some-pkg/styles.css',
+        context: dir,
+        contextInfo: {issuer}
+      })
     ).toBeUndefined()
     expect(warnings).toHaveLength(0)
   })
@@ -103,7 +111,11 @@ describe('CssPlugin dead url() tolerance (§23: Chrome silently 404s them)', () 
     const {resolve, warnings} = armPlugin(dir)
 
     expect(
-      resolve({request: '/img/missing.png', context: dir, contextInfo: {issuer}})
+      resolve({
+        request: '/img/missing.png',
+        context: dir,
+        contextInfo: {issuer}
+      })
     ).toBeUndefined()
     expect(warnings).toHaveLength(0)
   })

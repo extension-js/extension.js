@@ -6,9 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import fs from 'node:fs'
+import path from 'node:path'
 import type {Command} from 'commander'
-import fs from 'fs'
-import path from 'path'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 export function readRecentConsole(
@@ -181,7 +181,7 @@ async function runCommand(input: RunInput): Promise<void> {
     controller.close()
   }
 
-  if (result && result.ok && input.augment) {
+  if (result?.ok && input.augment) {
     try {
       Object.assign(result, input.augment(projectPath, browser, result))
     } catch {

@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
 import {loadBrowserConfig} from '../config-loader'
 
 describe('config-loader', () => {

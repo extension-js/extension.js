@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
-import * as fs from 'fs'
 import type {DevOptions, PluginInterface} from '../types'
 import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'

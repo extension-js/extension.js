@@ -6,12 +6,12 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   init as esModuleLexerInit,
   parse as esModuleLexerParse
 } from 'es-module-lexer'
-import fs from 'fs'
-import path from 'path'
 import {validate} from 'schema-utils'
 import type {Schema} from 'schema-utils/declarations/validate'
 import {stripBom} from '../../../lib/parse-json-safe'

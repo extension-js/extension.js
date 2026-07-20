@@ -6,12 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type * as FsTypes from 'node:fs'
+import fs from 'node:fs'
+import * as path from 'node:path'
+import {Writable} from 'node:stream'
 import {rspack} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
-import type * as FsTypes from 'fs'
-import fs from 'fs'
-import * as path from 'path'
-import {Writable} from 'stream'
 import {merge} from 'webpack-merge'
 import {
   loadBrowserConfig,

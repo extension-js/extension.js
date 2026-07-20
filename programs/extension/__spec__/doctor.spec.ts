@@ -98,8 +98,8 @@ describe('extension doctor', () => {
     expect(r['port-agreement'].status).toBe('pass')
     expect(r['control-channel'].status).toBe('skip')
     expect(r['eval-token'].status).toBe('skip')
-    expect(r['executor'].status).toBe('skip')
-    expect(r['browser'].status).toBe('pass')
+    expect(r.executor.status).toBe('skip')
+    expect(r.browser.status).toBe('pass')
   })
 
   it('names a persisted-port mismatch as the stale-SW precondition', async () => {
@@ -127,7 +127,7 @@ describe('extension doctor', () => {
     expect(r['control-channel'].status).toBe('fail')
     expect(r['control-channel'].detail).toContain('instanceId')
     expect(r['eval-token'].status).toBe('skip')
-    expect(r['executor'].status).toBe('skip')
+    expect(r.executor.status).toBe('skip')
 
     StubController.connectError = new Error(
       'control channel refused the controller (code 4003: control channel not available)'
@@ -156,8 +156,8 @@ describe('extension doctor', () => {
       error: {name: 'Error', message: 'storage area exploded'}
     }
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['executor'].status).toBe('pass')
-    expect(r['executor'].detail).toContain('storage area exploded')
+    expect(r.executor.status).toBe('pass')
+    expect(r.executor.detail).toContain('storage area exploded')
   })
 
   it('surfaces the broker Unavailable diagnosis verbatim on executor failure', async () => {
@@ -170,8 +170,8 @@ describe('extension doctor', () => {
       }
     }
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['executor'].status).toBe('fail')
-    expect(r['executor'].detail).toContain('no executor connected')
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toContain('no executor connected')
   })
 
   it('warns (not fails) the executor during the post-compile attach grace window', async () => {
@@ -195,7 +195,7 @@ describe('extension doctor', () => {
       }
     }
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['executor'].status).toBe('warn')
+    expect(r.executor.status).toBe('warn')
     // A warn must not make the session unhealthy.
     expect(
       (await runDoctor('/proj', {})).some((c) => c.status === 'fail')
@@ -219,7 +219,7 @@ describe('extension doctor', () => {
       error: {name: 'Unavailable', message: 'no executor connected'}
     }
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['executor'].status).toBe('fail')
+    expect(r.executor.status).toBe('fail')
   })
 
   it('does not grace-warn the executor once the SW has attached (runtime attached)', async () => {
@@ -240,7 +240,7 @@ describe('extension doctor', () => {
       error: {name: 'Unavailable', message: 'no executor connected'}
     }
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['executor'].status).toBe('fail')
+    expect(r.executor.status).toBe('fail')
   })
 
   it('fails the browser check when the browser exited under a live server', async () => {
@@ -256,9 +256,9 @@ describe('extension doctor', () => {
       })
     })
     const r = byCheck(await runDoctor('/proj', {}))
-    expect(r['browser'].status).toBe('fail')
-    expect(r['browser'].detail).toContain('code 21')
-    expect(r['browser'].remediation).toContain('Restart')
+    expect(r.browser.status).toBe('fail')
+    expect(r.browser.detail).toContain('code 21')
+    expect(r.browser.remediation).toContain('Restart')
   })
 })
 

@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import {createRequire} from 'module'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {resolveDevelopInstallRoot} from './develop-context'
 import type {
   OptionalDependencyContract,
@@ -126,7 +126,7 @@ function getResolutionBases(projectPath: string): string[] {
     Boolean
   ) as string[]
 
-  if (extensionRoot && extensionRoot.includes('.pnpm')) {
+  if (extensionRoot?.includes('.pnpm')) {
     bases.push(path.join(extensionRoot, '..', '..'))
   }
 

@@ -37,7 +37,7 @@ export class InjectScriptsReplayShim {
               if (original.indexOf('__extjsScriptsReplayInstalled') !== -1) {
                 continue
               }
-              const next = SCRIPTS_REPLAY_SHIM_SOURCE + '\n' + original
+              const next = `${SCRIPTS_REPLAY_SHIM_SOURCE}\n${original}`
               compilation.updateAsset(asset.name, new sources.RawSource(next))
             }
           }

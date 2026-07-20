@@ -8,7 +8,7 @@ vi.mock('fs', async () => {
   }
 })
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 
 // Mock deps used inside the plugin implementation
 vi.mock('../env', () => {

@@ -29,7 +29,7 @@ export async function getAddonsActorWithRetry(
   for (let i = 0; i < tries && !addonsActor; i++) {
     try {
       const root = (await client.request('getRoot')) as {addonsActor?: string}
-      if (root && root.addonsActor) {
+      if (root?.addonsActor) {
         addonsActor = root.addonsActor
         break
       }
@@ -42,7 +42,7 @@ export async function getAddonsActorWithRetry(
         const tabs = (await client.request('listTabs')) as {
           addonsActor?: string
         }
-        if (tabs && tabs.addonsActor) {
+        if (tabs?.addonsActor) {
           addonsActor = tabs.addonsActor
           break
         }

@@ -90,7 +90,7 @@ export function annotateGetURLDynamicImports(source: string): string {
   let out = ''
   let last = 0
   for (const at of insertions) {
-    out += source.slice(last, at) + '/* webpackIgnore: true */ '
+    out += `${source.slice(last, at)}/* webpackIgnore: true */ `
     last = at
   }
   return out + source.slice(last)

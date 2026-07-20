@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import * as fs from 'fs'
-import * as path from 'path'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
 
@@ -128,7 +128,7 @@ export function processJsonAssets(
           if (!ok) continue
         }
         const rawSource = new sources.RawSource(source)
-        const assetName = feature + '.json'
+        const assetName = `${feature}.json`
 
         // If asset already exists (e.g., when handling arrays), update it instead of emitting again
         if (

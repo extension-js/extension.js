@@ -6,9 +6,9 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {readFileSync} from 'fs'
-import * as fs from 'fs/promises'
-import * as path from 'path'
+import {readFileSync} from 'node:fs'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import * as messages from '../lib/messages'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
@@ -239,7 +239,7 @@ export async function overridePackageJson(
     logger.log(messages.writingPackageJsonMetadata())
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
-      JSON.stringify(packageMetadata, null, 2) + '\n'
+      `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
   } catch (error: any) {
     logger.error(messages.writingPackageJsonMetadataError(projectName, error))
