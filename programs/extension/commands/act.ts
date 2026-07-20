@@ -73,6 +73,9 @@ type ActContext =
   | 'options'
   | 'sidebar'
   | 'devtools'
+  | 'newtab'
+  | 'history'
+  | 'bookmarks'
   | 'content'
   | 'page'
 
@@ -248,8 +251,8 @@ export function registerActCommands(program: Command): void {
         'Evaluate an expression in a running extension context (requires --allow-eval)'
       )
       .option(
-        '--context <background|popup|options|sidebar|devtools|content|page>',
-        'target context (default background)'
+        '--context <background|popup|options|sidebar|devtools|newtab|history|bookmarks|content|page>',
+        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) answer via their own in-page relay and must be open'
       )
       .option(
         '--url <glob|substring>',
@@ -371,8 +374,8 @@ export function registerActCommands(program: Command): void {
         'Inspect a page/content DOM via the agent bridge (CDP-free; requires --allow-control). For closed shadow roots use CDP-based inspection against the ready.json cdpPort.'
       )
       .option(
-        '--context <content|page|popup|options|sidebar|devtools>',
-        'what to inspect: content/page or an open surface (default content)'
+        '--context <content|page|popup|options|sidebar|devtools|newtab|history|bookmarks>',
+        'what to inspect: content/page or an open surface, including url-override pages (default content)'
       )
       .option(
         '--url <glob|substring>',

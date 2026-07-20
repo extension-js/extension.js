@@ -177,7 +177,12 @@ describe('InjectBridgeRelay', () => {
       ['action/index.js', 'popup'],
       ['options/index.js', 'options'],
       ['sidebar/index.js', 'sidebar'],
-      ['devtools/index.js', 'devtools']
+      ['devtools/index.js', 'devtools'],
+      // url-override pages: the relay is their only console/inspect/eval
+      // route — chrome.scripting can't reach the extension's own pages (§63).
+      ['chrome_url_overrides/newtab.js', 'newtab'],
+      ['chrome_url_overrides/history.js', 'history'],
+      ['chrome_url_overrides/bookmarks.js', 'bookmarks']
     ]
     for (const [name] of surfaces) setAsset(name, `/* user ${name} */`)
     runProcessAssets()
