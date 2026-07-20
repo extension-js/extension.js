@@ -64,58 +64,54 @@ export class CDPClient {
   }
 
   async connect(): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        this.targetWebSocketUrl = await discoverWebSocketDebuggerUrl(
-          this.host,
-          this.port,
-          this.isDev()
-        )
+    try {
+      this.targetWebSocketUrl = await discoverWebSocketDebuggerUrl(
+        this.host,
+        this.port,
+        this.isDev()
+      )
 
-        let pendingRejected = false
-        this.ws = await establishBrowserConnection(
-          this.targetWebSocketUrl!,
-          this.isDev(),
-          (data) => this.handleMessage(data),
-          (reason) => {
-            // Guard against double-rejection (error + close fire in sequence)
-            if (pendingRejected) return
+      let pendingRejected = false
+      this.ws = await establishBrowserConnection(
+        this.targetWebSocketUrl!,
+        this.isDev(),
+        (data) => this.handleMessage(data),
+        (reason) => {
+          // Guard against double-rejection (error + close fire in sequence)
+          if (pendingRejected) return
 
-            pendingRejected = true
-            // Reject any pending requests to avoid hangs
-            this.pendingRequests.forEach(({reject, timeout}, id) => {
-              try {
-                reject(new Error(reason))
-              } catch (error) {
-                if (this.isDev()) {
-                  const err = error as Error
-                  console.warn(
-                    messages.cdpPendingRejectFailed(String(err.message || err))
-                  )
-                }
+          pendingRejected = true
+          // Reject any pending requests to avoid hangs
+          this.pendingRequests.forEach(({reject, timeout}, id) => {
+            try {
+              reject(new Error(reason))
+            } catch (error) {
+              if (this.isDev()) {
+                const err = error as Error
+                console.warn(
+                  messages.cdpPendingRejectFailed(String(err.message || err))
+                )
               }
+            }
 
-              if (timeout) clearTimeout(timeout)
-              this.pendingRequests.delete(id)
-            })
-            // Mark ws as dead so sendCommand rejects immediately
-            this.ws = null
-          }
-        )
-
-        this.transport = 'websocket'
-        this.startHeartbeat()
-
-        if (this.isDev()) {
-          console.log(messages.cdpClientConnected(this.host, this.port))
+            if (timeout) clearTimeout(timeout)
+            this.pendingRequests.delete(id)
+          })
+          // Mark ws as dead so sendCommand rejects immediately
+          this.ws = null
         }
+      )
 
-        resolve()
-      } catch (error) {
-        const err = error as Error
-        reject(new Error(`Failed to connect to CDP: ${err.message || err}`))
+      this.transport = 'websocket'
+      this.startHeartbeat()
+
+      if (this.isDev()) {
+        console.log(messages.cdpClientConnected(this.host, this.port))
       }
-    })
+    } catch (error) {
+      const err = error as Error
+      throw new Error(`Failed to connect to CDP: ${err.message || err}`)
+    }
   }
 
   async connectViaPipe(input: Readable, output: Writable): Promise<void> {
