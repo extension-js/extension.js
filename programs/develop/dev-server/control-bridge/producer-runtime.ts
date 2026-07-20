@@ -147,6 +147,46 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e3) { cb(null, "tab query failed"); }
     }
 
+    // chrome.* async APIs are callback-only on Gecko (the §54/§70 TypeError:
+    // chrome.tabs.query(...) is undefined). Prefer the promisified browser.*
+    // namespace when the engine provides it, else the chrome.* callback form
+    // (valid on every Chromium). Never calls the API twice. cb(err, result).
+    function nsCall(nsName, method, callArgs, cb) {
+      var chromeG = g.chrome;
+      var done = false;
+      var once = function (err, r) { if (!done) { done = true; cb(err, r); } };
+      var viaPromise = function (ns) {
+        try {
+          var ret = ns[method].apply(ns, callArgs);
+          if (ret && typeof ret.then === "function") {
+            ret.then(function (r) { once(null, r); }, function (e) { once(e); });
+            return true;
+          }
+        } catch (e) { once(e); return true; }
+        return false;
+      };
+      var bNS = g.browser && g.browser[nsName];
+      if (bNS && typeof bNS[method] === "function" && viaPromise(bNS)) return;
+      var cNS = chromeG && chromeG[nsName];
+      if (!cNS || typeof cNS[method] !== "function") {
+        once(new Error("chrome." + nsName + "." + method + " is not available (engine: " + engineName() + ")"));
+        return;
+      }
+      try {
+        var ret2 = cNS[method].apply(cNS, callArgs.concat([function (r) {
+          var le = chromeG.runtime && chromeG.runtime.lastError;
+          if (le) once(le); else once(null, r);
+        }]));
+        // A promise-only implementation ignores the trailing callback and
+        // returns a thenable instead; resolve through it (once() dedupes).
+        if (ret2 && typeof ret2.then === "function") {
+          ret2.then(function (r) { once(null, r); }, function (e) { once(e); });
+        }
+      } catch (e2) {
+        if (!viaPromise(cNS)) once(e2);
+      }
+    }
+
     // Execute one authorized command in the SW (or route to a tab). chrome.*
     // promise APIs are used; callback-only APIs are wrapped.
     function executeCommand(cmd) {
@@ -189,15 +229,55 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 }
               });
           } else if ((ctx === "content" || ctx === "page") && target.tabId && chrome.scripting) {
-            chrome.scripting.executeScript({
+            // Wrap the eval so a throw INSIDE the tab comes back as data —
+            // Chrome swallows an injected function's exception and resolves
+            // with a null result, which used to surface as ok:true value:null
+            // while nothing ever executed (§61). The common throw is the
+            // extension CSP blocking string eval in the ISOLATED world.
+            nsCall("scripting", "executeScript", [{
               target: {tabId: target.tabId},
               world: ctx === "page" ? "MAIN" : "ISOLATED",
-              func: function (src) { return eval(src); },
+              func: function (src) {
+                try { return {__extjsEval: 1, ok: true, value: eval(src)}; }
+                catch (e) { return {__extjsEval: 1, ok: false, name: (e && e.name) || "EvalError", message: (e && e.message) || String(e)}; }
+              },
               args: [String(args.expression)]
-            }).then(function (res) { replyOk(cmdId, res && res[0] ? res[0].result : undefined); },
-                    function (e) { replyErr(cmdId, "EvalError", e); });
+            }], function (err, res) {
+              if (err) { replyErr(cmdId, "EvalError", (err && err.message) || err); return; }
+              var frame = res && res[0] ? res[0].result : undefined;
+              if (!frame || frame.__extjsEval !== 1) {
+                replyErr(cmdId, "EvalError", "the expression never executed in tab " + target.tabId + ": no injectable frame returned a result (restricted page, or outside host_permissions)");
+                return;
+              }
+              if (frame.ok) { replyOk(cmdId, frame.value); return; }
+              if (ctx === "content" && /Content Security Policy|unsafe-eval|EvalError/i.test(String(frame.name) + " " + String(frame.message))) {
+                replyErr(cmdId, "Unsupported", "eval of a string is blocked in the ISOLATED (content) world by the extension CSP. Use --context page (runs in the page's MAIN world). Original: " + frame.message);
+                return;
+              }
+              replyErr(cmdId, frame.name || "EvalError", frame.message);
+            });
+          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools") {
+            // The SW can't eval in another extension page; ask the surface's
+            // own in-bundle relay, mirroring inspect (§62). Only the open,
+            // matching-context page responds.
+            chrome.runtime.sendMessage(
+              {__extjsEvalRequest: true, target: target, args: {expression: String(args.expression)}},
+              function (resp) {
+                if ((chrome.runtime && chrome.runtime.lastError) || !resp) {
+                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")");
+                } else if (resp.ok) {
+                  replyOk(cmdId, resp.value);
+                } else {
+                  replyErr(cmdId, (resp.error && resp.error.name) || "EvalError", (resp.error && resp.error.message) || "eval failed");
+                }
+              }
+            );
+          } else if (ctx === "content" || ctx === "page") {
+            replyErr(cmdId, "Unsupported", target.tabId
+              ? "chrome.scripting is not available on this engine (MV2 has no scripting API); use --context background"
+              : "eval in context " + ctx + " requires a tabId");
           } else {
-            replyErr(cmdId, "Unsupported", "eval in context " + ctx + " requires a tabId");
+            replyErr(cmdId, "BadRequest", "unknown eval context: " + ctx);
           }
           return;
         }
@@ -236,7 +316,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             replyOk(cmdId, {reloading: true});
             setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {} }, 50);
           } else if (target.tabId) {
-            chrome.tabs.reload(target.tabId).then(function () { replyOk(cmdId, {reloaded: target.tabId}); }, function (e) { replyErr(cmdId, "ReloadError", e); });
+            nsCall("tabs", "reload", [target.tabId], function (err) {
+              if (err) replyErr(cmdId, "ReloadError", (err && err.message) || err);
+              else replyOk(cmdId, {reloaded: target.tabId});
+            });
           } else {
             replyErr(cmdId, "Unsupported", "reload needs background or a tabId");
           }
@@ -282,7 +365,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           };
           if (surface === "popup") {
             if (chrome.action && chrome.action.openPopup) {
-              chrome.action.openPopup().then(function () { replyOk(cmdId, {opened: "popup"}); }, function (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); });
+              nsCall("action", "openPopup", [], function (err) {
+                if (err) replyErr(cmdId, "Unsupported", "openPopup: " + ((err && err.message) || err));
+                else replyOk(cmdId, {opened: "popup"});
+              });
             } else { replyErr(cmdId, "Unsupported", "action.openPopup not available"); }
           } else if (surface === "options") {
             try { chrome.runtime.openOptionsPage(function () { replyOk(cmdId, {opened: "options"}); }); }
@@ -290,7 +376,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           } else if (surface === "sidebar") {
             if (chrome.sidePanel && chrome.sidePanel.open && chrome.windows) {
               chrome.windows.getCurrent(function (w) {
-                chrome.sidePanel.open({windowId: w.id}).then(function () { replyOk(cmdId, {opened: "sidebar"}); }, function (e) { replyErr(cmdId, "Unsupported", "sidePanel.open: " + e); });
+                nsCall("sidePanel", "open", [{windowId: w.id}], function (err) {
+                  if (err) replyErr(cmdId, "Unsupported", "sidePanel.open: " + ((err && err.message) || err));
+                  else replyOk(cmdId, {opened: "sidebar"});
+                });
               });
             } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")"); }
           } else if (surface === "action") {
@@ -300,9 +389,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             if (chrome.action) {
               getActionPopup(function (popup) {
                 if (popup) {
-                  try {
-                    chrome.action.openPopup().then(function () { replyOk(cmdId, {triggered: "popup"}); }, function (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); });
-                  } catch (e) { replyErr(cmdId, "Unsupported", "openPopup: " + e); }
+                  nsCall("action", "openPopup", [], function (err) {
+                    if (err) replyErr(cmdId, "Unsupported", "openPopup: " + ((err && err.message) || err));
+                    else replyOk(cmdId, {triggered: "popup"});
+                  });
                 } else if (actionClickedListeners.length) {
                   resolveActiveTab(args, function (tab) {
                     var fired = 0;
@@ -338,9 +428,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           return;
         }
         if (op === "tabs.query") {
-          chrome.tabs.query(args || {}).then(function (tabs) {
+          nsCall("tabs", "query", [args || {}], function (err, tabs) {
+            if (err) { replyErr(cmdId, "TabsError", (err && err.message) || err); return; }
             replyOk(cmdId, (tabs || []).map(function (t) { return {id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId}; }));
-          }, function (e) { replyErr(cmdId, "TabsError", e); });
+          });
           return;
         }
         if (op === "inspect") {
@@ -350,7 +441,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           if ((ctx === "content" || ctx === "page") && target.tabId && chrome.scripting) {
             var maxBytes = (args && args.maxBytes) || 262144;
             var includeHtml = !args || !args.include || args.include.indexOf("html") !== -1;
-            chrome.scripting.executeScript({
+            nsCall("scripting", "executeScript", [{
               target: {tabId: target.tabId},
               world: ctx === "page" ? "MAIN" : "ISOLATED",
               func: function (wantHtml, cap) {
@@ -381,8 +472,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 return out;
               },
               args: [includeHtml, maxBytes]
-            }).then(function (res) { replyOk(cmdId, res && res[0] ? res[0].result : undefined); },
-                    function (e) { replyErr(cmdId, "InspectError", e); });
+            }], function (err, res) {
+              if (err) { replyErr(cmdId, "InspectError", (err && err.message) || err); return; }
+              var snap = res && res[0] ? res[0].result : undefined;
+              if (snap == null) { replyErr(cmdId, "InspectError", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
+              replyOk(cmdId, snap);
+            });
           } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools") {
             // The SW can't read a surface page's DOM; ask the surface's own
             // in-bundle relay (only the open, matching-context page responds).
@@ -1120,6 +1215,32 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     // isolation). So THIS page (the user extension's own surface) answers an
     // inspect request for its own context. The SW broadcasts the request; only the
     // matching-context surface responds with its DOM snapshot.
+    // Surface eval (§62): like inspect below, the SW executor can't run code in
+    // another extension page, so THIS surface answers an eval request for its
+    // own context. On MV3 the extension-page CSP blocks string eval — that
+    // comes back as an explicit error, never a silent null.
+    try {
+      if (chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+          if (!msg || !msg.__extjsEvalRequest) return;
+          if (!msg.target || msg.target.context !== CONTEXT) return; // not for me
+          try {
+            var value = (0, eval)(String((msg.args && msg.args.expression) || ""));
+            try { sendResponse({ok: true, value: value}); }
+            catch (eSend) { sendResponse({ok: true, value: String(value)}); }
+          } catch (e) {
+            var emsg = (e && e.message) || String(e);
+            if (/Content Security Policy|unsafe-eval|call to eval/i.test(emsg)) {
+              sendResponse({ok: false, error: {name: "Unsupported", message: "eval of a string is blocked in the " + CONTEXT + " page by the MV3 extension CSP. Use extension inspect " + CONTEXT + " to read its DOM, or --context background on an MV2/Firefox build. Original: " + emsg}});
+            } else {
+              sendResponse({ok: false, error: {name: (e && e.name) || "EvalError", message: emsg}});
+            }
+          }
+          return true; // responded
+        });
+      }
+    } catch (e) {}
+
     try {
       if (chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
