@@ -256,10 +256,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               }
               replyErr(cmdId, frame.name || "EvalError", frame.message);
             });
-          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools") {
+          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
             // The SW can't eval in another extension page; ask the surface's
             // own in-bundle relay, mirroring inspect (§62). Only the open,
-            // matching-context page responds.
+            // matching-context page responds. url-override pages (§63) route
+            // here too: chrome.scripting can never reach the extension's own
+            // pages (no self host permission exists).
             chrome.runtime.sendMessage(
               {__extjsEvalRequest: true, target: target, args: {expression: String(args.expression)}},
               function (resp) {
@@ -478,9 +480,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               if (snap == null) { replyErr(cmdId, "InspectError", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
               replyOk(cmdId, snap);
             });
-          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools") {
+          } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
             // The SW can't read a surface page's DOM; ask the surface's own
             // in-bundle relay (only the open, matching-context page responds).
+            // url-override pages (§63) are surfaces too.
             chrome.runtime.sendMessage(
               {__extjsInspectRequest: true, target: target, args: args},
               function (resp) {
