@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
-import {runDoctor, type DoctorCheckResult} from '../commands/doctor'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {type DoctorCheckResult, runDoctor} from '../commands/doctor'
 
 const state = vi.hoisted(() => ({mod: {} as any}))
 
@@ -50,7 +50,8 @@ function healthyModule(overrides: Record<string, unknown> = {}) {
     }),
     readControlToken: () => 'tok',
     readPersistedControlPort: () => 4001,
-    controlPortFilePath: (p: string, b: string) => `${p}/.extension-js/control-port-${b}`,
+    controlPortFilePath: (p: string, b: string) =>
+      `${p}/.extension-js/control-port-${b}`,
     ...overrides
   }
 }
@@ -258,5 +259,78 @@ describe('extension doctor', () => {
     expect(r['browser'].status).toBe('fail')
     expect(r['browser'].detail).toContain('code 21')
     expect(r['browser'].remediation).toContain('Restart')
+  })
+})
+
+describe('extension doctor (command surface)', () => {
+  it('prints json results and exits 0 on a healthy session', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(0)
+      const results = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(results.every((r: any) => r.status === 'pass')).toBe(true)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('prints the pretty report with the first remediation and exits 1 on failure', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({readReadyContract: () => null})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj'
+      ])
+      expect(code).toBe(1)
+      const lines = logSpy.mock.calls.map((c) => String(c[0]))
+      expect(lines[0]).toContain('doctor (chromium)')
+      expect(lines.some((l) => l.includes('✗ ready-contract'))).toBe(true)
+      // The advisory line repeats the first failing check's remediation.
+      expect(lines[lines.length - 1]).toContain('ready-contract:')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('exits 1 with the error message when the doctor run itself throws', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({
+      readReadyContract: () => {
+        throw new Error('contract unreadable')
+      }
+    })
+    stubProcessExit()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj'
+      ])
+      expect(code).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0])).toContain('contract unreadable')
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 })
