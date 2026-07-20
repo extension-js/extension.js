@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -98,6 +98,33 @@ describe('typescript tools', () => {
     const result = await maybeUseTypeScript('/project')
     expect(result).toBe(true)
     ;(require as any).resolve = originalResolve
+  })
+
+  it('maybeUseTypeScript succeeds when the project does NOT declare typescript', async () => {
+    // The 12.4% shape from the real-world corpus (112 of 902 TypeScript
+    // projects): tsconfig.json + .ts sources, but no `typescript` dependency.
+    // extension-develop no longer ships its own copy, and nothing in the build
+    // needs one (sources are compiled by swc), so this must resolve rather
+    // than throw an "install typescript" error the way the old optional-dep
+    // contract would have.
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) =>
+        toPosix(String(p)).endsWith('/project/tsconfig.json') ||
+        toPosix(String(p)).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation((p: string) => {
+      if (toPosix(String(p)).endsWith('package.json')) {
+        // No typescript in either dependency block.
+        return JSON.stringify({dependencies: {}, devDependencies: {}})
+      }
+      return ''
+    })
+    ;(fs.readdirSync as any).mockImplementation(() => [
+      {name: 'index.ts', isFile: () => true, isDirectory: () => false}
+    ])
+
+    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
+    await expect(maybeUseTypeScript('/project')).resolves.toBe(true)
   })
 
   it('getTypeScriptConfigOverrides toggles sourceMap by mode', async () => {

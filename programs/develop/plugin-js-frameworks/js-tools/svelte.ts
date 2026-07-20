@@ -4,17 +4,16 @@
 // ██   ██║╚════██║╚════╝██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██║███╗██║██║   ██║██╔══██╗██╔═██╗ ╚════██║
 // ╚█████╔╝███████║      ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗╚███╔███╔╝╚██████╔╝██║  ██║██║  ██╗███████║
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import * as messages from '../js-frameworks-lib/messages'
-import {hasDependency} from '../frameworks-lib/integrations'
-import type {JsFramework} from '../../types'
-import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
-import type {DevOptions} from '../../types'
+import * as path from 'path'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import type {DevOptions, JsFramework} from '../../types'
+import {hasDependency} from '../frameworks-lib/integrations'
+import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
+import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
 
@@ -53,13 +52,11 @@ export async function maybeUseSvelte(
     dependencyId: 'svelte-loader'
   })
 
-  // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
-  await ensureOptionalContractPackageResolved({
-    contractId: 'typescript',
-    projectPath,
-    dependencyId: 'typescript'
-  })
-
+  // No `typescript` check here: svelte-loader does not depend on it (its deps
+  // are loader-utils / svelte-dev-helper / svelte-hmr, peer `svelte`), and
+  // extension-develop no longer ships a copy to satisfy the old install-root
+  // rule. Requiring it would hard-fail Svelte projects that never asked for
+  // TypeScript.
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
