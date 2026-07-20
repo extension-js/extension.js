@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -49,7 +49,7 @@ export class AddScriptsAndStylesToCompilation {
         // Remote URLs are excluded as well
         const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
         // A leading '/' is an EXTENSION-ROOT reference (Chrome semantics), never
-        // a module to bundle — regardless of whether a public/ dir exists. It
+        // a module to bundle, regardless of whether a public/ dir exists. It
         // used to require hasPublicDir, so a root-absolute ref in a project with
         // no public/ was handed to rspack as an entry and died with
         // "Module not found: Can't resolve '/nscl/main.js'". The file is served
@@ -59,7 +59,7 @@ export class AddScriptsAndStylesToCompilation {
           p.startsWith('/public/') ||
           (p.startsWith('/') && !p.startsWith(projectRoot))
         // Chrome loads an extension page whose <script src>/<link href>
-        // points at a nonexistent file — the reference silently 404s and the
+        // points at a nonexistent file, the reference silently 404s and the
         // rest of the page runs. Handing the ref to rspack as an entry import
         // instead fails the whole build with "Module not found", so a working
         // wild extension can't build unmodified. Drop missing local files
@@ -84,7 +84,7 @@ export class AddScriptsAndStylesToCompilation {
         // browser (`var storage` in lib/storage.js is visible to a sibling
         // sidepanel.js). Bundling them as separate ES modules isolates each
         // file and throws ReferenceError at boot. When every page script is
-        // classic — no type="module" tag and no top-level import/export —
+        // classic, no type="module" tag and no top-level import/export,
         // route the group through the classic-concat loader (same contract
         // as multi-file content_scripts) so their sources concatenate into
         // one shared scope, in tag order. CSS stays as bare entry imports so
@@ -96,7 +96,7 @@ export class AddScriptsAndStylesToCompilation {
         // script consumes them (`Handlebars.compile(...)` beside a
         // <script src> handlebars). Bundling it as an ES module scopes the
         // declarations inside the webpack closure and the inline consumer
-        // throws ReferenceError — the concat loader bridges the declarations
+        // throws ReferenceError, the concat loader bridges the declarations
         // back onto globalThis. Pages without inline consumers keep the
         // plain bundling path unchanged.
         const moduleJsAssets = new Set(htmlAssets?.moduleJs || [])

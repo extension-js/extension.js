@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
@@ -171,7 +171,7 @@ export function registerPreviewCommand(program: Command) {
               logUrl: previewOptions.logUrl,
               logTab: previewOptions.logTab
             },
-            // Browser launcher callback — runs browser code from extension/browser/
+            // Browser launcher callback, runs browser code from extension/browser/
             // without pulling rspack into the preview path
             (opts: any) => runOnlyPreviewBrowser(opts)
           )

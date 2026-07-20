@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {BUDGET_BYTES, categorizeAsset, PerfBudgetsPlugin} from '../index'
 
 describe('categorizeAsset', () => {
@@ -142,7 +142,7 @@ describe('PerfBudgetsPlugin', () => {
 
   it('honors per-category budget overrides', () => {
     // Asset is over the default 512 KiB content-script budget, but the
-    // override raises the budget to 2 MiB — so it must NOT warn.
+    // override raises the budget to 2 MiB, so it must NOT warn.
     const compilation = applyAndRun(
       new PerfBudgetsPlugin({
         budgets: {'content-script': 2 * 1024 * 1024}

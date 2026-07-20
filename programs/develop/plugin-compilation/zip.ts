@@ -4,17 +4,17 @@
 // ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║
 // ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ██║███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs'
-import AdmZip from 'adm-zip'
-import glob from 'tiny-glob'
-import ignore from 'ignore'
 import type {Compiler} from '@rspack/core'
+import AdmZip from 'adm-zip'
+import * as fs from 'fs'
+import ignore from 'ignore'
+import * as path from 'path'
+import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
-import type {DevOptions} from '../types'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import type {DevOptions} from '../types'
 
 export interface ZipPluginOptions {
   manifestPath?: string

@@ -1,8 +1,8 @@
-import {describe, it, expect, afterEach} from 'vitest'
+import AdmZip from 'adm-zip'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import AdmZip from 'adm-zip'
+import {afterEach, describe, expect, it} from 'vitest'
 import {
   extractExamplesTemplateFromZip,
   TemplateNotFoundError
@@ -45,7 +45,7 @@ function makeExamplesZip(): Buffer {
   return zip.toBuffer()
 }
 
-describe('extractExamplesTemplateFromZip (#56 — per-template subtree extraction)', () => {
+describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)', () => {
   it('unpacks only the requested template, rooted at the project dir', async () => {
     const project = makeProject()
     const written = await extractExamplesTemplateFromZip(
@@ -58,7 +58,10 @@ describe('extractExamplesTemplateFromZip (#56 — per-template subtree extractio
     // Files land at the project root, NOT under examples/react/.
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
     expect(fs.existsSync(path.join(project, 'src', 'index.tsx'))).toBe(true)
-    expect(JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).name).toBe('react')
+    expect(
+      JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'))
+        .name
+    ).toBe('react')
     // A DIFFERENT template's files must not leak in.
     expect(fs.existsSync(path.join(project, 'vue'))).toBe(false)
     expect(fs.readdirSync(project)).not.toContain('examples')

@@ -1,12 +1,12 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {browserConfig as chromiumConfig} from '../run-chromium/chromium-launch/browser-config'
 import {browserConfig as firefoxConfig} from '../run-firefox/firefox-launch/browser-config'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Profile-options contract — exercised end-to-end through BOTH launchers.
+// Profile-options contract, exercised end-to-end through BOTH launchers.
 //
 // Locks the behaviour of the shared resolve-profile decision via on-disk
 // assertions only (no real browser, no network):
@@ -62,7 +62,7 @@ describe('profile-options contract (both launchers)', () => {
 
   // ── profile: false → the browser's own default profile ──────────────────────
 
-  it('chromium: profile false uses the default profile — no managed dir, no --user-data-dir', () => {
+  it('chromium: profile false uses the default profile, no managed dir, no --user-data-dir', () => {
     const out = distFor('chrome')
     const flags = chromiumConfig(makeCompilation(out), {
       extension: '/ext',
@@ -71,11 +71,15 @@ describe('profile-options contract (both launchers)', () => {
     } as any)
 
     expect(chromiumUserDataDir(flags)).toBeNull()
-    const profilesRoot = path.join(path.dirname(out), 'extension-js', 'profiles')
+    const profilesRoot = path.join(
+      path.dirname(out),
+      'extension-js',
+      'profiles'
+    )
     expect(fs.existsSync(profilesRoot)).toBe(false)
   })
 
-  it('firefox: profile false uses the default profile — no managed dir, no --profile', async () => {
+  it('firefox: profile false uses the default profile, no managed dir, no --profile', async () => {
     const out = distFor('firefox')
     const args = await firefoxConfig(makeCompilation(out), {
       extension: '/ext',
@@ -84,7 +88,11 @@ describe('profile-options contract (both launchers)', () => {
     } as any)
 
     expect(firefoxProfileDir(args)).toBeNull()
-    const profilesRoot = path.join(path.dirname(out), 'extension-js', 'profiles')
+    const profilesRoot = path.join(
+      path.dirname(out),
+      'extension-js',
+      'profiles'
+    )
     expect(fs.existsSync(profilesRoot)).toBe(false)
   })
 
@@ -161,7 +169,7 @@ describe('profile-options contract (both launchers)', () => {
 
   // ── empty / whitespace string → like nothing, NOT like false ────────────────
 
-  it('chromium: empty string is NOT false — a managed profile is still created', () => {
+  it('chromium: empty string is NOT false, a managed profile is still created', () => {
     const flags = chromiumConfig(makeCompilation(distFor('chrome')), {
       extension: '/ext',
       browser: 'chrome',
@@ -170,7 +178,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(chromiumUserDataDir(flags)).toBeTruthy()
   })
 
-  it('chromium: whitespace-only string is NOT false — a managed profile is still created', () => {
+  it('chromium: whitespace-only string is NOT false, a managed profile is still created', () => {
     const flags = chromiumConfig(makeCompilation(distFor('chrome')), {
       extension: '/ext',
       browser: 'chrome',
@@ -179,7 +187,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(chromiumUserDataDir(flags)).toBeTruthy()
   })
 
-  it('firefox: empty string is NOT false — a managed profile is still created', async () => {
+  it('firefox: empty string is NOT false, a managed profile is still created', async () => {
     const args = await firefoxConfig(makeCompilation(distFor('firefox')), {
       extension: '/ext',
       browser: 'firefox',

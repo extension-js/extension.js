@@ -4,15 +4,15 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import path from 'path'
 import fs from 'fs'
-import type {DevOptions, FilepathList} from '../../../../types'
-import {getCanonicalContentScriptEntryName} from '../../contracts'
-import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
+import path from 'path'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
+import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
+import type {DevOptions, FilepathList} from '../../../../types'
+import {getCanonicalContentScriptEntryName} from '../../contracts'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir

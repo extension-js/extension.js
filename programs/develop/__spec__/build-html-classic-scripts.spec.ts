@@ -1,17 +1,17 @@
 // Real-rspack regression gate for multi-classic-script HTML pages. The
-// browser executes multiple <script src> tags in one shared global scope —
+// browser executes multiple <script src> tags in one shared global scope,
 // `var storage` in lib/storage.js is visible to a sibling popup.js. Bundling
 // each tag as a separate ES module isolates the scopes, and the built page
 // throws `ReferenceError: storage is not defined` at boot (corpus class:
 // Yunzenn__better-prompt). The fix routes all-classic script groups through
 // the classic-concat loader (same contract as multi-file content_scripts),
-// so the emitted bundle must actually EXECUTE with shared globals — asserted
+// so the emitted bundle must actually EXECUTE with shared globals, asserted
 // here by running it in a VM with a stubbed document.
 
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import * as vm from 'vm'
 
 const CLASSIC_ROOT = fs.mkdtempSync(
@@ -32,7 +32,7 @@ function writePackageJson(root: string, name: string) {
 }
 
 // Three classic scripts in tag order: a global definition, a consumer that
-// extends it, and a final consumer reading both — the better-prompt shape.
+// extends it, and a final consumer reading both, the better-prompt shape.
 function writeClassicFixture() {
   writePackageJson(CLASSIC_ROOT, 'extjs-build-html-classic-spec')
   fs.mkdirSync(path.join(CLASSIC_ROOT, 'lib'), {recursive: true})
@@ -42,7 +42,7 @@ function writeClassicFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — HTML classic scripts',
+        name: 'Build Spec, HTML classic scripts',
         version: '1.0.0',
         action: {default_popup: 'popup.html'}
       },
@@ -78,7 +78,7 @@ function writeClassicFixture() {
 }
 
 // A page with a type="module" script must NOT be folded into a classic
-// concat — module semantics (scoped top level) are the author's choice.
+// concat, module semantics (scoped top level) are the author's choice.
 function writeModuleFixture() {
   writePackageJson(MODULE_ROOT, 'extjs-build-html-module-spec')
 
@@ -87,7 +87,7 @@ function writeModuleFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — HTML module scripts',
+        name: 'Build Spec, HTML module scripts',
         version: '1.0.0',
         action: {default_popup: 'popup.html'}
       },
@@ -131,7 +131,7 @@ function writeInlineConsumerFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — classic script + inline consumer',
+        name: 'Build Spec, classic script + inline consumer',
         version: '1.0.0',
         action: {default_popup: 'popup.html'}
       },
@@ -216,7 +216,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
     const bundlePath = path.join(distDir, 'action', 'index.js')
     expect(fs.existsSync(bundlePath), `missing ${bundlePath}`).toBe(true)
 
-    // The page HTML must reference the bundle as a classic script — a
+    // The page HTML must reference the bundle as a classic script, a
     // type="module" tag would give the concat bundle module semantics.
     const html = fs.readFileSync(
       path.join(distDir, 'action', 'index.html'),
@@ -254,7 +254,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
     )
 
     // The bundle tag must replace the library tag IN PLACE (head), not be
-    // appended at the end of body — the inline consumer runs at parse time.
+    // appended at the end of body, the inline consumer runs at parse time.
     const bundleTagIndex = html.indexOf('/action/index.js')
     const inlineIndex = html.indexOf('Handlebars.compile')
     expect(bundleTagIndex).toBeGreaterThan(-1)

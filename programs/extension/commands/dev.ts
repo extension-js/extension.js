@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 import {launchBrowser} from '../browsers'
@@ -320,10 +320,10 @@ export function registerDevCommand(program: Command) {
             logColor: devOptions.logColor !== false,
             logUrl: devOptions.logUrl,
             logTab: devOptions.logTab,
-            // Inject the browser launcher — develop's BrowsersPlugin calls it
+            // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
             launcher: noBrowser ? undefined : launchBrowser,
-            // Inject the Safari packager — SafariDevPlugin calls it on each
+            // Inject the Safari packager, SafariDevPlugin calls it on each
             // rebuild (full first, then incremental resync). Identity overrides
             // arrive from develop with CLI flags already winning over
             // extension.config.js `browser.safari`.

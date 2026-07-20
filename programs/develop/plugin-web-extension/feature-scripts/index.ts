@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -22,7 +22,7 @@ import {ValidateContentScriptSyntax} from './steps/validate-content-script-synta
  * - targeted reinjection stays browser-owned
  * - background/manifest changes stay on the full-reload path
  *
- * The dev-only reload/HMR strategy is NOT part of this feature — it lives
+ * The dev-only reload/HMR strategy is NOT part of this feature. It lives
  * in plugin-reload, which registers after this plugin and decorates the
  * entries AddScripts declares here.
  */
@@ -61,7 +61,7 @@ export class ScriptsPlugin {
     }).apply(compiler)
 
     // import(chrome.runtime.getURL(...)) resolves to an absolute
-    // chrome-extension:// URL at runtime — no module map can satisfy it, so
+    // chrome-extension:// URL at runtime, no module map can satisfy it, so
     // the call must stay a NATIVE import() in the emitted bundle (the trace
     // step above guarantees the target files ship).
     new KeepGetURLImportsNative({
@@ -75,7 +75,7 @@ export class ScriptsPlugin {
     // the entry chunk as a side-effect-free module that exports an unused
     // default, and tree-shakes the entire body out of the production bundle.
     // EXTENSION_NO_RELOAD opts out of the reload strategy below, not the
-    // wrapper itself — the mount call has to run in every build mode.
+    // wrapper itself, the mount call has to run in every build mode.
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
       browser: this.browser
@@ -87,7 +87,7 @@ export class ScriptsPlugin {
 
     // swc tolerates some early syntax errors (top-level redeclarations) and
     // emits them into the bundle; the browser then silently never injects the
-    // file. Fail loudly instead — in every mode.
+    // file. Fail loudly instead, in every mode.
     new ValidateContentScriptSyntax().apply(compiler)
   }
 }

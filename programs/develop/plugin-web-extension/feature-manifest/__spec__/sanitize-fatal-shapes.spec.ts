@@ -85,7 +85,7 @@ describe('sanitizeFatalManifestShapes', () => {
   it("leaves CSPs without script-src 'unsafe-inline' byte-identical", () => {
     for (const extension_pages of [
       "script-src 'self'; object-src 'self'",
-      // 'unsafe-inline' is legal in style-src — only script-src is refused
+      // 'unsafe-inline' is legal in style-src, only script-src is refused
       "script-src 'self'; style-src 'unsafe-inline'"
     ]) {
       const {manifest, fixes} = sanitizeFatalManifestShapes({

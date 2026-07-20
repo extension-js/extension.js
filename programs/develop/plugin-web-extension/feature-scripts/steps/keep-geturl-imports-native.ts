@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import * as path from 'path'
@@ -16,7 +16,7 @@ import type {PluginInterface} from '../../../types'
 /**
  * Registers the loader that keeps `import(chrome.runtime.getURL(...))`
  * native. The argument is an absolute chrome-extension:// URL at runtime, so
- * the bundler's module map can never satisfy it — lowered calls throw
+ * the bundler's module map can never satisfy it, lowered calls throw
  * `Cannot find module 'chrome-extension://<id>/...'` in real Chrome while
  * the source loads fine unpacked. TraceRuntimeLoadedFiles ships the target
  * files; this step keeps the call site resolvable by the browser.

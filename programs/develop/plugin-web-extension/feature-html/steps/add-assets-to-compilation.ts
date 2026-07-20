@@ -4,7 +4,7 @@
 // ██╔══██║   ██║   ██║╚██╔╝██║██║
 // ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
@@ -116,7 +116,7 @@ function warnMissingPublicRootResources(params: {
 
     // A ref that exists at the extension root is valid (Chrome resolves '/'
     // from there) and is copied into the output root by emitRootAbsoluteRefs.
-    // Resolve against the manifest dir like emitRootAbsoluteRefs does — the
+    // Resolve against the manifest dir like emitRootAbsoluteRefs does, the
     // compiler context can sit above the extension root (monorepo layouts),
     // and checking there misses the file and warns about a ref that ships.
     if (
@@ -163,7 +163,7 @@ function checkMissingLocalEntries(params: {
     params
 
   // Chrome silently 404s a missing local ref and runs the page anyway, so a
-  // dead reference is a warning by default — likely dead code, not a broken
+  // dead reference is a warning by default, likely dead code, not a broken
   // build. EXTENSION_STRICT_REFS=true restores the failure for CI.
   const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
 
@@ -172,7 +172,7 @@ function checkMissingLocalEntries(params: {
 
     // Treat root URLs as public-root references (handled elsewhere).
     // NOTE: this used to read `!path.isAbsolute(url)`, which is never true on
-    // POSIX — every '/'-prefixed string is absolute there — so root refs fell
+    // POSIX (every '/'-prefixed string is absolute there) so root refs fell
     // through to the existsSync() below and were reported as missing files.
     // A root ref is a '/'-path that does NOT live inside the project.
     if (url.startsWith('/') && !url.startsWith(projectRoot)) return

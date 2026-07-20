@@ -1,5 +1,5 @@
-import path from 'node:path'
 import fs from 'node:fs'
+import path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   getDevServerHmrImports,
@@ -27,7 +27,7 @@ describe('dev-server-client-import', () => {
     const [clientEntry, hotEntry] = imports
     const clientPath = clientEntry.split('?')[0]
 
-    // Both paths must be absolute — a bare specifier like
+    // Both paths must be absolute, a bare specifier like
     // '@rspack/dev-server/client/index.js' would cause
     // "Module not found" errors in user monorepos.
     expect(
@@ -135,7 +135,7 @@ describe('dev-server-client-import', () => {
         options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
       }
       const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
-      // The browser cannot dial 0.0.0.0 — it must be rewritten to loopback.
+      // The browser cannot dial 0.0.0.0. It must be rewritten to loopback.
       expect(clientEntry).toContain('hostname=127.0.0.1')
       expect(clientEntry).not.toContain('hostname=0.0.0.0')
     } finally {

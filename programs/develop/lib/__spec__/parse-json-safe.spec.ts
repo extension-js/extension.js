@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {parseJsonSafe, stripBom} from '../parse-json-safe'
 
 describe('stripBom', () => {
@@ -21,7 +21,7 @@ describe('stripBom', () => {
 })
 
 describe('parseJsonSafe', () => {
-  it('parses BOM-prefixed JSON (Chrome tolerates the BOM — G22)', () => {
+  it('parses BOM-prefixed JSON (Chrome tolerates the BOM, G22)', () => {
     expect(parseJsonSafe('\uFEFF{"manifest_version":3}')).toEqual({
       manifest_version: 3
     })

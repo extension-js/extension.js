@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -92,7 +92,7 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
 
   try {
     // Merged across package.json dependency fields and deno.json(c) `npm:`
-    // imports — either manifest can declare the packages the bundler needs.
+    // imports, either manifest can declare the packages the bundler needs.
     const deps = Object.keys(readProjectDependencies(packageJsonDir))
     if (deps.length === 0) {
       return false

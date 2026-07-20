@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
 // ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {buildBridgeProducerSource} from '../../dev-server/control-bridge/producer-runtime'
@@ -43,7 +43,7 @@ export class InjectBridgeProducer {
       host
     })
 
-    if (!source) return // bridge unavailable — nothing to inject
+    if (!source) return // bridge unavailable, nothing to inject
 
     compiler.hooks.thisCompilation.tap(
       InjectBridgeProducer.name,

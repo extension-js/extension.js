@@ -264,7 +264,7 @@ describe('optional-deps-resolver', () => {
     // Repro: pnpm strict layouts hide preact behind .pnpm symlinks that
     // Node's resolver can't traverse from extension-develop's package
     // context. As long as the user's package.json declares the dep, trust
-    // their package manager — the bundler will surface a real error later
+    // their package manager. The bundler will surface a real error later
     // if the install was a lie.
     const dependencyId = '@extjs-test/preact-like'
     writeJson(path.join(projectPath, 'package.json'), {
@@ -272,7 +272,7 @@ describe('optional-deps-resolver', () => {
       dependencies: {[dependencyId]: '^10.0.0'}
     })
     // Intentionally do NOT createPackage(...) for `dependencyId` so the
-    // Node resolver fails — we want to confirm the package.json fallback.
+    // Node resolver fails. We want to confirm the package.json fallback.
 
     const {getContractVerificationFailuresFromKnownLocations} = await import(
       '../optional-deps-resolver'
@@ -293,11 +293,11 @@ describe('optional-deps-resolver', () => {
 
   it('treats module-context-resolve failures as resolved when the project declares the missing peer', async () => {
     // Repro: @rspack/plugin-preact-refresh's peerDependencies are only
-    // @prefresh/* — preact isn't a peer there, so pnpm strict doesn't
+    // @prefresh/*, preact isn't a peer there, so pnpm strict doesn't
     // sibling-link it next to the plugin. Node's req.resolve('preact')
     // from the plugin's package context fails. The bundler routes preact
     // via resolve.alias at compile time, so the cross-package check is
-    // only useful for genuine missing peers — not user-declared deps.
+    // only useful for genuine missing peers, not user-declared deps.
     const pluginId = '@extjs-test/plugin-framework-refresh'
     const peerId = '@extjs-test/framework'
     createPackage(
@@ -305,7 +305,7 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = class FrameworkRefreshPlugin {}'
     )
-    // Plugin can NOT resolve the peer — peer isn't sibling-linked next to it.
+    // Plugin can NOT resolve the peer, peer isn't sibling-linked next to it.
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-with-framework',
       dependencies: {[peerId]: '^1.0.0'}

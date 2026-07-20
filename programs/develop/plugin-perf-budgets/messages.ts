@@ -4,7 +4,7 @@
 // ██╔═══╝ ██╔══╝  ██╔══██╗██╔══╝  ╚════╝██╔══██╗██║   ██║██║  ██║██║   ██║██╔══╝     ██║   ╚════██║
 // ██║     ███████╗██║  ██║██║          ██████╔╝╚██████╔╝██████╔╝╚██████╔╝███████╗   ██║   ███████║
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {AssetCategory} from './categorize'
 
@@ -49,11 +49,11 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
 function categoryRole(c: AssetCategory): string {
   switch (c) {
     case 'content-script':
-      return 'content script — injected on every page navigation'
+      return 'content script, injected on every page navigation'
     case 'service-worker':
-      return 'service worker / background — wakes from cold each session'
+      return 'service worker / background, wakes from cold each session'
     case 'page':
-      return 'UI page — opened on demand'
+      return 'UI page, opened on demand'
     default:
       return 'asset'
   }

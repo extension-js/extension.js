@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -179,7 +179,7 @@ export async function deriveExtensionIdFromTargetsHelper(
       const profileCandidateId = deriveFromProfile()
 
       // 1) Try to derive from extension background/service worker contexts.
-      //    Walk every candidate target before deciding — version-only matches
+      //    Walk every candidate target before deciding, version-only matches
       //    are kept in a separate bucket and only applied at the END of the
       //    pass, so a target that matches by NAME later in the iteration
       //    always wins over an earlier target that matches by version alone.
@@ -268,7 +268,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         }
       }
 
-      // No name match found this pass — accept a version-only match only when
+      // No name match found this pass, accept a version-only match only when
       // it is unique. Multiple version-only candidates means we cannot
       // distinguish the user extension from a sibling (for example, companion),
       // so fall through to the next retry / profile-derived fallback

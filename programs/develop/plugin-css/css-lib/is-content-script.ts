@@ -4,7 +4,7 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -33,7 +33,7 @@ function getContentScriptIndex(
   try {
     mtimeMs = fs.statSync(manifestPath).mtimeMs
   } catch {
-    // stat unavailable (e.g. mocked fs in tests) — fall back to building once.
+    // stat unavailable (e.g. mocked fs in tests), fall back to building once.
   }
 
   const cached = indexCache.get(cacheKey)

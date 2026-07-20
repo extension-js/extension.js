@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import parse from 'content-security-policy-parser'
 import type {Manifest} from '../../../../types'
@@ -32,7 +32,7 @@ function buildCSP(cspObject: Record<string, string[]>) {
 
 // The dev reload producer (service worker) and HMR client dial the local dev
 // server over ws/http. A user CSP that restricts `connect-src` (or implies the
-// restriction via `default-src`) silently blocks that socket — the producer
+// restriction via `default-src`) silently blocks that socket, the producer
 // never connects and reload delivery is dead for the whole session. Dev-only:
 // this file feeds apply-dev-defaults, never production builds.
 const DEV_CONNECT_SOURCES = [
@@ -74,7 +74,7 @@ function loosenConnectSrcForDev(csp: Map<string, string[]>) {
     }
     csp.set('connect-src', connectSrc)
   } else if (defaultSrc) {
-    // No connect-src: connections fall back to default-src — extend a copy
+    // No connect-src: connections fall back to default-src, extend a copy
     // as an explicit connect-src instead of loosening default-src itself.
     csp.set('connect-src', [...defaultSrc, ...devSources])
   }

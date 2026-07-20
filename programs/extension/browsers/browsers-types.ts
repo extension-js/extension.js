@@ -4,9 +4,9 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Browser type union — mirrors the develop package's DevOptions['browser']
+// Browser type union, mirrors the develop package's DevOptions['browser']
 // but defined locally so this package has zero bundler dependencies.
 export type BrowserType =
   | 'chrome'
@@ -51,7 +51,7 @@ export interface BrowserLogger {
 }
 
 /**
- * Stand-in for rspack's BrowserConfig — the subset used by browser-config helpers.
+ * Stand-in for rspack's BrowserConfig, the subset used by browser-config helpers.
  */
 export interface BrowserConfig {
   extensionPath: string

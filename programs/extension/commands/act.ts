@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 import fs from 'fs'
@@ -338,7 +338,7 @@ export function registerActCommands(program: Command): void {
     })
   })
 
-  // extension inspect [project-path] — sidecar/control-channel DOM snapshot
+  // extension inspect [project-path], sidecar/control-channel DOM snapshot
   commonOptions(
     program
       .command('inspect')
@@ -432,7 +432,7 @@ export function registerActCommands(program: Command): void {
       .command('open')
       .arguments('<surface> [project-path]')
       .description(
-        'Open an extension surface — popup, options, sidebar, action, or command (requires --allow-control)'
+        'Open an extension surface: popup, options, sidebar, action, or command (requires --allow-control)'
       )
       .option(
         '--name <command>',

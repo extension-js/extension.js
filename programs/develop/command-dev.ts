@@ -4,31 +4,31 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as messages from './lib/messages'
-import {generateExtensionTypes} from './lib/generate-extension-types'
-import {getProjectStructure} from './lib/project'
-import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
-import {getDirs, normalizeBrowser} from './lib/paths'
 import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
-import {sanitize} from './lib/sanitize'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
+import {generateExtensionTypes} from './lib/generate-extension-types'
+import * as messages from './lib/messages'
+import {getDirs, normalizeBrowser} from './lib/paths'
+import {getProjectStructure} from './lib/project'
+import {sanitize} from './lib/sanitize'
+import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
+  type BrowserLauncherFn,
   BrowsersPlugin,
   BuildEmitter,
-  type BrowserLauncherFn,
   type RunnerPlugin
 } from './plugin-browsers'
 import {SafariDevPlugin} from './plugin-browsers/safari-dev-plugin'
-import type {BrowserConfig, DevOptions} from './types'
 import {
-  isUsingTypeScript,
-  ensureTypeScriptConfig
+  ensureTypeScriptConfig,
+  isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import type {BrowserConfig, DevOptions} from './types'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
@@ -78,7 +78,7 @@ export async function extensionDev(
 
     // Merge per-browser + per-command defaults from extension.config.js so user
     // values (profile, startingUrl, browserFlags, preferences, etc.) reach the
-    // launcher. CLI devOptions take precedence — sanitize strips `undefined`
+    // launcher. CLI devOptions take precedence, sanitize strips `undefined`
     // so unset CLI fields fall through to extension.config.js
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
@@ -157,7 +157,7 @@ export async function extensionDev(
   } catch (error) {
     // Always surface a minimal error so users aren't left with a silent exit.
     // Contract errors (missing tsconfig, bad manifest, …) print once, clean,
-    // no stack — author mode keeps the full trace.
+    // no stack, author mode keeps the full trace.
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(error)
     } else {

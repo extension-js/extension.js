@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 /**
  * `minimum-script-file.ts` is bundled into every dev-mode HTML entry and
@@ -6,7 +6,7 @@ import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
  * `rspack-dev-server-hot=false` (and the legacy
  * `webpack-dev-server-hot=false`) to `location.search`, which makes the
  * rspack-dev-server bundled client take the liveReload branch on rebuild
- * instead of the silent HMR-only branch — the bug that previously broke
+ * instead of the silent HMR-only branch, the bug that previously broke
  * HTML live reload for action/sidebar/new-tab pages on rspack 2.x.
  *
  * Locking in BOTH names: rspack-dev-server v1.x reads

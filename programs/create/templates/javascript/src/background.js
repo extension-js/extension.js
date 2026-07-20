@@ -19,7 +19,7 @@ if (isFirefoxLike) {
 }
 
 if (!isFirefoxLike) {
-  // setPanelBehavior only affects FUTURE action clicks — registering it
+  // setPanelBehavior only affects FUTURE action clicks, registering it
   // inside onClicked would swallow the first toolbar click.
   chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
 }

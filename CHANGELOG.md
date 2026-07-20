@@ -41,9 +41,9 @@
 
 ## 4.0.12 (July 17, 2026)
 
-- **`extension doctor`** — one command that walks a dev session's control-channel legs (ready contract, server process, ports, token, executor, browser) and names the first failing one with a fix. Agents get `--output json`.
-- **Fork-browser fixes** — waterfox/librewolf now get Firefox-shaped `web_accessible_resources`, and brave/opera/vivaldi/yandex now get the MV2-deprecation warning Chromium targets already had.
-- **Clearer control-channel errors** — "no executor connected" and eval "Forbidden" now say *why* (stale service worker mid-resync, browser still launching, missing/mismatched eval token) instead of a catch-all.
+- **`extension doctor`**, one command that walks a dev session's control-channel legs (ready contract, server process, ports, token, executor, browser) and names the first failing one with a fix. Agents get `--output json`.
+- **Fork-browser fixes**, waterfox/librewolf now get Firefox-shaped `web_accessible_resources`, and brave/opera/vivaldi/yandex now get the MV2-deprecation warning Chromium targets already had.
+- **Clearer control-channel errors**, "no executor connected" and eval "Forbidden" now say *why* (stale service worker mid-resync, browser still launching, missing/mismatched eval token) instead of a catch-all.
 
 ### Fixes
 
@@ -304,10 +304,10 @@
 
 ## 4.0.1 (June 30, 2026)
 
-- **Extension.js v4 — now on Node.js 22+.** Node 20 is no longer supported. There are no API changes: upgrade Node and your project keeps working.
-- **Multi-file content scripts just work in dev.** Split a content script across plain files (a base class in one, the rest in another) — saves now hot-reload without a restart, and a thrown error traces back to your real file and line instead of an inlined blob.
+- **Extension.js v4, now on Node.js 22+.** Node 20 is no longer supported. There are no API changes: upgrade Node and your project keeps working.
+- **Multi-file content scripts just work in dev.** Split a content script across plain files (a base class in one, the rest in another), saves now hot-reload without a restart, and a thrown error traces back to your real file and line instead of an inlined blob.
 - **Snappier Safari dev.** `extension dev --browser=safari` resyncs in the background instead of blocking on a full Xcode build every save, and a burst of saves collapses into a single rebuild.
-- **No leaked browsers.** A dev session that exits on its own now reliably shuts the browser down — no more Chrome or Firefox processes lingering after you're finished.
+- **No leaked browsers.** A dev session that exits on its own now reliably shuts the browser down, no more Chrome or Firefox processes lingering after you're finished.
 
 ### 🚀 Features
 
@@ -653,7 +653,7 @@
 <details>
 <summary>🧹 Other changes (3)</summary>
 
-- Remove extensionStart from develop — CLI now orchestrates build + preview ([cc329680](https://github.com/extension-js/extension.js/commit/cc3296808408cc34da8156edad3b3c5934a62e7c))
+- Remove extensionStart from develop. CLI now orchestrates build + preview ([cc329680](https://github.com/extension-js/extension.js/commit/cc3296808408cc34da8156edad3b3c5934a62e7c))
 - Orchestrate start command with separate build + preview calls ([b9ad1987](https://github.com/extension-js/extension.js/commit/b9ad198795d2e3ff26211172c97e1a6598fd62b4))
 - Optimize GitHub Actions workflows for faster CI ([a6c08068](https://github.com/extension-js/extension.js/commit/a6c080682cf3cb9ae25c8038c965a2a15badb22d))
 </details>

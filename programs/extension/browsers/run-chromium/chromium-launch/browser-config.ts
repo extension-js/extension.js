@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -87,7 +87,7 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
   // Chromium 152+ disables unpacked "developer" extensions (command-line
   // loaded included) with DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the
-  // first runtime.reload() — which permanently kills the extension mid dev
+  // first runtime.reload(), which permanently kills the extension mid dev
   // session (SW/manifest edits trigger exactly that reload). Older versions
   // ignore unknown feature names, so this is safe across the family.
   // @ts-expect-error - this is a valid flag

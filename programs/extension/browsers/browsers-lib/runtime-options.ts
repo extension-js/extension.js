@@ -4,10 +4,13 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {BrowserType, BrowserConfig} from '../browsers-types'
-import type {PluginInterface} from '../browsers-types'
+import type {
+  BrowserConfig,
+  BrowserType,
+  PluginInterface
+} from '../browsers-types'
 
 export const sharedBrowserRuntimeOptionKeys = [
   'extension',

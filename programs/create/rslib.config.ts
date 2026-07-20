@@ -4,11 +4,11 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import {createRequire} from 'module'
 import {defineConfig} from '@rslib/core'
+import {createRequire} from 'module'
+import * as path from 'path'
 
 const require = createRequire(import.meta.url)
 const shouldGenerateDts = (() => {

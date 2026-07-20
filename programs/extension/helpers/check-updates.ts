@@ -4,12 +4,12 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import checkForUpdate from 'update-check'
-import * as messages from './messages'
 import * as semver from 'semver'
+import checkForUpdate from 'update-check'
 import {getCliPackageJson} from './cli-package-json'
+import * as messages from './messages'
 
 function isStableVersion(version: string) {
   const v = semver.parse(version)

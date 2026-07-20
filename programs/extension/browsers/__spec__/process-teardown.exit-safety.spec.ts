@@ -1,9 +1,9 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Proves the exit-path safety net that both launchers now share: on a plain
 // `process.exit` a child that ignored SIGTERM still gets a synchronous SIGKILL,
 // with no reliance on the unref'd grace timer that never fires once the loop
-// drains. Fake children only — no real browser is launched.
+// drains. Fake children only, no real browser is launched.
 
 describe('process-teardown shared module', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -106,7 +106,11 @@ describe('firefox exit handler force-kills a stubborn child', () => {
       '../run-firefox/firefox-launch/process-handlers'
     )
     const child: any = {killed: false, kill: vi.fn(), pid: 99}
-    setupFirefoxProcessHandlers('firefox', () => child, vi.fn(async () => {}))
+    setupFirefoxProcessHandlers(
+      'firefox',
+      () => child,
+      vi.fn(async () => {})
+    )
 
     cap.registered.get('SIGINT')?.forEach((h) => h())
     await new Promise((r) => setTimeout(r, 20))

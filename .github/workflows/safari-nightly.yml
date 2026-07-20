@@ -4,7 +4,7 @@ name: CI – Safari Nightly
 # safari-web-extension-converter and the generated project shape with every
 # Xcode release, and unit tests never shell out to xcrun/xcodebuild. This runs
 # the full bundle → convert → xcodebuild pipeline on a macOS runner nightly.
-# macOS minutes are expensive — keep this off the per-push path.
+# macOS minutes are expensive, keep this off the per-push path.
 
 on:
   schedule:
@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: '22'
       - name: Log Xcode toolchain
-        # The runner's Xcode version IS the variable under test — record it.
+        # The runner's Xcode version IS the variable under test, record it.
         run: |
           xcode-select -p
           xcodebuild -version

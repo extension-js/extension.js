@@ -4,24 +4,24 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+// The pure-JS build parses synchronously with no wasm init step
+import {parse as parseModuleSyntax} from 'es-module-lexer/js'
 import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
-// The pure-JS build parses synchronously with no wasm init step
-import {parse as parseModuleSyntax} from 'es-module-lexer/js'
-import {
-  CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
-  getCanonicalContentScriptEntryName
-} from '../../contracts'
-import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
-import * as messages from '../../messages'
 import {stripBom} from '../../../../lib/parse-json-safe'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
+import {
+  CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
+  getCanonicalContentScriptEntryName
+} from '../../contracts'
+import * as messages from '../../messages'
 
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
@@ -98,7 +98,7 @@ function collectStyleAssetSpecifiers(source: string): string[] {
         specifier &&
         SAFE_SPECIFIER.test(specifier) &&
         // CSS-module imports compile to a class-name exports OBJECT, not an
-        // emitted asset — `new URL(exportsObject, base)` yields a garbage
+        // emitted asset, `new URL(exportsObject, base)` yields a garbage
         // ".../[object Object]" candidate. The getURL(<bundle>.css) fallback
         // covers modules css, so skip them here.
         !/\.module\.(?:css|scss|sass|less|styl)(?:\?|$)/.test(specifier) &&
@@ -163,7 +163,9 @@ function readManifestCached(manifestPath: string): any {
 
     if (cached && cached.key === key) return cached.manifest
 
-    const manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+    const manifest = JSON.parse(
+      stripBom(fs.readFileSync(manifestPath, 'utf-8'))
+    )
     __EXTENSIONJS_manifestParseCache.set(manifestPath, {key, manifest})
 
     return manifest
@@ -258,7 +260,7 @@ export default function contentScriptWrapper(
 
   // Canonicalize the resource path into the SAME form as the
   // manifestDir/packageJsonDir above. See lib/resource-path for why both sides
-  // must be canonicalized identically — otherwise the declared-entry match
+  // must be canonicalized identically, otherwise the declared-entry match
   // silently fails on Windows and every content script falls through unwrapped.
   const resourceAbsPath = canonicalizeResourcePath(this.resourcePath)
   const declaredEntry = declaredContentJsAbsEntries.find(
@@ -273,7 +275,7 @@ export default function contentScriptWrapper(
     !path.isAbsolute(relToScripts)
 
   // The scripts/ folder at the project root is reserved for browser-side
-  // content-script-like files — Extension.js prepends a mount/reload runtime to
+  // content-script-like files, Extension.js prepends a mount/reload runtime to
   // every file inside it. A Node.js CLI or launcher dropped into scripts/ would
   // get the runtime prepended too, pushing the shebang past line 1 and yielding
   // a cryptic swc "Expected ident" syntax error. Detect obvious Node.js shapes
@@ -298,7 +300,7 @@ export default function contentScriptWrapper(
   // would prepend the mount/reload runtime and append the
   // __EXTENSIONJS_REINJECT_GENERATION epilogue to a third-party file, shifting
   // its line numbers and corrupting any parse diagnostics. Only skip files
-  // caught by the scripts/ heuristic — an explicitly declared content_scripts
+  // caught by the scripts/ heuristic, an explicitly declared content_scripts
   // entry stays wrapped even if it happens to be named *.min.js.
   const isVendoredMinifiedScript = /\.min\.[cm]?js$/i.test(resourceAbsPath)
   if (isVendoredMinifiedScript && !declaredEntry) {
@@ -538,7 +540,7 @@ export default function contentScriptWrapper(
     '        if (!host || typeof host.setAttribute !== "function") continue;\n' +
     '        var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
     '        if (hostOwner && hostOwner !== __extjsToken) continue;\n' +
-    // Companion extensions (devtools/theme) never adopt anonymous roots — an
+    // Companion extensions (devtools/theme) never adopt anonymous roots, an
     // unowned root in the shared DOM belongs to the USER extension mid-mount.
     '        if (!hostOwner && __EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
     // Adopt only roots OUR mount created: anything unowned that predates the
@@ -659,8 +661,8 @@ export default function contentScriptWrapper(
     '      // build (e.g. the old isolated world after `chrome.runtime.reload`)\n' +
     '      // carry stale tokens and should be cleared so we never end up with two\n' +
     '      // hosts owned by the same key.\n' +
-    '      // EXCEPT when this bundle starts in a FRESH world (no registry entry —\n' +
-    '      // the old isolated world was destroyed by `chrome.runtime.reload`):\n' +
+    '      // EXCEPT when this bundle starts in a FRESH world (no registry entry,\n' +
+    '      // because the old isolated world was destroyed by `chrome.runtime.reload`):\n' +
     '      // a same-build root then predates this execution and is a stale zombie\n' +
     '      // (its scripts died with the world). Unedited sibling scripts in a\n' +
     '      // multi-script entry keep their build token across recompiles, so the\n' +
@@ -690,7 +692,7 @@ export default function contentScriptWrapper(
     '    // could tag it (typically: the previous isolated world was destroyed\n' +
     '    // by a `chrome.runtime.reload` mid-mount, or its `whenReady`-deferred\n' +
     '    // `apply` never fired). We have not created our own root yet, so any\n' +
-    '    // untagged host we touch here is by definition not from THIS run — but\n' +
+    '    // untagged host we touch here is by definition not from THIS run, but\n' +
     '    // it may belong to a DIFFERENT extension mid-mount in the same DOM.\n' +
     '    // Companion extensions never sweep, and everyone else sweeps only when\n' +
     '    // a reinject marker proves a prior generation of THIS script ran here.\n' +
@@ -808,7 +810,7 @@ export default function contentScriptWrapper(
     'var __EXTENSIONJS_REINJECT_GENERATION=__EXTENSIONJS_readReinjectGeneration(__EXTENSIONJS_previousEntry);\n' +
     '// Sweep untagged orphans (prior-session roots that died before tagging)\n' +
     '// before any further cleanup runs. Safe here because our mount has not\n' +
-    '// produced any roots yet — any untagged host is by definition not ours.\n' +
+    '// produced any roots yet, any untagged host is by definition not ours.\n' +
     'try { __EXTENSIONJS_cleanupOrphanRoots(); } catch (error) {}\n' +
     'try {\n' +
     '  var __EXTENSIONJS_previousCleanup=typeof __EXTENSIONJS_previousEntry === "function" ? __EXTENSIONJS_previousEntry : (__EXTENSIONJS_previousEntry && typeof __EXTENSIONJS_previousEntry.cleanup === "function" ? __EXTENSIONJS_previousEntry.cleanup : null);\n' +

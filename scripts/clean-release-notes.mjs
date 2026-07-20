@@ -5,7 +5,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 /**
  * Retroactively clean GitHub release bodies by removing release-machinery commit
@@ -17,7 +17,7 @@
  */
 
 import {execSync} from 'child_process'
-import {writeFileSync, unlinkSync} from 'fs'
+import {unlinkSync, writeFileSync} from 'fs'
 import {tmpdir} from 'os'
 import {join} from 'path'
 

@@ -4,7 +4,7 @@
 // ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔══██╗██╔══╝  ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  ╚════██║
 // ╚███╔███╔╝███████╗██████╔╝      ██║  ██║███████╗███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗███████║
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import * as crypto from 'crypto'
@@ -138,7 +138,7 @@ function isValidChromeMatchPattern(pattern: string): boolean {
   if (!pattern.endsWith('/*')) return false
 
   // Chrome loads WAR match patterns that carry a port, including the port
-  // wildcard (`*://localhost:*/*` — verified against live Chrome). `:*` is
+  // wildcard (`*://localhost:*/*`, verified against live Chrome). `:*` is
   // not URL-parseable, so normalize it to a concrete port before parsing.
   const parseable = pattern
     .replace(/^\*:\/\//, 'https://')
@@ -373,7 +373,7 @@ export function resolveUserDeclaredWAR(
       return
     }
 
-    // A directory entry (e.g. `icons/`) — emit its files and declare a glob so
+    // A directory entry (e.g. `icons/`), emit its files and declare a glob so
     // Chrome serves them all, instead of reading the directory as a file (EISDIR).
     if (fs.statSync(abs).isDirectory()) {
       emitDirectoryAsAssets(compilation, abs, manifestDir)
@@ -383,8 +383,8 @@ export function resolveUserDeclaredWAR(
     }
 
     // Emit the file AT ITS MANIFEST-RELATIVE PATH and declare that same path.
-    // WAR resources are addressed at runtime by literal path —
-    // chrome.runtime.getURL('adapters/chrome/content_module.js') — so the old
+    // WAR resources are addressed at runtime by literal path,
+    // chrome.runtime.getURL('adapters/chrome/content_module.js'), so the old
     // assets/<basename> flattening both broke those lookups (the declared
     // name no longer matched the requested path) and silently aliased
     // same-named files from different directories (ui/stats.js vs
@@ -405,7 +405,7 @@ export function resolveUserDeclaredWAR(
     }
 
     // Outside the manifest root there is no extension-relative path the file
-    // could be served at — keep the legacy assets/ emit for that edge.
+    // could be served at, keep the legacy assets/ emit for that edge.
     const emitted = emitFileAsAsset(compilation, abs)
     pushResource(matches, emitted, extra)
   }

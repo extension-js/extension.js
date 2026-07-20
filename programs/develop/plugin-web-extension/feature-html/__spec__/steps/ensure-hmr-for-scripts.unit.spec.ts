@@ -1,9 +1,9 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import {afterEach, describe, it, expect} from 'vitest'
-import ensureHMRForScripts from '../../steps/ensure-hmr-for-scripts'
+import {afterEach, describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../../plugin-web-extension/feature-scripts/contracts'
+import ensureHMRForScripts from '../../steps/ensure-hmr-for-scripts'
 
 function makeLoaderCtx(options: any) {
   return {
@@ -44,8 +44,8 @@ describe('ensureHMRForScripts loader', () => {
   })
 
   it('injects the CJS module.hot guard into script-parsed (javascript/dynamic) modules', () => {
-    // A classic page script — e.g. any .js in a `"type": "commonjs"` package,
-    // which is what the classic-concat pipeline feeds through this loader —
+    // A classic page script, e.g. any .js in a `"type": "commonjs"` package,
+    // which is what the classic-concat pipeline feeds through this loader,
     // is parsed in script mode, where `import.meta` is a SyntaxError that
     // fails the whole dev build (xposter, BUGS_TO_FIX #10).
     const src = 'var I18N = {};'
@@ -100,7 +100,7 @@ describe('ensureHMRForScripts loader', () => {
     // `import.meta` into a script flips it to a strict ES-module parse. On a
     // multi-MB one-line data script full of legacy octal escapes (\\1) that
     // produced one strict-mode error PER ESCAPE, each rendering the whole
-    // line as a snippet — gigabytes of rspack diagnostics from one file
+    // line as a snippet, gigabytes of rspack diagnostics from one file
     // (Rapid-Journal-Quality-Check, 2026-07-11 machine OOM).
     for (const src of [
       'console.log("x")',

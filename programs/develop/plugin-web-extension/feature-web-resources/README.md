@@ -17,7 +17,7 @@ Emits and registers assets imported by `content_scripts` so pages can access the
 | ------------------------------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | content script imports of images/fonts/etc.      | `assets/*`              | Imported static assets are emitted under `assets/` and added to the relevant `web_accessible_resources` group. |
 | content script CSS (if emitted as separate file) | `content_scripts/*.css` | Some setups inject CSS instead of emitting a file; injected CSS will not appear in `web_accessible_resources`. |
-| JavaScript and source maps                       | —                       | `.js` and `.map` are intentionally excluded from `web_accessible_resources`.                                   |
+| JavaScript and source maps                       | n/a                     | `.js` and `.map` are intentionally excluded from `web_accessible_resources`.                                   |
 
 ## Supported manifest fields
 

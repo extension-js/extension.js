@@ -4,7 +4,7 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Package-manager detection is provided by the standalone `prefers-yarn`
 // package (extracted from this logic). Re-exported here under the names the
@@ -29,7 +29,7 @@ export function isDenoRuntime(): boolean {
 }
 
 // The package managers a scaffold can be created with. `deno` is not one of
-// `prefers-yarn`'s names (it only knows the npm-family) — we detect it via the
+// `prefers-yarn`'s names (it only knows the npm-family), we detect it via the
 // runtime and fold it in here so callers have a single closed set to switch on.
 export type ScaffoldPackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun' | 'deno'
 
@@ -43,8 +43,8 @@ export type ScaffoldPackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun' | 'deno'
 //      (`npm_config_user_agent` / `npm_execpath`) via `prefers-yarn`, defaulting
 //      to `npm`.
 //
-// This matches the convention used by `create-*` scaffolders: install with — and
-// print next steps for — the package manager the user actually ran `extension
+// This matches the convention used by `create-*` scaffolders: install with, and
+// print next steps for, the package manager the user actually ran `extension
 // create` through, rather than one sniffed from an ambient workspace. (Preferring
 // a surrounding workspace's pm is a deliberate non-goal here: a scaffold is a new
 // project, and its own lockfile should come from the tool the user invoked.)

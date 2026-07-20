@@ -4,7 +4,7 @@
 // ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║
 // ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ██║███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
   Compilation,
@@ -141,7 +141,7 @@ export class EnvPlugin {
 
     // Collect .env files based on browser (family-wide, see
     // getEnvFileCandidates) and mode. Note: `.env.example` is intentionally
-    // NOT included — it holds placeholder/documentation values and must not
+    // NOT included, it holds placeholder/documentation values and must not
     // be treated as a real value source for the build
     const envFiles = getEnvFileCandidates(this.browser, mode)
 
@@ -151,7 +151,7 @@ export class EnvPlugin {
       console.log(messages.envSelectedFile(envPath))
     }
 
-    // The project ships .env files, but none match this browser/mode — the
+    // The project ships .env files, but none match this browser/mode, the
     // author clearly intended env injection, and every EXTENSION_PUBLIC_*
     // read will silently be undefined. Surface that as a build warning.
     if (!envPath && projectPath) {
@@ -167,7 +167,7 @@ export class EnvPlugin {
           )
           .sort()
       } catch {
-        // unreadable project dir — nothing to warn about
+        // unreadable project dir, nothing to warn about
       }
 
       if (unmatchedEnvFiles.length > 0) {
@@ -269,7 +269,7 @@ export class EnvPlugin {
     filteredEnvVars['import.meta.env'] = JSON.stringify(importMetaEnvObject)
 
     // Neutralize the Node-only `import.meta` accessors (G12). Vendored ESM
-    // (`.mjs`) runtimes — ONNX runtime, kokoro/piper TTS — reference
+    // (`.mjs`) runtimes (ONNX runtime, kokoro/piper TTS) reference
     // `import.meta.dirname`/`import.meta.filename` in dead Node-only branches
     // (e.g. `typeof __dirname < 'u' ? __dirname : import.meta.dirname`).
     // Extension.js emits classic (non-module) chunks, and rspack leaves these

@@ -4,13 +4,13 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 // Default ports
 export const DEFAULT_DEBUG_PORT = 9222
 export const PORT_OFFSET = 100
 
-// Timeout helpers — each can be overridden via env var for CI or slow machines.
+// Timeout helpers, each can be overridden via env var for CI or slow machines.
 function envMs(envKey: string, fallback: number): number {
   const raw = process.env[envKey]
   if (!raw) return fallback

@@ -4,12 +4,12 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import {describe, it, expect, beforeAll} from 'vitest'
+import * as path from 'path'
+import {beforeAll, describe, expect, it} from 'vitest'
 
 // Resolve extensionCreate from local dist (standalone) or monorepo fallback
 let extensionCreate: (
@@ -61,6 +61,7 @@ try {
   ALL_TEMPLATES = [{name: 'javascript'}]
   DEFAULT_TEMPLATE = {name: 'javascript'}
 }
+
 import {execFile} from 'child_process'
 import {promisify} from 'util'
 

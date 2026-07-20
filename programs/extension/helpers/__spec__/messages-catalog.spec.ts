@@ -1,9 +1,9 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 
 // Catalog snapshot for every `messages.ts` user-facing string catalog under
 // programs/extension (the top-level `helpers/` catalog and the
-// `browsers/browsers-lib/` catalog). Pins the EXPORT SURFACE — message names
-// and their arity/kind — so an unintended addition, removal, rename, or
+// `browsers/browsers-lib/` catalog). Pins the EXPORT SURFACE, message names
+// and their arity/kind, so an unintended addition, removal, rename, or
 // signature change of any user-facing message fails loudly in review. It does
 // not render the strings (that needs per-message args + would couple the
 // snapshot to ANSI/env), keeping it deterministic. Discovery is glob-based.

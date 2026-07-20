@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Configuration} from '@rspack/core'
 import * as fs from 'fs'
@@ -41,7 +41,7 @@ export async function extensionBuild(
   // exitOnError is a CLI affordance: the CLI wrapper passes true so a failed
   // build ends its own process after the clean error line. As a library
   // import (`extensionBuild` from extension-develop), a failed build must be
-  // a rejected promise — the old `?? true` default process.exit(1)'d inside
+  // a rejected promise, the old `?? true` default process.exit(1)'d inside
   // embedding hosts (@extension.dev/mcp's server died mid-session on any
   // sample whose build legitimately fails).
   const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest

@@ -4,19 +4,19 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import {pathToFileURL} from 'url'
+import * as path from 'path'
 import colors from 'pintor'
-import * as messages from '../css-lib/messages'
+import {pathToFileURL} from 'url'
 import {hasDependency} from '../../lib/has-dependency'
-import {readProjectDependencies} from '../../lib/project-manifest'
-import {isUsingTailwind, getTailwindConfigFile} from './tailwind'
-import type {StyleLoaderOptions} from '../common-style-loaders'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {readProjectDependencies} from '../../lib/project-manifest'
+import type {StyleLoaderOptions} from '../common-style-loaders'
+import * as messages from '../css-lib/messages'
+import {getTailwindConfigFile, isUsingTailwind} from './tailwind'
 
 let userMessageDelivered = false
 
@@ -155,10 +155,7 @@ async function loadUserPostCssConfigObject(
   let loaded: any
 
   try {
-    if (
-      configPath.endsWith('.postcssrc') ||
-      configPath.endsWith('.json')
-    ) {
+    if (configPath.endsWith('.postcssrc') || configPath.endsWith('.json')) {
       loaded = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     } else if (configPath.endsWith('.yaml') || configPath.endsWith('.yml')) {
       // No YAML parser available here; let postcss-loader handle it.
@@ -198,7 +195,7 @@ const TAILWIND_PLUGIN_IDS = ['@tailwindcss/postcss', 'tailwindcss']
 // (then the config file location), falling back to the CLI install location.
 // postcss-loader resolves string plugins relative to itself, so a CLI
 // installed outside the project (npx, global, isolated prefix) can never see
-// the project's node_modules — the reason this resolver exists.
+// the project's node_modules, the reason this resolver exists.
 function resolveConfigPluginModule(
   name: string,
   projectPath: string,
@@ -636,7 +633,11 @@ export async function maybeUsePostCss(
   let selfResolved: {plugins: any[]; unresolved: string[]} | undefined
   try {
     let configObject: any
-    if (pkgHasPostCss && pkgPostCssConfig && typeof pkgPostCssConfig === 'object') {
+    if (
+      pkgHasPostCss &&
+      pkgPostCssConfig &&
+      typeof pkgPostCssConfig === 'object'
+    ) {
       configObject = pkgPostCssConfig
     } else if (userPostCssConfig) {
       configObject = await loadUserPostCssConfigObject(

@@ -4,7 +4,7 @@
 // ██   ██║╚════██║╚════╝██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██║███╗██║██║   ██║██╔══██╗██╔═██╗ ╚════██║
 // ╚█████╔╝███████║      ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗╚███╔███╔╝╚██████╔╝██║  ██║██║  ██╗███████║
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {DefinePlugin} from '@rspack/core'
 import {createRequire} from 'module'
@@ -83,7 +83,7 @@ export async function maybeUseVue(
     new DefinePlugin({
       // Drop the Options API in production so Vue's runtime tree-shakes the
       // ~10–20 KiB of options-handling code paths. Content scripts ship in
-      // every page navigation and pay the size cost on every load — the
+      // every page navigation and pay the size cost on every load, the
       // smaller bundle keeps content_scripts/content-*.js inside the
       // extension performance budget. Dev keeps the Options API enabled so
       // existing components written in that style still work without a

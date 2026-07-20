@@ -1,4 +1,4 @@
-// Unit spec for control-port persistence — the reachability half of the
+// Unit spec for control-port persistence, the reachability half of the
 // stale-SW self-heal (see BridgeBroker stale-producer resync). The port file
 // lives under the project's .extension-js/ dir so it outlives dist/: a kept
 // or explicit browser profile survives a dist wipe, and its cached SW can

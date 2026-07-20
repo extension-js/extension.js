@@ -4,7 +4,7 @@
 // ╚════██║██╔══██║██╔══██║██╔══██╗██╔══╝  ██║  ██║
 // ███████║██║  ██║██║  ██║██║  ██║███████╗██████╔╝
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Shared path utilities for plugin-web-extension features.
 
@@ -52,13 +52,13 @@ export function unixify(filePath: string) {
  * Resolve a root-absolute reference (`/nscl/main.js`, `url(/img/warn.svg)`)
  * against the EXTENSION ROOT, the way Chrome does.
  *
- * Chrome resolves a leading `/` from the extension root — which, for a vanilla
+ * Chrome resolves a leading `/` from the extension root, which, for a vanilla
  * (non-bundled) extension, is the source directory. Extension.js only ever
  * looked such refs up in `public/`, so wild extensions that keep their assets
  * at the root failed to build (hackademix/noscript, mozilla/multi-account-containers).
  *
  * Strictly additive: `public/` still wins when it has the file, and we only
- * claim a ref that actually exists at the root — so a ref that was already
+ * claim a ref that actually exists at the root, so a ref that was already
  * broken stays broken (and still reported).
  *
  * Returns the absolute source path to copy into the output root, or undefined
@@ -77,7 +77,7 @@ export function resolveRootAbsoluteRef(
   const trimmed = ref.replace(/^\/+/, '')
   if (!trimmed) return undefined
 
-  // public/ keeps precedence — it is the documented output-root contract.
+  // public/ keeps precedence. It is the documented output-root contract.
   if (publicRoot && fs.existsSync(path.join(publicRoot, trimmed))) {
     return undefined
   }

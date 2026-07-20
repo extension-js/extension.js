@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -46,7 +46,7 @@ export function canonicalizeDir(dir: string): string {
 
 // Canonicalize a resource (file) path so it can be compared against
 // `canonicalizeDir`-derived paths. We canonicalize the file's DIRECTORY (which
-// exists during a build even when the resource itself is virtual — realpath on
+// exists during a build even when the resource itself is virtual, realpath on
 // the file could throw) and re-append the basename.
 export function canonicalizeResourcePath(resourcePath: string): string {
   if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
@@ -69,7 +69,7 @@ export function canonicalizeResourcePath(resourcePath: string): string {
 // on Windows a drive-less absolute (`\project\sw.js`, the shape `path.join`
 // and `path.normalize` preserve) never string-equals the drive-lettered form
 // rspack reports (`D:\project\sw.js`, the shape `path.resolve` produces), so a
-// set built with one and probed with the other silently never matches — on
+// set built with one and probed with the other silently never matches, on
 // exactly one platform. `path.resolve` pins both sides to the same rooted
 // form; drive-letter casing is then folded because `realpathSync.native` only
 // normalizes it for paths that exist on disk.

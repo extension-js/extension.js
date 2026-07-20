@@ -4,13 +4,13 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {FilepathList, Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
 export function backgroundPage(manifest: Manifest) {
-  // Contribute ONLY the rewritten `page` key — see the sibling MV2 override for
+  // Contribute ONLY the rewritten `page` key, see the sibling MV2 override for
   // why re-spreading `...manifest.background` here clobbers other keys in the
   // aggregate merge (G14).
   return (

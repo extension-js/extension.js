@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawn} from 'node:child_process'
 import {
@@ -96,7 +96,7 @@ function writeFixture(dir) {
     description: 'No-popup toolbar action used to validate `open action`.',
     background: {service_worker: 'background.js'},
     // An empty `action` declares a toolbar button with NO default_popup, so a
-    // click fires chrome.action.onClicked — exactly the path under test.
+    // click fires chrome.action.onClicked, exactly the path under test.
     action: {},
     // A keyboard-shortcut command whose onCommand handler we replay via
     // `open command` (the shortcut itself is never pressed).
@@ -167,7 +167,7 @@ async function waitForReady(projectDir) {
       } catch (err) {
         if (String(err.message || '').startsWith('dev reported error'))
           throw err
-        // partial write — retry
+        // partial write, retry
       }
     }
 
@@ -200,7 +200,7 @@ async function waitForExecutor(projectDir) {
       try {
         if (parseJsonResult(res.stdout, 'executor probe').ok) return
       } catch {
-        // not JSON yet — keep polling
+        // not JSON yet, keep polling
       }
     }
     await new Promise((r) => setTimeout(r, 500))
@@ -249,7 +249,7 @@ async function main() {
     await waitForExecutor(projectDir)
     console.log('PASS: bridge executor (service worker) connected')
 
-    // 1) Trigger the action — must fire the no-popup onClicked path.
+    // 1) Trigger the action, must fire the no-popup onClicked path.
     const trigger = await runCli(
       [
         'open',
@@ -297,7 +297,7 @@ async function main() {
 
     if (readResult.value?.smokeClicked !== MARKER) {
       throw new Error(
-        `onClicked listener did not run — storage marker missing. Got: ${JSON.stringify(readResult)}`
+        `onClicked listener did not run, storage marker missing. Got: ${JSON.stringify(readResult)}`
       )
     }
 
@@ -351,7 +351,7 @@ async function main() {
     )
     if (readCmdResult.value?.smokeCommand !== COMMAND_NAME) {
       throw new Error(
-        `onCommand listener did not run — storage marker missing. Got: ${JSON.stringify(readCmdResult)}`
+        `onCommand listener did not run, storage marker missing. Got: ${JSON.stringify(readCmdResult)}`
       )
     }
     console.log('PASS: onCommand listener executed (storage marker present)')

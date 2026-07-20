@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import {EventEmitter} from 'events'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Mock discovery + ws before importing CDPClient
 const lifecycleMocks = vi.hoisted(() => ({
@@ -128,7 +128,7 @@ describe('CDPClient lifecycle', () => {
   })
 
   // -----------------------------------------------------------------------
-  // onProtocolEvent — registration and unsubscription
+  // onProtocolEvent: registration and unsubscription
   // -----------------------------------------------------------------------
 
   it('registers and fires protocol event handlers', async () => {
@@ -174,7 +174,7 @@ describe('CDPClient lifecycle', () => {
   })
 
   // -----------------------------------------------------------------------
-  // handleMessage — responses vs events
+  // handleMessage, responses vs events
   // -----------------------------------------------------------------------
 
   it('routes messages with id to pending requests, not event callbacks', async () => {

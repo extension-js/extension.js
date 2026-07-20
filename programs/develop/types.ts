@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {
   LoaderContext as RspackLoaderContext,
@@ -270,7 +270,7 @@ export interface BuildOptions {
   // When true, treat warnings as build failures
   failOnWarning?: boolean
   // When true, a failed build calls process.exit(1) after the clean error
-  // line — the CLI wrapper passes this. Defaults to false: as a library
+  // line, the CLI wrapper passes this. Defaults to false: as a library
   // import, a failed build is a rejected promise, never a dead host process.
   exitOnError?: boolean
   /**

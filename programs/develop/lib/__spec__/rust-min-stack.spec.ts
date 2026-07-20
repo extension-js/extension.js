@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {ensureRustMinStack, RUST_MIN_STACK_BYTES} from '../rust-min-stack'
 
 describe('ensureRustMinStack', () => {
@@ -26,7 +26,7 @@ describe('ensureRustMinStack', () => {
     expect(process.env.RUST_MIN_STACK).toBeTruthy()
   })
 
-  it('stays the first import of module.ts — it must run before anything transitively loads @rspack/core', () => {
+  it('stays the first import of module.ts. It must run before anything transitively loads @rspack/core', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '..', '..', 'module.ts'),
       'utf8'

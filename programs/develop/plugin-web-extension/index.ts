@@ -4,7 +4,7 @@
 // ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║
 // ╚███╔███╔╝███████╗██████╔╝      ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
@@ -90,7 +90,7 @@ export class WebExtensionPlugin {
     // Grab all icon assets from manifest including popup icons.
     // Theme images (`theme.images.*`, incl. the `additional_backgrounds`
     // array) ride the same emit path so their files are copied to
-    // `theme/images/<basename>` — matching the paths the theme manifest
+    // `theme/images/<basename>`, matching the paths the theme manifest
     // override writes into the output manifest.
     new IconsPlugin({
       manifestPath,

@@ -14,7 +14,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
  * The shim must:
  *   1. Define `globalThis.$RefreshReg$` and `globalThis.$RefreshSig$` as
  *      no-ops when they are not already defined.
- *   2. Be a transparent backstop — must not clobber an existing definition.
+ *   2. Be a transparent backstop, must not clobber an existing definition.
  *
  * Imported from source (vitest TS transform). Avoids a hard dependency on
  * `pnpm compile` running before tests in CI.
@@ -50,7 +50,7 @@ describe('preact-refresh-shim (dev page)', () => {
     const subject = {tag: 'Component'}
     expect(sig(subject)).toBe(subject)
 
-    // The fallback registration is a no-op — it must not throw with any args.
+    // The fallback registration is a no-op. It must not throw with any args.
     expect(() => (globalThis as any).$RefreshReg$(subject, 'id')).not.toThrow()
   })
 

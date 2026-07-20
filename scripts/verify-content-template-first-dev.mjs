@@ -6,11 +6,11 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawn} from 'node:child_process'
-import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -360,7 +360,7 @@ function inspectReactOptionalDeps(cacheBaseDir, extensionVersion) {
 // upstream issue / date so we can drop it once the broken version is yanked
 // or the next published `extension-develop` already encodes the same pin.
 //
-// BEFORE REMOVING any entry, run `npm view <pkg>@<version> .unpackedSize` —
+// BEFORE REMOVING any entry, run `npm view <pkg>@<version> .unpackedSize`,
 // the broken 2.0.2 has unpackedSize ~7.5 kB (no dist/), the healthy 2.0.1 is
 // significantly larger. We dropped this once already in 16f12f6b on the
 // (wrong) assumption upstream had republished; CI immediately broke. Don't
@@ -368,7 +368,7 @@ function inspectReactOptionalDeps(cacheBaseDir, extensionVersion) {
 // healthy size, OR (b) a new `extension-develop` release ships that pins
 // `@rspack/dev-server` to an exact version downstream.
 const SCAFFOLD_OVERRIDES = {
-  // @rspack/dev-server@2.0.2 (2026-05-28) shipped an empty tarball — only
+  // @rspack/dev-server@2.0.2 (2026-05-28) shipped an empty tarball, only
   // LICENSE/README/package.json, no dist/. `extension-develop@3.17.0`
   // declares ^2.0.1, so a fresh npm install resolves to 2.0.2 and `node dev`
   // hits ERR_MODULE_NOT_FOUND on @rspack/dev-server/dist/index.js. Force

@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {ChildProcess} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
@@ -82,7 +82,7 @@ function installGlobalHandlersOnce() {
     if (isBenignSocketTeardown(error)) {
       // Browser auto-exit (EXTENSION_AUTO_EXIT_MS) and Ctrl+C teardowns close
       // the CDP/HTTP sockets while reads may still be in flight. The runner
-      // can safely ignore these — keeping `process.exit(1)` here turns a
+      // can safely ignore these, keeping `process.exit(1)` here turns a
       // clean shutdown into a CI failure (Templates Nightly Edge).
       return
     }

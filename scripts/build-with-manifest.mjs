@@ -1,15 +1,16 @@
 #!/usr/bin/env node
+
 // ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
 // ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
 // ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import {spawnSync} from 'node:child_process'
 
 const CWD = process.cwd()
 const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname)

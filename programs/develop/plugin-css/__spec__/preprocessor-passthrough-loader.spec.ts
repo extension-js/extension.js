@@ -1,9 +1,9 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import preprocessorPassthroughLoader from '../preprocessor-passthrough-loader'
 
 // Regression (bug 26): a project shipping .scss/.less sources without the
 // matching compiler installed used to emit the RAW preprocessor source as
-// .css with zero warnings — the build reported Success while every browser
+// .css with zero warnings, the build reported Success while every browser
 // treated the output as broken CSS. The passthrough loader keeps the
 // Chrome-parity ship-verbatim behavior but makes it loud.
 

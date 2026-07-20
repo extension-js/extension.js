@@ -4,10 +4,10 @@
 // ██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗
 // ██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║
 // ╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import path from 'path'
 import type {Command} from 'commander'
+import path from 'path'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
@@ -28,7 +28,7 @@ const CONNECT_TIMEOUT_MS = 5000
 const PROBE_TIMEOUT_MS = 3000
 // Right after a clean compile the browser is still launching and the extension's
 // service worker has not yet connected. During this window an absent executor is
-// expected, not a failure — report `warn`, and only escalate to `fail` once the
+// expected, not a failure, report `warn`, and only escalate to `fail` once the
 // window elapses with no attachment.
 const EXECUTOR_ATTACH_GRACE_MS = 10_000
 
@@ -38,7 +38,7 @@ const EXECUTOR_ATTACH_GRACE_MS = 10_000
  * (the SW has not attached and the browser has not exited).
  */
 function isExecutorAttachGrace(ready: any): boolean {
-  // Once the SW has attached, absence is a real regression — never a grace warn.
+  // Once the SW has attached, absence is a real regression, never a grace warn.
   if (ready?.executorAttachedAt || ready?.runtime === 'attached') return false
   // A browser that exited under a live server is a real failure, not launching.
   if (ready?.browserExitedAt) return false
@@ -53,7 +53,7 @@ function isExecutorAttachGrace(ready: any): boolean {
  * Walks the control-channel legs in dependency order and reports the first
  * failing one with a remediation, instead of the dead-end errors each verb
  * gives on its own. Checks keep running past a failure wherever the answer
- * is still meaningful (a skip always names the check that blocked it — a
+ * is still meaningful (a skip always names the check that blocked it, a
  * skip is NOT a pass).
  */
 export async function runDoctor(
@@ -107,7 +107,7 @@ export async function runDoctor(
     results.push({
       check: 'ready-contract',
       status: 'pass',
-      detail: `status ready — controlPort ${ready.controlPort}, instanceId ${ready.instanceId}${ready.ts ? `, written ${ready.ts}` : ''}`
+      detail: `status ready, controlPort ${ready.controlPort}, instanceId ${ready.instanceId}${ready.ts ? `, written ${ready.ts}` : ''}`
     })
   } else {
     results.push({
@@ -115,7 +115,7 @@ export async function runDoctor(
       status: 'fail',
       detail: `contract status is '${ready.status ?? 'unknown'}', not 'ready'`,
       remediation:
-        'The session is still starting or errored — wait for it ' +
+        'The session is still starting or errored, wait for it ' +
         '(extension dev --wait) or check the dev-server output'
     })
   }
@@ -147,7 +147,7 @@ export async function runDoctor(
       results.push({
         check: 'server-process',
         status: 'fail',
-        detail: `dev-server pid ${ready.pid} is dead — ready.json is stale`,
+        detail: `dev-server pid ${ready.pid} is dead, ready.json is stale`,
         remediation:
           'A previous dev session died uncleanly; restart it: ' +
           `extension dev --browser=${browser} --allow-control`
@@ -155,7 +155,7 @@ export async function runDoctor(
     }
   }
 
-  // 3. port-agreement — still meaningful when the server is dead: a mismatch
+  // 3. port-agreement, still meaningful when the server is dead: a mismatch
   // predicts the next restart's stale-SW strand (#484 precondition).
   if (
     typeof readPersistedControlPort !== 'function' ||
@@ -216,25 +216,31 @@ export async function runDoctor(
       results.push({
         check: 'control-channel',
         status: 'pass',
-        detail: `connected — capabilities: ${JSON.stringify(readyFrame.capabilities ?? {})}`
+        detail: `connected, capabilities: ${JSON.stringify(readyFrame.capabilities ?? {})}`
       })
     } catch (err: any) {
       const message = String(err?.message || err)
       const code = /code (\d+)/.exec(message)?.[1]
       let detail = message
       let remediation =
-        'The control server did not answer on the contract port — the ' +
+        'The control server did not answer on the contract port, the ' +
         'session may have died or the port was taken; restart the dev session'
       if (code === '4001') {
-        detail = 'refused: ready.json instanceId no longer matches the live server'
+        detail =
+          'refused: ready.json instanceId no longer matches the live server'
         remediation =
           'A newer session overwrote the contract, or this dist belongs to ' +
-          'another session — re-read ready.json or restart the dev session'
+          'another session, re-read ready.json or restart the dev session'
       } else if (code === '4003') {
         detail = 'refused: session was not started with --allow-control'
         remediation = `Restart with control enabled: extension dev --browser=${browser} --allow-control`
       }
-      results.push({check: 'control-channel', status: 'fail', detail, remediation})
+      results.push({
+        check: 'control-channel',
+        status: 'fail',
+        detail,
+        remediation
+      })
       skip('eval-token', 'control-channel')
       skip('executor', 'control-channel')
     }
@@ -263,11 +269,11 @@ export async function runDoctor(
         results.push({
           check: 'eval-token',
           status: 'pass',
-          detail: 'eval disabled (--allow-eval not set) — nothing to verify'
+          detail: 'eval disabled (--allow-eval not set), nothing to verify'
         })
       }
 
-      // 6. executor — any ROUTED result (even an in-SW error) proves the
+      // 6. executor, any ROUTED result (even an in-SW error) proves the
       // executor is alive; only Unavailable/timeout means it is absent.
       try {
         const probe = await controller.command({
@@ -289,7 +295,7 @@ export async function runDoctor(
             check: 'executor',
             status: 'warn',
             detail:
-              'no executor connected yet — the browser is still launching ' +
+              'no executor connected yet. The browser is still launching ' +
               `(within ${EXECUTOR_ATTACH_GRACE_MS / 1000}s of compile); the ` +
               'service worker has not attached',
             remediation:
@@ -312,7 +318,7 @@ export async function runDoctor(
             check: 'executor',
             status: 'warn',
             detail:
-              'executor probe did not complete yet — the browser is still ' +
+              'executor probe did not complete yet. The browser is still ' +
               `launching (within ${EXECUTOR_ATTACH_GRACE_MS / 1000}s of compile)`,
             remediation:
               'Give it a moment: wait for ready.json to gain ' +
@@ -333,7 +339,7 @@ export async function runDoctor(
     controller.close()
   }
 
-  // 7. browser — needs only the contract, runs even when 4-6 were skipped.
+  // 7. browser, needs only the contract, runs even when 4-6 were skipped.
   if (ready.browserExitedAt) {
     results.push({
       check: 'browser',
@@ -364,7 +370,7 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
     skip: '–'
   }
   // eslint-disable-next-line no-console
-  console.log(`doctor (${browser}) — ${passes}/${results.length} checks passed`)
+  console.log(`doctor (${browser}), ${passes}/${results.length} checks passed`)
   const width = Math.max(...results.map((r) => r.check.length))
   for (const r of results) {
     // eslint-disable-next-line no-console

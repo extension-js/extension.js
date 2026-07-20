@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler, EntryObject} from '@rspack/core'
 import * as fs from 'fs'
@@ -30,7 +30,7 @@ function createSequentialEntryModule(
 ): string {
   // Only the JS files are sequenced/concatenated here. CSS is declared by the
   // caller as a bare entry import (see `finalEntryImports` below) so it extracts
-  // to the canonical `content_scripts/content-N.css` name — routing CSS through
+  // to the canonical `content_scripts/content-N.css` name, routing CSS through
   // this entry module instead would root its import at a content-script module,
   // which flips it to `asset/inline` and never emits the file the manifest
   // declares.
@@ -42,7 +42,7 @@ function createSequentialEntryModule(
   // ES-module sequencing (import "a"; import "b";) isolates each file and breaks
   // those implicit cross-file globals. When every JS file in the group is classic
   // (no top-level import/export), concatenate their sources into one module so they
-  // share a scope — matching browser semantics and making vanilla multi-file content
+  // share a scope, matching browser semantics and making vanilla multi-file content
   // scripts a true drop-in. CSS stays as module imports so rspack can extract it.
   // Only .js/.cjs/.ts can concatenate: .mjs is module-scoped by definition,
   // and .tsx/.jsx need a JSX transform the concat loader doesn't run. The
@@ -176,7 +176,7 @@ export class AddScripts {
     // Files under the `scripts/` special folder are registered as standalone
     // entries so bare `scripts/` helpers still get compiled. But when a file is
     // ALSO declared in a manifest `content_scripts` group it is already built by
-    // that (concatenated) entry — registering a second, standalone entry both
+    // that (concatenated) entry, registering a second, standalone entry both
     // duplicates output and, worse, parses the file in isolation as a
     // CommonJS-capable module. Vendored UMD libs then trip rspack on their dead
     // `typeof module === 'object' && require('pkg')` branch (e.g. katex), failing
@@ -186,7 +186,7 @@ export class AddScripts {
     // Only content_scripts claims count: a content_scripts group is rewritten in
     // the emitted manifest to `content_scripts/content-N.js`, so the original
     // `scripts/foo.js` path is no longer referenced and its standalone output is
-    // pure duplication. Background is deliberately excluded — a manifest can keep
+    // pure duplication. Background is deliberately excluded. A manifest can keep
     // an MV2 `background.scripts: ["scripts/x.js"]` entry pointing at the raw
     // `scripts/` path (which the concat emits under a *different* name,
     // `background/scripts.js`), so its standalone `scripts/x.js` output is still

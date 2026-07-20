@@ -4,7 +4,7 @@
 // ██   ██║╚════██║██║   ██║██║╚██╗██║
 // ╚█████╔╝███████║╚██████╔╝██║ ╚████║
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type Compilation, WebpackError} from '@rspack/core'
 import {stripBom} from '../../lib/parse-json-safe'

@@ -2,10 +2,10 @@ import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as os from 'os'
 import * as path from 'path'
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // The default `javascript` template (and its `init` alias) now ships with the
-// package and is copied locally — no network. go-git-it is mocked to fail so
+// package and is copied locally, no network. go-git-it is mocked to fail so
 // the test proves the bundled path is used and never falls back to the wire.
 vi.mock('go-git-it', () => ({
   default: vi.fn(async () => {

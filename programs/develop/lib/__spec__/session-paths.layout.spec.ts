@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import {fileURLToPath} from 'url'
+import {describe, expect, it} from 'vitest'
 import {SESSION_ARTIFACTS} from '../session-paths'
 
 const developRoot = path.resolve(
@@ -32,12 +32,15 @@ describe('session-state layout', () => {
 
   it('allows exactly the known legacy slots and no new ones', () => {
     // Adding a shared-slot (or dist-lifetime) session file is a design
-    // decision with a field-report-shaped failure mode — force the edit to
+    // decision with a field-report-shaped failure mode, force the edit to
     // happen here, in review, not silently in a path join.
     const legacy = SESSION_ARTIFACTS.filter(
       (artifact) => artifact.keying !== 'per-browser'
     ).map((artifact) => artifact.name)
-    expect(legacy.sort()).toEqual(['legacy-control-port', 'legacy-control-token'])
+    expect(legacy.sort()).toEqual([
+      'legacy-control-port',
+      'legacy-control-token'
+    ])
   })
 
   it('has no session path joins outside session-paths', () => {

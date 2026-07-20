@@ -1,7 +1,7 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import os from 'os'
+import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const created: string[] = []
 
@@ -43,7 +43,7 @@ describe('install-internal-deps', () => {
   // These cases assert an install is spawned when the project's optional deps
   // are missing. The "missing" check resolves deps via process.cwd() (see
   // resolveMissingOptionalDeps), so on CI runners where those deps already
-  // resolve from the workspace the precondition doesn't hold — install-internal-
+  // resolve from the workspace the precondition doesn't hold, install-internal-
   // deps correctly skips, producing a false negative here. Run on developer
   // machines (isolated temp dirs); skip under CI until rewritten to fully mock
   // dependency resolution.
@@ -119,50 +119,53 @@ describe('install-internal-deps', () => {
     expect(postCssCall).toBeTruthy()
   })
 
-  itCleanEnv('prefers the project local extension-develop over the CLI override', async () => {
-    const overrideDevelopRoot = makeTempDir('extjs-develop-override-')
-    const localDevelopRoot = path.join(
-      makeTempDir('extjs-project-local-'),
-      'node_modules',
-      'extension-develop'
-    )
-    const projectRoot = path.dirname(path.dirname(localDevelopRoot))
-
-    writeJson(path.join(overrideDevelopRoot, 'package.json'), {
-      name: 'extension-develop'
-    })
-    writeJson(path.join(localDevelopRoot, 'package.json'), {
-      name: 'extension-develop'
-    })
-    writeJson(path.join(projectRoot, 'package.json'), {
-      name: 'demo',
-      dependencies: {react: '^18.0.0'}
-    })
-
-    process.env.EXTENSION_CREATE_DEVELOP_ROOT = overrideDevelopRoot
-    process.env.npm_config_user_agent = 'npm/9.0.0'
-    process.env.EXTENSION_ENV = 'development'
-
-    const cwd = process.cwd()
-    process.chdir(projectRoot)
-
-    const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot, console)
-
-    process.chdir(cwd)
-
-    const optionalCall = spawnCalls.find((call) => {
-      const args = call.args.join(' ')
-      return (
-        args.includes('react-refresh') &&
-        args.includes('@rspack/plugin-react-refresh')
+  itCleanEnv(
+    'prefers the project local extension-develop over the CLI override',
+    async () => {
+      const overrideDevelopRoot = makeTempDir('extjs-develop-override-')
+      const localDevelopRoot = path.join(
+        makeTempDir('extjs-project-local-'),
+        'node_modules',
+        'extension-develop'
       )
-    })
+      const projectRoot = path.dirname(path.dirname(localDevelopRoot))
 
-    expect(optionalCall).toBeTruthy()
-    expect(optionalCall?.cwd).toBe(localDevelopRoot)
-    expect(optionalCall?.cwd).not.toBe(overrideDevelopRoot)
-    expect(optionalCall?.args.join(' ')).not.toContain('--prefix')
-    expect(optionalCall?.args.join(' ')).toContain('--legacy-peer-deps')
-  })
+      writeJson(path.join(overrideDevelopRoot, 'package.json'), {
+        name: 'extension-develop'
+      })
+      writeJson(path.join(localDevelopRoot, 'package.json'), {
+        name: 'extension-develop'
+      })
+      writeJson(path.join(projectRoot, 'package.json'), {
+        name: 'demo',
+        dependencies: {react: '^18.0.0'}
+      })
+
+      process.env.EXTENSION_CREATE_DEVELOP_ROOT = overrideDevelopRoot
+      process.env.npm_config_user_agent = 'npm/9.0.0'
+      process.env.EXTENSION_ENV = 'development'
+
+      const cwd = process.cwd()
+      process.chdir(projectRoot)
+
+      const mod = await import('../steps/install-internal-deps')
+      await mod.installInternalDependencies(projectRoot, console)
+
+      process.chdir(cwd)
+
+      const optionalCall = spawnCalls.find((call) => {
+        const args = call.args.join(' ')
+        return (
+          args.includes('react-refresh') &&
+          args.includes('@rspack/plugin-react-refresh')
+        )
+      })
+
+      expect(optionalCall).toBeTruthy()
+      expect(optionalCall?.cwd).toBe(localDevelopRoot)
+      expect(optionalCall?.cwd).not.toBe(overrideDevelopRoot)
+      expect(optionalCall?.args.join(' ')).not.toContain('--prefix')
+      expect(optionalCall?.args.join(' ')).toContain('--legacy-peer-deps')
+    }
+  )
 })

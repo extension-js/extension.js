@@ -1,17 +1,17 @@
-// Unit coverage for the "readiness producer" modules — the small, pure
+// Unit coverage for the "readiness producer" modules, the small, pure
 // functions that generate the signal a readiness dashboard (isextensionready)
 // consumes. These were previously exercised only indirectly via the dev-wait
 // contract specs; pinning them directly guards against silent drift in the
 // banner copy and the per-instance CDP/RDP port registry.
 
 import {beforeEach, describe, expect, it} from 'vitest'
-import {ready} from '../browsers-lib/ready-message'
 import {
   getInstancePorts,
   getLastCDPPort,
   getLastRDPPort,
   setInstancePorts
 } from '../browsers-lib/instance-registry'
+import {ready} from '../browsers-lib/ready-message'
 
 // pintor may emit ANSI color codes depending on the environment; assert on the
 // plain text so these tests are stable in TTY and non-TTY CI alike.
@@ -50,7 +50,7 @@ describe('ready() banner message', () => {
 })
 
 describe('instance port registry', () => {
-  // Module-level singleton state — assert behavior, not isolation between tests.
+  // Module-level singleton state, assert behavior, not isolation between tests.
   beforeEach(() => {
     setInstancePorts('reset-a', {cdpPort: 1, rdpPort: 2})
   })

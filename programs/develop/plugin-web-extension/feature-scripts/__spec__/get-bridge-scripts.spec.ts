@@ -127,7 +127,7 @@ describe('main-world bridge helpers', () => {
       expect(Object.keys(bridgeScripts)).toEqual(['content_scripts/content-1'])
     }
 
-    // Firefox drops the chromium: prefix entirely — no world key, no bridge.
+    // Firefox drops the chromium: prefix entirely, no world key, no bridge.
     expect(
       Object.keys(getMainWorldBridgeScripts(manifestPath, 'firefox'))
     ).toEqual([])

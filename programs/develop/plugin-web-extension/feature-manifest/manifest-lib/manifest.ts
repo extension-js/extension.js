@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
@@ -121,7 +121,7 @@ export function getManifestContent(
 }
 
 // Re-export the canonical resolver (imported above) so the emission path,
-// feature-scripts, and feature-html all share one implementation — including
+// feature-scripts, and feature-html all share one implementation, including
 // Safari/webkit chromium-family resolution.
 export {filterKeysForThisBrowser}
 

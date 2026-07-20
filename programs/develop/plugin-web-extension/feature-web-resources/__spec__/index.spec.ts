@@ -560,7 +560,7 @@ describe('generateManifestPatches', () => {
 
     it('accepts mv3 matches with ports and port wildcards Chrome loads (G21)', () => {
       // Chrome loads WAR matches carrying a port, including the `:*` port
-      // wildcard (verified against live Chrome) — the build must not fail.
+      // wildcard (verified against live Chrome). The build must not fail.
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [

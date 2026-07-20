@@ -1,10 +1,10 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {filterKeysForThisBrowser} from '../manifest'
 
 // This exercises the manifest-lib copy of filterKeysForThisBrowser that runs in
 // the live manifest-emission path (buildCanonicalManifest). It must stay in sync
 // with lib/manifest-utils.ts; both treat Safari/webkit as the chromium family.
-describe('filterKeysForThisBrowser (manifest-lib) — Safari', () => {
+describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
   const manifest = {
     name: 'x',
     'chromium:manifest_version': 3,

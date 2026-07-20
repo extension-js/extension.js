@@ -4,15 +4,15 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 
 /**
  * Removes JSONC extensions (// and block comments, trailing commas) so the
- * result parses with JSON.parse. String contents — including commas and
- * comment-looking sequences inside them — are preserved verbatim.
+ * result parses with JSON.parse. String contents, including commas and
+ * comment-looking sequences inside them, are preserved verbatim.
  * (Mirror of extension-develop's lib/project-manifest.ts; the programs are
  * separate packages and don't share source.)
  */
@@ -92,8 +92,7 @@ function stripJsoncExtensions(text: string): string {
 }
 
 export function parseJsoncSafe(text: string): any {
-  const withoutBom =
-    text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
   const stripped = stripJsoncExtensions(withoutBom)
   return JSON.parse(stripped.trim() || '{}')
 }

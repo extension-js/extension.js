@@ -1,9 +1,9 @@
 // Real-rspack regression gate for the content-script + browser-shim build
-// path — the part of the graph that pulls in
+// path, the part of the graph that pulls in
 // `feature-scripts-content-script-wrapper` (loader) plus the browser-runtime
 // shims (preact-refresh-shim, main-world-bridge, minimum-script-file). The
 // bug that motivated this spec (a9153af9) only surfaced once a real user
-// extension with a content_scripts entry was actually compiled — every
+// extension with a content_scripts entry was actually compiled, every
 // other layer (mocked command-build.spec.ts, lighter assert-canary-one-run
 // templates, develop unit suites) was blind to it.
 //
@@ -15,10 +15,10 @@
 // about React; using plain JS keeps the spec offline (no react dep) and
 // fast.
 
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 const FIXTURE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-content-script-')
@@ -46,7 +46,7 @@ function writeFixture() {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — Content Script',
+        name: 'Build Spec, Content Script',
         version: '1.0.0',
         content_scripts: [
           {
@@ -87,7 +87,7 @@ afterAll(() => {
 
 describe('build: content script (real rspack)', () => {
   it('compiles the user extension without the node:module / web-target leak', async () => {
-    // Heavy module — only loaded inside this spec to keep the rest of the
+    // Heavy module, only loaded inside this spec to keep the rest of the
     // suite fast. extensionBuild calls the same pipeline a real
     // `extension build` invocation does (rspack + content-script wrapper +
     // browser shims), so a regression here mirrors the smoke breakage.
@@ -113,7 +113,7 @@ describe('build: content script (real rspack)', () => {
 
       // Build must produce assets and zero compile errors. The original
       // regression manifested as `errors_count > 0` with the message
-      // 'Reading from "node:module" is not handled by plugins' — failing
+      // 'Reading from "node:module" is not handled by plugins', failing
       // here means a node-only import sneaked into a browser-target chunk.
       expect(summary.errors_count).toBe(0)
       expect(summary.total_assets).toBeGreaterThan(0)

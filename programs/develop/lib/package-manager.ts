@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
   execFileSync,
@@ -243,7 +243,7 @@ function hydrateResolvedPackageManager(
 /**
  * A project is Deno-managed when it carries a deno.lock, or a deno.json(c)
  * with no package.json beside it. npm-family lockfiles (checked before this)
- * still win for hybrid projects — deno.lock alone marks a `deno install`.
+ * still win for hybrid projects, deno.lock alone marks a `deno install`.
  */
 function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
   if (!cwd) return undefined
@@ -321,7 +321,7 @@ export function resolvePackageManager(opts?: {
  * Extra args that confine a *project* dependency install to the project
  * directory. pnpm walks up from cwd and, on finding any ancestor
  * `pnpm-workspace.yaml`, installs that ENTIRE workspace instead of the
- * project — for a project that merely sits under an unrelated monorepo
+ * project, for a project that merely sits under an unrelated monorepo
  * (G28), that installs a foreign codebase's dependency tree. Skip the
  * confinement only when the workspace is genuinely the project's own:
  * the project dir is itself a workspace root, or its package.json uses
@@ -352,7 +352,7 @@ export function projectInstallArgs(
       }
     }
   } catch {
-    // Unreadable package.json — the install will surface its own error.
+    // Unreadable package.json. The install will surface its own error.
   }
 
   return ['--ignore-workspace']
@@ -360,7 +360,7 @@ export function projectInstallArgs(
 
 /**
  * Args/env that stop an auto-install from running lifecycle scripts
- * (preinstall/postinstall/prepare) — the project being built was never
+ * (preinstall/postinstall/prepare), the project being built was never
  * vetted by the user typing an install command, so a wild package.json
  * must not get code execution as a side effect of `extension dev/build`.
  * Matches the pnpm 10 / Bun default. Opt back in with

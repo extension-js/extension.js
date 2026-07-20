@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import os from 'os'
+import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {assertNoManagedDependencyConflicts} from '../validate-user-dependencies'
 
 function makeTempDir(prefix: string) {
@@ -10,7 +10,7 @@ function makeTempDir(prefix: string) {
 }
 
 describe('assertNoManagedDependencyConflicts', () => {
-  it('throws when user config imports a managed dependency (never process.exit — library hosts embed this path)', () => {
+  it('throws when user config imports a managed dependency (never process.exit, library hosts embed this path)', () => {
     const project = makeTempDir('extjs-conflict-')
     const pkgPath = path.join(project, 'package.json')
     fs.writeFileSync(

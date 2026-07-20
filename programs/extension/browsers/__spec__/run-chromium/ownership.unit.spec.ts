@@ -1,17 +1,17 @@
 // Ownership is a tri-state, not a boolean. The chromium controller used to ask
 // `extensionIdBelongsToOutPath` (returning `boolean | null`) and both call
 // sites only acted on `=== false`, so `null` ("cannot tell yet") behaved
-// exactly like `true` ("verified mine") — a freshly created profile whose
+// exactly like `true` ("verified mine"), a freshly created profile whose
 // Preferences had not flushed, or an id absent from Preferences, would get a
 // foreign extension silently adopted as the dev extension.
 //
 // This spec locks the shared decision: 'mine' | 'not_mine' | 'unknown', built
 // from faked profile directories on disk, no real browser.
 
-import {afterEach, describe, expect, it} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, describe, expect, it} from 'vitest'
 import {
   classifyExtensionOwnership,
   findStaleUnpackedExtensionIds
@@ -52,7 +52,7 @@ afterEach(() => {
   }
 })
 
-describe('classifyExtensionOwnership — the one ownership decision', () => {
+describe('classifyExtensionOwnership, the one ownership decision', () => {
   it("returns 'mine' when Preferences maps the id to our outPath", () => {
     const profile = makeProfile()
     const out = makeOutPath()
@@ -86,7 +86,9 @@ describe('classifyExtensionOwnership — the one ownership decision', () => {
     const out = makeOutPath()
 
     // The cannot-know moment: not a yes. Callers must resolve it explicitly.
-    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe('unknown')
+    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe(
+      'unknown'
+    )
   })
 
   it("returns 'unknown' when the id is absent from an existing Preferences", () => {
@@ -95,15 +97,23 @@ describe('classifyExtensionOwnership — the one ownership decision', () => {
     const foreign = makeOutPath()
     writePreferences(profile, {'some-other-id': {path: foreign}})
 
-    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe('unknown')
+    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe(
+      'unknown'
+    )
   })
 
   it("returns 'unknown' when Preferences cannot be read (malformed JSON)", () => {
     const profile = makeProfile()
     const out = makeOutPath()
-    fs.writeFileSync(path.join(profile, 'Preferences'), '{not valid json', 'utf-8')
+    fs.writeFileSync(
+      path.join(profile, 'Preferences'),
+      '{not valid json',
+      'utf-8'
+    )
 
-    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe('unknown')
+    expect(classifyExtensionOwnership(profile, out, 'my-ext-id')).toBe(
+      'unknown'
+    )
   })
 
   it("returns 'unknown' when there is no profile path at all", () => {
@@ -130,7 +140,7 @@ describe('classifyExtensionOwnership — the one ownership decision', () => {
   })
 })
 
-describe('findStaleUnpackedExtensionIds — prior loads to evict (#49)', () => {
+describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
   // A project tree with a canonical build dir and a legacy sibling under the
   // same dist root, so distRoot resolution is exercised for real.
   function makeProject(): {dist: string; current: string; legacy: string} {

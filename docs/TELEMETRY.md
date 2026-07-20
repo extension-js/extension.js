@@ -31,9 +31,9 @@ Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`,
 
 Three independent controls, all combined:
 
-- **Sampling** — `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 – 1.0). Failures are never sampled.
-- **Per-run cap** — at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
-- **Debounce** — duplicate `(event, command, success)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
+- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 – 1.0). Failures are never sampled.
+- **Per-run cap**, at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
+- **Debounce**, duplicate `(event, command, success)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
 All three together mean a normal day of CLI usage sits comfortably under the PostHog free tier (1M events / month).
 
@@ -62,7 +62,7 @@ The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or t
 
 Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it and records an `enabled` consent marker so the notice does not repeat.
 
-CI environments are respected the same way as local runs — `EXTENSION_TELEMETRY=0` in your CI env turns it off across the board.
+CI environments are respected the same way as local runs, `EXTENSION_TELEMETRY=0` in your CI env turns it off across the board.
 
 ## Local audit log
 

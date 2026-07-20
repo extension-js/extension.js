@@ -1,7 +1,7 @@
-import {describe, it, expect, vi} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import os from 'os'
+import * as path from 'path'
+import {describe, expect, it, vi} from 'vitest'
 import webpackConfig from '../rspack-config'
 
 const resolveTranspilePackageDirsMock = vi.hoisted(() =>
@@ -10,7 +10,7 @@ const resolveTranspilePackageDirsMock = vi.hoisted(() =>
 const computeExtensionsToLoadMock = vi.hoisted(() =>
   vi.fn<(..._args: any[]) => string[]>(() => [])
 )
-// BrowsersPlugin has been removed — browser code is in programs/extension/browsers/
+// BrowsersPlugin has been removed, browser code is in programs/extension/browsers/
 
 vi.mock('../lib/transpile-packages', async () => {
   const actual = await vi.importActual<
@@ -32,7 +32,7 @@ vi.mock('../lib/extensions-to-load', async () => {
   }
 })
 
-// BrowsersPlugin has been removed — browser code lives in programs/extension/browsers/
+// BrowsersPlugin has been removed, browser code lives in programs/extension/browsers/
 // The BrowsersPluginMock is no longer needed.
 
 function createProjectStructure() {
@@ -75,10 +75,10 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(ignored).toContain('**/node_modules/**')
   })
 
-  it('ignores by path segment, not substring — a project path containing "dist" stays watched', () => {
+  it('ignores by path segment, not substring, a project path containing "dist" stays watched', () => {
     // Regression: the ignore list was a substring regex (/dist|…/), so a
     // checkout named e.g. "dedistract" matched and the ENTIRE project was
-    // unwatched — dev booted fine and then never recompiled any edit.
+    // unwatched, dev booted fine and then never recompiled any edit.
     resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
@@ -148,7 +148,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     // Regression guard: when scope hoisting concatenates a vendor ESM module
     // (e.g. tslib.es6.mjs) into a factory rspack names with CJS convention
     // `(module, __webpack_exports__, ...)`, the @rspack/plugin-react-refresh
-    // prologue references `__webpack_module__` — not the factory's parameter —
+    // prologue references `__webpack_module__`, not the factory's parameter,
     // causing `__webpack_module__ is not defined` at runtime for HTML entries
     // (sidebar/newtab/popup) that pull tslib in transitively.
     resolveTranspilePackageDirsMock.mockReturnValue([])
@@ -312,7 +312,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     // antd / @ant-design/x) still issue `require()` calls into @babel/runtime.
     // Those runtime helpers expose distinct files per condition; resolving CJS
     // requires through `import` returns an ESM namespace whose default is the
-    // helper, which the caller cannot invoke directly — manifesting at runtime
+    // helper, which the caller cannot invoke directly, manifesting at runtime
     // as `Uncaught TypeError: _interopRequireDefault is not a function`.
     resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
@@ -417,7 +417,7 @@ describe('webpack-config transpile packages watch behavior', () => {
       'moz-extension://abc/icon.png',
       'asset'
     ])
-    // Safari's scheme must pass through too (G11) — cross-browser extensions
+    // Safari's scheme must pass through too (G11), cross-browser extensions
     // reference `safari-web-extension://__MSG_@@extension_id__/…` in CSS url().
     expect(
       run('safari-web-extension://__MSG_@@extension_id__/icons/x.svg')
@@ -481,7 +481,7 @@ describe('webpack-config transpile packages watch behavior', () => {
       'fonts/missing.woff?v=2',
       'asset'
     ])
-    // An existing file resolves/bundles normally — NOT externalized.
+    // An existing file resolves/bundles normally, NOT externalized.
     expect(run('present.png', 'url')).toEqual([undefined, undefined])
     // Non-url dependency types are never treated as CSS assets.
     expect(run('images/missing.png', 'esm')).toEqual([undefined, undefined])
@@ -558,20 +558,20 @@ describe('webpack-config transpile packages watch behavior', () => {
     // A dead Rhino/Narwhal-era require in a vendored pre-bundled script
     // (handlebars 1.0's require('file')/require('system')) must not fail the
     // build: externalized as `commonjs`, the emitted bundle keeps the call
-    // verbatim, throwing only if the dead branch ever runs — same as the
+    // verbatim, throwing only if the dead branch ever runs, same as the
     // unbundled script in Chrome (regression: built fine on 4.0.3).
     expect(run('file')).toEqual(['file', 'commonjs'])
     expect(run('system')).toEqual(['system', 'commonjs'])
     // A bare require that DOES resolve bundles normally.
     expect(run('resolvable-pkg')).toEqual([undefined, undefined])
-    // Relative/absolute requests stay fatal — a typo'd local path is a real
+    // Relative/absolute requests stay fatal, a typo'd local path is a real
     // authoring bug, not a vendored dead branch.
     expect(run('./missing-local')).toEqual([undefined, undefined])
     expect(run('/abs/missing')).toEqual([undefined, undefined])
     // resolve.fallback owns the node builtins stubbed to empty modules.
     expect(run('fs')).toEqual([undefined, undefined])
     expect(run('path')).toEqual([undefined, undefined])
-    // ESM imports are module syntax — Chrome would refuse them too; fatal.
+    // ESM imports are module syntax. Chrome would refuse them too; fatal.
     expect(run('file', 'esm')).toEqual([undefined, undefined])
 
     // EXTENSION_STRICT_REFS=true restores the hard error (no interception).

@@ -4,12 +4,12 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
-import * as messages from './messages'
 import programPackageJson from '../package.json'
+import * as messages from './messages'
 import {readProjectDependencies} from './project-manifest'
 
 function isReferencedAsModuleSpecifier(
@@ -28,8 +28,8 @@ function isReferencedAsModuleSpecifier(
 // If a conflict is found, throw a helpful error so the current command
 // aborts. Throwing (not process.exit) matters: this fires during config
 // load, and the same code path serves programmatic hosts that embed
-// extension-develop — a hard exit here kills the whole host process.
-// `userManifestPath` is the project's manifest: package.json or deno.json(c) —
+// extension-develop, a hard exit here kills the whole host process.
+// `userManifestPath` is the project's manifest: package.json or deno.json(c),
 // dependencies are read from whichever manifests its directory holds.
 export function assertNoManagedDependencyConflicts(
   userManifestPath: string,

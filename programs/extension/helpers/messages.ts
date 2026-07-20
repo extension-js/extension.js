@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -65,7 +65,7 @@ export const commandDescriptions = {
   storage:
     'Reads or writes chrome.storage in a running extension (requires --allow-control)',
   reload: 'Reloads a running extension or tab (requires --allow-control)',
-  open: 'Opens an extension surface — popup, options, sidebar, action, or command (requires --allow-control)',
+  open: 'Opens an extension surface: popup, options, sidebar, action, or command (requires --allow-control)',
   inspect:
     'Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)',
   publish:
@@ -255,7 +255,7 @@ export function safariOnlyOption(flags: string[]) {
 export function safariInvalidBundleId(bundleId: string) {
   return (
     `${getLoggingPrefix('error')} Invalid bundle identifier: ${code(bundleId)}\n` +
-    `Use reverse-DNS form — dot-separated segments of letters, digits and hyphens, ` +
+    `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
     `each starting with a letter (e.g. ${code('com.example.my-extension')}).`
   )
 }
@@ -266,7 +266,7 @@ export function safariCommandNotSupported(
   return (
     `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari automatically.\n` +
     `Safari extensions ship inside a signed app and are enabled by hand, so there's no live ` +
-    `browser session to load into — unlike Chromium and Firefox.\n` +
+    `browser session to load into, unlike Chromium and Firefox.\n` +
     `Build the Safari app instead: ${code('extension build --browser safari')}\n` +
     `Then open the generated app and enable it in Safari → Settings → Extensions.`
   )

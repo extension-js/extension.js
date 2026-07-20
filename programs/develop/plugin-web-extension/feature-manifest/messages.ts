@@ -4,7 +4,7 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -61,7 +61,9 @@ export function fatalManifestShapeFixed(field: string, detail: string) {
     `⚠ Repaired a manifest field Chrome refuses to load the extension over. Fix it in your manifest.json.`
   )
   lines.push('')
-  lines.push(`${colors.brightBlue('FIELD')} ${colors.underline(field)} — ${detail}`)
+  lines.push(
+    `${colors.brightBlue('FIELD')} ${colors.underline(field)}, ${detail}`
+  )
   return lines.join('\n')
 }
 
@@ -76,7 +78,7 @@ export function manifestInvalidError(error: NodeJS.ErrnoException) {
 }
 
 export function manifestIncludeSummary(browser: string, manifestPath: string) {
-  return `Manifest include summary — browser=${colors.yellow(browser)}, path=${colors.underline(manifestPath)}`
+  return `Manifest include summary, browser=${colors.yellow(browser)}, path=${colors.underline(manifestPath)}`
 }
 
 export function manifestEmitSuccess() {
@@ -87,7 +89,7 @@ export function manifestOverridesSummary(
   overrideKeys: number,
   devCssStubsAdded: number
 ) {
-  return `Manifest overrides — keys=${colors.gray(String(overrideKeys))}, devCssStubsAdded=${colors.gray(String(devCssStubsAdded))}`
+  return `Manifest overrides, keys=${colors.gray(String(overrideKeys))}, devCssStubsAdded=${colors.gray(String(devCssStubsAdded))}`
 }
 
 export function manifestDepsTracked(addedCount: number) {
@@ -95,5 +97,5 @@ export function manifestDepsTracked(addedCount: number) {
 }
 
 export function manifestLegacyWarningsSummary(count: number) {
-  return `Manifest legacy warnings — count=${colors.gray(String(count))}`
+  return `Manifest legacy warnings, count=${colors.gray(String(count))}`
 }

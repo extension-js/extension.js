@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Public type surface for `extension.config.js`.
 //
@@ -14,7 +14,7 @@
 // It is intentionally self-contained: the full internal definition lives in
 // `extension-develop` (programs/develop/types.ts), but that package does not
 // publish declaration files, and its `FileConfig` pulls in `@rspack/core`
-// types via the `config` hook — which consumers of `extension` should not be
+// types via the `config` hook, which consumers of `extension` should not be
 // required to install. Keep the shape here in sync with the internal
 // `FileConfig` when the config contract changes.
 
@@ -101,7 +101,9 @@ export interface BrowserConfig extends BrowserLaunchConfig {
 }
 
 /** `commands.dev` overrides. */
-export interface DevCommandConfig extends BrowserLaunchConfig, UnifiedLoggerConfig {
+export interface DevCommandConfig
+  extends BrowserLaunchConfig,
+    UnifiedLoggerConfig {
   browser?: BrowserType
   profile?: string | false
   chromiumBinary?: string

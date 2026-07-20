@@ -4,25 +4,25 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
+import {type Compiler, type RuleSetRule, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
-import {WebpackError, type Compiler, type RuleSetRule} from '@rspack/core'
-import * as messages from './css-lib/messages'
+import * as path from 'path'
 import {hasDependency} from '../lib/has-dependency'
-import {maybeUseSass} from './css-tools/sass'
-import {maybeUseLess} from './css-tools/less'
+import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import type {DevOptions, PluginInterface} from '../types'
-import {getTailwindConfigFile} from './css-tools/tailwind'
+import * as messages from './css-lib/messages'
+import {maybeUseLess} from './css-tools/less'
 import {findPostCssConfig} from './css-tools/postcss'
+import {maybeUseSass} from './css-tools/sass'
+import {getTailwindConfigFile} from './css-tools/tailwind'
 
+export {injectCssLink} from './css-lib/inject-css-link'
+export type {CssAssetResult} from './css-lib/resolve-css-asset'
 // Re-export CSS utilities so other plugins can import from @plugin-css
 export {resolveCssAsset} from './css-lib/resolve-css-asset'
-export type {CssAssetResult} from './css-lib/resolve-css-asset'
-export {injectCssLink} from './css-lib/inject-css-link'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -67,7 +67,7 @@ export class CssPlugin {
       // in a *.ce.vue custom-element SFC; Vite exposes the same convention)
       // must resolve to the processed CSS as the module's default string
       // export. The issuer-based rules above type these requests as native
-      // CSS — a module with no JS exports — which dead-links the importer's
+      // CSS (a module with no JS exports) which dead-links the importer's
       // default import. Appended last with no `use`, this rule only flips the
       // module type; the matching rules above still contribute the full
       // PostCSS/Sass/Less loader chain exactly once.
@@ -81,7 +81,7 @@ export class CssPlugin {
     // CSS output naming.  Rspack's native CSS (`experiments.css`) already
     // bakes a content-hash into [name] for CSS chunks split from content-
     // script imports (e.g. "content_scripts/styles.fe21de80.css"), so a
-    // plain [name].css is sufficient for both dev and production — no
+    // plain [name].css is sufficient for both dev and production, no
     // extra [fullhash] template is needed.
     compiler.options.output.cssFilename = '[name].css'
     compiler.options.output.cssChunkFilename = '[name].css'
@@ -129,10 +129,10 @@ export class CssPlugin {
    * "Module not found" to rspack's CSS parser, but Chrome applies the rest
    * of the stylesheet and 404s the reference silently (wild:
    * mozilla/contain-facebook ships url(/img/login_continue_*.png) with no
-   * such files anywhere — the extension is store-published and works).
+   * such files anywhere. The extension is store-published and works).
    * Cancel these requests before resolution and warn instead, mirroring the
    * dead-HTML-ref policy; EXTENSION_STRICT_REFS=true keeps them fatal.
-   * Only unambiguous file refs are tolerated — '/x' (extension root),
+   * Only unambiguous file refs are tolerated, '/x' (extension root),
    * './x'/'../x' (issuer-relative), and bare paths with a non-CSS asset
    * extension. Bare specifiers without one stay with the resolver so
    * node_modules @imports keep failing loudly when genuinely broken.
@@ -162,44 +162,56 @@ export class CssPlugin {
     compiler.hooks.normalModuleFactory.tap(
       `${CssPlugin.name}:dead-url`,
       (nmf: any) => {
-        nmf.hooks.beforeResolve.tap(`${CssPlugin.name}:dead-url`, (data: any) => {
-          const issuer = String(data?.contextInfo?.issuer || '').split('?')[0]
-          if (!/\.(css|scss|sass|less)$/i.test(issuer)) return
+        nmf.hooks.beforeResolve.tap(
+          `${CssPlugin.name}:dead-url`,
+          (data: any) => {
+            const issuer = String(data?.contextInfo?.issuer || '').split('?')[0]
+            if (!/\.(css|scss|sass|less)$/i.test(issuer)) return
 
-          const raw = String(data?.request || '')
-          const req = raw.split('?')[0].split('#')[0]
-          if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-            return
-          }
-          if (req.startsWith('~') || req.startsWith('@')) return
+            const raw = String(data?.request || '')
+            const req = raw.split('?')[0].split('#')[0]
+            if (
+              !req ||
+              req.startsWith('//') ||
+              /^[a-z][a-z0-9+.-]*:/i.test(req)
+            ) {
+              return
+            }
+            if (req.startsWith('~') || req.startsWith('@')) return
 
-          const isRootRef = req.startsWith('/')
-          const isRelativeRef = req.startsWith('./') || req.startsWith('../')
-          const isBareAssetRef =
-            !isRootRef && !isRelativeRef && assetExt.test(req)
-          if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
+            const isRootRef = req.startsWith('/')
+            const isRelativeRef = req.startsWith('./') || req.startsWith('../')
+            const isBareAssetRef =
+              !isRootRef && !isRelativeRef && assetExt.test(req)
+            if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
 
-          const issuerDir = data?.context || path.dirname(issuer)
-          const candidates = isRootRef
-            ? roots.map((root) => path.join(root, req.slice(1)))
-            : [path.resolve(issuerDir, req), ...(isBareAssetRef ? roots.map((root) => path.join(root, req)) : [])]
-          if (candidates.some((candidate) => fs.existsSync(candidate))) return
-          if (process.env.EXTENSION_STRICT_REFS === 'true') return
+            const issuerDir = data?.context || path.dirname(issuer)
+            const candidates = isRootRef
+              ? roots.map((root) => path.join(root, req.slice(1)))
+              : [
+                  path.resolve(issuerDir, req),
+                  ...(isBareAssetRef
+                    ? roots.map((root) => path.join(root, req))
+                    : [])
+                ]
+            if (candidates.some((candidate) => fs.existsSync(candidate))) return
+            if (process.env.EXTENSION_STRICT_REFS === 'true') return
 
-          const key = `${issuer}|${req}`
-          if (!warned.has(key) && compilation?.warnings) {
-            warned.add(key)
-            const warning = new WebpackError(
-              messages.deadCssUrlRef(
-                path.relative(manifestDir, issuer) || issuer,
-                raw
+            const key = `${issuer}|${req}`
+            if (!warned.has(key) && compilation?.warnings) {
+              warned.add(key)
+              const warning = new WebpackError(
+                messages.deadCssUrlRef(
+                  path.relative(manifestDir, issuer) || issuer,
+                  raw
+                )
               )
-            )
-            ;(warning as any).file = path.relative(manifestDir, issuer)
-            compilation.warnings.push(warning)
+              ;(warning as any).file = path.relative(manifestDir, issuer)
+              compilation.warnings.push(warning)
+            }
+            return false
           }
-          return false
-        })
+        )
       }
     )
   }

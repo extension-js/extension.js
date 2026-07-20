@@ -4,11 +4,11 @@
 // ██╔═══╝ ██╔══╝  ██╔══██╗██╔══╝  ╚════╝██╔══██╗██║   ██║██║  ██║██║   ██║██╔══╝     ██║   ╚════██║
 // ██║     ███████╗██║  ██║██║          ██████╔╝╚██████╔╝██████╔╝╚██████╔╝███████╗   ██║   ███████║
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Compiler, Compilation} from '@rspack/core'
-import {BUDGET_BYTES, categorizeAsset, type AssetCategory} from './categorize'
-import {perfBudgetWarning, type OversizedAsset} from './messages'
+import type {Compilation, Compiler} from '@rspack/core'
+import {type AssetCategory, BUDGET_BYTES, categorizeAsset} from './categorize'
+import {type OversizedAsset, perfBudgetWarning} from './messages'
 
 interface PerfBudgetsPluginOptions {
   // Disable in dev: unminified bundles are 3–5× larger than prod and trip
@@ -21,7 +21,7 @@ interface PerfBudgetsPluginOptions {
 }
 
 /**
- * PerfBudgetsPlugin — extension-aware performance budgets.
+ * PerfBudgetsPlugin, extension-aware performance budgets.
  *
  * Replaces rspack's stock single-threshold `performance.hints` with a
  * per-asset-category budget tuned to how browser extensions actually
@@ -113,5 +113,5 @@ export class PerfBudgetsPlugin {
   }
 }
 
-export {BUDGET_BYTES, categorizeAsset} from './categorize'
 export type {AssetCategory} from './categorize'
+export {BUDGET_BYTES, categorizeAsset} from './categorize'

@@ -1,8 +1,8 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // Regression guard for the silent RDP connect loop: ECONNREFUSED retries used
 // to log nothing for the entire budget (150 × 1000ms by default), so a dead
-// port looked like a generic ~150s stall — this masked the launched-port
+// port looked like a generic ~150s stall, this masked the launched-port
 // double-derivation bug for as long as it did. connectClient must now emit a
 // periodic progress line naming the port, and the final give-up error must
 // name the port it gave up on.

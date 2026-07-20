@@ -4,7 +4,7 @@
 // ██║██║     ██║   ██║██║╚██╗██║╚════██║
 // ██║╚██████╗╚██████╔╝██║ ╚████║███████║
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
@@ -259,7 +259,7 @@ export class EmitFile {
 
                 // Icons keep their manifest-relative location so they can't
                 // collide with another emitted asset that legitimately owns
-                // icons/<basename> — e.g. a popup-referenced image (G16).
+                // icons/<basename>, e.g. a popup-referenced image (G16).
                 // Files outside the manifest directory have no in-project
                 // location to preserve and keep the flattened fallback.
                 // Mirrors iconOutputPath() in the manifest overrides.

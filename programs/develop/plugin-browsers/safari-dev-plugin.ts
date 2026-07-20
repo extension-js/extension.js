@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
 import {BuildEmitter, type RunnerPlugin} from './index'
@@ -55,7 +55,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       }
 
       // First compile blocks the hook so the app opens and the guided-enable
-      // step finishes before the dev server reports ready — unchanged UX.
+      // step finishes before the dev server reports ready, unchanged UX.
       if (this.firstRun) {
         await this.runOne(target, 'full')
         return

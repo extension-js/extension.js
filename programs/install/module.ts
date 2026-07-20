@@ -4,13 +4,18 @@
 //  ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ██║
 //  ██║██║ ╚████║███████║   ██║   ██║  ██║███████╗███████╗
 //  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as messages from './lib/messages'
 import {
-  normalizeBrowserName,
-  type InstallBrowserTarget
+  type InstallBrowserTarget,
+  normalizeBrowserName
 } from './lib/browser-target'
+import {
+  removeBrowserDir,
+  resolveBrowserInstallDir,
+  resolveBrowsersCacheRoot
+} from './lib/cache-root'
+import * as messages from './lib/messages'
 import {
   browserInstallArgs,
   browserInstallCommand,
@@ -20,11 +25,6 @@ import {
   isEdgePrivilegeEscalationFailure,
   runCommand
 } from './lib/runner'
-import {
-  removeBrowserDir,
-  resolveBrowserInstallDir,
-  resolveBrowsersCacheRoot
-} from './lib/cache-root'
 
 export interface InstallOptions {
   browser: string

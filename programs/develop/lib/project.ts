@@ -4,24 +4,21 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 import * as messages from './messages'
 import {findNearestPackageJson, validatePackageJson} from './package-json'
-import {
-  findNearestDenoConfigSync,
-  validateDenoConfig
-} from './project-manifest'
 import {parseJsonSafe} from './parse-json-safe'
+import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
 
 export interface ProjectStructure {
   manifestPath: string
   // Optional in web-only mode (no package manager present)
   packageJsonPath?: string
   // deno.json(c) when the project is (also) a Deno project. A project with
-  // only this manifest is a full project — not web-only mode: dependencies
+  // only this manifest is a full project, not web-only mode: dependencies
   // are declared as `npm:` imports and installed with `deno install`.
   denoJsonPath?: string
 }
@@ -430,12 +427,16 @@ export async function getProjectStructure(
   // PWA web-app manifests share the manifest.json filename but are not
   // browser-extension manifests. Detect them by their signature fields
   // (no manifest_version plus web-app-only keys) and re-resolve to a real
-  // extension manifest elsewhere in the project — or fail with a clear
+  // extension manifest elsewhere in the project, or fail with a clear
   // message instead of crashing on PWA-shaped fields downstream.
   const readManifestObject = (candidatePath: string): any | undefined => {
     try {
       const parsed = parseJsonSafe(fs.readFileSync(candidatePath))
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
+      if (
+        parsed === null ||
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed)
+      )
         return undefined
       return parsed
     } catch {
