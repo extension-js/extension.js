@@ -23,6 +23,7 @@ export class BoringPlugin {
   public readonly browser: PluginInterface['browser']
   private sawUserInvalidation = false
   private printedPostBannerStartupSuccess = false
+  private lastKnownManifestName?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -43,10 +44,22 @@ export class BoringPlugin {
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
-      const manifestName = parseJsonSafe(
-        fs.readFileSync(this.manifestPath, 'utf-8')
-      ).name
-      const line = messages.boring(manifestName, duration, stats)
+      // A throw here escapes hooks.done into Watching._done and kills the
+      // watch loop for the rest of the session (a mid-save manifest is
+      // routinely invalid JSON), so this read must never propagate.
+      let manifestName: string | undefined
+      try {
+        const parsedName = parseJsonSafe(
+          fs.readFileSync(this.manifestPath, 'utf-8')
+        ).name
+        if (typeof parsedName === 'string' && parsedName) {
+          this.lastKnownManifestName = parsedName
+        }
+        manifestName = parsedName
+      } catch {
+        manifestName = this.lastKnownManifestName
+      }
+      const line = messages.boring(manifestName || 'Extension', duration, stats)
 
       try {
         // Rspack/webpack do not always populate `compilation.modifiedFiles` for
