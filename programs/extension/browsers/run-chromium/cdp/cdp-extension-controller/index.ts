@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import * as messages from '../../../browsers-lib/messages'
+import type {BrowserLogSink} from '../../../browsers-types'
 import type {
   CdpProtocolMessage,
   CdpProtocolParams,
@@ -54,6 +55,7 @@ export class CDPExtensionController {
   private readonly extensionPaths?: string[]
   private readonly pipeIn?: Readable
   private readonly pipeOut?: Writable
+  private readonly logSink?: BrowserLogSink
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
 
@@ -65,6 +67,7 @@ export class CDPExtensionController {
     extensionPaths?: string[]
     pipeIn?: Readable
     pipeOut?: Writable
+    logSink?: BrowserLogSink
   }) {
     this.outPath = args.outPath
     this.cdpPort = args.cdpPort
@@ -72,6 +75,7 @@ export class CDPExtensionController {
     this.extensionPaths = args.extensionPaths
     this.pipeIn = args.pipeIn
     this.pipeOut = args.pipeOut
+    this.logSink = args.logSink
   }
 
   async connect(): Promise<void> {
@@ -309,7 +313,7 @@ export class CDPExtensionController {
       }
     }
 
-    registerAutoEnableLogging(this.cdp, () => this.extensionId)
+    registerAutoEnableLogging(this.cdp, () => this.extensionId, this.logSink)
   }
 
   onProtocolEvent(cb: (evt: CdpProtocolMessage) => void) {

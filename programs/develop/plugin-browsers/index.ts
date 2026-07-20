@@ -77,7 +77,26 @@ export interface BrowserLaunchOptions {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
+  /**
+   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
+   * (E21): alarm-period clamps, CSP refusals, deprecation notices. These never
+   * pass through the extension's console hook, so the SW producer can't report
+   * them; the launcher forwards them here instead. Chromium-only.
+   */
+  logSink?: BrowserLogSink
 }
+
+/** Browser-generated log entry normalized by the launcher's CDP controller. */
+export interface BrowserLogSinkEvent {
+  level: 'log' | 'info' | 'warn' | 'error' | 'debug'
+  text: string
+  source?: string
+  url?: string
+  lineNumber?: number
+  timestamp?: number
+}
+
+export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
 export interface BrowserController {
   enableUnifiedLogging(opts: {
@@ -139,6 +158,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private isFirstCompile = true
   private controller: BrowserController | undefined
   private reloadBroker: ReloadBroker | undefined
+  private logSink: BrowserLogSink | undefined
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
@@ -149,6 +169,16 @@ export class BrowsersPlugin implements RunnerPlugin {
    */
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
+  }
+
+  /**
+   * E21: the dev server injects a sink that routes browser-generated
+   * `Log.entryAdded` entries into the control-bridge log pipeline
+   * (ring + logs.ndjson + consumer fan-out). Called once, before the
+   * first compile, alongside {@link setReloadBroker}.
+   */
+  setLogSink(sink: BrowserLogSink): void {
+    this.logSink = sink
   }
 
   apply(compiler: Compiler) {
@@ -205,7 +235,8 @@ export class BrowsersPlugin implements RunnerPlugin {
             ...this.options.browserOptions,
             outputPath,
             contextDir,
-            extensionsToLoad: this.extensionsToLoad
+            extensionsToLoad: this.extensionsToLoad,
+            logSink: this.logSink
           })
 
           // Enable unified logging when requested
