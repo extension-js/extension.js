@@ -67,6 +67,18 @@ export function fatalManifestShapeFixed(field: string, detail: string) {
   return lines.join('\n')
 }
 
+export function missingGeckoDataCollectionPermissions() {
+  const lines: string[] = []
+  lines.push(
+    `⚠ addons.mozilla.org requires ${colors.yellow('browser_specific_settings.gecko.data_collection_permissions')} for new add-ons. Declare {"required": ["none"]} if this extension transmits no data.`
+  )
+  lines.push('')
+  lines.push(
+    `${colors.brightBlue('DOCS')} ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')}`
+  )
+  return lines.join('\n')
+}
+
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(
