@@ -358,14 +358,23 @@ export async function runDoctor(
       detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the dev server kept running`,
       remediation: 'Restart the dev session to relaunch the browser'
     })
-  } else {
+  } else if (ready.cdpPort != null) {
     results.push({
       check: 'browser',
       status: 'pass',
+      detail: `browser running (cdpPort ${ready.cdpPort})`
+    })
+  } else {
+    // Absence of exit evidence is not evidence of a live browser (§73 F27):
+    // with no cdpPort stamped there is nothing to verify against, so the leg
+    // is unknown, never a green verdict over a possibly-dead browser.
+    results.push({
+      check: 'browser',
+      status: 'skip',
       detail:
-        ready.cdpPort != null
-          ? `browser running (cdpPort ${ready.cdpPort})`
-          : 'no browser exit recorded (cdpPort not yet stamped)'
+        'browser liveness unknown (no cdpPort stamped yet and no exit recorded)',
+      remediation:
+        'If the browser should be up, wait for launch to finish or restart the dev session'
     })
   }
 

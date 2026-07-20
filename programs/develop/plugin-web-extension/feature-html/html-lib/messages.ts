@@ -36,8 +36,10 @@ export function javaScriptError(
     )
   }
   if (opts?.deadRefHint) {
+    // Honest consequence (§73 D16): scripts are bundler entries, so the build
+    // emits an EMPTY placeholder — the page loads and DevTools shows no 404.
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools — likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
