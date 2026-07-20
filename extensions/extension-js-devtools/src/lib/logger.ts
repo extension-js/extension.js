@@ -93,5 +93,7 @@ export function exportLogs(
     downloadLink.download = `logs.${exportFormat}`
     downloadLink.click()
     URL.revokeObjectURL(objectUrl)
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }

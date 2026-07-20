@@ -57,7 +57,9 @@ describe('RdpTransport', () => {
   afterEach(async () => {
     try {
       transport.disconnect()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     await new Promise<void>((resolve) => {
       mockState.server.close(() => resolve())
       for (const c of mockState.connections) c.destroy()
@@ -270,7 +272,9 @@ describe('RdpTransport', () => {
       delete process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS
       try {
         t.disconnect()
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 

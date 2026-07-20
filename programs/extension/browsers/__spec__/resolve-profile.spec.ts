@@ -42,7 +42,9 @@ describe('profile-options contract (both launchers)', () => {
     process.env = OLD_ENV
     try {
       fs.rmSync(SCRATCH, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('chromium: profile false uses the default profile, no managed dir, no --user-data-dir', () => {
@@ -339,7 +341,9 @@ describe('session-root ignore guard (§73 E22)', () => {
   afterEach(() => {
     try {
       fs.rmSync(scratch, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   function ignoreFileFor(out: string) {

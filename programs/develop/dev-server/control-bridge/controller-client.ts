@@ -191,7 +191,9 @@ export class BridgeController {
     this.failAllPending(new Error('controller closed'))
     try {
       this.socket?.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     this.socket = null
   }
 

@@ -77,7 +77,9 @@ describe('extension create from remote', () => {
       const timeout = setTimeout(() => {
         try {
           child.kill('SIGTERM')
-        } catch {}
+        } catch {
+          // Ignore
+        }
         reject(new Error('Timed out creating from remote zip'))
       }, 60000)
       child.stderr.on('data', (d) => (err += String(d)))
@@ -94,7 +96,9 @@ describe('extension create from remote', () => {
 
     try {
       fs.rmSync(tmp, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   itCli('creates from a remote zip with nested manifest.json', async () => {
@@ -144,7 +148,9 @@ describe('extension create from remote', () => {
       const timeout = setTimeout(() => {
         try {
           child.kill('SIGTERM')
-        } catch {}
+        } catch {
+          // Ignore
+        }
         reject(new Error('Timed out creating from remote zip'))
       }, 60000)
       child.stderr.on('data', (d) => (err += String(d)))
@@ -168,7 +174,9 @@ describe('extension create from remote', () => {
 
     try {
       fs.rmSync(tmp, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   itCli(
@@ -220,7 +228,9 @@ describe('extension create from remote', () => {
         const timeout = setTimeout(() => {
           try {
             child.kill('SIGTERM')
-          } catch {}
+          } catch {
+            // Ignore
+          }
           reject(
             new Error('Timed out creating from browser-suffixed remote zip')
           )
@@ -244,7 +254,9 @@ describe('extension create from remote', () => {
 
       try {
         fs.rmSync(tmp, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   )
 })

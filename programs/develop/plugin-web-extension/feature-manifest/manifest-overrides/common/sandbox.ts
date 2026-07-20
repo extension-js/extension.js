@@ -9,9 +9,6 @@
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
-// Defines an collection of app or extension pages that are to be served
-// in a sandboxed unique origin, and optionally a Content Security Policy
-// to use with them.
 export function sandbox(manifest: Manifest) {
   return (
     manifest.sandbox && {

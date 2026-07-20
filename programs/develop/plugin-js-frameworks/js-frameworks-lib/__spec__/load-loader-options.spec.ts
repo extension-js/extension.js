@@ -21,7 +21,9 @@ describe('load-loader-options', () => {
     process.env.EXTENSION_AUTHOR_MODE = originalEnv
     try {
       fs.rmSync(tmpDir, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('prefers .ts over other extensions when present (pure resolver test)', () => {

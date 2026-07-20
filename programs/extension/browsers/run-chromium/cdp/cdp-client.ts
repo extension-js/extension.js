@@ -151,7 +151,9 @@ export class CDPClient {
     this.pendingRequests.forEach(({reject, timeout}, id) => {
       try {
         reject(new Error(reason))
-      } catch {}
+      } catch {
+        // Ignore
+      }
 
       if (timeout) clearTimeout(timeout)
       this.pendingRequests.delete(id)
@@ -169,7 +171,9 @@ export class CDPClient {
         // Keep draining so Chromium's pipe writer never blocks on a full
         // buffer once nobody consumes events.
         this.pipeIn?.resume()
-      } catch {}
+      } catch {
+        // Ignore
+      }
       this.pipeIn = null
       this.pipeOut = null
     }
@@ -177,7 +181,9 @@ export class CDPClient {
     if (this.ws) {
       try {
         this.ws.close()
-      } catch {}
+      } catch {
+        // Ignore
+      }
       this.ws = null
     }
   }

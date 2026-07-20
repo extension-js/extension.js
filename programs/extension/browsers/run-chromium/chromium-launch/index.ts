@@ -217,7 +217,9 @@ export class ChromiumLaunchPlugin {
           this.logger.error(
             messages.browserLaunchError(this.options.browser, error)
           )
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
     })
   }
@@ -328,7 +330,9 @@ export class ChromiumLaunchPlugin {
         const env = {...process.env}
         delete env.PUPPETEER_CACHE_DIR
         systemBinary = normalizePath(locateChromium({env}) || null)
-      } catch {}
+      } catch {
+        // Ignore
+      }
       const choice = utils.chooseChromiumBinaryPreferringStable({
         managedSnapshotBinary: browserBinaryLocation,
         systemBinary: isUsableBinary(systemBinary) ? systemBinary : null,
@@ -521,7 +525,9 @@ export class ChromiumLaunchPlugin {
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
         if (!browserBinaryLocation) {
           browserBinaryLocation = resolveWslFallback()
@@ -614,7 +620,9 @@ export class ChromiumLaunchPlugin {
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
         if (!browserBinaryLocation) {
           browserBinaryLocation = resolveWslFallback()
@@ -887,7 +895,9 @@ export class ChromiumLaunchPlugin {
             })
           }
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
 
       const cdpConfig: ChromiumPluginRuntime = {
         ...pickSharedBrowserRuntimeOptions({

@@ -56,11 +56,8 @@ export async function browserConfig(
   // browserFlags and NOT subject to excludeBrowserFlags. The env is explicit.
   binaryArgs.push(...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS))
 
-  // Firefox supports being launched with an URL as the last argument.
-  // This keeps parity with Chromium, where we append `startingUrl` on spawn.
-  //
-  // Note: we intentionally do not quote here; the caller already wraps the
-  // entire binary args string in quotes. URLs should not contain spaces.
+  // Firefox accepts a URL as the last argument (parity with Chromium's
+  // startingUrl). Deliberately unquoted; the caller wraps the args string.
   if (configOptions.startingUrl && !configOptions.noOpen) {
     binaryArgs.push('--url', String(configOptions.startingUrl))
   }
@@ -96,9 +93,8 @@ export async function browserConfig(
     `${browser}-profile`
   )
 
-  // One shared decision about what profile this run gets (system / explicit /
-  // managed), including copyFromProfile seeding and keepProfileChanges
-  // persistence. The launcher only expresses the result as a Firefox --profile.
+  // One shared decision about what profile this run gets; the launcher only
+  // expresses the result as a Firefox --profile.
   const resolved = resolveProfileConfig({
     rawProfile: profile,
     managedBaseDir,
@@ -107,10 +103,8 @@ export async function browserConfig(
       .persistProfile,
     keepProfileChanges: configOptions.keepProfileChanges,
     copyFromProfile: configOptions.copyFromProfile,
-    // Resolve relative profile paths against the rspack compilation context
-    // (the project root that owns extension.config.js), not process.cwd().
-    // Otherwise running examples sequentially from a parent dir collapses
-    // every example to the same shared profile.
+    // Resolve relative profile paths against the compilation context, not cwd():
+    // otherwise sequential examples collapse onto one shared profile.
     resolveExplicit: (trimmedProfile) =>
       path.isAbsolute(trimmedProfile)
         ? trimmedProfile
@@ -136,23 +130,20 @@ export async function browserConfig(
           Number.isFinite(maxAgeHours) ? maxAgeHours : 12
         )
       } catch {
-        // ignore
+        // Ignore
       }
     }
   }
 
-  // Ensure profile directory exists for explicit/managed profiles.
   if (profilePath) {
     try {
       fs.mkdirSync(profilePath, {recursive: true})
     } catch {
-      // ignore
+      // Ignore
     }
 
-    // §69: a pinned/persisted profile can serve STALE extension code out of
-    // Firefox's startupCache across a full dev restart — fresh runId and
-    // compiledAt over old behavior, with `rm -rf <profile>` as the only
-    // remedy. The cache is always safe to drop; Firefox rebuilds it on boot.
+    // A pinned/persisted profile can serve STALE extension code out of Firefox's
+    // startupCache across a full dev restart; the cache is always safe to drop.
     try {
       fs.rmSync(path.join(profilePath, 'startupCache'), {
         recursive: true,
@@ -163,14 +154,10 @@ export async function browserConfig(
     }
   }
 
-  // Best-effort: clear crash/sessionstore artifacts for managed profiles.
-  // This avoids "restore session" prompts after fast terminate/restart loops.
-  // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons.
   if (profilePath) {
     try {
       const prefs = getPreferences(configOptions?.preferences || {})
 
-      // Helper to serialize a single value for user.js
       function serializeValue(value: unknown): string {
         if (typeof value === 'string') {
           return JSON.stringify(value)
@@ -184,7 +171,6 @@ export async function browserConfig(
         return JSON.stringify(value)
       }
 
-      // Convert preferences object to user.js file format
       function prefsToUserJs(prefsObject: Record<string, unknown>): string {
         return Object.entries(prefsObject)
           .map(([key, val]) => {
@@ -197,7 +183,7 @@ export async function browserConfig(
       const userJsContent = prefsToUserJs(prefs)
       fs.writeFileSync(userJsPath, userJsContent)
     } catch {
-      // best-effort
+      // Ignore
     }
   }
 

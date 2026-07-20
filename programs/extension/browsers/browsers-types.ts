@@ -25,10 +25,8 @@ export type BrowserType =
   | 'safari'
   | 'webkit-based'
 
-/**
- * Lightweight stand-in for rspack's Compilation used by browser-launching code.
- * Only the properties actually read by launch/reload/inspection flows are declared.
- */
+// Lightweight stand-in for rspack's Compilation used by browser-launching code;
+// only properties actually read by launch/reload/inspection flows.
 export interface CompilationLike {
   options: {
     mode?: string
@@ -39,10 +37,7 @@ export interface CompilationLike {
   getAsset?: (name: string) => {source: {source: () => string}} | undefined
 }
 
-/**
- * Minimal logger interface mirroring the shape returned by
- * rspack's `compiler.getInfrastructureLogger()`.
- */
+// Minimal logger interface mirroring rspack's getInfrastructureLogger() shape.
 export interface BrowserLogger {
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
@@ -50,9 +45,7 @@ export interface BrowserLogger {
   debug: (...args: unknown[]) => void
 }
 
-/**
- * Stand-in for rspack's BrowserConfig, the subset used by browser-config helpers.
- */
+// Stand-in for rspack's BrowserConfig, the subset used by browser-config helpers.
 export interface BrowserConfig {
   extensionPath: string
   profilePath: string | false
@@ -68,28 +61,28 @@ export interface BrowserConfig {
  * Each flag disables or modifies a specific browser feature for a more controlled development environment.
  */
 export type DefaultBrowserFlags =
-  | '--no-first-run' // Disable Chrome's native first run experience
-  | '--disable-client-side-phishing-detection' // Disable client-side phishing detection
+  | '--no-first-run'
+  | '--disable-client-side-phishing-detection'
   | '--disable-component-extensions-with-background-pages' // Disable some built-in extensions not affected by '--disable-extensions'
-  | '--disable-default-apps' // Disable installation of default apps
+  | '--disable-default-apps'
   | '--disable-features=InterestFeedContentSuggestions' // Disable the Discover feed on NTP
-  | '--disable-features=Translate' // Disable Chrome translation
+  | '--disable-features=Translate'
   | '--hide-scrollbars' // Hide scrollbars from screenshots
-  | '--mute-audio' // Mute all audio in the browser
-  | '--no-default-browser-check' // Disable the default browser check
+  | '--mute-audio'
+  | '--no-default-browser-check'
   | '--ash-no-nudges' // Avoid blue bubble "user education" nudges
-  | '--disable-search-engine-choice-screen' // Disable the 2023+ search engine choice screen
-  | '--disable-features=MediaRoute' // Disable Chrome Media Router
+  | '--disable-search-engine-choice-screen'
+  | '--disable-features=MediaRoute'
   | '--use-mock-keychain' // Use mock keychain on Mac to prevent permissions dialog
-  | '--disable-background-networking' // Disable various background network services
+  | '--disable-background-networking'
   | '--disable-breakpad' // Disable crashdump collection
-  | '--disable-component-update' // Don't update browser components
-  | '--disable-domain-reliability' // Disable Domain Reliability Monitoring
-  | '--disable-features=AutofillServerCommunicatio' // Disable autofill server communication
-  | '--disable-features=CertificateTransparencyComponentUpdate' // Disable certificate transparency component updates
-  | '--disable-sync' // Disable syncing to a Google account
+  | '--disable-component-update'
+  | '--disable-domain-reliability'
+  | '--disable-features=AutofillServerCommunicatio'
+  | '--disable-features=CertificateTransparencyComponentUpdate'
+  | '--disable-sync'
   | '--disable-features=OptimizationHints' // Disable the Chrome Optimization Guide
-  | '--disable-features=DialMediaRouteProvider' // Disable the MediaRouter feature (lighter version)
+  | '--disable-features=DialMediaRouteProvider'
   | '--no-pings' // Don't send hyperlink auditing pings
   | '--enable-features=SidePanelUpdates' // Ensure the side panel is visible for testing
   | '--enable-unsafe-extension-debugging' // Allow CDP-based extension management (Chrome 126+)
@@ -262,10 +255,8 @@ export interface PluginInterface extends PluginOptions {
   dryRun?: boolean
 }
 
-/**
- * Runtime state shared with post-launch setup helpers (CDP/RDP).
- * Extends the main PluginInterface with transient fields used during runtime.
- */
+// Runtime state shared with post-launch setup helpers (CDP/RDP); extends
+// PluginInterface with transient runtime fields.
 export interface PluginRuntime extends PluginInterface {
   // Intentionally empty for shared runtime; per-run runtime fields live in
   // run-chromium/chromium-types.ts and run-firefox/firefox-types.ts
@@ -291,13 +282,8 @@ export type LogContext =
 
 export type LogFormat = 'pretty' | 'json' | 'ndjson'
 
-/**
- * A browser-generated log entry (CDP `Log.entryAdded`: alarm-period clamps,
- * CSP refusals, deprecation notices, ...) normalized for the host's log
- * pipeline. These never pass through the page's console hook, so without a
- * sink they exist only as EXTENSION_VERBOSE stdout and are lost to
- * logs.ndjson consumers.
- */
+// A browser-generated log entry (CDP Log.entryAdded) normalized for the host's
+// log pipeline; these never pass the page console hook, so they need a sink.
 export interface BrowserLogSinkEvent {
   level: 'log' | 'info' | 'warn' | 'error' | 'debug'
   text: string
@@ -310,10 +296,8 @@ export interface BrowserLogSinkEvent {
 /** Host-provided sink for {@link BrowserLogSinkEvent}s. Must never throw. */
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
-/**
- * Unified controller interface used by post-launch logging flows.
- * Implemented by both CDP and RDP controllers.
- */
+// Unified controller interface used by post-launch logging flows;
+// implemented by both CDP and RDP controllers.
 export interface Controller {
   enableUnifiedLogging: (opts: {
     level?: string
@@ -324,10 +308,8 @@ export interface Controller {
     timestamps?: boolean
     color?: boolean
   }) => Promise<void>
-  /**
-   * Optional event subscription hook for protocol events (CDP/RDP).
-   * Present in Chromium CDP flows; Firefox may omit it.
-   */
+  // Optional protocol-event subscription hook; present in Chromium CDP flows,
+  // Firefox may omit it.
   onProtocolEvent?: (
     cb: (evt: {method?: string; params?: unknown}) => void
   ) => void

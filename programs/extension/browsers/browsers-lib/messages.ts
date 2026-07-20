@@ -28,12 +28,10 @@ type PackageJson = {
 // Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
 
-// Prefix candidates (try swapping if desired): '⏵', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
-    // Author mode: magenta, clearly branded, keeps three-element prefix shape
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
     return colors.brightMagenta(base)
   }
@@ -359,7 +357,6 @@ export function browserLaunchError(browser: Browser, error: unknown) {
   )
 }
 
-// Process Management messages
 export function enhancedProcessManagementCleanup(browser: Browser) {
   return `${getLoggingPrefix('info')} Process Management cleanup for ${capitalizedBrowserName(browser)}`
 }
@@ -437,8 +434,6 @@ export function addonInstallError(browser: Browser, message: string) {
   )
 }
 
-// removed: parseMessageLengthError (replaced by shared rdp-wire helpers)
-
 export function messagingClientClosedError(browser: Browser) {
   return (
     `${getLoggingPrefix('error')} The ${capitalizedBrowserName(browser)} messaging channel closed unexpectedly.\n` +
@@ -483,12 +478,6 @@ export function messageWithoutSenderError(
   )
 }
 
-// Debug messages - only used in development mode
-// removed: isUsingBrowserBinary (unused)
-
-// removed: isUsingProfile (unused)
-
-// Chrome/Chromium specific messages
 export function chromeProcessExited(code: number) {
   return `${getLoggingPrefix('info')} Chrome process exited with code: ${colors.gray(code.toString())}`
 }
@@ -505,7 +494,6 @@ export function chromeInitializingEnhancedReload() {
   return `${getLoggingPrefix('info')} Initializing enhanced reload service with direct spawn for Chrome`
 }
 
-// Dev/utility formatting helpers
 export function locatingBrowser(browser: Browser) {
   return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary...`
 }
@@ -534,7 +522,6 @@ export function prettyPuppeteerInstallGuidance(
   const dim = colors.gray
   const body: string[] = []
 
-  // Normalize browser subdir for our binaries layout (shared across installers)
   let browserNorm = 'chromium'
   if (browser === 'chromium-based') {
     browserNorm = 'chromium'
@@ -564,8 +551,7 @@ export function prettyPuppeteerInstallGuidance(
   body.push('')
   body.push(`  ${colors.bold(colors.blue(installCommand))}`)
   // Chromium managed installs are unbranded tip-of-tree snapshots; Chrome for
-  // Testing tracks the stable channel and satisfies chromium targets via the
-  // chromium-family launch fallback, offer it as the recommended alternative.
+  // Testing tracks stable and satisfies chromium targets, recommend it.
   if (browserNorm === 'chromium') {
     body.push('')
     body.push(
@@ -586,7 +572,6 @@ export function prettyPuppeteerInstallGuidance(
   return `${body.join('\n')}\n`
 }
 
-// Firefox specific messages
 export function firefoxLaunchCalled() {
   return `${getLoggingPrefix('info')} Firefox launch requested.`
 }
@@ -598,8 +583,6 @@ export function firefoxBinaryArgsExtracted(args: string) {
 export function firefoxNoBinaryArgsFound() {
   return `${getLoggingPrefix('info')} No Firefox binary args found`
 }
-
-// removed: firefoxRunFirefoxPluginApplyArguments (no longer used)
 
 export function firefoxFailedToStart(error: unknown) {
   return `${getLoggingPrefix('error')} Firefox failed to start:\n${colors.red(errorDetail(error))}`
@@ -794,8 +777,6 @@ export function safariSkippingConversion() {
   return `${getLoggingPrefix('info')} Xcode project is up to date with manifest.json, skipping conversion.`
 }
 
-// Generic source inspector errors (Firefox-specific helpers)
-// CDP Client messages (browser-owned)
 export function cdpClientFoundTargets(count: number) {
   return `${getLoggingPrefix('info')} Chrome found ${colors.gray(count.toString())} targets`
 }
@@ -842,7 +823,6 @@ export function cdpClientExtensionLoadFailed(path: string, error: string) {
   return `${getLoggingPrefix('error')} Chrome CDP Client: Failed to load extension from ${colors.underline(path)}: ${colors.red(error)}`
 }
 
-// Firefox RDP Client messages (browser-owned)
 export function firefoxRdpClientConnected(host: string, port: number) {
   return `${getLoggingPrefix('success')} Connected to Firefox Remote Debugging Protocol on ${colors.gray(host)}:${colors.gray(port.toString())}`
 }
@@ -884,7 +864,6 @@ export function firefoxRdpReinjectWatchTargetsFailed(
   return `${getLoggingPrefix('warn')} Firefox runtime reinjection could not watch targets on ${colors.gray(watcherActor)}: ${colors.red(error)}`
 }
 
-// Dev summary and helpers (browser-owned)
 export interface DevManifestInfo {
   name?: string
   version?: string
@@ -972,7 +951,6 @@ export function runningInDevelopment(
       }
     })()
 
-  // Derive a human-readable browser version line.
   let effectiveBrowserLine =
     browserVersionLine && browserVersionLine.trim().length > 0
       ? browserVersionLine.trim()
@@ -1082,12 +1060,10 @@ export function firefoxInspectSourceNonFatal(message: string) {
   return `${getLoggingPrefix('warn')} Firefox Inspect non-fatal error: ${colors.yellow(message)}`
 }
 
-// Browser Runner error wrapper (pretty heading)
 export function browserRunnerError(body: string) {
   return `${colors.red('ERROR')} ${colors.brightBlue('error in browser runner')}\n${body}`
 }
 
-// Configuration validation (succinct, Vercel-like tone)
 export function requireChromiumBinaryForChromiumBased() {
   const body =
     `Configuration required\n` +
@@ -1125,5 +1101,3 @@ export function rdpInvalidRequestPayload() {
     `Restart the dev session. If it repeats, report it with your Firefox version.`
   )
 }
-
-// Chromium developer mode guidance (succinct, Vercel-like tone)

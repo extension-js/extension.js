@@ -43,7 +43,9 @@ function readManifest(extensionDir: string): Record<string, unknown> {
     if (fs.existsSync(manifestPath)) {
       return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) || {}
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
   return {}
 }
 

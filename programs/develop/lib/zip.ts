@@ -56,14 +56,12 @@ export async function downloadAndExtractZip(
   try {
     console.log(messages.downloadingText(urlNoSearchParams))
 
-    // Step 1: Download the ZIP file
     const res = await fetch(url, {redirect: 'follow'})
 
     if (!res.ok || !res.body) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`)
     }
 
-    // Basic validation: ensure the URL or content-type looks like a ZIP
     const contentType = String(res.headers.get('content-type') || '')
     const isZipExt = path.extname(urlNoSearchParams).toLowerCase() === '.zip'
     const isZipType = /zip|octet-stream/i.test(contentType)
@@ -78,7 +76,6 @@ export async function downloadAndExtractZip(
     const basename = path.basename(urlNoSearchParams, extname)
     const destinationPath = path.join(targetPath, basename)
 
-    // Accumulate into a buffer
     const arrayBuffer = await res.arrayBuffer()
     const zipBuffer = Buffer.from(arrayBuffer)
 
@@ -88,7 +85,6 @@ export async function downloadAndExtractZip(
       )
     }
 
-    // Step 2: Extract the ZIP file from the buffer
     extractBuffer(zipBuffer, destinationPath)
 
     return destinationPath

@@ -53,7 +53,9 @@ function resolveManifestName(
       const parsed = parseJsonSafe(fs.readFileSync(messagesPath, 'utf-8'))
       const message = parsed?.[msgMatch[1]]?.message
       if (typeof message === 'string' && message.trim()) return message
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   return fallback
 }
@@ -67,7 +69,9 @@ async function getFilesToZip(projectDir: string): Promise<string[]> {
   try {
     const content = fs.readFileSync(gitignorePath, 'utf8')
     if (content) ig.add(content)
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   const files = await glob('**/*', {cwd: projectDir, dot: true})
   return files.filter((file) => !ig.ignores(file))

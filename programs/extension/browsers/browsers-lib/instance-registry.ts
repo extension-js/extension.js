@@ -13,17 +13,8 @@ export type InstanceRecord = {
 
 export type DebugProtocol = 'cdp' | 'rdp'
 
-/**
- * Raised when a piece of tooling (a reload, a readiness check, a source
- * inspection) is asked to resolve the debug port for an instance it cannot
- * identify, and no caller-supplied fallback is available. Historically the
- * registry answered this case with the process-wide last-launched port, which
- * silently attached the request to whichever browser launched most recently,
- * so with two live instances in one process (e.g. chrome + edge from one `dev`
- * command) the earlier instance's tooling crossed over to the later browser.
- * Signalling instead of guessing keeps every consumer faithful to its own
- * instance.
- */
+// Raised when tooling asks for the debug port of an instance it cannot
+// identify; signalling instead of guessing keeps consumers on their own instance.
 export class AmbiguousInstanceError extends Error {
   public readonly protocol: DebugProtocol
   public readonly instanceId: string | undefined
@@ -59,7 +50,9 @@ export function setInstancePorts(
     if (!instanceId) return
     const prev = instanceIdToRecord.get(instanceId) || {}
     instanceIdToRecord.set(instanceId, {...prev, ...ports})
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }
 
 export function getInstancePorts(
@@ -77,26 +70,8 @@ export function getLastRDPPort(): number | undefined {
   return lastRDPPort
 }
 
-/**
- * The single instance-to-port contract every consumer must go through, instead
- * of each caller re-implementing `(id && getInstancePorts(id)?.port) ||
- * getLast*()`. Resolution is strictly per-instance:
- *
- *  - if `instanceId` is known and has a registered port, return that port.
- *    This is the faithful path and is what a single-browser run already hits;
- *  - if `instanceId` is known but has not registered a port yet (the launcher
- *    may register it slightly after a waiter starts), return `undefined` so the
- *    caller can keep polling or apply its own deterministic, per-instance
- *    default (e.g. the derived debug port), never another instance's port;
- *  - if the instance genuinely cannot be told apart (no id, or an unknown id)
- *    and the caller passes a `fallback`, use it; otherwise throw
- *    {@link AmbiguousInstanceError} rather than silently picking the most
- *    recently launched browser.
- *
- * The process-wide `lastCDPPort`/`lastRDPPort` are never consulted here, they
- * remain only for the readiness-producer telemetry that reports the most recent
- * launch, and are no longer part of any resolution path.
- */
+// The single instance-to-port contract: exact id wins; known-but-unregistered
+// returns undefined; ambiguous uses fallback or throws AmbiguousInstanceError.
 export function resolvePortForInstance(
   instanceId: string | undefined,
   protocol: DebugProtocol,
@@ -114,7 +89,6 @@ export function resolvePortForInstance(
     return undefined
   }
 
-  // No instance id at all, the cannot-tell case.
   if (typeof fallback === 'number' && fallback > 0) return fallback
   throw new AmbiguousInstanceError(protocol, instanceId)
 }

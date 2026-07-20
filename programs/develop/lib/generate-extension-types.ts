@@ -31,22 +31,17 @@ export async function generateExtensionTypes(
 `
 
   try {
-    // Check if the file exists
     await fs.access(extensionEnvFile)
 
-    // Read the file content
     const existingContent = await fs.readFile(extensionEnvFile, 'utf8')
 
-    // Check if the file contains the "develop/dist/types" string
     if (existingContent.includes('develop/dist/types')) {
       // Rewrite previous path for versions < 2.0.0. See #162
       await fs.writeFile(extensionEnvFile, fileContent)
     }
 
-    // Always rewrite the path to ensure it uses the correct published package path
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
-    // File does not exist, continue to write it
     const manifestText = await fs.readFile(
       path.join(manifestDir, 'manifest.json'),
       'utf8'

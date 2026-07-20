@@ -53,9 +53,8 @@ export function asAbsolute(p: string): AbsolutePath {
   return (path.isAbsolute(p) ? p : path.resolve(p)) as AbsolutePath
 }
 
-// Watch-ignore globs are matched against forward-slash paths on every
-// platform, so Windows absolute paths must be normalized before being
-// embedded in a glob.
+// Watch-ignore globs match forward-slash paths on every platform, so Windows
+// absolute paths must be normalized before embedding in a glob.
 export function toPosixPath(p: string): string {
   return p.split(path.sep).join('/')
 }
@@ -79,10 +78,8 @@ export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
 export function needsInstall(packageJsonDir: AbsolutePath): boolean {
   const nm = getNodeModulesDir(packageJsonDir)
 
-  // Web-only mode: no project manifest (package.json or deno.json(c)) means
-  // there is nothing to install. Running an install here would crash with
-  // ENOENT (e.g. when running `extension dev <github-url>` against a vanilla
-  // Chrome sample).
+  // Web-only mode: no project manifest means nothing to install; an install
+  // here would crash with ENOENT (e.g. dev <github-url> on a vanilla sample).
   const hasManifest = PROJECT_MANIFEST_FILENAMES.some((filename) =>
     fs.existsSync(path.join(packageJsonDir, filename))
   )
@@ -185,9 +182,8 @@ export function normalizeBrowser(
     case 'webkit-based':
       return 'webkit-based'
     default:
-      // Unrecognized input falls back to the documented default rather than
-      // passing an invalid string through as a NormalizedBrowser. The CLI
-      // validates browser names upstream; this is defense-in-depth.
+      // Unrecognized input falls back to the documented default; the CLI validates
+      // upstream, this is defense-in-depth.
       return 'chrome'
   }
 }
@@ -214,7 +210,7 @@ export function computePreviewOutputPath(
         return distDir
       }
     } catch {
-      // ignore
+      // Ignore
     }
   }
   return manifestDir
@@ -224,7 +220,7 @@ export function ensureDirSync(dir: AbsolutePath) {
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true})
   } catch {
-    // ignore
+    // Ignore
   }
 }
 

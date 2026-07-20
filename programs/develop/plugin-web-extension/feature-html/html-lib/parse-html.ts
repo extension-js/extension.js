@@ -42,18 +42,14 @@ export function parseHtml(
   node: ReturnType<typeof parse5utilities.createNode>,
   onResourceFound: (options: OnResourceFoundOptions) => void
 ): void {
-  // Skip comment and text nodes
   if (node.nodeName === '#comment' || node.nodeName === '#text') {
     return
   }
 
-  // Handle the current node first
   if (node.nodeName === 'script') {
     const src = node.attrs?.find((attr) => attr.name === 'src')?.value
 
-    // Some scripts have no src
     if (!src) return
-    // Do nothing for urls
     if (isUrl(src)) return
 
     onResourceFound({
@@ -85,17 +81,11 @@ export function parseHtml(
       }
     }
 
-    // Some links have no href
     if (!href) return
-    // Do nothing for urls
     if (isUrl(href)) return
 
-    // Assume users ignored the "stylesheet" attribute,
-    // but ensure it's not an icon or something else.
-    // `rel` is a space-separated, case-insensitive token list, so the legacy
-    // `rel="shortcut icon"` must match `icon` (treating it as a stylesheet
-    // pushes the image into the page bundle and breaks the entry module map).
-    // See https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types.
+    // rel is a space-separated, case-insensitive token list, so legacy
+    // rel="shortcut icon" must match icon and never count as a stylesheet.
     const nonStylesheetRelTokens = [
       'dns-prefetch',
       'icon',
@@ -134,12 +124,9 @@ export function parseHtml(
     node.nodeName === 'track' ||
     node.nodeName === 'video'
   ) {
-    // Static assets with src attribute
     const src = node.attrs?.find((attr) => attr.name === 'src')?.value
 
-    // Some elements have no src
     if (!src) return
-    // Do nothing for urls
     if (isUrl(src)) return
 
     onResourceFound({
@@ -148,10 +135,8 @@ export function parseHtml(
       assetType: 'staticSrc'
     })
 
-    // Handle srcset for responsive images and sources
     const srcset = node.attrs?.find((attr) => attr.name === 'srcset')?.value
     if (srcset) {
-      // Format: "image1.png 1x, image2.png 2x" or with widths
       const candidates = srcset.split(',')
       for (const candidate of candidates) {
         const parts = candidate.trim().split(/\s+/)
@@ -168,7 +153,6 @@ export function parseHtml(
       }
     }
 
-    // Handle video poster
     if (node.nodeName === 'video') {
       const poster = node.attrs?.find((attr) => attr.name === 'poster')?.value
       if (poster && !isUrl(poster)) {
@@ -184,14 +168,11 @@ export function parseHtml(
     }
   }
 
-  // Then handle child nodes recursively
   const {childNodes = []} = node
   for (const childNode of childNodes) {
-    // Skip comment and text nodes
     if (childNode.nodeName === '#comment' || childNode.nodeName === '#text') {
       continue
     }
-    // Type assertion to handle parse5-utilities node types
     parseHtml(
       childNode as ReturnType<typeof parse5utilities.createNode>,
       onResourceFound

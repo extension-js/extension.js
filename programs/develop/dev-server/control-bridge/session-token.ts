@@ -11,19 +11,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {controlTokenPath, legacyControlTokenPath} from '../../lib/session-paths'
 
-/**
- * Eval session token, keyed per project+browser (like the control-port file).
- *
- * The token file used to be a single per-project slot: starting a second
- * browser session on the same project overwrote the first session's token,
- * and EITHER session's clean shutdown deleted the file, so eval on the
- * surviving session failed "Forbidden" despite a correct --allow-eval start.
- * Concurrent (or interleaved-shutdown) chrome+chromium sessions of one
- * project are exactly the A/B setup bug reports run.
- *
- * Paths are owned by lib/session-paths (re-exported here for the existing
- * import surface); only the token lifecycle logic lives in this file.
- */
+// Eval session token, keyed per project+browser (like the control-port file):
+// a single per-project slot broke concurrent chrome+chromium sessions.
 export {controlTokenPath, legacyControlTokenPath}
 
 export function writeControlToken(
@@ -44,16 +33,15 @@ export function writeControlToken(
     // best-effort on platforms without POSIX modes
   }
 
-  // Mirror to the legacy slot so an older CLI (which only reads
-  // control.token) keeps working against a newer dev server. Last writer
-  // wins there, no worse than the pre-fix behavior it exists for.
+  // Mirror to the legacy slot so an older CLI reading control.token keeps
+  // working; last writer wins, no worse than the pre-fix behavior.
   try {
     fs.writeFileSync(legacyControlTokenPath(projectPath), token, {
       encoding: 'utf-8',
       mode: 0o600
     })
   } catch {
-    // best-effort
+    // Ignore
   }
 
   return token
@@ -72,7 +60,7 @@ export function readControlToken(
       const token = fs.readFileSync(file, 'utf-8').trim()
       if (token.length) return token
     } catch {
-      // try the next location
+      // Ignore
     }
   }
   return null
@@ -84,12 +72,12 @@ export function clearControlToken(projectPath: string, browser: string): void {
   try {
     token = fs.readFileSync(file, 'utf-8').trim() || null
   } catch {
-    // nothing persisted for this browser
+    // Ignore
   }
   try {
     fs.rmSync(file, {force: true})
   } catch {
-    // ignore
+    // Ignore
   }
 
   // Clear the legacy mirror only when it still holds THIS session's token,
@@ -100,6 +88,6 @@ export function clearControlToken(projectPath: string, browser: string): void {
       fs.rmSync(legacy, {force: true})
     }
   } catch {
-    // ignore
+    // Ignore
   }
 }

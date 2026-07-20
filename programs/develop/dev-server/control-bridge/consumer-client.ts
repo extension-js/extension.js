@@ -110,7 +110,9 @@ export class BridgeConsumer {
     if (this.timer) clearTimeout(this.timer)
     try {
       this.socket?.close()
-    } catch {}
+    } catch {
+      // Ignore
+    }
     this.socket = null
   }
 
@@ -147,7 +149,9 @@ export class BridgeConsumer {
             instanceId: this.opts.instanceId
           })
         )
-      } catch {}
+      } catch {
+        // Ignore
+      }
     })
 
     socket.on('message', (data) => {
@@ -171,7 +175,9 @@ export class BridgeConsumer {
     socket.on('error', () => {
       try {
         socket.close()
-      } catch {}
+      } catch {
+        // Ignore
+      }
     })
   }
 

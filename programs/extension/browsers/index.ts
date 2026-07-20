@@ -52,7 +52,6 @@ export interface BrowserLaunchOptions {
   instanceId?: string
   port?: number | string
   dryRun?: boolean
-  // Unified logger options
   logLevel?: string
   logContexts?: string[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
@@ -115,7 +114,6 @@ export async function launchBrowser(
   const compilationLike = createCompilationLike(opts)
   const mode = opts.mode || 'production'
 
-  // Provide shared cache dir guidance for install-hint printing.
   computeBinariesBaseDir(compilationLike)
 
   if (isChromiumBrowser(opts.browser)) {
@@ -163,20 +161,17 @@ async function launchChromium(
   const ctx = createChromiumContext()
   const launcher = new ChromiumLaunchPlugin(chromiumOpts, ctx)
 
-  // Enable CDP post-launch in dev mode (for unified logging).
   const enableCdp = mode === 'development'
   await launcher.runOnce(compilationLike, {enableCdpPostLaunch: enableCdp})
 
-  // Resolve the CDP controller created during launch (if any).
   let cdpController: Controller | undefined
   if (enableCdp) {
     cdpController = ctx.getController?.()
   }
 
   return {
-    // Reload is owned by the dev server's control-bridge SW producer (the same
-    // executor for launched + `--no-browser`); the CDP controller is kept only
-    // for unified logging.
+    // Reload is owned by the control-bridge SW producer (same executor for
+    // launched + --no-browser); the CDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {
       if (cdpController?.enableUnifiedLogging) {
         await cdpController.enableUnifiedLogging({
@@ -209,7 +204,6 @@ async function launchFirefox(
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
-    // Unified logger options, consumed by FirefoxRDPController.enableUnifiedLogging
     logLevel: opts.logLevel as PluginInterface['logLevel'],
     logContexts: opts.logContexts as PluginInterface['logContexts'],
     logFormat: opts.logFormat as PluginInterface['logFormat'],
@@ -254,15 +248,13 @@ async function launchFirefox(
     launchRequest as unknown as Parameters<typeof launcher.runOnce>[1]
   )
 
-  // Resolve the RDP controller created during launch (when available).
-  // In dry-run / VITEST paths launch() short-circuits and no controller
-  // is created, reload/logging will degrade to no-ops in that case.
+  // Resolve the RDP controller created during launch; in dry-run/VITEST paths
+  // none is created and reload/logging degrade to no-ops.
   const rdpController = ctx.getController?.()
 
   return {
-    // Reload is owned by the dev server's control-bridge SW producer (the same
-    // executor for launched + `--no-browser`); the RDP controller is kept only
-    // for unified logging.
+    // Reload is owned by the control-bridge SW producer (same executor for
+    // launched + --no-browser); the RDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {
       if (!rdpController?.enableUnifiedLogging) return
       await rdpController.enableUnifiedLogging({

@@ -289,7 +289,9 @@ export default function classicConcatLoader(
     lineMappings.push(null)
     for (const name of exposedNames) {
       outputLines.push(
-        `try { globalThis[${JSON.stringify(name)}] = ${name}; } catch (_e) {}`
+        `try { globalThis[${JSON.stringify(name)}] = ${name}; } catch (_e) {
+          // Ignore
+        }`
       )
       lineMappings.push(null)
     }

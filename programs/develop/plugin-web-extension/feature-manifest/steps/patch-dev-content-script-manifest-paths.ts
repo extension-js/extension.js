@@ -110,7 +110,11 @@ function purgeStaleHashedContentScripts(
 
       try {
         fs.unlinkSync(path.join(csDir, name))
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }

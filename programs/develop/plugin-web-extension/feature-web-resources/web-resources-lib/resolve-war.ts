@@ -37,11 +37,8 @@ function toPublicOutput(possiblePath: string) {
   return normalizedPath
 }
 
-// A `web_accessible_resources` entry may name a whole directory (e.g. `icons/`),
-// which Chrome serves as all files beneath it. Reading a directory as a file
-// throws EISDIR (G15), so emit each contained file individually, preserving its
-// path relative to the manifest so runtime references (`getURL('icons/x.png')`)
-// keep resolving. The caller declares the directory as a `dir/*` glob resource.
+// A WAR entry may name a directory; reading it as a file throws EISDIR, so
+// emit each contained file individually, preserving manifest-relative paths.
 function emitDirectoryAsAssets(
   compilation: Compilation,
   absDir: string,
@@ -103,9 +100,8 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   return unixify(outName)
 }
 
-// The manifest override rewrites source extensions to output extensions
-// before resolution runs, so a missing `src/x.js` may really be `src/x.ts`
-// on disk. Find that original so the warning can explain what happened.
+// The override rewrites source extensions before resolution, so a missing
+// src/x.js may really be src/x.ts; find the original for the warning.
 function findSourceSibling(absOutputPath: string): string | undefined {
   const candidatesByExt: Record<string, string[]> = {
     '.js': ['.ts', '.tsx', '.jsx', '.vue', '.svelte'],
@@ -137,9 +133,8 @@ function isValidChromeMatchPattern(pattern: string): boolean {
 
   if (!pattern.endsWith('/*')) return false
 
-  // Chrome loads WAR match patterns that carry a port, including the port
-  // wildcard (`*://localhost:*/*`, verified against live Chrome). `:*` is
-  // not URL-parseable, so normalize it to a concrete port before parsing.
+  // Chrome loads WAR match patterns with a port wildcard (verified live); ':*'
+  // is not URL-parseable, so normalize to a concrete port before parsing.
   const parseable = pattern
     .replace(/^\*:\/\//, 'https://')
     .replace(/:\*(\/)/, ':65535$1')
@@ -198,9 +193,8 @@ export function resolveUserDeclaredWAR(
 
   if (!war) return {v2, v3}
 
-  // String entries are the MV2 format. In an MV3 manifest they are invalid
-  // (Chrome rejects the manifest at load time), so they become a build error
-  // below instead of shipping. Detection is per entry, not via war[0].
+  // String entries are the MV2 format; invalid in MV3 (Chrome rejects at load),
+  // so they become a build error below. Detection is per entry, not war[0].
   const isMv2 = manifestObj.manifest_version !== 3
   const manifestDir = path.dirname(manifestPath)
   const projectPath = (compilation.options?.context as string) || manifestDir
@@ -236,10 +230,8 @@ export function resolveUserDeclaredWAR(
     compilation.errors = compilation.errors || []
     compilation.warnings = compilation.warnings || []
 
-    // Fast‑path: if this resource resolves to an actual file under the project
-    // public/ folder, accept it and never warn. This keeps behavior aligned
-    // with icons and manifest validation and avoids false negatives when
-    // public assets exist but the output graph is not yet populated.
+    // Fast-path: a resource resolving to a real file under public/ is accepted
+    // without warning, aligned with icons and manifest validation.
     const normalizedOutput = normalizeManifestOutputPath(res)
     const publicCandidate = path.join(projectPath, 'public', normalizedOutput)
     if (fs.existsSync(publicCandidate)) {
@@ -278,9 +270,8 @@ export function resolveUserDeclaredWAR(
       const assetEmitted =
         Boolean(asset && asset.name === output) || fs.existsSync(builtAbs)
 
-      // In development, avoid noisy warnings for public-root WAR entries.
-      // The dev server already watches public/ and surfaces 404s at runtime;
-      // we keep strict validation for production builds only.
+      // In development, skip noisy warnings for public-root WAR entries; the dev
+      // server watches public/ and surfaces 404s at runtime. Strict in production.
       const isDevMode =
         (compilation.options?.mode || 'development') !== 'production'
 
@@ -325,7 +316,6 @@ export function resolveUserDeclaredWAR(
 
     const abs = path.isAbsolute(res) ? res : path.join(manifestDir, res)
     if (!fs.existsSync(abs)) {
-      // Also consider presence under public/ or already-emitted/built output root
       const outputRoot =
         compilation.options?.output?.path ||
         compilation.outputOptions?.path ||
@@ -347,15 +337,12 @@ export function resolveUserDeclaredWAR(
         return
       }
 
-      // The manifest path was already rewritten to its output extension
-      // (e.g. src/injected.ts became src/injected.js). If the original
-      // source file exists, say so: WAR entries are copied, not compiled.
+      // The manifest path was already rewritten to its output extension; if the
+      // original source exists, say so: WAR entries are copied, not compiled.
       const sourceSibling = findSourceSibling(abs)
 
-      // Warn about missing relative path using standardized message only when
-      // it does not exist in public/ and was not emitted to the output. The
-      // entry is dropped from the emitted manifest: keeping a path that no
-      // file will ever exist at just moves the failure to runtime.
+      // Warn only when the path is neither in public/ nor emitted; the entry is
+      // dropped from the manifest, keeping it just moves the failure to runtime.
       const msg = warMessages.warFieldError(abs, {
         relativeRef: res,
         sourceSibling: sourceSibling
@@ -381,15 +368,8 @@ export function resolveUserDeclaredWAR(
       return
     }
 
-    // Emit the file AT ITS MANIFEST-RELATIVE PATH and declare that same path.
-    // WAR resources are addressed at runtime by literal path,
-    // chrome.runtime.getURL('adapters/chrome/content_module.js'), so the old
-    // assets/<basename> flattening both broke those lookups (the declared
-    // name no longer matched the requested path) and silently aliased
-    // same-named files from different directories (ui/stats.js vs
-    // storage/stats.js) to whichever was emitted first. Contenthash renaming
-    // in production breaks the runtime address the same way, so the path is
-    // preserved verbatim in every mode.
+    // Emit the file AT ITS MANIFEST-RELATIVE PATH and declare that same path: WAR
+    // resources are addressed by literal path, so flattening/hashing breaks lookups.
     const relOut = unixify(path.relative(manifestDir, abs))
     if (!relOut.startsWith('..')) {
       if (!compilation.getAsset(relOut)) {

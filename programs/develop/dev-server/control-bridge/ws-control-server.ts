@@ -53,7 +53,9 @@ export function startControlServer(
             // Isolate a slow reader so it can't backpressure the broker
             try {
               socket.close(CLOSE_SLOW_CONSUMER, 'slow consumer')
-            } catch {}
+            } catch {
+              // Ignore
+            }
             return
           }
           try {
@@ -65,7 +67,9 @@ export function startControlServer(
         close(code, reason) {
           try {
             socket.close(code, reason)
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
       }
 
@@ -100,7 +104,9 @@ export function startControlServer(
             for (const client of wss.clients) {
               try {
                 client.terminate()
-              } catch {}
+              } catch {
+                // Ignore
+              }
             }
             wss.close(() => res())
           })

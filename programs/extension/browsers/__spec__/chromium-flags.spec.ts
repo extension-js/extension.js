@@ -32,7 +32,9 @@ describe('Chromium profile flags', () => {
     try {
       const distRoot = path.join(os.tmpdir(), 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('adds --user-data-dir for ephemeral profile by default', () => {
@@ -190,7 +192,9 @@ describe('Chromium profile flags', () => {
       try {
         fs.rmSync(projectA, {recursive: true, force: true})
         fs.rmSync(projectB, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 
@@ -219,7 +223,9 @@ describe('Chromium profile flags', () => {
       try {
         fs.rmSync(explicitProfile, {recursive: true, force: true})
         fs.rmSync(projectDir, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 
@@ -299,7 +305,9 @@ describe('Chromium container sandbox flags', () => {
     try {
       const distRoot = path.join(os.tmpdir(), 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   function flagsForEnv(envOverrides: Record<string, string | undefined> = {}) {
@@ -453,7 +461,9 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
         recursive: true,
         force: true
       })
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('parses whitespace-separated flags and ignores empty input', () => {

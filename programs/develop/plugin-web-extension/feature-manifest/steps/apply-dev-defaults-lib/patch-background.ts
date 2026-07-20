@@ -9,12 +9,8 @@
 import {isGeckoBasedBrowser} from '../../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../../types'
 
-// Dev-only (§68): an MV2 event page (`persistent: false`) idles out ~20s into
-// the session and takes the control channel with it — every act verb then
-// fails "no executor connected" and the prescribed remedy (reload) needs the
-// very executor that idled away. A dev session requires a live executor, so
-// the dev manifest forces the background persistent on MV2. Production
-// manifests are untouched; MV3 has no persistent key (invalid there).
+// Dev-only: an MV2 event page (persistent: false) idles out and takes the
+// control channel with it, so the dev manifest forces persistent on MV2.
 function persistentPatchFor(manifest: Manifest): {persistent?: boolean} {
   return manifest.manifest_version === 3 ? {} : {persistent: true}
 }
@@ -23,11 +19,8 @@ export default function patchBackground(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
-  // A `background` key with no runnable entry (`background: {}` in the wild)
-  // must count as absent: dev always emits the reload-producer service worker,
-  // and passing the empty object through leaves that emitted worker orphaned,
-  // Chrome loads no background, no producer connects, and reload delivery is
-  // silently dead for the whole session.
+  // background: {} must count as absent: dev always emits the reload-producer
+  // worker, and passing the empty object through orphans it (no reloads).
   const bg = manifest.background as
     | {service_worker?: string; scripts?: string[]; page?: string}
     | undefined

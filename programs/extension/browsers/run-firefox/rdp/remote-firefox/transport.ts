@@ -21,9 +21,8 @@ type ActiveEntry = {
   timer?: ReturnType<typeof setTimeout>
 }
 
-// Per-request safety timeout. Firefox occasionally never replies to an RDP
-// request; without a timeout that actor's deferred (and every queued request to
-// it) would hang forever. Generous default so only true hangs trip it
+// Per-request safety timeout: Firefox occasionally never replies to an RDP
+// request, hanging that actor's queue forever; generous so only true hangs trip.
 function rdpRequestTimeoutMs(): number {
   const raw = parseInt(
     String(process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS || ''),
@@ -122,7 +121,6 @@ export class RdpTransport extends EventEmitter {
       entry.deferred.reject(
         new Error(`RDP request to "${to}" timed out after ${timeoutMs}ms`)
       )
-      // Unblock any requests queued behind this actor.
       this.flush()
     }, timeoutMs)
     timer.unref?.()
@@ -180,10 +178,8 @@ export class RdpTransport extends EventEmitter {
   }
 
   private onEnd(): void {
-    // A closed socket can never deliver replies for in-flight/queued requests.
-    // Reject them so callers stop hanging, the reconnect path replaces this
-    // transport without calling disconnect(), so this is the only rejection
-    // point on a peer-initiated close.
+    // A closed socket can never deliver replies for in-flight/queued requests;
+    // reject them so callers stop hanging (only rejection point on peer close).
     this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
     this.emit('end')
   }

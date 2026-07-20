@@ -34,7 +34,6 @@ function handleCantResolveError(
   if (!pattern) return null
 
   const customError = raw.replace(pattern, '')
-  // Prefer content between single quotes if present, otherwise trim
   const quoted = customError.split("'")
   const wrongFilename = quoted.length > 1 ? quoted[1] : customError.trim()
 
@@ -54,14 +53,13 @@ function handleCantResolveError(
           path.normalize(filePath)
         )
 
-        // Normalize potential asset forms for matching
         const dir = path.dirname(resource as string)
         const candidates = new Set<string>([path.normalize(wrongFilename)])
         try {
           candidates.add(path.normalize(path.join(dir, wrongFilename)))
           candidates.add(path.normalize(path.basename(wrongFilename)))
         } catch {
-          // Do nothing
+          // Ignore
         }
 
         const matches = (arr: string[]) =>
@@ -71,7 +69,6 @@ function handleCantResolveError(
 
         if (hit) {
           const base = path.basename(wrongFilename)
-          // Infer whether the original attribute used leading '/'
           let isPublicRoot = false
           let matchedRawAttr: string | null = null
 
@@ -143,10 +140,8 @@ export class HandleCommonErrors {
             () => {
               const errs = [...compilation.errors]
               errs.forEach((error, index) => {
-                // Handle "Module not found" errors.
-                // This is needed because we can't recompile entrypoints at runtime.
-                // This does not cover static assets because they are not entrypoints.
-                // For that we use the AddAssetsToCompilationPlugin.
+                // Handle "Module not found": entrypoints can't recompile at runtime. Static
+                // assets are covered by AddAssetsToCompilationPlugin instead.
                 const cantResolveError = handleCantResolveError(
                   this.includeList || {},
                   error as StatsError,
@@ -175,7 +170,7 @@ export class HandleCommonErrors {
           })
           compilation.errors = transformed
         } catch {
-          // Do nothing
+          // Ignore
         }
       }
     )

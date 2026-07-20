@@ -128,7 +128,9 @@ export function computeExtensionsToLoad(
     if (themeForBrowser) {
       list.push(themeForBrowser)
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
   // Add companions (load-only) before the user extension; skip paths that
   // shadow a reserved built-in to avoid a second devtools/theme load.

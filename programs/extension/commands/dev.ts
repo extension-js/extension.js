@@ -245,9 +245,8 @@ export function registerDevCommand(program: Command) {
           process.exit(1)
         }
 
-        // Safari: fail fast on a missing toolchain *before* the bundle, so the
-        // user isn't surprised after a build. (dev rides the watch compiler and
-        // repackages the Safari app on each rebuild)
+        // Safari: fail fast on a missing toolchain BEFORE the bundle; dev repackages
+        // the Safari app on each rebuild.
         if (list.some(isSafariVendor)) {
           const issue = safariPreflightError()
 
@@ -324,10 +323,8 @@ export function registerDevCommand(program: Command) {
             // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
             launcher: noBrowser ? undefined : launchBrowser,
-            // Inject the Safari packager, SafariDevPlugin calls it on each
-            // rebuild (full first, then incremental resync). Identity overrides
-            // arrive from develop with CLI flags already winning over
-            // extension.config.js `browser.safari`.
+            // Inject the Safari packager; SafariDevPlugin calls it on each rebuild (full
+            // first, then incremental resync), CLI flags already win over config.
             safariPackager: async (
               distPath: string,
               mode: 'full' | 'resync',

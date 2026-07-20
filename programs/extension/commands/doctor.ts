@@ -26,17 +26,12 @@ interface DoctorOptions {
 
 const CONNECT_TIMEOUT_MS = 5000
 const PROBE_TIMEOUT_MS = 3000
-// Right after a clean compile the browser is still launching and the extension's
-// service worker has not yet connected. During this window an absent executor is
-// expected, not a failure, report `warn`, and only escalate to `fail` once the
-// window elapses with no attachment.
+// Right after a clean compile the SW has not connected yet; report warn during
+// the grace window and only fail once it elapses with no attachment.
 const EXECUTOR_ATTACH_GRACE_MS = 10_000
 
-/**
- * True when the executor is merely still attaching after a fresh compile: within
- * the grace window since compiledAt, and no evidence the browser has given up
- * (the SW has not attached and the browser has not exited).
- */
+// True when the executor is merely still attaching after a fresh compile:
+// within the grace window, no evidence the browser gave up.
 function isExecutorAttachGrace(
   ready:
     | {
@@ -90,7 +85,6 @@ export async function runDoctor(
     controlPortFilePath
   } = await loadExtensionDevelopBridgeModule()
 
-  // 1. ready-contract
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     results.push({
@@ -131,7 +125,6 @@ export async function runDoctor(
     })
   }
 
-  // 2. server-process
   let serverAlive = true
   if (ready.pid == null) {
     results.push({
@@ -207,7 +200,6 @@ export async function runDoctor(
     }
   }
 
-  // 4-6. control-channel, eval-token, executor
   const token = readControlToken(projectPath, browser) ?? undefined
   if (!serverAlive) {
     skip('control-channel', 'server-process')
@@ -257,7 +249,6 @@ export async function runDoctor(
     }
 
     if (readyFrame) {
-      // 5. eval-token
       if (readyFrame.capabilities?.eval) {
         if (token) {
           results.push({
@@ -365,9 +356,8 @@ export async function runDoctor(
       detail: `browser running (cdpPort ${ready.cdpPort})`
     })
   } else {
-    // Absence of exit evidence is not evidence of a live browser (§73 F27):
-    // with no cdpPort stamped there is nothing to verify against, so the leg
-    // is unknown, never a green verdict over a possibly-dead browser.
+    // Absence of exit evidence is not evidence of a live browser: with no cdpPort
+    // stamped the leg is unknown, never a green verdict over a possibly-dead browser.
     results.push({
       check: 'browser',
       status: 'skip',

@@ -79,7 +79,9 @@ export class AddScriptsAndStylesToCompilation {
             while ((match = inlineRe.exec(html))) {
               if (match[1]?.trim()) return true
             }
-          } catch {}
+          } catch {
+            // Ignore
+          }
           return false
         })()
         const concatenateClassic =

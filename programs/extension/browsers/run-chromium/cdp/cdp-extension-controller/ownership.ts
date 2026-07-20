@@ -9,12 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-// The single answer the tooling gets when it asks whether an extension id
-// belongs to the extension being developed. Ownership is a tri-state, not a
-// boolean: there is a real moment, a freshly created profile that has not
-// flushed its `Preferences` yet, where the answer is legitimately not yet
-// knowable. `unknown` is NOT a yes; callers must resolve it explicitly
-// (defer, retry, re-derive) rather than adopt an id on trust.
+// Ownership is a tri-state, not a boolean: a fresh profile may not have
+// flushed Preferences yet. 'unknown' is NOT a yes; callers resolve it explicitly.
 export type OwnershipVerdict = 'mine' | 'not_mine' | 'unknown'
 
 function normalizePath(input: string): string {
@@ -25,9 +21,8 @@ function normalizePath(input: string): string {
   }
 }
 
-// Every `Preferences` file Chrome may have written for this profile (root,
-// Default, and numbered `Profile N` dirs). Shared by ownership classification
-// and stale-load detection so both read the profile the same way.
+// Every Preferences file Chrome may have written (root, Default, Profile N);
+// shared by ownership classification and stale-load detection.
 function collectPreferenceFiles(profilePath: string): string[] {
   const prefCandidates: string[] = []
   const addPrefCandidate = (dir: string) => {
@@ -42,18 +37,13 @@ function collectPreferenceFiles(profilePath: string): string[] {
       addPrefCandidate(path.join(profilePath, entry))
     }
   } catch {
-    // Ignore profile listing errors.
+    // Ignore
   }
   return prefCandidates
 }
 
-// The `dist` ancestor of an output path, the root every per-browser and
-// per-version build of ONE project shares. `/proj/dist/chrome` and the legacy
-// `/proj/dist/extension-js/chrome` both resolve to `/proj/dist`, which is how we
-// recognize a sibling build of the same project without touching other projects.
-// Uses the INNERMOST `dist` segment: an ancestor directory that happens to be
-// named `dist` (e.g. a home path like `/Users/dist/...`) must NOT widen the root
-// to something that would sweep in unrelated extensions.
+// The dist ancestor every build of ONE project shares; uses the INNERMOST
+// dist segment so an ancestor dir named dist can't widen the root.
 function distRootOf(outPath: string): string | null {
   const parts = normalizePath(outPath).split(path.sep)
   const idx = parts.lastIndexOf('dist')
@@ -65,13 +55,8 @@ function isUnder(child: string, parent: string): boolean {
   return child === parent || child.startsWith(parent + path.sep)
 }
 
-// Ids of unpacked extensions the persistent profile still remembers that are
-// PRIOR builds of the project now at `outPath`: a stored path under the same
-// `dist` root but not equal to the current output. `extension dev` loads a
-// fresh build into the persistent profile without evicting the previous load,
-// so when the dist path shifts (a different CLI resolution) the profile keeps
-// both, two extension IDs / two service workers for one project (#49).
-// Evicting these before loading the current build leaves exactly one copy.
+// Ids of unpacked extensions the profile remembers that are PRIOR builds of
+// this project (same dist root, different path); evicting leaves one copy.
 export function findStaleUnpackedExtensionIds(
   profilePath: string | undefined,
   outPath: string
@@ -91,14 +76,13 @@ export function findStaleUnpackedExtensionIds(
         const storedPath = String((info as {path?: unknown})?.path || '')
         if (!storedPath) continue
         const normalizedStored = normalizePath(storedPath)
-        // The current build stays; only sibling builds under the same dist root
-        // are stale. Extensions installed from the store (paths outside dist)
-        // and other projects (different dist roots) are never touched.
+        // The current build stays; only sibling builds under the same dist root are
+        // stale. Store installs and other projects are never touched.
         if (normalizedStored === normalizedOutPath) continue
         if (isUnder(normalizedStored, distRoot)) stale.add(id)
       }
     } catch {
-      // Ignore malformed preference files.
+      // Ignore
     }
   }
   return [...stale]
@@ -139,7 +123,7 @@ export function classifyExtensionOwnership(
         ? 'mine'
         : 'not_mine'
     } catch {
-      // Ignore malformed preference files.
+      // Ignore
     }
   }
 

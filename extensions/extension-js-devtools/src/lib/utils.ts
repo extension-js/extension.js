@@ -19,7 +19,9 @@ function getStoredTheme(): Theme | null {
   try {
     const stored = localStorage.getItem('theme')
     if (stored === 'light' || stored === 'dark') return stored
-  } catch {}
+  } catch {
+    // Ignore
+  }
   return null
 }
 
@@ -32,7 +34,9 @@ export function detectPreferredTheme(): Theme {
       return window.matchMedia('(prefers-color-scheme: dark)').matches
         ? 'dark'
         : 'light'
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   return 'light'
 }

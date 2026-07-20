@@ -13,7 +13,9 @@ describe('CDPExtensionController ensureLoaded', () => {
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 

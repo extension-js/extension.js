@@ -6,17 +6,8 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * Defensive prefresh / react-refresh global shim.
- *
- * This module runs first in every HTML entry chain and installs no-op
- * fallbacks. When a working refresh plugin is installed (for example,
- * `@rspack/plugin-preact-refresh@1.1.5+`), its intercept overwrites these
- * fallbacks per-module factory and restores them afterwards. The shim is
- * a transparent backstop. When a broken plugin is installed, the user's
- * bundle still evaluates: fast-refresh is a no-op, but the page renders
- * and live-reload works as expected
- */
+// Defensive prefresh/react-refresh shim: runs first in every HTML entry chain,
+// installs no-op fallbacks a working plugin overwrites per-module factory.
 const g: Record<string, unknown> =
   typeof globalThis !== 'undefined'
     ? (globalThis as unknown as Record<string, unknown>)

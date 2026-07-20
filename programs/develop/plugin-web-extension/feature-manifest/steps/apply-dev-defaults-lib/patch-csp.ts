@@ -30,11 +30,8 @@ function buildCSP(cspObject: Record<string, string[]>) {
   return `${directives.join('; ')}; `
 }
 
-// The dev reload producer (service worker) and HMR client dial the local dev
-// server over ws/http. A user CSP that restricts `connect-src` (or implies the
-// restriction via `default-src`) silently blocks that socket, the producer
-// never connects and reload delivery is dead for the whole session. Dev-only:
-// this file feeds apply-dev-defaults, never production builds.
+// A user CSP restricting connect-src silently blocks the dev-server socket and
+// kills reload delivery for the session. Dev-only, never production builds.
 const DEV_CONNECT_SOURCES = [
   'ws://127.0.0.1:*',
   'ws://localhost:*',
@@ -44,14 +41,8 @@ const DEV_CONNECT_SOURCES = [
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
-// Client sockets don't always dial loopback: under `--host <lan-ip>` or the
-// `--public-host` override (devcontainers, remote browsers) the HMR client and
-// the control-bridge producer dial the CONNECTABLE host the dev server
-// resolved and exported (dev-server/index.ts, same process, set before the
-// first compile). The loosened connect-src must whitelist that host too, or
-// the exact remote scenario the connectable-host machinery was built for is
-// the one where reload delivery silently dies (verified live: SW console
-// shows "Connecting to 'ws://<lan-ip>:<port>/extjs-control' violates …").
+// Under --host <lan-ip> / --public-host, clients dial the resolved CONNECTABLE
+// host, so the loosened connect-src must whitelist it too (verified live).
 function devConnectSources(): string[] {
   const sources = [...DEV_CONNECT_SOURCES]
   const raw = String(

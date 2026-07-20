@@ -16,9 +16,8 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {buildExecEnv, detectPackageManagerFromLockfile} from 'prefers-yarn'
 
-// `buildExecEnv` and lockfile sniffing are shared, behavior-identical helpers
-// from the standalone `prefers-yarn` package. The resolver below stays local
-// because it honors Extension.js-specific overrides (EXTENSION_JS_*).
+// buildExecEnv and lockfile sniffing come from prefers-yarn; the resolver
+// stays local because it honors EXTENSION_JS_* overrides.
 export {buildExecEnv}
 
 const require = createRequire(import.meta.url)
@@ -137,7 +136,7 @@ function resolveBundledNpmCliPath(): string | undefined {
 
     if (resolved && fs.existsSync(resolved)) return resolved
   } catch {
-    // ignore
+    // Ignore
   }
   return resolveNpmCliFromNode(process.execPath)
 }
@@ -240,11 +239,8 @@ function hydrateResolvedPackageManager(
   return undefined
 }
 
-/**
- * A project is Deno-managed when it carries a deno.lock, or a deno.json(c)
- * with no package.json beside it. npm-family lockfiles (checked before this)
- * still win for hybrid projects, deno.lock alone marks a `deno install`.
- */
+// Deno-managed: deno.lock, or deno.json(c) with no package.json beside it;
+// npm-family lockfiles (checked first) still win for hybrids.
 function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
   if (!cwd) return undefined
 
@@ -263,9 +259,8 @@ function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
   const execPath = resolveCommandOnPath('deno')
   if (execPath) return {name: 'deno', execPath}
 
-  // Deno projects created by `deno run npm:extension@latest create` may run
-  // dev/build through a node CLI later; only claim deno when the binary is
-  // actually available.
+  // Deno-created projects may run dev/build through a node CLI later; only
+  // claim deno when the binary is actually available.
   return undefined
 }
 
@@ -317,16 +312,8 @@ export function resolvePackageManager(opts?: {
   return {name: 'npm'}
 }
 
-/**
- * Extra args that confine a *project* dependency install to the project
- * directory. pnpm walks up from cwd and, on finding any ancestor
- * `pnpm-workspace.yaml`, installs that ENTIRE workspace instead of the
- * project, for a project that merely sits under an unrelated monorepo
- * (G28), that installs a foreign codebase's dependency tree. Skip the
- * confinement only when the workspace is genuinely the project's own:
- * the project dir is itself a workspace root, or its package.json uses
- * `workspace:` specifiers (a standalone install could never satisfy those).
- */
+// Confine a project install to the project dir: pnpm walks up and would
+// install an unrelated ancestor workspace; skip only when it is the project's own.
 export function projectInstallArgs(
   pm: PackageManagerResolution,
   projectDir: string
@@ -358,20 +345,8 @@ export function projectInstallArgs(
   return ['--ignore-workspace']
 }
 
-/**
- * Args/env that stop an auto-install from running lifecycle scripts
- * (preinstall/postinstall/prepare), the project being built was never
- * vetted by the user typing an install command, so a wild package.json
- * must not get code execution as a side effect of `extension dev/build`.
- * Matches the pnpm 10 / Bun default. Opt back in with
- * EXTENSION_ALLOW_INSTALL_SCRIPTS=true.
- *
- * yarn needs env instead of a flag: yarn 1 accepts --ignore-scripts but
- * Berry rejects unknown flags outright, and the resolved binary's major
- * is unknowable here. Berry maps YARN_ENABLE_SCRIPTS -> enableScripts;
- * yarn 1 reads npm_config_* and ignores YARN_ENABLE_SCRIPTS. deno install
- * already refuses npm lifecycle scripts unless --allow-scripts is passed.
- */
+// Stop auto-installs from running lifecycle scripts: a wild package.json must
+// not get code execution. Opt back in with EXTENSION_ALLOW_INSTALL_SCRIPTS=true.
 export function installScriptSuppression(pm: PackageManagerResolution): {
   args: string[]
   env: Record<string, string>
@@ -389,10 +364,8 @@ export function installScriptSuppression(pm: PackageManagerResolution): {
   return {args: ['--ignore-scripts'], env: {}}
 }
 
-/**
- * A hydrated npm resolution for fallback installs: PATH npm first, then the
- * npm CLI bundled with the running Node.
- */
+// A hydrated npm resolution for fallback installs: PATH npm first, then the
+// npm bundled with the running Node.
 export function resolveNpmPackageManager(): PackageManagerResolution {
   return hydrateResolvedPackageManager('npm') || {name: 'npm'}
 }

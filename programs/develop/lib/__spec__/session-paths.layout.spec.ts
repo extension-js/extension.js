@@ -88,7 +88,9 @@ describe('session-root ignore guard (§73 E22)', () => {
   afterEach(() => {
     try {
       fs.rmSync(scratch, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it('writes a self-ignoring .gitignore into the session root', () => {

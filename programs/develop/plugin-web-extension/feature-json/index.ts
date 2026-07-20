@@ -47,10 +47,8 @@ export class JsonPlugin {
             this.includeList || {}
           )
 
-          // 2) Register the JSON file and its assets as file dependencies so
-          // watch mode recompiles when they change. Runs in the same tap
-          // (previously two taps shared the name "json:module" at the same
-          // stage, making profiling and hook tracing ambiguous)
+          // Register the JSON file and its assets as file dependencies so watch mode
+          // recompiles on change; one tap, previously two shared the same name.
           trackJsonDependencies(
             compilation,
             this.manifestPath,

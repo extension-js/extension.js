@@ -62,7 +62,9 @@ export class ActionsFileWriter implements ActionsSink {
     try {
       fs.mkdirSync(path.dirname(this.opts.filePath), {recursive: true})
       if (fs.existsSync(this.opts.filePath)) this.rotate()
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     this.bytes = 0
     this.lines = 0
@@ -113,7 +115,9 @@ export class ActionsFileWriter implements ActionsSink {
       if (fs.existsSync(this.opts.filePath)) {
         fs.renameSync(this.opts.filePath, this.rotatedName(1))
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 }
 

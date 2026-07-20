@@ -14,7 +14,7 @@ export type BuildSummary = {
   warnings_count: number
   errors_count: number
   /** Plain-text warning messages (ANSI-stripped, capped) so programmatic
-   * consumers get a structured channel instead of scraping stdout (§73). */
+   * consumers get a structured channel instead of scraping stdout. */
   warnings?: string[]
 }
 

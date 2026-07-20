@@ -56,10 +56,8 @@ export type CdpEvent =
 
 export type Logger = BrowserLogger
 
-/**
- * Options consumed by Chromium plugins (launch/logger/inspection).
- * Narrowed from PluginInterface and specialized for Chromium path.
- */
+// Options consumed by Chromium plugins (launch/logger/inspection);
+// narrowed from PluginInterface for the Chromium path.
 export interface ChromiumLaunchOptions
   extends Pick<
     PluginInterface,
@@ -86,28 +84,19 @@ export interface ChromiumLaunchOptions
     | 'logUrl'
     | 'logTab'
   > {
-  /**
-   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
-   * (E21). Wired by the dev server through the launcher; absent in
-   * preview/run-only flows.
-   */
+  // Host log pipeline for browser-generated CDP Log.entryAdded entries. Wired by
+  // the dev server through the launcher; absent in preview/run-only flows.
   logSink?: BrowserLogSink
 }
 
-/**
- * Runtime state in Chromium flow.
- * Kept Chromium-specific to avoid polluting shared browser types.
- */
+// Runtime state in Chromium flow, kept Chromium-specific to avoid polluting
+// shared browser types.
 export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   bannerPrintedOnce?: boolean
   cdpController?: Controller
   browserVersionLine?: string
 }
 
-/**
- * Configuration for the unified logger in Chromium flows.
- * Mirrors CLI flags and shared logging options.
- */
 export interface ChromiumLogger {
   level?: LogLevel | 'off' | string
   contexts?: string[]
@@ -119,14 +108,8 @@ export interface ChromiumLogger {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// CDP wire-boundary shapes
-//
-// Recovered from how the run-chromium code actually READS each value off the
-// Chrome DevTools Protocol (getTargets results, the protocol event stream,
-// DOM documents, remote objects). Every field below is one the code touches;
-// all are optional because the runtime code already guards each access with
-// `?.` / `|| ''` and must keep doing so.
-// ─────────────────────────────────────────────────────────────────────────
+// CDP wire-boundary shapes, recovered from how run-chromium READS each value;
+// all optional because the runtime code guards each access.
 
 /** CDP `Target.TargetInfo`, the fields read off `Target.getTargets` results. */
 export interface CdpTargetInfo {
@@ -135,10 +118,8 @@ export interface CdpTargetInfo {
   url?: string
 }
 
-/**
- * CDP `Runtime.ExecutionContextDescription`, the fields read when matching the
- * page / isolated world for content-script reinjection.
- */
+// CDP Runtime.ExecutionContextDescription fields read when matching the page /
+// isolated world for content-script reinjection.
 export interface CdpExecutionContextDescription {
   id?: number
   origin?: string
@@ -187,10 +168,8 @@ export interface CdpProtocolParams {
   stackTrace?: CdpStackTrace
 }
 
-/**
- * The parsed JSON envelope delivered to `onProtocolEvent` subscribers, typed
- * at the wire boundary so consumers read fields without casts.
- */
+// The parsed JSON envelope delivered to onProtocolEvent subscribers, typed at
+// the wire boundary so consumers read fields without casts.
 export interface CdpProtocolMessage {
   method?: string
   params?: CdpProtocolParams
@@ -224,11 +203,8 @@ export interface CdpFrameTreeResult {
 /** The console-count buckets keyed by normalized console level. */
 export type ConsoleCountKey = 'error' | 'warn' | 'info' | 'log' | 'debug'
 
-/**
- * A page-meta snapshot evaluated in the inspected page.
- * Declared as a type alias (not an interface) so it keeps an implicit index
- * signature and stays assignable to the `Record<string, unknown>` event sink.
- */
+// A page-meta snapshot evaluated in the inspected page; a type alias (not an
+// interface) so it keeps an implicit index signature for the event sink.
 export type PageMetaSnapshot = {
   readyState?: string
   viewport?: {width: number; height: number; devicePixelRatio: number}
@@ -253,11 +229,8 @@ export interface SelectorProbeResult {
   samples: SelectorProbeSample[]
 }
 
-/**
- * The extension-root tree snapshot evaluated in the inspected page.
- * Declared as a type alias (not an interface) so it keeps an implicit index
- * signature and stays assignable to the `Record<string, unknown>` event sink.
- */
+// The extension-root tree snapshot evaluated in the inspected page; a type
+// alias so it keeps an implicit index signature for the event sink.
 export type ExtensionRootTreeResult = {
   rootMode: 'shadow' | 'element'
   depthLimit: number

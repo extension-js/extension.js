@@ -139,7 +139,9 @@ export function findDenoConfigPath(projectDir: string): string | undefined {
     const candidate = path.join(projectDir, filename)
     try {
       if (fs.statSync(candidate).isFile()) return candidate
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
   return undefined
 }
@@ -263,7 +265,9 @@ export function findNearestProjectManifestSync(
       const candidate = path.join(currentDir, filename)
       try {
         if (fs.statSync(candidate).isFile()) return candidate
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
     if (currentDir === root) return null
     currentDir = path.dirname(currentDir)

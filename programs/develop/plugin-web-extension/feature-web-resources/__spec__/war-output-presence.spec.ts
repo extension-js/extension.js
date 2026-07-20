@@ -18,7 +18,9 @@ describe('web_accessible_resources: public-root presence checks', () => {
   afterEach(() => {
     try {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
-    } catch {}
+    } catch {
+      // Ignore
+    }
   })
 
   it("does not warn when public-root resource exists in output (builtAbs present under 'dist/')", () => {

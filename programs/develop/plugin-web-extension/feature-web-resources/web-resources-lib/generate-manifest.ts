@@ -82,7 +82,7 @@ function isCoveredByExistingGlobs(
         const re = globToRegex(existingPattern)
         if (re.test(candidate)) return true
       } catch {
-        // ignore invalid glob
+        // Ignore
       }
     }
   }
@@ -190,9 +190,8 @@ export function generateManifestPatches(
         : []
 
       for (const jsFile of jsFiles) {
-        // Watch-mode rebuilds reuse the same Source instance for unchanged
-        // assets, so cache the scan per instance instead of re-materializing
-        // and re-scanning megabytes of bundle text on every compilation.
+        // Watch-mode rebuilds reuse the same Source instance for unchanged assets, so
+        // cache the scan per instance instead of re-scanning megabytes per compile.
         const assetForCache =
           typeof compilation.getAsset === 'function'
             ? compilation.getAsset(jsFile)
@@ -293,12 +292,8 @@ export function generateManifestPatches(
     }
   }
 
-  // Last-resort fallback: expose emitted font files (e.g. `fonts/*.woff2` copied from public/)
-  // to the union of content_scripts matches. This covers common patterns like:
-  // - `public/fonts/MyFont.woff2` copied to output as `fonts/MyFont.woff2`
-  // - CSS referencing `url("/fonts/MyFont.woff2")` (which will NOT be bundled into `assets/`)
-  //
-  // We intentionally exclude files already emitted under `assets/` (bundled) or `content_scripts/`.
+  // Last-resort fallback: expose emitted font files to the union of
+  // content_scripts matches; assets/ and content_scripts/ files stay excluded.
   const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
   if (canonicalManifest.manifest_version === 3) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
@@ -345,18 +340,12 @@ export function generateManifestPatches(
     .filter((k) => k.startsWith('content_scripts/'))
     .filter((k) => k.endsWith('.css'))
 
-  // Dev mode runs with `output.clean: false`, so prior compilations leave
-  // hashed CSS chunks (e.g. `content-index.<hash>.css`) behind in the output
-  // directory. A tab still running a pre-rebuild content script will resolve
-  // its `import.meta.url` fetch against one of those leftover chunks; without
-  // a WAR entry the fetch hits a 403 and the Shadow DOM renders unstyled
-  // until the tab reloads. Union the emitted CSS with whatever CSS is on
-  // disk so those stragglers stay reachable in their lifetime
+  // Dev keeps output.clean: false, so leftover hashed CSS chunks from prior
+  // compiles must stay WAR-reachable or pre-rebuild tabs render unstyled.
   const onDiskCssUnderContentScripts: string[] = []
   const outputPath = compilation.options.output?.path
-  // The leftover-chunk problem this scan covers only exists in dev, where
-  // output.clean is false; production cleans dist before compiling, so the
-  // directory read is skipped there.
+  // The leftover-chunk problem only exists in dev (output.clean false);
+  // production cleans dist first, so the directory read is skipped.
   const isDevModeBuild =
     (compilation.options?.mode || 'development') !== 'production'
 
@@ -372,7 +361,7 @@ export function generateManifestPatches(
         }
       }
     } catch {
-      // Fall back to emitted-only list.
+      // Ignore
     }
   }
 
@@ -468,7 +457,7 @@ export function generateManifestPatches(
           : 0
       console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
     } catch {
-      // ignore
+      // Ignore
     }
   }
 

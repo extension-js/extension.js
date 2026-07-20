@@ -42,15 +42,8 @@ export class CssPlugin {
     const usingSass = hasDependency(projectPath, 'sass')
     const usingLess = hasDependency(projectPath, 'less')
 
-    // We have two main loaders:
-    // 1. cssInContentScriptLoader - for CSS in content scripts
-    // 2. cssInHtmlLoader - for CSS in HTML
-    // The reason is that for content scripts we need to use the asset loader
-    // because it's a content script and we need to load it as an asset.
-    // For HTML we need to use the css loader because it's a HTML file
-    // and we need to load it as a CSS file.
-    // Trigger the optional-package contract so sass-loader / less-loader get
-    // resolved (and installed if missing) before the CSS loader chain runs.
+    // Two main loaders: cssInContentScriptLoader (assets) and cssInHtmlLoader.
+    // The optional-package contract resolves sass/less before the chain runs.
     await maybeUseSass(projectPath)
     await maybeUseLess(projectPath)
 
@@ -63,14 +56,8 @@ export class CssPlugin {
         useSass: usingSass,
         useLess: usingLess
       })),
-      // `?inline` stylesheet imports (vue-loader emits them for every <style>
-      // in a *.ce.vue custom-element SFC; Vite exposes the same convention)
-      // must resolve to the processed CSS as the module's default string
-      // export. The issuer-based rules above type these requests as native
-      // CSS (a module with no JS exports) which dead-links the importer's
-      // default import. Appended last with no `use`, this rule only flips the
-      // module type; the matching rules above still contribute the full
-      // PostCSS/Sass/Less loader chain exactly once.
+      // ?inline stylesheet imports (vue-loader emits them for *.ce.vue) must resolve
+      // to the CSS string default export; this rule only flips the module type.
       {
         test: /\.(css|sass|scss|less)$/,
         resourceQuery: /(\?|&)inline(&|$)/,
@@ -78,21 +65,16 @@ export class CssPlugin {
       }
     ]
 
-    // CSS output naming.  Rspack's native CSS (`experiments.css`) already
-    // bakes a content-hash into [name] for CSS chunks split from content-
-    // script imports (e.g. "content_scripts/styles.fe21de80.css"), so a
-    // plain [name].css is sufficient for both dev and production, no
-    // extra [fullhash] template is needed.
+    // Rspack's native CSS already bakes a content-hash into [name] for split CSS
+    // chunks, so plain [name].css suffices in dev and production.
     compiler.options.output.cssFilename = '[name].css'
     compiler.options.output.cssChunkFilename = '[name].css'
 
-    // Update compiler configuration
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
     ].filter(Boolean)
 
-    // Author mode: summarize CSS integrations and configs
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const integrations: string[] = []
       const usingTailwind = hasDependency(projectPath, 'tailwindcss')
@@ -124,19 +106,8 @@ export class CssPlugin {
     }
   }
 
-  /**
-   * A stylesheet url() whose file exists nowhere in the project is a fatal
-   * "Module not found" to rspack's CSS parser, but Chrome applies the rest
-   * of the stylesheet and 404s the reference silently (wild:
-   * mozilla/contain-facebook ships url(/img/login_continue_*.png) with no
-   * such files anywhere. The extension is store-published and works).
-   * Cancel these requests before resolution and warn instead, mirroring the
-   * dead-HTML-ref policy; EXTENSION_STRICT_REFS=true keeps them fatal.
-   * Only unambiguous file refs are tolerated, '/x' (extension root),
-   * './x'/'../x' (issuer-relative), and bare paths with a non-CSS asset
-   * extension. Bare specifiers without one stay with the resolver so
-   * node_modules @imports keep failing loudly when genuinely broken.
-   */
+  // A url() to a nonexistent file is fatal to rspack but Chrome 404s it silently
+  // and applies the rest; cancel and warn. EXTENSION_STRICT_REFS restores fatal.
   private tolerateDeadUrlRefs(compiler: Compiler) {
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || process.cwd()
@@ -234,10 +205,8 @@ export class CssPlugin {
       )
       return
     }
-    // dev/watch: beforeRun never fires, so begin configuring eagerly and also
-    // gate the first compilation on the same promise via watchRun. This closes
-    // the race where the compiler could read module.rules before the (async)
-    // loader-contract resolution finished mutating them.
+    // dev/watch: beforeRun never fires, so configure eagerly and gate the first
+    // compilation via watchRun, closing the race with async contract resolution.
     const configuring = this.configureOptions(compiler)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
     await configuring
@@ -245,7 +214,6 @@ export class CssPlugin {
 }
 
 function findBrowserslistSource(projectPath: string): string | undefined {
-  // package.json browserslist
   const packageJsonPath = path.join(projectPath, 'package.json')
   try {
     if (fs.existsSync(packageJsonPath)) {
@@ -253,9 +221,10 @@ function findBrowserslistSource(projectPath: string): string | undefined {
       const pkg = JSON.parse(raw || '{}')
       if (pkg?.browserslist) return `${packageJsonPath}#browserslist`
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
 
-  // .browserslistrc or browserslist
   const candidates = [
     '.browserslistrc',
     'browserslist',

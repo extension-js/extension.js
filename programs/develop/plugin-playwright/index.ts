@@ -19,7 +19,7 @@ import packageJson from '../package.json'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
 // 'stopped' is stamped at watch close so a dead session can never keep
-// advertising status:"ready" to controllers (§66/§71 honesty).
+// advertising status:"ready" to controllers.
 export type ReadyStatus = 'starting' | 'ready' | 'error' | 'stopped'
 
 export type ReadyMetadata = {
@@ -44,9 +44,8 @@ export type ReadyMetadata = {
   controlPath?: string
   logsPath?: string
   cdpPort?: number
-  // Provenance: which toolchain produced this tree, for which extension.
-  // ready.json doubles as a build receipt for one-shot `extension build`,
-  // so "what produced this, with what" must survive the terminal scrollback.
+  // Provenance: which toolchain produced this tree, for which extension;
+  // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string
   extensionName?: string
   extensionVersion?: string
@@ -54,11 +53,8 @@ export type ReadyMetadata = {
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
   browserExitCode?: number | null
-  // Runtime attachment signal. `status: 'ready'` means "compiled + dist written";
-  // these mean "the extension's service worker has connected to the control
-  // channel and can be driven", stamped by the control broker on the first
-  // producer hello, preserved across recompiles. Tooling that needs to act
-  // (storage/reload/eval) should wait for `runtime: 'attached'`, not just ready.
+  // Runtime attachment signal: 'ready' means compiled; these mean the SW has
+  // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached'
   executorAttachedAt?: string
 }
@@ -132,9 +128,8 @@ function createRunId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-// One runId per (project, browser) per process: the compiler plugin and the
-// dev-server create separate writers for the same session, and events.ndjson
-// entries must attribute to ONE run for consumers to build a timeline.
+// One runId per (project, browser) per process: compiler plugin and dev-server
+// create separate writers, and events must attribute to ONE run.
 const runIdByMetadataDir = new Map<string, string>()
 
 function getRunIdForSession(metadataDir: string): string {
@@ -166,7 +161,7 @@ function ensureDirSync(dirPath: string) {
   try {
     fs.mkdirSync(dirPath, {recursive: true})
   } catch {
-    // best-effort only
+    // Ignore
   }
 }
 
@@ -176,7 +171,7 @@ function writeJsonAtomic(filePath: string, value: unknown) {
     fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
     fs.renameSync(tmpPath, filePath)
   } catch {
-    // best-effort only
+    // Ignore
   }
 }
 
@@ -208,12 +203,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     return null
   }
 
-  // §65: a second command (build/preview/start) against a project whose
-  // (project, browser) contract is owned by a LIVE dev session must never
-  // rewrite that session's ready.json/events.ndjson — otherwise `stop`
-  // targets the wrong pid, doctor asserts a dead session, and a failed
-  // preview leaves "ready" pointing at a dead process. Detect the live owner
-  // once at writer creation and turn every write into a warned no-op.
+  // A second command against a project owned by a LIVE dev session must never
+  // rewrite that session's contracts; detect the owner once and no-op writes.
   const foreignLiveDevSession = (() => {
     if (options.command === 'dev') return null
     try {
@@ -277,12 +268,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
-    // Preserve fields the browser launcher wrote post-launch: ready.json is
-    // first written before the browser binds its debug port, so a recompile here
-    // must not clobber the real CDP port (read by the MCP source-inspect tool).
-    // Likewise browserExitedAt/browserExitCode, the launcher stamps them when
-    // the browser dies out from under a live session, and a compile succeeding
-    // afterwards must not erase that evidence (compiles don't need a browser).
+    // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
+    // evidence): a recompile must not clobber them.
     try {
       if (fs.existsSync(readyPath)) {
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
@@ -302,7 +289,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         }
       }
     } catch {
-      // ignore
+      // Ignore
     }
     writeJsonAtomic(readyPath, payload)
   }
@@ -317,7 +304,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         'utf-8'
       )
     } catch {
-      // best-effort only
+      // Ignore
     }
   }
 
@@ -327,14 +314,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     eventsPath,
     writeStarting() {
       if (foreignLiveDevSession) return
-      // A new run is the only truth (matching ready.json): reset the
-      // timeline so entries from prior runs don't interleave and a
-      // long-lived session can't grow the file unboundedly.
+      // A new run is the only truth: reset the timeline so prior-run entries don't
+      // interleave and the file can't grow unboundedly.
       ensureDirSync(metadataDir)
       try {
         fs.writeFileSync(eventsPath, '', 'utf-8')
       } catch {
-        // best-effort only
+        // Ignore
       }
       writeReady('starting')
     },
@@ -349,9 +335,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         compiledAt: null
       })
     },
-    // Stamp a terminal status at watch close so a controller can never read a
-    // green "ready" over a dead pid (§66/§71). Read-modify-write to keep the
-    // session's provenance (cdpPort, browser exit evidence) intact.
+    // Stamp a terminal status at watch close so a controller can never read green
+    // over a dead pid; read-modify-write keeps the session's provenance intact.
     writeShutdown() {
       if (foreignLiveDevSession) return
       try {
@@ -363,13 +348,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {
-        // best-effort only
+        // Ignore
       }
     },
-    // Stamp the runtime-attached signal when the extension's service worker
-    // first connects to the control channel. Read-modify-write so it never
-    // disturbs the compile status or the launcher-stamped cdpPort/exit fields;
-    // idempotent, so repeated SW reconnects don't rewrite the timestamp.
+    // Stamp the runtime-attached signal on first SW connect; read-modify-write and
+    // idempotent so reconnects don't disturb status or launcher-stamped fields.
     stampExecutorAttached() {
       try {
         if (!fs.existsSync(readyPath)) return
@@ -380,7 +363,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {
-        // best-effort only
+        // Ignore
       }
     },
     appendEvent
@@ -489,10 +472,8 @@ export class PlaywrightPlugin {
         command: this.command,
         browser: this.browser
       })
-      // The event alone leaves ready.json advertising "ready" for a pid that
-      // is about to be gone; controllers then dial a dead control port (§66).
-      // Dev only: a completed `start` run's ready.json is a receipt that
-      // --wait accepts after the process exits, and must stay "ready".
+      // The event alone leaves ready.json advertising "ready" for a dying pid. Dev
+      // only: a completed start run's ready.json is a receipt and must stay "ready".
       if (this.command === 'dev') this.writer.writeShutdown()
     })
   }

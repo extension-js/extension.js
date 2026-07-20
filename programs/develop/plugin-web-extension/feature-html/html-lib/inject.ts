@@ -9,8 +9,6 @@
 import * as parse5utilities from 'parse5-utilities'
 import {getFilePath} from './utils'
 
-// CSS link injection has been moved to plugin-css/css-lib/inject-css-link.ts
-
 export function injectJsScript(
   bodyNode: Parameters<typeof parse5utilities.append>[0],
   feature: string,

@@ -41,7 +41,9 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     for (const dir of createdDirs.splice(0, createdDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
   })
 

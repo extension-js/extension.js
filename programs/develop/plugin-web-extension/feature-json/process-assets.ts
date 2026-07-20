@@ -68,7 +68,6 @@ export function processJsonAssets(
           !relToPublic.startsWith('..') &&
           !path.isAbsolute(relToPublic)
 
-        // Missing file handling
         if (!fs.existsSync(abs)) {
           // Determine if the original authoring used an extension-root path ('/').
           // includeList values may be absolute or relative; prefer the raw provided value.
@@ -102,7 +101,7 @@ export function processJsonAssets(
           try {
             compilation.fileDependencies.add(abs)
           } catch {
-            // ignore
+            // Ignore
           }
           if (isCriticalJsonFeature(feature)) {
             const ok = validateJsonAsset(

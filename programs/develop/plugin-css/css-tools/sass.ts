@@ -37,12 +37,8 @@ export function isUsingSass(projectPath: string): boolean {
   return false
 }
 
-/**
- * Resolve the Sass implementation from the user's project first, then fall back
- * to the Extension.js cache/runtime. This mirrors the PostCSS/Tailwind
- * resolution strategy so we don't depend on Node resolving `sass` from the
- * loader path inside the npx cache.
- */
+// Resolve Sass from the user's project first, then the Extension.js cache,
+// mirroring the PostCSS/Tailwind strategy for npx-cache installs.
 export function resolveSassImplementation(
   projectPath: string
 ): AnyModule | undefined {
@@ -62,14 +58,13 @@ export function resolveSassImplementation(
 
       return mod
     } catch {
-      // Try next base
+      // Ignore
     }
   }
 
   try {
-    // Fallback to the Extension.js own optional dependency installation.
-    // This is primarily for npm/npx usage where we install SASS into the
-    // extension-develop cache directory.
+    // Fallback to Extension.js's own optional-dependency install, primarily for
+    // npm/npx usage installing SASS into the extension-develop cache.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     let mod = cjsRequire('sass')
 

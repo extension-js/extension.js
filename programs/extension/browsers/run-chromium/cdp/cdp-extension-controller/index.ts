@@ -163,7 +163,9 @@ export class CDPExtensionController {
 
         try {
           info = await this.cdp.getExtensionInfo(this.extensionId)
-        } catch {}
+        } catch {
+          // Ignore
+        }
 
         if (!info) {
           const manifest = JSON.parse(
@@ -182,7 +184,9 @@ export class CDPExtensionController {
           name: info?.extensionInfo?.name,
           version: info?.extensionInfo?.version
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
     }
 
     try {
@@ -320,9 +324,13 @@ export class CDPExtensionController {
             await this.cdp.enableRuntimeAndLog(sessionId)
           }
         }
-      } catch {}
+      } catch {
+        // Ignore
+      }
       // Filtering is performed in the caller using event metadata
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
 
   private async enableLogging() {
@@ -362,7 +370,9 @@ export class CDPExtensionController {
               console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
             }
           }
-        } catch {}
+        } catch {
+          // Ignore
+        }
       })
     } catch (e) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
@@ -408,7 +418,9 @@ export class CDPExtensionController {
           )
           name = manifest?.name
           version = manifest?.version
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
       return {extensionId: this.extensionId, name, version}
     } catch (error) {

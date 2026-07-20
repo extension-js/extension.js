@@ -11,12 +11,6 @@ import {setupAutoExit} from './auto-exit'
 import * as messages from './messages'
 import type {PortManager} from './port-manager'
 
-/**
- * Closes the dev server and terminates the port manager instance.
- *
- * @param devServer - The RspackDevServer instance
- * @param portManager - The PortManager instance
- */
 function closeAll(
   devServer: RspackDevServer,
   portManager: PortManager
@@ -24,35 +18,24 @@ function closeAll(
   return devServer
     .stop()
     .then(async () => {
-      // Terminate the current instance
       await portManager.terminateCurrentInstance()
       // Allow browser plugin signal handlers to complete cleanup
       setTimeout(() => process.exit(), 500)
     })
     .catch(async (error) => {
       console.log(messages.extensionJsRunnerError(error))
-      // Still try to terminate the instance
       await portManager.terminateCurrentInstance()
       // Allow browser plugin signal handlers to complete cleanup
       setTimeout(() => process.exit(1), 500)
     })
 }
 
-/**
- * Creates cleanup handlers for process termination and uncaught errors.
- * Registers signal handlers for graceful shutdown.
- *
- * @param devServer - The RspackDevServer instance
- * @param portManager - The PortManager instance
- * @returns A cleanup function and a cancel function for auto-exit
- */
 export function setupCleanupHandlers(
   devServer: RspackDevServer,
   portManager: PortManager
 ): () => void {
   let isShuttingDown = false
 
-  // Handle process termination
   const cleanup = async () => {
     if (isShuttingDown) return
     isShuttingDown = true
@@ -84,12 +67,11 @@ export function setupCleanupHandlers(
     cleanup
   )
 
-  // Ensure we clear timers before shutdown
   const cancelAndCleanup = async () => {
     try {
       cancelAutoExit()
     } catch {
-      // ignore cancellation errors
+      // Ignore
     }
     await cleanup()
   }

@@ -88,7 +88,9 @@ function preloadEnvFilesFromDir(
         break
       }
     }
-  } catch {}
+  } catch {
+    // Ignore
+  }
   return {loadedAny, envDir}
 }
 
@@ -176,7 +178,9 @@ async function loadConfigFileUncached(
         fs.writeFileSync(tmpPath, `${shimHeader}${replaced}`, 'utf-8')
         esmImportPath = tmpPath
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     try {
       const module = await import(pathToFileURL(esmImportPath).href)
@@ -185,7 +189,9 @@ async function loadConfigFileUncached(
       if (shimTmpDir) {
         try {
           fs.rmSync(shimTmpDir, {recursive: true, force: true})
-        } catch {}
+        } catch {
+          // Ignore
+        }
       }
     }
   } catch (err: unknown) {
@@ -229,7 +235,9 @@ async function loadConfigFileUncached(
               } finally {
                 try {
                   fs.rmSync(tmpDir, {recursive: true, force: true})
-                } catch {}
+                } catch {
+                  // Ignore
+                }
               }
             }
           } else {
@@ -238,7 +246,9 @@ async function loadConfigFileUncached(
         }
         return required?.default || required
       }
-    } catch {}
+    } catch {
+      // Ignore
+    }
 
     try {
       const content = fs.readFileSync(absolutePath, 'utf-8')
