@@ -4,19 +4,19 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import developPackageJson from '../package.json'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
 } from './optional-dependency-types'
-import developPackageJson from '../package.json'
 
 // Every package a contract can suggest installing is already bundled as a hard
 // dependency of extension-develop. Treat that package.json as the single source
 // of truth for versions so the install hints we print can never drift from what
 // actually ships (previously the versions were hand-duplicated here and had
-// silently diverged — e.g. hinting less-loader@12 while shipping 13).
+// silently diverged, e.g. hinting less-loader@12 while shipping 13).
 const BUNDLED_DEPENDENCY_VERSIONS: Record<string, string> = {
   ...((developPackageJson as {dependencies?: Record<string, string>})
     .dependencies || {})
@@ -49,13 +49,13 @@ function defineContract(
   return contract
 }
 
+// NOTE: there is deliberately no `typescript` contract. Nothing in the build
+// needs the package: sources are compiled by swc, and the classic-concat
+// loader strips types with swc too. It was only ever satisfiable because
+// extension-develop shipped a 24MB copy of its own; verifying it after that
+// copy was dropped would hard-fail every project that uses TypeScript without
+// declaring it (112 of 902 in the real-world corpus).
 const OPTIONAL_DEPENDENCY_CONTRACTS = {
-  typescript: defineContract({
-    id: 'typescript',
-    integration: 'TypeScript',
-    installPackages: specs(['typescript']),
-    verificationRules: installRootRules(['typescript'])
-  }),
   'react-refresh': defineContract({
     id: 'react-refresh',
     integration: 'React',
@@ -124,8 +124,10 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   svelte: defineContract({
     id: 'svelte',
     integration: 'Svelte',
-    installPackages: specs(['typescript', 'svelte-loader']),
-    verificationRules: installRootRules(['typescript', 'svelte-loader'])
+    // svelte-loader only. It does not depend on typescript, and requiring it
+    // here would hard-fail Svelte projects that never asked for TypeScript.
+    installPackages: specs(['svelte-loader']),
+    verificationRules: installRootRules(['svelte-loader'])
   }),
   less: defineContract({
     id: 'less',
