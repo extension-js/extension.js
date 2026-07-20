@@ -21,6 +21,13 @@
 import * as fs from 'fs'
 import {createRequire} from 'module'
 
+// NOTE: the `typescript` runtime dependency must stay on the 6.x line. This
+// file is the only consumer of the TypeScript *JS API* (transpileModule,
+// createSourceFile and the AST predicates below); TypeScript 7 is the native
+// Go port and its npm package exports nothing but `version` /
+// `versionMajorMinor`, so a 7.x bump turns both helpers into TypeErrors at
+// build time. Tooling that only shells out to `tsc` (the repo's own
+// typecheck, the scaffolded templates) is free to move to 7.
 const requireModule = createRequire(import.meta.url)
 
 // A classic-concat group member may be a TypeScript source (a tsc-compiled
