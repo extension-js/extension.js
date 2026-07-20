@@ -20,8 +20,10 @@ export class AddDependencies {
     compiler.hooks.afterCompile.tap(
       'manifest:add-dependency',
       (compilation) => {
-        if (compilation.errors?.length) return
-
+        // Register even when the compile errored: the watcher only watches the
+        // LAST compilation's fileDependencies, so skipping here would unwatch
+        // the manifest for the rest of the session and a manifest fix could
+        // never trigger the recompile that clears the error (§66).
         const deps = compilation.fileDependencies
 
         if (this.dependencyList) {

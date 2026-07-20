@@ -85,4 +85,27 @@ describe('ready.json writer preservation', () => {
     expect('runtime' in after).toBe(false)
     expect('executorAttachedAt' in after).toBe(false)
   })
+
+  it('writeShutdown flips status to stopped, keeping session provenance (§66)', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.cdpPort = 9223
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeShutdown()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('stopped')
+    expect(after.code).toBe('shutdown')
+    expect(after.cdpPort).toBe(9223)
+    expect(after.runId).toBe(ready.runId)
+  })
+
+  it('writeShutdown is a no-op when no contract was ever written', () => {
+    const writer = makeWriter()
+    writer.writeShutdown()
+    expect(fs.existsSync(writer.readyPath)).toBe(false)
+  })
 })
