@@ -390,9 +390,15 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const executed: Array<{target: {tabId: number}}> = []
     const ws = setup({
       scripting: {
-        executeScript: (opts: {target: {tabId: number}}) => {
+        // Run the injected func like Chrome would, so the §61 wrapper
+        // protocol round-trips through the real code path.
+        executeScript: (opts: {
+          target: {tabId: number}
+          func: (...a: unknown[]) => unknown
+          args?: unknown[]
+        }) => {
           executed.push(opts)
-          return Promise.resolve([{result: 42}])
+          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
         }
       },
       tabs: {
@@ -410,7 +416,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       cmdId: 'e-url',
       op: 'eval',
       target: {context: 'content', url: 'https://example.com/*'},
-      args: {expression: '1'}
+      args: {expression: '40 + 2'}
     })
     await flush()
     expect(executed).toHaveLength(1)
@@ -425,9 +431,13 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const executed: Array<{target: {tabId: number}}> = []
     const ws = setup({
       scripting: {
-        executeScript: (opts: {target: {tabId: number}}) => {
+        executeScript: (opts: {
+          target: {tabId: number}
+          func: (...a: unknown[]) => unknown
+          args?: unknown[]
+        }) => {
           executed.push(opts)
-          return Promise.resolve([{result: 'ok'}])
+          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
         }
       },
       tabs: {
@@ -468,6 +478,227 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(results(ws).find((f) => f.cmdId === 'e-none')).toMatchObject({
       ok: false,
       error: {name: 'Unsupported'}
+    })
+  })
+
+  it('eval content: a null injection result is an error, never ok:true null (§61)', async () => {
+    // Chrome resolves executeScript with a null result when no frame ran the
+    // function (restricted page) — that must not surface as success.
+    const ws = setup({
+      scripting: {executeScript: () => Promise.resolve([{result: null}])},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-null',
+      op: 'eval',
+      target: {context: 'content', tabId: 7},
+      args: {expression: '1'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-null')
+    expect(r).toMatchObject({ok: false, error: {name: 'EvalError'}})
+    expect(r.error.message).toContain('never executed')
+  })
+
+  it('eval content: a CSP-blocked eval inside the tab reports Unsupported with the MAIN-world alternative (§61)', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () =>
+          Promise.resolve([
+            {
+              result: {
+                __extjsEval: 1,
+                ok: false,
+                name: 'EvalError',
+                message:
+                  "Refused to evaluate a string of JavaScript because 'unsafe-eval' is not allowed"
+              }
+            }
+          ])
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-csp',
+      op: 'eval',
+      target: {context: 'content', tabId: 7},
+      args: {expression: 'console.log("x")'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-csp')
+    expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
+    expect(r.error.message).toContain('--context page')
+  })
+
+  it('eval popup routes through the surface relay, mirroring inspect (§62)', async () => {
+    const sent: any[] = []
+    const ws = setup({
+      runtime: {
+        sendMessage: (msg: any, cb: (r: any) => void) => {
+          sent.push(msg)
+          cb({ok: true, value: 7})
+        },
+        lastError: undefined
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-popup',
+      op: 'eval',
+      target: {context: 'popup'},
+      args: {expression: '3 + 4'}
+    })
+    await flush()
+    expect(sent).toHaveLength(1)
+    expect(sent[0].__extjsEvalRequest).toBe(true)
+    expect(sent[0].target.context).toBe('popup')
+    expect(results(ws).find((f) => f.cmdId === 'e-popup')).toMatchObject({
+      ok: true,
+      value: 7
+    })
+  })
+
+  it('eval popup with the surface closed reports Unsupported, not a tabId demand (§62)', async () => {
+    const ws = setup({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        lastError: undefined
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-closed',
+      op: 'eval',
+      target: {context: 'sidebar'},
+      args: {expression: '1'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-closed')
+    expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
+    expect(r.error.message).toContain('not open')
+    expect(r.error.message).not.toContain('tabId')
+  })
+
+  it('eval in an unknown context is BadRequest, not a tabId demand (§62)', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-unknown',
+      op: 'eval',
+      target: {context: 'frob'},
+      args: {expression: '1'}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-unknown')).toMatchObject({
+      ok: false,
+      error: {name: 'BadRequest'}
+    })
+  })
+
+  it('tabs.query works on a callback-only chrome.* (Gecko MV2, §70)', async () => {
+    // Gecko's chrome.tabs.query returns undefined (callback-only): the §70
+    // crash was `.then` on that undefined.
+    const ws = setup({
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          if (typeof cb !== 'function') return undefined
+          cb([
+            {
+              id: 4,
+              url: 'https://a.test/',
+              title: 'A',
+              active: true,
+              windowId: 1
+            }
+          ])
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 't-cb',
+      op: 'tabs.query',
+      target: {context: 'background'},
+      args: {}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 't-cb')).toMatchObject({
+      ok: true,
+      value: [{id: 4, url: 'https://a.test/', title: 'A'}]
+    })
+  })
+
+  it('tabs.query prefers the promisified browser.* namespace when present (§70)', async () => {
+    let browserUsed = false
+    const ws = setup(
+      {
+        tabs: {
+          query: () => {
+            throw new Error(
+              'chrome.* path must not be used when browser.* exists'
+            )
+          }
+        }
+      },
+      {
+        browser: {
+          tabs: {
+            query: () => {
+              browserUsed = true
+              return Promise.resolve([
+                {
+                  id: 9,
+                  url: 'https://b.test/',
+                  title: 'B',
+                  active: false,
+                  windowId: 2
+                }
+              ])
+            }
+          }
+        }
+      }
+    )
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 't-browser',
+      op: 'tabs.query',
+      target: {context: 'background'},
+      args: {}
+    })
+    await flush()
+    expect(browserUsed).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 't-browser')).toMatchObject({
+      ok: true,
+      value: [{id: 9}]
+    })
+  })
+
+  it('tab reload works on a callback-only chrome.* (Gecko MV2, §70)', async () => {
+    const reloaded: number[] = []
+    const ws = setup({
+      tabs: {
+        reload: (id: number, cb?: () => void) => {
+          reloaded.push(id)
+          if (typeof cb === 'function') cb()
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-cb',
+      op: 'reload',
+      target: {context: 'content', tabId: 12}
+    })
+    await flush()
+    expect(reloaded).toEqual([12])
+    expect(results(ws).find((f) => f.cmdId === 'r-cb')).toMatchObject({
+      ok: true,
+      value: {reloaded: 12}
     })
   })
 
@@ -708,25 +939,27 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
-    expect(listeners.length).toBe(1)
+    // One listener for surface eval (§62), one for surface inspect.
+    expect(listeners.length).toBe(2)
+    const dispatch = (msg: any, respond: (r: any) => void) => {
+      for (const fn of listeners) fn(msg, {}, respond)
+    }
 
     // Non-matching context → no response.
     let responded: any = 'NONE'
-    listeners[0](
+    dispatch(
       {__extjsInspectRequest: true, target: {context: 'options'}},
-      {},
       (r: any) => (responded = r)
     )
     expect(responded).toBe('NONE')
 
     // Matching context → DOM snapshot.
-    listeners[0](
+    dispatch(
       {
         __extjsInspectRequest: true,
         target: {context: 'popup'},
         args: {include: ['summary']}
       },
-      {},
       (r: any) => (responded = r)
     )
     expect(responded).toMatchObject({
@@ -734,6 +967,60 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       value: {context: 'popup', title: 'Popup'}
     })
     expect(responded.value.summary.bodyChildCount).toBe(1)
+  })
+
+  it('the relay answers a surface eval request for its own context (§62)', () => {
+    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'chrome-extension://abc/popup.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+    const dispatch = (msg: any, respond: (r: any) => void) => {
+      for (const fn of listeners) fn(msg, {}, respond)
+    }
+
+    // Non-matching context → silence.
+    let responded: any = 'NONE'
+    dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'options'},
+        args: {expression: '1'}
+      },
+      (r: any) => (responded = r)
+    )
+    expect(responded).toBe('NONE')
+
+    // Matching context → evaluated value.
+    dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'popup'},
+        args: {expression: '20 + 3'}
+      },
+      (r: any) => (responded = r)
+    )
+    expect(responded).toMatchObject({ok: true, value: 23})
+
+    // A throw comes back as an explicit error, never a silent null.
+    dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'popup'},
+        args: {expression: 'nope.nope'}
+      },
+      (r: any) => (responded = r)
+    )
+    expect(responded.ok).toBe(false)
+    expect(responded.error.name).toBeTruthy()
   })
 
   it('the relay (content) forwards console over a NAMED runtime.Port, never sendMessage (echo-SW loop guard)', () => {
