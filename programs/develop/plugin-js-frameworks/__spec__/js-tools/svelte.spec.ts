@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {pathPattern} from '../../../lib/__spec__/platform-utils'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
@@ -66,7 +66,9 @@ describe('svelte tools', () => {
         }
       }
     }
-    result?.plugins?.forEach((pl: any) => pl.apply(compiler))
+    result?.plugins?.forEach((pl: any) => {
+      pl.apply(compiler)
+    })
     expect(compiler.options.resolve.mainFields).toEqual([])
     expect(compiler.options.resolve.extensions).toContain('.svelte')
     expect(compiler.options.resolve.conditionNames).toEqual([

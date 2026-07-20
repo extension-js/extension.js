@@ -254,7 +254,7 @@ function resolveMissingOptionalDeps(
 
     integrations.push(integration)
     dependenciesByIntegration[integration] = missingForIntegration
-    missingForIntegration.forEach((dep) => missing.add(dep))
+    for (const dep of missingForIntegration) missing.add(dep)
   }
 
   return {

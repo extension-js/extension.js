@@ -150,7 +150,7 @@ function getReachableChunks(
   for (const x of chunkGroup.getChildren()) {
     if (visitedChunkGroups.has(x)) continue
     visitedChunkGroups.add(x)
-    x.chunks.forEach((c: any) => reachableChunks.add(c))
+    for (const c of x.chunks) reachableChunks.add(c)
     getReachableChunks(x, reachableChunks, visitedChunkGroups)
   }
   return reachableChunks

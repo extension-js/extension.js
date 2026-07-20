@@ -1,28 +1,25 @@
-import {describe, it, expect, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 // Mock the RDP messaging client so connectClient() runs without a real socket.
 // A minimal on/emit lets us simulate the transport "reconnected" event.
-vi.mock(
-  '../../../../run-firefox/rdp/remote-firefox/messaging-client',
-  () => {
-    class FakeMessagingClient {
-      _handlers: Record<string, Array<(...a: unknown[]) => void>> = {}
-      async connect() {}
-      async request() {
-        return {}
-      }
-      disconnect() {}
-      on(ev: string, fn: (...a: unknown[]) => void) {
-        ;(this._handlers[ev] ||= []).push(fn)
-        return this
-      }
-      emit(ev: string, ...a: unknown[]) {
-        ;(this._handlers[ev] || []).forEach((f) => f(...a))
-      }
+vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
+  class FakeMessagingClient {
+    _handlers: Record<string, Array<(...a: unknown[]) => void>> = {}
+    async connect() {}
+    async request() {
+      return {}
     }
-    return {MessagingClient: FakeMessagingClient}
+    disconnect() {}
+    on(ev: string, fn: (...a: unknown[]) => void) {
+      ;(this._handlers[ev] ||= []).push(fn)
+      return this
+    }
+    emit(ev: string, ...a: unknown[]) {
+      for (const f of this._handlers[ev] || []) f(...a)
+    }
   }
-)
+  return {MessagingClient: FakeMessagingClient}
+})
 
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 

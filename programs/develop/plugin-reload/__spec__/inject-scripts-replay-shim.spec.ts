@@ -36,7 +36,9 @@ function makeCompiler() {
   }
   return {
     compiler,
-    runProcessAssets: () => processAssetsTaps.forEach((entry) => entry.cb()),
+    runProcessAssets: () => {
+      for (const entry of processAssetsTaps) entry.cb()
+    },
     setAsset: (name: string, body: string) => {
       compilation.__assets[name] = {
         name,
