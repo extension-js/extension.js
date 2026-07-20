@@ -30,7 +30,7 @@ export function handleStaticAsset(
   includeList: FilepathList,
   extname: string,
   childNode: parse5utilities.ParsedNode
-) {
+): parse5utilities.ParsedNode {
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
     path.posix.join('/', cleanPath) + (search || '') + (hash || '')

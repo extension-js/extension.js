@@ -53,6 +53,8 @@
     {
       "includes": [
         "programs/develop/plugin-web-extension/**",
+        "programs/extension/browsers/run-chromium/cdp/**",
+        "programs/extension/browsers/run-firefox/rdp/**",
         "!**/__spec__/**"
       ],
       "linter": {
