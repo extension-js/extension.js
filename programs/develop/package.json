@@ -7,7 +7,7 @@
     "directory": "programs/develop"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
   },
   "exports": {
     ".": {

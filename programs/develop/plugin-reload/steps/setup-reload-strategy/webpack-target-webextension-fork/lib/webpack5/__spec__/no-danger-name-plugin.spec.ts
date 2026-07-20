@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import NoDangerNamePlugin from '../NoDangerNamePlugin'
 
 // Minimal webpack stand-in: capture the processAssets tap the plugin registers
@@ -12,7 +12,10 @@ function runPluginOn(assetNames: string[]): string[] {
     errors,
     hooks: {
       processAssets: {
-        tap: (_opts: unknown, cb: (assets: Record<string, unknown>) => void) => {
+        tap: (
+          _opts: unknown,
+          cb: (assets: Record<string, unknown>) => void
+        ) => {
           processAssetsCb = cb
         }
       }
@@ -32,7 +35,8 @@ function runPluginOn(assetNames: string[]): string[] {
     },
     hooks: {
       thisCompilation: {
-        tap: (_name: string, cb: (c: typeof compilation) => void) => cb(compilation)
+        tap: (_name: string, cb: (c: typeof compilation) => void) =>
+          cb(compilation)
       }
     }
   }
@@ -68,7 +72,9 @@ describe('NoDangerNamePlugin', () => {
   })
 
   it('leaves ordinary output names untouched', () => {
-    expect(runPluginOn(['manifest.json', 'content_scripts/content-0.js'])).toEqual([])
+    expect(
+      runPluginOn(['manifest.json', 'content_scripts/content-0.js'])
+    ).toEqual([])
   })
 
   it('still catches a dangerous name emitted alongside allowed reserved dirs', () => {
