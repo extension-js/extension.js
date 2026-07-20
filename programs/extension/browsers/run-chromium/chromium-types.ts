@@ -8,6 +8,7 @@
 
 import type {
   BrowserLogger,
+  BrowserLogSink,
   Controller,
   LogLevel,
   PluginInterface
@@ -84,7 +85,14 @@ export interface ChromiumLaunchOptions
     | 'logColor'
     | 'logUrl'
     | 'logTab'
-  > {}
+  > {
+  /**
+   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
+   * (E21). Wired by the dev server through the launcher; absent in
+   * preview/run-only flows.
+   */
+  logSink?: BrowserLogSink
+}
 
 /**
  * Runtime state in Chromium flow.
@@ -149,11 +157,13 @@ export interface CdpRemoteObject {
 
 /** A CDP `Log.LogEntry` as delivered by `Log.entryAdded`. */
 export interface CdpLogEntry {
+  source?: string
   level?: string
   text?: string
   url?: string
   lineNumber?: number
   columnNumber?: number
+  timestamp?: number
 }
 
 /** A CDP `Runtime.StackTrace`, only the top call frame fields are read. */
