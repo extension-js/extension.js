@@ -4,7 +4,7 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 // Classic content-script concatenation loader.
 //
@@ -21,31 +21,33 @@
 import * as fs from 'fs'
 import {createRequire} from 'module'
 
-// NOTE: the `typescript` runtime dependency must stay on the 6.x line. This
-// file is the only consumer of the TypeScript *JS API* (transpileModule,
-// createSourceFile and the AST predicates below); TypeScript 7 is the native
-// Go port and its npm package exports nothing but `version` /
-// `versionMajorMinor`, so a 7.x bump turns both helpers into TypeErrors at
-// build time. Tooling that only shells out to `tsc` (the repo's own
-// typecheck, the scaffolded templates) is free to move to 7.
 const requireModule = createRequire(import.meta.url)
 
 // A classic-concat group member may be a TypeScript source (a tsc-compiled
 // extension re-pointed at its sources: background.scripts [bloomfilter.ts,
 // background.ts]). Raw TS in the concatenated output is a JS parse error
-// ("Unexpected token `:`"), so strip types per file before concatenating —
-// single-file transpileModule keeps classic (non-module) semantics because
-// the concat gate already guarantees no top-level import/export. typescript
-// is loaded lazily so plain-JS groups never pay the compiler's startup cost.
+// ("Unexpected token `:`"), so strip types per file before concatenating.
+//
+// This uses the swc that rspack already bundles (`@rspack/core` is a declared
+// dependency, so nothing extra ships) rather than the TypeScript compiler:
+// TypeScript 7 is the native port and its npm package no longer exports a JS
+// API at all, and the 24MB `typescript` dependency existed solely for this
+// file. swc is loaded lazily so plain-JS groups never pay for it.
+//
+// `isModule: false` is what keeps classic (non-module) semantics, and it also
+// avoids the `"use strict"` prologue tsc emitted here. That prologue was a
+// latent bug: the concat wrapper puts every member inside one function body and
+// comments do not interrupt a directive prologue, so a .ts file sorted FIRST in
+// a group silently made every other file in that group strict, breaking classic
+// scripts that assign implicit globals.
 function transpileClassicTs(file: string, content: string): string {
-  const ts = requireModule('typescript')
-  return ts.transpileModule(content, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ESNext,
-      module: ts.ModuleKind.ESNext
-    },
-    fileName: file
-  }).outputText
+  const {experiments} = requireModule('@rspack/core')
+  return experiments.swc.transformSync(content, {
+    filename: file,
+    jsc: {parser: {syntax: 'typescript'}, target: 'esnext'},
+    isModule: false,
+    sourceMaps: false
+  }).code
 }
 
 // Names that must never be bridged onto the global: the four UMD-shadowing
@@ -62,83 +64,115 @@ const EXPOSE_SKIP = new Set([
   'this'
 ])
 
-/**
- * Collect the declarations a classic script hangs on the page's global scope:
- * top-level `var`/`function`/`class`/`let`/`const`, plus `var` hoisted out of
- * nested blocks (if/for/try) — function and class bodies don't leak. The
- * concat wrapper turns all of these into function-scoped locals, so without a
- * bridge an INLINE <script> consumer (`Handlebars.compile(...)` beside a
- * <script src> handlebars) throws ReferenceError in the built page while the
- * same page works in Chrome unbundled.
- */
-function collectClassicGlobalNames(file: string, content: string): string[] {
-  const ts = requireModule('typescript')
-  const sourceFile = ts.createSourceFile(
-    file,
-    content,
-    ts.ScriptTarget.ESNext,
-    false,
-    ts.ScriptKind.JS
-  )
+// Scopes whose bodies never leak a binding to the page global: a `var` inside
+// a function or class body is local to it. Blocks (if/for/try/switch/label)
+// are deliberately NOT here. `var` hoists straight out of them.
+//
+// Function/class DECLARATIONS are absent on purpose: the branch in visit()
+// above handles them (it records the name, then returns without descending),
+// so listing them here would be unreachable.
+const OPAQUE_SCOPES = new Set([
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+  'ClassExpression'
+])
+
+// Node keys that carry position/comment data rather than child nodes.
+const NON_CHILD_KEYS = new Set(['type', 'start', 'end', 'loc', 'range'])
+
+export function collectClassicGlobalNames(
+  _file: string,
+  content: string
+): string[] {
+  // acorn parses JavaScript only, which is all this ever sees, because TS
+  // members are transpiled above before they reach here (the previous
+  // implementation likewise parsed with ScriptKind.JS). It is ~570KB of plain
+  // JS with no native binary, where the TypeScript compiler it replaces was
+  // 24MB. Loaded lazily to match the transpile path.
+  const acorn = requireModule('acorn')
+  const ast = acorn.parse(content, {
+    ecmaVersion: 'latest',
+    // Classic scripts, never modules: the concat gate guarantees no top-level
+    // import/export, and script mode keeps sloppy-mode sources parseable.
+    sourceType: 'script',
+    allowReturnOutsideFunction: true,
+    allowAwaitOutsideFunction: true,
+    allowHashBang: true
+  })
   const names: string[] = []
 
-  const addBindingNames = (name: any) => {
-    if (ts.isIdentifier(name)) {
-      names.push(String(name.text))
-    } else if (
-      ts.isObjectBindingPattern(name) ||
-      ts.isArrayBindingPattern(name)
-    ) {
-      for (const element of name.elements) {
-        if (element && ts.isBindingElement(element)) {
-          addBindingNames(element.name)
+  // A binding target is either a plain identifier or a destructuring pattern;
+  // recurse so `var {a, b: {c}, ...rest} = o` contributes a, c and rest.
+  const addBindingNames = (node: any): void => {
+    if (!node || typeof node.type !== 'string') return
+    switch (node.type) {
+      case 'Identifier':
+        names.push(String(node.name))
+        return
+      case 'ObjectPattern':
+        for (const prop of node.properties) {
+          if (!prop) continue
+          // RestElement has `argument`; Property has `value` (the binding
+          // target, since `key` is the source property name, not a binding).
+          addBindingNames(
+            prop.type === 'RestElement' ? prop.argument : prop.value
+          )
         }
-      }
+        return
+      case 'ArrayPattern':
+        for (const element of node.elements) addBindingNames(element)
+        return
+      case 'AssignmentPattern':
+        // `var {a = 1} = o` / `var [b = 2] = arr`. The default is on the right.
+        addBindingNames(node.left)
+        return
+      case 'RestElement':
+        addBindingNames(node.argument)
+        return
+      default:
+        return
     }
   }
 
-  const visit = (node: any, topLevel: boolean) => {
-    if (ts.isVariableStatement(node)) {
-      const isVar =
-        (node.declarationList.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) === 0
+  const visit = (node: any, topLevel: boolean): void => {
+    if (!node || typeof node.type !== 'string') return
+
+    if (node.type === 'VariableDeclaration') {
       // let/const are lexical: only top-level ones are visible to later
-      // scripts; a nested var hoists to the global like Chrome does.
-      if (topLevel || isVar) {
-        for (const decl of node.declarationList.declarations) {
-          addBindingNames(decl.name)
+      // scripts; a nested var hoists to the global like Chrome does. This one
+      // check covers both statements and for/for-in/for-of heads, which the
+      // TypeScript implementation needed two separate branches for.
+      if (topLevel || node.kind === 'var') {
+        for (const declarator of node.declarations) {
+          addBindingNames(declarator.id)
         }
       }
       return
     }
-    if (ts.isVariableDeclarationList(node)) {
-      // A for/for-in/for-of head (`for (var i = 0; ...)`): its `var`
-      // bindings hoist to the global like any other var.
-      const isVar =
-        (node.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) === 0
-      if (isVar) {
-        for (const decl of node.declarations) {
-          addBindingNames(decl.name)
-        }
-      }
-      return
-    }
-    if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) {
-      if (topLevel && node.name) names.push(String(node.name.text))
-      // Never descend into function/class bodies — their vars stay local.
-      return
-    }
+
     if (
-      ts.isArrowFunction(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isClassExpression(node) ||
-      ts.isMethodDeclaration(node)
+      node.type === 'FunctionDeclaration' ||
+      node.type === 'ClassDeclaration'
     ) {
+      if (topLevel && node.id) names.push(String(node.id.name))
+      // Never descend into function/class bodies, their vars stay local.
       return
     }
-    ts.forEachChild(node, (child: any) => visit(child, false))
+
+    if (OPAQUE_SCOPES.has(node.type)) return
+
+    for (const key of Object.keys(node)) {
+      if (NON_CHILD_KEYS.has(key)) continue
+      const child = node[key]
+      if (Array.isArray(child)) {
+        for (const item of child) visit(item, false)
+      } else {
+        visit(child, false)
+      }
+    }
   }
 
-  for (const statement of sourceFile.statements) {
+  for (const statement of ast.body) {
     visit(statement, true)
   }
 
@@ -157,8 +191,7 @@ const BASE64 =
 
 // Text wrapped around the concatenated classic sources to neutralize the
 // CommonJS/AMD module system. See the block comment at the wrap site below.
-const CONCAT_UMD_WRAP_OPEN =
-  ';(function (module, exports, define, require) {'
+const CONCAT_UMD_WRAP_OPEN = ';(function (module, exports, define, require) {'
 const CONCAT_UMD_WRAP_CLOSE =
   '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
 
@@ -230,7 +263,7 @@ export default function classicConcatLoader(
   // Making `require`/`module`/`exports`/`define` function parameters fixes both:
   // rspack treats a locally-bound `require` as an ordinary variable and does NOT
   // collect its calls, and at runtime the guards see `undefined` and fall back to
-  // the global — exactly as when these files are injected as plain classic
+  // the global, exactly as when these files are injected as plain classic
   // scripts. Browserify/webpack-bundled libs keep working too: their *inner*
   // `function (require, module, exports)` params still shadow within their own
   // scope, so their self-contained relative requires resolve internally.
@@ -270,7 +303,7 @@ export default function classicConcatLoader(
     outputLines.push(`/* ${file} */`)
     lineMappings.push(null)
 
-    // File content — each line maps 1:1 to the original source file
+    // File content, each line maps 1:1 to the original source file
     const fileLines = content.split('\n')
     for (let lineNo = 0; lineNo < fileLines.length; lineNo++) {
       outputLines.push(fileLines[lineNo])
@@ -285,7 +318,7 @@ export default function classicConcatLoader(
   }
 
   // In the browser these files run as classic scripts, so their top-level
-  // declarations land on the page's global — an inline <script> on the same
+  // declarations land on the page's global, an inline <script> on the same
   // page (or any later non-bundled script) consumes them from there. The
   // wrapper above made them function-scoped, so bridge each collected name
   // back onto globalThis before the wrapper closes. Property assignment

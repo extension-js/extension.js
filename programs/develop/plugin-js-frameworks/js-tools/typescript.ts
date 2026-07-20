@@ -4,12 +4,11 @@
 // ██   ██║╚════██║╚════╝██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██║███╗██║██║   ██║██╔══██╗██╔═██╗ ╚════██║
 // ╚█████╔╝███████║      ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗╚███╔███╔╝╚██████╔╝██║  ██║██║  ██╗███████║
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 import colors from 'pintor'
-import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
@@ -119,8 +118,8 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       // Include typings for latest ECMAScript features and DOM APIs
       lib: ['dom', 'dom.iterable', 'esnext'],
       // Resolve the way the bundler does. 'node' (aka node10) was REMOVED in
-      // TypeScript 7 — scaffolding it made the generated tsconfig fail the
-      // user's own `tsc --noEmit` with TS5108 — and 'bundler' is the accurate
+      // TypeScript 7, scaffolding it made the generated tsconfig fail the
+      // user's own `tsc --noEmit` with TS5108, and 'bundler' is the accurate
       // model for the Rspack/SWC pipeline anyway. Matches every template.
       moduleResolution: 'bundler',
       // Use ES modules, which are the standard in modern browsers
@@ -197,11 +196,14 @@ export async function maybeUseTypeScript(
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 
-  await ensureOptionalContractPackageResolved({
-    contractId: 'typescript',
-    projectPath,
-    dependencyId: 'typescript'
-  })
-
+  // No `typescript` package is required to build a TypeScript extension:
+  // sources are compiled by swc (this flag only selects the swc parser
+  // syntax), and the classic-concat loader now strips types with swc too.
+  // Demanding the package here used to be harmless only because
+  // extension-develop shipped its own copy; once that 24MB dependency went
+  // away, the check would have hard-failed every project that uses TypeScript
+  // without declaring it: 112 of 902 (12.4%) of the real-world corpus.
+  // Whether to install `typescript` for editor tooling and `tsc --noEmit` is
+  // the project's call, not ours.
   return true
 }
