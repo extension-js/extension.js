@@ -8,7 +8,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Manifest} from '../../../types'
+import type {Manifest} from '../../../types'
 
 export interface FatalShapeFix {
   field: string
@@ -174,7 +174,8 @@ export function sanitizeFatalManifestShapes(
             })
           }
         }
-        if (dropped && Object.keys(icon).length === 0) delete action.default_icon
+        if (dropped && Object.keys(icon).length === 0)
+          delete action.default_icon
       }
     }
   }

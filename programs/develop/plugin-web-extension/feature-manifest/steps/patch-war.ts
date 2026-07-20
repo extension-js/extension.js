@@ -6,10 +6,10 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation, Compiler} from '@rspack/core'
-import {getSharedFor} from '../../feature-web-resources/web-resources-lib/shared'
+import {Compilation, type Compiler} from '@rspack/core'
+import type {DevOptions, PluginInterface} from '../../../types'
 import {generateManifestPatches} from '../../feature-web-resources/web-resources-lib/generate-manifest'
-import type {PluginInterface, DevOptions} from '../../../types'
+import {getSharedFor} from '../../feature-web-resources/web-resources-lib/shared'
 
 /**
  * Patches manifest.json with web_accessible_resources from content script

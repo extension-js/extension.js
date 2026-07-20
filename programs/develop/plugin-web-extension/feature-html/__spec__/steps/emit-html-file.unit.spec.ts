@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {EmitHtmlFile} from '../../steps/emit-html-file'
 
 function makeCompilation() {
@@ -9,7 +9,7 @@ function makeCompilation() {
   const innerCompilation: any = {
     hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
     warnings: state.warnings,
-    emitAsset: function (name: string, src: any) {
+    emitAsset: (name: string, src: any) => {
       assets[name] = src
     }
   }

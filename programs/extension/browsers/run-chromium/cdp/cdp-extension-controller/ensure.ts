@@ -8,7 +8,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {CDPClient} from '../cdp-client'
+import type {CDPClient} from '../cdp-client'
 import {findStaleUnpackedExtensionIds} from './ownership'
 
 // Evict any prior unpacked load of THIS project that the persistent profile

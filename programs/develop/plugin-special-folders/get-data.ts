@@ -6,12 +6,12 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
+import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 import fs from 'fs'
 import path from 'path'
-import {type Compiler} from '@rspack/core'
-import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import {type FilepathList} from '../types'
-import {type CompanionExtensionsConfig} from './folder-extensions/types'
+import type {FilepathList} from '../types'
+import type {CompanionExtensionsConfig} from './folder-extensions/types'
 
 // `scripts/` is a near-universal folder name for npm/CI build & dev tooling, but
 // Extension.js's `scripts/` special folder enrolls EVERY file in it as a
@@ -22,23 +22,86 @@ import {type CompanionExtensionsConfig} from './folder-extensions/types'
 // carries a `#!…node` shebang, is unambiguously build tooling — exclude it from
 // the `scripts/` scan instead of trying (and failing) to bundle it.
 const NODE_BUILTINS = new Set([
-  'assert', 'buffer', 'child_process', 'cluster', 'console', 'constants',
-  'crypto', 'dgram', 'dns', 'domain', 'events', 'fs', 'fs/promises', 'http',
-  'http2', 'https', 'inspector', 'module', 'net', 'os', 'path', 'perf_hooks',
-  'process', 'punycode', 'querystring', 'readline', 'repl', 'stream',
-  'string_decoder', 'timers', 'tls', 'trace_events', 'tty', 'url', 'util',
-  'v8', 'vm', 'worker_threads', 'zlib'
+  'assert',
+  'buffer',
+  'child_process',
+  'cluster',
+  'console',
+  'constants',
+  'crypto',
+  'dgram',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'fs/promises',
+  'http',
+  'http2',
+  'https',
+  'inspector',
+  'module',
+  'net',
+  'os',
+  'path',
+  'perf_hooks',
+  'process',
+  'punycode',
+  'querystring',
+  'readline',
+  'repl',
+  'stream',
+  'string_decoder',
+  'timers',
+  'tls',
+  'trace_events',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'worker_threads',
+  'zlib'
 ])
 
 // Node-only build/dev packages commonly required by `scripts/` tooling. A
 // browser content script would never depend on these.
 const NODE_BUILD_TOOLS = new Set([
-  'fs-extra', 'esbuild', 'playwright', 'playwright-core', 'puppeteer',
-  'puppeteer-core', 'webpack', 'rollup', 'vite', 'replace-in-file', 'zip-dir',
-  'archiver', 'adm-zip', 'chokidar', 'glob', 'fast-glob', 'rimraf', 'yargs',
-  'execa', 'cross-spawn', 'shelljs', 'web-ext', 'dotenv', 'node-fetch',
-  'minimist', 'ora', 'chalk', 'gulp', 'grunt', 'ncp', 'del', 'cpy', 'tsx',
-  'ts-node', 'nodemon', 'concurrently'
+  'fs-extra',
+  'esbuild',
+  'playwright',
+  'playwright-core',
+  'puppeteer',
+  'puppeteer-core',
+  'webpack',
+  'rollup',
+  'vite',
+  'replace-in-file',
+  'zip-dir',
+  'archiver',
+  'adm-zip',
+  'chokidar',
+  'glob',
+  'fast-glob',
+  'rimraf',
+  'yargs',
+  'execa',
+  'cross-spawn',
+  'shelljs',
+  'web-ext',
+  'dotenv',
+  'node-fetch',
+  'minimist',
+  'ora',
+  'chalk',
+  'gulp',
+  'grunt',
+  'ncp',
+  'del',
+  'cpy',
+  'tsx',
+  'ts-node',
+  'nodemon',
+  'concurrently'
 ])
 
 function importsNodeOnly(specifier: string): boolean {
@@ -76,7 +139,9 @@ function isNodeToolingScript(absPath: string): boolean {
   return false
 }
 
-function filterNodeToolingScripts(list: FilepathList | undefined): FilepathList {
+function filterNodeToolingScripts(
+  list: FilepathList | undefined
+): FilepathList {
   const next: FilepathList = {}
 
   for (const [key, value] of Object.entries(list || {})) {
@@ -113,8 +178,18 @@ function filterNodeToolingScripts(list: FilepathList | undefined): FilepathList 
 // (a script silently missing at runtime).
 
 const REFERENCE_SOURCE_EXTS = new Set([
-  '.html', '.htm', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts',
-  '.cts', '.vue', '.svelte'
+  '.html',
+  '.htm',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.vue',
+  '.svelte'
 ])
 
 // Directories that never hold hand-authored reference assets. `scripts/` is
@@ -123,8 +198,17 @@ const REFERENCE_SOURCE_EXTS = new Set([
 // inside scripts/ — including scripts/ would let a build script that reads a data
 // helper (`fs.readFile('scripts/cell.js')`) falsely "reference" it.
 const REFERENCE_SKIP_DIRS = new Set([
-  'node_modules', 'dist', 'build', 'out', '.output', 'coverage', '.next',
-  '.cache', '.git', '.turbo', 'scripts'
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  '.output',
+  'coverage',
+  '.next',
+  '.cache',
+  '.git',
+  '.turbo',
+  'scripts'
 ])
 
 const REFERENCE_MAX_FILES = 4000
@@ -240,7 +324,6 @@ function filterPublicEntrypoints(
       if (!isUnderPublicDir(value, projectRoot, publicDir)) {
         next[key] = value
       }
-      continue
     }
   }
 

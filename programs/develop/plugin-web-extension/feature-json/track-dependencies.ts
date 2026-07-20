@@ -6,9 +6,9 @@
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compilation} from '@rspack/core'
 import * as messages from './messages'
 
 export function trackJsonDependencies(

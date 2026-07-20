@@ -6,9 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Command} from 'commander'
 import fs from 'fs'
 import path from 'path'
-import type {Command} from 'commander'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 export function readRecentConsole(
@@ -235,20 +235,22 @@ export function registerActCommands(program: Command): void {
         '--tab <id>',
         'for content/page: a specific tab (default: the --url match, else the active tab)'
       )
-  ).action(async function (
-    expression: string,
-    projectPathArg: string,
-    opts: CommonActOptions
-  ) {
-    await runCommand({
-      projectPathArg,
-      op: 'eval',
-      target: targetFrom(opts),
-      args: {expression},
-      needsToken: true,
-      opts
-    })
-  })
+  ).action(
+    async (
+      expression: string,
+      projectPathArg: string,
+      opts: CommonActOptions
+    ) => {
+      await runCommand({
+        projectPathArg,
+        op: 'eval',
+        target: targetFrom(opts),
+        args: {expression},
+        needsToken: true,
+        opts
+      })
+    }
+  )
 
   // extension storage <get|set> [project-path]
   commonOptions(
@@ -268,49 +270,51 @@ export function registerActCommands(program: Command): void {
         '--context <background|popup|options|sidebar|content>',
         'target context (default background)'
       )
-  ).action(async function (
-    action: string,
-    projectPathArg: string,
-    opts: CommonActOptions & {area?: string; key?: string; value?: string}
-  ) {
-    const area = opts.area || 'local'
+  ).action(
+    async (
+      action: string,
+      projectPathArg: string,
+      opts: CommonActOptions & {area?: string; key?: string; value?: string}
+    ) => {
+      const area = opts.area || 'local'
 
-    if (action === 'get') {
-      await runCommand({
-        projectPathArg,
-        op: 'storage.get',
-        target: targetFrom(opts),
-        args: opts.key ? {area, key: opts.key} : {area},
-        opts
-      })
+      if (action === 'get') {
+        await runCommand({
+          projectPathArg,
+          op: 'storage.get',
+          target: targetFrom(opts),
+          args: opts.key ? {area, key: opts.key} : {area},
+          opts
+        })
 
-      return
-    }
-    if (action === 'set') {
-      if (!opts.key || opts.value == null) {
-        fail('storage set requires --key and --value')
+        return
+      }
+      if (action === 'set') {
+        if (!opts.key || opts.value == null) {
+          fail('storage set requires --key and --value')
+        }
+
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(opts.value as string)
+        } catch {
+          parsed = opts.value // fall back to a raw string value
+        }
+
+        await runCommand({
+          projectPathArg,
+          op: 'storage.set',
+          target: targetFrom(opts),
+          args: {area, items: {[opts.key as string]: parsed}},
+          opts
+        })
+
+        return
       }
 
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(opts.value as string)
-      } catch {
-        parsed = opts.value // fall back to a raw string value
-      }
-
-      await runCommand({
-        projectPathArg,
-        op: 'storage.set',
-        target: targetFrom(opts),
-        args: {area, items: {[opts.key as string]: parsed}},
-        opts
-      })
-
-      return
+      fail(`unknown storage action: ${action} (use get or set)`)
     }
-
-    fail(`unknown storage action: ${action} (use get or set)`)
-  })
+  )
 
   // extension reload [project-path]
   commonOptions(
@@ -325,7 +329,7 @@ export function registerActCommands(program: Command): void {
         'target context (default background)'
       )
       .option('--tab <id>', 'for content/page: a specific tab')
-  ).action(async function (projectPathArg: string, opts: CommonActOptions) {
+  ).action(async (projectPathArg: string, opts: CommonActOptions) => {
     await runCommand({
       projectPathArg,
       op: 'reload',
@@ -364,61 +368,63 @@ export function registerActCommands(program: Command): void {
         '--with-console [n]',
         'also include the last n console lines for the target (default 20)'
       )
-  ).action(async function (
-    projectPathArg: string,
-    opts: CommonActOptions & {
-      include?: string
-      maxBytes?: string
-      withConsole?: string | boolean
-      listTabs?: boolean
-    }
-  ) {
-    // --list-tabs is a discovery path: surface numeric tab ids so a caller can
-    // target eval/inspect explicitly. tabs.query needs no token or DOM. (#51)
-    if (opts.listTabs) {
+  ).action(
+    async (
+      projectPathArg: string,
+      opts: CommonActOptions & {
+        include?: string
+        maxBytes?: string
+        withConsole?: string | boolean
+        listTabs?: boolean
+      }
+    ) => {
+      // --list-tabs is a discovery path: surface numeric tab ids so a caller can
+      // target eval/inspect explicitly. tabs.query needs no token or DOM. (#51)
+      if (opts.listTabs) {
+        await runCommand({
+          projectPathArg,
+          op: 'tabs.query',
+          target: {context: 'background'},
+          args: {},
+          opts
+        })
+        return
+      }
+      const include = opts.include
+        ? opts.include
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : ['summary']
+      const target = targetFrom(opts, 'content')
       await runCommand({
         projectPathArg,
-        op: 'tabs.query',
-        target: {context: 'background'},
-        args: {},
-        opts
-      })
-      return
-    }
-    const include = opts.include
-      ? opts.include
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : ['summary']
-    const target = targetFrom(opts, 'content')
-    await runCommand({
-      projectPathArg,
-      op: 'inspect',
-      target,
-      args: {
-        include,
-        maxBytes: opts.maxBytes ? Number(opts.maxBytes) : undefined
-      },
-      opts,
-      augment: opts.withConsole
-        ? (projectPath, browser) => {
-            const n =
-              typeof opts.withConsole === 'string' && opts.withConsole !== ''
-                ? Number(opts.withConsole)
-                : 20
-            return {
-              console: readRecentConsole(
-                projectPath,
-                browser,
-                target,
-                Number.isFinite(n) && n > 0 ? n : 20
-              )
+        op: 'inspect',
+        target,
+        args: {
+          include,
+          maxBytes: opts.maxBytes ? Number(opts.maxBytes) : undefined
+        },
+        opts,
+        augment: opts.withConsole
+          ? (projectPath, browser) => {
+              const n =
+                typeof opts.withConsole === 'string' && opts.withConsole !== ''
+                  ? Number(opts.withConsole)
+                  : 20
+              return {
+                console: readRecentConsole(
+                  projectPath,
+                  browser,
+                  target,
+                  Number.isFinite(n) && n > 0 ? n : 20
+                )
+              }
             }
-          }
-        : undefined
-    })
-  })
+          : undefined
+      })
+    }
+  )
 
   // extension open <surface> [project-path]
   commonOptions(
@@ -432,31 +438,33 @@ export function registerActCommands(program: Command): void {
         '--name <command>',
         'with `open command`: the chrome.commands name to trigger'
       )
-  ).action(async function (
-    surface: string,
-    projectPathArg: string,
-    opts: CommonActOptions & {name?: string}
-  ) {
-    const allowed = ['popup', 'options', 'sidebar', 'action', 'command']
-    if (!allowed.includes(surface)) {
-      fail(
-        `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`
-      )
+  ).action(
+    async (
+      surface: string,
+      projectPathArg: string,
+      opts: CommonActOptions & {name?: string}
+    ) => {
+      const allowed = ['popup', 'options', 'sidebar', 'action', 'command']
+      if (!allowed.includes(surface)) {
+        fail(
+          `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`
+        )
+      }
+      // 'action' and 'command' replay a captured event in the service worker, so
+      // they route to the background context (UI surfaces map 1:1 to a context).
+      const inBackground = surface === 'action' || surface === 'command'
+      const context: ActContext = inBackground
+        ? 'background'
+        : (surface as ActContext)
+      const args: Record<string, unknown> = {surface}
+      if (surface === 'command' && opts.name) args.name = opts.name
+      await runCommand({
+        projectPathArg,
+        op: 'open',
+        target: {context},
+        args,
+        opts
+      })
     }
-    // 'action' and 'command' replay a captured event in the service worker, so
-    // they route to the background context (UI surfaces map 1:1 to a context).
-    const inBackground = surface === 'action' || surface === 'command'
-    const context: ActContext = inBackground
-      ? 'background'
-      : (surface as ActContext)
-    const args: Record<string, unknown> = {surface}
-    if (surface === 'command' && opts.name) args.name = opts.name
-    await runCommand({
-      projectPathArg,
-      op: 'open',
-      target: {context},
-      args,
-      opts
-    })
-  })
+  )
 }

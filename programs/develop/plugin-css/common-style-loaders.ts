@@ -6,13 +6,13 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type RuleSetRule} from '@rspack/core'
-import {isUsingTailwind} from './css-tools/tailwind'
-import {isUsingSass} from './css-tools/sass'
+import type {RuleSetRule} from '@rspack/core'
+import {resolveDevelopDistFile} from '../lib/develop-context'
+import type {DevOptions} from '../types'
 import {isUsingLess} from './css-tools/less'
 import {isUsingPostCss, maybeUsePostCss} from './css-tools/postcss'
-import {resolveDevelopDistFile} from '../lib/develop-context'
-import {type DevOptions} from '../types'
+import {isUsingSass} from './css-tools/sass'
+import {isUsingTailwind} from './css-tools/tailwind'
 
 export interface StyleLoaderOptions {
   mode: DevOptions['mode']
@@ -38,7 +38,9 @@ export async function commonStyleLoaders(
       // Pitches ahead of postcss-loader: a plain .css file that doesn't parse
       // ships verbatim with a warning instead of failing the build (G17) —
       // browsers error-recover invalid CSS, so the build must too.
-      styleLoaders.push({loader: resolveDevelopDistFile('css-parse-guard-loader')})
+      styleLoaders.push({
+        loader: resolveDevelopDistFile('css-parse-guard-loader')
+      })
       styleLoaders.push(maybeInstallPostCss as any)
     }
   }

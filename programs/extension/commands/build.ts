@@ -7,22 +7,22 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import * as messages from '../helpers/messages'
-import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
-import {commandDescriptions} from '../helpers/messages'
-import {parseExtensionsList} from '../helpers/normalize-options'
-import {
-  vendors,
-  validateVendorsOrExit,
-  isSafariVendor,
-  type Browser,
-  parseOptionalBoolean
-} from '../helpers/vendors'
 import {
   packageSafariExtension,
   safariBuildPreflight
 } from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
+import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
+import * as messages from '../helpers/messages'
+import {commandDescriptions} from '../helpers/messages'
+import {parseExtensionsList} from '../helpers/normalize-options'
+import {
+  type Browser,
+  isSafariVendor,
+  parseOptionalBoolean,
+  validateVendorsOrExit,
+  vendors
+} from '../helpers/vendors'
 
 type BuildOptions = {
   browser?: Browser | 'all'
@@ -109,127 +109,133 @@ export function registerBuildCommand(program: Command) {
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
-    .action(async function (
-      pathOrRemoteUrl: string,
-      {browser = 'chromium', ...buildOptions}: BuildOptions
-    ) {
-      if ((buildOptions as any).author || (buildOptions as any)['authorMode']) {
-        process.env.EXTENSION_AUTHOR_MODE = 'true'
-        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
-      }
+    .action(
+      async (
+        pathOrRemoteUrl: string,
+        {browser = 'chromium', ...buildOptions}: BuildOptions
+      ) => {
+        if (
+          (buildOptions as any).author ||
+          (buildOptions as any)['authorMode']
+        ) {
+          process.env.EXTENSION_AUTHOR_MODE = 'true'
+          if (!process.env.EXTENSION_VERBOSE)
+            process.env.EXTENSION_VERBOSE = '1'
+        }
 
-      const list = vendors(browser)
+        const list = vendors(browser)
 
-      validateVendorsOrExit(list, (invalid, supported) => {
-        // eslint-disable-next-line no-console
-        console.error(messages.unsupportedBrowserFlag(invalid, supported))
-      })
+        validateVendorsOrExit(list, (invalid, supported) => {
+          // eslint-disable-next-line no-console
+          console.error(messages.unsupportedBrowserFlag(invalid, supported))
+        })
 
-      // Validate --mode upfront so users get a clear error rather than a
-      // silent fall-through to the production default.
-      let mode: 'development' | 'production' | 'none' | undefined
-      if (typeof buildOptions.mode === 'string') {
-        const m = buildOptions.mode.trim().toLowerCase()
-        if (m === 'development' || m === 'production' || m === 'none') {
-          mode = m
-        } else {
+        // Validate --mode upfront so users get a clear error rather than a
+        // silent fall-through to the production default.
+        let mode: 'development' | 'production' | 'none' | undefined
+        if (typeof buildOptions.mode === 'string') {
+          const m = buildOptions.mode.trim().toLowerCase()
+          if (m === 'development' || m === 'production' || m === 'none') {
+            mode = m
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(
+              `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
+                `Expected one of: development, production, none.`
+            )
+            process.exit(1)
+          }
+        }
+
+        // Safari-only options are rejected for other targets so typos don't
+        // silently no-op; a malformed bundle id fails before any build.
+        const safariOnlyFlags = [
+          ['--open', buildOptions.open],
+          ['--app-name', buildOptions.appName],
+          ['--bundle-id', buildOptions.bundleId],
+          ['--force-regenerate', buildOptions.forceRegenerate]
+        ].filter(([, value]) => value !== undefined && value !== false)
+
+        if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
           // eslint-disable-next-line no-console
           console.error(
-            `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
-              `Expected one of: development, production, none.`
+            messages.safariOnlyOption(
+              safariOnlyFlags.map(([flag]) => flag as string)
+            )
           )
           process.exit(1)
         }
-      }
 
-      // Safari-only options are rejected for other targets so typos don't
-      // silently no-op; a malformed bundle id fails before any build.
-      const safariOnlyFlags = [
-        ['--open', buildOptions.open],
-        ['--app-name', buildOptions.appName],
-        ['--bundle-id', buildOptions.bundleId],
-        ['--force-regenerate', buildOptions.forceRegenerate]
-      ].filter(([, value]) => value !== undefined && value !== false)
-
-      if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
-        // eslint-disable-next-line no-console
-        console.error(
-          messages.safariOnlyOption(
-            safariOnlyFlags.map(([flag]) => flag as string)
-          )
-        )
-        process.exit(1)
-      }
-
-      if (buildOptions.bundleId && !isValidBundleId(buildOptions.bundleId)) {
-        // eslint-disable-next-line no-console
-        console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
-        process.exit(1)
-      }
-
-      // Safari packaging preflight. Non-macOS is a warn-and-skip (the
-      // web-extension bundle in dist/safari still builds and can be packaged
-      // later on a Mac); a macOS host with a broken/missing Xcode is fatal.
-      let safariPackagingEnabled = true
-      if (list.some(isSafariVendor)) {
-        const preflight = safariBuildPreflight()
-
-        if (preflight.severity === 'fatal') {
+        if (buildOptions.bundleId && !isValidBundleId(buildOptions.bundleId)) {
           // eslint-disable-next-line no-console
-          console.error(preflight.message)
+          console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
           process.exit(1)
         }
 
-        if (preflight.severity === 'skip') {
-          safariPackagingEnabled = false
-          // eslint-disable-next-line no-console
-          console.warn(preflight.message)
+        // Safari packaging preflight. Non-macOS is a warn-and-skip (the
+        // web-extension bundle in dist/safari still builds and can be packaged
+        // later on a Mac); a macOS host with a broken/missing Xcode is fatal.
+        let safariPackagingEnabled = true
+        if (list.some(isSafariVendor)) {
+          const preflight = safariBuildPreflight()
+
+          if (preflight.severity === 'fatal') {
+            // eslint-disable-next-line no-console
+            console.error(preflight.message)
+            process.exit(1)
+          }
+
+          if (preflight.severity === 'skip') {
+            safariPackagingEnabled = false
+            // eslint-disable-next-line no-console
+            console.warn(preflight.message)
+          }
+        }
+
+        const {extensionBuild}: {extensionBuild: any} =
+          await loadExtensionDevelopModule()
+
+        for (const vendor of list) {
+          await extensionBuild(pathOrRemoteUrl, {
+            browser: vendor as BuildOptions['browser'],
+            // CLI surface: a failed build ends this process with the clean
+            // error line. Library imports of extensionBuild reject instead.
+            exitOnError: true,
+            polyfill: buildOptions.polyfill,
+            zip: buildOptions.zip,
+            zipSource: buildOptions.zipSource,
+            zipFilename: buildOptions.zipFilename,
+            silent: buildOptions.silent,
+            install: buildOptions.install,
+            extensions: parseExtensionsList((buildOptions as any).extensions),
+            mode,
+            appName: buildOptions.appName,
+            bundleId: buildOptions.bundleId,
+            forceRegenerate: buildOptions.forceRegenerate,
+            safariPackager: safariPackagingEnabled
+              ? async (
+                  distPath: string,
+                  packagerMode: 'full' | 'resync',
+                  overrides?: Record<string, unknown>
+                ) => {
+                  await packageSafariExtension(
+                    {
+                      extension: [distPath],
+                      browser: vendor as Browser,
+                      // build is a packaging command: never open the app unless
+                      // explicitly asked (--open). dev keeps open-by-default.
+                      noOpen: buildOptions.open !== true,
+                      dryRun: false,
+                      ...overrides
+                    },
+                    distPath,
+                    undefined,
+                    packagerMode
+                  )
+                }
+              : undefined
+          })
         }
       }
-
-      const {extensionBuild}: {extensionBuild: any} =
-        await loadExtensionDevelopModule()
-
-      for (const vendor of list) {
-        await extensionBuild(pathOrRemoteUrl, {
-          browser: vendor as BuildOptions['browser'],
-          // CLI surface: a failed build ends this process with the clean
-          // error line. Library imports of extensionBuild reject instead.
-          exitOnError: true,
-          polyfill: buildOptions.polyfill,
-          zip: buildOptions.zip,
-          zipSource: buildOptions.zipSource,
-          zipFilename: buildOptions.zipFilename,
-          silent: buildOptions.silent,
-          install: buildOptions.install,
-          extensions: parseExtensionsList((buildOptions as any).extensions),
-          mode,
-          appName: buildOptions.appName,
-          bundleId: buildOptions.bundleId,
-          forceRegenerate: buildOptions.forceRegenerate,
-          safariPackager: safariPackagingEnabled
-            ? async (
-                distPath: string,
-                packagerMode: 'full' | 'resync',
-                overrides?: Record<string, unknown>
-              ) => {
-                await packageSafariExtension(
-                  {
-                    extension: [distPath],
-                    browser: vendor as Browser,
-                    // build is a packaging command: never open the app unless
-                    // explicitly asked (--open). dev keeps open-by-default.
-                    noOpen: buildOptions.open !== true,
-                    dryRun: false,
-                    ...overrides
-                  },
-                  distPath,
-                  undefined,
-                  packagerMode
-                )
-              }
-            : undefined
-        })
-      }
-    })
+    )
 }

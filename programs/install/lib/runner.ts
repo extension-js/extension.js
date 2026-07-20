@@ -6,11 +6,11 @@
 //  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import path from 'node:path'
-import fs from 'node:fs'
 import {spawnSync} from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import {spawn} from 'cross-spawn'
-import {InstallBrowserTarget} from './browser-target'
+import type {InstallBrowserTarget} from './browser-target'
 
 type PackageManagerName = 'pnpm' | 'yarn' | 'bun' | 'npm'
 
@@ -140,7 +140,7 @@ export async function runCommand(
 }
 
 export function edgeInstallNeedsInteractivePrivilegedSession(): boolean {
-  return process.platform === 'linux' && !Boolean(process.stdin?.isTTY)
+  return process.platform === 'linux' && !process.stdin?.isTTY
 }
 
 export function isEdgePrivilegeEscalationFailure(stderr: string): boolean {

@@ -6,7 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler, Compilation, WebpackError} from '@rspack/core'
+import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {isCanonicalContentScriptAsset} from '../contracts'
 
 /**

@@ -6,13 +6,13 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import {type Compilation} from '@rspack/core'
-import type {Manifest, DevOptions} from '../../../types'
-import {getManifestOverrides} from '../manifest-overrides'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {parseJsonSafe} from '../../../lib/parse-json-safe'
+import type {DevOptions, Manifest} from '../../../types'
+import {getManifestOverrides} from '../manifest-overrides'
 
 const cjsRequire = createRequire(import.meta.url)
 

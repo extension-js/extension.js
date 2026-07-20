@@ -7,20 +7,20 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
+import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
-import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {
-  vendors,
-  validateVendorsOrExit,
-  isSafariVendor,
-  type Browser
-} from '../helpers/vendors'
 import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {
+  type Browser,
+  isSafariVendor,
+  validateVendorsOrExit,
+  vendors
+} from '../helpers/vendors'
 
 type PreviewOptions = {
   browser?: Browser | 'all'
@@ -110,69 +110,72 @@ export function registerPreviewCommand(program: Command) {
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
-    .action(async function (
-      pathOrRemoteUrl: string,
-      {browser = 'chromium', ...previewOptions}: PreviewOptions
-    ) {
-      if (previewOptions.author || previewOptions['authorMode']) {
-        process.env.EXTENSION_AUTHOR_MODE = 'true'
-        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
+    .action(
+      async (
+        pathOrRemoteUrl: string,
+        {browser = 'chromium', ...previewOptions}: PreviewOptions
+      ) => {
+        if (previewOptions.author || previewOptions['authorMode']) {
+          process.env.EXTENSION_AUTHOR_MODE = 'true'
+          if (!process.env.EXTENSION_VERBOSE)
+            process.env.EXTENSION_VERBOSE = '1'
+        }
+
+        const list = vendors(browser)
+
+        validateVendorsOrExit(list, (invalid, supported) => {
+          // eslint-disable-next-line no-console
+          console.error(messages.unsupportedBrowserFlag(invalid, supported))
+        })
+
+        if (list.some(isSafariVendor)) {
+          console.error(messages.safariCommandNotSupported('preview'))
+          process.exit(1)
+        }
+
+        if (!process.env.EXTJS_LIGHT) {
+          const isRemote =
+            typeof pathOrRemoteUrl === 'string' &&
+            /^https?:/i.test(pathOrRemoteUrl)
+          if (isRemote) process.env.EXTJS_LIGHT = '1'
+        }
+
+        const {extensionPreview}: {extensionPreview: any} =
+          await loadExtensionDevelopPreviewModule()
+
+        for (const vendor of list) {
+          const logsOption = (previewOptions as unknown as {logs?: string}).logs
+          const logContextOption = (
+            previewOptions as unknown as {logContext?: string}
+          ).logContext
+
+          const logContexts = parseLogContexts(logContextOption)
+
+          await extensionPreview(
+            pathOrRemoteUrl,
+            {
+              mode: 'production',
+              profile: previewOptions.profile,
+              browser: vendor as PreviewOptions['browser'],
+              chromiumBinary: previewOptions.chromiumBinary,
+              geckoBinary: previewOptions.geckoBinary,
+              startingUrl: previewOptions.startingUrl,
+              port: previewOptions.port,
+              noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+              extensions: parseExtensionsList(previewOptions.extensions),
+              logLevel: logsOption || previewOptions.logLevel || 'off',
+              logContexts,
+              logFormat: previewOptions.logFormat || 'pretty',
+              logTimestamps: previewOptions.logTimestamps !== false,
+              logColor: previewOptions.logColor !== false,
+              logUrl: previewOptions.logUrl,
+              logTab: previewOptions.logTab
+            },
+            // Browser launcher callback — runs browser code from extension/browser/
+            // without pulling rspack into the preview path
+            (opts: any) => runOnlyPreviewBrowser(opts)
+          )
+        }
       }
-
-      const list = vendors(browser)
-
-      validateVendorsOrExit(list, (invalid, supported) => {
-        // eslint-disable-next-line no-console
-        console.error(messages.unsupportedBrowserFlag(invalid, supported))
-      })
-
-      if (list.some(isSafariVendor)) {
-        console.error(messages.safariCommandNotSupported('preview'))
-        process.exit(1)
-      }
-
-      if (!process.env.EXTJS_LIGHT) {
-        const isRemote =
-          typeof pathOrRemoteUrl === 'string' &&
-          /^https?:/i.test(pathOrRemoteUrl)
-        if (isRemote) process.env.EXTJS_LIGHT = '1'
-      }
-
-      const {extensionPreview}: {extensionPreview: any} =
-        await loadExtensionDevelopPreviewModule()
-
-      for (const vendor of list) {
-        const logsOption = (previewOptions as unknown as {logs?: string}).logs
-        const logContextOption = (
-          previewOptions as unknown as {logContext?: string}
-        ).logContext
-
-        const logContexts = parseLogContexts(logContextOption)
-
-        await extensionPreview(
-          pathOrRemoteUrl,
-          {
-            mode: 'production',
-            profile: previewOptions.profile,
-            browser: vendor as PreviewOptions['browser'],
-            chromiumBinary: previewOptions.chromiumBinary,
-            geckoBinary: previewOptions.geckoBinary,
-            startingUrl: previewOptions.startingUrl,
-            port: previewOptions.port,
-            noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-            extensions: parseExtensionsList(previewOptions.extensions),
-            logLevel: logsOption || previewOptions.logLevel || 'off',
-            logContexts,
-            logFormat: previewOptions.logFormat || 'pretty',
-            logTimestamps: previewOptions.logTimestamps !== false,
-            logColor: previewOptions.logColor !== false,
-            logUrl: previewOptions.logUrl,
-            logTab: previewOptions.logTab
-          },
-          // Browser launcher callback — runs browser code from extension/browser/
-          // without pulling rspack into the preview path
-          (opts: any) => runOnlyPreviewBrowser(opts)
-        )
-      }
-    })
+    )
 }

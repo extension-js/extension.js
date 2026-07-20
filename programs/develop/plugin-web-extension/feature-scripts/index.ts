@@ -6,15 +6,15 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
-import {AddScripts} from './steps/add-scripts'
+import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
+import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
+import {AddScripts} from './steps/add-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
-import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {ValidateContentScriptSyntax} from './steps/validate-content-script-syntax'
-import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
  * Feature-scripts is the official scripts pipeline:

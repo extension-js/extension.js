@@ -6,13 +6,13 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {CDPClient} from '../cdp-client'
+import * as messages from '../../../browsers-lib/messages'
 import type {
   CdpProtocolMessage,
   CdpProtocolParams,
   CdpTargetInfo
 } from '../../chromium-types'
-import * as messages from '../../../browsers-lib/messages'
+import type {CDPClient} from '../cdp-client'
 
 // Auto-enable Runtime/Log domains for attached
 // extension sessions, and emit unified CDP log lines.

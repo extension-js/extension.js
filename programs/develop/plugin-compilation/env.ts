@@ -6,26 +6,26 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
 import {
-  Compiler,
   Compilation,
+  type Compiler,
   DefinePlugin,
   ProvidePlugin,
   sources,
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
-import type {PluginInterface, DevOptions} from '../types'
-import * as messages from './compilation-lib/messages'
+import * as fs from 'fs'
+import * as path from 'path'
 import {
-  isChromiumBasedBrowser,
-  isGeckoBasedBrowser,
   CHROMIUM_FAMILY_ALIASES,
-  GECKO_FAMILY_ALIASES
+  GECKO_FAMILY_ALIASES,
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser
 } from '../lib/constants'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import type {DevOptions, PluginInterface} from '../types'
+import * as messages from './compilation-lib/messages'
 
 function resolveProcessShim(): string | undefined {
   const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
@@ -171,18 +171,21 @@ export class EnvPlugin {
       }
 
       if (unmatchedEnvFiles.length > 0) {
-        compiler.hooks.thisCompilation.tap('env:warn-unmatched', (compilation) => {
-          const warn = new WebpackError(
-            messages.envNoMatchingFile(
-              String(this.browser),
-              String(mode),
-              unmatchedEnvFiles,
-              envFiles
-            )
-          ) as Error & {file?: string; name?: string}
-          warn.name = 'EnvNoMatchingFile'
-          compilation.warnings.push(warn)
-        })
+        compiler.hooks.thisCompilation.tap(
+          'env:warn-unmatched',
+          (compilation) => {
+            const warn = new WebpackError(
+              messages.envNoMatchingFile(
+                String(this.browser),
+                String(mode),
+                unmatchedEnvFiles,
+                envFiles
+              )
+            ) as Error & {file?: string; name?: string}
+            warn.name = 'EnvNoMatchingFile'
+            compilation.warnings.push(warn)
+          }
+        )
       }
     }
 

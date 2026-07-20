@@ -6,33 +6,32 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
+import type {Configuration} from '@rspack/core'
 import * as fs from 'fs'
-import {type Configuration} from '@rspack/core'
-import {type ProjectStructure} from './lib/project'
+import * as path from 'path'
 import {makeSanitizedConsole} from './lib/branding'
-import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import {isChromiumBasedBrowser} from './lib/constants'
+import {resolveDevelopInstallRoot} from './lib/develop-context'
+import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import {filterKeysForThisBrowser} from './lib/manifest-utils'
+import * as messages from './lib/messages'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
-import {resolveDevelopInstallRoot} from './lib/develop-context'
-import * as messages from './lib/messages'
-import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import type {ProjectStructure} from './lib/project'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
-import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
-import {SpecialFoldersPlugin} from './plugin-special-folders'
-
+import {CompatibilityPlugin} from './plugin-compatibility'
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
 import {CssPlugin} from './plugin-css'
-import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
-import {WebExtensionPlugin} from './plugin-web-extension'
-import {ReloadPlugin} from './plugin-reload'
-import {CompatibilityPlugin} from './plugin-compatibility'
-import {PlaywrightPlugin} from './plugin-playwright'
-import {WasmPlugin} from './plugin-wasm'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
+import {PlaywrightPlugin} from './plugin-playwright'
+import {ReloadPlugin} from './plugin-reload'
+import {SpecialFoldersPlugin} from './plugin-special-folders'
+import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
+import {StaticAssetsPlugin} from './plugin-static-assets'
+import {WasmPlugin} from './plugin-wasm'
+import {WebExtensionPlugin} from './plugin-web-extension'
 
 // Types
 import type {WebpackConfigOptions} from './types'
@@ -518,10 +517,7 @@ export default function webpackConfig(
       // rspack requests.
       // The extension root is the MANIFEST dir, which is not always the
       // package.json dir (noscript keeps its manifest in src/).
-      roots: [
-        path.join(packageJsonDir, 'public'),
-        path.dirname(manifestPath)
-      ],
+      roots: [path.join(packageJsonDir, 'public'), path.dirname(manifestPath)],
       // TypeScript's NodeNext/ESM convention: the specifier names the EMITTED
       // file (`./env.js`) while the source on disk is `./env.ts`. Without this,
       // a standard strict-ESM TS extension fails with "Can't resolve './env.js'".

@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import colors from 'pintor'
-import {InstallBrowserTarget} from './browser-target'
+import type {InstallBrowserTarget} from './browser-target'
 
 const statusPrefix = colors.brightBlue('⏵⏵⏵')
 

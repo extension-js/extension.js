@@ -1,6 +1,6 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
@@ -49,9 +49,9 @@ vi.mock('../lib/config-loader', () => ({
 
 import {extensionDev} from '../command-dev'
 import * as devServerMod from '../dev-server'
-import * as genTypesMod from '../lib/generate-extension-types'
-import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as configLoaderMod from '../lib/config-loader'
+import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
+import * as genTypesMod from '../lib/generate-extension-types'
 
 describe('webpack/command-dev', () => {
   // fs is mocked module - configure per-test behaviors via mockImplementation
@@ -177,7 +177,7 @@ describe('webpack/command-dev', () => {
       .mockImplementation(() => {})
     const exitSpy = vi
       .spyOn(process, 'exit')
-      // @ts-ignore
+      // @ts-expect-error
       .mockImplementation(() => {
         throw new Error('exit 1')
       })
@@ -204,7 +204,7 @@ describe('webpack/command-dev', () => {
   it('exits process(1) on unexpected error', async () => {
     const exitSpy = vi
       .spyOn(process, 'exit')
-      // @ts-ignore
+      // @ts-expect-error
       .mockImplementation(() => {
         throw new Error('exit 1')
       })

@@ -6,16 +6,15 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {Compiler, DefinePlugin} from '@rspack/core'
+import {type Compiler, DefinePlugin} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
+import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
+import type {PluginInterface} from '../types'
+import {BoringPlugin} from './boring'
+import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
-import {CleanDistFolderPlugin} from './clean-dist'
 import {ZipPlugin} from './zip'
-import {BoringPlugin} from './boring'
-import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
-
-import {type PluginInterface} from '../types'
 
 export class CompilationPlugin {
   public static readonly name: string = 'plugin-compilation'

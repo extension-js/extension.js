@@ -6,11 +6,11 @@
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {type Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, Compilation, sources} from '@rspack/core'
-import * as messages from './messages'
 import {getLocales, resolveLocalesFolder} from './get-locales'
+import * as messages from './messages'
 
 export function processLocaleAssets(
   compiler: Compiler,

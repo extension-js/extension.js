@@ -6,16 +6,15 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as fs from 'fs'
-import {Compiler} from '@rspack/core'
+import {parseJsonSafe} from '../lib/parse-json-safe'
+import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
 import {
   isBannerPrinted,
   setPendingCompilationLine
 } from './compilation-lib/shared-state'
-
-import {type PluginInterface} from '../types'
-import {parseJsonSafe} from '../lib/parse-json-safe'
 
 export class BoringPlugin {
   public static readonly name: string = 'plugin-boring'

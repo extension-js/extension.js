@@ -36,21 +36,19 @@ export default class WebExtensionContentScriptEntryPlugin {
             let manifest: any
             const serviceWorkerEntry =
               this.options.background?.serviceWorkerEntry
-            {
-              if (
-                serviceWorkerEntry &&
-                !(serviceWorkerEntry in experimental_output) &&
-                (getInitialFiles(compilation, serviceWorkerEntry)?.length ||
-                  0) > 1
-              ) {
-                const e = new WebpackError(
-                  `[webpack-extension-target] Entry ${JSON.stringify(
-                    serviceWorkerEntry
-                  )} is not specified in options.experimental_output.`
-                )
-                e.stack = ''
-                compilation.warnings.push(e)
-              }
+            if (
+              serviceWorkerEntry &&
+              !(serviceWorkerEntry in experimental_output) &&
+              (getInitialFiles(compilation, serviceWorkerEntry)?.length || 0) >
+                1
+            ) {
+              const e = new WebpackError(
+                `[webpack-extension-target] Entry ${JSON.stringify(
+                  serviceWorkerEntry
+                )} is not specified in options.experimental_output.`
+              )
+              e.stack = ''
+              compilation.warnings.push(e)
             }
             for (const entry in experimental_output) {
               const isBackgroundEntry = entry === serviceWorkerEntry

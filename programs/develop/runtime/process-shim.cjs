@@ -8,11 +8,11 @@
 
 'use strict'
 
-var noop = function () {}
+var noop = () => {}
 
 function nextTick(callback) {
   var args = Array.prototype.slice.call(arguments, 1)
-  var run = function () {
+  var run = () => {
     callback.apply(null, args)
   }
   if (typeof queueMicrotask === 'function') {
@@ -35,13 +35,9 @@ module.exports = {
   title: 'browser',
   pid: 0,
   nextTick: nextTick,
-  cwd: function () {
-    return '/'
-  },
+  cwd: () => '/',
   chdir: noop,
-  umask: function () {
-    return 0
-  },
+  umask: () => 0,
   on: noop,
   once: noop,
   off: noop,
@@ -51,7 +47,5 @@ module.exports = {
   prependListener: noop,
   prependOnceListener: noop,
   emit: noop,
-  listeners: function () {
-    return []
-  }
+  listeners: () => []
 }

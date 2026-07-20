@@ -1,4 +1,4 @@
-import {Asset, Compilation} from '@rspack/core'
+import type {Asset, Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -637,7 +637,11 @@ describe('generateManifestPatches', () => {
       const emitAsset = vi.fn()
       const emitted = new Set<string>()
       const compilation: any = {
-        options: {mode: 'development', context: tmpRoot, output: {path: path.join(tmpRoot, 'dist')}},
+        options: {
+          mode: 'development',
+          context: tmpRoot,
+          output: {path: path.join(tmpRoot, 'dist')}
+        },
         outputOptions: {path: path.join(tmpRoot, 'dist')},
         errors: [],
         warnings: [],

@@ -6,17 +6,17 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
 import {
-  WebpackError,
+  Compilation,
   type Compiler,
   type StatsError,
-  Compilation
+  WebpackError
 } from '@rspack/core'
-import {getAssetsFromHtml} from '../html-lib/utils'
+import * as fs from 'fs'
+import * as path from 'path'
+import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../html-lib/messages'
-import {type FilepathList, type PluginInterface} from '../../../types'
+import {getAssetsFromHtml} from '../html-lib/utils'
 
 function handleCantResolveError(
   includesList: FilepathList,

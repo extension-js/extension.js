@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 
 /**
  * Locks in the dev-server config contract that landed with the rspack 2.x
@@ -25,7 +25,7 @@ describe('dev-server config contract', () => {
     const source = fs.readFileSync(indexPath, 'utf8')
 
     const serverConfigBlock = source.match(
-      /const serverConfig: Configuration = \{[\s\S]*?\n  \}/
+      /const serverConfig: Configuration = \{[\s\S]*?\n {2}\}/
     )
     expect(
       serverConfigBlock,

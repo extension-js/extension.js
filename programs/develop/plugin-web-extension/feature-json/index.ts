@@ -6,10 +6,10 @@
 //  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compiler, Compilation} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
+import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {processJsonAssets} from './process-assets'
 import {trackJsonDependencies} from './track-dependencies'
-import type {FilepathList, PluginInterface, DevOptions} from '../../types'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined

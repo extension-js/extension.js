@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import type {Compilation} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {patchHtml} from '../../html-lib/patch-html'
-import type {Compilation} from '@rspack/core'
 
 function makeTmp(name: string) {
   const tmp = path.join(__dirname, `.tmp-${name}`)
@@ -30,7 +30,7 @@ describe('patchHtml', () => {
     const htmlPath = path.join(tmp, 'index.html')
     fs.writeFileSync(
       htmlPath,
-      `<html><head><link rel=\"stylesheet\" href=\"a.css\"></head><body><script src=\"a.js\"></script></body></html>`
+      `<html><head><link rel="stylesheet" href="a.css"></head><body><script src="a.js"></script></body></html>`
     )
     const updated = patchHtml(
       makeCompilation('development'),
@@ -49,7 +49,7 @@ describe('patchHtml', () => {
     const htmlPath = path.join(tmp, 'index.html')
     fs.writeFileSync(
       htmlPath,
-      `<html><head><link rel=\"stylesheet\" href=\"/public/missing.css\"></head><body><script src=\"/public/missing.js\"></script></body></html>`
+      `<html><head><link rel="stylesheet" href="/public/missing.css"></head><body><script src="/public/missing.js"></script></body></html>`
     )
     const compilation = makeCompilation('production')
     const updated = patchHtml(compilation, 'feature/index', htmlPath, {

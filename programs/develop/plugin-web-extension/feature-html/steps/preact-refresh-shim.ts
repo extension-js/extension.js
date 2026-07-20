@@ -23,15 +23,11 @@ const g: Record<string, unknown> =
     : ({} as Record<string, unknown>)
 
 if (typeof g.$RefreshReg$ !== 'function') {
-  g.$RefreshReg$ = function () {}
+  g.$RefreshReg$ = () => {}
 }
 
 if (typeof g.$RefreshSig$ !== 'function') {
-  g.$RefreshSig$ = function () {
-    return function (type: unknown) {
-      return type
-    }
-  }
+  g.$RefreshSig$ = () => (type: unknown) => type
 }
 
 export {}

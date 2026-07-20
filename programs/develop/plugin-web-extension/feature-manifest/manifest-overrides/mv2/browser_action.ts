@@ -7,12 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as path from 'path'
+import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
   normalizeManifestOutputPath
 } from '../../normalize-manifest-path'
-import {type Manifest} from '../../../../types'
 
 export function browserAction(manifest: Manifest) {
   return (

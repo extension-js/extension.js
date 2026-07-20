@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {type BrowserConfig, type BrowserType} from '../types'
+import type {BrowserConfig, BrowserType} from '../types'
 import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
 
 // Returns cross-browser defaults to force dark mode.

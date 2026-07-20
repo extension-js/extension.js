@@ -6,22 +6,15 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler, EntryObject} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler, type EntryObject} from '@rspack/core'
-import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
-import {
-  isClassicScript,
-  classicConcatEntry
-} from '../../shared/classic-concat'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
-import {AddContentScriptWrapper} from './add-content-script-wrapper'
-import {
-  type DevOptions,
-  type FilepathList,
-  type PluginInterface
-} from '../../../types'
 import {stripBom} from '../../../lib/parse-json-safe'
+import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
+import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
+import {getCssEntries, getScriptEntries} from '../scripts-lib/utils'
+import {AddContentScriptWrapper} from './add-content-script-wrapper'
 
 const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 const isContentScriptFeature = (feature: string) =>
@@ -165,7 +158,9 @@ export class AddScripts {
     const projectPath = (compiler.options.context as string) || manifestDir
     let manifestJson: any = {}
     try {
-      manifestJson = JSON.parse(stripBom(fs.readFileSync(this.manifestPath, 'utf8')))
+      manifestJson = JSON.parse(
+        stripBom(fs.readFileSync(this.manifestPath, 'utf8'))
+      )
     } catch {
       manifestJson = {}
     }
@@ -204,7 +199,9 @@ export class AddScripts {
         : scriptPath
           ? [scriptPath]
           : []
-      for (const resolved of getScriptEntries(rawEntries.map(resolveEntryPath))) {
+      for (const resolved of getScriptEntries(
+        rawEntries.map(resolveEntryPath)
+      )) {
         claimedByContentScript.add(path.resolve(resolved))
       }
     }

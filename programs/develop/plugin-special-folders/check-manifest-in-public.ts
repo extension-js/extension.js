@@ -6,9 +6,9 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
+import {type Compilation, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
-import {Compilation, WebpackError} from '@rspack/core'
+import * as path from 'path'
 
 export function checkManifestInPublic(
   compilation: Compilation,

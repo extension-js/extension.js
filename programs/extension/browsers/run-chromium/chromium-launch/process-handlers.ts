@@ -6,11 +6,11 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {ChildProcess} from 'child_process'
+import type {ChildProcess} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
 import {
-  gracefulTerminateChild,
   forceKillChildOnExit,
+  gracefulTerminateChild,
   isBenignSocketTeardown
 } from '../../browsers-lib/process-teardown'
 import type {BrowserType} from '../../browsers-types'

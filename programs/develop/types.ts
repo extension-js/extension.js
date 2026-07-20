@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {
-  type LoaderContext as RspackLoaderContext,
-  type RspackPluginInstance
+import type {
+  LoaderContext as RspackLoaderContext,
+  RspackPluginInstance
 } from '@rspack/core'
 
 /**
@@ -89,7 +89,7 @@ export interface JsFramework {
   alias: Record<string, string> | undefined
 }
 
-import {Configuration} from '@rspack/core'
+import type {Configuration} from '@rspack/core'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 
 export type BrowserType =

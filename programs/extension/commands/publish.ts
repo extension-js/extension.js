@@ -84,7 +84,7 @@ export function registerPublishCommand(program: Command) {
     .option('--ttl <hours>', 'share-link lifetime in hours (1–168, default 24)')
     .option('--build-sha <sha>', 'pin the share URL to a specific build')
     .option('--output <pretty|json>', 'output format (default pretty)')
-    .action(async function (_projectPathArg: string, opts: PublishOptions) {
+    .action(async (_projectPathArg: string, opts: PublishOptions) => {
       let req: PublishRequest
       try {
         req = buildPublishRequest(opts)

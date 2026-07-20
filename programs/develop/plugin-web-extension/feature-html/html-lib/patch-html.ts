@@ -6,24 +6,24 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import {type Compilation, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
-import * as path from 'path'
-import {WebpackError, type Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
+import * as path from 'path'
+import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
+import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
+import type {FilepathList} from '../../../types'
+import {handleStaticAsset} from './assets'
+import {injectJsScript} from './inject'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
 import {
-  getExtname,
-  getFilePath,
   cleanAssetUrl,
   getBaseHref,
+  getExtname,
+  getFilePath,
   joinEmittedAssetName
 } from './utils'
-import {handleStaticAsset} from './assets'
-import {injectJsScript} from './inject'
-import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
-import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
-import {type FilepathList} from '../../../types'
 
 function warnIfPublicRootAssetMissing(
   compilation: Compilation,
@@ -62,7 +62,7 @@ export function patchHtml(
   // Delegate CSS asset resolution to plugin-css.
   const cssAsset = resolveCssAsset(compilation, feature)
   let hasCssEntry = cssAsset.found
-  let cssHrefOverride = cssAsset.href
+  const cssHrefOverride = cssAsset.href
 
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
@@ -77,7 +77,7 @@ export function patchHtml(
   const bundledScriptNodes: any[] = []
   let bodyNode: any
 
-  for (let node of htmlDocument.childNodes) {
+  for (const node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
 
     for (const htmlChildNode of node.childNodes) {
@@ -230,7 +230,7 @@ export function patchHtmlNested(
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
 
-  for (let node of htmlDocument.childNodes) {
+  for (const node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
 
     for (const htmlChildNode of node.childNodes) {

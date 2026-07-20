@@ -6,9 +6,9 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {ChildProcess, spawn, spawnSync} from 'child_process'
-import * as messages from './messages'
+import {type ChildProcess, spawn, spawnSync} from 'child_process'
 import type {BrowserType} from '../browsers-types'
+import * as messages from './messages'
 
 export const FORCE_KILL_GRACE_MS = 5000
 

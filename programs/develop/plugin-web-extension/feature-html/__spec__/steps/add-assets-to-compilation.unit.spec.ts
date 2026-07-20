@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import {describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 function makeCompilation() {
@@ -12,7 +12,7 @@ function makeCompilation() {
     errors: [],
     warnings: [] as any[],
     hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: function (name: string, src: any) {
+    emitAsset: (name: string, src: any) => {
       assets[name] = {
         source: {source: () => (src.source ? src.source() : src)}
       }
@@ -42,7 +42,7 @@ describe('AddAssetsToCompilation', () => {
     const html = path.join(tmp, 'index.html')
     fs.writeFileSync(
       html,
-      `<html><head><link rel=\"icon\" href=\"/favicon.png\"></head><body></body></html>`
+      `<html><head><link rel="icon" href="/favicon.png"></head><body></body></html>`
     )
     const c = makeCompilation()
     ;(c as any).assets[path.basename(html)] = {
@@ -65,7 +65,7 @@ describe('AddAssetsToCompilation', () => {
         errors: [] as any[],
         warnings: [] as any[],
         hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-        emitAsset: function (name: string, src: any) {
+        emitAsset: (name: string, src: any) => {
           assets[name] = {
             source: {source: () => (src.source ? src.source() : src)}
           }

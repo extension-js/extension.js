@@ -6,10 +6,10 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import type {Compiler} from '@rspack/core'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
-import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
 import {canonicalizeDir, isResourceUnderDirs} from '../../../lib/resource-path'
 import type {PluginInterface} from '../../../types'
 

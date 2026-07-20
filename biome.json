@@ -5,31 +5,32 @@
     "maxSize": 262144,
     "includes": [
       "**",
-      "!_FUTURE/**",
-      "!extensions/**",
-      "!extensions/**/dist/**",
-      "!templates/**/dist/**",
-      "!templates-artifacts/**",
-      "!**/dist/**",
-      "!**/build/**",
-      "!**/out/**",
-      "!**/coverage/**",
-      "!**/e2e-report/**",
-      "!**/playwright-report/**",
-      "!**/.next/**",
-      "!**/.nuxt/**",
-      "!**/.svelte-kit/**",
-      "!**/.vite/**",
-      "!**/.cache/**",
-      "!**/.turbo/**",
-      "!**/.pnpm-store/**",
-      "!extensions/browser-extension/**",
-      "!extensions/monorepo/**",
-      "!**/__TEST__/**",
+      "!_FUTURE",
+      "!extensions",
+      "!extensions/**/dist",
+      "!templates/**/dist",
+      "!templates-artifacts",
+      "!**/dist",
+      "!**/build",
+      "!**/out",
+      "!**/coverage",
+      "!**/e2e-report",
+      "!**/playwright-report",
+      "!**/.next",
+      "!**/.nuxt",
+      "!**/.svelte-kit",
+      "!**/.vite",
+      "!**/.cache",
+      "!**/.turbo",
+      "!**/.pnpm-store",
+      "!extensions/browser-extension",
+      "!extensions/monorepo",
+      "!**/__TEST__",
       "!**/webpack.config.js",
       "!**/postcss.config.js",
       "!**/tailwind.config.js",
-      "!**/stylelint.config.json"
+      "!**/stylelint.config.json",
+      "!**/.tmp-*"
     ]
   },
   "formatter": {
@@ -51,7 +52,19 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": false
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noPrototypeBuiltins": "off",
+        "noControlCharactersInRegex": "off",
+        "useIterableCallbackReturn": "warn",
+        "noAssignInExpressions": "warn",
+        "noAsyncPromiseExecutor": "warn",
+        "noImplicitAnyLet": "warn"
+      },
+      "a11y": {
+        "recommended": false
+      }
     }
   }
 }
