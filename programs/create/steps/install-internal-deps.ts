@@ -4,15 +4,15 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
-import * as path from 'path'
 import {createRequire} from 'module'
-import * as messages from '../lib/messages'
-import {detectPackageManagerFromEnv} from '../lib/package-manager'
+import * as path from 'path'
 import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {runInstall} from '../lib/install-runner'
+import * as messages from '../lib/messages'
+import {detectPackageManagerFromEnv} from '../lib/package-manager'
 
 const requireFromCreate = createRequire(import.meta.url)
 

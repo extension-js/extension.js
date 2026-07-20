@@ -4,14 +4,14 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../lib/messages'
-import * as utils from '../lib/utils'
+import * as path from 'path'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
+import * as messages from '../lib/messages'
 import {isDenoRuntime} from '../lib/package-manager'
+import * as utils from '../lib/utils'
 
 function getInstallArgs(packageManager: string) {
   if (packageManager === 'bun') {

@@ -4,18 +4,18 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
-import * as vm from 'vm'
-import {pathToFileURL} from 'url'
-import {createRequire} from 'module'
-import dotenv from 'dotenv'
 import type {Configuration} from '@rspack/core'
+import dotenv from 'dotenv'
+import * as fs from 'fs'
+import {createRequire} from 'module'
+import * as os from 'os'
+import * as path from 'path'
+import {pathToFileURL} from 'url'
+import * as vm from 'vm'
+import type {BrowserConfig, DevOptions, FileConfig} from '../types'
 import * as messages from './messages'
-import type {BrowserConfig, FileConfig, DevOptions} from '../types'
 
 type EnvPreloadResult = {
   loadedAny: boolean
@@ -156,7 +156,7 @@ async function loadConfigFileUncached(
     // If the file references import.meta.env, create a temporary shimmed copy
     let esmImportPath = absolutePath
     // Tracks a temp dir holding the env-shimmed copy so we can delete it right
-    // after import — the serialized environment must not linger on disk.
+    // after import, the serialized environment must not linger on disk.
     let shimTmpDir: string | undefined
 
     try {

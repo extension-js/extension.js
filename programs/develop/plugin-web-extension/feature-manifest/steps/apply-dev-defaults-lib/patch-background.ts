@@ -4,10 +4,10 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Manifest, DevOptions} from '../../../../types'
 import {isGeckoBasedBrowser} from '../../../../lib/constants'
+import type {DevOptions, Manifest} from '../../../../types'
 
 export default function patchBackground(
   manifest: Manifest,
@@ -15,7 +15,7 @@ export default function patchBackground(
 ) {
   // A `background` key with no runnable entry (`background: {}` in the wild)
   // must count as absent: dev always emits the reload-producer service worker,
-  // and passing the empty object through leaves that emitted worker orphaned —
+  // and passing the empty object through leaves that emitted worker orphaned,
   // Chrome loads no background, no producer connects, and reload delivery is
   // silently dead for the whole session.
   const bg = manifest.background as

@@ -4,12 +4,12 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {devtoolsEngineFor} from './paths'
 import {stripBom} from './parse-json-safe'
+import {devtoolsEngineFor} from './paths'
 
 function hasNewTabOverride(extensionDir: string): boolean {
   const manifestPath = path.join(extensionDir, 'manifest.json')

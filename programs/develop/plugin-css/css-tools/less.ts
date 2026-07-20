@@ -4,12 +4,12 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../lib/has-dependency'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
 
@@ -32,7 +32,7 @@ export function isUsingLess(projectPath: string): boolean {
 
 /**
  * Resolve (and install if missing) the less-loader contract. The actual loader
- * rules are emitted by the content-script/HTML CSS loaders — this only ensures
+ * rules are emitted by the content-script/HTML CSS loaders. This only ensures
  * the optional dependency is present before that chain runs.
  */
 export async function maybeUseLess(projectPath: string): Promise<void> {

@@ -1,13 +1,13 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
-import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
+import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   cleanupOldTempProfiles,
   markManagedEphemeralProfile,
   parseEnvBrowserFlags
 } from '../browsers-lib/shared-utils'
+import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
 
 function makeCompilation(
   out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
@@ -409,7 +409,7 @@ describe('Chromium feature-switch merging', () => {
 
   // Chromium 152+ permanently disables command-line-loaded extensions with
   // DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION on the first runtime.reload()
-  // unless this feature is off — which breaks every dev-mode SW/manifest edit.
+  // unless this feature is off, which breaks every dev-mode SW/manifest edit.
   it('disables ExtensionDisableUnsupportedDeveloper (Chromium 152 reload kill)', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',

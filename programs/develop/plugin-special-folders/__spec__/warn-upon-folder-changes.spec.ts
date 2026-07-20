@@ -1,9 +1,9 @@
-import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../messages'
+import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
 // Mock messages to avoid relying on terminal color formatting
 vi.mock('../messages', () => ({
@@ -179,14 +179,14 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    // Pre-populate the folder BEFORE the plugin applies — same shape as a
+    // Pre-populate the folder BEFORE the plugin applies, same shape as a
     // real user project where scripts/script-one.js exists at dev startup.
     const existingFile = path.join(projectRoot, 'scripts', 'script-one.js')
     fs.writeFileSync(existingFile, '// pre-existing', 'utf8')
 
     new WarnUponFolderChanges().apply(compiler as any)
 
-    // Save the existing file — `compiler.modifiedFiles` reports it (rspack
+    // Save the existing file, `compiler.modifiedFiles` reports it (rspack
     // unions newly-added AND modified files into the same Set).
     compiler.modifiedFiles = new Set([existingFile])
     compiler.removedFiles = new Set()
@@ -200,7 +200,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    // No pre-existing file — the snapshot is empty.
+    // No pre-existing file. The snapshot is empty.
 
     new WarnUponFolderChanges().apply(compiler as any)
 
@@ -215,7 +215,7 @@ describe('WarnUponFolderChanges', () => {
     ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
 
     // Saving the SAME file again on a later cycle is a modification of a
-    // file we've now seen — should NOT warn a second time.
+    // file we've now seen, should NOT warn a second time.
     compilation.warnings.length = 0
     compiler.modifiedFiles = new Set([newFile])
     runCycle(compiler, compilation)

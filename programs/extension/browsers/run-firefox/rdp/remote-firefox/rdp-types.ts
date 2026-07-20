@@ -4,11 +4,11 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 // Shared static types for the Firefox Remote Debugging Protocol (RDP) wire
 // surface. These are recovered from how the runner actually READS frames and
-// calls the client — every field is optional because the wire reads are loose
+// calls the client, every field is optional because the wire reads are loose
 // (`message?.type`, `target?.consoleActor`, …) and Firefox omits fields per
 // message kind. Nothing here changes runtime behavior; it only gives the
 // already-existing reads a real, checkable shape instead of an escape hatch.

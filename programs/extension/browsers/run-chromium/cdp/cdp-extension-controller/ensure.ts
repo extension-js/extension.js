@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -12,7 +12,7 @@ import type {CDPClient} from '../cdp-client'
 import {findStaleUnpackedExtensionIds} from './ownership'
 
 // Evict any prior unpacked load of THIS project that the persistent profile
-// auto-loaded at startup, before loading the current build — so the profile
+// auto-loaded at startup, before loading the current build, so the profile
 // holds exactly one copy of the extension (#49). Best-effort: older Chrome
 // without `Extensions.uninstall`, or an entry that is already gone, must never
 // block or fail the launch. Returns the ids actually removed.

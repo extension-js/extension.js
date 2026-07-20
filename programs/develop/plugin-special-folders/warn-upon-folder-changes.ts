@@ -4,11 +4,11 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler, type Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
 
 type SpecialFolder = 'pages' | 'scripts'
@@ -158,7 +158,7 @@ export class WarnUponFolderChanges {
 
     for (const filePath of modifiedFiles) {
       // Modifications of an existing file are NOT additions. Rspack already
-      // watches the entry and recompiles in place — the "restart required"
+      // watches the entry and recompiles in place, the "restart required"
       // warning only applies when a brand-new file appears in the folder
       // after startup (won't be in the entry list, won't be served).
       const isPreexisting = this.knownFolderFiles.has(filePath)

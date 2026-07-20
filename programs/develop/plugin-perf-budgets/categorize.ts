@@ -4,18 +4,18 @@
 // ██╔═══╝ ██╔══╝  ██╔══██╗██╔══╝  ╚════╝██╔══██╗██║   ██║██║  ██║██║   ██║██╔══╝     ██║   ╚════██║
 // ██║     ███████╗██║  ██║██║          ██████╔╝╚██████╔╝██████╔╝╚██████╔╝███████╗   ██║   ███████║
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Asset categorization for browser-extension performance budgets.
 //
 // Browser extensions have a different size profile than web apps:
-//   • content scripts inject on EVERY page navigation — small budget;
-//   • MV3 service workers wake from cold each time the event-page sleeps —
+//   • content scripts inject on EVERY page navigation, small budget;
+//   • MV3 service workers wake from cold each time the event-page sleeps,
 //     small budget keeps wake-up latency low;
 //   • UI pages (sidebar, popup, options, devtools, newtab) are cold and
-//     opened on demand — generous budget;
+//     opened on demand, generous budget;
 //   • images, fonts, locales, manifest.json don't have a code-splitting
-//     fix — silenced from the budget warning entirely.
+//     fix, silenced from the budget warning entirely.
 //
 // Hand-optimized extensions (uBlock Origin, Bitwarden, 1Password) keep
 // content scripts well under 100 KiB, but framework-based templates

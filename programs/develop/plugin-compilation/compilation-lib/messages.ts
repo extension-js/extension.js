@@ -4,10 +4,10 @@
 // ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║
 // ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ██║███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import colors from 'pintor'
 import type {Stats} from '@rspack/core'
+import colors from 'pintor'
 
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
   const now = new Date()
@@ -94,7 +94,7 @@ export function envNoMatchingFile(
     `${colors.yellow('undefined')} in this build.\n` +
     `Matching names, in priority order: ` +
     `${expectedCandidates.map((file) => colors.gray(file)).join(', ')}.\n` +
-    `Family names apply to every family member — e.g. ` +
+    `Family names apply to every family member, e.g. ` +
     `${colors.yellow('.env.chrome')} also matches ${colors.yellow(
       'chromium'
     )} and ${colors.yellow('edge')} targets.`

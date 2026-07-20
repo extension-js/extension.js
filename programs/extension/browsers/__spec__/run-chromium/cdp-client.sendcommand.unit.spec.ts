@@ -1,5 +1,5 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import {EventEmitter} from 'events'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import WebSocket from 'ws'
 
 // We test CDPClient.sendCommand directly with a mock WebSocket to exercise
@@ -93,7 +93,7 @@ describe('CDPClient.sendCommand', () => {
   })
 
   // -----------------------------------------------------------------------
-  // 3. Response arrives before timeout — timeout is cancelled
+  // 3. Response arrives before timeout, timeout is cancelled
   // -----------------------------------------------------------------------
 
   it('cancels the timeout when response arrives in time', async () => {
@@ -199,7 +199,7 @@ describe('CDPClient.sendCommand', () => {
       'timed out'
     )
 
-    // Now the response arrives late — should not throw
+    // Now the response arrives late, should not throw
     expect(() => {
       ;(client as any).handleMessage(
         JSON.stringify({id: sent.id, result: {value: 42}})

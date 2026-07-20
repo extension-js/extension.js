@@ -4,17 +4,18 @@
 // ██║     ╚════██║╚════██║
 // ╚██████╗███████║███████║
 //  ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
 import {createRequire} from 'module'
+import * as path from 'path'
 import colors from 'pintor'
 
 const cjsRequire = createRequire(import.meta.url)
-import * as messages from '../css-lib/messages'
-import {hasDependency} from '../../lib/has-dependency'
+
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
+import {hasDependency} from '../../lib/has-dependency'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
 

@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'path'
 
@@ -41,7 +41,7 @@ export const SUPPORTED_BROWSERS = [
 ]
 
 // Canonical "supported X" lists. README/docs enumerations are asserted against
-// these in __spec__/supported-surface.spec.ts — extend the list first, then the
+// these in __spec__/supported-surface.spec.ts, extend the list first, then the
 // docs, or the drift guard fails.
 export const SUPPORTED_PACKAGE_MANAGERS = [
   'npm',

@@ -1,9 +1,8 @@
-import {describe, expect, it} from 'vitest'
 import {spawnSync} from 'node:child_process'
 import {
   existsSync,
-  mkdtempSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -12,12 +11,13 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
+import {describe, expect, it} from 'vitest'
 
-// REGRESSION GUARD — "the emitted content-script bundle is self-sufficient".
+// REGRESSION GUARD, "the emitted content-script bundle is self-sufficient".
 //
 // This encodes the resolution of the hmr-no-browser GATE: a content script with
 // a default export MUST self-mount from the bundle, independent of the CDP
-// controller — so `extension dev --no-browser`, headless/CI, and remote dev all
+// controller, so `extension dev --no-browser`, headless/CI, and remote dev all
 // run content scripts. The original investigation feared a regression where the
 // wrapper loader stops matching the (generated/concat) content-script entry, so
 // the emitted bundle never calls __EXTENSIONJS_mount and nothing mounts unless a
@@ -27,7 +27,7 @@ import path from 'node:path'
 // (content-script-wrapper.spec.ts). This complements it at the BUILD level:
 // it runs the real pipeline end-to-end so it also catches "loader not wired to
 // the entry". It uses `build --mode development` (unminified, deterministic, no
-// browser) — production minifies __EXTENSIONJS_mount to a mangled name, which is
+// browser), production minifies __EXTENSIONJS_mount to a mangled name, which is
 // why the build-time grep proxy is only meaningful on a dev build.
 
 function cliRoot(): string {
@@ -71,7 +71,7 @@ function createFixture(): string {
     }),
     'utf8'
   )
-  // A default-export content script — the framework invokes it on injection.
+  // A default-export content script, the framework invokes it on injection.
   writeFileSync(
     path.join(contentDir, 'scripts.js'),
     [

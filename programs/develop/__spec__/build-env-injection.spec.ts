@@ -1,21 +1,21 @@
 // Real-rspack regression gate for .env injection (corpus cluster
-// compiler-env-not-injected — extension.js's own content-env/new-env examples
+// compiler-env-not-injected, extension.js's own content-env/new-env examples
 // failed at boot when built for the default `chromium` target). Three
 // behaviors under test:
 //
 //   1. Env files resolve family-wide, mirroring the manifest-prefix contract:
 //      `.env.chrome` applies to a `chromium` build.
 //   2. Reading an EXTENSION_PUBLIC_* var that no env file defines yields
-//      `undefined`, not a boot crash — before the fix, rspack rewrote the
+//      `undefined`, not a boot crash, before the fix, rspack rewrote the
 //      leftover `import.meta.env` to `(void 0)` and the emitted worker
 //      contained `(void 0).EXTENSION_PUBLIC_X` (guaranteed TypeError).
 //   3. Shipping .env files that match no candidate for the target
 //      browser/mode produces a build warning instead of silence.
 
-import {describe, it, expect, afterAll} from 'vitest'
 import * as fs from 'fs'
-import * as path from 'path'
 import * as os from 'os'
+import * as path from 'path'
+import {afterAll, describe, expect, it} from 'vitest'
 import * as vm from 'vm'
 import {getEnvFileCandidates} from '../plugin-compilation/env'
 
@@ -38,7 +38,7 @@ function makeFixture(envFiles: Record<string, string>): string {
     JSON.stringify(
       {
         manifest_version: 3,
-        name: 'Build Spec — env injection',
+        name: 'Build Spec, env injection',
         version: '1.0.0',
         background: {service_worker: 'sw.js'}
       },
@@ -104,7 +104,9 @@ function runWorker(root: string): string[] {
 
   const logs: string[] = []
   const context = vm.createContext({
-    console: {log: (...args: unknown[]) => logs.push(args.map(String).join(' '))}
+    console: {
+      log: (...args: unknown[]) => logs.push(args.map(String).join(' '))
+    }
   })
   vm.runInContext(fs.readFileSync(workerPath, 'utf8'), context, {
     filename: 'background/service_worker.js'
@@ -125,7 +127,7 @@ describe('build: .env injection (real rspack)', () => {
     })
     const summary = await buildFixture(root)
     expect(summary.errors_count).toBe(0)
-    // A file matched — no unmatched-env warning.
+    // A file matched, no unmatched-env warning.
     expect(summary.warnings_count).toBe(0)
 
     const logs = runWorker(root)

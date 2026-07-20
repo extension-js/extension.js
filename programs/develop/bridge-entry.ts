@@ -4,38 +4,34 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export {
   BridgeConsumer,
-  readReadyContract,
   type ConsumerOptions,
-  type ReadyContractInfo
+  type ReadyContractInfo,
+  readReadyContract
 } from './dev-server/control-bridge/consumer-client'
-
-export {
-  BridgeController,
-  type ControllerOptions,
-  type CommandInput
-} from './dev-server/control-bridge/controller-client'
-
-export {
-  readControlToken,
-  controlTokenPath
-} from './dev-server/control-bridge/session-token'
-
-export {
-  readPersistedControlPort,
-  controlPortFilePath
-} from './dev-server/control-bridge/control-port-store'
-
 export type {
+  BridgeTarget,
+  CommandOp,
+  GapFrame,
+  LogContext,
   LogEvent,
   LogLevel,
-  LogContext,
-  GapFrame,
   ReadyFrame,
-  ResultFrame,
-  BridgeTarget,
-  CommandOp
+  ResultFrame
 } from './dev-server/control-bridge/contracts'
+export {
+  controlPortFilePath,
+  readPersistedControlPort
+} from './dev-server/control-bridge/control-port-store'
+export {
+  BridgeController,
+  type CommandInput,
+  type ControllerOptions
+} from './dev-server/control-bridge/controller-client'
+export {
+  controlTokenPath,
+  readControlToken
+} from './dev-server/control-bridge/session-token'

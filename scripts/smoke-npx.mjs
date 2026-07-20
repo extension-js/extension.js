@@ -4,18 +4,12 @@
 // ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
 // ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync
-} from 'node:fs'
+import {spawnSync} from 'node:child_process'
+import {cpSync, existsSync, mkdtempSync, readFileSync, rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
-import {spawnSync} from 'node:child_process'
 
 // Ensure spawned processes find node/npm/pnpm (cross-platform, e.g. Windows CI)
 const nodeDir = dirname(process.execPath)
@@ -55,7 +49,7 @@ const templateJavascript = resolve(root, 'programs/create/templates/javascript')
 // CLI's workspace:* specifiers to concrete versions (npm pack does not and
 // produces an uninstallable tarball), and installing the sibling tarballs as
 // top-level file: deps satisfies those requirements without falling back to
-// the registry's published versions — so the smoke exercises LOCAL code.
+// the registry's published versions, so the smoke exercises LOCAL code.
 const workspacePackages = [
   'programs/extension',
   'programs/create',

@@ -4,11 +4,11 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {MessagingClient} from './messaging-client'
 
-// Pure core — no RDP client, unit-testable. Pick the `moz-extension://` host to
+// Pure core, no RDP client, unit-testable. Pick the `moz-extension://` host to
 // show in the dev banner from the set of open target URLs.
 //
 // This is a FALLBACK only: the authoritative id comes from the RDP
@@ -20,7 +20,7 @@ import type {MessagingClient} from './messaging-client'
 //
 // So the rule is deliberately conservative: adopt a host ONLY when it is
 // unambiguous (exactly one distinct `moz-extension://` host). With zero or
-// multiple candidates we refuse to guess and return undefined — the banner then
+// multiple candidates we refuse to guess and return undefined, the banner then
 // prints without an id rather than risk printing someone else's host.
 export function pickMozExtensionHost(
   targetUrls: Array<string | undefined>

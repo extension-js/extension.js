@@ -1,7 +1,7 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {browserConfig} from '../run-firefox/firefox-launch/browser-config'
 
 function makeCompilation(out = '/tmp/project/dist/firefox') {
@@ -70,7 +70,7 @@ describe('Firefox profile args', () => {
   })
 
   it('resolves relative explicit profile paths against the compilation context, not process.cwd()', async () => {
-    // Regression: matches the Chromium fix in chromium-flags.spec.ts —
+    // Regression: matches the Chromium fix in chromium-flags.spec.ts,
     // relative `profile: './dist/extension-profile-firefox'` must anchor to
     // the project that owns extension.config.js so sequential example runs
     // never share a single Firefox profile.

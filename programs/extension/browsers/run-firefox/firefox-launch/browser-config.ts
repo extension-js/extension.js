@@ -4,19 +4,22 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██╔══╝  ██║██╔══██╗██╔══╝  ██╔══╝  ██║   ██║ ██╔██╗
 // ██║  ██║╚██████╔╝██║ ╚████║      ██║     ██║██║  ██║███████╗██║     ╚██████╔╝██╔╝ ██╗
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'path'
 import * as fs from 'fs'
-import type {CompilationLike} from '../../browsers-types'
+import * as path from 'path'
 import * as messages from '../../browsers-lib/messages'
+import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
   cleanupOldTempProfiles,
   parseEnvBrowserFlags
 } from '../../browsers-lib/shared-utils'
-import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import type {
+  BrowserConfig,
+  BrowserType,
+  CompilationLike
+} from '../../browsers-types'
 import {getPreferences} from './master-preferences'
-import type {BrowserType, BrowserConfig} from '../../browsers-types'
 
 type BrowserConfigOptions = {
   browser: BrowserType
@@ -50,7 +53,7 @@ export async function browserConfig(
   }
 
   // Environment escape hatch (see parseEnvBrowserFlags): appended after config
-  // browserFlags and NOT subject to excludeBrowserFlags — the env is explicit.
+  // browserFlags and NOT subject to excludeBrowserFlags. The env is explicit.
   binaryArgs.push(...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS))
 
   // Firefox supports being launched with an URL as the last argument.

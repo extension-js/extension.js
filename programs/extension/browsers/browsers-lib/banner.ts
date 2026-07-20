@@ -4,15 +4,15 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {createHash} from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
-import {createHash} from 'crypto'
 import colors from 'pintor'
-import * as messages from './messages'
-import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import type {BrowserType} from '../browsers-types'
+import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
+import * as messages from './messages'
 
 // Inline shared-state flag: in the standalone browser package we only need
 // the boolean so other modules can query whether the banner was already
@@ -114,7 +114,7 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
 // Mirror Chrome's `crx_file::id_util::GenerateIdForPath` so we can surface the
 // same extension ID Chrome assigns to an unpacked extension loaded via
 // `--load-extension=<path>`. Needed for extensions with no manifest `key` and
-// no runtime surface (no background, no content scripts, no action) — without
+// no runtime surface (no background, no content scripts, no action), without
 // this fallback the dev banner has no ID to render and gets suppressed
 function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
   if (!extensionPath || typeof extensionPath !== 'string') return ''
@@ -233,7 +233,7 @@ export async function printDevBannerOnce(opts: {
 
   // Consume the update-suffix env var only at the moment we're committed
   // to printing. Earlier in the function we may bail (manifest not yet on
-  // disk, extensionId not yet derivable) — Chromium's launch flow calls
+  // disk, extensionId not yet derivable), Chromium's launch flow calls
   // this twice on the same process: an early call before the manifest is
   // stable that would early-return, and a later one after CDP wires up.
   // If we consumed the suffix at the top, the early call would delete it
@@ -308,7 +308,7 @@ export async function printProdBannerOnce(opts: {
         }
       }
 
-      // Read the suffix at the moment of printing — see printDevBannerOnce
+      // Read the suffix at the moment of printing, see printDevBannerOnce
       // for context. Avoids losing it across a try-catch fallback path.
       const updateSuffix = readUpdateSuffixOnce()
       console.log(messages.emptyLine())
@@ -359,7 +359,7 @@ export async function printProdBannerOnce(opts: {
     // Fallback: if anything goes wrong, still try to print a minimal card.
     // We cannot re-read the manifest here (it likely failed above), so we
     // print a short summary using only the information already available.
-    // Don't consume the suffix on this path — leave it for a later
+    // Don't consume the suffix on this path, leave it for a later
     // banner attempt that has more information to work with.
     console.log(messages.emptyLine())
     console.log(

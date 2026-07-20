@@ -3,13 +3,13 @@
 // `__EXTENSIONJS_default__` and emits the `__EXTENSIONJS_mount(...)` call
 // that actually invokes the user's default export. Without it, rspack treats
 // the entry chunk as a side-effect-free module exporting an unused default
-// and tree-shakes the entire body — content scripts ship empty in
+// and tree-shakes the entire body, content scripts ship empty in
 // production. EXTENSION_NO_RELOAD opts out of the dev reload strategy
-// (plugin-reload), not the wrapper itself — the wrapper is unconditional
+// (plugin-reload), not the wrapper itself. The wrapper is unconditional
 // in ScriptsPlugin.
 
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')

@@ -4,15 +4,15 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
 import {
-  uniqueNamesGenerator,
   adjectives,
+  animals,
   colors as ucColors,
-  animals
+  uniqueNamesGenerator
 } from 'unique-names-generator'
 import {markManagedEphemeralProfile} from './shared-utils'
 
@@ -22,13 +22,13 @@ import {markManagedEphemeralProfile} from './shared-utils'
  * (`false`, `copyFromProfile`, `keepProfileChanges`, the env switch, explicit
  * paths and the plain ephemeral default) is interpreted in exactly one place.
  *
- * - `system`   — the browser's own default profile. No managed directory is
+ * - `system`, the browser's own default profile. No managed directory is
  *                created, seeded or cleaned and no profile launch arg is
  *                emitted. Produced by `profile: false` and by the
  *                EXTENSION_USE_SYSTEM_PROFILE / EXTJS_USE_SYSTEM_PROFILE switch.
- * - `explicit` — a user-provided profile path; launched against exactly that
+ * - `explicit`, a user-provided profile path; launched against exactly that
  *                directory.
- * - `managed`  — a directory under `dist/extension-js/profiles/<browser>-profile`
+ * - `managed`, a directory under `dist/extension-js/profiles/<browser>-profile`
  *                that extension.js owns. Ephemeral by default (marked so it is
  *                reclaimed on browser exit); persistent (`dev`) when
  *                `persistProfile` or `keepProfileChanges` is set, in which case
@@ -45,9 +45,9 @@ export interface ResolveProfileInput {
   useSystemProfile: boolean
   /** `persistProfile` option (stable `dev` directory, never auto-cleaned). */
   persistProfile?: boolean
-  /** `keepProfileChanges` option — keep the managed profile and its changes across runs. */
+  /** `keepProfileChanges` option, keep the managed profile and its changes across runs. */
   keepProfileChanges?: boolean
-  /** `copyFromProfile` option — seed the managed profile as a copy of this path. */
+  /** `copyFromProfile` option, seed the managed profile as a copy of this path. */
   copyFromProfile?: string
   /**
    * Resolve a relative explicit profile path. Each launcher passes its own
@@ -70,12 +70,18 @@ export interface ResolvedProfile {
   seededFrom?: string
 }
 
-function hasExplicit(rawProfile: string | false | undefined): rawProfile is string {
+function hasExplicit(
+  rawProfile: string | false | undefined
+): rawProfile is string {
   return typeof rawProfile === 'string' && rawProfile.trim().length > 0
 }
 
-function hasCopyFrom(copyFromProfile: string | undefined): copyFromProfile is string {
-  return typeof copyFromProfile === 'string' && copyFromProfile.trim().length > 0
+function hasCopyFrom(
+  copyFromProfile: string | undefined
+): copyFromProfile is string {
+  return (
+    typeof copyFromProfile === 'string' && copyFromProfile.trim().length > 0
+  )
 }
 
 /**
@@ -91,11 +97,13 @@ export function seedProfileFrom(source: string, dest: string) {
 }
 
 /**
- * Resolve — and materialize on disk — the profile a run gets. Behavior-preserving
+ * Resolve (and materialize on disk) the profile a run gets. Behavior-preserving
  * for the default ephemeral path and explicit paths; adds `false` (system),
  * `copyFromProfile` (seed) and `keepProfileChanges` (persist + skip cleanup).
  */
-export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfile {
+export function resolveProfileConfig(
+  input: ResolveProfileInput
+): ResolvedProfile {
   const {
     rawProfile,
     managedBaseDir,
@@ -108,7 +116,7 @@ export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfil
 
   // `profile: false` and the env switch both mean: the browser's own default
   // profile. Nothing is created, seeded or cleaned. An empty or whitespace-only
-  // string is NOT false — it falls through to the managed default below.
+  // string is NOT false, it falls through to the managed default below.
   if (rawProfile === false || useSystemProfile) {
     return {kind: 'system', profilePath: '', persisted: false}
   }
@@ -147,7 +155,7 @@ export function resolveProfileConfig(input: ResolveProfileInput): ResolvedProfil
   if (!persisted) {
     // Only ephemeral, non-kept profiles are reclaimed on browser exit. The
     // marker is what `removeManagedEphemeralProfile` keys off of, so a persisted
-    // or kept profile (no marker) survives — that is how `keepProfileChanges`
+    // or kept profile (no marker) survives. That is how `keepProfileChanges`
     // skips cleanup.
     markManagedEphemeralProfile(profilePath)
   }

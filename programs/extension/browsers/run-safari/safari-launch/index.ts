@@ -4,14 +4,13 @@
 // ╚════██║██╔══██║██╔══╝  ██╔══██║██╔══██╗██║
 // ███████║██║  ██║██║     ██║  ██║██║  ██║██║
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'fs'
 import {spawn} from 'child_process'
-import type {BrowserLogger, CompilationLike} from '../../browsers-types'
+import * as fs from 'fs'
 import * as messages from '../../browsers-lib/messages'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariPluginLike} from '../safari-types'
-import {detectSafariToolchain} from './toolchain'
 import {logSafariDryRun} from './dry-run'
 import {
   alignBundleIdentifiers,
@@ -21,12 +20,13 @@ import {
   composeXcodebuildArgs,
   isProjectStale,
   macOsSchemeName,
-  pbxprojPath,
   PRESERVED_SETTINGS,
+  pbxprojPath,
   resolveSafariBuildConfig,
   saveManifestFingerprint,
   xcodeProjectPath
 } from './safari-config'
+import {detectSafariToolchain} from './toolchain'
 
 function fallbackLogger(): BrowserLogger {
   return {
@@ -97,7 +97,7 @@ function runTool(
 
 function converterWarnings(output: string): string[] {
   // safari-web-extension-converter prints per-key compatibility warnings
-  // ("Warning: ...") on success — the closest thing to a Safari manifest lint.
+  // ("Warning: ...") on success, the closest thing to a Safari manifest lint.
   return output
     .split(/\r?\n/)
     .filter((line) => /warning/i.test(line))
@@ -144,8 +144,8 @@ export interface SafariBuildPreflight {
 }
 
 /**
- * Preflight for `build`: a non-macOS host is not an error — the web-extension
- * bundle is still produced and can be packaged later on a Mac — so packaging
+ * Preflight for `build`: a non-macOS host is not an error, the web-extension
+ * bundle is still produced and can be packaged later on a Mac, so packaging
  * is skipped with a warning. A macOS host with a broken/missing Xcode stays
  * fatal because the user can act on it locally. `dev` keeps the stricter
  * safariPreflightError(): a Safari dev loop without packaging is pointless.
@@ -225,7 +225,7 @@ async function runSafariPipeline(
           ? messages.safariForcedRegeneration()
           : messages.safariProjectStale()
       )
-      // Regeneration replaces the whole project — be loud about what does
+      // Regeneration replaces the whole project, be loud about what does
       // and does not survive, BEFORE the converter overwrites it.
       logger.warn?.(
         messages.safariRegenerationDiscards([...PRESERVED_SETTINGS])
@@ -259,7 +259,7 @@ async function runSafariPipeline(
     }
 
     // The converter derives the parent-app id from the app name, not from
-    // --bundle-identifier — align both targets to the configured identity or
+    // --bundle-identifier, align both targets to the configured identity or
     // ValidateEmbeddedBinary fails when a user-set id doesn't match the name.
     const projFile = pbxprojPath(config)
     if (fs.existsSync(projFile)) {
@@ -298,7 +298,7 @@ async function runSafariPipeline(
 
   const appPath = builtAppPath(config)
 
-  // Resync mode (dev rebuilds): just report and stop — no reopen/re-guide.
+  // Resync mode (dev rebuilds): just report and stop, no reopen/re-guide.
   if (mode === 'resync') {
     logger.info?.(messages.safariRebuilt(config.appName))
     return

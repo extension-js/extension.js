@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export const LOG_EVENT_VERSION = 1 as const
 export const CONTROL_ENVELOPE_VERSION = 1 as const
@@ -87,7 +87,7 @@ export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
 /**
  * Everything a {@link ReloadFrame} can carry in `reloadType`: the extension
- * reload granularities plus `'page'` — a notify-only signal for page-only
+ * reload granularities plus `'page'`, a notify-only signal for page-only
  * edits (popup/options/sidebar/devtools/newtab). For `'page'` the producer
  * performs NO reload (livereload owns the refresh); it only forwards the
  * announcement so the devtools pill mirrors the dev loop.
@@ -163,7 +163,7 @@ export interface ResultFrame {
  * that completed without a CDP controller (`--no-browser`, headless/CI, remote)
  * so the service-worker producer can self-reload. Unlike a `reload` CommandFrame
  * (a controller-issued, `--allow-control`-gated act verb that expects a result),
- * this is a fire-and-forget dev-server signal — no cmdId, no result.
+ * this is a fire-and-forget dev-server signal, no cmdId, no result.
  */
 export interface ReloadFrame {
   type: 'reload'
@@ -199,7 +199,7 @@ export interface ReloadAckFrame {
 
 /**
  * Server → producer keepalive. An MV3 service worker idles out after ~30s
- * without events, and a stopped SW holds no control socket — reload
+ * without events, and a stopped SW holds no control socket, reload
  * broadcasts would reach zero producers and silently apply to nothing
  * (quiet extensions lost SW/manifest reloads once >30s passed between
  * edits). Receiving any WebSocket message resets the SW idle timer

@@ -4,7 +4,7 @@
 // ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
 // ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 // Root-absolute reference fallback (Chrome semantics).
 //
@@ -14,24 +14,24 @@
 // output root, and the ref 404'd at runtime.
 //
 // This runs over the EMITTED assets rather than the sources, so one pass covers
-// every producer uniformly — <script src="/x.js">, <link href="/x.css"> and
-// CSS `url(/img/x.svg)` alike — without teaching each pipeline about root refs.
+// every producer uniformly, <script src="/x.js">, <link href="/x.css"> and
+// CSS `url(/img/x.svg)` alike, without teaching each pipeline about root refs.
 //
 // Strictly additive: `public/` still wins, and only refs that actually exist at
 // the extension root are claimed. A genuinely broken ref stays broken and is
 // still reported.
 
+import {type Compilation, rspack} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
-import {rspack, type Compilation} from '@rspack/core'
-import {
-  collectRootAbsoluteRefs,
-  resolveRootAbsoluteRef
-} from '../plugin-web-extension/shared/paths'
 import {
   extractStaticImportLiterals,
   resolveExtensionPath
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
+import {
+  collectRootAbsoluteRefs,
+  resolveRootAbsoluteRef
+} from '../plugin-web-extension/shared/paths'
 
 export function emitRootAbsoluteRefs(
   compilation: Compilation,
@@ -39,7 +39,7 @@ export function emitRootAbsoluteRefs(
   publicDir: string
 ) {
   const scanned = new Set<string>()
-  // JS modules copied verbatim by this pass keep their static import graph —
+  // JS modules copied verbatim by this pass keep their static import graph,
   // Chrome resolves those specifiers against the module's own URL, so the
   // closure must ship too or the import fetch 404s (the root-absolute sibling
   // of the getURL static-import trace in trace-runtime-loaded-files).
@@ -79,7 +79,7 @@ export function emitRootAbsoluteRefs(
     let emitted = 0
     for (const ref of refs) {
       const outputName = ref.replace(/^\/+/, '')
-      // Something in the build already owns this output path — don't clobber it.
+      // Something in the build already owns this output path, don't clobber it.
       if (compilation.getAsset(outputName)) continue
 
       const sourcePath = resolveRootAbsoluteRef(ref, context, publicDir)
@@ -103,4 +103,3 @@ export function emitRootAbsoluteRefs(
     if (emitted === 0) return
   }
 }
-

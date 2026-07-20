@@ -4,7 +4,7 @@
 // ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔══██╗██╔══╝  ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  ╚════██║
 // ╚███╔███╔╝███████╗██████╔╝      ██║  ██║███████╗███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗███████║
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
 
@@ -109,7 +109,7 @@ export function entryImportsSummary(
   entryCount: number,
   totalResources: number
 ) {
-  return `Web resources: content entry imports — entries=${String(entryCount)}, resources=${String(totalResources)}`
+  return `Web resources: content entry imports, entries=${String(entryCount)}, resources=${String(totalResources)}`
 }
 
 export function warPatchedSummary(
@@ -117,5 +117,5 @@ export function warPatchedSummary(
   v3ResourcesTotal: number,
   v2Resources: number
 ) {
-  return `Web resources: WAR patched — v3Groups=${String(v3Groups)}, v3Resources=${String(v3ResourcesTotal)}, v2Resources=${String(v2Resources)}`
+  return `Web resources: WAR patched, v3Groups=${String(v3Groups)}, v3Resources=${String(v3ResourcesTotal)}, v2Resources=${String(v2Resources)}`
 }

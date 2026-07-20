@@ -1,8 +1,8 @@
-import {describe, it, expect, beforeAll, afterAll} from 'vitest'
-import * as path from 'path'
+import {rspack} from '@rspack/core'
 import * as fs from 'fs'
 import * as os from 'os'
-import {rspack} from '@rspack/core'
+import * as path from 'path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 
@@ -12,7 +12,7 @@ import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 // script CSS rule meant a `?url` import silently bypassed the CSS pipeline,
 // shipping the raw source verbatim (including `@import "tailwindcss"` left
 // uncompiled). After the fix, the rules must apply regardless of query
-// string — `?url` imports go through the same PostCSS chain as plain ones,
+// string, `?url` imports go through the same PostCSS chain as plain ones,
 // and the URL exported to JS points at the compiled stylesheet.
 //
 // This spec runs a real rspack build on a minimal fixture and asserts that
@@ -155,7 +155,7 @@ describe('css-url-query regression (end-to-end)', () => {
     // would survive and PostCSS would never have run.
     expect(
       emitted!.includes(FIXTURE_PROCESSED_MARKER),
-      'emitted CSS missing PostCSS-injected marker — `?url` import bypassed the CSS pipeline'
+      'emitted CSS missing PostCSS-injected marker, `?url` import bypassed the CSS pipeline'
     ).toBe(true)
   }, 60_000)
 })

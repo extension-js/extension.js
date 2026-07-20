@@ -4,15 +4,15 @@
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'path'
-import * as fs from 'fs/promises'
-import {existsSync} from 'fs'
-import * as os from 'os'
-import axios from 'axios'
 import AdmZip from 'adm-zip'
+import axios from 'axios'
+import {existsSync} from 'fs'
+import * as fs from 'fs/promises'
 import goGitIt from 'go-git-it'
+import * as os from 'os'
+import * as path from 'path'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
@@ -30,7 +30,7 @@ const EXAMPLES_REF = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
 
 // Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
 // failure. The old path (go-git-it) surfaced BOTH as "choose a valid template
-// name", which is the core of #56 — a slow network read reported as a bad slug.
+// name", which is the core of #56, a slow network read reported as a bad slug.
 export class TemplateNotFoundError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause?: unknown) {
@@ -44,8 +44,7 @@ export class TemplateNotFoundError extends Error {
 export class TemplateDownloadError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause: unknown) {
-    const msg =
-      (cause as {message?: string})?.message ?? String(cause)
+    const msg = (cause as {message?: string})?.message ?? String(cause)
     super(msg)
     this.name = 'TemplateDownloadError'
     this.templateName = templateName
@@ -156,7 +155,7 @@ async function withTimeout<T>(
 }
 
 async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
-  // Keep the underlying tool's output in dev/author mode — silencing it there
+  // Keep the underlying tool's output in dev/author mode, silencing it there
   // hides the very diagnostics we want while working on the CLI.
   if (isAuthorOrDevMode()) return task()
 
@@ -179,7 +178,7 @@ function bundledTemplateDir(templateName: string): string {
 }
 
 // Files the extension-js/examples repo carries for its own gallery + E2E
-// tooling. They have no purpose in a scaffolded user project — `template.meta.json`
+// tooling. They have no purpose in a scaffolded user project, `template.meta.json`
 // is the gallery "featured" flag, `template.spec.ts` is the examples E2E spec
 // (and trips `tsc --noEmit` in a fresh project), and the root `screenshot.png`
 // is the gallery thumbnail (the generated README embeds `public/screenshot.png`,
@@ -270,7 +269,7 @@ export async function importExternalTemplate(
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
       // Harden the spawned git so a credential-helper prompt can't hang it
-      // (#56: one of the three stacked triggers — `GIT_TERMINAL_PROMPT=0`
+      // (#56: one of the three stacked triggers, `GIT_TERMINAL_PROMPT=0`
       // unblocked the pull). go-git-it's execFile inherits process.env.
       const gitEnvKeys = {
         GIT_TERMINAL_PROMPT: '0',
@@ -336,7 +335,7 @@ export async function importExternalTemplate(
       await utils.moveDirectoryContents(sourcePath, projectPath)
     } else {
       // Built-in template names resolve to a single template folder in the
-      // extension-js/examples catalog, fetched as an HTTP tarball (#56) — no git
+      // extension-js/examples catalog, fetched as an HTTP tarball (#56), no git
       // pack negotiation, no credential-helper hang, and only the one template
       // is unpacked instead of the whole monorepo.
       await importFromExamplesCatalog(resolvedTemplateName, projectPath)
@@ -349,7 +348,7 @@ export async function importExternalTemplate(
     await fs.rm(tempRoot, {recursive: true, force: true})
   } catch (error: any) {
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
-    // failure — the old path reported every failure as "choose a valid template
+    // failure, the old path reported every failure as "choose a valid template
     // name", which is the #56 mislabel.
     if (error instanceof TemplateNotFoundError) {
       logger.error(

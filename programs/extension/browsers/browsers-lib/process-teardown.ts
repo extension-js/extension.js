@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type ChildProcess, spawn, spawnSync} from 'child_process'
 import type {BrowserType} from '../browsers-types'
@@ -42,7 +42,7 @@ function killWindowsTree(child: ChildProcess, sync: boolean): void {
 
 // Signal-path teardown: ask the browser to stop, then escalate to SIGKILL after
 // a grace window. The timer is unref'd so it never holds the loop open on its
-// own — if the loop drains first, forceKillChildOnExit (run from the 'exit'
+// own, if the loop drains first, forceKillChildOnExit (run from the 'exit'
 // handler) is the backstop that actually delivers the kill.
 export function gracefulTerminateChild(
   child: ChildProcess | null,
@@ -62,7 +62,7 @@ export function gracefulTerminateChild(
   killTimer.unref?.()
 }
 
-// Exit-path safety net: a Node 'exit' handler gets one synchronous slice —
+// Exit-path safety net: a Node 'exit' handler gets one synchronous slice,
 // timers and promise continuations never run. So an unref'd SIGKILL timer is
 // dead weight here and a child that ignored SIGTERM would outlive the process.
 // Force-kill synchronously and unconditionally (child.killed only means a
@@ -87,7 +87,7 @@ const BENIGN_SOCKET_ERROR_CODES = new Set([
   'ENOTCONN'
 ])
 
-// Errors from a socket the browser is in the middle of closing — the peer hung
+// Errors from a socket the browser is in the middle of closing, the peer hung
 // up while a read was in flight. Not a runner fault; treat as no-op so a
 // graceful shutdown stays graceful instead of force-exiting with code 1.
 export function isBenignSocketTeardown(value: unknown): boolean {

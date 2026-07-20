@@ -4,11 +4,11 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
-import * as crypto from 'crypto'
 import {controlTokenPath, legacyControlTokenPath} from '../../lib/session-paths'
 
 /**
@@ -16,7 +16,7 @@ import {controlTokenPath, legacyControlTokenPath} from '../../lib/session-paths'
  *
  * The token file used to be a single per-project slot: starting a second
  * browser session on the same project overwrote the first session's token,
- * and EITHER session's clean shutdown deleted the file — so eval on the
+ * and EITHER session's clean shutdown deleted the file, so eval on the
  * surviving session failed "Forbidden" despite a correct --allow-eval start.
  * Concurrent (or interleaved-shutdown) chrome+chromium sessions of one
  * project are exactly the A/B setup bug reports run.
@@ -46,7 +46,7 @@ export function writeControlToken(
 
   // Mirror to the legacy slot so an older CLI (which only reads
   // control.token) keeps working against a newer dev server. Last writer
-  // wins there — no worse than the pre-fix behavior it exists for.
+  // wins there, no worse than the pre-fix behavior it exists for.
   try {
     fs.writeFileSync(legacyControlTokenPath(projectPath), token, {
       encoding: 'utf-8',
@@ -92,7 +92,7 @@ export function clearControlToken(projectPath: string, browser: string): void {
     // ignore
   }
 
-  // Clear the legacy mirror only when it still holds THIS session's token —
+  // Clear the legacy mirror only when it still holds THIS session's token,
   // a concurrent session of another browser may have re-mirrored its own.
   try {
     const legacy = legacyControlTokenPath(projectPath)

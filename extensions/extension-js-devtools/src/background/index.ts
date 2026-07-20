@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝   ██║   ██║   ██║██║   ██║██║     ╚════██║
 // ██████╔╝███████╗ ╚████╔╝    ██║   ╚██████╔╝╚██████╔╝███████╗███████║
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {initManagerUI} from './manager-ui'
 import {appendExternalLog} from './log-central'
@@ -180,11 +180,11 @@ chrome.runtime.onInstalled.addListener(async () => {
 //
 // Two signal sources, one broadcast:
 //  1. The bridge producer injected into the user's extension forwards the
-//     dev-server ReloadFrame here (onMessageExternal) — it carries the
+//     dev-server ReloadFrame here (onMessageExternal), it carries the
 //     server-built context label ("content_script (content/scripts.tsx)"),
 //     and fires next to the actual reload action, so the pill shows the same
 //     string the CLI printed to stdout.
-//  2. chrome.management onDisabled/onEnabled/onInstalled — ground truth for
+//  2. chrome.management onDisabled/onEnabled/onInstalled, ground truth for
 //     full extension restarts (the producer dies mid-reload and can't confirm
 //     those itself).
 function isUserDevExtensionForReload(
@@ -219,7 +219,7 @@ function broadcastReloadState(
               kind: kind || ''
             })
             .catch(() => {
-              // Tab has no listener — ignore (most pages won't host the overlay).
+              // Tab has no listener, ignore (most pages won't host the overlay).
             })
         } catch {
           // Older Chrome may throw synchronously; nothing to do.
@@ -250,7 +250,7 @@ if (typeof chrome.runtime?.onMessageExternal?.addListener === 'function') {
       const kind = typeof message.kind === 'string' ? message.kind : ''
 
       // Only trust unpacked dev extensions (the user's extension running
-      // under `extension dev` — the sender of the bridge-producer signal).
+      // under `extension dev`, the sender of the bridge-producer signal).
       chrome.management.get(senderId, (info) => {
         if (chrome.runtime.lastError) return
         if (!isUserDevExtensionForReload(info)) return

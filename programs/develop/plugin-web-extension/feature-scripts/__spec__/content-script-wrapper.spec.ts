@@ -17,7 +17,7 @@ function createTempProject() {
   // resolved) resourcePath, which the loader compares against the canonicalized
   // manifest/package dirs. mkdtemp returns a symlinked path on macOS
   // ($TMPDIR -> /var -> /private/var), so resolve it to keep the simulation
-  // faithful — otherwise declared-entry detection would mismatch on symlinks.
+  // faithful, otherwise declared-entry detection would mismatch on symlinks.
   const dir = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
   )
@@ -302,7 +302,7 @@ describe('content-script-wrapper loader', () => {
   // declared entry through a symlinked ancestor (a directory junction, which
   // Windows can create without elevation). Before the fix the loader compared
   // raw forms, failed the declared-entry match, and returned the source
-  // unwrapped — exactly the Windows-only CI failure.
+  // unwrapped, exactly the Windows-only CI failure.
   it('wraps a declared entry referenced through a symlinked ancestor dir', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
@@ -320,15 +320,14 @@ describe('content-script-wrapper loader', () => {
 
     // A symlinked view of the project root: the loader is handed a resourcePath
     // routed through the symlink, while the manifest path it resolves is real.
-    const linkedRoot = path.join(projectDir, '..', `${path.basename(projectDir)}-link`)
+    const linkedRoot = path.join(
+      projectDir,
+      '..',
+      `${path.basename(projectDir)}-link`
+    )
     fs.symlinkSync(projectDir, linkedRoot, 'junction')
     tempDirs.push(linkedRoot)
-    const linkedResource = path.join(
-      linkedRoot,
-      'src',
-      'content',
-      'scripts.ts'
-    )
+    const linkedResource = path.join(linkedRoot, 'src', 'content', 'scripts.ts')
 
     const wrapped = contentScriptWrapper.call(
       createLoaderContext(

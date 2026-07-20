@@ -94,7 +94,7 @@ describe('lib/resource-path', () => {
 
   it('toResourceKey yields one key for every absolute form of the same path', () => {
     // On Windows `path.normalize('/project/sw.js')` stays drive-less
-    // (`\project\sw.js`) while `path.resolve` prepends the cwd drive — the
+    // (`\project\sw.js`) while `path.resolve` prepends the cwd drive, the
     // exact divergence that made a resolve-built set unmatchable by a
     // normalize-built probe. On POSIX the forms coincide, so this assertion
     // is only load-bearing on the Windows runner.

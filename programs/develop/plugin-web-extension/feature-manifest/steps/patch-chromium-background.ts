@@ -4,13 +4,13 @@
 // ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
 // ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 
 /**
- * Chromium does not run MV3 `background.scripts` — the extension fails to load
+ * Chromium does not run MV3 `background.scripts`. The extension fails to load
  * ("The 'background.scripts' key cannot be used with manifest_version 3"),
  * while Firefox happily uses it as an event page. The mirror of
  * patch-gecko-background: the scripts array is bundled into a single classic
@@ -38,7 +38,7 @@ export function patchChromiumBackground(
   }
 
   // Chromium MV3 rejects the extension whenever `background.scripts` is
-  // present — even alongside a valid `service_worker` (cross-browser hybrid
+  // present, even alongside a valid `service_worker` (cross-browser hybrid
   // manifests declare both). Drop `scripts` always; when it was the only
   // entry, repoint `service_worker` at the emitted classic bundle.
   const {scripts, ...rest} = background

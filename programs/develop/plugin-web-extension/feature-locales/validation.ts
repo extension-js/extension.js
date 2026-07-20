@@ -4,7 +4,7 @@
 // ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
 // ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
 // ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compilation, Compiler} from '@rspack/core'
 import * as fs from 'fs'
@@ -33,9 +33,9 @@ export function validateLocales(
     const hasLocalesRoot = Boolean(resolvedLocalesRoot)
 
     // Project-root layout is the canonical placement (sibling of public/,
-    // dist/, package.json — matches Chrome's view of the dist root). When
+    // dist/, package.json, matches Chrome's view of the dist root). When
     // the resolver falls back to `<manifestDir>/_locales` instead, emit a
-    // build WARNING so authors are nudged toward the canonical layout —
+    // build WARNING so authors are nudged toward the canonical layout,
     // not a fatal error, since plenty of existing templates and external
     // projects still use the legacy nested layout and shouldn't break.
     if (projectRoot && resolvedLocalesRoot) {

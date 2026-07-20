@@ -4,7 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
 // ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {rspack} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
@@ -67,7 +67,7 @@ import {PortManager} from './port-manager'
 function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment in the write target means an emitted asset NAME escapes
   // the output dir (dist/chromium/../../assets/x). Writing it would clobber
-  // a SOURCE file, which the watcher then reports as a user edit — a
+  // a SOURCE file, which the watcher then reports as a user edit, a
   // self-feeding recompile loop that reloads the extension once per second.
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
@@ -307,7 +307,7 @@ export async function devServer(
   const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
   // Plain manifest+scripts extensions ship no project manifest; the project
   // root is then the manifest's directory. `build` already tolerates this
-  // shape — dev must not crash on dirname(undefined). Deno projects anchor
+  // shape, dev must not crash on dirname(undefined). Deno projects anchor
   // on deno.json(c) when no package.json exists.
   const projectManifestPath = packageJsonPath || denoJsonPath
   const packageJsonDir = projectManifestPath
@@ -345,7 +345,7 @@ export async function devServer(
   const port = portAllocation.port
 
   // `devServerHost` is the BIND host (e.g. 0.0.0.0 in a devcontainer). Clients
-  // — the in-page HMR ws and the SW control-bridge producer — must dial a
+  // (the in-page HMR ws and the SW control-bridge producer) must dial a
   // CONNECTABLE host instead: a wildcard bind address is not a valid client
   // target. Derive it once here and propagate it to the HMR client URL,
   // ready.json, and the baked producer (see resolveConnectableHost).
@@ -372,7 +372,7 @@ export async function devServer(
   // One canonical dist output path per browser, shared with `build`/`preview`
   // (all three route through getDistPath). Re-joining `dist/<browser>` inline at
   // each use site let the rspack output, the manifest path, and the ready.json
-  // `distPath` field drift apart across code paths/versions — the root of the
+  // `distPath` field drift apart across code paths/versions, the root of the
   // "distPath depends on how the CLI was resolved" report. Derive it once.
   const primaryDistPath = getDistPath(asAbsolute(packageJsonDir), browserName)
   const bridgeLogsAbsPath = sessionLogsPath(packageJsonDir, browserName)
@@ -400,7 +400,7 @@ export async function devServer(
       ? writeControlToken(packageJsonDir, browserName)
       : undefined
   // The metadata writer is created later (it needs the resolved control port),
-  // but the broker fires onExecutorAttached whenever the SW connects — which is
+  // but the broker fires onExecutorAttached whenever the SW connects, which is
   // always after that. A mutable holder bridges the ordering.
   let stampExecutorAttached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
@@ -585,7 +585,7 @@ export async function devServer(
           outputPath
         })
 
-        // Same shared dispatch seam as the launched path — here with the broker
+        // Same shared dispatch seam as the launched path, here with the broker
         // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
         await dispatchReload(instruction, {broker: bridgeBroker})
       }
@@ -682,7 +682,7 @@ export async function devServer(
     // HTML entry chains in development) does not throw. Content scripts do not
     // rely on that client: StripContentScriptDevServerRuntime strips HMR startup
     // from `content_scripts/content-*.js` bundles, so re-enabling liveReload no
-    // longer triggers content-script reload loops — and it is the only path
+    // longer triggers content-script reload loops, and it is the only path
     // that delivers HTML-entry edits to already-open extension pages once
     // rspack 2.x stopped bumping stats.hash on asset-only rebuilds.
     hot: true,

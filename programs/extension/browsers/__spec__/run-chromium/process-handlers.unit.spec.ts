@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // We test process signal handler behavior without actually registering on
 // the real process object. We mock process.on/removeListener and the
@@ -132,7 +132,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
     const child: any = {killed: false, kill: vi.fn(), pid: 12345}
 
     // Two launches register two instances but must NOT add a second global
-    // listener — that was the leak (a handler per launch).
+    // listener. That was the leak (a handler per launch).
     const dispose1 = setupProcessSignalHandlers('chrome', child, vi.fn())
     const dispose2 = setupProcessSignalHandlers('chrome', child, vi.fn())
 
@@ -208,7 +208,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     expect(sigintHandlers.length).toBeGreaterThan(0)
 
-    // Call the same handler twice — isCleaningUp should prevent double execution
+    // Call the same handler twice, isCleaningUp should prevent double execution
     const handler = sigintHandlers[0]
     handler()
     handler()

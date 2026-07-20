@@ -4,7 +4,7 @@
 // ██╔══██╗██║   ██║██║╚██╗██║╚════╝██║     ██╔══██║██╔══██╗██║   ██║██║╚██╔╝██║██║██║   ██║██║╚██╔╝██║
 // ██║  ██║╚██████╔╝██║ ╚████║      ╚██████╗██║  ██║██║  ██║╚██████╔╝██║ ╚═╝ ██║██║╚██████╔╝██║ ╚═╝ ██║
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
-// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -81,7 +81,7 @@ export class CDPExtensionController {
 
   /**
    * Open a fresh browser tab. Used after the extension registers to land the
-   * developer on a `chrome_url_overrides.newtab` surface — that override only
+   * developer on a `chrome_url_overrides.newtab` surface, that override only
    * takes effect for tabs created AFTER registration, so the launch tab (which
    * predates it) shows Chrome's default new tab (#50). Best-effort: a no-op
    * when disconnected, and callers swallow errors so it never blocks launch.
@@ -100,7 +100,7 @@ export class CDPExtensionController {
 
     // Before loading this build, evict any prior unpacked load of THIS project
     // that the persistent profile auto-loaded at startup (a sibling dist path
-    // from an earlier run/CLI resolution) — otherwise the profile accumulates
+    // from an earlier run/CLI resolution), otherwise the profile accumulates
     // duplicate extension IDs for one project (#49). Best-effort, once.
     if (this.profilePath) {
       try {
@@ -111,7 +111,7 @@ export class CDPExtensionController {
           this.outPath
         )
       } catch {
-        // best-effort only — never block launch on cleanup
+        // best-effort only, never block launch on cleanup
       }
     }
 
@@ -124,7 +124,7 @@ export class CDPExtensionController {
         const cdpId = await loadUnpackedIfNeeded(this.cdp, this.outPath)
         if (cdpId) this.extensionId = cdpId
       } catch {
-        // Extensions.loadUnpacked not supported — fall through to target derivation
+        // Extensions.loadUnpacked not supported, fall through to target derivation
       }
     }
 
@@ -137,7 +137,7 @@ export class CDPExtensionController {
     if (this.extensionId) {
       const ownership = this.classifyOwnership(this.extensionId)
       if (ownership === 'not_mine') {
-        // Verifiably another extension — never adopt it.
+        // Verifiably another extension, never adopt it.
         this.extensionId = null
       } else if (ownership === 'unknown' && this.profilePath) {
         // The profile cannot confirm ownership yet (a freshly created profile
@@ -266,7 +266,7 @@ export class CDPExtensionController {
   // Ask the one ownership question. Every site that needs to know whether an
   // id belongs to the dev extension resolves through this shared decision, so
   // the tri-state ('mine' | 'not_mine' | 'unknown') is never re-interpreted
-  // per call site. 'unknown' is not a yes — see `ownership.ts`.
+  // per call site. 'unknown' is not a yes, see `ownership.ts`.
   private classifyOwnership(extensionId: string) {
     return classifyExtensionOwnership(
       this.profilePath,

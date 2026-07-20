@@ -4,9 +4,9 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BrowserType} from '../browsers-types'
 
@@ -17,7 +17,7 @@ import type {BrowserType} from '../browsers-types'
 // '*-based' aliases resolve the same way. Keep this aligned with
 // extension-develop's lib/constants.ts classification.
 //
-// Safari/webkit are intentionally NOT in either family here — they have their
+// Safari/webkit are intentionally NOT in either family here. They have their
 // own run-safari launch path.
 
 export const CHROMIUM_BROWSERS: ReadonlySet<string> = new Set([

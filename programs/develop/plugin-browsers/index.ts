@@ -4,7 +4,7 @@
 // ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
 // ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
@@ -13,9 +13,9 @@ import {
   classifyReloadFromSources,
   createChangedSourcesTracker,
   dispatchReload,
-  readContentScriptCount,
   type ReloadBroker,
-  type ReloadInstruction
+  type ReloadInstruction,
+  readContentScriptCount
 } from '../plugin-reload'
 
 export interface CompiledEvent {
@@ -41,7 +41,7 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
     super()
     // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' is emitted without
     // a listener. Build errors here are rspack/swc compile failures that are
-    // already printed by the bundler — losing them shouldn't kill the dev
+    // already printed by the bundler, losing them shouldn't kill the dev
     // process and prevent recovery on the next save. Install a default
     // listener so user-installed handlers still fire (EventEmitter delivers
     // to all listeners) while the emit itself is non-throwing.
@@ -102,7 +102,7 @@ export interface RunnerPlugin {
 }
 
 export interface BrowsersPluginOptions {
-  /** Injected browser launcher — provided by the CLI from programs/extension/browsers/ */
+  /** Injected browser launcher, provided by the CLI from programs/extension/browsers/ */
   launcher: BrowserLauncherFn
   /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */
   browserOptions: Omit<
@@ -228,7 +228,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         }
       } else if (this.reloadBroker) {
         // Launched-browser reload through the shared dispatch seam: it routes to
-        // the SW producer over the control bridge — the SAME executor as
+        // the SW producer over the control bridge, the SAME executor as
         // `--no-browser`, for both Chromium and Firefox. The CDP/RDP controller
         // is kept only for logging / source inspection. Honors EXTENSION_NO_RELOAD.
         await dispatchReload(reloadInstruction, {

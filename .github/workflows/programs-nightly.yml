@@ -144,7 +144,7 @@ jobs:
     # Control-channel lifecycle across process boundaries: dev-server crash +
     # restart against a kept profile (#484 stale-SW resync), dist wipe under
     # an external profile, verbs + doctor against each state. Default trio
-    # only — two-browser/idle-window stay local until this job has a streak.
+    # only, two-browser/idle-window stay local until this job has a streak.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     env:

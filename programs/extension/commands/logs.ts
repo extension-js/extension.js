@@ -4,7 +4,7 @@
 // ██║     ██║     ██║
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
 import fs from 'fs'
@@ -34,7 +34,7 @@ function levelRank(level: string): number {
 
 // `--url` accepts a glob (`*` = any run of chars) or a plain substring (no `*`).
 // Matched against the event's url, then hostname. Shared verbatim with the MCP
-// extension_logs tool — keep the two in lockstep.
+// extension_logs tool, keep the two in lockstep.
 function makeUrlMatcher(pattern: string): (event: any) => boolean {
   const hasGlob = pattern.includes('*')
   let re: RegExp | null = null
@@ -239,7 +239,7 @@ async function followLogs(
     onGap: (gap: any) => {
       // eslint-disable-next-line no-console
       console.error(
-        `… ${gap.dropped} event(s) dropped (${gap.reason}) — stream is behind`
+        `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
       )
     }
   })
