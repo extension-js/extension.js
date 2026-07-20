@@ -13,7 +13,12 @@ import {pathToFileURL} from 'node:url'
 
 const require = createRequire(import.meta.url)
 
-function parseJsonSafe(filePath: string): any {
+// The develop program is loaded dynamically at runtime; its module shape is
+// caller-defined, so the loaders default to the loosest view in one place.
+// biome-ignore lint/suspicious/noExplicitAny: dynamic module loading boundary, callers narrow per import
+export type AnyDevelopModule = any
+
+function parseJsonSafe(filePath: string): AnyDevelopModule {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
@@ -129,8 +134,10 @@ export function resolveExtensionDevelopVersion(
   }
 }
 
-async function importModule<T = any>(filePath: string): Promise<T> {
-  const mod: any = await import(pathToFileURL(filePath).href)
+async function importModule<T = AnyDevelopModule>(
+  filePath: string
+): Promise<T> {
+  const mod: AnyDevelopModule = await import(pathToFileURL(filePath).href)
 
   return (
     mod?.default && typeof mod.default === 'object'
@@ -139,7 +146,7 @@ async function importModule<T = any>(filePath: string): Promise<T> {
   ) as T
 }
 
-export async function loadExtensionDevelopModule<T = any>(
+export async function loadExtensionDevelopModule<T = AnyDevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
@@ -165,7 +172,7 @@ export async function loadExtensionDevelopModule<T = any>(
  * This avoids pulling in rspack and the full build toolchain, making
  * `extension preview` start significantly faster.
  */
-export async function loadExtensionDevelopPreviewModule<T = any>(
+export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
@@ -197,7 +204,7 @@ export async function loadExtensionDevelopPreviewModule<T = any>(
  * Load only the lightweight agent-bridge entry (BridgeConsumer / readReadyContract)
  * for the `extension logs` command. Avoids pulling in rspack like preview does.
  */
-export async function loadExtensionDevelopBridgeModule<T = any>(
+export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)

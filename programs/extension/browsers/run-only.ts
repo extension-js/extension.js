@@ -57,7 +57,7 @@ function createPreviewCompilationLike(
       output: {path: opts.outPath}
     },
     errors: []
-  } as any
+  } as unknown as CompilationLike
 }
 
 function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
@@ -195,7 +195,7 @@ export async function runOnlyPreviewBrowser(
       buildBrowserLaunchRequest(previewPluginOptions, 'production', {
         persistProfile: previewPluginOptions.persistProfile,
         geckoBinary: previewPluginOptions.geckoBinary
-      }) as any
+      }) as unknown as Parameters<typeof launcher.runOnce>[1]
     )
 
     await printProdBannerOnce(bannerOptions)

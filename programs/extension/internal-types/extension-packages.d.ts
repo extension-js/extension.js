@@ -3,8 +3,8 @@
 
 declare module 'extension-create' {
   export interface CreateLogger {
-    log: (...args: any[]) => void
-    error: (...args: any[]) => void
+    log: (...args: unknown[]) => void
+    error: (...args: unknown[]) => void
   }
 
   export interface CreateOptions {
@@ -37,15 +37,15 @@ declare module 'extension-develop' {
   export function extensionBuild(
     pathOrRemoteUrl: string,
     options: BuildOptions
-  ): Promise<any>
+  ): Promise<unknown>
   export function extensionDev(
     pathOrRemoteUrl: string | undefined,
     options: DevOptions
-  ): Promise<any>
+  ): Promise<unknown>
   export function extensionPreview(
     pathOrRemoteUrl: string | undefined,
     options: PreviewOptions
-  ): Promise<any>
+  ): Promise<unknown>
 }
 
 declare module 'extension-develop/preview' {
@@ -54,7 +54,7 @@ declare module 'extension-develop/preview' {
   export function extensionPreview(
     pathOrRemoteUrl: string | undefined,
     options: PreviewOptions
-  ): Promise<any>
+  ): Promise<unknown>
 }
 
 declare module 'extension-install' {

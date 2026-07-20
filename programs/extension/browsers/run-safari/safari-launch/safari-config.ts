@@ -39,7 +39,7 @@ export function isValidBundleId(value: string): boolean {
   return /^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z][A-Za-z0-9-]*)+$/.test(value)
 }
 
-function readManifest(extensionDir: string): Record<string, any> {
+function readManifest(extensionDir: string): Record<string, unknown> {
   try {
     const manifestPath = path.join(extensionDir, 'manifest.json')
     if (fs.existsSync(manifestPath)) {
@@ -55,7 +55,10 @@ export function resolveSafariBuildConfig(
   compilation: CompilationLike,
   host: SafariPluginLike
 ): SafariBuildConfig {
-  const extensionDir = String((compilation as any)?.options?.output?.path || '')
+  const extensionDir = String(
+    (compilation as {options?: {output?: {path?: unknown}}} | undefined)
+      ?.options?.output?.path || ''
+  )
   const manifest = readManifest(extensionDir)
   const appName = sanitizeAppName(
     String(host.appName || manifest?.name || 'Extension')

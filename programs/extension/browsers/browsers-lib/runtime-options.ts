@@ -41,7 +41,9 @@ export function pickSharedBrowserRuntimeOptions(
   options: SharedBrowserRuntimeOptions
 ): SharedBrowserRuntimeOptions {
   return sharedBrowserRuntimeOptionKeys.reduce((picked, key) => {
-    ;(picked as any)[key] = (options as any)[key]
+    ;(picked as Record<string, unknown>)[key] = (
+      options as unknown as Record<string, unknown>
+    )[key]
     return picked
   }, {} as SharedBrowserRuntimeOptions)
 }

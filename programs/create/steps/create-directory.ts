@@ -16,7 +16,7 @@ const allowlist = ['LICENSE', 'node_modules']
 export async function createDirectory(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   logger.log(messages.startingNewExtension(projectName))
 
@@ -60,7 +60,7 @@ export async function createDirectory(
       )
       throw new Error(conflictMessage)
     }
-  } catch (error: any) {
+  } catch (error) {
     // Re-throw a single formatted error so callers log it once
     throw new Error(messages.createDirectoryError(projectName, error))
   }

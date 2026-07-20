@@ -125,7 +125,7 @@ const masterPreferences = {
 
 export default masterPreferences
 
-export function getPreferences(customPrefs: Record<string, any>) {
+export function getPreferences(customPrefs: Record<string, unknown>) {
   return {
     ...masterPreferences,
     ...customPrefs

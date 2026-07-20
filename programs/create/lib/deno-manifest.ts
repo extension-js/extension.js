@@ -91,7 +91,10 @@ function stripJsoncExtensions(text: string): string {
   return out
 }
 
-export function parseJsoncSafe(text: string): any {
+// biome-ignore lint/suspicious/noExplicitAny: JSONC readers are dynamic by contract; callers narrow at their own boundary
+export type ParsedJsonc = any
+
+export function parseJsoncSafe(text: string): ParsedJsonc {
   const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
   const stripped = stripJsoncExtensions(withoutBom)
   return JSON.parse(stripped.trim() || '{}')
@@ -133,7 +136,7 @@ export function readDenoConfigDependencies(
 
   for (const filename of ['deno.jsonc', 'deno.json']) {
     const configPath = path.join(projectPath, filename)
-    let config: any
+    let config: ParsedJsonc
     try {
       config = parseJsoncSafe(fs.readFileSync(configPath, 'utf8'))
     } catch {

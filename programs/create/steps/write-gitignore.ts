@@ -49,7 +49,7 @@ const globalLines = [
 
 export async function writeGitignore(
   projectPath: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const gitIgnorePath = path.join(projectPath, '.gitignore')
   const paths = new Set<string>()

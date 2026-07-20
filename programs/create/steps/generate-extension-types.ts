@@ -13,7 +13,7 @@ import * as messages from '../lib/messages'
 export async function generateExtensionTypes(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: any[]): void; error(...args: any[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
   // Always use the published package path to ensure compatibility in monorepos
@@ -36,7 +36,7 @@ export async function generateExtensionTypes(
     logger.log(messages.writingTypeDefinitions(projectName))
 
     await fs.writeFile(extensionEnvFile, fileContent)
-  } catch (error: any) {
+  } catch (error) {
     logger.error(messages.writingTypeDefinitionsError(error))
     throw error
   }

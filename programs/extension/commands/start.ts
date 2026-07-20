@@ -193,8 +193,7 @@ export function registerStartCommand(program: Command) {
           return
         }
 
-        const {extensionBuild}: {extensionBuild: any} =
-          await loadExtensionDevelopModule()
+        const {extensionBuild} = await loadExtensionDevelopModule()
 
         for (const vendor of list) {
           const logsOption = (startOptions as unknown as {logs?: string}).logs
@@ -228,8 +227,7 @@ export function registerStartCommand(program: Command) {
           // The extensionPreview module is still used under the hood to resolve
           // project structure and extensions-to-load. We call launchBrowser
           // through the preview module which handles all of this.
-          const {extensionPreview}: {extensionPreview: any} =
-            await loadExtensionDevelopPreviewModule()
+          const {extensionPreview} = await loadExtensionDevelopPreviewModule()
 
           await extensionPreview(
             pathOrRemoteUrl,
@@ -253,7 +251,8 @@ export function registerStartCommand(program: Command) {
               logUrl: startOptions.logUrl,
               logTab: startOptions.logTab
             },
-            (opts: any) => runOnlyPreviewBrowser(opts)
+            (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
+              runOnlyPreviewBrowser(opts)
           )
         }
       }

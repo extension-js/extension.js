@@ -31,9 +31,18 @@ export function readRecentConsole(
     return []
   }
 
-  const out: any[] = []
+  const out: Array<Record<string, unknown>> = []
   for (const line of lines) {
-    let e: any
+    let e: {
+      type?: unknown
+      context?: unknown
+      tabId?: unknown
+      seq?: unknown
+      level?: unknown
+      messageParts?: unknown
+      eventType?: unknown
+      code?: unknown
+    }
     try {
       e = JSON.parse(line)
     } catch {
@@ -76,6 +85,15 @@ type CommandOp =
   | 'tabs.query'
   | 'inspect'
 
+// Bridge command results are dynamic frames; this loose view names the
+// fields the CLI probes.
+interface ActResultLike {
+  ok?: boolean
+  value?: unknown
+  truncated?: boolean
+  error?: {name?: unknown; message?: unknown; engine?: unknown}
+}
+
 interface CommonActOptions {
   browser?: string
   context?: string
@@ -95,7 +113,7 @@ interface RunInput {
   augment?: (
     projectPath: string,
     browser: string,
-    result: any
+    result: ActResultLike
   ) => Record<string, unknown>
 }
 
@@ -105,7 +123,10 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-function printResult(result: any, output: 'pretty' | 'json' | undefined): void {
+function printResult(
+  result: ActResultLike,
+  output: 'pretty' | 'json' | undefined
+): void {
   if (output === 'json') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(result))
@@ -138,7 +159,7 @@ async function runCommand(input: RunInput): Promise<void> {
   const projectPath = path.resolve(input.projectPathArg || process.cwd())
   const browser = input.opts.browser || 'chromium'
 
-  const {BridgeController, readReadyContract, readControlToken}: any =
+  const {BridgeController, readReadyContract, readControlToken} =
     await loadExtensionDevelopBridgeModule()
 
   const ready = readReadyContract(projectPath, browser)
@@ -160,13 +181,16 @@ async function runCommand(input: RunInput): Promise<void> {
 
   try {
     await controller.connect()
-  } catch (err: any) {
+  } catch (err) {
     controller.close()
-    fail(err?.message || 'could not connect to the control channel')
+    fail(
+      (err as Error | undefined)?.message ||
+        'could not connect to the control channel'
+    )
   }
 
   const timeoutMs = input.opts.timeout ? Number(input.opts.timeout) : 5000
-  let result: any
+  let result: ActResultLike
   try {
     result = await controller.command({
       op: input.op,
@@ -174,9 +198,9 @@ async function runCommand(input: RunInput): Promise<void> {
       args: input.args,
       timeoutMs
     })
-  } catch (err: any) {
+  } catch (err) {
     controller.close()
-    fail(err?.message || 'command failed')
+    fail((err as Error | undefined)?.message || 'command failed')
   } finally {
     controller.close()
   }
