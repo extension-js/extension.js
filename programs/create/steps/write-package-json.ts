@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs/promises'
+import {readFileSync} from 'fs'
 import * as messages from '../lib/messages'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
@@ -96,16 +97,49 @@ const ML_DEP_TRIGGERS = ['@huggingface/transformers', '@xenova/transformers']
 const uniq = (values: Array<string | undefined>): string[] =>
   Array.from(new Set(values.filter(Boolean) as string[]))
 
+// An explicit engine-version override for callers that don't thread `cliVersion`
+// through (chiefly the MCP, which calls `extensionCreate` directly). Without one
+// the generated project pinned `"latest"`, which resolves to the newest STABLE
+// and silently overrode a pinned/canary engine the caller was actually running.
+function engineVersionOverrideFromEnv(): string | undefined {
+  const raw = (
+    process.env.EXTENSION_CREATE_ENGINE_VERSION ||
+    process.env.EXTENSION_MCP_CLI_VERSION ||
+    ''
+  ).trim()
+  return raw || undefined
+}
+
+// `extension-create` publishes in lockstep with `extension`, so our own package
+// version is the RESOLVED engine version to pin when the caller gave none —
+// reproducible, and matching the toolchain that produced the scaffold. Falls
+// back to `undefined` (→ `latest`) only if the manifest can't be read.
+function ownCreatePackageVersion(): string | undefined {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
+    )
+    return typeof pkg.version === 'string' && pkg.version ? pkg.version : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function resolveExtensionDevDependencyVersion(
   cliVersion?: string
 ): string {
-  if (!cliVersion) {
+  // Precedence: caller-provided version (the invoking CLI passes its own) →
+  // explicit env override → our own lockstep version → floating `latest`.
+  const resolved =
+    cliVersion || engineVersionOverrideFromEnv() || ownCreatePackageVersion()
+
+  if (!resolved) {
     return 'latest'
   }
 
   // Prerelease ranges like ^3.8.7-canary... can resolve to stable releases
   // with npm semver range matching; pin prereleases exactly.
-  return cliVersion.includes('-') ? cliVersion : `^${cliVersion}`
+  return resolved.includes('-') ? resolved : `^${resolved}`
 }
 
 export async function overridePackageJson(

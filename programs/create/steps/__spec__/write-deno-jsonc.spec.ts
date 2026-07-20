@@ -163,7 +163,12 @@ describe('writeDenoJsonc', () => {
       await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
     )
     expect(Object.keys(config.imports)).toEqual(['extension'])
-    expect(config.imports.extension).toBe('npm:extension@latest')
+    // #57: with no cliVersion the import must pin a RESOLVED version (the
+    // create package's own lockstep version), never float `@latest`.
+    expect(config.imports.extension).not.toBe('npm:extension@latest')
+    expect(config.imports.extension).toMatch(
+      /^npm:extension@\^?\d+\.\d+\.\d+/
+    )
   })
 
   it('keeps a Deno config the template already ships', async () => {
