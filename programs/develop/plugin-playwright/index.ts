@@ -224,8 +224,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
         `${readyPath}; this ${options.command} run will not rewrite the ` +
         `session's ready.json/events.ndjson. The output dir is shared, so ` +
-        `the dev browser may pick up freshly ${options.command}-built files — ` +
-        `stop the dev session first for a clean ${options.command} receipt.`
+        `the dev browser may pick up freshly ${options.command}-built files. ` +
+        `Stop the dev session first for a clean ${options.command} receipt.`
     )
   }
 
