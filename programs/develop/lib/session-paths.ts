@@ -66,7 +66,7 @@ export function sessionArtifactsRootDir(projectPath: string): string {
 // inside the session root defends adopted projects from committing personal data.
 export const SESSION_ARTIFACTS_IGNORE_CONTENT =
   '# Extension.js session state: managed browser profiles (cookies, history,\n' +
-  '# logins), session logs and machine contracts. Personal data lives here —\n' +
+  '# logins), session logs and machine contracts. Personal data lives here:\n' +
   '# this directory must never be committed or shipped.\n' +
   '*\n'
 

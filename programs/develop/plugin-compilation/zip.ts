@@ -126,7 +126,7 @@ export class ZipPlugin {
                 `ZipPlugin: manifest.json declares default_locale "${String(
                   manifest.default_locale
                 )}" but ${messagesPath} does not exist. Stores reject packages ` +
-                  `without their default locale — restore the _locales folder ` +
+                  `without their default locale: restore the _locales folder ` +
                   `before shipping this zip.`
               ) as (typeof stats.compilation.warnings)[number]
             )

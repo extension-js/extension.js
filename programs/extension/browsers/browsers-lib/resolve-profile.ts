@@ -89,7 +89,7 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
     fs.writeFileSync(
       ignoreFile,
       '# Extension.js session state: managed browser profiles (cookies, history,\n' +
-        '# logins), session logs and machine contracts. Personal data lives here —\n' +
+        '# logins), session logs and machine contracts. Personal data lives here:\n' +
         '# this directory must never be committed or shipped.\n' +
         '*\n'
     )
