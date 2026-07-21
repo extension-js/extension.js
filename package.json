@@ -23,7 +23,7 @@
       "fast-uri": "^3.1.2",
       "which": "^4.0.0",
       "form-data": "^4.0.6",
-      "js-yaml": "^4.2.0",
+      "js-yaml": "^4.3.0",
       "read-yaml-file": "^2.1.0",
       "@swc/helpers": "^0.5.23"
     }
