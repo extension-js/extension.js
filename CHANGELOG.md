@@ -2,19 +2,57 @@
 
 ## Unreleased
 
-### Features
+## 4.0.14 (July 21, 2026)
 
-- Allow reserved _locales and _metadata dirs past the dev name guard ([131388ac](https://github.com/extension-js/extension.js/commit/131388ac9aa006956875b4fc4d48e0ca52326a1d))
+### Fixes
+
+- Guard the CLI on Node < 22.12 with a clear version error ([06930647](https://github.com/extension-js/extension.js/commit/069306474494cb5db291d4208a04ada52567c1a5))
+- Fix eval executor: surface contexts, CSP honesty, Gecko callback APIs ([29a475ea](https://github.com/extension-js/extension.js/commit/29a475eacbe3ebfd8b860b951b0273579046764c))
+- Stop dropping release notes and recover the lost 4.0.x changelog ([1dd83616](https://github.com/extension-js/extension.js/commit/1dd83616a600550421023d89bde437e45b80129c))
+- Fix Firefox storage bridge and surface uncaught dev-log errors ([028f939f](https://github.com/extension-js/extension.js/commit/028f939fdbf4469ed1f6ac390e9b2c9d922bb6b0))
 
 <details>
-<summary>Other changes (6)</summary>
+<summary>Other changes (39)</summary>
 
-- Override adm-zip to 0.6.0 to fix the memory-exhaustion advisory ([a7e2c27a](https://github.com/extension-js/extension.js/commit/a7e2c27ae884458a26e26c32e421bb977960443c))
-- Warn when a dev reload reaches no page (service worker not attached) ([ed08f41f](https://github.com/extension-js/extension.js/commit/ed08f41fc24251b422424e688217717b4d7cd406))
-- Stamp runtime attachment in ready.json; doctor grace + unify distPath ([24935327](https://github.com/extension-js/extension.js/commit/2493532768e98a295e0487377ebbb00c65b5bb6c))
-- Target eval/inspect by tab or url and add inspect --list-tabs ([a8747be9](https://github.com/extension-js/extension.js/commit/a8747be9942ec7d9b8e44789bf5312e64f9f31c4))
-- Evict stale unpacked loads and open the newtab override tab ([22ea5039](https://github.com/extension-js/extension.js/commit/22ea503916933d16029ed68a0ecdbb2cee8496e7))
-- Unify scaffold package-manager and expose it on CreateResult ([611c09fd](https://github.com/extension-js/extension.js/commit/611c09fdcc1d529c3c04b5111dacaf1c8921db8f))
+- Sync bundled javascript template: STORE.md and manifest key order ([d0649f41](https://github.com/extension-js/extension.js/commit/d0649f41d91751f2eca575f52467462c5432eba5))
+- Bump the js-yaml override to 4.3.0 to clear GHSA-52cp-r559-cp3m ([22392bbd](https://github.com/extension-js/extension.js/commit/22392bbd51ccfcc259bb5debad91116e254540f5))
+- Replace em dashes in user-facing strings to satisfy the prose gate ([5581bb7b](https://github.com/extension-js/extension.js/commit/5581bb7b5eac85b305c7d83cd3fef7ae1ad02fec))
+- Scrub source comments wave 3 of 3; annotate empty catches with Ignore ([9319bcd7](https://github.com/extension-js/extension.js/commit/9319bcd777999519a1d9315ac70b37e1b044dd15))
+- Scrub narration and internal refs from source, wave 2 of 3 ([a3f23352](https://github.com/extension-js/extension.js/commit/a3f233528a208a2aff52ca1701a3900ffd14c337))
+- Scrub narration and internal refs from source, wave 1 of 3 ([935e71d4](https://github.com/extension-js/extension.js/commit/935e71d48bc4b7d01080e3f31308368f0205742d))
+- Record the AMO data-collection message in the catalog snapshot ([6a165dda](https://github.com/extension-js/extension.js/commit/6a165dda4426b0c7f9c2e879c72f6116557fbc53))
+- Scaffold the AMO data-collection key; warn on key-less Firefox builds ([c3edd7cb](https://github.com/extension-js/extension.js/commit/c3edd7cb3c106c82d3a1936487ff5d7cbc95f02a))
+- Remove non-policy comments from test files ([0b08d787](https://github.com/extension-js/extension.js/commit/0b08d787b66cf85c85c895de64259908907b0ae7))
+- Keep the watcher alive when a mid-save manifest is invalid JSON ([0a7e4de5](https://github.com/extension-js/extension.js/commit/0a7e4de5fab4eb90481fb9c8b8739b9944d3b6a6))
+- Self-ignore dist/extension-js so session state never gets committed ([e9b97e76](https://github.com/extension-js/extension.js/commit/e9b97e76f3e577172db39d866689bbad807f3d72))
+- Persist the build summary contract for hosts that shell out to build ([602fc4e9](https://github.com/extension-js/extension.js/commit/602fc4e9c3a870384909236497fc9836c744e5a9))
+- Route browser-generated CDP Log warnings into the bridge log pipeline ([4203a88e](https://github.com/extension-js/extension.js/commit/4203a88eb0b9f96d41071a0c2339fe341b042776))
+- Align doctor specs with the unknown browser-liveness verdict ([d23730d2](https://github.com/extension-js/extension.js/commit/d23730d224c8b33af0a0abfb9c9ffbe9adbaa51d))
+- Honesty cluster: doctor unknown verdict, stub warning text, zip locale ([639e600b](https://github.com/extension-js/extension.js/commit/639e600b24c2d8d3d4be026c0cc0507e5ee004f0))
+- Reach url-override extension pages via the surface relay ([cbd73b53](https://github.com/extension-js/extension.js/commit/cbd73b536ab2c810c93fa0e79d7002462492b97f))
+- Keep MV2 dev background persistent and drop stale Firefox startupCache ([4639973a](https://github.com/extension-js/extension.js/commit/4639973a04187dee95a893df816226c35cf25772))
+- Warn when user code relies on dev-injected permissions, align MV2 set ([0c186ff2](https://github.com/extension-js/extension.js/commit/0c186ff2d3f03f09f6d3de95ca00c83edc38119b))
+- Never rewrite a live dev session contract from build/preview/start ([beb2112c](https://github.com/extension-js/extension.js/commit/beb2112c9b18ab26a784046884586d5c8f058e77))
+- Stamp unexpected browser exits for Firefox and preview, flip run-only ([40445fa8](https://github.com/extension-js/extension.js/commit/40445fa8a039d24faca29a6fc04348cc2d570d30))
+- Stamp ready.json stopped at watch close and keep errored manifests watched ([cd202bc6](https://github.com/extension-js/extension.js/commit/cd202bc6f991eafb0bbaf264cb0ab4cfd814c502))
+- Trace offscreen.createDocument urls so offscreen documents ship in dist ([7ec27d80](https://github.com/extension-js/extension.js/commit/7ec27d8071aacc57821b98b9d65e20a2f237a9a8))
+- Ban explicit any across every program, leaving specs and the fork ([60f9e00c](https://github.com/extension-js/extension.js/commit/60f9e00cf29c8547480921f72150898cbab27c55))
+- Ban explicit any across the develop program source ([80df0e10](https://github.com/extension-js/extension.js/commit/80df0e1051587081b9baf45c3eed5eb1359230ca))
+- Ban explicit any in the CDP and RDP browser clients ([28f32e50](https://github.com/extension-js/extension.js/commit/28f32e5084005312998fbe03953024d5b25dc470))
+- Ban explicit any in plugin-web-extension and type its boundaries ([2d3a3425](https://github.com/extension-js/extension.js/commit/2d3a342502eaf3c5d34cf3f7a7bffc1a378728fc))
+- Apply the safe autofixes for five style and import lint rules ([18ff32b5](https://github.com/extension-js/extension.js/commit/18ff32b5984621301123021ff6db21d3609813ba))
+- Retire the deferred lint warnings and make two suspicious rules errors ([1affa370](https://github.com/extension-js/extension.js/commit/1affa370d4477caab0a5c3087a1fbc50edfd5c04))
+- Cover the bridge injection steps and the whole CLI command surface ([a869e1cc](https://github.com/extension-js/extension.js/commit/a869e1cc3403b7386229cb278521c99047f35f24))
+- Unwrap the async promise executor in CDP connect and ban the pattern ([c022fab6](https://github.com/extension-js/extension.js/commit/c022fab6966758ab596895f0cc5d17e684898c9d))
+- Cover the reload strategy background entry and MAIN world bridges ([9e622646](https://github.com/extension-js/extension.js/commit/9e622646a1553be2d3761899b1f4ca551f3eb275))
+- Give the browser connection errors a cause and a next step ([6b16c36c](https://github.com/extension-js/extension.js/commit/6b16c36c47707fd780522426d3100ada228a234b))
+- Clear em dashes from source and guard against new ones ([634da2a9](https://github.com/extension-js/extension.js/commit/634da2a952e599f916d2a4c67aa997754e4afaed))
+- Replace the 23.6MB typescript dependency with rspack's swc and acorn ([1a523c6c](https://github.com/extension-js/extension.js/commit/1a523c6c5f607d99b6f4c28ba69c0840d6875b97))
+- Make the lint gate real and restore the pre-commit hook ([5cff9be5](https://github.com/extension-js/extension.js/commit/5cff9be558b98b92504eff4c913c464cafcf3f2a))
+- Scaffold moduleResolution bundler; node is gone in TypeScript 7 ([a22c9a3d](https://github.com/extension-js/extension.js/commit/a22c9a3d51f380eda95ed760dd3ab6cebc89a8b3))
+- Split typescript: runtime stays on 6.x, tooling moves to 7.0.2 ([a3911527](https://github.com/extension-js/extension.js/commit/a39115276c9eedfbf1c3f62a366eb60b403bcb7e))
+- Fetch create templates via codeload tarball, not a full git clone ([7d7da9cc](https://github.com/extension-js/extension.js/commit/7d7da9cc95c321453e934cdc2d9c79c8cbfc1777))
+- Pin a resolved engine version in scaffolds instead of floating latest ([0fd9ca5e](https://github.com/extension-js/extension.js/commit/0fd9ca5e2343ab8579ad309464b70ac8d80c19da))
 </details>
 
 ## 4.0.13 (July 19, 2026)
