@@ -203,7 +203,7 @@ export class ApplyDevDefaults {
                   `manifest.json does not declare the "${api}" permission, but ` +
                   `${path.relative(path.dirname(this.manifestPath), file)} uses chrome.${api}. ` +
                   `It works in development only because the dev instrumentation ` +
-                  `injects "${api}" — the production build will fail at runtime. ` +
+                  `injects "${api}": the production build will fail at runtime. ` +
                   `Add "${api}" to permissions in manifest.json.`
                 const warning = WebpackErrorCtor
                   ? new WebpackErrorCtor(text)
