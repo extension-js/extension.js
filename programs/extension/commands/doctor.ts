@@ -8,6 +8,7 @@
 
 import path from 'node:path'
 import type {Command} from 'commander'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
@@ -423,6 +424,6 @@ export function registerDoctorCommand(program: Command): void {
       } else {
         printPretty(results, opts.browser || 'chromium')
       }
-      process.exit(results.some((r) => r.status === 'fail') ? 1 : 0)
+      await exitAfterDrain(results.some((r) => r.status === 'fail') ? 1 : 0)
     })
 }

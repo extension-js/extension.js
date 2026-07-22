@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 
 export function readRecentConsole(
@@ -217,7 +218,7 @@ async function runCommand(input: RunInput): Promise<void> {
   }
 
   printResult(result, input.opts.output)
-  process.exit(result.ok ? 0 : 1)
+  await exitAfterDrain(result.ok ? 0 : 1)
 }
 
 function targetFrom(
