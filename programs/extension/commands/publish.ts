@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the extension.dev platform MCP.
@@ -123,6 +124,6 @@ export function registerPublishCommand(program: Command) {
         // eslint-disable-next-line no-console
         console.log(data.shareUrl || JSON.stringify(data))
       }
-      process.exit(0)
+      await exitAfterDrain(0)
     })
 }
