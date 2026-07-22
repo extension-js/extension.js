@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {createPlaywrightMetadataWriter} from '../index'
+import {createPlaywrightMetadataWriter, getSessionRunId} from '../index'
 
 describe('ready.json writer preservation', () => {
   let tmp: string
@@ -41,6 +41,30 @@ describe('ready.json writer preservation', () => {
     expect(after.browserExitedAt).toBe('2026-07-12T00:00:00.000Z')
     expect(after.browserExitCode).toBe(21)
     expect(after.cdpPort).toBe(9223)
+  })
+
+  it('preserves the launcher-stamped rdpPort across recompiles (§78)', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.rdpPort = 9224
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.rdpPort).toBe(9224)
+  })
+
+  it('ready.json runId equals getSessionRunId for the same session (§77)', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.runId).toBe(getSessionRunId(tmp, 'chromium'))
+    // A different browser is a different session identity.
+    expect(getSessionRunId(tmp, 'firefox')).not.toBe(ready.runId)
   })
 
   it('does not invent the fields when the launcher never stamped them', () => {

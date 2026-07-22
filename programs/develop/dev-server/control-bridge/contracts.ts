@@ -46,6 +46,8 @@ export interface LogEvent {
   errorName?: string
   sourceExtensionId?: string
   incognito?: boolean
+  // The session identity, equal to ready.json's `runId` (the broker normalizes
+  // producer-stamped ids on ingest) so consumers can join rows to the contract.
   runId: string
   repeat?: number
 }

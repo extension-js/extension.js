@@ -26,7 +26,10 @@ import {
   wasTerminatedByUs
 } from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
-import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
+import {
+  stampReadyBrowserExited,
+  stampReadyRdpPort
+} from '../../browsers-lib/ready-stamp'
 import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
@@ -468,6 +471,7 @@ export class FirefoxLaunchPlugin {
       )
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
+      stampReadyRdpPort(this.extensionOutputPath, debugPort)
       this.scheduleWatchTimeout()
 
       try {
@@ -500,6 +504,9 @@ export class FirefoxLaunchPlugin {
         wslFallbackBinary
       )
       this.wireChildLifecycle()
+      if (debugPort > 0) {
+        stampReadyRdpPort(this.extensionOutputPath, debugPort)
+      }
       this.scheduleWatchTimeout()
     }
   }

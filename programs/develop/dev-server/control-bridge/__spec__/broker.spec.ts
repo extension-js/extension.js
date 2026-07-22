@@ -90,6 +90,20 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     expect((cons.sent[0] as any).event.seq).toBe(1)
   })
 
+  it('normalizes producer-stamped runId to the session runId on ingest (§77)', () => {
+    const b = new BridgeBroker(opts)
+    const cons = new FakeConn('c')
+    b.onFrame(cons, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
+    })
+    cons.sent = []
+    b.ingestLog({...incoming('hi'), runId: 'inst-1'})
+    expect((cons.sent[0] as any).event.runId).toBe('run-A')
+  })
+
   it('replays the retained ring to a late consumer', () => {
     const ring = new LogRingBuffer()
     const b = new BridgeBroker({...opts, ring})
