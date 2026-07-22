@@ -44,6 +44,9 @@ export type ReadyMetadata = {
   controlPath?: string
   logsPath?: string
   cdpPort?: number
+  // Gecko launches only: the RDP debugger-server port, stamped by the Firefox
+  // launcher post-launch (the CDP-extras pairing seam for downstream tooling).
+  rdpPort?: number
   // Provenance: which toolchain produced this tree, for which extension;
   // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string
@@ -138,6 +141,15 @@ function getRunIdForSession(metadataDir: string): string {
   const runId = createRunId()
   runIdByMetadataDir.set(metadataDir, runId)
   return runId
+}
+
+// The session's ONE run identity: ready.json, events.ndjson, and logs.ndjson
+// rows must all stamp this value so consumers can join them on `runId`.
+export function getSessionRunId(
+  packageJsonDir: string,
+  browser: string
+): string {
+  return getRunIdForSession(getPlaywrightMetadataDir(packageJsonDir, browser))
 }
 
 function readManifestProvenance(manifestPath: string): {
@@ -274,6 +286,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (fs.existsSync(readyPath)) {
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
+        if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
         if (typeof prev.browserExitedAt === 'string') {
           ;(payload as Record<string, unknown>).browserExitedAt =
             prev.browserExitedAt

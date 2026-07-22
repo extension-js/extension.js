@@ -29,7 +29,10 @@ import {
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
 import type {BrowserLogSinkEvent} from '../plugin-browsers'
-import {createPlaywrightMetadataWriter} from '../plugin-playwright'
+import {
+  createPlaywrightMetadataWriter,
+  getSessionRunId
+} from '../plugin-playwright'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
@@ -413,9 +416,12 @@ export async function devServer(
   ensureSessionArtifactsIgnoreFile(packageJsonDir)
   // The ready contract publishes it project-relative.
   const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
+  // logs.ndjson/events.ndjson rows must stamp the SAME runId ready.json
+  // publishes, or consumers joining on it read every live row as foreign.
+  const sessionRunId = getSessionRunId(packageJsonDir, browserName)
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,
-    runId: currentInstance.instanceId
+    runId: sessionRunId
   })
 
   const allowControl = Boolean(extendedOptions.allowControl)
@@ -439,7 +445,7 @@ export async function devServer(
   let stampExecutorAttached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
-    runId: currentInstance.instanceId,
+    runId: sessionRunId,
     engine: isGeckoBasedBrowser(browserName) ? 'firefox' : 'chromium',
     ring: new LogRingBuffer(),
     file: bridgeLogFile,
@@ -480,7 +486,7 @@ export async function devServer(
               ? {lineNumber: event.lineNumber}
               : {})
           },
-          runId: currentInstance.instanceId
+          runId: sessionRunId
         })
       } catch {
         // Best-effort: a log-pipeline hiccup must never break the launch path.
