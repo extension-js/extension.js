@@ -357,7 +357,9 @@ export class BridgeBroker {
   }
 
   ingestLog(incoming: IncomingLogEvent): void {
-    const event = this.ring.push(incoming)
+    // Producers stamp the only id the SW knows (its instanceId); the server owns
+    // the session identity, so rows are normalized to ready.json's runId here.
+    const event = this.ring.push({...incoming, runId: this.runId})
     this.file?.write(event)
     this.fanOut({type: 'log', event})
 

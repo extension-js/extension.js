@@ -62,7 +62,8 @@ vi.mock('../cleanup', () => ({
 }))
 
 vi.mock('../../plugin-playwright', () => ({
-  createPlaywrightMetadataWriter: vi.fn(() => ({}))
+  createPlaywrightMetadataWriter: vi.fn(() => ({})),
+  getSessionRunId: vi.fn(() => 'run-test')
 }))
 
 vi.mock('../../rspack-config', () => ({
