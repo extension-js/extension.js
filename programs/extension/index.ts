@@ -25,6 +25,7 @@ import {registerStartCommand} from './commands/start'
 import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
 import {getCliPackageJson} from './helpers/cli-package-json'
+import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
 import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
@@ -143,7 +144,9 @@ registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)
 
-extensionJs.on('option:ai-help', () => {
+// Handled before commander parses: the JSON frame can outgrow one pipe
+// buffer, so the exit must wait for stdout to drain (#79).
+function runAIHelp(): void {
   const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()
 
   if (format === 'json') {
@@ -155,35 +158,41 @@ extensionJs.on('option:ai-help', () => {
         2
       )
     )
-    process.exit(0)
+    void exitAfterDrain(0)
+    return
   }
 
   if (format !== 'pretty') {
     // eslint-disable-next-line no-console
     console.error(messages.invalidAIHelpFormat(format))
-    process.exit(1)
+    void exitAfterDrain(1)
+    return
   }
 
   // eslint-disable-next-line no-console
   console.log(messages.programAIHelp())
-  process.exit(0)
-})
+  void exitAfterDrain(0)
+}
 
 if (process.argv.length <= 2) {
   extensionJs.outputHelp()
   process.exit(0)
 }
 
-const argv = applyNoBrowserArgvShim(process.argv)
+if (process.argv.includes('--ai-help')) {
+  runAIHelp()
+} else {
+  const argv = applyNoBrowserArgvShim(process.argv)
 
-extensionJs
-  .parseAsync(argv)
-  .then(() => {
-    markCommandSuccess()
-  })
-  .catch((err: unknown) => {
-    markCommandFailure()
-    // eslint-disable-next-line no-console
-    console.error(messages.unhandledError(err))
-    process.exit(1)
-  })
+  extensionJs
+    .parseAsync(argv)
+    .then(() => {
+      markCommandSuccess()
+    })
+    .catch((err: unknown) => {
+      markCommandFailure()
+      // eslint-disable-next-line no-console
+      console.error(messages.unhandledError(err))
+      process.exit(1)
+    })
+}
