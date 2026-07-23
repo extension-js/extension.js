@@ -15,7 +15,7 @@
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
-> The cross-browser extension framework. Build for Chrome, Edge, and Firefox with no build config required.
+> The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
 <img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20.25%" />
 
@@ -96,7 +96,7 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 
 | <img alt="Chrome" src="https://media.extension.land/logos/browsers/chrome.svg" width="70"> | <img alt="Edge" src="https://media.extension.land/logos/browsers/edge.svg" width="70"> | <img alt="Firefox" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> | <img alt="Safari" src="https://media.extension.land/logos/browsers/safari.svg" width="70"> | <img alt="Chromium" src="https://media.extension.land/logos/browsers/chromium.svg" width="70"> | <img alt="Gecko" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> |
 | :-: | :-: | :-: | :-: | :-: | :-: |
-| Google Chrome<br>✅ Supported | Microsoft Edge<br>✅ Supported | Mozilla Firefox<br>✅ Supported | Apple Safari<br> 🧪 Alpha | Chromium-based<br>✅ Supported | Gecko-based<br>✅ Supported |
+| Google Chrome<br>✅ Supported | Microsoft Edge<br>✅ Supported | Mozilla Firefox<br>✅ Supported | Apple Safari<br>✅ Supported | Chromium-based<br>✅ Supported | Gecko-based<br>✅ Supported |
 
 </div>
 
