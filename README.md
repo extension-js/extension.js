@@ -1,3 +1,5 @@
+<a href="https://extension.js.org"><img alt="Extension.js — the cross-browser extension framework" src="https://media.extension.land/brand/extension-js/social/github-banner.png" /></a>
+
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
 [npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
