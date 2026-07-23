@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.0.15 (July 23, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Bump fast-uri to 3.1.4 and immutable to 5.1.9 (Dependabot) ([c0647378](https://github.com/extension-js/extension.js/commit/c064737835197fbb6a524001f011e3ec36bc2d92))
+- Drain stdout before exit so piped --output json frames arrive intact ([3e78dada](https://github.com/extension-js/extension.js/commit/3e78dadab810ef9bf8fd70b9a50cff3bca3180f1))
+- Align log/event runId with ready.json and publish Firefox rdpPort ([f6a639fd](https://github.com/extension-js/extension.js/commit/f6a639fd842e217e7c3b96b31970009cbc9e393e))
+</details>
+
 ## 4.0.14 (July 21, 2026)
 
 ### Fixes
