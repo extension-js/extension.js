@@ -1,5 +1,3 @@
-<a href="https://extension.js.org"><img alt="Extension.js — the cross-browser extension framework" src="https://media.extension.land/brand/extension-js/social/github-banner.png" /></a>
-
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
 [npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
@@ -166,6 +164,16 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 ```
 
 [Watch demo](https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1)
+
+## Package managers
+
+<div align="center">
+
+| <img alt="npm" src="https://media.extension.land/logos/package-managers/npm.svg" width="70"> | <img alt="pnpm" src="https://media.extension.land/logos/package-managers/pnpm.svg" width="70"> | <img alt="Yarn" src="https://media.extension.land/logos/package-managers/yarn.svg" width="70"> | <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="70"> | <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="70"></picture> |
+| :-: | :-: | :-: | :-: | :-: |
+| npm<br>✅ Supported | pnpm<br>✅ Supported | Yarn<br>✅ Supported | Bun<br>✅ Supported | Deno<br>✅ Supported |
+
+</div>
 
 ## Community
 
