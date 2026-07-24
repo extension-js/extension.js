@@ -95,9 +95,6 @@
     "cli"
   ],
   "dependencies": {
-    "@types/chrome": "^0.1.33",
-    "@types/node": "^26",
-    "@types/webextension-polyfill": "0.12.4",
     "brave-location": "3.1.0",
     "chrome-location2": "4.1.0",
     "chromium-location": "2.1.1",
@@ -122,8 +119,11 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.23.1",
+    "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^26",
     "@types/semver": "^7.7.1",
+    "@types/webextension-polyfill": "0.12.4",
     "@types/ws": "^8.18.1",
     "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
