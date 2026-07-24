@@ -169,7 +169,7 @@ jobs:
           node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/extension/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
             git add programs/extension/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
-            if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
+            if ! git diff --cached --quiet; then git commit -m "Release ${{ inputs.channel }} v${{ steps.validate.outputs.version }}"; fi
             git tag "v${{ steps.validate.outputs.version }}"
             git push
             git push --tags
@@ -360,7 +360,7 @@ jobs:
           cp scripts/release-highlights.template.md RELEASE_HIGHLIGHTS.md
           git add CHANGELOG.md RELEASE_HIGHLIGHTS.md
           if ! git diff --cached --quiet; then
-            git commit -m "chore(release): move changelog to v${{ steps.validate.outputs.version }}"
+            git commit -m "Move the changelog to v${{ steps.validate.outputs.version }}"
             git push
           else
             echo "No changelog updates to commit."
