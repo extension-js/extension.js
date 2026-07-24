@@ -9,7 +9,7 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 | Program            | Package name        | Description                                             |
 | ------------------ | ------------------- | ------------------------------------------------------- |
 | `programs/extension` | `extension`       | The CLI that runs `extension <command>`                 |
-| `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and webpack integration |
+| `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and Rspack integration |
 
 Related workspaces:
 
@@ -21,7 +21,7 @@ them into a local `templates/` directory via `scripts/hydrate-templates-from-exa
 
 ## Prerequisites
 
-- Node.js 18+ (Node 20 is recommended; CI typically runs on 20).
+- Node.js 22.12+ (CI runs on 22.x).
 - PNPM 10.x (workspace uses `packageManager: pnpm@10.28.0`).
 - macOS, Linux, or Windows.
 - Optional for E2E: browsers used by Playwright (Chrome/Chromium is enough for most).

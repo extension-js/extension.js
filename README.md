@@ -8,8 +8,8 @@
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
 [discord-url]: https://discord.gg/v9h2RgeTSN
-[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=0971fe
-[snyk-url]: https://snyk.io/test/github/extension-js/extension
+[snyk-image]: https://snyk.io/test/github/extension-js/extension.js/badge.svg?color=0971fe
+[snyk-url]: https://snyk.io/test/github/extension-js/extension.js
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
@@ -32,7 +32,7 @@ Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 Browser extensions ship with the worst dev experience in modern web. Manifest V3 fragmentation, browser-specific quirks, no hot reload for content scripts, and a separate build pipeline for every target. Extension.js fixes that.
 
 - **Hot Module Replacement** for background, content, popup, and options scripts, including React, Vue, Svelte, and Preact components
-- **Manifest V3 by default**, with automatic adapters for Chrome, Edge, and Firefox targets
+- **Manifest V3 by default**, with automatic adapters for Chrome, Edge, Firefox, and Safari targets
 - **One CLI** for Chrome, Edge, Firefox, and any Chromium or Gecko binary
 - **Zero config**, no webpack, no rollup, no plugins to maintain
 - **First-class** TypeScript, React, Vue, Svelte, and Preact support
@@ -72,7 +72,7 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 
 Use these flags with `extension dev`, `extension start`, or `extension preview`:
 
-- Select a browser: `--browser <chrome | edge | firefox>`
+- Select a browser: `--browser <chrome | edge | firefox | safari>`
 - Custom Chromium binary: `--chromium-binary <path-to-binary>`
 - Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>`
 

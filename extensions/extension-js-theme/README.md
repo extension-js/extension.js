@@ -1,4 +1,8 @@
-Theme notes
+# @extension-js/theme
+
+The built-in Extension.js browser theme used during development.
+
+## Theme notes
 
 - Updated background tab text colors to meet WCAG AA contrast against the dark frame.
 - Inactive window background tab text remains slightly dimmer to preserve hierarchy.

@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-static-assets
+# plugin-static-assets
 
 > Emits common static assets to stable `assets/` paths with sensible defaults and production hashing.
 
@@ -28,7 +28,7 @@
 ### Usage
 
 ```ts
-import {StaticAssetsPlugin} from '@/webpack/plugin-static-assets'
+import {StaticAssetsPlugin} from './plugin-static-assets'
 
 export default {
   plugins: [

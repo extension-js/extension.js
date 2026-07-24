@@ -81,4 +81,5 @@ that contract; it does not define it.
 
 `BrowsersPlugin`-level classification integration is covered from
 `plugin-browsers/__spec__/classify.unit.spec.ts`. Behavioral reload
-verification is covered from `_FUTURE/examples/scripts/`.
+verification is covered by the scripts templates in the public
+[extension-js/examples](https://github.com/extension-js/examples) repo.

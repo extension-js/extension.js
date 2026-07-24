@@ -285,14 +285,14 @@ dist/
 
 ## Notes and compatibility
 
-- Built on the same Rspack stack as `@/webpack`; user config is loaded when an `extension.config.*` is present.
+- Built on the Rspack stack; user config is loaded when an `extension.config.*` is present.
 - Only `EXTENSION_PUBLIC_*` variables are injected into client code; avoid secrets in templated `.json`/`.html`.
 
 ## Plugins
 
 | Name                 | Group | Summary                                                                                                                                                                                                         |
 | -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| plugin-extension     | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
+| plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
 | plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
 | plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
@@ -306,9 +306,9 @@ dist/
 
 ## Related files in this folder
 
-- `webpack/webpack-config.ts`: Assembles the plugin stack and shared configuration.
+- `rspack-config.ts`: Assembles the plugin stack and shared configuration.
 - `dev-server/`: Local development server wiring and reload orchestration.
-- `webpack/webpack-types.ts`: Common types for the plugin stack.
+- `types.ts`: Common types for the plugin stack.
 
 ## License
 

@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension
+# plugin-web-extension
 
 > The Rspack-based engine for the Extension.js development commands.
 
@@ -29,11 +29,11 @@ Feature-local architecture notes live next to each feature. For the scripts pipe
 ### Usage
 
 ```ts
-import {ExtensionPlugin} from '@/webpack/plugin-extension'
+import {WebExtensionPlugin} from './plugin-web-extension'
 
 export default {
   plugins: [
-    new ExtensionPlugin({
+    new WebExtensionPlugin({
       manifestPath: '/abs/path/to/manifest.json',
       browser: 'chrome'
     })
@@ -44,7 +44,7 @@ export default {
 ### API
 
 ```ts
-export class ExtensionPlugin {
+export class WebExtensionPlugin {
   static readonly name: 'plugin-extension'
   constructor(options: {
     manifestPath: string

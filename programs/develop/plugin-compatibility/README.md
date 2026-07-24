@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-compatibility
+# plugin-compatibility
 
 > Cross‑browser compatibility helpers for extension `manifest.json` and the `browser` global.
 
@@ -24,7 +24,7 @@ This plugin bundles two features that make an extension project portable across 
 ### Usage
 
 ```ts
-import {CompatibilityPlugin} from '@/webpack/plugin-compatibility'
+import {CompatibilityPlugin} from './plugin-compatibility'
 
 export default {
   plugins: [

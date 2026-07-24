@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-manifest
+# feature-manifest
 
 > Emit, validate, and patch your extension's `manifest.json` during build.
 
@@ -25,7 +25,7 @@ Standalone:
 
 ```ts
 import * as path from 'path'
-import {ManifestPlugin} from '@/webpack/plugin-extension/feature-manifest'
+import {ManifestPlugin} from './feature-manifest'
 
 export default {
   // ...your (R)Webpack configuration
@@ -89,7 +89,7 @@ Example:
 
 ```ts
 import * as path from 'path'
-import {ManifestPlugin} from '@/webpack/plugin-extension/feature-manifest'
+import {ManifestPlugin} from './feature-manifest'
 
 new ManifestPlugin({
   manifestPath: path.resolve(__dirname, 'manifest.json'),

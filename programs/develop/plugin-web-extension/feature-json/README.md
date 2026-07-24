@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-json
+# feature-json
 
 > Emit and watch JSON assets referenced by your extension manifest.
 
@@ -17,7 +17,7 @@ This module is part of the Extension.js project. It emits JSON assets referenced
 
 ```ts
 import type {Configuration} from '@rspack/core'
-import {JsonPlugin} from '@/webpack/plugin-extension/feature-json'
+import {JsonPlugin} from './feature-json'
 
 const config: Configuration = {
   plugins: [
