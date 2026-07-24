@@ -26,7 +26,7 @@ export function entryNotFoundMessageOnly(
 export function jsonMissingFile(
   manifestField: string,
   filePath: string,
-  opts?: {publicRootHint?: boolean}
+  opts?: {publicRootHint?: boolean; fatal?: boolean}
 ) {
   const lines: string[] = []
 
@@ -36,8 +36,12 @@ export function jsonMissingFile(
   lines.push(
     `The JSON path must point to an existing file that will be packaged with the extension.`
   )
+  // Only the critical features (rulesets, managed schemas) stop the build, so
+  // the promise has to track the severity that ships with it.
   lines.push(
-    `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing. We fail the build early to protect you.`
+    opts?.fatal
+      ? `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing. We fail the build early to protect you.`
+      : `Browsers can reject or misread the extension when this file is missing. The build continues.`
   )
 
   if (opts?.publicRootHint) {
