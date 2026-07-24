@@ -300,6 +300,26 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
             prev.executorAttachedAt
           ;(payload as Record<string, unknown>).runtime = 'attached'
         }
+        // A browser-side load refusal outlives the compile that follows it: the
+        // rebuild succeeding says nothing about the guest the browser threw out.
+        // 'starting' is a new run, which re-asks the browser, so it resets.
+        if (
+          status !== 'starting' &&
+          typeof prev.extensionLoadRefusedAt === 'string'
+        ) {
+          const target = payload as Record<string, unknown>
+          target.extensionLoadRefusedAt = prev.extensionLoadRefusedAt
+          if (typeof prev.extensionLoadRefusedReason === 'string') {
+            target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
+          }
+          if (status === 'ready') {
+            payload.status = 'error' as ReadyStatus
+            payload.code = 'extension_load_refused'
+            payload.message = String(
+              prev.message || 'the browser refused to load the extension'
+            )
+          }
+        }
       }
     } catch {
       // Ignore

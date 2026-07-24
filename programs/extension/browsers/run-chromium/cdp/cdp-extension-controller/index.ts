@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
+import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import * as messages from '../../../browsers-lib/messages'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {
@@ -19,7 +20,12 @@ import type {
 import {type CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
-import {readManifestInfo} from './ensure'
+import {
+  declaresBackgroundContext,
+  type LoadUnpackedOutcome,
+  loadUnpacked,
+  readManifestInfo
+} from './ensure'
 import {registerAutoEnableLogging} from './logging'
 import {classifyExtensionOwnership} from './ownership'
 
@@ -58,6 +64,7 @@ export class CDPExtensionController {
   private readonly logSink?: BrowserLogSink
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
+  private loadRefusalReason: string | null = null
 
   constructor(args: {
     outPath: string
@@ -88,6 +95,77 @@ export class CDPExtensionController {
   async openTab(url: string): Promise<void> {
     if (!this.cdp) return
     await this.cdp.sendCommand('Target.createTarget', {url})
+  }
+
+  // Ask the browser whether it actually accepted the dist, before anything
+  // prints a banner. Chrome answers a refusal with its own reason text.
+  async verifyGuestLoaded(): Promise<LoadUnpackedOutcome> {
+    if (!this.cdp) return {status: 'unknown'}
+    if (!fs.existsSync(this.outPath)) return {status: 'unknown'}
+
+    // Look before asking: Extensions.loadUnpacked RESTARTS an extension the
+    // browser already holds, so a healthy session must never reach it. Match on
+    // the id Chrome derives for this exact path - the generic target derivation
+    // falls back to a sibling extension's id, which is not an answer here.
+    const expectedId = expectedChromiumExtensionId(this.outPath)
+
+    if (expectedId && declaresBackgroundContext(this.outPath)) {
+      const present = await this.waitForExtensionTarget(expectedId, 12, 200)
+      if (present) {
+        if (!this.extensionId) this.extensionId = expectedId
+        return {status: 'loaded', extensionId: expectedId}
+      }
+    }
+
+    let outcome: LoadUnpackedOutcome
+    try {
+      outcome = await loadUnpacked(this.cdp, this.outPath)
+    } catch {
+      return {status: 'unknown'}
+    }
+
+    if (outcome.status === 'loaded' && !this.extensionId) {
+      // The browser's own id, so the banner stops relying on the path hash.
+      this.extensionId = outcome.extensionId
+    }
+
+    if (outcome.status === 'refused') {
+      this.loadRefusalReason = outcome.reason
+    }
+
+    return outcome
+  }
+
+  getLoadRefusalReason(): string | null {
+    return this.loadRefusalReason
+  }
+
+  // Poll for any target served by this exact extension id. A hit is proof the
+  // browser accepted the dist; nothing else in the target list can fake it.
+  private async waitForExtensionTarget(
+    extensionId: string,
+    maxRetries: number,
+    backoffMs: number
+  ): Promise<boolean> {
+    const prefix = `chrome-extension://${extensionId}/`
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const targets = await this.cdp?.getTargets()
+        if (
+          (targets || []).some((t) => String(t?.url || '').startsWith(prefix))
+        )
+          return true
+      } catch {
+        // Ignore a transient protocol hiccup and retry.
+      }
+
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, backoffMs))
+      }
+    }
+
+    return false
   }
 
   async ensureLoaded(): Promise<ExtensionInfoResult> {
