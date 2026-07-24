@@ -34,7 +34,7 @@ jobs:
       EXTENSION_AUTHOR_MODE: development
     steps:
       - name: Checkout CLI
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup
         with:

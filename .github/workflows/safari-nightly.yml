@@ -23,8 +23,8 @@ jobs:
       # drift failure is self-diagnosing.
       EXTENSION_AUTHOR_MODE: 'true'
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
         with:
           path: ~/.pnpm-store
           key: safari-nightly-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -67,7 +67,7 @@ jobs:
           echo "appex: $appex"
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: safari-build-log
           path: safari-build.log
