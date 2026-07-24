@@ -353,7 +353,19 @@ export function chromiumExtensionLoadRefused(
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No service worker, content script, or page from this extension will run, and no Extension ID was assigned. ` +
-    `The browser will not retry on its own: fix the reason above, then restart the dev session.`
+    `Fix the reason above and save. If the browser does not pick it up, restart the dev session.`
+  )
+}
+
+// The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
+// reason at install time, so the shape is the same and only the nouns differ.
+export function geckoAddonLoadRefused(addonPath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red('The browser refused to load this add-on, so it is NOT running.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
+    (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
+    `No background script, content script, or page from this add-on will run, and no Extension ID was assigned. ` +
+    `Fix the reason above and save. If the browser does not pick it up, restart the dev session.`
   )
 }
 

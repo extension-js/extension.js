@@ -161,6 +161,17 @@ export async function setupCdpAfterLaunch(
     // The flag withholds the launch path's "ready for development" claim.
     plugin.extensionLoadRefused = loadOutcome.reason
     plugin.cdpController = cdpExtensionController
+    // Bind the banner the refusal just withheld, so a later compile that gets
+    // the dist accepted can finally name the guest the browser is running.
+    plugin.printBannerOnRecovery = async () => {
+      await printDevBannerOnce({
+        outPath: extensionOutputPath,
+        browser: plugin.browser,
+        hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+        getInfo: async () => cdpExtensionController.getInfoBestEffort(),
+        browserVersionLine: plugin.browserVersionLine
+      })
+    }
     return
   }
 

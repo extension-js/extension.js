@@ -17,6 +17,7 @@ import type {
   BrowserType,
   CompilationLike,
   Controller,
+  ExtensionLoadRetryResult,
   PluginInterface
 } from './browsers-types'
 import {createChromiumContext} from './run-chromium/chromium-context'
@@ -78,6 +79,8 @@ export interface BrowserLaunchOptions {
  * (`setupFirefoxProcessHandlers` / Chromium equivalents). The controller is
  * deliberately not responsible for teardown, so there is no `close()`.
  */
+export type {ExtensionLoadRetryResult}
+
 export interface BrowserController {
   enableUnifiedLogging(opts: {
     level?: string
@@ -88,6 +91,10 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
+  /** The browser's refusal reason for this session, or null when it loaded. */
+  getExtensionLoadRefusal?(): string | null
+  /** Re-offer the current dist. Only ever called while the session is refused. */
+  retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
 }
 
 function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
@@ -170,6 +177,23 @@ async function launchChromium(
   }
 
   return {
+    getExtensionLoadRefusal() {
+      return launcher.getExtensionLoadRefusal()
+    },
+
+    // Ask the browser again with whatever is on disk now. verifyGuestLoaded
+    // looks for a live target first, so an accepted guest is never restarted.
+    async retryExtensionLoad() {
+      if (!cdpController?.verifyGuestLoaded) return {status: 'unknown' as const}
+
+      const outcome = await cdpController.verifyGuestLoaded()
+      if (outcome.status === 'loaded') {
+        launcher.clearExtensionLoadRefusal()
+        await launcher.printBannerOnRecovery()
+      }
+      return outcome
+    },
+
     // Reload is owned by the control-bridge SW producer (same executor for
     // launched + --no-browser); the CDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {
@@ -210,7 +234,8 @@ async function launchFirefox(
     logTimestamps: opts.logTimestamps,
     logColor: opts.logColor,
     logUrl: opts.logUrl,
-    logTab: opts.logTab
+    logTab: opts.logTab,
+    logSink: opts.logSink
   }
 
   const pluginOptions = {
@@ -253,6 +278,17 @@ async function launchFirefox(
   const rdpController = ctx.getController?.()
 
   return {
+    getExtensionLoadRefusal() {
+      return firefoxOpts.extensionLoadRefused || null
+    },
+
+    // Gecko's install is engine-driven, so the retry is the install itself
+    // against whatever is on disk now. Bound at the refusal, absent otherwise.
+    async retryExtensionLoad() {
+      if (!firefoxOpts.retryAddonInstall) return {status: 'unknown' as const}
+      return await firefoxOpts.retryAddonInstall()
+    },
+
     // Reload is owned by the control-bridge SW producer (same executor for
     // launched + --no-browser); the RDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {

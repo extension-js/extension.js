@@ -54,6 +54,10 @@ export class FirefoxRDPController {
     await this.remote.installAddons(compilation)
   }
 
+  getAddonInstallRefusalReason(): string | null {
+    return this.remote.getAddonInstallRefusalReason()
+  }
+
   async enableUnifiedLogging(opts: {
     level?: string
     contexts?: string[] | undefined

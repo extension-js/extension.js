@@ -17,6 +17,7 @@ import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import type {CompilationLike, PluginInterface} from '../../../browsers-types'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
 import {
+  classifyAddonInstallFailure,
   computeCandidateAddonPaths,
   getAddonsActorWithRetry,
   installTemporaryAddon,
@@ -44,6 +45,13 @@ export class RemoteFirefox {
   private cachedAddonsActor: string | undefined
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
+  private addonInstallRefusalReason: string | undefined
+
+  // Gecko's own words for why it threw the add-on out, or null when the
+  // install never got an answer. Read by the launcher after a failed install.
+  public getAddonInstallRefusalReason(): string | null {
+    return this.addonInstallRefusalReason || null
+  }
 
   private selectPrimaryAddonPath(
     compilation: CompilationLike,
@@ -245,6 +253,13 @@ export class RemoteFirefox {
           await waitForManagerWelcome(client)
         }
       } catch (err) {
+        // Keep Gecko's own verdict before it is flattened into a string: the
+        // launcher reports it and stamps the contract, as Chromium does.
+        const outcome = classifyAddonInstallFailure(err)
+        if (outcome.status === 'refused') {
+          this.addonInstallRefusalReason = outcome.reason
+        }
+
         const message = requestErrorToMessage(err)
         throw new Error(
           messages.addonInstallError(this.options.browser, message)
