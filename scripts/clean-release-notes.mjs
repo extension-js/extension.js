@@ -9,7 +9,8 @@
 
 /**
  * Retroactively clean GitHub release bodies by removing release-machinery commit
- * lines: chore(release):... and release(...):...
+ * lines: chore(release):..., release(...):..., Release <channel> v..., and
+ * Move the changelog to v...
  *
  * Usage: node scripts/clean-release-notes.mjs [--dry-run]
  * Requires: gh CLI (gh auth login) or run via .github/workflows/clean-release-notes.yml
@@ -26,7 +27,10 @@ const DRY_RUN = process.argv.includes('--dry-run')
 /** Patterns for lines to remove from release notes (release machinery, not user-facing). */
 const EXCLUDE_PATTERNS = [
   /^\s*-\s*chore\(release\):/,
-  /^\s*-\s*release\([^)]*\):/
+  /^\s*-\s*release\([^)]*\):/,
+  // House style, written by publish-release.yml.
+  /^\s*-\s*Release (stable|next|canary) v[0-9]/,
+  /^\s*-\s*Move the changelog to v[0-9]/
 ]
 
 function cleanBody(body) {

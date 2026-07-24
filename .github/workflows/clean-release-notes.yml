@@ -1,5 +1,5 @@
 # One-off workflow to retroactively clean past GitHub release bodies.
-# Removes chore(release) and release(...) lines from release notes.
+# Removes release-machinery lines from release notes, in both subject styles.
 #
 # Trigger: workflow_dispatch
 # Or: gh workflow run clean-release-notes.yml
