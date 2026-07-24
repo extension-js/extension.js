@@ -342,6 +342,21 @@ export function chromiumManifestLoadBlockers(
   )
 }
 
+// The browser accepted the launch but rejected the guest. Reported from the
+// browser's own answer, so it reads the same headed (modal) and headless (silent).
+export function chromiumExtensionLoadRefused(
+  extensionPath: string,
+  reason: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red('The browser refused to load this extension, so it is NOT running.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
+    `No service worker, content script, or page from this extension will run, and no Extension ID was assigned. ` +
+    `The browser will not retry on its own: fix the reason above, then restart the dev session.`
+  )
+}
+
 export function devChannelSnapshotInUse(binaryPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('Running a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +

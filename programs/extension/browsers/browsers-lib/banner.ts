@@ -145,6 +145,22 @@ function deriveFirefoxExtensionIdFromManifest(manifest: unknown): string {
   )
 }
 
+// The id Chrome will give this unpacked dist: from `key` when the manifest
+// pins one, otherwise the deterministic hash of the absolute path.
+export function expectedChromiumExtensionId(outPath: string): string {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(outPath, 'manifest.json'), 'utf-8')
+    )
+    const fromKey = deriveChromiumExtensionIdFromManifest(manifest)
+    if (fromKey) return fromKey
+  } catch {
+    // No readable manifest; the path hash is still well defined.
+  }
+
+  return deriveChromiumExtensionIdFromPath(outPath)
+}
+
 function resolveExtensionId(args: {
   browser: BrowserType
   info: Info

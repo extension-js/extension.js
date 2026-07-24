@@ -95,6 +95,9 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   bannerPrintedOnce?: boolean
   cdpController?: Controller
   browserVersionLine?: string
+  // Set by the post-launch CDP flow when the browser answered that it refused
+  // the guest, so the launch path can withhold the "ready" claim.
+  extensionLoadRefused?: string
 }
 
 export interface ChromiumLogger {

@@ -41,6 +41,7 @@ import * as messages from '../../browsers-lib/messages'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
+import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
 import {
   pickSharedBrowserRuntimeOptions,
   toExtensionLoadList
@@ -115,7 +116,6 @@ async function maybePrintDevBanner(args: {
 }
 
 // Shared with the Firefox launcher; re-exported here for existing importers.
-import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
 export {stampReadyBrowserExited}
 
 /**
@@ -130,6 +130,8 @@ export {stampReadyBrowserExited}
 export class ChromiumLaunchPlugin {
   private didLaunch = false
   private didReportReady = false
+  // Chrome's own refusal reason, when it declined to load the guest at launch.
+  private extensionLoadRefused: string | undefined
   private logger!: BrowserLogger
   // Set right before spawn so the child 'close' handler (which has no
   // compilation in scope) can tell a dev session apart and find ready.json.
@@ -200,7 +202,7 @@ export class ChromiumLaunchPlugin {
 
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
-        if (!this.didReportReady) {
+        if (!this.didReportReady && !this.extensionLoadRefused) {
           // Use console.log so the message is always visible; infrastructureLogging
           // level is 'error' by default, which would suppress logger.info()
           console.log(
@@ -860,7 +862,11 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    if (compilation.options.mode === 'development' && !this.didReportReady) {
+    // "ready" is a claim about the browser, not about the compile, so it waits
+    // until the CDP flow below has confirmed the browser accepted the guest.
+    const reportReady = () => {
+      if (compilation.options.mode !== 'development') return
+      if (this.didReportReady || this.extensionLoadRefused) return
       // Use console.log so the message is always visible; infrastructureLogging
       // level is 'error' by default, which would suppress logger.info()
       console.log(
@@ -871,6 +877,9 @@ export class ChromiumLaunchPlugin {
       )
       this.didReportReady = true
     }
+
+    // Nothing downstream will verify the load, so there is nothing to wait for.
+    if (!enableCdp) reportReady()
 
     try {
       const mode = (compilation?.options?.mode || 'development') as string
@@ -940,12 +949,18 @@ export class ChromiumLaunchPlugin {
           )
         ])
 
+        if (cdpConfig.extensionLoadRefused) {
+          this.extensionLoadRefused = cdpConfig.extensionLoadRefused
+        }
+
         if (cdpConfig.cdpController) {
           this.ctx.setController(
             cdpConfig.cdpController as CDPExtensionController
           )
         }
       }
+
+      reportReady()
     } catch (error) {
       // A dead CDP wire means no reload delivery for the whole session,
       // always tell the user (previously author-mode-only, i.e. silent).
@@ -954,6 +969,9 @@ export class ChromiumLaunchPlugin {
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
       console.error(`[browser] ${message}${hint}`)
+      // A broken CDP wire is not a refusal verdict; keep the pre-existing
+      // behavior of still reporting ready so a flaky handshake stays cosmetic.
+      reportReady()
     }
   }
 
