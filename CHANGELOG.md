@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+## 4.0.16 (July 24, 2026)
+
+### Features
+
+- Add a package managers table and drop the README top banner ([5f5bc90c](https://github.com/extension-js/extension.js/commit/5f5bc90ca57c11f6eaced7fedcd0c7d3d2bafda7))
+- Add the brand banner to the README ([628f0b84](https://github.com/extension-js/extension.js/commit/628f0b841755ce7a3b954648e94aa33769d7b00c))
+
+### Fixes
+
+- Resolve packed-tarball paths at run time in the CLI exec tests ([abd37068](https://github.com/extension-js/extension.js/commit/abd37068ce37a0930f96247f4c099532017aaa22))
+- Correct docs: Rspack naming, Node 22, and stale links ([de21465f](https://github.com/extension-js/extension.js/commit/de21465f21653dda6c1593eba13d1f509b68dece))
+
+<details>
+<summary>Other changes (24)</summary>
+
+- Bump CI GitHub Actions to their latest major versions ([e34a5848](https://github.com/extension-js/extension.js/commit/e34a5848c626781bd9003b88155fd620a6d7c9ba))
+- Probe exec-runner readiness in a temp dir, not the repo root ([01151c5d](https://github.com/extension-js/extension.js/commit/01151c5dc32a99d0c83933959f869f006f764d60))
+- Ignore the workspace in the pnpm smoke frozen installs ([bdea3770](https://github.com/extension-js/extension.js/commit/bdea3770132a9d2f02dcadce8352065199ac0485))
+- Sync pnpm-lock.yaml with the extension devDependencies move ([25451709](https://github.com/extension-js/extension.js/commit/2545170973b018f2ee2fb29710c4a0430106a428))
+- Stamp template provenance into scaffolds and CreateResult ([75323f87](https://github.com/extension-js/extension.js/commit/75323f872bbcf70f380b859056cebcfa3fa80410))
+- Accept a commit SHA or tag for the template corpus ref ([709fd346](https://github.com/extension-js/extension.js/commit/709fd3464bdfee7816a86fad3afc6649064227b6))
+- Strip internal tracker refs and rename client test fixture ([150645a4](https://github.com/extension-js/extension.js/commit/150645a41f629a2f99bf87fac61ea7c4d440016e))
+- Tidy gitignore, CI perms, dependabot, and package metadata ([63ccf8b4](https://github.com/extension-js/extension.js/commit/63ccf8b462617bf5b6598fb28fcbbffc5773761d))
+- Remove unused html-merge browser helper ([ecb92872](https://github.com/extension-js/extension.js/commit/ecb92872ba9e07aea365270334d641055567f2de))
+- Prune nine pnpm overrides that no longer change any resolution ([74f52bbd](https://github.com/extension-js/extension.js/commit/74f52bbdb37eefb2fc0baca4c09bb1a61df2eae9))
+- Drop the unused root extension devDep that kept postcss 8.5.10 ([a4bd0c9f](https://github.com/extension-js/extension.js/commit/a4bd0c9fb2e9f8c77bb431d9dd55992319b1106d))
+- Fall back to the framework logo when a welcome icon fails to load ([bf193bb4](https://github.com/extension-js/extension.js/commit/bf193bb4440d57223e4e6e362dc4e99ef46251e9))
+- List Safari among the browsers the framework builds for ([e2ad588e](https://github.com/extension-js/extension.js/commit/e2ad588e07233417703376c77d522baabd799d66))
+- Recover a refused dev session once the browser accepts the extension ([e6d81d72](https://github.com/extension-js/extension.js/commit/e6d81d72b1ff968e44fabf775f6fa2e4e7782b5d))
+- Report a Firefox add-on refusal and let the engine re-offer the dist ([0c4314ee](https://github.com/extension-js/extension.js/commit/0c4314ee40df466a403da439f85aad39dec4e928))
+- Report Chrome refusing to load the extension instead of ready ([c8fb151c](https://github.com/extension-js/extension.js/commit/c8fb151ca330624cf94b50d462537c6bf39d32ad))
+- Isolate the browser-flags specs from an exported EXTENSION_HEADLESS ([b9ab2443](https://github.com/extension-js/extension.js/commit/b9ab2443ad7398847b8f6b43713cae179be742a4))
+- Match the missing-JSON message to whether the build actually fails ([a0e30962](https://github.com/extension-js/extension.js/commit/a0e30962fecde1cbacb300ad2fe98825aa0c92d2))
+- Leave static themes uninstrumented in dev on Firefox too ([54837af5](https://github.com/extension-js/extension.js/commit/54837af50b6c13419a2417c205a84cd131361cff))
+- Honor EXTENSION_HEADLESS so automated runs never steal focus ([6d80ea06](https://github.com/extension-js/extension.js/commit/6d80ea0641a79da7bc6da1be43d5972433b3ffdd))
+- Refresh the messages catalog snapshot for themeImageIsEmpty ([2959495a](https://github.com/extension-js/extension.js/commit/2959495ab129a5809d31c5bef24cc77debea4404))
+- Fail the build on missing theme images, warn on 0-byte ones ([d206b729](https://github.com/extension-js/extension.js/commit/d206b729b5885f01354e5947a370ea65a5e80721))
+- Match the release-notes tooling to the new release commit subjects ([e57964bb](https://github.com/extension-js/extension.js/commit/e57964bbbc0b7d0113496998606552daf2fe760a))
+- List Safari as a supported target in the README ([176736d4](https://github.com/extension-js/extension.js/commit/176736d4d7b15acd680d6717f5c06c55bc93c78f))
+</details>
+
 ## 4.0.15 (July 23, 2026)
 
 <details>
