@@ -37,6 +37,8 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "writingPackageJsonMetadataError: function(2)",
     "writingReadmeMetaData: function(0)",
     "writingReadmeMetaDataEError: function(2)",
+    "writingTemplateProvenance: function(0)",
+    "writingTemplateProvenanceError: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
   ],

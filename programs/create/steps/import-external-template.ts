@@ -51,6 +51,16 @@ export function resolveCatalogUrls(
   return urls
 }
 
+// Where a scaffold's files actually came from, so the created project can record
+// exactly which corpus it was cut from (reproducibility). `source` is the
+// resolved URL, or `bundled` for the local fallback; `ref` is the requested
+// template ref when the examples catalog was used.
+export interface TemplateProvenance {
+  template: string
+  source: string
+  ref?: string
+}
+
 // Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
 // failure; the old path surfaced BOTH as "choose a valid template name" (#56).
 export class TemplateNotFoundError extends Error {
@@ -143,25 +153,30 @@ export async function extractExamplesTemplateFromZip(
 async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string
-): Promise<void> {
+): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
   let buffer: Buffer | undefined
+  let source: string | undefined
   let lastError: unknown
   // Try each candidate namespace; only a download failure falls through, so a
   // present-but-missing slug still surfaces as TemplateNotFoundError below.
   for (const candidate of urls) {
     try {
       buffer = await downloadArchive(candidate, NETWORK_TIMEOUT_MS)
+      source = candidate
       break
     } catch (error) {
       lastError = error
     }
   }
-  if (!buffer) throw new TemplateDownloadError(templateName, lastError)
+  if (!buffer || !source)
+    throw new TemplateDownloadError(templateName, lastError)
   await extractExamplesTemplateFromZip(buffer, templateName, projectPath)
+  // An explicit URL override is its own provenance; otherwise record the ref.
+  return {source, ref: overrideUrl ? undefined : ref}
 }
 
 function isAuthorOrDevMode(): boolean {
@@ -265,7 +280,7 @@ export async function importExternalTemplate(
   projectName: string,
   template: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-) {
+): Promise<TemplateProvenance> {
   const templateName = path.basename(template)
   // Default template is `javascript`. `init` remains an alias for the same examples folder.
   const resolvedTemplate = templateName === 'init' ? 'javascript' : template
@@ -284,7 +299,7 @@ export async function importExternalTemplate(
       if (existsSync(localTemplate)) {
         await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
         await removeTemplateScaffoldingFiles(projectPath)
-        return
+        return {template: resolvedTemplateName, source: 'bundled'}
       }
       // Bundled copy missing (unexpected): fall through to the network fetch
     }
@@ -331,6 +346,7 @@ export async function importExternalTemplate(
       }
     }
 
+    let provenance: TemplateProvenance
     if (isGithub) {
       await runGoGitIt(template, tempPath)
       const candidates = await fs.readdir(tempPath, {withFileTypes: true})
@@ -339,6 +355,7 @@ export async function importExternalTemplate(
       )
       const srcPath = preferred ? path.join(tempPath, templateName) : tempPath
       await utils.moveDirectoryContents(srcPath, projectPath)
+      provenance = {template: resolvedTemplateName, source: template}
     } else if (isHttp) {
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
@@ -358,15 +375,26 @@ export async function importExternalTemplate(
       zip.extractAllTo(tempPath, true)
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
+      provenance = {template: resolvedTemplateName, source: template}
     } else {
       // Built-in template names resolve to one folder in the extension-js/
       // examples catalog, fetched as an HTTP tarball; no git, one template (#56).
-      await importFromExamplesCatalog(resolvedTemplateName, projectPath)
+      const catalog = await importFromExamplesCatalog(
+        resolvedTemplateName,
+        projectPath
+      )
+      provenance = {
+        template: resolvedTemplateName,
+        source: catalog.source,
+        ...(catalog.ref ? {ref: catalog.ref} : {})
+      }
     }
 
     await removeTemplateScaffoldingFiles(projectPath)
 
     await fs.rm(tempRoot, {recursive: true, force: true})
+
+    return provenance
   } catch (error) {
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).

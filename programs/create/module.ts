@@ -16,7 +16,10 @@ import {
 import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
 import {generateExtensionTypes} from './steps/generate-extension-types'
-import {importExternalTemplate} from './steps/import-external-template'
+import {
+  importExternalTemplate,
+  type TemplateProvenance
+} from './steps/import-external-template'
 import {initializeGitRepository} from './steps/initialize-git-repository'
 import {installDependencies} from './steps/install-dependencies'
 import {installInternalDependencies} from './steps/install-internal-deps'
@@ -26,6 +29,7 @@ import {writeGitignore} from './steps/write-gitignore'
 import {writeManifestJson} from './steps/write-manifest-json'
 import {overridePackageJson} from './steps/write-package-json'
 import {writeReadmeFile} from './steps/write-readme-file'
+import {writeTemplateProvenance} from './steps/write-template-provenance'
 
 export interface CreateLogger {
   log: (...args: unknown[]) => void
@@ -47,6 +51,9 @@ export interface CreateResult {
   // The package manager the scaffold was created with; programmatic hosts read
   // this to render correct next steps instead of re-deriving from a lockfile.
   packageManager: ScaffoldPackageManager
+  // Which template corpus the scaffold was cut from (ref/source), also stamped
+  // into the project as `.extension-create.json` for reproducibility.
+  templateProvenance: TemplateProvenance
 }
 
 export async function extensionCreate(
@@ -73,7 +80,12 @@ export async function extensionCreate(
   const projectName = path.basename(projectPath)
 
   await createDirectory(projectPath, projectName, logger)
-  await importExternalTemplate(projectPath, projectName, template, logger)
+  const templateProvenance = await importExternalTemplate(
+    projectPath,
+    projectName,
+    template,
+    logger
+  )
 
   // Deno-created scaffolds get deno.jsonc instead of package.json (issue #482);
   // monorepo templates keep package.json with a tasks-only deno.jsonc beside it.
@@ -94,6 +106,9 @@ export async function extensionCreate(
     )
     await writeDenoJsonc(projectPath, projectName, {template}, logger)
   }
+
+  // Stamp provenance before git init so the record is part of the first commit.
+  await writeTemplateProvenance(projectPath, templateProvenance, logger)
 
   if (install) {
     await installDependencies(projectPath, projectName, logger)
@@ -123,6 +138,7 @@ export async function extensionCreate(
     projectName,
     template,
     depsInstalled: install,
-    packageManager: resolveScaffoldPackageManager()
+    packageManager: resolveScaffoldPackageManager(),
+    templateProvenance
   }
 }

@@ -310,6 +310,16 @@ export function writingDenoJsoncError(projectName: string, error: unknown) {
   )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
+export function writingTemplateProvenance() {
+  return `${statusPrefix} Writing ${colors.yellow('.extension-create.json')}...`
+}
+
+export function writingTemplateProvenanceError(error: unknown) {
+  return `${colors.red('Warning')} Couldn't write ${colors.yellow(
+    '.extension-create.json'
+  )} provenance (non-fatal).\n${colors.red(String(error))}`
+}
+
 export function writingManifestJsonMetadata() {
   return `${statusPrefix} Writing ${colors.yellow('manifest.json')}...`
 }
