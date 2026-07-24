@@ -24,9 +24,32 @@ const NETWORK_TIMEOUT_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 60_000
 })()
 
-// The extension-js/examples branch built-in templates are sourced from. Override
-// for testing a template PR before it merges.
-const EXAMPLES_REF = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
+// codeload serves a repo archive per ref namespace: a commit at /zip/<sha>, a tag
+// at /zip/refs/tags/<tag>, a branch at /zip/refs/heads/<branch>.
+const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
+
+// Map EXTENSION_CREATE_TEMPLATE_REF to the codeload URL(s) that can resolve it, so
+// a commit SHA or tag pins the corpus reproducibly and not only a branch. A bare
+// name is branch-or-tag ambiguous, so try branch first (the historical default,
+// keeping a plain `main` fetch to one request), then tag.
+export function resolveCatalogUrls(
+  ref: string,
+  overrideUrl?: string
+): string[] {
+  if (overrideUrl) return [overrideUrl]
+  if (/^refs\/(heads|tags)\//.test(ref)) return [`${CODELOAD_BASE}/${ref}`]
+  // A full 40-hex SHA is an unambiguous commit; codeload serves it bare.
+  if (/^[0-9a-f]{40}$/i.test(ref)) return [`${CODELOAD_BASE}/${ref}`]
+  const urls: string[] = []
+  // A short hex ref is probably an abbreviated SHA: try the commit namespace
+  // first, then fall back to branch/tag in case it is really a ref name.
+  if (/^[0-9a-f]{7,39}$/i.test(ref)) urls.push(`${CODELOAD_BASE}/${ref}`)
+  urls.push(
+    `${CODELOAD_BASE}/refs/heads/${ref}`,
+    `${CODELOAD_BASE}/refs/tags/${ref}`
+  )
+  return urls
+}
 
 // Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
 // failure; the old path surfaced BOTH as "choose a valid template name" (#56).
@@ -72,7 +95,12 @@ async function downloadArchive(
       return Buffer.from(data)
     } catch (error) {
       lastError = error
-      if (attempt < attempts) await sleep(400 * attempt)
+      // A deterministic 4xx (a ref that does not exist) will not change on a
+      // retry; only back off for network errors, rate limits, and 5xx.
+      const status = (error as {response?: {status?: number}})?.response?.status
+      const retriable = status === undefined || status === 429 || status >= 500
+      if (attempt >= attempts || !retriable) break
+      await sleep(400 * attempt)
     }
   }
   throw lastError
@@ -116,13 +144,23 @@ async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string
 ): Promise<void> {
-  const url = `https://codeload.github.com/extension-js/examples/zip/refs/heads/${EXAMPLES_REF}`
-  let buffer: Buffer
-  try {
-    buffer = await downloadArchive(url, NETWORK_TIMEOUT_MS)
-  } catch (error) {
-    throw new TemplateDownloadError(templateName, error)
+  const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
+  const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
+  const urls = resolveCatalogUrls(ref, overrideUrl)
+
+  let buffer: Buffer | undefined
+  let lastError: unknown
+  // Try each candidate namespace; only a download failure falls through, so a
+  // present-but-missing slug still surfaces as TemplateNotFoundError below.
+  for (const candidate of urls) {
+    try {
+      buffer = await downloadArchive(candidate, NETWORK_TIMEOUT_MS)
+      break
+    } catch (error) {
+      lastError = error
+    }
   }
+  if (!buffer) throw new TemplateDownloadError(templateName, lastError)
   await extractExamplesTemplateFromZip(buffer, templateName, projectPath)
 }
 
