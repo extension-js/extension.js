@@ -135,7 +135,7 @@ describe('stampReadyExtensionLoadRefused', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  // The whole point of dev used to leave this file green and empty while
+  // The whole point: dev used to leave this file green and empty while
   // the guest was absent from the browser.
   it('flips a green dev contract to a coded error with the reason', () => {
     fs.writeFileSync(

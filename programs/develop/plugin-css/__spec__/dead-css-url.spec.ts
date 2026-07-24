@@ -50,7 +50,7 @@ function armPlugin(projectDir: string) {
   return {resolve: beforeResolve!, warnings}
 }
 
-describe('CssPlugin dead url() tolerance (Chrome silently 404s them)', () => {
+describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
   it('cancels a root-absolute url() with no file anywhere and warns once', () => {
     const dir = createProject()
     const issuer = path.join(dir, 'cs.css')
