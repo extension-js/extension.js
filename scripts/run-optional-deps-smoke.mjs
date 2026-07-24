@@ -774,7 +774,12 @@ function installAndBuild(workdir, pm) {
       workdir,
       smokeEnv
     )
-    run('pnpm', ['install', '--frozen-lockfile'], workdir, smokeEnv)
+    run(
+      'pnpm',
+      ['install', '--frozen-lockfile', '--ignore-workspace'],
+      workdir,
+      smokeEnv
+    )
     const firstLockHash = sha1FileSync(lockfilePath)
     run('pnpm', ['build:production'], workdir, smokeEnv)
     const firstBuildLockHash = sha1FileSync(lockfilePath)
@@ -783,7 +788,12 @@ function installAndBuild(workdir, pm) {
       throw new Error('pnpm build mutated pnpm-lock.yaml after initial install')
     }
 
-    run('pnpm', ['install', '--frozen-lockfile'], workdir, smokeEnv)
+    run(
+      'pnpm',
+      ['install', '--frozen-lockfile', '--ignore-workspace'],
+      workdir,
+      smokeEnv
+    )
 
     const secondLockHash = sha1FileSync(lockfilePath)
     run('pnpm', ['build:production'], workdir, smokeEnv)
