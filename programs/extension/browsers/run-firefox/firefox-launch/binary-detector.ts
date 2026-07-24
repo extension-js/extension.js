@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {isHeadlessGuardRequested} from '../../browsers-lib/shared-utils'
+
 export function parseFlatpakBinary(binary: string): {appId: string} | null {
   if (!binary || !binary.startsWith('flatpak:')) return null
   const appId = binary.substring(8).trim()
@@ -13,11 +15,14 @@ export function parseFlatpakBinary(binary: string): {appId: string} | null {
 }
 
 // Honors MOZ_HEADLESS (CI, Playwright, reload gates) so a displayless host
-// gets the headless widget backend instead of crashing the SWGL compositor.
+// gets the headless widget backend, plus the EXTENSION_HEADLESS guard.
 export function isFirefoxHeadlessRequested(
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
-  return /^(1|true)$/i.test(String(env.MOZ_HEADLESS || '').trim())
+  return (
+    /^(1|true)$/i.test(String(env.MOZ_HEADLESS || '').trim()) ||
+    isHeadlessGuardRequested(env)
+  )
 }
 
 export class FirefoxBinaryDetector {
@@ -45,7 +50,9 @@ export class FirefoxBinaryDetector {
         '-profile',
         profilePath,
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
-        '--foreground',
+        // --foreground raises the window on launch; pointless (and a focus
+        // steal on macOS) when there is no window.
+        ...(headless ? [] : ['--foreground']),
         ...additionalArgs
       ]
       return {binary: 'flatpak', args}
@@ -59,7 +66,7 @@ export class FirefoxBinaryDetector {
       '-profile',
       profilePath,
       ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
-      '--foreground',
+      ...(headless ? [] : ['--foreground']),
       ...additionalArgs
     ]
 

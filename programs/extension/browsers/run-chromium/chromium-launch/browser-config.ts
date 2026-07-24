@@ -15,6 +15,7 @@ import {
   cleanupOldTempProfiles,
   deriveDebugPortWithInstance,
   filterBrowserFlags,
+  isHeadlessGuardRequested,
   mergeChromiumFeatureSwitches,
   parseEnvBrowserFlags,
   prepareChromiumProfileForLaunch
@@ -281,6 +282,16 @@ export function browserConfig(
     ...(configOptions.browserFlags || []),
     ...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS)
   ]
+
+  // Focus-steal guard: EXTENSION_HEADLESS=1 forces the headless backend for
+  // automated sessions. Skipped when a --headless flavor was already passed
+  // explicitly so config/env flag choices keep winning.
+  if (
+    isHeadlessGuardRequested() &&
+    !baseFlags.some((flag) => flag.startsWith('--headless'))
+  ) {
+    baseFlags.push('--headless=new')
+  }
 
   // Chromium only honors the last repeated --enable-features/--disable-features
   // switch, so merge them (defaults + user browserFlags) into one of each.
