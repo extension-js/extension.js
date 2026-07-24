@@ -23,7 +23,7 @@ jobs:
       # drift failure is self-diagnosing.
       EXTENSION_AUTHOR_MODE: 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
