@@ -5,6 +5,7 @@ import AdmZip from 'adm-zip'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   extractExamplesTemplateFromZip,
+  resolveCatalogUrls,
   TemplateNotFoundError
 } from '../import-external-template'
 
@@ -76,5 +77,59 @@ describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)'
     await expect(
       extractExamplesTemplateFromZip(empty, 'react', project)
     ).rejects.toBeInstanceOf(TemplateNotFoundError)
+  })
+})
+
+describe('resolveCatalogUrls (EXTENSION_CREATE_TEMPLATE_REF -> codeload namespace)', () => {
+  const BASE = 'https://codeload.github.com/extension-js/examples/zip'
+
+  it('serves a bare branch from refs/heads first, tag as fallback', () => {
+    expect(resolveCatalogUrls('main')).toEqual([
+      `${BASE}/refs/heads/main`,
+      `${BASE}/refs/tags/main`
+    ])
+  })
+
+  it('pins a full 40-hex commit SHA at /zip/<sha> only', () => {
+    const sha = '2d2ed9668cca002148d9eecd953a08b54d0bad9d'
+    expect(resolveCatalogUrls(sha)).toEqual([`${BASE}/${sha}`])
+  })
+
+  it('detects an uppercase SHA too', () => {
+    const sha = '2D2ED9668CCA002148D9EECD953A08B54D0BAD9D'
+    expect(resolveCatalogUrls(sha)).toEqual([`${BASE}/${sha}`])
+  })
+
+  it('tries a short hex ref as a commit first, then branch/tag', () => {
+    expect(resolveCatalogUrls('2d2ed96')).toEqual([
+      `${BASE}/2d2ed96`,
+      `${BASE}/refs/heads/2d2ed96`,
+      `${BASE}/refs/tags/2d2ed96`
+    ])
+  })
+
+  it('resolves a non-hex tag name via branch-then-tag fallback', () => {
+    expect(resolveCatalogUrls('v1.2.0')).toEqual([
+      `${BASE}/refs/heads/v1.2.0`,
+      `${BASE}/refs/tags/v1.2.0`
+    ])
+  })
+
+  it('honors a fully-qualified refs/tags/ ref verbatim', () => {
+    expect(resolveCatalogUrls('refs/tags/v1.2.0')).toEqual([
+      `${BASE}/refs/tags/v1.2.0`
+    ])
+  })
+
+  it('honors a fully-qualified refs/heads/ ref verbatim', () => {
+    expect(resolveCatalogUrls('refs/heads/next')).toEqual([
+      `${BASE}/refs/heads/next`
+    ])
+  })
+
+  it('lets a full override URL win outright, ignoring the ref', () => {
+    const override =
+      'https://media.extension.land/templates/2d2ed966/examples.zip'
+    expect(resolveCatalogUrls('main', override)).toEqual([override])
   })
 })
