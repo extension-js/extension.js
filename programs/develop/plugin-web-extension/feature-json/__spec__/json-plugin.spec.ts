@@ -140,11 +140,32 @@ describe('JsonPlugin', () => {
     expect(compilation.errors.length).toBe(1)
     const expected = messages.jsonMissingFile(
       'declarative_net_request.ruleset',
-      missing
+      missing,
+      {fatal: true}
     )
     expect(compilation.errors[0]?.message).toContain(expected)
     expect((compilation.errors[0] as any)?.name).toBe('JSONMissingFile')
     expect((compilation.errors[0] as any)?.file).toBe('manifest.json')
+  })
+
+  it('warns for a missing non-critical JSON file without promising a failure', () => {
+    const missing = '/abs/path/missing.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockReturnValue(false)
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {'side_panel.default_path': missing}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation} = harness.applyAndRun(plugin)
+
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(1)
+    expect(compilation.warnings[0]?.message).toContain('The build continues.')
+    expect(compilation.warnings[0]?.message).not.toContain(
+      'We fail the build early'
+    )
   })
 
   it('accepts a DNR ruleset with a UTF-8 BOM, as Chrome does (G22)', () => {

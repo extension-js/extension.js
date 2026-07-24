@@ -78,16 +78,18 @@ export function processJsonAssets(
           const displayPath = isPublicRoot
             ? path.join(outputRoot, rawRef.slice(1))
             : abs
+          const isFatal = isCriticalJsonFeature(feature)
           const notFound = new WebpackError(
             messages.jsonMissingFile(feature, displayPath, {
-              publicRootHint: isPublicRoot
+              publicRootHint: isPublicRoot,
+              fatal: isFatal
             })
           )
           notFound.name = 'JSONMissingFile'
           // Show manifest context in header
           // @ts-expect-error file is not typed
           notFound.file = 'manifest.json'
-          if (isCriticalJsonFeature(feature)) {
+          if (isFatal) {
             compilation.errors.push(notFound)
           } else {
             compilation.warnings.push(notFound)
