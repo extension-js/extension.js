@@ -67,6 +67,28 @@ describe('FirefoxBinaryDetector.generateFirefoxArgs', () => {
     expect(headed).not.toContain('-headless')
   })
 
+  it('drops the window-raising --foreground when headless (focus-steal guard)', () => {
+    setPlatform('darwin')
+
+    const headless = FirefoxBinaryDetector.generateFirefoxArgs(
+      '/usr/bin/firefox',
+      '/tmp/profile',
+      6000,
+      [],
+      true
+    ).args
+    expect(headless).not.toContain('--foreground')
+
+    const headed = FirefoxBinaryDetector.generateFirefoxArgs(
+      '/usr/bin/firefox',
+      '/tmp/profile',
+      6000,
+      [],
+      false
+    ).args
+    expect(headed).toContain('--foreground')
+  })
+
   it('adds -headless to the Flatpak arg form too', () => {
     setPlatform('linux')
     const {binary, args} = FirefoxBinaryDetector.generateFirefoxArgs(
@@ -89,5 +111,11 @@ describe('isFirefoxHeadlessRequested', () => {
     expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: '0'})).toBe(false)
     expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: ''})).toBe(false)
     expect(isFirefoxHeadlessRequested({})).toBe(false)
+  })
+
+  it('honors the cross-browser EXTENSION_HEADLESS focus-steal guard', () => {
+    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: '1'})).toBe(true)
+    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: 'true'})).toBe(true)
+    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: '0'})).toBe(false)
   })
 })

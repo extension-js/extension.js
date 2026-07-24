@@ -521,3 +521,58 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     )
   })
 })
+
+describe('EXTENSION_HEADLESS focus-steal guard', () => {
+  const OLD_ENV = process.env
+  beforeEach(() => {
+    process.env = {...OLD_ENV}
+    // The operator shell may export a headless flag; these cases are about
+    // the guard alone, so the pass-through channel has to be silent.
+    delete process.env.EXTENSION_BROWSER_FLAGS
+  })
+  afterEach(() => {
+    process.env = OLD_ENV
+    try {
+      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+        recursive: true,
+        force: true
+      })
+    } catch {}
+  })
+
+  it('forces --headless=new when EXTENSION_HEADLESS=1', () => {
+    process.env.EXTENSION_HEADLESS = '1'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(flags).toContain('--headless=new')
+  })
+
+  it('defers to an explicit --headless flavor already in the flag list', () => {
+    process.env.EXTENSION_HEADLESS = 'true'
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      browserFlags: ['--headless=old']
+    } as any)
+    expect(flags).toContain('--headless=old')
+    expect(flags).not.toContain('--headless=new')
+  })
+
+  it('stays headed when the guard is unset or disabled', () => {
+    delete process.env.EXTENSION_HEADLESS
+    const unset = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(unset.some((f: string) => f.startsWith('--headless'))).toBe(false)
+
+    process.env.EXTENSION_HEADLESS = '0'
+    const disabled = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    expect(disabled.some((f: string) => f.startsWith('--headless'))).toBe(false)
+  })
+})
