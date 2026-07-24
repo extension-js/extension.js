@@ -16,7 +16,7 @@ jobs:
       EXTENSION_AUTHOR_MODE: development
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.pnpm-store
@@ -53,7 +53,7 @@ jobs:
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.pnpm-store
@@ -97,7 +97,7 @@ jobs:
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.pnpm-store
@@ -152,7 +152,7 @@ jobs:
       EXTENSION_BROWSER_FLAGS: '--headless=new'
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.pnpm-store

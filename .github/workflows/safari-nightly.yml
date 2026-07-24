@@ -24,7 +24,7 @@ jobs:
       EXTENSION_AUTHOR_MODE: 'true'
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.pnpm-store
           key: safari-nightly-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
