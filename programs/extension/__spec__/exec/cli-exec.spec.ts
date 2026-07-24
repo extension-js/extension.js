@@ -433,7 +433,12 @@ const runners: Runner[] = [
 const availableRunners = runners.filter((runner) => runner.isAvailable())
 
 describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
-  const packages = getPackagesForRunner(runner.name)
+  // Tarballs are packed in the top-level beforeAll, which runs AFTER collection;
+  // resolve the --package specs here so they hold real paths, not empty strings.
+  let packages: string[] = []
+  beforeAll(() => {
+    packages = getPackagesForRunner(runner.name)
+  })
   const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
   const shouldAssertNoNodeModules = !isNpmFamilyExec
 
