@@ -11,7 +11,7 @@ import colors from 'pintor'
 export function iconsMissingFile(
   manifestField: string,
   filePath: string,
-  opts?: {publicRootHint?: boolean}
+  opts?: {publicRootHint?: boolean; fatal?: boolean}
 ) {
   const lines: string[] = []
   lines.push(
@@ -20,8 +20,12 @@ export function iconsMissingFile(
   lines.push(
     `The icon path must point to an existing file that will be packaged with the extension.`
   )
+  // The build only stops for the fields a browser refuses the whole extension
+  // over, so the promise has to track the severity that ships with it.
   lines.push(
-    `Browsers can reject or crash the extension when required icons are missing. We fail the build early to protect you.`
+    opts?.fatal
+      ? `Browsers reject the whole extension when this file is missing. We fail the build early to protect you.`
+      : `Browsers can reject or misrender the extension when this file is missing. The build continues.`
   )
   if (opts?.publicRootHint) {
     lines.push(
@@ -30,6 +34,19 @@ export function iconsMissingFile(
   }
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+  return lines.join('\n')
+}
+
+export function themeImageIsEmpty(manifestField: string, filePath: string) {
+  const lines: string[] = []
+  lines.push(
+    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(
+    `The theme image is empty (0 bytes). Chrome loads the extension but drops the entire theme, so no colors or images apply.`
+  )
+  lines.push('')
+  lines.push(`${colors.red('EMPTY FILE')} ${colors.underline(filePath)}`)
   return lines.join('\n')
 }
 

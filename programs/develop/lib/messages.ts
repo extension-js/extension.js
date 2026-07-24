@@ -627,9 +627,12 @@ function printTree(node: AssetTreeNode, prefix = ''): string {
     const connector = isLast ? '└─' : '├─'
     const child = node[key]
     const childNode = child && typeof child === 'object' ? child : undefined
-    const sizeInKB = childNode?.size ? ` (${getFileSize(childNode.size)})` : ''
+    // A leaf is any node carrying a numeric size, including 0: testing the
+    // number's truthiness printed a 0-byte asset as a folder holding "size".
+    const isLeaf = typeof childNode?.size === 'number'
+    const sizeInKB = isLeaf ? ` (${getFileSize(childNode?.size ?? 0)})` : ''
     output += `${colors.gray(prefix)}${colors.gray(connector)} ${key}${colors.gray(sizeInKB)}\n`
-    if (childNode && !childNode.size) {
+    if (childNode && !isLeaf) {
       output += printTree(
         childNode,
         `${prefix}${isLast ? '   ' : colors.gray('│  ')}`

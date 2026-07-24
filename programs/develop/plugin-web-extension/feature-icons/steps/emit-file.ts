@@ -14,6 +14,16 @@ import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
 
+// statSync is absent under the fs mocks some specs install, so treat an
+// unreadable stat as "not empty" and let the emit proceed.
+function isEmptyFile(filePath: string): boolean {
+  try {
+    return fs.statSync(filePath).size === 0
+  } catch {
+    return false
+  }
+}
+
 export class EmitFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -151,14 +161,25 @@ export class EmitFile {
                       path.join(projectPath, 'public', entry.slice(1))
                     ))
 
+                const parts = String(feature).split('/')
+                const group = parts[0]
+                const sub = parts[1] || ''
+                const isDefaultIconFamily =
+                  (group === 'action' ||
+                    group === 'browser_action' ||
+                    group === 'page_action' ||
+                    group === 'sidebar_action') &&
+                  sub === 'default_icon'
+                // Chrome refuses the WHOLE extension over a theme image it cannot
+                // find ("Could not load 'theme/images/x.png' for theme"), and
+                // --load-extension shows that only as a native modal.
+                const isThemeImage = group === 'theme' && sub === 'images'
+
                 if (!fs.existsSync(resolved)) {
                   // Leading '/' (extension-root style) maps to the output/public root;
                   // OS-absolute paths are handled separately above and skip the hint.
                   const isPublicRoot =
                     entry.startsWith('/') && !entry.startsWith(projectPath)
-                  const parts = String(feature).split('/')
-                  const group = parts[0]
-                  const sub = parts[1] || ''
 
                   // Display path consistent with HTML/web-resources features: public-root style
                   // shows <project>/public/<entry>; OS-absolute as-is; else relative to project root.
@@ -168,28 +189,36 @@ export class EmitFile {
                       : path.isAbsolute(entry)
                         ? entry
                         : path.join(projectPath, entry)
-                  const isDefaultIconFamily =
-                    (group === 'action' ||
-                      group === 'browser_action' ||
-                      group === 'page_action' ||
-                      group === 'sidebar_action') &&
-                    sub === 'default_icon'
-                  const severity: 'error' | 'warning' =
-                    group === 'icons' || isDefaultIconFamily
-                      ? 'error'
-                      : 'warning'
+                  const isFatal =
+                    group === 'icons' || isDefaultIconFamily || isThemeImage
+                  const severity: 'error' | 'warning' = isFatal
+                    ? 'error'
+                    : 'warning'
 
                   reportToCompilation(
                     compilation,
                     compiler,
                     messages.iconsMissingFile(feature, displayPath, {
-                      publicRootHint: isPublicRoot
+                      publicRootHint: isPublicRoot,
+                      fatal: isFatal
                     }),
                     severity,
                     'manifest.json'
                   )
                   missingCount++
                   continue
+                }
+
+                // A 0-byte theme image still loads the extension, but Chrome drops
+                // the ENTIRE theme over it, so the build must not stay silent.
+                if (isThemeImage && isEmptyFile(resolved)) {
+                  reportToCompilation(
+                    compilation,
+                    compiler,
+                    messages.themeImageIsEmpty(feature, resolved),
+                    'warning',
+                    'manifest.json'
+                  )
                 }
 
                 // Under public: do not emit; track for watch
@@ -209,25 +238,15 @@ export class EmitFile {
 
                 const basename = path.basename(resolved)
 
-                const parts = String(feature).split('/')
-                const group = parts[0]
-                const sub = parts[1] || ''
-
                 let outputDir = group
-                if (
-                  (group === 'action' ||
-                    group === 'browser_action' ||
-                    group === 'page_action' ||
-                    group === 'sidebar_action') &&
-                  sub === 'default_icon'
-                ) {
+                if (isDefaultIconFamily) {
                   outputDir = 'icons'
                 } else if (
                   group === 'browser_action' &&
                   sub === 'theme_icons'
                 ) {
                   outputDir = 'browser_action'
-                } else if (group === 'theme' && sub === 'images') {
+                } else if (isThemeImage) {
                   // Theme image keys arrive as theme/images/<basename>, so the file must land
                   // there to match the path the theme manifest override writes.
                   outputDir = 'theme/images'

@@ -23,7 +23,8 @@ vi.mock('@rspack/core', () => {
 
 const FS = {
   existsSync: vi.fn(),
-  readFileSync: vi.fn(() => Buffer.from('file-bytes'))
+  readFileSync: vi.fn(() => Buffer.from('file-bytes')),
+  statSync: vi.fn(() => ({size: 10}))
 }
 vi.mock('fs', () => ({
   ...FS
@@ -211,6 +212,72 @@ describe('EmitFile step', () => {
       'theme/images/weta.png',
       'theme/images/weta-left.png'
     ])
+  })
+
+  it('errors when a theme image is missing, Chrome refuses the whole extension', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    FS.existsSync.mockReturnValue(false)
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        'theme/images/DOES_NOT_EXIST.png': '/abs/assets/DOES_NOT_EXIST.png'
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    const e = String(compilation.errors[0])
+    expect(e).toMatch(/NOT FOUND/i)
+    expect(e).toMatch(/reject the whole extension/i)
+  })
+
+  it('warns on a 0-byte theme image, which kills the theme but loads', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    FS.existsSync.mockImplementation((p: string) => p === '/abs/assets/f.png')
+    FS.statSync.mockImplementation((p: string) =>
+      p === '/abs/assets/f.png' ? {size: 0} : {size: 10}
+    )
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {'theme/images/f.png': '/abs/assets/f.png'}
+    } as any)
+
+    step.apply(compiler as any)
+
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(1)
+    expect(String(compilation.warnings[0])).toMatch(/EMPTY FILE/i)
+    // The asset still ships: the author may be mid-edit on the image.
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toEqual(['theme/images/f.png'])
+  })
+
+  it('stays silent for a theme image with bytes in it', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    FS.existsSync.mockImplementation((p: string) => p === '/abs/assets/f.png')
+    FS.statSync.mockReturnValue({size: 70})
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {'theme/images/f.png': '/abs/assets/f.png'}
+    } as any)
+
+    step.apply(compiler as any)
+
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(0)
   })
 
   it('resolves leading "/" and relative paths from manifest directory (skips public-root)', async () => {
