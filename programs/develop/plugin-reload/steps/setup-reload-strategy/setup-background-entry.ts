@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {isStaticTheme} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
@@ -73,6 +74,10 @@ export class SetupBackgroundEntry {
     const manifestBg = filteredManifest?.background ?? manifest.background
     const manifestVersion =
       filteredManifest?.manifest_version ?? manifest.manifest_version
+
+    // A static theme has nothing to reload and no place to host a background
+    // script; adding one turns the dist into something that is not a theme.
+    if (isStaticTheme(filteredManifest)) return
 
     function hookError(maybeError: string) {
       compiler.hooks.thisCompilation.tap(
