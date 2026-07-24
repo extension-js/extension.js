@@ -67,7 +67,7 @@ jobs:
           echo "appex: $appex"
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: safari-build-log
           path: safari-build.log
