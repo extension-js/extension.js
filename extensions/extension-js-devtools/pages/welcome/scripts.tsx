@@ -134,6 +134,7 @@ const Welcome: React.FC = () => {
   const [resolvedIconUrl, setResolvedIconUrl] = useState<string | undefined>(
     undefined
   )
+  const [iconFailed, setIconFailed] = useState(false)
 
   useEffect(() => {
     onStartup(setExtension, setDescription)
@@ -152,6 +153,8 @@ const Welcome: React.FC = () => {
 
   useEffect(() => {
     let isActive = true
+
+    setIconFailed(false)
 
     if (!userIconUrl) {
       setResolvedIconUrl(undefined)
@@ -255,29 +258,19 @@ const Welcome: React.FC = () => {
         }
       `}</style>
       <header className="mb-4 flex w-full items-center justify-center">
-        <div className="flex w-full max-w-16 items-center justify-center">
-          {(needsResolvedIcon && (resolvedIconUrl || logo)) ||
-          (!needsResolvedIcon && (resolvedIconUrl || userIconUrl)) ? (
-            <img
-              className="h-auto w-full select-none"
-              alt={`${extension?.name || 'User extension'} icon`}
-              src={
-                needsResolvedIcon
+        <div className="border-border/50 bg-muted/40 relative inline-flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-sm">
+          <img
+            className="size-12 select-none object-contain"
+            alt={`${extension?.name || 'User extension'} icon`}
+            src={
+              iconFailed
+                ? logo
+                : needsResolvedIcon
                   ? resolvedIconUrl || logo
-                  : resolvedIconUrl || userIconUrl
-              }
-              onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-              }}
-            />
-          ) : (
-            <div
-              className="text-muted-foreground flex aspect-square w-full items-center justify-center rounded-2xl border text-lg font-medium"
-              aria-label="Extension icon placeholder"
-            >
-              ?
-            </div>
-          )}
+                  : resolvedIconUrl || userIconUrl || logo
+            }
+            onError={() => setIconFailed(true)}
+          />
         </div>
       </header>
       <h1 className="text-foreground mx-auto text-center text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
