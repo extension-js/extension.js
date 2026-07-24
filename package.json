@@ -73,7 +73,6 @@
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
-    "extension": "3.16.0-canary.306.5d12061",
     "husky": "9.1.7",
     "lint-staged": "17.0.8",
     "serialize-javascript": "^7.0.5",
