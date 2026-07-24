@@ -139,6 +139,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "iconsMissingFile: function(3)",
     "iconsNormalizationSummary: function(3)",
     "manifestIconsEntrypointChange: function(3)",
+    "themeImageIsEmpty: function(2)",
   ],
   "plugin-web-extension/feature-json/messages.ts": [
     "entryNotFoundMessageOnly: function(2)",
