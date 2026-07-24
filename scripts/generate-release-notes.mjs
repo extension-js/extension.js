@@ -33,9 +33,13 @@ function gitOrEmpty(args) {
   }
 }
 
-const RELEASE_BOUNDARY_GREP = [
-  '--grep=^release\\((stable|next)\\): v[0-9]',
-  '--grep=^chore\\(release\\): move changelog to v[0-9]'
+// Both subject styles stay listed so anchors still resolve against the history
+// written before the release commits moved to the house style.
+const RELEASE_MACHINERY_GREP = [
+  '--grep=^release\\((stable|next|canary)\\): v[0-9]',
+  '--grep=^chore\\(release\\): move changelog to v[0-9]',
+  '--grep=^Release (stable|next|canary) v[0-9]',
+  '--grep=^Move the changelog to v[0-9]'
 ]
 
 function findAnchor(toRef, currentVersion) {
@@ -43,7 +47,7 @@ function findAnchor(toRef, currentVersion) {
     'log',
     toRef,
     '-E',
-    ...RELEASE_BOUNDARY_GREP,
+    ...RELEASE_MACHINERY_GREP,
     '--format=%H%x09%s',
     '-n',
     '50'
@@ -76,9 +80,9 @@ function getCommits(range) {
     'log',
     range,
     '--no-merges',
+    '-E',
     '--invert-grep',
-    '--grep=chore(release)',
-    '--grep=release(',
+    ...RELEASE_MACHINERY_GREP,
     '--pretty=format:%H\t%h\t%s'
   ])
 

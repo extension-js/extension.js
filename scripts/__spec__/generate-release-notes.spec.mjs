@@ -11,6 +11,7 @@ import {
   findAnchor,
   formatDiscord,
   formatMarkdown,
+  getCommits,
   readHighlights,
   resolveRange
 } from '../generate-release-notes.mjs'
@@ -243,6 +244,53 @@ test('findAnchor excludes the current version when its boundary already exists',
       encoding: 'utf8'
     }).trim()
     assert.equal(subject, 'release(stable): v3.17.0')
+  } finally {
+    process.chdir(prevCwd)
+    rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+test('release boundaries resolve across the legacy and house-style subjects', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'gen-notes-git-'))
+  const run = (...args) =>
+    execFileSync('git', args, {cwd: dir, encoding: 'utf8'}).trim()
+  const commitEmpty = (msg) =>
+    execFileSync('git', ['commit', '--allow-empty', '-m', msg], {cwd: dir})
+
+  run('init', '-q')
+  run('config', 'user.email', 'test@example.com')
+  run('config', 'user.name', 'Test')
+  run('config', 'commit.gpgsign', 'false')
+
+  commitEmpty('release(stable): v4.0.14')
+  commitEmpty('chore(release): move changelog to v4.0.14')
+  commitEmpty('Add the legacy-era feature')
+  commitEmpty('Release stable v4.0.15')
+  commitEmpty('Move the changelog to v4.0.15')
+  commitEmpty('Add a package managers table')
+  commitEmpty('Fix the boundary regression')
+
+  const prevCwd = process.cwd()
+  try {
+    process.chdir(dir)
+    // Cutting 4.0.16: the newest boundary is house style, not conventional.
+    const anchor = findAnchor('HEAD', '4.0.16')
+    const subject = run('log', '-1', '--format=%s', anchor)
+    assert.equal(subject, 'Move the changelog to v4.0.15')
+
+    // Neither subject style may reach the notes body.
+    const subjects = getCommits(`${anchor}..HEAD`).map((c) => c.subject)
+    assert.deepEqual(subjects, [
+      'Fix the boundary regression',
+      'Add a package managers table'
+    ])
+
+    // Cutting 4.0.15 itself skips its own boundary back to the legacy one.
+    const previous = findAnchor('HEAD', '4.0.15')
+    assert.equal(
+      run('log', '-1', '--format=%s', previous),
+      'chore(release): move changelog to v4.0.14'
+    )
   } finally {
     process.chdir(prevCwd)
     rmSync(dir, {recursive: true, force: true})
