@@ -453,6 +453,9 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
   const OLD_ENV = process.env
   beforeEach(() => {
     process.env = {...OLD_ENV}
+    // The operator shell exports the focus-steal guard; these cases are about
+    // the pass-through channel alone, so the guard has to be silent here.
+    delete process.env.EXTENSION_HEADLESS
   })
   afterEach(() => {
     process.env = OLD_ENV
