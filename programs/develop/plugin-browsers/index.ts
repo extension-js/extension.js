@@ -8,6 +8,7 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import * as messages from '../lib/messages'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
@@ -17,6 +18,7 @@ import {
   type ReloadInstruction,
   readContentScriptCount
 } from '../plugin-reload'
+import type {DevOptions} from '../types'
 
 export interface CompiledEvent {
   outputPath: string
@@ -90,6 +92,12 @@ export interface BrowserLogSinkEvent {
 
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
+export interface ExtensionLoadRetryResult {
+  status: 'loaded' | 'refused' | 'unknown'
+  reason?: string
+  extensionId?: string
+}
+
 export interface BrowserController {
   enableUnifiedLogging(opts: {
     level?: string
@@ -100,6 +108,10 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
+  /** The browser's refusal reason for this session, or null when it loaded. */
+  getExtensionLoadRefusal?(): string | null
+  /** Re-offer the current dist. Only ever called while the session is refused. */
+  retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
 }
 
 export type BrowserLauncherFn = (
@@ -151,6 +163,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   private controller: BrowserController | undefined
   private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
+  // The refusal text last shown to the operator, so repeats stay quiet.
+  private lastReportedRefusal: string | null | undefined
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
@@ -167,6 +181,54 @@ export class BrowsersPlugin implements RunnerPlugin {
   // entries into the control-bridge log pipeline. Called once, before first compile.
   setLogSink(sink: BrowserLogSink): void {
     this.logSink = sink
+  }
+
+  /**
+   * Re-offer the dist to a browser that refused it at launch. Returns true
+   * when the browser has now accepted it, so the caller skips the reload.
+   *
+   * Only ever runs while the session is refused: re-asking a healthy browser
+   * would restart the guest and destroy its HMR state.
+   */
+  private async retryRefusedExtensionLoad(): Promise<boolean> {
+    const controller = this.controller
+    if (
+      !controller?.retryExtensionLoad ||
+      !controller.getExtensionLoadRefusal
+    ) {
+      return false
+    }
+    if (!controller.getExtensionLoadRefusal()) return false
+
+    if (this.lastReportedRefusal === undefined) {
+      // Seed with the launch-time reason: the operator has already read it.
+      this.lastReportedRefusal = controller.getExtensionLoadRefusal()
+    }
+
+    let outcome: ExtensionLoadRetryResult
+    try {
+      outcome = await controller.retryExtensionLoad()
+    } catch {
+      return false
+    }
+
+    if (outcome.status === 'loaded') {
+      console.log(messages.extensionLoadRecovered())
+      return true
+    }
+
+    // Still refused: report only a reason the operator has not already seen.
+    // Repeating the launch-time text on every compile reads as "my fix did
+    // nothing" even while the edit that fixes it is still being emitted.
+    if (
+      outcome.status === 'refused' &&
+      outcome.reason &&
+      outcome.reason !== this.lastReportedRefusal
+    ) {
+      this.lastReportedRefusal = outcome.reason
+      console.error(messages.extensionLoadStillRefused(outcome.reason))
+    }
+    return false
   }
 
   apply(compiler: Compiler) {
@@ -231,10 +293,20 @@ export class BrowsersPlugin implements RunnerPlugin {
             })
           }
         } catch (error) {
-          this.emitter.emit('error', {
-            errors: [error instanceof Error ? error.message : String(error)]
-          })
+          const reason = error instanceof Error ? error.message : String(error)
+          // Print before emitting: the emitter's default 'error' listener
+          // swallows, so this is the only surface the operator ever sees.
+          console.error(
+            messages.browserLaunchFailed(
+              this.options.browserOptions.browser as DevOptions['browser'],
+              reason
+            )
+          )
+          this.emitter.emit('error', {errors: [reason]})
         }
+      } else if (await this.retryRefusedExtensionLoad()) {
+        // The guest was absent until this compile, so there is nothing to
+        // reload: it just started from the dist that was written.
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.

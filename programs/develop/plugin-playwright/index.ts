@@ -393,6 +393,18 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         if (typeof prev.executorAttachedAt === 'string') return
         prev.executorAttachedAt = nowISO()
         prev.runtime = 'attached'
+        // The executor runs INSIDE the guest, so an attach is proof the browser
+        // is running it. Any earlier refusal is stale however it got fixed -
+        // a retry, or a human pressing Reload on the extensions page.
+        if (typeof prev.extensionLoadRefusedAt === 'string') {
+          delete prev.extensionLoadRefusedAt
+          delete prev.extensionLoadRefusedReason
+          if (prev.code === 'extension_load_refused') {
+            prev.status = 'ready'
+            delete prev.code
+            delete prev.message
+          }
+        }
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {

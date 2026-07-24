@@ -18,6 +18,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "lib/messages.ts": [
     "authorInstallNotice: function(1)",
+    "browserLaunchFailed: function(2)",
     "buildCommandFailed: function(1)",
     "buildSuccess: function(0)",
     "buildSuccessWithWarnings: function(1)",
@@ -36,6 +37,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "downloadedProjectFolderNotFound: function(2)",
     "downloadingProjectPath: function(1)",
     "downloadingText: function(1)",
+    "extensionLoadRecovered: function(0)",
+    "extensionLoadStillRefused: function(1)",
     "failedToDownloadOrExtractZIPFileError: function(1)",
     "fetchingProjectPath: function(2)",
     "fmt: object",
