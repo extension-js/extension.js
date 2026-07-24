@@ -36,7 +36,7 @@ jobs:
     environment: ${{ inputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -48,12 +48,12 @@ jobs:
         run: bash scripts/check-bundled-template-drift.sh
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 10.28.0
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
@@ -180,7 +180,7 @@ jobs:
       - name: Create GitHub Release
         if: ${{ inputs.channel != 'canary' }}
         id: create_release
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -611,7 +611,7 @@ jobs:
       - name: Create GitHub Deployment (in_progress)
         if: ${{ inputs.channel != 'canary' }}
         id: create_deployment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -638,7 +638,7 @@ jobs:
 
       - name: Mark Deployment successful
         if: ${{ inputs.channel != 'canary' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ steps.validate.outputs.version }}
         with:
