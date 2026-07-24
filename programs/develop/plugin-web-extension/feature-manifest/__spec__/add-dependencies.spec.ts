@@ -26,7 +26,7 @@ describe('AddDependencies', () => {
     expect(added).toEqual(['/a', '/b'])
   })
 
-  it('registers dependencies even when the compilation errored (an unwatched manifest can never clear the error)', () => {
+  it('registers dependencies even when the compilation errored: an unwatched manifest can never clear the error', () => {
     const added: string[] = []
     const deps = new Set<string>()
     const compilation: any = {

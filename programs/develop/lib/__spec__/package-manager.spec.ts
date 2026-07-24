@@ -236,7 +236,7 @@ describe('package-manager execInstallCommand', () => {
   })
 })
 
-describe('installScriptSuppression (auto-install must not run wild lifecycle scripts)', () => {
+describe('installScriptSuppression: auto-install must not run wild lifecycle scripts', () => {
   afterEach(() => {
     delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS
   })

@@ -68,7 +68,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(args).toEqual(['install', '--ignore-scripts', '--ignore-workspace'])
   })
 
-  it('suppresses lifecycle scripts by default (auto-install must not run wild postinstall)', async () => {
+  it('suppresses lifecycle scripts by default: auto-install must not run wild postinstall', async () => {
     resolvePackageManager.mockReturnValue({name: 'npm'})
     execInstallCommand.mockResolvedValueOnce(undefined)
 

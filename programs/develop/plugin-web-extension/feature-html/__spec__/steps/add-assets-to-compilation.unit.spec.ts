@@ -55,7 +55,7 @@ describe('AddAssetsToCompilation', () => {
     expect((c as any).assets['favicon.png']).toBeUndefined()
   })
 
-  describe('missing local refs (Chrome silently 404s them)', () => {
+  describe('missing local refs: Chrome silently 404s them', () => {
     function makeCompilationWithDiagnostics() {
       const assets: Record<string, any> = {}
       const compilationObj: any = {

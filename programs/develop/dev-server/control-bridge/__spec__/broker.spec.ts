@@ -428,7 +428,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   })
 })
 
-describe('BridgeBroker.undeliveredReloadWarning (SW-not-attached DX)', () => {
+describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
   const GRACE_MS = 10_000
 
   function brokerAt(startMs: number) {

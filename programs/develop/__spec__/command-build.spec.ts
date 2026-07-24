@@ -257,7 +257,9 @@ describe('webpack/command-build', () => {
   it('formats build output with the original asset tree', () => {
     const readFileSyncSpy = vi
       .spyOn(fs, 'readFileSync')
-      .mockReturnValue(JSON.stringify({name: 'my-extension', version: '0.1.0'}) as any)
+      .mockReturnValue(
+        JSON.stringify({name: 'my-extension', version: '0.1.0'}) as any
+      )
 
     const stats = {
       hasErrors: () => false,

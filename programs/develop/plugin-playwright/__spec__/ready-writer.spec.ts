@@ -179,7 +179,7 @@ describe('ready.json writer preservation', () => {
     expect(after.pid).toBe(process.pid)
   })
 
-  // the browser refused the guest. A later compile succeeding says nothing
+  // The browser refused the guest. A later compile succeeding says nothing
   // about that, so the contract must not drift back to green underneath it.
   it('keeps a browser load refusal red across recompiles', () => {
     const writer = makeWriter()
@@ -224,7 +224,7 @@ describe('ready.json writer preservation', () => {
     expect(after.extensionLoadRefusedAt).toBeUndefined()
   })
 
-  // the executor runs inside the guest, so an attach proves the browser
+  // The executor runs inside the guest, so an attach proves the browser
   // is running it - whoever repaired the load, the red verdict is now stale.
   it('clears a load refusal when the executor attaches', () => {
     const writer = makeWriter()
