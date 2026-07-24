@@ -13,7 +13,7 @@
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
-> The cross-browser extension framework. Build for Chrome, Edge, and Firefox with no build config required.
+> The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
 <img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="14.1%" />
 
@@ -94,7 +94,7 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 
 | <img alt="Chrome" src="https://media.extension.land/logos/browsers/chrome.svg" width="70"> | <img alt="Edge" src="https://media.extension.land/logos/browsers/edge.svg" width="70"> | <img alt="Firefox" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> | <img alt="Safari" src="https://media.extension.land/logos/browsers/safari.svg" width="70"> | <img alt="Chromium" src="https://media.extension.land/logos/browsers/chromium.svg" width="70"> | <img alt="Gecko" src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> |
 | :-: | :-: | :-: | :-: | :-: | :-: |
-| Google Chrome<br>✅ Supported | Microsoft Edge<br>✅ Supported | Mozilla Firefox<br>✅ Supported | Apple Safari<br> 🧪 Alpha | Chromium-based<br>✅ Supported | Gecko-based<br>✅ Supported |
+| Google Chrome<br>✅ Supported | Microsoft Edge<br>✅ Supported | Mozilla Firefox<br>✅ Supported | Apple Safari<br>✅ Supported | Chromium-based<br>✅ Supported | Gecko-based<br>✅ Supported |
 
 </div>
 
@@ -164,6 +164,16 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 ```
 
 [Watch demo](https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1)
+
+## Package managers
+
+<div align="center">
+
+| <img alt="npm" src="https://media.extension.land/logos/package-managers/npm.svg" width="70"> | <img alt="pnpm" src="https://media.extension.land/logos/package-managers/pnpm.svg" width="70"> | <img alt="Yarn" src="https://media.extension.land/logos/package-managers/yarn.svg" width="70"> | <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="70"> | <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="70"></picture> |
+| :-: | :-: | :-: | :-: | :-: |
+| npm<br>✅ Supported | pnpm<br>✅ Supported | Yarn<br>✅ Supported | Bun<br>✅ Supported | Deno<br>✅ Supported |
+
+</div>
 
 ## Community
 
