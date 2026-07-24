@@ -26,3 +26,13 @@ updates:
     labels:
       - "dependencies"
 
+  # GitHub Actions used by the workflows (version + SHA updates)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+

@@ -22,7 +22,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

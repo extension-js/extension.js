@@ -29,6 +29,9 @@ dist/
 # misc
 .DS_Store
 
+# macOS screenshots
+Screenshot*.png
+
 # editor scratch / agent state
 Untitled-*
 .claude/
@@ -55,8 +58,10 @@ yarn-error.log*
 .swc
 
 # pnpm
-pnpm-lock.yaml
 .pnpm-store/
+# Nested per-package lockfiles are noise in a pnpm workspace; the root
+# pnpm-lock.yaml is force-tracked so this only hides stray nested ones.
+pnpm-lock.yaml
 
 # examples
 /examples/**/pnpm-lock.yaml
@@ -119,7 +124,7 @@ programs/create/.npmrc
 
 # Future stuff
 extensions/staging/**
-_future/
+_FUTURE/
 extensions/browser-extension/
 extensions/monorepo/
 
