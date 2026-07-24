@@ -11,6 +11,28 @@ import type {CompilationLike} from '../../../browsers-types'
 import {resolveAddonDirectory} from './addons'
 import type {MessagingClient} from './messaging-client'
 
+// What Firefox itself says about our dist. 'unknown' means the question could
+// not be asked (dead socket, timeout) - never a refusal.
+export type AddonInstallOutcome =
+  | {status: 'refused'; reason: string}
+  | {status: 'unknown'}
+
+// A rejection arrives as an RDP reply object carrying Gecko's own text; a
+// transport failure arrives as an Error. Only the former is a verdict.
+export function classifyAddonInstallFailure(
+  error: unknown
+): AddonInstallOutcome {
+  if (error instanceof Error) return {status: 'unknown'}
+
+  const reply = error as {error?: unknown; message?: unknown}
+  if (!reply || typeof reply !== 'object' || !reply.error) {
+    return {status: 'unknown'}
+  }
+
+  const reason = String(reply.message || '').trim()
+  return reason ? {status: 'refused', reason} : {status: 'unknown'}
+}
+
 function normalizeFirefoxAddonPath(addonPath: string): string {
   const value = String(addonPath)
   // On Windows, keep native path separators for Firefox's RDP installTemporaryAddon.

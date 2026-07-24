@@ -296,6 +296,14 @@ export interface BrowserLogSinkEvent {
 /** Host-provided sink for {@link BrowserLogSinkEvent}s. Must never throw. */
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
+// What the browser answered when the dist was re-offered after a refusal.
+// 'unknown' means the question could not be asked - never a verdict.
+export interface ExtensionLoadRetryResult {
+  status: 'loaded' | 'refused' | 'unknown'
+  reason?: string
+  extensionId?: string
+}
+
 // Unified controller interface used by post-launch logging flows;
 // implemented by both CDP and RDP controllers.
 export interface Controller {
@@ -313,4 +321,7 @@ export interface Controller {
   onProtocolEvent?: (
     cb: (evt: {method?: string; params?: unknown}) => void
   ) => void
+  // Asks the browser whether it holds this dist, loading it when absent.
+  // Chromium CDP only; the Gecko install is driven from the launcher.
+  verifyGuestLoaded?: () => Promise<ExtensionLoadRetryResult>
 }

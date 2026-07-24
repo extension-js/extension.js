@@ -28,6 +28,7 @@ import {
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   stampReadyBrowserExited,
+  stampReadyExtensionLoadRefused,
   stampReadyRdpPort
 } from '../../browsers-lib/ready-stamp'
 import {
@@ -43,7 +44,8 @@ import type {
   BrowserConfig,
   BrowserLogger,
   BrowserType,
-  CompilationLike
+  CompilationLike,
+  ExtensionLoadRetryResult
 } from '../../browsers-types'
 import type {FirefoxContext} from '../firefox-context'
 import type {FirefoxPluginRuntime} from '../firefox-types'
@@ -118,10 +120,13 @@ export class FirefoxLaunchPlugin {
       } as BrowserLogger
     }
 
-    if (options.mode === 'development') {
+    await this.launch(compilation, options)
+
+    // A claim about the browser waits for the browser: printing this before
+    // the install announced add-ons Firefox had thrown out.
+    if (options.mode === 'development' && !this.host.extensionLoadRefused) {
       this.ctx.logger?.info?.(devServerReady(options.mode, this.host.browser))
     }
-    await this.launch(compilation, options)
     this.ctx.didLaunch = true
   }
 
@@ -170,17 +175,6 @@ export class FirefoxLaunchPlugin {
           return
         }
 
-        // Match Chromium's banner ordering: ready line BEFORE the
-        // banner. See runOnce above for context.
-        if (stats.compilation.options.mode === 'development') {
-          console.log(
-            devServerReady(
-              stats.compilation.options.mode as 'development' | 'production',
-              this.host.browser
-            )
-          )
-        }
-
         await this.launch(
           stats.compilation,
           buildBrowserLaunchRequest(
@@ -191,6 +185,20 @@ export class FirefoxLaunchPlugin {
               | 'none'
           ) as LaunchOptions
         )
+
+        // Ready comes after the install, and never for an add-on the browser
+        // refused. See runOnce above for context.
+        if (
+          stats.compilation.options.mode === 'development' &&
+          !this.host.extensionLoadRefused
+        ) {
+          console.log(
+            devServerReady(
+              stats.compilation.options.mode as 'development' | 'production',
+              this.host.browser
+            )
+          )
+        }
 
         this.ctx.didLaunch = true
       } catch (error) {
@@ -464,11 +472,34 @@ export class FirefoxLaunchPlugin {
       })
       this.wireChildLifecycle()
 
-      const ctrl = await setupRdpAfterLaunch(
-        this.host as FirefoxPluginRuntime & {[k: string]: unknown},
-        compilation,
-        debugPort
-      )
+      let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
+      try {
+        ctrl = await setupRdpAfterLaunch(
+          this.host as FirefoxPluginRuntime & {[k: string]: unknown},
+          compilation,
+          debugPort
+        )
+      } catch (error) {
+        const reason = (error as {extensionLoadRefusedReason?: string})
+          ?.extensionLoadRefusedReason
+
+        // Only Gecko's own verdict is a refusal. Anything else (dead socket,
+        // timeout) stays a launch failure and keeps propagating as before.
+        if (!reason) {
+          stampReadyRdpPort(this.extensionOutputPath, debugPort)
+          throw error
+        }
+
+        this.reportAddonLoadRefused(reason)
+        // Re-offering the dist needs the port and compilation resolved here,
+        // so bind them now; the launcher's controller calls this on recompile.
+        this.host.retryAddonInstall = () =>
+          this.retryAddonInstall(compilation, debugPort)
+        stampReadyRdpPort(this.extensionOutputPath, debugPort)
+        this.scheduleWatchTimeout()
+        return
+      }
+
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       stampReadyRdpPort(this.extensionOutputPath, debugPort)
@@ -598,6 +629,45 @@ export class FirefoxLaunchPlugin {
       () => this.child,
       () => this.cleanupInstance()
     )
+  }
+
+  // Re-offer the dist to a browser that refused it. A fresh controller is
+  // needed: the refused one was never published and holds a dead install.
+  private async retryAddonInstall(
+    compilation: CompilationLike,
+    debugPort: number
+  ): Promise<ExtensionLoadRetryResult> {
+    try {
+      const ctrl = await setupRdpAfterLaunch(
+        this.host as FirefoxPluginRuntime & {[k: string]: unknown},
+        compilation,
+        debugPort
+      )
+      this.host.rdpController = ctrl
+      this.ctx.setController(ctrl)
+      this.host.extensionLoadRefused = undefined
+      return {status: 'loaded'}
+    } catch (error) {
+      const reason = (error as {extensionLoadRefusedReason?: string})
+        ?.extensionLoadRefusedReason
+      return reason ? {status: 'refused', reason} : {status: 'unknown'}
+    }
+  }
+
+  // Report a Gecko refusal on every surface Chromium already reports one on:
+  // stdout, logs.ndjson, and a non-ready contract. The session stays alive.
+  private reportAddonLoadRefused(reason: string) {
+    const refusedPath = this.extensionOutputPath || ''
+    console.error(messages.geckoAddonLoadRefused(refusedPath, reason))
+    this.host.logSink?.({
+      level: 'error',
+      text: `extension_load_refused: ${refusedPath}${
+        reason ? ` - ${reason}` : ''
+      }`,
+      source: 'browser'
+    })
+    stampReadyExtensionLoadRefused(this.extensionOutputPath, reason)
+    this.host.extensionLoadRefused = reason
   }
 
   private async cleanupInstance(): Promise<void> {
