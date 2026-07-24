@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-css
+# plugin-css
 
 > Automatically wires CSS handling into the Rspack build used by Extension.js. It:
 
@@ -24,7 +24,7 @@
 ### Usage
 
 ```ts
-import {CssPlugin} from '@/webpack/plugin-css'
+import {CssPlugin} from './plugin-css'
 
 export default {
   plugins: [

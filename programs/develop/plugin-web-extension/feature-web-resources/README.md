@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-web-resources
+# feature-web-resources
 
 > Adds assets imported by content scripts to `web_accessible_resources` in `manifest.json`.
 
@@ -26,7 +26,7 @@ Emits and registers assets imported by `content_scripts` so pages can access the
 | `content_scripts`          | Reads `matches` and `js` to associate imported assets with the correct content script.                |
 | `web_accessible_resources` | Writes/merges groups for MV3 or appends to array for MV2 with assets discovered from content scripts. |
 
-> Note: Fields like `icons`, `action.default_icon`, `browser_action.default_icon`, `browser_action.theme_icons`, `page_action.default_icon`, and `sidebar_action.default_icon` are handled by the Icons feature module (`@/webpack/plugin-extension/feature-icons`), not by Web Resources.
+> Note: Fields like `icons`, `action.default_icon`, `browser_action.default_icon`, `browser_action.theme_icons`, `page_action.default_icon`, and `sidebar_action.default_icon` are handled by the Icons feature module (`feature-icons`), not by Web Resources.
 
 ## Usage
 
@@ -34,7 +34,7 @@ Standalone (manual lists):
 
 ```ts
 import * as path from 'path'
-import {WebResourcesPlugin} from '@/webpack/plugin-extension/feature-web-resources'
+import {WebResourcesPlugin} from './feature-web-resources'
 
 export default {
   // ...your rspack/webpack configuration

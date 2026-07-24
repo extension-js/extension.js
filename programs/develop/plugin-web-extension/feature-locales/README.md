@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-locales
+# feature-locales
 
 > Emit extension `_locales/**/messages.json` files during build.
 
@@ -30,7 +30,7 @@ When any of the above is misconfigured, the build emits a compilation error so y
 ## Usage
 
 ```ts
-import {LocalesPlugin} from '@/webpack/plugin-extension/feature-locales'
+import {LocalesPlugin} from './feature-locales'
 
 export default {
   context: __dirname,

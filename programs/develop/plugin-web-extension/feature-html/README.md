@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-html
+# feature-html
 
 > Parse, watch, and emit HTML-driven assets for Extension.js pages; consolidate JS/CSS entrypoints and rewrite static URLs.
 
@@ -79,7 +79,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 Typical usage:
 
 ```ts
-import {HtmlPlugin} from '@/webpack/plugin-extension/feature-html'
+import {HtmlPlugin} from './feature-html'
 
 export default {
   plugins: [
@@ -94,7 +94,7 @@ Standalone (manual lists):
 
 ```ts
 import * as path from 'path'
-import {HtmlPlugin} from '@/webpack/plugin-extension/feature-html'
+import {HtmlPlugin} from './feature-html'
 
 type FilepathList = Record<string, string | string[]>
 

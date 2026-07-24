@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-js-frameworks
+# plugin-js-frameworks
 
 Automatically wires JS frameworks and TypeScript into the Rspack build used by Extension.js. It:
 
@@ -28,7 +28,7 @@ Automatically wires JS frameworks and TypeScript into the Rspack build used by E
 ### Usage
 
 ```ts
-import {JsFrameworksPlugin} from '@/webpack/plugin-js-frameworks'
+import {JsFrameworksPlugin} from './plugin-js-frameworks'
 
 export default {
   plugins: [

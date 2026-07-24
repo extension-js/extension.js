@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-playwright
+# plugin-playwright
 
 > Machine-readable automation metadata for Playwright/AI workflows, especially when running with `--no-browser`.
 

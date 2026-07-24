@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-icons
+# feature-icons
 
 > Emit and watch browser extension icon files declared in `manifest.json`.
 
@@ -29,7 +29,7 @@ Output mapping:
 Typical usage:
 
 ```ts
-import {IconsPlugin} from '@/webpack/plugin-extension/feature-icons'
+import {IconsPlugin} from './feature-icons'
 
 export default {
   plugins: [
@@ -44,7 +44,7 @@ Standalone (manual lists):
 
 ```ts
 import * as path from 'path'
-import {IconsPlugin} from '@/webpack/plugin-extension/feature-icons'
+import {IconsPlugin} from './feature-icons'
 
 export default {
   // ...your rspack/webpack configuration

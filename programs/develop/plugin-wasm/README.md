@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-wasm
+# plugin-wasm
 
 > WebAssembly defaults for Extension.js builds: async wasm, `.wasm` resolution, and runtime asset aliases.
 
@@ -27,7 +27,7 @@
 ### Usage
 
 ```ts
-import {WasmPlugin} from '@/webpack/plugin-wasm'
+import {WasmPlugin} from './plugin-wasm'
 
 export default {
   plugins: [

@@ -1,6 +1,6 @@
 # `feature-scripts`
 
-`feature-scripts` is the scripts pipeline for `@/webpack/plugin-extension`.
+`feature-scripts` is the scripts pipeline for `plugin-web-extension`.
 
 It is responsible for:
 
@@ -92,7 +92,7 @@ High-signal specs include:
 - `get-bridge-scripts.spec.ts`
 - `scripts-plugin-wrapper-gating.spec.ts`
 
-Reload-strategy specs live in `plugin-reload/__spec__/`. Behavioral reload verification is covered from `_FUTURE/examples/scripts/`.
+Reload-strategy specs live in `plugin-reload/__spec__/`. Behavioral reload verification is covered by the scripts templates in the public [extension-js/examples](https://github.com/extension-js/examples) repo.
 
 ## Maintenance notes
 
