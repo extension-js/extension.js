@@ -178,4 +178,49 @@ describe('ready.json writer preservation', () => {
     expect(after.command).toBe('build')
     expect(after.pid).toBe(process.pid)
   })
+
+  // §83: the browser refused the guest. A later compile succeeding says nothing
+  // about that, so the contract must not drift back to green underneath it.
+  it('keeps a browser load refusal red across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'extension_load_refused'
+    ready.message = 'Chrome refused to load the extension at /dist/chrome'
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    ready.extensionLoadRefusedReason = 'Variable $2$ used but not defined.'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('error')
+    expect(after.code).toBe('extension_load_refused')
+    expect(after.extensionLoadRefusedReason).toBe(
+      'Variable $2$ used but not defined.'
+    )
+    expect(after.message).toContain('refused to load')
+  })
+
+  // A new run re-asks the browser, so last run's verdict must not outlive it.
+  it('drops the refusal when a new run starts', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    ready.extensionLoadRefusedReason = 'stale reason'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    const nextRun = makeWriter()
+    nextRun.writeStarting()
+    nextRun.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(nextRun.readyPath, 'utf-8'))
+    expect(after.status).toBe('ready')
+    expect(after.code).toBeUndefined()
+    expect(after.extensionLoadRefusedAt).toBeUndefined()
+  })
 })

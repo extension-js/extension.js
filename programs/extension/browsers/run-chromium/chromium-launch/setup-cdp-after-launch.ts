@@ -14,6 +14,7 @@ import {
   printProdBannerOnce
 } from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
+import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../cdp/cdp-extension-controller'
@@ -133,6 +134,34 @@ export async function setupCdpAfterLaunch(
     }
   } catch {
     // best-effort; never block launch on this
+  }
+
+  // Ask the browser whether the guest actually loaded BEFORE any banner: the
+  // banner's id falls back to a path hash, so it prints happily for an
+  // extension the browser threw away (§83).
+  const loadOutcome =
+    (await cdpExtensionController.verifyGuestLoaded?.()) ??
+    ({status: 'unknown'} as const)
+
+  if (loadOutcome.status === 'refused') {
+    const refusedPath = extensionOutputPath || selectedExtensionPaths[0] || ''
+    console.error(
+      messages.chromiumExtensionLoadRefused(refusedPath, loadOutcome.reason)
+    )
+    plugin.logSink?.({
+      level: 'error',
+      text: `extension_load_refused: ${refusedPath}${
+        loadOutcome.reason ? ` - ${loadOutcome.reason}` : ''
+      }`,
+      source: 'browser'
+    })
+    stampReadyExtensionLoadRefused(extensionOutputPath, loadOutcome.reason)
+
+    // No banner and no Extension ID: there is nothing in the browser to name.
+    // The flag withholds the launch path's "ready for development" claim.
+    plugin.extensionLoadRefused = loadOutcome.reason
+    plugin.cdpController = cdpExtensionController
+    return
   }
 
   const mode = (compilation?.options?.mode || 'development') as string

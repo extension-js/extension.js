@@ -37,6 +37,34 @@ export function stampReadyRdpPort(
   }
 }
 
+// Stamp a browser-side load refusal into ready.json. Unlike a browser exit this
+// always flips to error: the session is running but the guest is not in it, and
+// every other surface (stdout, logs) looks identical to a healthy run.
+export function stampReadyExtensionLoadRefused(
+  extensionOutputPath: string | undefined,
+  reason: string
+) {
+  try {
+    if (!extensionOutputPath) return
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'extension_load_refused'
+    const browserLabel = String(ready.browser || 'the browser')
+    ready.message = `${
+      browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1)
+    } refused to load the extension at ${extensionOutputPath}${
+      reason ? `: ${reason}` : ''
+    }`
+    ready.extensionLoadRefusedAt = new Date().toISOString()
+    if (reason) ready.extensionLoadRefusedReason = reason
+    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Stamp an unexpected browser exit into the session's ready.json so automation
 // sees a browserless session. Run-only commands flip to error; dev keeps compile status.
 export function stampReadyBrowserExited(
