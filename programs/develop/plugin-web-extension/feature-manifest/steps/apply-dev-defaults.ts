@@ -9,6 +9,7 @@
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import * as fs from 'fs'
 import * as path from 'path'
+import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {
   getManifestContent,
@@ -104,6 +105,10 @@ export class ApplyDevDefaults {
               }
               return
             }
+
+            // A static theme is validated against the theme schema, which
+            // forbids every key below: injecting them is 4 AMO hard errors.
+            if (isStaticThemeSource(this.manifestPath, this.browser)) return
 
             const canonicalManifest = getManifestContent(
               compilation,

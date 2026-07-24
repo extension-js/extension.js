@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
+import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {generateManifestPatches} from '../../feature-web-resources/web-resources-lib/generate-manifest'
 import {getSharedFor} from '../../feature-web-resources/web-resources-lib/shared'
@@ -36,6 +37,9 @@ export class PatchWAR {
           },
           () => {
             if (compilation.errors.length > 0) return
+            // web_accessible_resources is one of the keys the theme schema
+            // forbids, and a theme has no content script to serve anyway.
+            if (isStaticThemeSource(this.manifestPath, this.browser)) return
 
             const shared = getSharedFor(compilation)
             generateManifestPatches(
