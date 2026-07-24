@@ -364,12 +364,21 @@ beforeAll(() => {
       runnerReady.set(runner.name, false)
       continue
     }
-    const smoke = runCommand(
-      runner.command,
-      runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
-      {cwd: repoRoot, env: defaultEnv}
-    )
-    runnerReady.set(runner.name, (smoke.status || 0) === 0)
+    // Probe in a throwaway dir, NOT repoRoot: at repoRoot the runner finds the
+    // workspace-installed `extension` and passes without ever installing the
+    // tarballs, so a runner that cannot install local file: tarballs (e.g. pnpm
+    // dlx on Windows) reads as ready and its real tests then fail mid-flight.
+    const smokeDir = mkdtempSync(join(tmpdir(), 'extjs-cli-smoke-'))
+    try {
+      const smoke = runCommand(
+        runner.command,
+        runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
+        {cwd: smokeDir, env: defaultEnv}
+      )
+      runnerReady.set(runner.name, (smoke.status || 0) === 0)
+    } finally {
+      rmSync(smokeDir, {recursive: true, force: true})
+    }
   }
 })
 
