@@ -115,6 +115,14 @@ export function parseEnvBrowserFlags(raw: string | undefined | null): string[] {
     .filter(Boolean)
 }
 
+// EXTENSION_HEADLESS=1 is the focus-steal guard for automated sessions: on
+// macOS every headed launch activates itself and hijacks the keyboard.
+export function isHeadlessGuardRequested(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return /^(1|true)$/i.test(String(env.EXTENSION_HEADLESS || '').trim())
+}
+
 // Chromium keeps only the LAST occurrence of a repeated switch; collapse
 // --disable/enable-features into one comma-joined switch each.
 export function mergeChromiumFeatureSwitches(flags: string[]): string[] {

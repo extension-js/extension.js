@@ -494,7 +494,7 @@ export class FirefoxLaunchPlugin {
         ...(isFirefoxHeadlessRequested() ? ['-headless'] : []),
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
         ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
-        '--foreground',
+        ...(isFirefoxHeadlessRequested() ? [] : ['--foreground']),
         ...firefoxArgs
       ]
 
