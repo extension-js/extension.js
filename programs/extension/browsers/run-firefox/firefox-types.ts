@@ -6,7 +6,11 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {PluginInterface} from '../browsers-types'
+import type {
+  BrowserLogSink,
+  ExtensionLoadRetryResult,
+  PluginInterface
+} from '../browsers-types'
 import type {FirefoxRDPController} from './rdp/rdp-extension-controller'
 
 export type FirefoxPluginLike = Pick<
@@ -37,4 +41,10 @@ export type FirefoxPluginLike = Pick<
 export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   rdpController?: FirefoxRDPController
   browserVersionLine?: string
+  logSink?: BrowserLogSink
+  // Gecko's reason for throwing the add-on out, set at launch. Withholds the
+  // ready line, exactly as the Chromium runtime's twin field does.
+  extensionLoadRefused?: string
+  // Bound at the refusal so a later compile can re-offer the same dist.
+  retryAddonInstall?: () => Promise<ExtensionLoadRetryResult>
 }

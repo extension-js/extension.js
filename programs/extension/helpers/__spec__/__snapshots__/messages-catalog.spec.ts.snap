@@ -67,6 +67,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "firefoxRdpReinjectWatchTargetsFailed: function(2)",
     "firefoxRdpReinjectWatcherUnavailable: function(2)",
     "firefoxRdpRuntimeCapabilitySummary: function(1)",
+    "geckoAddonLoadRefused: function(2)",
     "generalBrowserError: function(2)",
     "invalidChromiumBinaryPath: function(1)",
     "invalidGeckoBinaryPath: function(1)",

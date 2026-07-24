@@ -132,6 +132,26 @@ export class ChromiumLaunchPlugin {
   private didReportReady = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
+
+  // The browser's refusal reason for this session, or null when it loaded.
+  // Read by the launcher's controller so a later compile can re-offer the dist.
+  public getExtensionLoadRefusal(): string | null {
+    return this.extensionLoadRefused || null
+  }
+
+  // Cleared once the browser accepts the dist, so the ready line and banner
+  // stop being withheld for a guest that is now running.
+  public clearExtensionLoadRefusal(): void {
+    this.extensionLoadRefused = undefined
+  }
+
+  // Prints the banner the refusal withheld. Bound only on the refusal path,
+  // so a healthy session has nothing here to call.
+  public async printBannerOnRecovery(): Promise<void> {
+    await this.bannerOnRecovery?.()
+  }
+
+  private bannerOnRecovery: (() => Promise<void>) | undefined
   private logger!: BrowserLogger
   // Set right before spawn so the child 'close' handler (which has no
   // compilation in scope) can tell a dev session apart and find ready.json.
@@ -951,6 +971,7 @@ export class ChromiumLaunchPlugin {
 
         if (cdpConfig.extensionLoadRefused) {
           this.extensionLoadRefused = cdpConfig.extensionLoadRefused
+          this.bannerOnRecovery = cdpConfig.printBannerOnRecovery
         }
 
         if (cdpConfig.cdpController) {
