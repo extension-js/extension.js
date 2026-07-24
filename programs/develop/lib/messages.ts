@@ -158,6 +158,33 @@ export function previewSkippedNoBrowser(browser: DevOptions['browser']) {
   return `${getLoggingPrefix('info')} Skipping browser launch for ${capitalizedBrowserName(browser)} (no-browser).`
 }
 
+// The browser accepted a dist it had refused, so the guest is running now.
+export function extensionLoadRecovered() {
+  return `${getLoggingPrefix('success')} The browser accepted the extension. It is running now.`
+}
+
+// Still refused after an edit: the reason is the browser's current answer,
+// not a replay of the one printed at launch.
+export function extensionLoadStillRefused(reason: string) {
+  return (
+    `${getLoggingPrefix('error')} The browser still refuses to load this extension.\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}`
+  )
+}
+
+// A launcher that throws leaves a session with no browser to drive. The
+// emitter alone cannot report it: its default 'error' listener discards.
+export function browserLaunchFailed(
+  browser: DevOptions['browser'],
+  reason: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} could not be started, so the extension is NOT running.\n` +
+    `${reason}\n` +
+    `The dev server keeps watching, but nothing will load until this is fixed.`
+  )
+}
+
 export function authorInstallNotice(target: string) {
   return `${getLoggingPrefix('warn')} Author mode: installing ${target}.`
 }

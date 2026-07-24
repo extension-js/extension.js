@@ -223,4 +223,70 @@ describe('ready.json writer preservation', () => {
     expect(after.code).toBeUndefined()
     expect(after.extensionLoadRefusedAt).toBeUndefined()
   })
+
+  // §84: the executor runs inside the guest, so an attach proves the browser
+  // is running it - whoever repaired the load, the red verdict is now stale.
+  it('clears a load refusal when the executor attaches', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'extension_load_refused'
+    ready.message = 'Chrome refused to load the extension at /dist/chromium'
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    ready.extensionLoadRefusedReason = 'Variable $2$ used but not defined.'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.stampExecutorAttached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('ready')
+    expect(after.code).toBeUndefined()
+    expect(after.message).toBeUndefined()
+    expect(after.extensionLoadRefusedAt).toBeUndefined()
+    expect(after.extensionLoadRefusedReason).toBeUndefined()
+    expect(after.runtime).toBe('attached')
+  })
+
+  // Once cleared it must stay cleared: the carry-forward reads the file it
+  // just healed, so a later compile must not resurrect the refusal.
+  it('does not resurrect a cleared refusal on the next compile', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'extension_load_refused'
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.stampExecutorAttached()
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('ready')
+    expect(after.code).toBeUndefined()
+    expect(after.extensionLoadRefusedAt).toBeUndefined()
+  })
+
+  // An attach says nothing about an unrelated failure, so only the refusal
+  // verdict may be cleared.
+  it('leaves a non-refusal error status alone', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'compile_failed'
+    ready.message = 'build broke'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.stampExecutorAttached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('error')
+    expect(after.code).toBe('compile_failed')
+    expect(after.message).toBe('build broke')
+  })
 })
