@@ -121,9 +121,11 @@ What is stable and what is not:
 of it. `logs` keeps `--log-format` for record encoding, which is a different concern: it says
 how each streamed record is written, while `--output` governs the single terminating result.
 
-The schema and one golden envelope per command live under
+The schema, golden envelopes, and the full error-code table (`codes.json`, with the mapping
+from the legacy `ready.json` codes, bridge error names, and doctor check ids) live under
 `programs/extension/__spec__/contract/`. Copy them if you are building a tool on top of the
-CLI. They are also what the CLI's own tests validate against, so they cannot go stale.
+CLI. They are also what the CLI's own tests validate against, so they cannot go stale. Codes
+may be added over time, but an existing code is never renamed or removed within a schema.
 
 `--output json` is arriving command by command. The envelope shape above is the target for all
 of them, and new code follows it.

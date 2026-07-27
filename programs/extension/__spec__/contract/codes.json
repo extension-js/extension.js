@@ -1,0 +1,590 @@
+{
+  "schema": 1,
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed or removed. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table.",
+  "codes": {
+    "E_ARGS": {
+      "area": "usage",
+      "summary": "A required argument is missing or the invocation is malformed."
+    },
+    "E_INVALID_OPTION": {
+      "area": "usage",
+      "summary": "A flag or argument value is not in the accepted set."
+    },
+    "E_FLAG_VALUE_INVALID": {
+      "area": "usage",
+      "summary": "A flag value failed validation."
+    },
+    "E_FLAG_NOT_SUPPORTED_HERE": {
+      "area": "usage",
+      "summary": "The flag exists but does not apply to this command or target."
+    },
+    "E_REMOVED_FLAG": {
+      "area": "usage",
+      "summary": "The flag was removed from the CLI."
+    },
+    "E_UNKNOWN_COMMAND": {
+      "area": "usage",
+      "summary": "No subcommand matches the given name."
+    },
+    "E_NODE_VERSION": {
+      "area": "usage",
+      "summary": "The running Node version is below the supported minimum."
+    },
+    "E_COMMAND_UNSUPPORTED_FOR_TARGET": {
+      "area": "usage",
+      "summary": "The command does not support the requested browser target."
+    },
+    "E_UNSUPPORTED_BROWSER": {
+      "area": "usage",
+      "summary": "The requested vendor is not in the supported browser list."
+    },
+    "E_BROWSER_NOT_INSTALLABLE": {
+      "area": "usage",
+      "summary": "The browser ships with the OS and cannot be installed by the CLI."
+    },
+    "E_PARENT_GONE": {
+      "area": "usage",
+      "summary": "The --parent-pid owner died, so the dev server self-terminated."
+    },
+    "E_REMOTE_URL_UNSUPPORTED": {
+      "area": "usage",
+      "summary": "The operation does not accept a remote URL."
+    },
+    "E_PROJECT_NOT_FOUND": {
+      "area": "project",
+      "summary": "The resolved project folder does not exist."
+    },
+    "E_CONFIG_LOAD": {
+      "area": "project",
+      "summary": "extension.config.js threw while loading."
+    },
+    "E_MANAGED_DEP_CONFLICT": {
+      "area": "project",
+      "summary": "The project declares a package the toolchain manages."
+    },
+    "E_DEPENDENCY_INSTALL": {
+      "area": "project",
+      "summary": "Installing project dependencies failed."
+    },
+    "E_TYPES_EMIT": {
+      "area": "project",
+      "summary": "Writing extension-env.d.ts failed."
+    },
+    "E_TSCONFIG_MISSING": {
+      "area": "project",
+      "summary": "TypeScript sources exist with no tsconfig.json beside package.json."
+    },
+    "E_OPTIONAL_DEP_UNRESOLVED": {
+      "area": "project",
+      "summary": "An optional dependency contract could not be resolved."
+    },
+    "E_OPTIONAL_DEP_LOAD": {
+      "area": "project",
+      "summary": "An optional dependency resolved but failed to load."
+    },
+    "E_OPTIONAL_DEP_UNKNOWN": {
+      "area": "project",
+      "summary": "Unknown optional-dependency contract id."
+    },
+    "E_COMPANION_EXTENSION_PATH": {
+      "area": "project",
+      "summary": "A companion extension path escapes extensions/ or yielded nothing unpacked."
+    },
+    "E_MANIFEST_IN_PUBLIC": {
+      "area": "project",
+      "summary": "manifest.json was placed under public/."
+    },
+    "E_RUNTIME_NOT_FOUND": {
+      "area": "project",
+      "summary": "The extension-develop runtime is missing or uncompiled."
+    },
+    "E_MANIFEST_NOT_FOUND": {
+      "area": "manifest",
+      "summary": "No manifest.json at the resolved root."
+    },
+    "E_MANIFEST_INVALID": {
+      "area": "manifest",
+      "summary": "The manifest is not parseable JSON or not a WebExtension manifest."
+    },
+    "E_MANIFEST_SHAPE": {
+      "area": "manifest",
+      "summary": "A manifest field has the wrong shape."
+    },
+    "E_MANIFEST_PAGE_MISSING": {
+      "area": "manifest",
+      "summary": "A manifest-referenced HTML page does not exist."
+    },
+    "E_MANIFEST_VERSION_UNSUPPORTED": {
+      "area": "manifest",
+      "summary": "The manifest_version is not supported on this target."
+    },
+    "E_MANIFEST_LOAD_BLOCKERS": {
+      "area": "manifest",
+      "summary": "Manifest fields the browser will reject at load time."
+    },
+    "E_MANIFEST_PERMISSION_MISSING": {
+      "area": "manifest",
+      "summary": "A required permission is absent from the manifest.",
+      "warn": true
+    },
+    "E_MANIFEST_MSG_KEY_MISSING": {
+      "area": "manifest",
+      "summary": "A __MSG_x__ key is absent from the default locale."
+    },
+    "E_MANIFEST_EMIT": {
+      "area": "manifest",
+      "summary": "Manifest emit or persist failed."
+    },
+    "E_RESTART_REQUIRED": {
+      "area": "manifest",
+      "summary": "An entrypoint field changed and the dev server must restart.",
+      "warn": true
+    },
+    "E_FIRST_COMPILE": {
+      "area": "compile",
+      "summary": "The first compile of a session failed, so nothing was loaded."
+    },
+    "E_COMPILE": {
+      "area": "compile",
+      "summary": "A compile finished with errors."
+    },
+    "E_COMPILE_FATAL": {
+      "area": "compile",
+      "summary": "The compiler itself failed or returned unusable stats."
+    },
+    "E_MODULE_NOT_FOUND": {
+      "area": "compile",
+      "summary": "A module specifier could not be resolved."
+    },
+    "E_ENTRY_NOT_FOUND": {
+      "area": "compile",
+      "summary": "A manifest, HTML, or JSON entry points at a missing file.",
+      "warn": true
+    },
+    "E_ASSET_MISSING": {
+      "area": "compile",
+      "summary": "An icon, static asset, or JSON dependency is missing.",
+      "warn": true
+    },
+    "E_SCRIPT_DEP_MISSING": {
+      "area": "compile",
+      "summary": "A runtime script dependency could not be traced.",
+      "warn": true
+    },
+    "E_RESERVED_FOLDER": {
+      "area": "compile",
+      "summary": "A reserved scripts/ folder shape was violated."
+    },
+    "E_CSS_PARSE": {
+      "area": "compile",
+      "summary": "A stylesheet failed to parse."
+    },
+    "E_CSS_PREPROCESSOR_MISSING": {
+      "area": "compile",
+      "summary": "A CSS preprocessor is requested but not resolvable.",
+      "warn": true
+    },
+    "E_CSS_DEAD_REF": {
+      "area": "compile",
+      "summary": "A CSS url() points at nothing.",
+      "warn": true
+    },
+    "E_INTEGRATION_INSTALL": {
+      "area": "compile",
+      "summary": "A framework integration failed to install."
+    },
+    "E_POLYFILL_NOT_FOUND": {
+      "area": "compile",
+      "summary": "webextension-polyfill requested but absent."
+    },
+    "E_LOCALES_LAYOUT": {
+      "area": "compile",
+      "summary": "_locales layout or messages.json is invalid."
+    },
+    "E_WAR_INVALID": {
+      "area": "compile",
+      "summary": "web_accessible_resources shape or match pattern rejected."
+    },
+    "E_MATCH_PATTERN_INVALID": {
+      "area": "compile",
+      "summary": "The browser rejected a content-script match pattern."
+    },
+    "E_BACKGROUND_REQUIRED": {
+      "area": "compile",
+      "summary": "The reload runtime needs a background chunk that is absent."
+    },
+    "E_CONTENT_SCRIPT_SYNTAX": {
+      "area": "compile",
+      "summary": "A content script failed to parse."
+    },
+    "E_NO_ENTRYPOINTS": {
+      "area": "compile",
+      "summary": "The compilation produced zero entrypoints."
+    },
+    "E_REMOTE_RESOURCE_BLOCKED": {
+      "area": "compile",
+      "summary": "A remote script or stylesheet is blocked by extension CSP.",
+      "warn": true
+    },
+    "E_PERF_BUDGET": {
+      "area": "compile",
+      "summary": "An asset exceeds its size budget.",
+      "warn": true
+    },
+    "E_ZIP_SKIPPED": {
+      "area": "compile",
+      "summary": "Packaging was skipped for a stated reason.",
+      "warn": true
+    },
+    "E_ENV_NO_MATCH": {
+      "area": "compile",
+      "summary": "No .env file matched the mode.",
+      "warn": true
+    },
+    "E_REMOTE_FETCH_TIMEOUT": {
+      "area": "remote",
+      "summary": "A remote fetch exceeded its timeout."
+    },
+    "E_REMOTE_DOWNLOAD": {
+      "area": "remote",
+      "summary": "Download or extraction of a remote extension failed."
+    },
+    "E_REMOTE_ZIP_INVALID": {
+      "area": "remote",
+      "summary": "The remote URL did not return a zip."
+    },
+    "E_LOCAL_ZIP_NOT_FOUND": {
+      "area": "remote",
+      "summary": "A referenced local zip is missing or not a zip."
+    },
+    "E_PROJECT_DOWNLOAD_EMPTY": {
+      "area": "remote",
+      "summary": "Download succeeded but the extracted folder is absent."
+    },
+    "E_NETWORK": {
+      "area": "remote",
+      "summary": "A network request failed or timed out."
+    },
+    "E_BROWSER_NOT_FOUND": {
+      "area": "browser-binary",
+      "summary": "No installed binary for the requested vendor."
+    },
+    "E_BROWSER_BINARY_REQUIRED": {
+      "area": "browser-binary",
+      "summary": "A -based target needs an explicit binary path."
+    },
+    "E_BROWSER_BINARY_INVALID": {
+      "area": "browser-binary",
+      "summary": "The given binary path does not exist or is not executable."
+    },
+    "E_BROWSER_LAUNCH": {
+      "area": "browser-binary",
+      "summary": "The browser process failed to spawn or died at startup."
+    },
+    "E_BROWSER_EXITED": {
+      "area": "browser-binary",
+      "summary": "The launched browser exited while the server kept running."
+    },
+    "E_BROWSER_START_TIMEOUT": {
+      "area": "browser-binary",
+      "summary": "The browser never signalled startup."
+    },
+    "E_PROFILE_LOCKED": {
+      "area": "browser-binary",
+      "summary": "The profile directory is held by another browser process."
+    },
+    "E_LAUNCH_SKIPPED_COMPILE_ERRORS": {
+      "area": "browser-binary",
+      "summary": "Launch was withheld because the compile failed."
+    },
+    "E_INSTANCE_AMBIGUOUS": {
+      "area": "browser-binary",
+      "summary": "More than one live instance matches the requested id."
+    },
+    "E_WSL_INTEROP": {
+      "area": "browser-binary",
+      "summary": "WSL interop could not resolve a Windows browser."
+    },
+    "E_BROWSER_DOWNLOAD": {
+      "area": "browser-binary",
+      "summary": "Downloading or installing a browser failed."
+    },
+    "E_BROWSER_INSTALL_PRIVILEGE": {
+      "area": "browser-binary",
+      "summary": "The install needs an interactive privileged session."
+    },
+    "E_BROWSER_UNINSTALL": {
+      "area": "browser-binary",
+      "summary": "Removing an installed browser failed."
+    },
+    "E_UNINSTALL_NOOP": {
+      "area": "browser-binary",
+      "summary": "Nothing to remove.",
+      "warn": true
+    },
+    "E_EXTENSION_LOAD_REFUSED": {
+      "area": "browser-runtime",
+      "summary": "The browser refused the unpacked extension."
+    },
+    "E_ADDON_INSTALL": {
+      "area": "browser-runtime",
+      "summary": "Gecko temporary add-on install failed."
+    },
+    "E_BROWSER_CONNECT": {
+      "area": "debug-protocol",
+      "summary": "The debug connection could not be opened."
+    },
+    "E_BROWSER_CONNECTION_CLOSED": {
+      "area": "debug-protocol",
+      "summary": "The debug socket closed mid-session."
+    },
+    "E_CDP_NOT_CONNECTED": {
+      "area": "debug-protocol",
+      "summary": "An operation was issued with no live CDP transport."
+    },
+    "E_CDP_TIMEOUT": {
+      "area": "debug-protocol",
+      "summary": "A CDP command or load event timed out."
+    },
+    "E_CDP_OP_FAILED": {
+      "area": "debug-protocol",
+      "summary": "An extension operation over CDP failed."
+    },
+    "E_EXTENSION_ID_UNKNOWN": {
+      "area": "debug-protocol",
+      "summary": "The extension id could not be determined over CDP."
+    },
+    "E_RDP_PROTOCOL": {
+      "area": "debug-protocol",
+      "summary": "A malformed or unexpected RDP exchange."
+    },
+    "E_DEV_SERVER_START": {
+      "area": "dev-server",
+      "summary": "The dev server failed to start."
+    },
+    "E_DEV_SERVER_TIMEOUT": {
+      "area": "dev-server",
+      "summary": "Dev server start exceeded its timeout."
+    },
+    "E_PORT_IN_USE": {
+      "area": "dev-server",
+      "summary": "The requested port was taken and auto-reassigned.",
+      "warn": true
+    },
+    "E_PORT_UNAVAILABLE": {
+      "area": "dev-server",
+      "summary": "No free port could be bound near the requested one."
+    },
+    "E_SESSION_NOT_FOUND": {
+      "area": "ready",
+      "summary": "No live session contract for this project and browser."
+    },
+    "E_SESSION_EXISTS": {
+      "area": "ready",
+      "summary": "A live session already exists for this project and browser."
+    },
+    "E_SESSION_STOPPED": {
+      "area": "ready",
+      "summary": "The session contract reports a stopped session."
+    },
+    "E_READY_TIMEOUT": {
+      "area": "ready",
+      "summary": "--wait expired before the session became ready."
+    },
+    "E_READY_ERROR_STATUS": {
+      "area": "ready",
+      "summary": "The ready contract reports an error for this session."
+    },
+    "E_CONTROL_UNAVAILABLE": {
+      "area": "control",
+      "summary": "The control channel is absent, mismatched, or not answering."
+    },
+    "E_CONTROL_DENIED": {
+      "area": "control",
+      "summary": "The session refused the control operation."
+    },
+    "E_TOKEN_MISSING": {
+      "area": "control",
+      "summary": "The operation needs a session token that is not present."
+    },
+    "E_EVAL_REFUSED": {
+      "area": "control",
+      "summary": "Eval is disabled for the session or the token does not match."
+    },
+    "E_TIMEOUT": {
+      "area": "control",
+      "summary": "The operation did not answer inside its timeout."
+    },
+    "E_NOT_IMPLEMENTED": {
+      "area": "control",
+      "summary": "The operation is not implemented for this context or engine."
+    },
+    "E_TARGET_NOT_FOUND": {
+      "area": "control",
+      "summary": "No tab, frame, or context matched the requested target."
+    },
+    "E_EVAL": {
+      "area": "control",
+      "summary": "The evaluated expression threw inside the page."
+    },
+    "E_INSPECT": {
+      "area": "control",
+      "summary": "DOM inspection failed inside the guest."
+    },
+    "E_STORAGE": {
+      "area": "control",
+      "summary": "chrome.storage rejected the read or write."
+    },
+    "E_LOGS_NOT_FOUND": {
+      "area": "logs",
+      "summary": "No logs stream for this project and browser."
+    },
+    "E_LOGS_STREAM_GAP": {
+      "area": "logs",
+      "summary": "The follow stream dropped events.",
+      "warn": true
+    },
+    "E_TEMPLATE_NOT_FOUND": {
+      "area": "create",
+      "summary": "The template is not in the catalog or has no manifest."
+    },
+    "E_DESTINATION_NOT_EMPTY": {
+      "area": "create",
+      "summary": "The destination already holds conflicting files."
+    },
+    "E_DESTINATION_NOT_WRITABLE": {
+      "area": "create",
+      "summary": "The destination directory is not writable."
+    },
+    "E_CREATE_DIR": {
+      "area": "create",
+      "summary": "The target directory could not be created."
+    },
+    "E_CREATE_WRITE": {
+      "area": "create",
+      "summary": "A scaffold file could not be written."
+    },
+    "E_CREATE_TESTS_SETUP": {
+      "area": "create",
+      "summary": "Built-in test setup failed."
+    },
+    "E_GIT_SKIPPED": {
+      "area": "create",
+      "summary": "git init was skipped because git is absent.",
+      "warn": true
+    },
+    "E_PREVIEW_NO_DIST": {
+      "area": "preview",
+      "summary": "No unpacked extension at the resolved output path."
+    },
+    "E_SAFARI_TOOLCHAIN": {
+      "area": "safari",
+      "summary": "The Safari toolchain is unavailable or an invocation failed."
+    },
+    "E_PUBLISH_REJECTED": {
+      "area": "publish",
+      "summary": "The platform rejected the upload."
+    },
+    "E_AUTH_REQUIRED": {
+      "area": "publish",
+      "summary": "The operation needs an auth token that is not present."
+    },
+    "E_TELEMETRY_WRITE": {
+      "area": "telemetry",
+      "summary": "The telemetry consent file could not be written."
+    },
+    "E_DOCTOR_CHECKS_FAILED": {
+      "area": "doctor",
+      "summary": "One or more doctor checks reported fail."
+    },
+    "E_INTERRUPTED": {
+      "area": "internal",
+      "summary": "The operation was interrupted before it finished."
+    },
+    "E_INTERNAL": {
+      "area": "internal",
+      "summary": "An unexpected fault reached the top-level sink."
+    }
+  },
+  "legacy": {
+    "ready": {
+      "compile_error": ["E_FIRST_COMPILE", "E_COMPILE"],
+      "compile_failed": "E_COMPILE_FATAL",
+      "shutdown": "E_SESSION_STOPPED",
+      "dev_server_start_failed": "E_DEV_SERVER_START",
+      "preview_manifest_missing": "E_PREVIEW_NO_DIST",
+      "browser_exited": "E_BROWSER_EXITED",
+      "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
+      "profile_locked": "E_PROFILE_LOCKED"
+    },
+    "names": {
+      "Timeout": "E_TIMEOUT",
+      "Unavailable": "E_CONTROL_UNAVAILABLE",
+      "Forbidden": ["E_TOKEN_MISSING", "E_EVAL_REFUSED"],
+      "BadRequest": "E_ARGS",
+      "Unsupported": ["E_TARGET_NOT_FOUND", "E_NOT_IMPLEMENTED"],
+      "EvalError": "E_EVAL",
+      "InspectError": "E_INSPECT",
+      "StorageError": "E_STORAGE",
+      "AmbiguousInstanceError": "E_INSTANCE_AMBIGUOUS",
+      "TemplateNotFoundError": "E_TEMPLATE_NOT_FOUND",
+      "TemplateDownloadError": "E_NETWORK",
+      "CliError": "E_ARGS"
+    },
+    "doctorChecks": {
+      "ready-contract": "E_SESSION_NOT_FOUND",
+      "server-process": "E_SESSION_NOT_FOUND",
+      "port-agreement": "E_CONTROL_UNAVAILABLE",
+      "control-channel": "E_CONTROL_UNAVAILABLE",
+      "eval-token": "E_TOKEN_MISSING",
+      "executor": "E_CONTROL_UNAVAILABLE",
+      "browser": "E_BROWSER_LAUNCH"
+    }
+  },
+  "folded": {
+    "E_ARG_REQUIRED": "E_ARGS",
+    "E_ARG_INVALID": "E_INVALID_OPTION",
+    "E_BAD_REQUEST": "E_ARGS",
+    "E_BROWSER_UNSUPPORTED": "E_UNSUPPORTED_BROWSER",
+    "E_BROWSER_NOT_INSTALLED": "E_BROWSER_NOT_FOUND",
+    "E_BROWSER_INSTALL_FAILED": "E_BROWSER_DOWNLOAD",
+    "E_DEPS_INSTALL": "E_DEPENDENCY_INSTALL",
+    "E_CREATE_DEPS_INSTALL": "E_DEPENDENCY_INSTALL",
+    "E_CREATE_NAME_REQUIRED": "E_ARGS",
+    "E_CREATE_URL_NOT_ALLOWED": "E_INVALID_OPTION",
+    "E_CREATE_DIR_NOT_WRITEABLE": "E_DESTINATION_NOT_WRITABLE",
+    "E_CREATE_DIR_CONFLICTS": "E_DESTINATION_NOT_EMPTY",
+    "E_TEMPLATE_DOWNLOAD": "E_NETWORK",
+    "E_TEMPLATE_FETCH_TIMEOUT": "E_NETWORK",
+    "E_MANIFEST_INVALID_JSON": "E_MANIFEST_INVALID",
+    "E_MANIFEST_NOT_EXTENSION": "E_MANIFEST_INVALID",
+    "E_READY_NOT_FOUND": "E_SESSION_NOT_FOUND",
+    "E_READY_STALE": "E_SESSION_NOT_FOUND",
+    "E_PORT_DISAGREEMENT": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_INSTANCE_MISMATCH": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_BAD_HELLO": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_HANDSHAKE_TIMEOUT": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_NOT_OPEN": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_PROTOCOL": "E_CONTROL_UNAVAILABLE",
+    "E_CONTROL_TOKEN_MISSING": "E_TOKEN_MISSING",
+    "E_EXECUTOR_UNAVAILABLE": "E_CONTROL_UNAVAILABLE",
+    "E_COMMAND_TIMEOUT": "E_TIMEOUT",
+    "E_EVAL_DISABLED": "E_EVAL_REFUSED",
+    "E_EVAL_TOKEN_MISSING": "E_TOKEN_MISSING",
+    "E_EVAL_TOKEN_MISMATCH": "E_EVAL_REFUSED",
+    "E_UNSUPPORTED_OP": "E_NOT_IMPLEMENTED",
+    "E_UNINSTALL_TARGET_REQUIRED": "E_ARGS",
+    "E_PREVIEW_NO_LAUNCHER": "E_INTERNAL",
+    "E_SAFARI_PLATFORM": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_XCODE_MISSING": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_TOOL_MISSING": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_TOOL_FAILED": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_XCODEBUILD": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_APP_NOT_REGISTERED": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_PROJECT_STALE": "E_SAFARI_TOOLCHAIN",
+    "E_SAFARI_BUNDLE_ID_INVALID": "E_INVALID_OPTION",
+    "E_PUBLISH_NO_TOKEN": "E_AUTH_REQUIRED",
+    "E_PUBLISH_UNREACHABLE": "E_NETWORK",
+    "E_UNKNOWN": "E_INTERNAL"
+  }
+}

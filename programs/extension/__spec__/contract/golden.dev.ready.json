@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "ok": true,
+  "command": "dev",
+  "status": "ready",
+  "value": {
+    "command": "dev",
+    "browser": "chromium",
+    "distPath": "/home/dev/my-extension/dist/chromium",
+    "pid": 51234,
+    "port": 8080,
+    "readyPath": "/home/dev/my-extension/.extension-js/ready.json",
+    "eventsPath": "/home/dev/my-extension/.extension-js/events.ndjson",
+    "runId": "r-8f2c1d",
+    "instanceId": "i-4b9a77",
+    "toolchainVersion": "4.0.14"
+  },
+  "error": null,
+  "warnings": []
+}

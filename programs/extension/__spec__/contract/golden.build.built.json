@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "ok": true,
+  "command": "build",
+  "status": "built",
+  "value": {
+    "projectPath": "/home/dev/my-extension",
+    "browsers": ["chromium"],
+    "mode": "production"
+  },
+  "error": null,
+  "warnings": []
+}

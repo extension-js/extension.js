@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "doctor",
+  "status": "unhealthy",
+  "value": [
+    {
+      "check": "ready-contract",
+      "status": "fail",
+      "detail": "No ready.json for this project and browser.",
+      "remediation": "Start a session first: extension dev <path> --browser chromium"
+    },
+    {
+      "check": "server-process",
+      "status": "skip",
+      "detail": "No contract to read a pid from."
+    },
+    {
+      "check": "port-agreement",
+      "status": "skip",
+      "detail": "No contract to compare ports against."
+    },
+    {
+      "check": "control-channel",
+      "status": "skip",
+      "detail": "No contract to dial."
+    },
+    {
+      "check": "eval-token",
+      "status": "skip",
+      "detail": "No session to hold a token."
+    },
+    {
+      "check": "executor",
+      "status": "skip",
+      "detail": "No control channel to probe."
+    },
+    {
+      "check": "browser",
+      "status": "skip",
+      "detail": "No session to own a browser."
+    }
+  ],
+  "error": {
+    "code": "E_SESSION_NOT_FOUND",
+    "message": "1 of 7 doctor checks failed."
+  },
+  "hint": "Start a session first: extension dev <path> --browser chromium",
+  "warnings": []
+}

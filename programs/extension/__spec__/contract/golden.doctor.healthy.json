@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "ok": true,
+  "command": "doctor",
+  "status": "healthy",
+  "value": [
+    {
+      "check": "ready-contract",
+      "status": "pass",
+      "detail": "ready.json reports status ready for chromium."
+    },
+    {
+      "check": "server-process",
+      "status": "pass",
+      "detail": "pid 51234 is alive."
+    },
+    {
+      "check": "port-agreement",
+      "status": "pass",
+      "detail": "control port matches the contract port."
+    },
+    {
+      "check": "control-channel",
+      "status": "pass",
+      "detail": "hello answered on the control channel."
+    },
+    {
+      "check": "eval-token",
+      "status": "skip",
+      "detail": "eval is not enabled for this session."
+    },
+    {
+      "check": "executor",
+      "status": "pass",
+      "detail": "a service worker is attached."
+    },
+    {
+      "check": "browser",
+      "status": "pass",
+      "detail": "the browser process is running."
+    }
+  ],
+  "error": null,
+  "warnings": []
+}
