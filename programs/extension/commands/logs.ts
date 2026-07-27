@@ -11,6 +11,7 @@ import path from 'node:path'
 import type {Command} from 'commander'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
+import {ENVELOPE} from '../helpers/messaging'
 
 type LogsOptions = {
   browser?: string
@@ -259,12 +260,24 @@ async function followLogs(
     }
   })
 
-  const shutdown = () => {
+  // A follow stream that just stops leaves a machine consumer unable to tell a
+  // clean interrupt from a crash. Emit one terminating frame either way.
+  const shutdown = (signal: NodeJS.Signals) => {
     consumer.close()
+
+    if (format !== 'pretty') {
+      // eslint-disable-next-line no-console
+      console.log(
+        JSON.stringify(
+          ENVELOPE.ok('logs', 'interrupted', {signal, follow: true})
+        )
+      )
+    }
+
     process.exit(0)
   }
-  process.on('SIGINT', shutdown)
-  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
 
   consumer.start()
   // Keep the process alive while following.
