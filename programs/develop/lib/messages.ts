@@ -12,7 +12,7 @@ import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
-import {type Channel, fmt, isDebug, prefix} from './messaging'
+import {type Channel, fmt, prefix} from './messaging'
 import {stripBom} from './parse-json-safe'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt

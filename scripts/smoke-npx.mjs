@@ -122,7 +122,7 @@ function installTarballs(cwd) {
 
     const env = {
       ...childEnv,
-      EXTENSION_AUTHOR_MODE: '1'
+      EXTENSION_DEBUG: '1'
     }
 
     run(

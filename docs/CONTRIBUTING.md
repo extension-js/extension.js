@@ -44,7 +44,7 @@ pnpm install
 3. Create a `.env` at the repo root to enable verbose dev logs and local behaviors
 
 ```dotenv
-EXTENSION_AUTHOR_MODE=development
+EXTENSION_DEBUG=1
 ```
 
 ## Day-to-day development
@@ -117,7 +117,7 @@ Run `pnpm test` locally on Windows (or rely on the **Run test suite (Windows)** 
 
 ## Debugging & troubleshooting
 
-- Extra logs: ensure `.env` contains `EXTENSION_AUTHOR_MODE=development`.
+- Extra logs: pass `--debug`, or set `EXTENSION_DEBUG=1` in `.env`.
 - Force-clean the repo:
 
 ```sh

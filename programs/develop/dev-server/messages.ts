@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
-import {type Channel, isDebug, prefix} from '../lib/messaging'
+import {type Channel, prefix} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 

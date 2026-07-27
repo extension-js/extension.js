@@ -194,7 +194,7 @@ Use this when you have other unpacked extensions you want loaded alongside your 
     - When `dir` points to `./extensions`, browser folders like `./extensions/chrome/*` and `./extensions/firefox/*` are also scanned.
   - `extensions.paths`: explicit directories (absolute or relative to the project root)
 - **Overrides**: top-level `extensions` applies to all commands, but `commands.<cmd>.extensions` overrides it for that command.
-- **Invalid entries**: ignored. In author mode (`EXTENSION_AUTHOR_MODE=true`) we print a warning if `extensions` is configured but nothing resolves.
+- **Invalid entries**: ignored. With `--debug` we print a warning if `extensions` is configured but nothing resolves.
 - **Store URLs**: entries pointing to Chrome Web Store, Edge Addons, or AMO are downloaded on-demand into `./extensions/<browser>/<id-or-slug>`.
 - **Local paths**: only paths under `./extensions/` are accepted for companion extensions.
 - **CLI**: use `--extensions <csv>` to provide a comma-separated list of paths or store URLs.

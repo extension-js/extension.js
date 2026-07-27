@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, isDebug, prefix} from '../../lib/messaging'
+import {type Channel, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 
 function getLoggingPrefix(type: Channel): string {
