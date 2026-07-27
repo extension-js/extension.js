@@ -20,29 +20,31 @@ const arg = (text: string) => colors.gray(text)
 // from this module, and the definition now lives in messaging.ts.
 export {fmt}
 
+// One source of truth for every command description, in the imperative mood
+// that git, npm and docker use. Commander and the help center both read it.
 export const commandDescriptions = {
   create:
-    'Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
-  dev: 'Starts the development server with hot reloading',
-  start: 'Builds and starts the extension in production mode',
-  preview: 'Previews the extension in production mode without building',
-  build: 'Builds the extension for packaging/distribution',
-  logs: 'Prints or streams logs from every context of a running dev session',
-  eval: 'Evaluates an expression in a running extension context (requires --allow-eval)',
+    'Create a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
+  dev: 'Start the development server with hot reloading',
+  start: 'Build and start the extension in production mode',
+  preview: 'Preview the extension in production mode without building',
+  build: 'Build the extension for packaging and distribution',
+  logs: 'Print or stream logs from every context of a running dev session',
+  eval: 'Evaluate an expression in a running extension context (requires --allow-eval)',
   storage:
-    'Reads or writes chrome.storage in a running extension (requires --allow-control)',
-  reload: 'Reloads a running extension or tab (requires --allow-control)',
-  open: 'Opens an extension surface: popup, options, sidebar, action, or command (requires --allow-control)',
+    'Read or write chrome.storage in a running extension (requires --allow-control)',
+  reload: 'Reload a running extension or tab (requires --allow-control)',
+  open: 'Open an extension surface: popup, options, sidebar, action, or command (requires --allow-control)',
   inspect:
-    'Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)',
+    'Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)',
   publish:
-    'Publishes to extension.dev and prints a shareable URL (requires EXTENSION_DEV_TOKEN)',
-  install: 'Installs a managed browser binary into Extension.js cache',
-  uninstall: 'Removes managed browser binaries from Extension.js cache',
+    'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)',
+  install: 'Install a managed browser binary into the Extension.js cache',
+  uninstall: 'Remove managed browser binaries from the Extension.js cache',
   telemetry:
     'Manage anonymous telemetry consent (enable, disable, or show status)',
   doctor:
-    'Diagnoses a dev session: ready contract, control channel, token, executor, browser'
+    'Diagnose a dev session: ready contract, control channel, token, executor, browser'
 } as const
 
 export function unhandledError(err: unknown) {
@@ -151,6 +153,9 @@ ${'Available Commands'}
 
 - ${code('extension uninstall --where')}
   Prints the managed browser cache root (or browser install path(s) when --browser/--all is provided)
+
+- ${code(`extension doctor ${arg('[project-path]')}`)}
+  ${commandDescriptions.doctor}
 
 - ${code(`extension telemetry ${arg('<enable|disable|status>')}`)}
   ${commandDescriptions.telemetry}

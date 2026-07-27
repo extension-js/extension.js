@@ -8,6 +8,7 @@
 
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {commandDescriptions} from '../helpers/messages'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the extension.dev platform MCP.
@@ -64,9 +65,7 @@ export function registerPublishCommand(program: Command) {
     .command('publish')
     .arguments('[project-path]')
     .usage('[project-path] [options]')
-    .description(
-      'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)'
-    )
+    .description(commandDescriptions.publish)
     .option(
       '--token <token>',
       'extension.dev access token (or EXTENSION_DEV_TOKEN)'

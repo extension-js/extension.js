@@ -10,6 +10,7 @@ import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {commandDescriptions} from '../helpers/messages'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
@@ -405,9 +406,7 @@ export function registerDoctorCommand(program: Command): void {
       'which session to diagnose (default chromium)'
     )
     .option('--output <pretty|json>', 'output format (default pretty)')
-    .description(
-      'Diagnoses a dev session: ready contract, control channel, token, executor, browser'
-    )
+    .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
       let results: DoctorCheckResult[]
       try {

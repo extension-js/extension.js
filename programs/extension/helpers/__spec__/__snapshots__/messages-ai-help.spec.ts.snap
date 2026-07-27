@@ -83,72 +83,72 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
   "commands": [
     {
       "name": "create",
-      "summary": "Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)",
+      "summary": "Create a new extension from a template (React, TypeScript, Vue, Svelte, etc.)",
       "supportsSourceInspection": false,
     },
     {
       "name": "dev",
-      "summary": "Starts the development server with hot reloading",
+      "summary": "Start the development server with hot reloading",
       "supportsSourceInspection": true,
     },
     {
       "name": "start",
-      "summary": "Builds and starts the extension in production mode",
+      "summary": "Build and start the extension in production mode",
       "supportsSourceInspection": false,
     },
     {
       "name": "preview",
-      "summary": "Previews the extension in production mode without building",
+      "summary": "Preview the extension in production mode without building",
       "supportsSourceInspection": false,
     },
     {
       "name": "build",
-      "summary": "Builds the extension for packaging/distribution",
+      "summary": "Build the extension for packaging and distribution",
       "supportsSourceInspection": false,
     },
     {
       "name": "logs",
-      "summary": "Prints or streams logs from every context of a running dev session",
+      "summary": "Print or stream logs from every context of a running dev session",
       "supportsSourceInspection": false,
     },
     {
       "name": "eval",
-      "summary": "Evaluates an expression in a running extension context (requires --allow-eval)",
+      "summary": "Evaluate an expression in a running extension context (requires --allow-eval)",
       "supportsSourceInspection": false,
     },
     {
       "name": "storage",
-      "summary": "Reads or writes chrome.storage in a running extension (requires --allow-control)",
+      "summary": "Read or write chrome.storage in a running extension (requires --allow-control)",
       "supportsSourceInspection": false,
     },
     {
       "name": "reload",
-      "summary": "Reloads a running extension or tab (requires --allow-control)",
+      "summary": "Reload a running extension or tab (requires --allow-control)",
       "supportsSourceInspection": false,
     },
     {
       "name": "open",
-      "summary": "Opens an extension surface: popup, options, sidebar, action, or command (requires --allow-control)",
+      "summary": "Open an extension surface: popup, options, sidebar, action, or command (requires --allow-control)",
       "supportsSourceInspection": false,
     },
     {
       "name": "inspect",
-      "summary": "Inspects a page/content DOM via the agent bridge (CDP-free; requires --allow-control)",
+      "summary": "Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)",
       "supportsSourceInspection": true,
     },
     {
       "name": "publish",
-      "summary": "Publishes to extension.dev and prints a shareable URL (requires EXTENSION_DEV_TOKEN)",
+      "summary": "Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)",
       "supportsSourceInspection": false,
     },
     {
       "name": "install",
-      "summary": "Installs a managed browser binary into Extension.js cache",
+      "summary": "Install a managed browser binary into the Extension.js cache",
       "supportsSourceInspection": false,
     },
     {
       "name": "uninstall",
-      "summary": "Removes managed browser binaries from Extension.js cache",
+      "summary": "Remove managed browser binaries from the Extension.js cache",
       "supportsSourceInspection": false,
     },
     {
@@ -158,7 +158,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "doctor",
-      "summary": "Diagnoses a dev session: ready contract, control channel, token, executor, browser",
+      "summary": "Diagnose a dev session: ready contract, control channel, token, executor, browser",
       "supportsSourceInspection": false,
     },
   ],
