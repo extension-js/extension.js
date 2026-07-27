@@ -41,6 +41,12 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
     expect(output).toMatch(/ready for development/i)
     expect(output).toMatch(/Extension\.js/)
+
+    // The card is the header for the session, so it precedes the state line
+    // it describes. Asserting both strings exist would pass in either order.
+    expect(output.indexOf('Extension.js')).toBeLessThan(
+      output.search(/ready for development/i)
+    )
   })
 
   it('does not print when compilation has errors', () => {
