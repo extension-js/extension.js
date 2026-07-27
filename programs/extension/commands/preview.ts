@@ -8,9 +8,11 @@
 
 import {type Command, Option} from 'commander'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE} from '../helpers/messaging'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -36,10 +38,18 @@ type PreviewOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  output?: 'pretty' | 'json'
   debug?: boolean
   author?: boolean
   authorMode?: boolean
 }
+
+// Copy the preview failure path is matched on, pinned by a spec against the
+// real producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
+export const PREVIEW_NOT_FOUND_NEEDLES = [
+  'Preview is run-only',
+  'Manifest file not found'
+] as const
 
 export function registerPreviewCommand(program: Command) {
   program
@@ -106,6 +116,10 @@ export function registerPreviewCommand(program: Command) {
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
     )
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .addOption(
       new Option(
         '--debug',
@@ -135,21 +149,53 @@ export function registerPreviewCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
+        const asJson = previewOptions.output === 'json'
+        const emit = (frame: unknown) => {
+          // eslint-disable-next-line no-console
+          console.log(JSON.stringify(frame))
+        }
+
         const list = vendors(browser)
 
+        let unsupported = ''
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
+            unsupported = invalid
+            if (asJson) return
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
         )
 
-        if (!vendorsAreSupported) process.exit(1)
+        if (!vendorsAreSupported) {
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('preview', 'usage', {
+                code: CODES.E_UNSUPPORTED_BROWSER,
+                message: `Unsupported browser: ${unsupported}.`
+              })
+            )
+          }
+          await exitAfterDrain(1)
+          return
+        }
 
         if (list.some(isSafariVendor)) {
-          console.error(messages.safariCommandNotSupported('preview'))
-          process.exit(1)
+          if (asJson) {
+            // Not E_UNSUPPORTED_BROWSER: Safari is a supported browser, it is
+            // this command that has no Safari path.
+            emit(
+              ENVELOPE.fail('preview', 'usage', {
+                code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
+                message: 'Safari is not supported by preview.'
+              })
+            )
+          } else {
+            console.error(messages.safariCommandNotSupported('preview'))
+          }
+          await exitAfterDrain(1)
+          return
         }
 
         if (!process.env.EXTJS_LIGHT) {
@@ -160,6 +206,7 @@ export function registerPreviewCommand(program: Command) {
         }
 
         const {extensionPreview} = await loadExtensionDevelopPreviewModule()
+        const previewed: string[] = []
 
         for (const vendor of list) {
           const logsOption = (previewOptions as unknown as {logs?: string}).logs
@@ -169,30 +216,72 @@ export function registerPreviewCommand(program: Command) {
 
           const logContexts = parseLogContexts(logContextOption)
 
-          await extensionPreview(
-            pathOrRemoteUrl,
-            {
-              mode: 'production',
-              profile: previewOptions.profile,
-              browser: vendor as PreviewOptions['browser'],
-              chromiumBinary: previewOptions.chromiumBinary,
-              geckoBinary: previewOptions.geckoBinary,
-              startingUrl: previewOptions.startingUrl,
-              port: previewOptions.port,
-              noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
-              extensions: parseExtensionsList(previewOptions.extensions),
-              logLevel: logsOption || previewOptions.logLevel || 'off',
-              logContexts,
-              logFormat: previewOptions.logFormat || 'pretty',
-              logTimestamps: previewOptions.logTimestamps !== false,
-              logColor: previewOptions.logColor !== false,
-              logUrl: previewOptions.logUrl,
-              logTab: previewOptions.logTab
-            },
-            // Browser launcher callback, runs browser code from extension/browser/
-            // without pulling rspack into the preview path
-            (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-              runOnlyPreviewBrowser(opts)
+          try {
+            await extensionPreview(
+              pathOrRemoteUrl,
+              {
+                mode: 'production',
+                profile: previewOptions.profile,
+                browser: vendor as PreviewOptions['browser'],
+                chromiumBinary: previewOptions.chromiumBinary,
+                geckoBinary: previewOptions.geckoBinary,
+                startingUrl: previewOptions.startingUrl,
+                port: previewOptions.port,
+                noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+                extensions: parseExtensionsList(previewOptions.extensions),
+                logLevel: logsOption || previewOptions.logLevel || 'off',
+                logContexts,
+                logFormat: previewOptions.logFormat || 'pretty',
+                logTimestamps: previewOptions.logTimestamps !== false,
+                logColor: previewOptions.logColor !== false,
+                logUrl: previewOptions.logUrl,
+                logTab: previewOptions.logTab
+              },
+              // Browser launcher callback, runs browser code from extension/browser/
+              // without pulling rspack into the preview path
+              (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
+                runOnlyPreviewBrowser(opts)
+            )
+
+            previewed.push(vendor)
+          } catch (error) {
+            if (!asJson) throw error
+
+            const message =
+              error instanceof Error ? error.message : String(error)
+            // Preview never compiles: nothing to preview is the one failure the
+            // caller can act on, so it gets its own status. Stopgap needles:
+            // neither producer stamps a code on the error it throws.
+            const nothingToPreview = PREVIEW_NOT_FOUND_NEEDLES.some((needle) =>
+              message.includes(needle)
+            )
+
+            emit(
+              ENVELOPE.fail(
+                'preview',
+                nothingToPreview ? 'not-found' : 'failed',
+                {
+                  code: nothingToPreview
+                    ? CODES.E_PREVIEW_NO_DIST
+                    : CODES.E_INTERNAL,
+                  message
+                },
+                nothingToPreview
+                  ? {hint: 'Run `extension build` before previewing.'}
+                  : {}
+              )
+            )
+            await exitAfterDrain(1)
+            return
+          }
+        }
+
+        if (asJson) {
+          emit(
+            ENVELOPE.ok('preview', 'ready', {
+              projectPath: pathOrRemoteUrl,
+              browsers: previewed
+            })
           )
         }
       }

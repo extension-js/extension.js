@@ -62,6 +62,50 @@ describe('extension install', () => {
     expect(await run(['install', 'netscape'])).toBe(1)
     expect(extensionInstall).not.toHaveBeenCalled()
   })
+
+  it('emits a schema-1 envelope with --output json', async () => {
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: true,
+      command: 'install',
+      status: 'installed',
+      value: {browsers: ['chrome']},
+      error: null,
+      warnings: []
+    })
+  })
+
+  it('emits E_BROWSER_DOWNLOAD when the download fails', async () => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(new Error('404 from CDN'))
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'install',
+      status: 'failed',
+      value: null
+    })
+    expect(frame.error.code).toBe('E_BROWSER_DOWNLOAD')
+    expect(frame.error.message).toContain('404 from CDN')
+  })
+
+  it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {
+    expect(await run(['install', 'netscape', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
+  })
+
+  it('wraps --where paths in an envelope with --output json', async () => {
+    expect(
+      await run(['install', 'chrome', '--where', '--output', 'json'])
+    ).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0])).value).toEqual({
+      paths: ['/cache/chrome']
+    })
+  })
 })
 
 describe('extension uninstall', () => {
@@ -89,5 +133,28 @@ describe('extension uninstall', () => {
   it('prints the cache root with --where and no target', async () => {
     expect(await run(['uninstall', '--where'])).toBe(0)
     expect(getManagedBrowsersCacheRoot).toHaveBeenCalled()
+  })
+
+  it('emits a schema-1 envelope with --output json', async () => {
+    expect(await run(['uninstall', 'firefox', '--output', 'json'])).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: true,
+      command: 'uninstall',
+      status: 'uninstalled',
+      value: {browser: 'firefox', all: undefined},
+      error: null,
+      warnings: []
+    })
+  })
+
+  it('emits a failure envelope when the uninstall throws', async () => {
+    vi.mocked(extensionUninstall).mockRejectedValueOnce(new Error('EBUSY'))
+    expect(await run(['uninstall', 'firefox', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.ok).toBe(false)
+    expect(frame.status).toBe('failed')
+    expect(frame.error.code).toBe('E_BROWSER_UNINSTALL')
+    expect(frame.error.message).toContain('EBUSY')
   })
 })

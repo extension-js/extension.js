@@ -11,6 +11,7 @@ import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
@@ -397,6 +398,19 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
   }
 }
 
+// A failing check is the only thing the frame can name, so the first failure
+// decides error.code. E_DOCTOR_CHECKS_FAILED covers the rest: a check with no
+// dominant cause is still a failed run, not an unmapped one.
+const CHECK_CODES: Record<string, ErrorCode> = {
+  'ready-contract': CODES.E_SESSION_NOT_FOUND,
+  'server-process': CODES.E_SESSION_NOT_FOUND,
+  'port-agreement': CODES.E_CONTROL_UNAVAILABLE,
+  'control-channel': CODES.E_CONTROL_UNAVAILABLE,
+  'eval-token': CODES.E_TOKEN_MISSING,
+  executor: CODES.E_CONTROL_UNAVAILABLE,
+  browser: CODES.E_BROWSER_LAUNCH
+}
+
 export function registerDoctorCommand(program: Command): void {
   program
     .command('doctor')
@@ -405,24 +419,60 @@ export function registerDoctorCommand(program: Command): void {
       '--browser <chrome | chromium | edge | firefox>',
       'which session to diagnose (default chromium)'
     )
-    .option('--output <pretty|json>', 'output format (default pretty)')
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
+      const asJson = opts.output === 'json'
       let results: DoctorCheckResult[]
+
       try {
         results = await runDoctor(projectPathArg, opts)
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(String((err as Error | undefined)?.message || err))
-        process.exit(1)
+        const message = String((err as Error | undefined)?.message || err)
+        if (asJson) {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify(
+              ENVELOPE.fail('doctor', 'failed', {
+                code: CODES.E_INTERNAL,
+                message
+              })
+            )
+          )
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(message)
+        }
+        await exitAfterDrain(1)
+        return
       }
 
-      if (opts.output === 'json') {
+      const failed = results.filter((r) => r.status === 'fail')
+
+      if (asJson) {
+        // The checks list is the payload on both verdicts: an unhealthy report
+        // is still a report, so `value` rides along with the error.
+        const frame = failed.length
+          ? ENVELOPE.fail(
+              'doctor',
+              'unhealthy',
+              {
+                code:
+                  CHECK_CODES[failed[0].check] || CODES.E_DOCTOR_CHECKS_FAILED,
+                message: `${failed.length} of ${results.length} doctor checks failed.`
+              },
+              {value: results, hint: failed[0].remediation}
+            )
+          : ENVELOPE.ok('doctor', 'healthy', results)
         // eslint-disable-next-line no-console
-        console.log(JSON.stringify(results))
+        console.log(JSON.stringify(frame))
       } else {
         printPretty(results, opts.browser || 'chromium')
       }
-      await exitAfterDrain(results.some((r) => r.status === 'fail') ? 1 : 0)
+
+      await exitAfterDrain(failed.length ? 1 : 0)
     })
 }

@@ -161,7 +161,24 @@ export const CODES = {
   E_TIMEOUT: 'E_TIMEOUT',
   E_PUBLISH_REJECTED: 'E_PUBLISH_REJECTED',
   E_AUTH_REQUIRED: 'E_AUTH_REQUIRED',
-  E_SAFARI_TOOLCHAIN: 'E_SAFARI_TOOLCHAIN'
+  E_SAFARI_TOOLCHAIN: 'E_SAFARI_TOOLCHAIN',
+  // Distinct from E_INTERNAL: these are exceptions thrown by the page or the
+  // extension under test, not faults in the CLI itself.
+  E_EVAL: 'E_EVAL',
+  E_INSPECT: 'E_INSPECT',
+  E_STORAGE: 'E_STORAGE',
+  E_LOGS_NOT_FOUND: 'E_LOGS_NOT_FOUND',
+  // The ready contract itself reports a failed session. Usually a compile
+  // error, so it must not collapse into E_INTERNAL.
+  E_READY_ERROR_STATUS: 'E_READY_ERROR_STATUS',
+  E_COMMAND_UNSUPPORTED_FOR_TARGET: 'E_COMMAND_UNSUPPORTED_FOR_TARGET',
+  E_FLAG_VALUE_INVALID: 'E_FLAG_VALUE_INVALID',
+  E_FLAG_NOT_SUPPORTED_HERE: 'E_FLAG_NOT_SUPPORTED_HERE',
+  E_DEV_SERVER_START: 'E_DEV_SERVER_START',
+  E_DOCTOR_CHECKS_FAILED: 'E_DOCTOR_CHECKS_FAILED',
+  E_TELEMETRY_WRITE: 'E_TELEMETRY_WRITE',
+  E_PREVIEW_NO_DIST: 'E_PREVIEW_NO_DIST',
+  E_BROWSER_UNINSTALL: 'E_BROWSER_UNINSTALL'
 } as const
 
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]
@@ -192,6 +209,9 @@ export interface EnvelopeExtras {
   hint?: string
   warnings?: string[]
   truncated?: boolean
+  // A failure can still carry a payload. `doctor` is the motivating case: the
+  // check list IS the diagnosis, and is most useful exactly when ok is false.
+  value?: unknown
 }
 
 function withExtras<T>(base: Envelope<T>, extras: EnvelopeExtras): Envelope<T> {
@@ -229,14 +249,14 @@ export const ENVELOPE = {
     status: string,
     error: EnvelopeError,
     extras: EnvelopeExtras = {}
-  ): Envelope<null> {
+  ): Envelope {
     return withExtras(
       {
         schema: ENVELOPE_SCHEMA,
         ok: false,
         command,
         status,
-        value: null,
+        value: extras.value ?? null,
         error,
         warnings: []
       },

@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process'
-import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -150,16 +150,21 @@ describe('start --wait contract', () => {
     const result = await run
     expect(result.code).toBe(0)
     const payload = JSON.parse(result.stdout.trim()) as {
+      schema: number
       ok: boolean
-      mode: string
       command: string
-      results: Array<{status?: string; browser?: string}>
+      value: {
+        mode: string
+        results: Array<{status?: string; browser?: string}>
+      }
     }
+    expect(payload.schema).toBe(1)
     expect(payload.ok).toBe(true)
-    expect(payload.mode).toBe('wait')
     expect(payload.command).toBe('start')
-    expect(payload.results[0]?.status).toBe('ready')
-    expect(payload.results[0]?.browser).toBe('chromium')
+    // Wait results moved inside the envelope's value, carried verbatim.
+    expect(payload.value.mode).toBe('wait')
+    expect(payload.value.results[0]?.status).toBe('ready')
+    expect(payload.value.results[0]?.browser).toBe('chromium')
     rmSync(projectDir, {recursive: true, force: true})
   })
 

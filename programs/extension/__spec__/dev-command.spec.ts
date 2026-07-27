@@ -31,9 +31,10 @@ vi.mock('../helpers/parent-watchdog', () => ({
   },
   setupParentWatchdog: (pid: number) => setupParentWatchdog(pid)
 }))
-vi.mock('../commands/dev-wait', () => ({
-  runWaitMode: (input: unknown) => runWaitMode(input as any)
-}))
+vi.mock('../commands/dev-wait', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
+})
 
 import {registerDevCommand} from '../commands/dev'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
@@ -155,7 +156,15 @@ describe('extension dev', () => {
       expect.objectContaining({command: 'dev', browsers: ['chromium']})
     )
     const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(payload).toMatchObject({ok: true, mode: 'wait', command: 'dev'})
+    // The pre-envelope wait frame now rides inside value.
+    expect(payload).toMatchObject({
+      schema: 1,
+      ok: true,
+      command: 'dev',
+      status: 'ready',
+      error: null,
+      value: {mode: 'wait', command: 'dev'}
+    })
     expect(extensionDev).not.toHaveBeenCalled()
   })
 })

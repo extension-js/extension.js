@@ -19,9 +19,10 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
 vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
-vi.mock('../commands/dev-wait', () => ({
-  runWaitMode: (input: unknown) => runWaitMode(input as any)
-}))
+vi.mock('../commands/dev-wait', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
+})
 
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {registerStartCommand} from '../commands/start'
@@ -108,7 +109,15 @@ describe('extension start', () => {
       expect.objectContaining({command: 'start'})
     )
     const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(payload).toMatchObject({ok: true, mode: 'wait', command: 'start'})
+    // The pre-envelope wait frame now rides inside value.
+    expect(payload).toMatchObject({
+      schema: 1,
+      ok: true,
+      command: 'start',
+      status: 'ready',
+      error: null,
+      value: {mode: 'wait', command: 'start'}
+    })
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 })

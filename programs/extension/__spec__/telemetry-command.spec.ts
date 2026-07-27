@@ -62,4 +62,33 @@ describe('extension telemetry', () => {
       'Unknown telemetry action: bogus'
     )
   })
+
+  it('emits a schema-1 status envelope with --output json', async () => {
+    expect(await run(['telemetry', 'status', '--output', 'json'])).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: true,
+      command: 'telemetry',
+      status: 'status',
+      value: {enabled: true, source: 'default'},
+      error: null,
+      warnings: []
+    })
+  })
+
+  it('emits a failure envelope on stdout when the consent write fails', async () => {
+    vi.mocked(setTelemetryConsent).mockReturnValue({ok: false} as any)
+    expect(await run(['telemetry', 'enable', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame).toMatchObject({schema: 1, ok: false, status: 'failed'})
+    expect(frame.error.code).toBe('E_TELEMETRY_WRITE')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('emits E_ARGS for an unknown action with --output json', async () => {
+    expect(await run(['telemetry', 'bogus', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_ARGS')
+  })
 })

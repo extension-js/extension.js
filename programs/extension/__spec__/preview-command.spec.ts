@@ -13,8 +13,12 @@ vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
 
+import {readFile} from 'node:fs/promises'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {registerPreviewCommand} from '../commands/preview'
+import {
+  PREVIEW_NOT_FOUND_NEEDLES,
+  registerPreviewCommand
+} from '../commands/preview'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const ORIG_ENV = {...process.env}
@@ -84,5 +88,85 @@ describe('extension preview', () => {
     expect(await run(['preview', '.', '--author'])).toBe(0)
     expect(process.env.EXTENSION_AUTHOR_MODE).toBe('true')
     expect(process.env.EXTENSION_VERBOSE).toBe('1')
+  })
+
+  it('emits a schema-1 envelope with --output json', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: true,
+      command: 'preview',
+      status: 'ready',
+      value: {projectPath: '.', browsers: ['chromium']},
+      error: null,
+      warnings: []
+    })
+  })
+
+  // Both needles are matched against real producer copy, so a rewrite of either
+  // message fails here rather than silently downgrading to E_INTERNAL.
+  it('pins the not-found needles against the real producers', async () => {
+    const developMessages = await import('../../develop/lib/messages')
+    expect(developMessages.manifestNotFoundError('/p/manifest.json')).toContain(
+      PREVIEW_NOT_FOUND_NEEDLES[1]
+    )
+    const previewSource = await readFile(
+      new URL('../../develop/command-preview.ts', import.meta.url),
+      'utf8'
+    )
+    expect(previewSource).toContain(PREVIEW_NOT_FOUND_NEEDLES[0])
+  })
+
+  it.each(
+    PREVIEW_NOT_FOUND_NEEDLES
+  )('maps %j to E_PREVIEW_NO_DIST', async (needle) => {
+    extensionPreview.mockRejectedValueOnce(new Error(`${needle} …`))
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'preview',
+      status: 'not-found',
+      value: null
+    })
+    expect(frame.error.code).toBe('E_PREVIEW_NO_DIST')
+  })
+
+  it('emits E_INTERNAL for any other preview failure', async () => {
+    extensionPreview.mockRejectedValueOnce(new Error('launcher exploded'))
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('failed')
+    expect(frame.error.code).toBe('E_INTERNAL')
+  })
+
+  it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(
+      await run(['preview', '.', '--browser', 'netscape', '--output', 'json'])
+    ).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  // Safari is a supported browser that this command has no path for, which is
+  // a different failure from an unknown vendor. The two codes must not collapse.
+  it('separates safari-on-preview from an unknown vendor', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(
+      await run(['preview', '.', '--browser', 'safari', '--output', 'json'])
+    ).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
+    expect(frame.error.code).not.toBe('E_UNSUPPORTED_BROWSER')
+    expect(frame.error.message).toContain('Safari')
   })
 })

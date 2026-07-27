@@ -48,12 +48,52 @@ describe('extension publish', () => {
     expect(logSpy).toHaveBeenCalledWith('https://ext.dev/s/abc')
   })
 
-  it('prints the raw payload with --output json', async () => {
+  it('emits a schema-1 envelope carrying the payload with --output json', async () => {
     respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
     expect(await run(['publish', '--token', 'tok', '--output', 'json'])).toBe(0)
     expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
-      shareUrl: 'https://ext.dev/s/abc'
+      schema: 1,
+      ok: true,
+      command: 'publish',
+      status: 'published',
+      value: {shareUrl: 'https://ext.dev/s/abc'},
+      error: null,
+      warnings: []
     })
+  })
+
+  it('emits E_AUTH_REQUIRED on stdout when no token is available', async () => {
+    delete process.env.EXTENSION_DEV_TOKEN
+    expect(await run(['publish', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'publish',
+      status: 'denied',
+      value: null
+    })
+    expect(frame.error.code).toBe('E_AUTH_REQUIRED')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('emits E_PUBLISH_REJECTED on a non-2xx response', async () => {
+    respondWith(403, JSON.stringify({message: 'token expired'}))
+    expect(await run(['publish', '--token', 'tok', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.ok).toBe(false)
+    expect(frame.status).toBe('rejected')
+    expect(frame.error.code).toBe('E_PUBLISH_REJECTED')
+    expect(frame.error.message).toContain('token expired')
+  })
+
+  it('emits E_NETWORK when the transport fails', async () => {
+    fetchMock.mockRejectedValue(new Error('ECONNREFUSED'))
+    expect(await run(['publish', '--token', 'tok', '--output', 'json'])).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('failed')
+    expect(frame.error.code).toBe('E_NETWORK')
+    expect(frame.error.message).toContain('ECONNREFUSED')
   })
 
   it('falls back to printing the whole response without a shareUrl', async () => {

@@ -7,8 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE} from '../helpers/messaging'
 import {
   type Browser,
   installTargets,
@@ -19,12 +21,19 @@ import {
 type InstallOptions = {
   browser?: Browser | 'all'
   where?: boolean
+  output?: 'pretty' | 'json'
 }
 
 type UninstallOptions = {
   all?: boolean
   browser?: string
   where?: boolean
+  output?: 'pretty' | 'json'
+}
+
+function emit(frame: unknown): void {
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(frame))
 }
 
 export function registerInstallCommand(program: Command) {
@@ -38,21 +47,40 @@ export function registerInstallCommand(program: Command) {
       'override the positional browser name. Supports comma-separated values and `all`.'
     )
     .option('--where', 'print the resolved managed browser cache root')
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .action(async (browserArg: string | undefined, options: InstallOptions) => {
+      const asJson = options.output === 'json'
       const selectedBrowser = (options.browser || browserArg || 'chromium') as
         | Browser
         | 'all'
       const browserList = installTargets(selectedBrowser)
 
+      let unsupported = ''
       const vendorsAreSupported = validateVendors(
         browserList,
         (invalid, supported) => {
+          unsupported = invalid
+          if (asJson) return
           // eslint-disable-next-line no-console
           console.error(messages.unsupportedBrowserFlag(invalid, supported))
         }
       )
 
-      if (!vendorsAreSupported) process.exit(1)
+      if (!vendorsAreSupported) {
+        if (asJson) {
+          emit(
+            ENVELOPE.fail('install', 'usage', {
+              code: CODES.E_UNSUPPORTED_BROWSER,
+              message: `Unsupported browser: ${unsupported}.`
+            })
+          )
+        }
+        await exitAfterDrain(1)
+        return
+      }
 
       const {
         extensionInstall,
@@ -61,20 +89,49 @@ export function registerInstallCommand(program: Command) {
       } = await import('extension-install')
 
       if (options.where) {
-        if (options.browser || browserArg) {
-          for (const browser of browserList) {
-            // eslint-disable-next-line no-console
-            console.log(getManagedBrowserInstallDir(browser))
-          }
+        const named = Boolean(options.browser || browserArg)
+        const paths = named
+          ? browserList.map((browser) => getManagedBrowserInstallDir(browser))
+          : [getManagedBrowsersCacheRoot()]
+
+        if (asJson) {
+          emit(ENVELOPE.ok('install', 'located', {paths}))
         } else {
-          // eslint-disable-next-line no-console
-          console.log(getManagedBrowsersCacheRoot())
+          for (const location of paths) {
+            // eslint-disable-next-line no-console
+            console.log(location)
+          }
         }
         return
       }
 
+      const installed: string[] = []
+
       for (const browser of browserList) {
-        await extensionInstall({browser})
+        try {
+          await extensionInstall({browser})
+          installed.push(browser)
+        } catch (error) {
+          if (!asJson) throw error
+
+          emit(
+            ENVELOPE.fail(
+              'install',
+              'failed',
+              {
+                code: CODES.E_BROWSER_DOWNLOAD,
+                message: error instanceof Error ? error.message : String(error)
+              },
+              {hint: `Retry, or install ${browser} manually.`}
+            )
+          )
+          await exitAfterDrain(1)
+          return
+        }
+      }
+
+      if (asJson) {
+        emit(ENVELOPE.ok('install', 'installed', {browsers: installed}))
       }
     })
 
@@ -85,12 +142,17 @@ export function registerInstallCommand(program: Command) {
     .option('--browser <browser-name>', 'browser to uninstall')
     .option('--all', 'remove all managed browser binaries')
     .option('--where', 'print the resolved managed browser cache root')
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .argument('[browser-name]')
     .action(
       async (
         browserArg: string | undefined,
-        {browser, all, where}: UninstallOptions
+        {browser, all, where, output}: UninstallOptions
       ) => {
+        const asJson = output === 'json'
         const target = browserArg || browser
 
         const {
@@ -100,16 +162,20 @@ export function registerInstallCommand(program: Command) {
         } = await import('extension-install')
 
         if (where) {
+          let paths: string[]
+
           if (all) {
-            for (const browser of ['chrome', 'chromium', 'edge', 'firefox']) {
-              // eslint-disable-next-line no-console
-              console.log(getManagedBrowserInstallDir(browser))
-            }
+            paths = ['chrome', 'chromium', 'edge', 'firefox'].map((name) =>
+              getManagedBrowserInstallDir(name)
+            )
           } else if (target) {
             const list = vendors(target as Browser)
+            let unsupported = ''
             const vendorsAreSupported = validateVendors(
               list,
               (invalid, supported) => {
+                unsupported = invalid
+                if (asJson) return
                 // eslint-disable-next-line no-console
                 console.error(
                   messages.unsupportedBrowserFlag(invalid, supported)
@@ -117,23 +183,56 @@ export function registerInstallCommand(program: Command) {
               }
             )
 
-            if (!vendorsAreSupported) process.exit(1)
-
-            for (const browser of list) {
-              // eslint-disable-next-line no-console
-              console.log(getManagedBrowserInstallDir(browser))
+            if (!vendorsAreSupported) {
+              if (asJson) {
+                emit(
+                  ENVELOPE.fail('uninstall', 'usage', {
+                    code: CODES.E_UNSUPPORTED_BROWSER,
+                    message: `Unsupported browser: ${unsupported}.`
+                  })
+                )
+              }
+              await exitAfterDrain(1)
+              return
             }
+
+            paths = list.map((name) => getManagedBrowserInstallDir(name))
           } else {
-            // eslint-disable-next-line no-console
-            console.log(getManagedBrowsersCacheRoot())
+            paths = [getManagedBrowsersCacheRoot()]
+          }
+
+          if (asJson) {
+            emit(ENVELOPE.ok('uninstall', 'located', {paths}))
+          } else {
+            for (const location of paths) {
+              // eslint-disable-next-line no-console
+              console.log(location)
+            }
           }
           return
         }
 
-        await extensionUninstall({
-          browser: target,
-          all
-        } satisfies UninstallOptions)
+        try {
+          await extensionUninstall({
+            browser: target,
+            all
+          } satisfies UninstallOptions)
+        } catch (error) {
+          if (!asJson) throw error
+
+          emit(
+            ENVELOPE.fail('uninstall', 'failed', {
+              code: CODES.E_BROWSER_UNINSTALL,
+              message: error instanceof Error ? error.message : String(error)
+            })
+          )
+          await exitAfterDrain(1)
+          return
+        }
+
+        if (asJson) {
+          emit(ENVELOPE.ok('uninstall', 'uninstalled', {browser: target, all}))
+        }
       }
     )
 }

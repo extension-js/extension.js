@@ -114,9 +114,14 @@ describe('extension eval', () => {
       target: {context: 'content', url: '*example*', tabId: 7},
       timeoutMs: 250
     })
-    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+    // The frame is the schema-1 envelope now, so assert the fields this test
+    // is about rather than the whole shape: envelope.spec.ts owns the shape.
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
+      schema: 1,
       ok: true,
-      value: {answer: 42}
+      command: 'eval',
+      value: {answer: 42},
+      error: null
     })
   })
 

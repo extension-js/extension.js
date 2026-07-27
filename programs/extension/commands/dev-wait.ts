@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {CODES, type ErrorCode} from '../helpers/messaging'
 
 export type WaitFormat = 'pretty' | 'json'
 export type WaitCommand = 'dev' | 'start'
@@ -77,6 +78,61 @@ export function parseWaitFormat(value?: string): WaitFormat {
   return value === 'json' ? 'json' : 'pretty'
 }
 
+// The failure class is known where the throw happens, so tag it there. The
+// alternative, matching the message text at the caller, breaks on a copy edit.
+export class WaitModeError extends Error {
+  readonly code: ErrorCode
+
+  constructor(message: string, code: ErrorCode) {
+    super(message)
+    this.name = 'WaitModeError'
+    this.code = code
+  }
+}
+
+export interface WaitFailure {
+  code: ErrorCode
+  status: string
+  message: string
+  hint: string
+}
+
+// Maps a wait rejection onto the envelope fields. Anything untagged is
+// E_INTERNAL: there is no code yet for "the ready contract reported an error".
+export function describeWaitError(error: unknown): WaitFailure {
+  const message = error instanceof Error ? error.message : String(error)
+  const tagged = (error as {code?: unknown} | null)?.code
+  const code =
+    typeof tagged === 'string' && tagged in CODES
+      ? (tagged as ErrorCode)
+      : CODES.E_INTERNAL
+
+  if (code === CODES.E_ARGS) {
+    return {
+      code,
+      status: 'usage',
+      message,
+      hint: 'Pass a local project path to --wait. Remote URLs are not supported.'
+    }
+  }
+
+  if (code === CODES.E_READY_TIMEOUT) {
+    return {
+      code,
+      status: 'timeout',
+      message,
+      hint: 'Raise --wait-timeout, or read the server output for what kept it from reporting ready.'
+    }
+  }
+
+  return {
+    code,
+    status: 'failed',
+    message,
+    hint: 'Read the server output for the failure behind the ready contract.'
+  }
+}
+
 function isProcessLikelyAlive(pid: unknown): boolean {
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return true
   try {
@@ -141,7 +197,7 @@ async function waitForReadyContract(options: {
 
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
-          throw new Error(String(detail))
+          throw new WaitModeError(String(detail), CODES.E_INTERNAL)
         }
       } catch (error) {
         if (error instanceof Error) throw error
@@ -151,8 +207,9 @@ async function waitForReadyContract(options: {
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
-  throw new Error(
-    `Timed out waiting for ready contract at ${readyPath} (${options.timeoutMs} ms)`
+  throw new WaitModeError(
+    `Timed out waiting for ready contract at ${readyPath} (${options.timeoutMs} ms)`,
+    CODES.E_READY_TIMEOUT
   )
 }
 
@@ -160,8 +217,9 @@ export async function runWaitMode(
   options: RunWaitModeOptions
 ): Promise<RunWaitModeResult> {
   if (isHttpUrl(options.pathOrRemoteUrl)) {
-    throw new Error(
-      '--wait requires a local project path (remote URLs are not supported)'
+    throw new WaitModeError(
+      '--wait requires a local project path (remote URLs are not supported)',
+      CODES.E_ARGS
     )
   }
 
