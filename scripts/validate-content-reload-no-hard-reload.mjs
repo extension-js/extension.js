@@ -20,6 +20,15 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, extname, join, resolve} from 'node:path'
+import {
+  countCompileSuccessEvents,
+  describeReadyFailure,
+  expectedChromiumExtensionId,
+  isFreshContract,
+  managedProfileDir,
+  readReadyContract,
+  readSessionEvents
+} from './lib/session-contract.mjs'
 
 const args = process.argv.slice(2)
 
@@ -59,11 +68,8 @@ const hardReloadFatalPatterns = [
 ]
 const cdpBootstrapWarningPatterns = [
   /\[browser\] CDP post-launch setup failed/i,
-  /Chrome CDP Client connection error:/i,
   /Failed to connect to CDP:/i
 ]
-
-const compiledEventPattern = /compiled (successfully|with warnings)/gi
 
 function runCollect(cmd, cmdArgs, opts = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
@@ -98,16 +104,6 @@ function runCollect(cmd, cmdArgs, opts = {}) {
   })
 }
 
-function extractProfilePath(logs) {
-  const m = logs.match(/Chrome profile:\s+([^\n\r]+)/)
-  return m ? m[1].trim() : null
-}
-
-function extractExtensionId(logs) {
-  const m = logs.match(/Extension ID\s+([a-z]{32})/i)
-  return m ? m[1].trim() : null
-}
-
 function findByBasename(root, targetName, maxDepth) {
   const out = []
   const walk = (dir, depth) => {
@@ -131,11 +127,12 @@ function findByBasename(root, targetName, maxDepth) {
   return out
 }
 
-function resolveSecurePreferencesPath(projectDir, logs) {
-  const profilePath = extractProfilePath(logs)
+function resolveSecurePreferencesPath(projectDir, ready) {
+  const distPath = typeof ready?.distPath === 'string' ? ready.distPath : ''
   const candidates = []
 
-  if (profilePath) {
+  if (distPath) {
+    const profilePath = managedProfileDir(distPath, browser)
     candidates.push(join(profilePath, 'Default', 'Secure Preferences'))
     candidates.push(join(profilePath, 'Secure Preferences'))
   }
@@ -162,13 +159,24 @@ function resolveSecurePreferencesPath(projectDir, logs) {
   return null
 }
 
-function assertExtensionEnabledInPrefs(projectDir, logs) {
-  const extensionId = extractExtensionId(logs)
-  if (!extensionId) {
-    throw new Error(`Could not parse extension ID from logs.\n\n${logs}`)
+function assertExtensionEnabledInPrefs(projectDir) {
+  // The contract carries the dist the browser loaded; the ID Chrome assigns
+  // an unpacked dist is a pure function of that path (or a manifest key).
+  const ready = readReadyContract(projectDir, browser)
+  if (!ready || typeof ready.distPath !== 'string') {
+    throw new Error(
+      `Could not read the ready contract for ${projectDir} (${browser}): ${describeReadyFailure(ready)}`
+    )
   }
 
-  const securePrefsPath = resolveSecurePreferencesPath(projectDir, logs)
+  const extensionId = expectedChromiumExtensionId(ready.distPath)
+  if (!/^[a-p]{32}$/.test(extensionId)) {
+    throw new Error(
+      `Could not derive an extension ID from ready.json distPath: ${ready.distPath}`
+    )
+  }
+
+  const securePrefsPath = resolveSecurePreferencesPath(projectDir, ready)
   if (!securePrefsPath) {
     return {
       checked: false,
@@ -253,8 +261,13 @@ function resolveContentScriptSourcePath(projectDir) {
   )
 }
 
-function countCompiledSuccessfully(logs) {
-  return logs.match(compiledEventPattern)?.length || 0
+// Compile progress comes from the session's events.ndjson timeline, not from
+// matching the pretty compile line, which is free copy.
+function countCompileSuccesses(projectDir, runId) {
+  return countCompileSuccessEvents(
+    readSessionEvents(projectDir, browser),
+    runId
+  )
 }
 
 function listFilesRecursively(root, maxDepth) {
@@ -378,6 +391,7 @@ function runDevAndValidateContentReload(cwd, deepChain) {
     let editApplied = false
     let successGuardTimer = null
     let markerPollInterval = null
+    let contractPollInterval = null
     let markerObserved = false
     let sawCdpBootstrapIssue = false
     const finish = (err) => {
@@ -385,6 +399,13 @@ function runDevAndValidateContentReload(cwd, deepChain) {
       settled = true
       if (successGuardTimer) clearTimeout(successGuardTimer)
       if (markerPollInterval) clearInterval(markerPollInterval)
+      if (contractPollInterval) clearInterval(contractPollInterval)
+      // A session that never stamped a CDP port had no working CDP bootstrap;
+      // that replaces matching the CDP error line on stdout.
+      if (!sawCdpBootstrapIssue) {
+        const ready = readReadyContract(cwd, browser)
+        sawCdpBootstrapIssue = typeof ready?.cdpPort !== 'number'
+      }
       try {
         child.kill('SIGTERM')
       } catch {
@@ -413,28 +434,26 @@ function runDevAndValidateContentReload(cwd, deepChain) {
       )
     }, timeoutMs)
 
-    const onChunk = (chunk) => {
-      const text = chunk.toString()
-      output += text
+    const harnessStartMs = Date.now()
 
-      for (const pattern of hardReloadFatalPatterns) {
-        if (pattern.test(text) || pattern.test(output)) {
-          clearTimeout(timeout)
-          finish(
-            new Error(
-              `Detected failure pattern: ${String(pattern)}\n\nCaptured output:\n${output}`
-            )
+    contractPollInterval = setInterval(() => {
+      if (settled) return
+
+      const ready = readReadyContract(cwd, browser)
+      // An external project may carry a prior session's contract; wait for
+      // the contract this dev process writes.
+      if (!ready || !isFreshContract(ready, harnessStartMs)) return
+      if (ready.status === 'error') {
+        clearTimeout(timeout)
+        finish(
+          new Error(
+            `ready.json reported a failed session: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
           )
-          return
-        }
-      }
-      if (!sawCdpBootstrapIssue) {
-        sawCdpBootstrapIssue = cdpBootstrapWarningPatterns.some(
-          (pattern) => pattern.test(text) || pattern.test(output)
         )
+        return
       }
 
-      const compileCount = countCompiledSuccessfully(output)
+      const compileCount = countCompileSuccesses(cwd, ready.runId)
 
       if (!editApplied && compileCount >= 1) {
         editApplied = true
@@ -469,6 +488,28 @@ function runDevAndValidateContentReload(cwd, deepChain) {
           clearTimeout(timeout)
           finish()
         }, 3000)
+      }
+    }, 1000)
+
+    const onChunk = (chunk) => {
+      const text = chunk.toString()
+      output += text
+
+      for (const pattern of hardReloadFatalPatterns) {
+        if (pattern.test(text) || pattern.test(output)) {
+          clearTimeout(timeout)
+          finish(
+            new Error(
+              `Detected failure pattern: ${String(pattern)}\n\nCaptured output:\n${output}`
+            )
+          )
+          return
+        }
+      }
+      if (!sawCdpBootstrapIssue) {
+        sawCdpBootstrapIssue = cdpBootstrapWarningPatterns.some(
+          (pattern) => pattern.test(text) || pattern.test(output)
+        )
       }
     }
 
@@ -536,14 +577,14 @@ async function main() {
     console.log(
       'Booting dev, editing deep content-script dependency, validating no hard reload...'
     )
-    const {logs, sawCdpBootstrapIssue} = await runDevAndValidateContentReload(
+    const {sawCdpBootstrapIssue} = await runDevAndValidateContentReload(
       projectDir,
       deepChain
     )
     assertBundleContains(projectDir, deepChain.expectedMarker)
     const prefsCheck = usingExternalProject
       ? {checked: false, reason: 'skipped for external project validation'}
-      : assertExtensionEnabledInPrefs(projectDir, logs)
+      : assertExtensionEnabledInPrefs(projectDir)
 
     console.log(
       `PASS: deep content dependency edit was applied (${deepChain.leafPath})`
