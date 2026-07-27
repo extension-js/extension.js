@@ -23,10 +23,13 @@ export default defineConfig({
     testTimeout: 120_000,
     hookTimeout: 120_000,
     teardownTimeout: 120_000,
+    // '__spec__/*.spec.ts' is not recursive, so every subdirectory needs its
+    // own entry or its specs are silently collected as zero and report green.
     include: [
       'helpers/**/__spec__/**/*.spec.ts',
       '__spec__/*.spec.ts',
       '__spec__/exec/**/*.spec.ts',
+      '__spec__/contract/**/*.spec.ts',
       'browsers/__spec__/**/*.spec.ts'
     ],
     sequence: {concurrent: false},
