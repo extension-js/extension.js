@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://extension.js.org/contract/envelope-1.json",
+  "title": "Extension.js CLI result envelope, schema 1",
+  "type": "object",
+  "required": [
+    "schema",
+    "ok",
+    "command",
+    "status",
+    "value",
+    "error",
+    "warnings"
+  ],
+  "properties": {
+    "schema": { "const": 1 },
+    "ok": { "type": "boolean" },
+    "command": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "value": {},
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "pattern": "^E_[A-Z0-9_]+$" },
+            "message": { "type": "string" },
+            "name": { "type": "string" },
+            "engine": { "type": "string" },
+            "hint": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "truncated": { "type": "boolean" },
+    "hint": { "type": "string" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

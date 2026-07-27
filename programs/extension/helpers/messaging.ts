@@ -123,3 +123,109 @@ export function artifactNoun(browser: string): 'Add-on' | 'Extension' {
   if (name.includes('gecko') || name.includes('firefox')) return 'Add-on'
   return 'Extension'
 }
+
+export const ENVELOPE_SCHEMA = 1
+
+// Stable identifiers for a failure class. The message beside them is free copy
+// and may be rewritten at any time; the code is the part consumers match on.
+export const CODES = {
+  E_ARGS: 'E_ARGS',
+  E_PROJECT_NOT_FOUND: 'E_PROJECT_NOT_FOUND',
+  E_MANIFEST_NOT_FOUND: 'E_MANIFEST_NOT_FOUND',
+  E_MANIFEST_INVALID: 'E_MANIFEST_INVALID',
+  E_FIRST_COMPILE: 'E_FIRST_COMPILE',
+  E_COMPILE: 'E_COMPILE',
+  E_BROWSER_NOT_FOUND: 'E_BROWSER_NOT_FOUND',
+  E_BROWSER_LAUNCH: 'E_BROWSER_LAUNCH',
+  E_PROFILE_LOCKED: 'E_PROFILE_LOCKED',
+  E_READY_TIMEOUT: 'E_READY_TIMEOUT',
+  E_SESSION_EXISTS: 'E_SESSION_EXISTS',
+  E_CONTROL_DENIED: 'E_CONTROL_DENIED',
+  E_CONTROL_UNAVAILABLE: 'E_CONTROL_UNAVAILABLE',
+  E_TOKEN_MISSING: 'E_TOKEN_MISSING',
+  E_NETWORK: 'E_NETWORK',
+  E_INTERRUPTED: 'E_INTERRUPTED',
+  E_NOT_IMPLEMENTED: 'E_NOT_IMPLEMENTED',
+  E_INTERNAL: 'E_INTERNAL'
+} as const
+
+export type ErrorCode = (typeof CODES)[keyof typeof CODES]
+
+// name and engine exist so the act frame stays a subset of this shape: the MCP
+// reads frame.error.message and frame.error.hint today and must keep working.
+export interface EnvelopeError {
+  code: ErrorCode
+  message: string
+  name?: string
+  engine?: string
+  hint?: string
+}
+
+export interface Envelope<T = unknown> {
+  schema: typeof ENVELOPE_SCHEMA
+  ok: boolean
+  command: string
+  status: string
+  value: T | null
+  error: EnvelopeError | null
+  truncated?: boolean
+  hint?: string
+  warnings: string[]
+}
+
+export interface EnvelopeExtras {
+  hint?: string
+  warnings?: string[]
+  truncated?: boolean
+}
+
+function withExtras<T>(base: Envelope<T>, extras: EnvelopeExtras): Envelope<T> {
+  return {
+    ...base,
+    ...(extras.hint ? {hint: extras.hint} : {}),
+    ...(extras.truncated ? {truncated: true} : {}),
+    warnings: extras.warnings || []
+  }
+}
+
+export const ENVELOPE = {
+  schema: ENVELOPE_SCHEMA,
+  ok<T>(
+    command: string,
+    status: string,
+    value: T,
+    extras: EnvelopeExtras = {}
+  ): Envelope<T> {
+    return withExtras(
+      {
+        schema: ENVELOPE_SCHEMA,
+        ok: true,
+        command,
+        status,
+        value,
+        error: null,
+        warnings: []
+      },
+      extras
+    )
+  },
+  fail(
+    command: string,
+    status: string,
+    error: EnvelopeError,
+    extras: EnvelopeExtras = {}
+  ): Envelope<null> {
+    return withExtras(
+      {
+        schema: ENVELOPE_SCHEMA,
+        ok: false,
+        command,
+        status,
+        value: null,
+        error,
+        warnings: []
+      },
+      extras
+    )
+  }
+}
