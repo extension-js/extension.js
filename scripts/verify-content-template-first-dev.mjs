@@ -15,6 +15,11 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import {fileURLToPath} from 'node:url'
+import {
+  describeReadyFailure,
+  isFreshContract,
+  readReadyContract
+} from './lib/session-contract.mjs'
 
 const args = process.argv.slice(2)
 
@@ -62,14 +67,24 @@ const packageSpecifier = useWorkspacePackage
 const devArgsRaw = parseArg('--dev-args', '--no-browser --port 0')
 const devArgs = devArgsRaw.split(/\s+/).filter(Boolean)
 
-const successPatterns = [/compiled successfully/i, /compiled with warnings/i]
+// The session's browser key selects which dist/extension-js/<browser>
+// contract dir the dev run writes.
+const devBrowser = (() => {
+  const flagIndex = devArgs.findIndex(
+    (value) => value === '--browser' || value.startsWith('--browser=')
+  )
+  if (flagIndex === -1) return 'chromium'
+  const flag = devArgs[flagIndex]
+  if (flag.includes('=')) return flag.split('=')[1] || 'chromium'
+  return devArgs[flagIndex + 1] || 'chromium'
+})()
+
 const readyPattern = /Extension ready for development/i
 const failurePatterns = [
   /Optional dependency install reported success but packages are missing/i,
   /could not be resolved after optional dependency installation/i,
   /Module parse failed/i,
   /JavaScript parse error/i,
-  /compiled with errors/i,
   /Unhandled rejection/i
 ]
 
@@ -202,11 +217,14 @@ function runDevOnce(projectDir, env, timeout) {
     let settled = false
     let sawCompileSuccess = false
     let sawReadyBanner = false
+    let contractPoll = null
+    const harnessStartMs = Date.now()
 
     const settle = async (error) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      if (contractPoll) clearInterval(contractPoll)
       await terminateChild(child)
       if (error) {
         reject(error)
@@ -229,6 +247,34 @@ function runDevOnce(projectDir, env, timeout) {
       )
     }, timeout)
 
+    const maybeFinishSoon = () => {
+      if (sawCompileSuccess && sawReadyBanner) {
+        setTimeout(() => {
+          void settle()
+        }, 3500)
+      }
+    }
+
+    // Compile state comes from the ready contract, not the pretty compile
+    // line, which is free copy and may change in any release.
+    contractPoll = setInterval(() => {
+      if (settled) return
+      const ready = readReadyContract(projectDir, devBrowser)
+      if (!ready || !isFreshContract(ready, harnessStartMs)) return
+      if (ready.status === 'error') {
+        void settle(
+          new Error(
+            `First dev run failed per ready.json: ${describeReadyFailure(ready)}\n\n${output}`
+          )
+        )
+        return
+      }
+      if (ready.status === 'ready') {
+        sawCompileSuccess = true
+        maybeFinishSoon()
+      }
+    }, 1000)
+
     const onChunk = (chunk) => {
       const text = chunk.toString()
       output += text
@@ -246,17 +292,9 @@ function runDevOnce(projectDir, env, timeout) {
         return
       }
 
-      if (hasOutputMatch(output, successPatterns)) {
-        sawCompileSuccess = true
-      }
       if (readyPattern.test(output)) {
         sawReadyBanner = true
-      }
-
-      if (sawCompileSuccess && sawReadyBanner) {
-        setTimeout(() => {
-          void settle()
-        }, 3500)
+        maybeFinishSoon()
       }
     }
 

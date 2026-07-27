@@ -16,6 +16,11 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import {fileURLToPath, pathToFileURL} from 'node:url'
+import {
+  describeReadyFailure,
+  isFreshContract,
+  readReadyContract
+} from './lib/session-contract.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -879,15 +884,14 @@ function runReactContentDevSmoke(workdir) {
     ...buildSmokeEnv('npm'),
     EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
   }
-  const successPattern = /compiled successfully|compiled with warnings/i
   const failurePatterns = [
-    /compiled with errors/i,
     /Module parse failed/i,
     /Toolchain packages are missing or incompatible/i,
     /Missing or invalid packages/i,
     /Unhandled rejection/i
   ]
   const timeoutMs = 180000
+  const smokeBrowser = 'chrome'
 
   return new Promise((resolve, reject) => {
     const child = shouldUseDirectLocalCli('npm')
@@ -906,12 +910,15 @@ function runReactContentDevSmoke(workdir) {
 
     let output = ''
     let settled = false
+    let contractPoll = null
+    const harnessStartMs = Date.now()
 
     const finish = async (error) => {
       if (settled) return
       settled = true
 
       clearTimeout(timeout)
+      if (contractPoll) clearInterval(contractPoll)
       await terminateChildProcess(child)
 
       if (error) {
@@ -929,6 +936,27 @@ function runReactContentDevSmoke(workdir) {
       )
     }, timeoutMs)
 
+    // Compile state comes from the ready contract, not the pretty compile
+    // line, which is free copy and may change in any release.
+    contractPoll = setInterval(() => {
+      if (settled) return
+      const ready = readReadyContract(workdir, smokeBrowser)
+      if (!ready || !isFreshContract(ready, harnessStartMs)) return
+      if (ready.status === 'error') {
+        void finish(
+          new Error(
+            `React content dev smoke failed per ready.json: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
+          )
+        )
+        return
+      }
+      if (ready.status === 'ready') {
+        setTimeout(() => {
+          void finish()
+        }, 5000)
+      }
+    }, 1000)
+
     const onChunk = (chunk) => {
       const text = chunk.toString()
       output += text
@@ -944,12 +972,6 @@ function runReactContentDevSmoke(workdir) {
           )
           return
         }
-      }
-
-      if (successPattern.test(output)) {
-        setTimeout(() => {
-          void finish()
-        }, 5000)
       }
     }
 

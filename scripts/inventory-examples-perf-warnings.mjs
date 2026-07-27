@@ -25,6 +25,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {isFreshContract, readReadyContract} from './lib/session-contract.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -77,17 +78,16 @@ function listExampleDirs() {
 // rspack's stock single-threshold warning is disabled in rspack-config.ts,
 // so the only "Build succeeded with N warning(s)" line that should fire
 // for size-related issues comes from us.
-function parseBuildOutput(text) {
+function parseBuildOutput(text, receiptOk) {
   const hadBuildWarnLine = /Build succeeded with \d+ warning\(s\)/i.test(text)
   const hadAssetWarn =
     /exceed the extension performance budget/i.test(text) ||
     /asset size limit exceeded/i.test(text) || // legacy rspack pattern, kept for future-proofing
     /asset(s)? exceed the recommended size limit/i.test(text)
   const hadRecommendationWarn = /Rspack performance recommendations/i.test(text)
-  const ok =
-    /Build succeeded/i.test(text) ||
-    /compiled successfully/i.test(text) ||
-    /compiled with warnings/i.test(text)
+  // A fresh build receipt (ready.json, command=build) is the primary success
+  // signal; the pretty compile line is free copy and is not matched.
+  const ok = receiptOk || /Build succeeded/i.test(text)
 
   // Extract per-asset entries from the structured PerfBudgetWarning block:
   //
@@ -183,7 +183,14 @@ function buildOne({name, dir}) {
   const stderr = result.stderr || ''
   const combined = `${stdout}\n${stderr}`
   const status = result.status ?? -1
-  const parsed = parseBuildOutput(combined)
+  const receipt = readReadyContract(dir, browser)
+  const receiptOk = Boolean(
+    receipt &&
+      receipt.command === 'build' &&
+      receipt.status === 'ready' &&
+      isFreshContract(receipt, start)
+  )
+  const parsed = parseBuildOutput(combined, receiptOk)
   return {name, dir, status, elapsedMs: elapsed, parsed, combined}
 }
 

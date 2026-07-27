@@ -17,6 +17,12 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
+import {
+  describeReadyFailure,
+  expectedChromiumExtensionId,
+  managedProfileDir,
+  readReadyContract
+} from './lib/session-contract.mjs'
 
 const args = process.argv.slice(2)
 
@@ -95,10 +101,12 @@ function runDevAndValidate(cwd) {
     let output = ''
     let firstCompileSeen = false
     let settled = false
+    let readyPoll = null
 
     const finish = (err) => {
       if (settled) return
       settled = true
+      if (readyPoll) clearInterval(readyPoll)
       try {
         child.kill('SIGTERM')
       } catch {
@@ -134,6 +142,27 @@ function runDevAndValidate(cwd) {
       }, 8000)
     }
 
+    // First-compile detection reads the ready contract, not stdout tokens:
+    // the pretty compile line is free copy and may change in any release.
+    readyPoll = setInterval(() => {
+      if (settled || firstCompileSeen) return
+      const ready = readReadyContract(cwd, browser)
+      if (!ready) return
+      if (ready.status === 'error') {
+        clearTimeout(timeout)
+        finish(
+          new Error(
+            `ready.json reported a failed session: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
+          )
+        )
+        return
+      }
+      if (ready.status === 'ready') {
+        firstCompileSeen = true
+        postCompileGuard()
+      }
+    }, 1000)
+
     const onChunk = (chunk) => {
       const text = chunk.toString()
       output += text
@@ -148,11 +177,6 @@ function runDevAndValidate(cwd) {
           )
           return
         }
-      }
-
-      if (!firstCompileSeen && /compiled successfully/i.test(output)) {
-        firstCompileSeen = true
-        postCompileGuard()
       }
     }
 
@@ -173,21 +197,12 @@ function runDevAndValidate(cwd) {
   })
 }
 
-function extractProfilePath(logs) {
-  const m = logs.match(/Chrome profile:\s+([^\n\r]+)/)
-  return m ? m[1].trim() : null
-}
-
-function extractExtensionId(logs) {
-  const m = logs.match(/Extension ID\s+([a-z]{32})/i)
-  return m ? m[1].trim() : null
-}
-
-function resolveSecurePreferencesPath(projectDir, logs) {
-  const profilePath = extractProfilePath(logs)
+function resolveSecurePreferencesPath(projectDir, ready) {
+  const distPath = typeof ready?.distPath === 'string' ? ready.distPath : ''
   const candidates = []
 
-  if (profilePath) {
+  if (distPath) {
+    const profilePath = managedProfileDir(distPath, browser)
     candidates.push(join(profilePath, 'Default', 'Secure Preferences'))
     candidates.push(join(profilePath, 'Secure Preferences'))
   }
@@ -238,13 +253,24 @@ function findByBasename(root, targetName, maxDepth) {
   return out
 }
 
-function assertExtensionEnabledInPrefs(projectDir, logs) {
-  const extensionId = extractExtensionId(logs)
-  if (!extensionId) {
-    throw new Error(`Could not parse extension ID from logs.\n\n${logs}`)
+function assertExtensionEnabledInPrefs(projectDir) {
+  // The contract carries the dist the browser loaded; the ID Chrome assigns
+  // an unpacked dist is a pure function of that path (or a manifest key).
+  const ready = readReadyContract(projectDir, browser)
+  if (!ready || typeof ready.distPath !== 'string') {
+    throw new Error(
+      `Could not read the ready contract for ${projectDir} (${browser}): ${describeReadyFailure(ready)}`
+    )
   }
 
-  const securePrefsPath = resolveSecurePreferencesPath(projectDir, logs)
+  const extensionId = expectedChromiumExtensionId(ready.distPath)
+  if (!/^[a-p]{32}$/.test(extensionId)) {
+    throw new Error(
+      `Could not derive an extension ID from ready.json distPath: ${ready.distPath}`
+    )
+  }
+
+  const securePrefsPath = resolveSecurePreferencesPath(projectDir, ready)
   if (!securePrefsPath) {
     return {
       checked: false,
@@ -292,9 +318,9 @@ async function main() {
     await runCollect('npx', ['-y', pkg, 'create', 'my-extensionz'], {cwd: root})
 
     console.log('Booting dev and validating first-run behavior...')
-    const logs = await runDevAndValidate(projectDir)
+    await runDevAndValidate(projectDir)
 
-    const prefsCheck = assertExtensionEnabledInPrefs(projectDir, logs)
+    const prefsCheck = assertExtensionEnabledInPrefs(projectDir)
 
     console.log('PASS: no reload regression pattern detected')
     if (prefsCheck.checked) {
