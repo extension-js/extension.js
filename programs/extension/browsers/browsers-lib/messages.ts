@@ -15,7 +15,7 @@ import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
-import {type Channel, isDebug, prefix} from '../../helpers/messaging'
+import {type Channel, card, isDebug, prefix} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 
 type Browser = BrowserType
@@ -34,7 +34,7 @@ function getLoggingPrefix(type: Channel): string {
 }
 
 function errorDetail(error: unknown) {
-  if (process.env.EXTENSION_DEBUG === '1') return String(error)
+  if (isDebug()) return String(error)
   const maybe = (error as {message?: string} | undefined)?.message
   return String(maybe || error)
 }
@@ -1021,25 +1021,22 @@ export function runningInDevelopment(
   const displayName = String(manifestName)
   const displayVersion = String(version || manifest.version || '')
 
-  lines.push(
-    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(
-      `${extensionVersion}`
-    )}${updateNotice}`,
-    `    Browser        ${colors.gray(browserLabel)}`,
-    `    Extension      ${colors.gray(
-      displayVersion ? `${displayName} ${displayVersion}` : displayName
-    )}`
-  )
-
-  if (includeExtensionId && cleanId) {
-    lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
-  }
-
-  if (opts?.runLabel) {
-    lines.push(`    Run ID         ${colors.gray(opts.runLabel)}`)
-  }
-
-  return lines.join('\n')
+  return card({
+    version: extensionVersion,
+    suffix: updateNotice.trim(),
+    rows: [
+      {label: 'Browser', value: browserLabel},
+      {
+        label: 'Extension',
+        value: displayVersion ? `${displayName} ${displayVersion}` : displayName
+      },
+      {
+        label: 'Extension ID',
+        value: includeExtensionId ? cleanId : ''
+      },
+      {label: 'Run ID', value: opts?.runLabel || ''}
+    ]
+  })
 }
 
 export function emptyLine() {

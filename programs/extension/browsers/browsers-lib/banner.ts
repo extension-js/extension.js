@@ -10,6 +10,7 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {card} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import * as messages from './messages'
@@ -362,9 +363,12 @@ export async function printProdBannerOnce(opts: {
     // don't consume the suffix, leave it for a better-informed later attempt.
     console.log(messages.emptyLine())
     console.log(
-      ` 🧩 ${colors.brightBlue('Extension.js')}\n` +
-        `    Browser        ${colors.gray(browserLabel)}\n` +
-        `    Output         ${colors.gray(opts.outPath)}`
+      card({
+        rows: [
+          {label: 'Browser', value: browserLabel},
+          {label: 'Output', value: opts.outPath}
+        ]
+      })
     )
     console.log(messages.emptyLine())
   }
