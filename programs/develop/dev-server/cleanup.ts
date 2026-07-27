@@ -8,6 +8,7 @@
 
 import type {RspackDevServer} from '@rspack/dev-server'
 import {setupAutoExit} from './auto-exit'
+import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 import type {PortManager} from './port-manager'
 
@@ -23,7 +24,7 @@ function closeAll(
       setTimeout(() => process.exit(), 500)
     })
     .catch(async (error) => {
-      console.log(messages.extensionJsRunnerError(error))
+      humanLine(messages.extensionJsRunnerError(error))
       await portManager.terminateCurrentInstance()
       // Allow browser plugin signal handlers to complete cleanup
       setTimeout(() => process.exit(1), 500)

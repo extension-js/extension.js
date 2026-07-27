@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
+import {humanLine} from './dev-server/lifecycle-stream'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {
   loadBrowserConfig,
@@ -186,7 +187,7 @@ export async function extensionBuild(
           // The summary is informational; a throw here would leave this promise
           // pending and the process would exit 0 before the error handling below.
           try {
-            console.log(messages.buildWebpack(manifestDir, stats, browser))
+            humanLine(messages.buildWebpack(manifestDir, stats, browser))
           } catch {
             // Ignore summary failures; error reporting happens below.
           }
@@ -215,18 +216,16 @@ export async function extensionBuild(
           }
 
           if (summary.warnings_count > 0) {
-            console.log(
-              messages.buildSuccessWithWarnings(summary.warnings_count)
-            )
+            humanLine(messages.buildSuccessWithWarnings(summary.warnings_count))
             const warningDetails = messages.buildWarningsDetails(
               info?.warnings || []
             )
 
             if (warningDetails) {
-              console.log(`\n${warningDetails}`)
+              humanLine(`\n${warningDetails}`)
             }
           } else {
-            console.log(messages.buildSuccess())
+            humanLine(messages.buildSuccess())
           }
           resolve()
         } else {

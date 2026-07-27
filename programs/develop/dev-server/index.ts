@@ -68,6 +68,11 @@ import {
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {isUsingJSFramework} from './frameworks'
+import {
+  attachLifecycleStream,
+  createLifecycleStream,
+  humanLine
+} from './lifecycle-stream'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
 
@@ -659,6 +664,20 @@ export async function devServer(
   })
   stampExecutorAttached = () => metadata.stampExecutorAttached()
 
+  // One schema-1 frame per lifecycle transition, on stdout, only when the
+  // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).
+  const lifecycle = createLifecycleStream({
+    command: 'dev',
+    browser: browserName,
+    distPath: primaryDistPath,
+    readyPath: metadata.readyPath,
+    eventsPath: metadata.eventsPath
+  })
+  lifecycle.starting({requestedPort: Number(devOptions.port), port})
+  // Tapped after the ready-contract writer, so ready.json is on disk when the
+  // ready frame reads it.
+  attachLifecycleStream(compiler, lifecycle)
+
   // Surface invalidation/fatal startup diagnostics during startup. Done-hook
   // warning/error output is registered earlier so it prints before launch hooks.
   setupCompilerLifecycleHooks(compiler)
@@ -676,7 +695,7 @@ export async function devServer(
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
   const requestedPort = Number(devOptions.port)
   if (Number.isFinite(requestedPort) && requestedPort !== port) {
-    console.log(messages.portInUse(requestedPort, port))
+    humanLine(messages.portInUse(requestedPort, port))
   }
 
   const serverConfig: Configuration = {
@@ -755,9 +774,14 @@ export async function devServer(
       error instanceof Error ? error.message : String(error)
     )
 
-    console.log(messages.extensionJsRunnerError(error))
+    lifecycle.failed(error instanceof Error ? error.message : String(error))
+    humanLine(messages.extensionJsRunnerError(error))
     process.exit(1)
   }
+
+  // The launcher stamps browserExitedAt on the ready contract; poll for it so
+  // a machine consumer learns the browser died without scraping prose.
+  lifecycle.watchBrowserExit()
 
   setupCleanupHandlers(devServer, portManager)
 }

@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
@@ -111,9 +112,9 @@ export class BoringPlugin {
           }
         }
 
-        // Always print the boring line to stdout so users can see
-        // rebuilds and timing, even on success.
-        console.log(line)
+        // Always print the boring line so users can see rebuilds and timing,
+        // even on success. Machine output moves it off stdout, not away.
+        humanLine(line)
       } catch {
         // best-effort: never throw from logging
       }
