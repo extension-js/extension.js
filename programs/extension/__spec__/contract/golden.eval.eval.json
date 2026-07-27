@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "failed",
+  "value": null,
+  "error": {
+    "code": "E_EVAL",
+    "message": "ReferenceError: chrom is not defined",
+    "name": "EvalError",
+    "engine": "chromium",
+    "hint": "The expression threw inside the page. Check the expression itself."
+  },
+  "truncated": true,
+  "warnings": []
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "dev",
+  "status": "compile-failed",
+  "value": {
+    "command": "dev",
+    "browser": "chromium",
+    "distPath": "/home/dev/my-extension/dist/chromium",
+    "pid": 51234,
+    "port": 8080,
+    "readyPath": "/home/dev/my-extension/.extension-js/ready.json",
+    "eventsPath": "/home/dev/my-extension/.extension-js/events.ndjson",
+    "output": "ERROR in ./content/scripts.ts\nModule not found: Can't resolve './missing'",
+    "durationMs": 412
+  },
+  "error": {
+    "code": "E_FIRST_COMPILE",
+    "message": "The first compilation failed."
+  },
+  "truncated": true,
+  "warnings": []
+}

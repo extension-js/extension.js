@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "ok": true,
+  "command": "eval",
+  "status": "ok",
+  "value": {
+    "result": 4,
+    "context": "background"
+  },
+  "error": null,
+  "warnings": []
+}

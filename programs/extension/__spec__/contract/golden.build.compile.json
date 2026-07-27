@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "build",
+  "status": "build-failed",
+  "value": null,
+  "error": {
+    "code": "E_COMPILE",
+    "message": "Build failed with 2 errors."
+  },
+  "hint": "Fix the error above and run build again.",
+  "warnings": []
+}
