@@ -37,7 +37,8 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
       if (printed) return
       if (stats?.hasErrors?.()) return
       printed = true
-      console.log(messages.ready('development', opts.browser))
+      // Identity first, then the state line: the card is the header for the
+      // session, not a summary trailing the result it describes.
       console.log(messages.spacerLine())
       console.log(
         messages.browserRunnerDisabled({
@@ -47,6 +48,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
         })
       )
       console.log(messages.spacerLine())
+      console.log(messages.ready('development', opts.browser))
     }
   )
 }
