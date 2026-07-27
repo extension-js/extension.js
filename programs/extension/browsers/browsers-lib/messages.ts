@@ -15,7 +15,7 @@ import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
-import {isDebug} from '../../helpers/messaging'
+import {type Channel, isDebug, prefix} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 
 type Browser = BrowserType
@@ -29,18 +29,8 @@ type PackageJson = {
 // Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
 
-function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  const isAuthor = isDebug()
-
-  if (isAuthor) {
-    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
-    return colors.brightMagenta(base)
-  }
-
-  if (type === 'error') return colors.red('ERROR')
-  if (type === 'warn') return colors.brightYellow('⏵⏵⏵')
-  if (type === 'info') return colors.gray('⏵⏵⏵')
-  return colors.green('⏵⏵⏵')
+function getLoggingPrefix(type: Channel): string {
+  return prefix(type)
 }
 
 function errorDetail(error: unknown) {

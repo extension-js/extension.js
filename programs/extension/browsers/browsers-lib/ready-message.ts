@@ -10,6 +10,7 @@
 // Inlined from dev-server/messages.ts to avoid importing the full bundler package.
 
 import colors from 'pintor'
+import {prefix} from '../../helpers/messaging'
 
 export function ready(mode: 'development' | 'production', browser: string) {
   const key = String(browser || '').toLowerCase()
@@ -27,5 +28,5 @@ export function ready(mode: 'development' | 'production', browser: string) {
           .charAt(0)
           .toUpperCase() + String(browser || '').slice(1)
   const pretty = colors.green(`ready for ${mode}`)
-  return `${colors.gray('⏵⏵⏵')} ${cap} ${extensionOutput} ${pretty}.`
+  return `${prefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }

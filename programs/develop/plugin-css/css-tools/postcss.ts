@@ -12,7 +12,7 @@ import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import colors from 'pintor'
 import {hasDependency} from '../../lib/has-dependency'
-import {isDebug} from '../../lib/messaging'
+import {isDebug, prefix} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import {readProjectDependencies} from '../../lib/project-manifest'
@@ -378,7 +378,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (isDebug()) {
         console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${prefix('debug')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -391,7 +391,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (isDebug()) {
         console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${prefix('debug')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -405,7 +405,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (!userMessageDelivered) {
       if (isDebug()) {
         console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('PostCSS')}`
+          `${prefix('debug')} ${messages.isUsingIntegration('PostCSS')}`
         )
       }
 
@@ -658,7 +658,7 @@ export async function maybeUsePostCss(
     if (isDebug()) {
       try {
         console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] projectPath=%s selfResolvedPlugins=%d unresolved=%s`,
+          `${prefix('debug')} [extension.js:postcss] projectPath=%s selfResolvedPlugins=%d unresolved=%s`,
           projectPath,
           selfResolved.plugins.length,
           selfResolved.unresolved.join(',') || 'none'
@@ -730,7 +730,7 @@ export async function maybeUsePostCss(
   if (isDebug()) {
     try {
       console.log(
-        `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s`,
+        `${prefix('debug')} [extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s`,
         projectPath,
         userPostCssConfig || 'none',
         pkgHasPostCss,
@@ -740,7 +740,7 @@ export async function maybeUsePostCss(
         ? postcssOptions.plugins.length
         : 0
       console.log(
-        `${colors.brightMagenta('⏵⏵⏵ Author says')} [extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s`,
+        `${prefix('debug')} [extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s`,
         resolvedPluginsCount,
         String(postcssOptions.config),
         String(postcssOptions.cwd)

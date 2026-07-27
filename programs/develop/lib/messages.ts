@@ -12,26 +12,15 @@ import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
-import {fmt, isDebug} from './messaging'
+import {type Channel, fmt, isDebug, prefix} from './messaging'
 import {stripBom} from './parse-json-safe'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
 export {fmt}
 
-function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  const isAuthor = isDebug()
-
-  if (isAuthor) {
-    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
-    return colors.brightMagenta(base)
-  }
-
-  if (type === 'error') return colors.red('ERROR')
-  if (type === 'warn') return colors.brightYellow('⏵⏵⏵')
-  if (type === 'info') return colors.gray('⏵⏵⏵')
-
-  return colors.green('⏵⏵⏵')
+function getLoggingPrefix(type: Channel): string {
+  return prefix(type)
 }
 
 function isPathLike(input: string) {

@@ -10,23 +10,12 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
-import {isDebug} from '../lib/messaging'
+import {type Channel, isDebug, prefix} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
-function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  const isAuthor = isDebug()
-
-  if (isAuthor) {
-    // Author mode: magenta, clearly branded, keeps three-element prefix shape
-    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
-    return colors.brightMagenta(base)
-  }
-
-  if (type === 'error') return colors.red('ERROR')
-  if (type === 'warn') return colors.brightYellow('⏵⏵⏵')
-  if (type === 'info') return colors.gray('⏵⏵⏵')
-  return colors.green('⏵⏵⏵')
+function getLoggingPrefix(type: Channel): string {
+  return prefix(type)
 }
 
 export function ready(mode: 'development' | 'production', browser: string) {
