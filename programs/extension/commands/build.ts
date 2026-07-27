@@ -15,6 +15,7 @@ import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-confi
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {
   type Browser,
@@ -39,6 +40,7 @@ type BuildOptions = {
   bundleId?: string
   forceRegenerate?: boolean
   debug?: boolean
+  output?: 'pretty' | 'json'
   author?: boolean
   authorMode?: boolean
 }
@@ -107,6 +109,10 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--force-regenerate',
       'regenerate the Safari Xcode project even when up to date (safari targets only)'
+    )
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
     )
     .addOption(
       new Option(
@@ -211,47 +217,87 @@ export function registerBuildCommand(program: Command) {
         }
 
         const {extensionBuild} = await loadExtensionDevelopModule()
+        const asJson = buildOptions.output === 'json'
+        const built: string[] = []
 
         for (const vendor of list) {
-          await extensionBuild(pathOrRemoteUrl, {
-            browser: vendor as BuildOptions['browser'],
-            // CLI surface: a failed build ends this process with the clean
-            // error line. Library imports of extensionBuild reject instead.
-            exitOnError: true,
-            polyfill: buildOptions.polyfill,
-            zip: buildOptions.zip,
-            zipSource: buildOptions.zipSource,
-            zipFilename: buildOptions.zipFilename,
-            silent: buildOptions.silent,
-            install: buildOptions.install,
-            extensions: parseExtensionsList(buildOptions.extensions),
-            mode,
-            appName: buildOptions.appName,
-            bundleId: buildOptions.bundleId,
-            forceRegenerate: buildOptions.forceRegenerate,
-            safariPackager: safariPackagingEnabled
-              ? async (
-                  distPath: string,
-                  packagerMode: 'full' | 'resync',
-                  overrides?: Record<string, unknown>
-                ) => {
-                  await packageSafariExtension(
-                    {
-                      extension: [distPath],
-                      browser: vendor as Browser,
-                      // build is a packaging command: never open the app unless
-                      // explicitly asked (--open). dev keeps open-by-default.
-                      noOpen: buildOptions.open !== true,
-                      dryRun: false,
-                      ...overrides
-                    },
-                    distPath,
-                    undefined,
-                    packagerMode
-                  )
-                }
-              : undefined
-          })
+          try {
+            await extensionBuild(pathOrRemoteUrl, {
+              browser: vendor as BuildOptions['browser'],
+              // CLI surface: a failed build ends this process with the clean
+              // error line. Library imports of extensionBuild reject instead.
+              // Under --output json we catch instead, so the failure can be
+              // reported as one envelope rather than a bare exit code.
+              exitOnError: !asJson,
+              polyfill: buildOptions.polyfill,
+              zip: buildOptions.zip,
+              zipSource: buildOptions.zipSource,
+              zipFilename: buildOptions.zipFilename,
+              silent: buildOptions.silent,
+              install: buildOptions.install,
+              extensions: parseExtensionsList(buildOptions.extensions),
+              mode,
+              appName: buildOptions.appName,
+              bundleId: buildOptions.bundleId,
+              forceRegenerate: buildOptions.forceRegenerate,
+              safariPackager: safariPackagingEnabled
+                ? async (
+                    distPath: string,
+                    packagerMode: 'full' | 'resync',
+                    overrides?: Record<string, unknown>
+                  ) => {
+                    await packageSafariExtension(
+                      {
+                        extension: [distPath],
+                        browser: vendor as Browser,
+                        // build is a packaging command: never open the app unless
+                        // explicitly asked (--open). dev keeps open-by-default.
+                        noOpen: buildOptions.open !== true,
+                        dryRun: false,
+                        ...overrides
+                      },
+                      distPath,
+                      undefined,
+                      packagerMode
+                    )
+                  }
+                : undefined
+            })
+
+            built.push(vendor)
+          } catch (error) {
+            if (!asJson) throw error
+
+            // eslint-disable-next-line no-console
+            console.log(
+              JSON.stringify(
+                ENVELOPE.fail(
+                  'build',
+                  'build-failed',
+                  {
+                    code: CODES.E_COMPILE,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {hint: `Fix the error above and run build again.`}
+                )
+              )
+            )
+            process.exit(1)
+          }
+        }
+
+        if (asJson) {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify(
+              ENVELOPE.ok('build', 'built', {
+                projectPath: pathOrRemoteUrl,
+                browsers: built,
+                mode
+              })
+            )
+          )
         }
       }
     )
