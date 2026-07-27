@@ -1,11 +1,17 @@
 import {describe, expect, it} from 'vitest'
 import {
+  availableCommandsBlock,
+  commandSpec,
   checkUpdates as formatUpdateMessage,
   notImplemented,
   noURLWithoutStart,
   programUserHelp,
   unsupportedBrowserFlag
 } from '../messages'
+
+function stripAnsi(input: string): string {
+  return input.replace(/\[[0-9;]*m/g, '')
+}
 
 describe('messages helpers', () => {
   it('formats update available message for stable versions', () => {
@@ -45,6 +51,44 @@ describe('messages helpers', () => {
     expect(help).toMatch(/Available Commands/)
     expect(help).toMatch(/extension create/)
     expect(help).toMatch(/extension dev/)
+    expect(help).toMatch(/extension doctor/)
     expect(help).toMatch(/Common Options/)
+  })
+
+  it('prints the corrected argument signatures', () => {
+    const block = stripAnsi(availableCommandsBlock())
+
+    // --key/--value are options, never positionals.
+    expect(block).toContain('- extension storage <get|set> [project-path]')
+    expect(block).not.toContain('[key] [value]')
+    // --tab is optional, so it is not part of the syntax.
+    expect(block).toContain('- extension inspect [project-path]')
+    expect(block).not.toContain('inspect [project-path] --tab')
+    // All five surfaces the open handler accepts.
+    expect(block).toContain(
+      '- extension open <popup|options|sidebar|action|command> [project-path]'
+    )
+    // The browser name is optional and defaults to chromium.
+    expect(block).toContain('- extension install [browser-name]')
+    expect(block).toContain('Defaults to chromium when no browser is named.')
+    // One name for one argument across dev, start, preview and build.
+    for (const name of ['dev', 'start', 'preview', 'build']) {
+      expect(block).toContain(`- extension ${name} [project-path|remote-url]`)
+    }
+    expect(block).not.toContain('project-name]')
+    expect(block).not.toContain('path-to-remote-extension')
+  })
+
+  it('keeps the option-shaped help rows out of the command list', () => {
+    const block = stripAnsi(availableCommandsBlock())
+
+    expect(block).toContain('- extension install --browser <')
+    expect(block).toContain('- extension install --where')
+    expect(block).toContain('- extension uninstall --where')
+    // Notes hang off their command, so they add no COMMANDS entry.
+    expect(commandSpec('install').notes).toHaveLength(2)
+    expect(
+      commandSpec('install').notes?.some((note) => note.usage === '--where')
+    ).toBe(true)
   })
 })

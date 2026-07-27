@@ -114,7 +114,7 @@ export function autoExitModeEnabled(ms: number) {
 }
 
 export function autoExitTriggered(ms: number) {
-  return `Auto-exit triggered after ${colors.brightBlue(ms.toString())} ms. Cleaning up...`
+  return `Auto-exit triggered after ${colors.brightBlue(ms.toString())} ms. Cleaning up…`
 }
 
 export function autoExitForceKill(ms: number) {
