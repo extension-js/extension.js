@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
 function parseMilliseconds(value: string | number | undefined) {
@@ -33,14 +34,14 @@ export function setupAutoExit(
   }
 
   try {
-    console.log(messages.autoExitModeEnabled(autoExitMs))
+    humanLine(messages.autoExitModeEnabled(autoExitMs))
   } catch {
     // Ignore
   }
 
   autoExitTimer = setTimeout(async () => {
     try {
-      console.log(messages.autoExitTriggered(autoExitMs))
+      humanLine(messages.autoExitTriggered(autoExitMs))
     } catch {
       // Ignore
     }
@@ -55,7 +56,7 @@ export function setupAutoExit(
 
   forceKillTimer = setTimeout(() => {
     try {
-      console.log(messages.autoExitForceKill(forceKillMs))
+      humanLine(messages.autoExitForceKill(forceKillMs))
     } catch {
       // Ignore
     }

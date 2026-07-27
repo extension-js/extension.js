@@ -8,6 +8,7 @@
 
 import type {Compiler, Stats} from '@rspack/core'
 import {scrubBrand} from '../lib/branding'
+import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
 export function setupCompilerLifecycleHooks(compiler: Compiler): void {
@@ -15,7 +16,7 @@ export function setupCompilerLifecycleHooks(compiler: Compiler): void {
 
   compiler.hooks.invalid.tap('extension.js:invalid', () => {
     if (verbose) {
-      console.log(messages.bundlerRecompiling())
+      humanLine(messages.bundlerRecompiling())
     }
   })
 
@@ -39,16 +40,16 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
       printed = true
       // Identity first, then the state line: the card is the header for the
       // session, not a summary trailing the result it describes.
-      console.log(messages.spacerLine())
-      console.log(
+      humanLine(messages.spacerLine())
+      humanLine(
         messages.browserRunnerDisabled({
           browser: opts.browser,
           manifestPath: opts.manifestPath,
           readyPath: opts.readyPath
         })
       )
-      console.log(messages.spacerLine())
-      console.log(messages.ready('development', opts.browser))
+      humanLine(messages.spacerLine())
+      humanLine(messages.ready('development', opts.browser))
     }
   )
 }

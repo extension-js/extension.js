@@ -1237,7 +1237,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(injected[0].world).toBe('ISOLATED')
     expect(announced.map((a) => a.tabId).sort()).toEqual([11, 12])
     expect(announced[0].args).toEqual([
-      '[extension.js] Reloading content_script (src/content/scripts.ts)…'
+      '[Extension.js] Reloading content_script (src/content/scripts.ts)…'
     ])
     expect(runtimeReloaded).toBe(false)
     expect(results(ws)).toHaveLength(0)

@@ -6,6 +6,8 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {humanLine} from '../../dev-server/lifecycle-stream'
+
 export const sharedState = {
   bannerPrinted: false as boolean,
   pendingCompilationLine: '' as string
@@ -17,7 +19,7 @@ export function markBannerPrinted() {
   sharedState.bannerPrinted = true
 
   if (sharedState.pendingCompilationLine) {
-    console.log(sharedState.pendingCompilationLine)
+    humanLine(sharedState.pendingCompilationLine)
     sharedState.pendingCompilationLine = ''
   }
 }

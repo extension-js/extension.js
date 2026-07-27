@@ -8,6 +8,7 @@
 
 import type {Stats} from '@rspack/core'
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
   const now = new Date()
@@ -35,49 +36,41 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
-  return `Port: Requested port ${colors.brightBlue(requestedPort.toString())} is in use; using ${colors.brightBlue(newPort.toString())} instead.`
+  return (
+    `Port ${colors.brightBlue(requestedPort.toString())} is in use.\n` +
+    `The dev server listens on port ${colors.brightBlue(newPort.toString())} instead.`
+  )
 }
 
 export function extensionJsRunnerError(error: unknown) {
-  return `Extension.js Runner Error:\n${colors.red(String(error))}`
+  return `Extension.js could not start the runner.\n${colors.red(String(error))}`
 }
 
 export function cleanDistStarting(distPath: string) {
-  return `${colors.gray('⏵⏵⏵')} Clean dist: ${colors.gray('starting')}\n${colors.gray('PATH')} ${colors.underline(distPath)}`
+  return `${prefix('debug')} clean    start path=${distPath}`
 }
 
 export function cleanDistRemovedSummary(
   removedCount: number,
   distPath: string
 ) {
-  return [
-    `${colors.underline('Clean dist (completed)')}`,
-    `${colors.gray('REMOVED')} ${colors.gray(String(removedCount))}`,
-    `${colors.gray('PATH')} ${colors.underline(distPath)}`
-  ].join('\n')
+  return `${prefix('debug')} clean    removed=${removedCount} path=${distPath}`
 }
 
 export function cleanDistSkippedNotFound(distPath: string) {
-  return `${colors.gray('⏵⏵⏵')} Clean dist: ${colors.gray('skipped')} (path not found)\n${colors.gray('PATH')} ${colors.underline(distPath)}`
+  return `${prefix('debug')} clean    skipped=not-found path=${distPath}`
 }
 
 export function zipPackagingSkipped(reason: string) {
-  return `${colors.gray('⏵⏵⏵')} Packaging: ${colors.gray('skipped')} (${colors.gray(reason)})`
+  return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
 
 export function envSelectedFile(envPath: string) {
-  const label = envPath ? colors.underline(envPath) : colors.gray('none')
-  return [
-    `${colors.underline('Environment')}`,
-    `${colors.gray('PATH')} ${label}`
-  ].join('\n')
+  return `${prefix('debug')} env      file=${envPath || 'none'}`
 }
 
 export function envInjectedPublicVars(count: number) {
-  return [
-    `${colors.underline('Environment')}`,
-    `${colors.gray('INJECTED')} ${colors.gray(String(count))} EXTENSION_PUBLIC_*`
-  ].join('\n')
+  return `${prefix('debug')} env      injected=${count} prefix=EXTENSION_PUBLIC_`
 }
 
 export function envNoMatchingFile(
@@ -87,14 +80,15 @@ export function envNoMatchingFile(
   expectedCandidates: string[]
 ) {
   return (
-    `Found ${presentFiles.map((file) => colors.yellow(file)).join(', ')} ` +
-    `but none match browser ${colors.yellow(browser)} (mode ${colors.yellow(
+    `Found ${presentFiles.map((file) => colors.yellow(file)).join(', ')}, ` +
+    `but none match browser ${colors.yellow(browser)} in mode ${colors.yellow(
       mode
-    )}), so EXTENSION_PUBLIC_* variables read from code will be ` +
+    )}.\n` +
+    `EXTENSION_PUBLIC_* variables read from code are ` +
     `${colors.yellow('undefined')} in this build.\n` +
-    `Matching names, in priority order: ` +
+    `Rename the file to one of these, in priority order: ` +
     `${expectedCandidates.map((file) => colors.gray(file)).join(', ')}.\n` +
-    `Family names apply to every family member, e.g. ` +
+    `Family names apply to every family member, so ` +
     `${colors.yellow('.env.chrome')} also matches ${colors.yellow(
       'chromium'
     )} and ${colors.yellow('edge')} targets.`

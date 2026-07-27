@@ -759,7 +759,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var fallback = kind === "content-scripts" ? "content_script"
         : kind === "service-worker" ? "service_worker"
         : "extension";
-      var announced = "[extension.js] Reloading " + (label || fallback) + "…";
+      var announced = "[Extension.js] Reloading " + (label || fallback) + "…";
 
       notifyDevtoolsCompanion("reloading", label, kind);
 
