@@ -11,6 +11,7 @@ import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {commandDescriptions} from '../helpers/messages'
 
 export function readRecentConsole(
   projectPath: string,
@@ -247,9 +248,7 @@ export function registerActCommands(program: Command): void {
     program
       .command('eval')
       .arguments('<expression> [project-path]')
-      .description(
-        'Evaluate an expression in a running extension context (requires --allow-eval)'
-      )
+      .description(commandDescriptions.eval)
       .option(
         '--context <background|popup|options|sidebar|devtools|newtab|history|bookmarks|content|page>',
         'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) answer via their own in-page relay and must be open'
@@ -283,9 +282,7 @@ export function registerActCommands(program: Command): void {
     program
       .command('storage')
       .arguments('<action> [project-path]')
-      .description(
-        'Read or write chrome.storage in a running extension (requires --allow-control)'
-      )
+      .description(commandDescriptions.storage)
       .option(
         '--area <local|sync|session|managed>',
         'storage area (default local)'
@@ -346,9 +343,7 @@ export function registerActCommands(program: Command): void {
     program
       .command('reload')
       .arguments('[project-path]')
-      .description(
-        'Reload a running extension or tab (requires --allow-control)'
-      )
+      .description(commandDescriptions.reload)
       .option(
         '--context <background|content|page>',
         'target context (default background)'
@@ -367,9 +362,7 @@ export function registerActCommands(program: Command): void {
     program
       .command('inspect')
       .arguments('[project-path]')
-      .description(
-        'Inspect a page/content DOM via the agent bridge (CDP-free; requires --allow-control). For closed shadow roots use CDP-based inspection against the ready.json cdpPort.'
-      )
+      .description(commandDescriptions.inspect)
       .option(
         '--context <content|page|popup|options|sidebar|devtools|newtab|history|bookmarks>',
         'what to inspect: content/page or an open surface, including url-override pages (default content)'

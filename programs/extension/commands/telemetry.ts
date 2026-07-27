@@ -8,6 +8,7 @@
 
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {commandDescriptions} from '../helpers/messages'
 import {
   getTelemetryConsent,
   setTelemetryConsent
@@ -19,9 +20,7 @@ export function registerTelemetryCommand(program: Command) {
   program
     .command('telemetry')
     .argument('[action]', 'enable | disable | status (default: status)')
-    .description(
-      'Manage anonymous telemetry consent (enable, disable, or show status)'
-    )
+    .description(commandDescriptions.telemetry)
     .action((action?: string) => {
       const normalized = String(action || 'status')
         .trim()

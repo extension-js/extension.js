@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {commandDescriptions} from '../helpers/messages'
 
 type LogsOptions = {
   browser?: string
@@ -162,9 +163,7 @@ export function registerLogsCommand(program: Command) {
     .command('logs')
     .arguments('[project-path]')
     .usage('[project-path] [options]')
-    .description(
-      'Print or stream logs from every context of a running dev session (agent bridge)'
-    )
+    .description(commandDescriptions.logs)
     .option(
       '--browser <chrome | chromium | edge | firefox>',
       'which dist/extension-js/<browser> to read. Defaults to `chromium`'
