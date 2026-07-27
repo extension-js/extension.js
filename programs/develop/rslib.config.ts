@@ -74,6 +74,10 @@ const browserEntries = {
   )
 }
 
+// The canonical machine contract lives in the extension program's spec tree;
+// the published package ships a byte-for-byte copy under dist/contract.
+const contractDir = path.resolve(__dirname, '../extension/__spec__/contract')
+
 // Node-side entries and rspack loaders run at build time on Node, so they need
 // the CJS-shim banner for bundled bare require()/require.resolve() sites.
 const nodeEntries = {
@@ -135,6 +139,15 @@ export default defineConfig({
         // Emit ESM-aware polyfills for __dirname/__filename so they keep working
         // after the format flip to ESM.
         filename: {js: '[name].mjs'},
+        // Ship the contract JSON (schema plus any golden envelopes) so the MCP
+        // can byte-compare against node_modules/extension-develop/dist/contract.
+        copy: [
+          {
+            from: contractDir,
+            to: 'contract',
+            globOptions: {ignore: ['**/*.ts']}
+          }
+        ],
         externals
       }
     },
