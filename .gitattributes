@@ -1,0 +1,3 @@
+# The contract files are compared byte-for-byte against a pinned sha256
+# by external consumers; CRLF checkouts must never rewrite their bytes.
+programs/extension/__spec__/contract/** text eol=lf
