@@ -77,7 +77,7 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--silent [boolean]',
-      'whether or not to open the browser automatically. Defaults to `false`',
+      'suppress the build summary output. Defaults to `false`',
       parseOptionalBoolean
     )
     .option(
