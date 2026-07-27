@@ -140,8 +140,10 @@ function printOptOutNoticeIfFirstRun(): void {
   const written = writeConsent('enabled')
   if (!written) return
 
+  // Notices go to stderr: stdout carries command results, and a machine
+  // reading `--output json` must not have to strip a first-run banner.
   // eslint-disable-next-line no-console
-  console.log(
+  console.error(
     `${colors.gray('⏵⏵⏵')} Extension.js collects anonymous, opt-out telemetry (two events: ` +
       `${colors.cyan('command_executed')} + ${colors.cyan('command_failed')}). ` +
       `Disable with ${colors.cyan('extension telemetry disable')}, ` +

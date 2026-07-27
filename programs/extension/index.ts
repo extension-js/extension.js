@@ -111,8 +111,10 @@ checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
 
   if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
+    // stderr, not stdout: this resolves asynchronously and would otherwise
+    // land at an arbitrary point inside a `--output json` result.
     // eslint-disable-next-line no-console
-    console.log(updateMessage.message)
+    console.error(updateMessage.message)
     return
   }
 
