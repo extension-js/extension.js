@@ -62,7 +62,7 @@ export function invalidJsonSyntax(
   cause: string
 ) {
   return [
-    `Invalid JSON`,
+    `Invalid JSON.`,
     ``,
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
     `The JSON at ${colors.underline(file)} could not be parsed:`,
@@ -72,7 +72,7 @@ export function invalidJsonSyntax(
 
 export function invalidRulesetStructure(manifestField: string, file: string) {
   return [
-    `Invalid Declarative Net Request ruleset`,
+    `Invalid Declarative Net Request ruleset.`,
     ``,
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
     `Chrome expects a top-level JSON array of rule objects.`,
@@ -85,7 +85,7 @@ export function invalidManagedSchemaStructure(
   file: string
 ) {
   return [
-    `Invalid managed storage schema`,
+    `Invalid managed storage schema.`,
     ``,
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
     `Expected a top-level JSON object describing the schema.`,

@@ -110,8 +110,8 @@ export function localesMustBeAtProjectRoot(
     'package.json, public/ and dist/, because Chrome reads locales from ' +
     'the extension root.\n' +
     'This one sits in the legacy next-to-manifest location.\n' +
-    'Move it to the project root to silence this warning; the build uses ' +
-    'it either way.\n\n' +
+    'Move it to the project root to silence this warning.\n' +
+    'The build uses it either way.\n\n' +
     `  found:    ${foundAt}\n` +
     `  preferred: ${expectedAt}`
   )
