@@ -65,6 +65,30 @@ export function stampReadyExtensionLoadRefused(
   }
 }
 
+// Stamp a profile another live session already holds. The browser never starts,
+// so without this the contract is indistinguishable from a browser that died.
+export function stampReadyProfileLocked(
+  extensionOutputPath: string | undefined,
+  details: {message?: string; owner?: {host: string; pid: number}}
+) {
+  try {
+    if (!extensionOutputPath) return
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'profile_locked'
+    ready.message =
+      String(details?.message || '').trim() ||
+      'the browser profile is already in use by another session'
+    ready.profileLockedAt = new Date().toISOString()
+    if (details?.owner) ready.profileLockOwner = details.owner
+    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Stamp an unexpected browser exit into the session's ready.json so automation
 // sees a browserless session. Run-only commands flip to error; dev keeps compile status.
 export function stampReadyBrowserExited(

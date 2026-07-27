@@ -137,13 +137,11 @@ export async function extensionPreview(
   const commandConfig = await loadCommandConfig(packageJsonDir, metadataCommand)
   const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
-  console.log(messages.previewing(browser))
-
   if (previewOptions.noBrowser) {
-    console.log(messages.previewSkippedNoBrowser(browser))
-    metadata.writeReady()
-    console.log(devServerMessages.spacerLine())
     const browserLabel = String(browser || 'unknown')
+    // Identity first, then the state lines: the card is the header for the
+    // session, not a summary trailing the result it describes.
+    console.log(devServerMessages.spacerLine())
     console.log(
       devServerMessages.browserRunnerDisabled({
         browser: browserLabel,
@@ -154,8 +152,14 @@ export async function extensionPreview(
         } (no-browser mode)`
       })
     )
+    console.log(devServerMessages.spacerLine())
+    console.log(messages.previewing(browser))
+    console.log(messages.previewSkippedNoBrowser(browser))
+    metadata.writeReady()
     return
   }
+
+  console.log(messages.previewing(browser))
 
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(
