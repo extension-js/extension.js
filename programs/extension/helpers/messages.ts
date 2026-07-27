@@ -20,32 +20,262 @@ const arg = (text: string) => colors.gray(text)
 // from this module, and the definition now lives in messaging.ts.
 export {fmt}
 
-// One source of truth for every command description, in the imperative mood
-// that git, npm and docker use. Commander and the help center both read it.
-export const commandDescriptions = {
-  create:
-    'Create a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
-  dev: 'Start the development server with hot reloading',
-  start: 'Build and start the extension in production mode',
-  preview: 'Preview the extension in production mode without building',
-  build: 'Build the extension for packaging and distribution',
-  logs: 'Print or stream logs from every context of a running dev session',
-  eval: 'Evaluate an expression in a running extension context (requires --allow-eval)',
-  storage:
-    'Read or write chrome.storage in a running extension (requires --allow-control)',
-  reload: 'Reload a running extension or tab (requires --allow-control)',
-  open: 'Open an extension surface: popup, options, sidebar, action, or command (requires --allow-control)',
-  inspect:
-    'Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)',
-  publish:
-    'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)',
-  install: 'Install a managed browser binary into the Extension.js cache',
-  uninstall: 'Remove managed browser binaries from the Extension.js cache',
-  telemetry:
-    'Manage anonymous telemetry consent (enable, disable, or show status)',
-  doctor:
-    'Diagnose a dev session: ready contract, control channel, token, executor, browser'
-} as const
+export interface CommandArgSpec {
+  // Positional name exactly as commander registers it. The args contract pins
+  // this against `Command.registeredArguments`, so a rename cannot go unnoticed.
+  readonly name: string
+  readonly required: boolean
+  // Closed value set, rendered in help in place of the name.
+  readonly values?: readonly string[]
+  // Help label used when the registered name misnames what the argument takes.
+  readonly label?: string
+}
+
+export interface CommandNoteSpec {
+  // Option-shaped usage that is worth its own help row but is not a command.
+  readonly usage: string
+  readonly description: string
+}
+
+interface CommandTableEntry {
+  readonly name: string
+  readonly positionals: readonly CommandArgSpec[]
+  readonly description: string
+  readonly detail?: string
+  readonly supportsSourceInspection: boolean
+  readonly notes?: readonly CommandNoteSpec[]
+}
+
+function renderArgToken(spec: CommandArgSpec): string {
+  const token = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+  return spec.required ? `<${token}>` : `[${token}]`
+}
+
+// Reader-facing signature: enums and labels replace the registered name.
+export function commandArgSignature(
+  positionals: readonly CommandArgSpec[]
+): string {
+  return positionals.map(renderArgToken).join(' ')
+}
+
+// Registration-facing signature: names and arity as commander stores them.
+export function registeredArgSignature(
+  positionals: readonly CommandArgSpec[]
+): string {
+  return positionals
+    .map((spec) => (spec.required ? `<${spec.name}>` : `[${spec.name}]`))
+    .join(' ')
+}
+
+// One source of truth for every command name, argument signature and
+// description, in the imperative mood that git, npm and docker use. Commander,
+// the help center and --ai-help all read this table; nothing re-types it.
+const COMMAND_TABLE = [
+  {
+    name: 'create',
+    positionals: [{name: 'project-name|project-path', required: true}],
+    description:
+      'Create a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'dev',
+    positionals: [{name: 'project-path|remote-url', required: false}],
+    description: 'Start the development server with hot reloading',
+    supportsSourceInspection: true
+  },
+  {
+    name: 'start',
+    positionals: [{name: 'project-path|remote-url', required: false}],
+    description: 'Build and start the extension in production mode',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'preview',
+    positionals: [
+      {
+        name: 'project-name',
+        required: false,
+        label: 'project-path|remote-url'
+      }
+    ],
+    description: 'Preview the extension in production mode without building',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'build',
+    positionals: [
+      {
+        name: 'project-name',
+        required: false,
+        label: 'project-path|remote-url'
+      }
+    ],
+    description: 'Build the extension for packaging and distribution',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'logs',
+    positionals: [{name: 'project-path', required: false}],
+    description:
+      'Print or stream logs from every context of a running dev session',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'eval',
+    positionals: [
+      {name: 'expression', required: true},
+      {name: 'project-path', required: false}
+    ],
+    description:
+      'Evaluate an expression in a running extension context (requires --allow-eval)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'storage',
+    positionals: [
+      {name: 'action', required: true, values: ['get', 'set']},
+      {name: 'project-path', required: false}
+    ],
+    description:
+      'Read or write chrome.storage in a running extension (requires --allow-control)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'reload',
+    positionals: [{name: 'project-path', required: false}],
+    description: 'Reload a running extension or tab (requires --allow-control)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'open',
+    positionals: [
+      {
+        name: 'surface',
+        required: true,
+        values: ['popup', 'options', 'sidebar', 'action', 'command']
+      },
+      {name: 'project-path', required: false}
+    ],
+    description:
+      'Open an extension surface: popup, options, sidebar, action, or command (requires --allow-control)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'inspect',
+    positionals: [{name: 'project-path', required: false}],
+    description:
+      'Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)',
+    supportsSourceInspection: true
+  },
+  {
+    name: 'publish',
+    positionals: [{name: 'project-path', required: false}],
+    description:
+      'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'install',
+    positionals: [{name: 'browser-name', required: false}],
+    description: 'Install a managed browser binary into the Extension.js cache',
+    detail: 'Defaults to chromium when no browser is named.',
+    supportsSourceInspection: false,
+    notes: [
+      {
+        usage:
+          '--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>',
+        description: 'Install multiple browsers, browser families, or all'
+      },
+      {
+        usage: '--where',
+        description:
+          'Print the managed browser cache root (or browser install path(s) when a browser name or --browser is provided)'
+      }
+    ]
+  },
+  {
+    name: 'uninstall',
+    positionals: [{name: 'browser-name', required: false}],
+    description: 'Remove managed browser binaries from the Extension.js cache',
+    supportsSourceInspection: false,
+    notes: [
+      {usage: '--all', description: 'Remove every managed browser binary'},
+      {
+        usage: '--where',
+        description:
+          'Print the managed browser cache root (or browser install path(s) when --browser/--all is provided)'
+      }
+    ]
+  },
+  {
+    name: 'telemetry',
+    positionals: [
+      {
+        name: 'action',
+        required: false,
+        values: ['enable', 'disable', 'status']
+      }
+    ],
+    description:
+      'Manage anonymous telemetry consent (enable, disable, or show status)',
+    supportsSourceInspection: false
+  },
+  {
+    name: 'doctor',
+    positionals: [{name: 'project-path', required: false}],
+    description:
+      'Diagnose a dev session: ready contract, control channel, token, executor, browser',
+    supportsSourceInspection: false
+  }
+] as const satisfies readonly CommandTableEntry[]
+
+export type CommandName = (typeof COMMAND_TABLE)[number]['name']
+
+export interface CommandSpec extends CommandTableEntry {
+  readonly name: CommandName
+  // Derived from `positionals`, never hand-written, so help cannot drift.
+  readonly args: string
+}
+
+export const COMMANDS: readonly CommandSpec[] = COMMAND_TABLE.map((entry) => ({
+  ...entry,
+  args: commandArgSignature(entry.positionals)
+}))
+
+export function commandSpec(name: CommandName): CommandSpec {
+  const spec = COMMANDS.find((entry) => entry.name === name)
+  // Unreachable through CommandName, but a runtime guard keeps a bad build loud.
+  if (!spec) throw new Error(`No COMMANDS entry for '${name}'.`)
+  return spec
+}
+
+// Kept as a named export because every command file reads its description from
+// here. Derived from COMMANDS so the two can never disagree.
+export const commandDescriptions = Object.fromEntries(
+  COMMANDS.map((spec) => [spec.name, spec.description])
+) as Record<CommandName, string>
+
+function commandHelpEntry(spec: CommandSpec): string {
+  const signature = spec.args ? ` ${arg(spec.args)}` : ''
+  const lines = [
+    `- ${code(`extension ${spec.name}`)}${signature}`,
+    `  ${spec.description}`
+  ]
+  if (spec.detail) lines.push(`  ${spec.detail}`)
+  for (const note of spec.notes ?? []) {
+    lines.push(
+      '',
+      `- ${code(`extension ${spec.name}`)} ${arg(note.usage)}`,
+      `  ${note.description}`
+    )
+  }
+  return lines.join('\n')
+}
+
+export function availableCommandsBlock(): string {
+  return COMMANDS.map(commandHelpEntry).join('\n\n')
+}
 
 export function unhandledError(err: unknown) {
   const message =
@@ -103,62 +333,7 @@ ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
 
 ${'Available Commands'}
-- ${code(`extension create ${arg('<project-name|project-path>')}`)}
-  ${commandDescriptions.create}
-
-- ${code(`extension dev ${arg('[project-path|remote-url]')}`)}
-  ${commandDescriptions.dev}
-
-- ${code(`extension start ${arg('[project-path|remote-url]')}`)}
-  ${commandDescriptions.start}
-
-- ${code(`extension preview ${arg('[project-path|remote-url]')}`)}
-  ${commandDescriptions.preview}
-
-- ${code(`extension build ${arg('[project-path|remote-url]')}`)}
-  ${commandDescriptions.build}
-
-- ${code(`extension logs ${arg('[project-path]')}`)}
-  ${commandDescriptions.logs}
-
-- ${code(`extension eval ${arg('<expression> [project-path]')}`)}
-  ${commandDescriptions.eval}
-
-- ${code(`extension storage ${arg('<get|set> [key] [value] [project-path]')}`)}
-  ${commandDescriptions.storage}
-
-- ${code(`extension reload ${arg('[project-path]')}`)}
-  ${commandDescriptions.reload}
-
-- ${code(`extension open ${arg('<popup|options|sidebar> [project-path]')}`)}
-  ${commandDescriptions.open}
-
-- ${code(`extension inspect ${arg('[project-path] --tab <id>')}`)}
-  ${commandDescriptions.inspect}
-
-- ${code(`extension publish ${arg('[project-path]')}`)}
-  ${commandDescriptions.publish}
-
-- ${code(`extension install ${arg('<chrome|chromium|edge|firefox>')}`)}
-  ${commandDescriptions.install}
-
-- ${code(`extension install ${arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>')}`)}
-  Install multiple browsers, browser families, or ${code('all')}
-
-- ${code('extension install --where')}
-  Prints the managed browser cache root (or browser install path(s) when a browser name or ${code('--browser')} is provided)
-
-- ${code(`extension uninstall ${arg('<chrome|chromium|edge|firefox> | --all')}`)}
-  ${commandDescriptions.uninstall}
-
-- ${code('extension uninstall --where')}
-  Prints the managed browser cache root (or browser install path(s) when --browser/--all is provided)
-
-- ${code(`extension doctor ${arg('[project-path]')}`)}
-  ${commandDescriptions.doctor}
-
-- ${code(`extension telemetry ${arg('<enable|disable|status>')}`)}
-  ${commandDescriptions.telemetry}
+${availableCommandsBlock()}
 
 ${'Common Options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
@@ -386,23 +561,7 @@ ${'Cross-Browser Compatibility'}
 export type ProgramAIHelpJSON = {
   version: string
   commands: Array<{
-    name:
-      | 'create'
-      | 'dev'
-      | 'start'
-      | 'preview'
-      | 'build'
-      | 'logs'
-      | 'eval'
-      | 'storage'
-      | 'reload'
-      | 'open'
-      | 'inspect'
-      | 'publish'
-      | 'install'
-      | 'uninstall'
-      | 'telemetry'
-      | 'doctor'
+    name: CommandName
     summary: string
     supportsSourceInspection: boolean
   }>
@@ -444,88 +603,13 @@ export type ProgramAIHelpJSON = {
 export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
   return {
     version,
-    commands: [
-      {
-        name: 'create',
-        summary: commandDescriptions.create,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'dev',
-        summary: commandDescriptions.dev,
-        supportsSourceInspection: true
-      },
-      {
-        name: 'start',
-        summary: commandDescriptions.start,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'preview',
-        summary: commandDescriptions.preview,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'build',
-        summary: commandDescriptions.build,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'logs',
-        summary: commandDescriptions.logs,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'eval',
-        summary: commandDescriptions.eval,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'storage',
-        summary: commandDescriptions.storage,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'reload',
-        summary: commandDescriptions.reload,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'open',
-        summary: commandDescriptions.open,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'inspect',
-        summary: commandDescriptions.inspect,
-        supportsSourceInspection: true
-      },
-      {
-        name: 'publish',
-        summary: commandDescriptions.publish,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'install',
-        summary: commandDescriptions.install,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'uninstall',
-        summary: commandDescriptions.uninstall,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'telemetry',
-        summary: commandDescriptions.telemetry,
-        supportsSourceInspection: false
-      },
-      {
-        name: 'doctor',
-        summary: commandDescriptions.doctor,
-        supportsSourceInspection: false
-      }
-    ],
+    // `summary` stays the description alone: `detail` is help-center copy and
+    // adding it here would move a published --ai-help value.
+    commands: COMMANDS.map((spec) => ({
+      name: spec.name,
+      summary: spec.description,
+      supportsSourceInspection: spec.supportsSourceInspection
+    })),
     globalOptions: [
       {
         name: '--ai-help',

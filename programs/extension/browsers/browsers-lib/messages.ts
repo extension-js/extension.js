@@ -144,7 +144,7 @@ export function capitalizedBrowserName(browser: Browser) {
 }
 
 export function creatingUserProfile(profilePath: string) {
-  return `${getLoggingPrefix('info')} Creating a fresh user profile at ${colors.underline(profilePath)}...`
+  return `${getLoggingPrefix('info')} Creating a fresh user profile at ${colors.underline(profilePath)}…`
 }
 
 export function browserInstanceExited(browser: Browser) {
@@ -442,7 +442,7 @@ export function waitingForBrowserDebugger(
   attempt: number,
   maxRetries: number
 ) {
-  return `${getLoggingPrefix('info')} Waiting for the ${capitalizedBrowserName(browser)} debugger server on port ${port} (attempt ${attempt}/${maxRetries})...`
+  return `${getLoggingPrefix('info')} Waiting for the ${capitalizedBrowserName(browser)} debugger server on port ${port} (attempt ${attempt}/${maxRetries})…`
 }
 
 export function addonInstallError(browser: Browser, message: string) {
@@ -513,7 +513,7 @@ export function chromeInitializingEnhancedReload() {
 }
 
 export function locatingBrowser(browser: Browser) {
-  return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary...`
+  return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary…`
 }
 
 export function devChromeProfilePath(path: string) {
@@ -820,7 +820,7 @@ export function cdpClientConnectionClosed() {
 }
 
 export function cdpClientLoadEventTimeout() {
-  return `${getLoggingPrefix('warn')} Chrome load event timed out; proceeding anyway...`
+  return `${getLoggingPrefix('warn')} Chrome load event timed out; proceeding anyway…`
 }
 
 export function cdpClientExtensionUnloadFailed(
@@ -846,7 +846,7 @@ export function firefoxRdpClientConnected(host: string, port: number) {
 }
 
 export function firefoxRdpClientTestingEvaluation() {
-  return `${getLoggingPrefix('info')} Testing basic Firefox RDP evaluation...`
+  return `${getLoggingPrefix('info')} Testing basic Firefox RDP evaluation…`
 }
 
 export function firefoxRdpClientFailedToGetMainHTML() {
@@ -1076,7 +1076,7 @@ export function firefoxInspectSourceNonFatal(message: string) {
 }
 
 export function browserRunnerError(body: string) {
-  return `${colors.red('ERROR')} ${colors.brightBlue('error in browser runner')}\n${body}`
+  return `${getLoggingPrefix('error')} ${colors.brightBlue('Browser runner error')}\n${body}`
 }
 
 export function requireChromiumBinaryForChromiumBased() {
