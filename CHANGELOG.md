@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+## 4.0.17 (July 27, 2026)
+
+### Features
+
+- Add the schema-1 result envelope and its contract spec ([1ecc5131](https://github.com/extension-js/extension.js/commit/1ecc5131dd8133c8fada71ccecad73457f6bab1c))
+- Add --debug and hide the author-mode alias behind it ([b70a6598](https://github.com/extension-js/extension.js/commit/b70a6598a2a140e255359ae974b056205468f3bf))
+- Add duplicated messaging primitives with a drift spec ([a476e2fd](https://github.com/extension-js/extension.js/commit/a476e2fd664a22a828c88b4e8a9e8e14dc24f853))
+
+### Fixes
+
+- Gate the messaging standard in CI and publish it ([20edc969](https://github.com/extension-js/extension.js/commit/20edc969965d63765b2b211297afd073f7c39c17))
+- Resolve the artifact noun through one rule for every browser ([8c6aa93a](https://github.com/extension-js/extension.js/commit/8c6aa93a76df499e8218ade97df060e6a7c2c614))
+
+<details>
+<summary>Other changes (28)</summary>
+
+- Describe --silent truthfully and drop preview's unwired host flags ([7c700cda](https://github.com/extension-js/extension.js/commit/7c700cdacdc0b9e106d049fdd0bd304166ae3ecd))
+- Complete the error code table and ship its golden envelopes ([80e3aeab](https://github.com/extension-js/extension.js/commit/80e3aeabec59868eb1fd470243e5e16921683e8f))
+- Rewrite browser runner messages to the imperative standard ([2ab0e17c](https://github.com/extension-js/extension.js/commit/2ab0e17c0703215c584ae7027d88be47f476e17a))
+- Rewrite develop core messages to the imperative standard ([107d7bc4](https://github.com/extension-js/extension.js/commit/107d7bc4d008ce10b1a4c98b795cc43b079686e7))
+- Rewrite CLI helper messages to the imperative standard ([7a9b9f4f](https://github.com/extension-js/extension.js/commit/7a9b9f4f542f4b359550f1908f9a1ae3e6c0e41f))
+- Rewrite web-extension feature messages to the imperative standard ([fa296ccd](https://github.com/extension-js/extension.js/commit/fa296ccd2005afe129768401e7760040ca5c1384))
+- Rewrite develop leaf-plugin messages to the imperative standard ([d592b69b](https://github.com/extension-js/extension.js/commit/d592b69bb0cc09ebbb9feb426f20ccd93f6bd8e0))
+- Print the card first on every path and retire the banner event ([2af56bf7](https://github.com/extension-js/extension.js/commit/2af56bf77d89f5a9186296d082a9781c3f17b3a7))
+- Map the legacy format flags onto --output and free the dev failure frame ([3e1d0377](https://github.com/extension-js/extension.js/commit/3e1d0377c227190d21462e6889032f461fbcb776))
+- Ship the envelope contract inside the extension-develop package ([2bbb0184](https://github.com/extension-js/extension.js/commit/2bbb0184c52563ed21985b494b0dc3a7f5f8d1bd))
+- Advertise schema-1 support in the ready contract ([9366e5f4](https://github.com/extension-js/extension.js/commit/9366e5f4dd9c65cc8e0d82bcfd8a09d264394047))
+- Generate the help center from the command table ([5e474523](https://github.com/extension-js/extension.js/commit/5e47452319305de8679f2ec3edaf842fa67f3d02))
+- Move internal steps to the debug channel across develop ([475c4858](https://github.com/extension-js/extension.js/commit/475c48586b71de873cc043f8dfb343de4ba16de9))
+- Print the card before launch work and stamp profile locks ([30b9ee13](https://github.com/extension-js/extension.js/commit/30b9ee13cd27d0f444663d7ea7848a5df48d5663))
+- Emit the result envelope from every terminating command ([98e85f1f](https://github.com/extension-js/extension.js/commit/98e85f1ffb9b1c3373e9f34cf53cb82165c67820))
+- Stream the dev session lifecycle as schema-1 NDJSON frames ([1c86f2a1](https://github.com/extension-js/extension.js/commit/1c86f2a197d4c45a2591f534a14cd2aa048f7280))
+- Seed the error code table for the remaining commands ([098ac3f4](https://github.com/extension-js/extension.js/commit/098ac3f467b664752120552e9454ca53f17993e0))
+- Emit the result envelope from build under --output json ([70f786c3](https://github.com/extension-js/extension.js/commit/70f786c31b055258d673edca04e999632183da1c))
+- Describe every command once, in the imperative mood ([6f8bab81](https://github.com/extension-js/extension.js/commit/6f8bab81f1fbb9bf5f1f4660592a03f2ae21c483))
+- Print the card before the ready line in no-browser mode ([9f2e8733](https://github.com/extension-js/extension.js/commit/9f2e8733ff89a23845abbc33cc471823ec327c38))
+- Render every Extension.js card through one renderer ([54c3e396](https://github.com/extension-js/extension.js/commit/54c3e3965ba348ae717a70f4d4adec56fee199fa))
+- Point the debug docs at the flag that actually works ([ca966a39](https://github.com/extension-js/extension.js/commit/ca966a39872e8655131b711c602b9badc6ea4059))
+- Drop the Author says prefix and move errors onto the glyph ([14c9c8f4](https://github.com/extension-js/extension.js/commit/14c9c8f43913ced109a7af1480c5a4bd038e42c0))
+- Read the debug flag through one accessor with a closed value set ([5db59b99](https://github.com/extension-js/extension.js/commit/5db59b997460a078acca464ccb9cba042dc0d066))
+- Move fmt into the shared messaging primitives ([f1edd61d](https://github.com/extension-js/extension.js/commit/f1edd61d35947e49371adbc22d1509136a81b5f3))
+- Let commands report vendor and wait failures themselves ([800aed75](https://github.com/extension-js/extension.js/commit/800aed75d953852b0d31147480e9328d05bf9512))
+- Collect specs under the contract directory in vitest ([a4d57534](https://github.com/extension-js/extension.js/commit/a4d5753464519638106a881eb7fd14df0b989910))
+- Send first-run and update notices to stderr ([ebd74c7e](https://github.com/extension-js/extension.js/commit/ebd74c7e9998a76eef8e7687cee05d0b47581f79))
+</details>
+
 ## 4.0.16 (July 24, 2026)
 
 ### Features
