@@ -77,7 +77,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         "ready",
         "error",
       ],
-      "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits; pair with --wait-format=json for machine output",
+      "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits; pair with --output json for machine output (--wait-format is a deprecated alias)",
     },
   },
   "commands": [
@@ -164,11 +164,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
   ],
   "examples": [
     "extension --ai-help",
-    "extension --ai-help --format json",
+    "extension --ai-help --output json",
     "extension dev ./my-ext --logs=info --log-format=json",
     "extension dev ./my-ext --host 0.0.0.0 --no-browser",
-    "extension dev ./my-ext --wait --browser=chromium --wait-format=json",
-    "extension start ./my-ext --wait --browser=chromium --wait-format=json",
+    "extension dev ./my-ext --wait --browser=chromium --output json",
+    "extension start ./my-ext --wait --browser=chromium --output json",
     "extension dev ./my-ext --gecko-binary flatpak:org.mozilla.firefox",
     "extension install chromium",
     "extension install --where",
@@ -182,8 +182,8 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "default": "pretty",
-      "description": "Output format for --ai-help",
-      "name": "--format",
+      "description": "Result format for --ai-help (--format is a deprecated alias)",
+      "name": "--output",
       "values": [
         "pretty",
         "json",

@@ -17,7 +17,7 @@ describe('messages helpers', () => {
   it('formats update available message for stable versions', () => {
     const msg = formatUpdateMessage({version: '2.0.0'}, {latest: '2.1.0'})
     expect(msg).toBeTruthy()
-    expect(msg.message).toMatch(/Extension.js update available\./)
+    expect(msg.message).toMatch(/Extension.js update is available\./)
     expect(msg.message).toMatch(/2.0.0/)
     expect(msg.message).toMatch(/2.1.0/)
     expect(msg.suffix).toMatch(/2.1.0/)
@@ -36,7 +36,8 @@ describe('messages helpers', () => {
   it('prints not implemented error with command name', () => {
     const msg = notImplemented('foo')
     expect(msg).toMatch(/foo/)
-    expect(msg).toMatch(/NOT IMPLEMENTED/)
+    expect(msg).toMatch(/is not implemented yet\./)
+    expect(msg).toMatch(/extension --help/)
   })
 
   it('renders unsupported browser flag message', () => {

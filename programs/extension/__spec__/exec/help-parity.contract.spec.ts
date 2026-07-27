@@ -174,7 +174,12 @@ describe('CLI help parity contract', () => {
 
     expect(help).toContain('--no-telemetry')
     expect(help).toContain('--ai-help')
-    expect(help).toContain('--format')
+    // --output is the canonical result-format flag; --format and --wait-format
+    // survive only as documented deprecated aliases.
+    expect(help).toContain('--output')
+    expect(help).toContain(
+      '--format and --wait-format still work as deprecated aliases of --output'
+    )
     expect(help).toContain('--help')
   })
 
@@ -207,6 +212,8 @@ describe('CLI help parity contract', () => {
   })
 
   it('contract #8: --ai-help supports machine-readable JSON output with a stable schema', () => {
+    // Spawns with the deprecated --format alias on purpose: it must keep
+    // resolving to --output json, with the notice on stderr, not stdout.
     const result = spawnSync(
       process.execPath,
       [cliBin(), '--ai-help', '--format', 'json'],
