@@ -8,6 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 import {PolyfillPlugin} from './feature-polyfill'
@@ -30,7 +31,7 @@ export class CompatibilityPlugin {
 
     if (this.polyfill) {
       if (!isGeckoFamily) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.compatibilityPolyfillEnabled(
               this.browser,
@@ -44,7 +45,7 @@ export class CompatibilityPlugin {
           browser: this.browser || 'chrome'
         }).apply(compiler)
       } else {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.compatibilityPolyfillSkipped(
               'Firefox bundles browser.* APIs',
@@ -54,7 +55,7 @@ export class CompatibilityPlugin {
         }
       }
     } else {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(messages.compatibilityPolyfillDisabled(this.browser))
       }
     }

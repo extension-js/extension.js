@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, sources} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import {getLocales, resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
 
@@ -73,7 +74,7 @@ export function processLocaleAssets(
     }
   }
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     console.log(
       messages.localesEmitSummary(
         emittedCount,

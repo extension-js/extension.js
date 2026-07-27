@@ -19,6 +19,29 @@ export type Channel = 'info' | 'success' | 'warn' | 'error' | 'debug'
 const GLYPH = '⏵⏵⏵'
 const DEBUG_GLYPH = '···'
 
+// Closed on purpose: specs set 'false' and 'test' and expect diagnostics off,
+// so an "any non-empty value" reading would silently turn them on.
+const DEBUG_VALUES = new Set([
+  '1',
+  'true',
+  'yes',
+  'on',
+  'debug',
+  'dev',
+  'development'
+])
+
+// EXTENSION_DEBUG wins over the legacy name so an explicit EXTENSION_DEBUG=0
+// still turns diagnostics off when a stale EXTENSION_AUTHOR_MODE is exported.
+export function isDebug(): boolean {
+  const raw = process.env.EXTENSION_DEBUG ?? process.env.EXTENSION_AUTHOR_MODE
+  return DEBUG_VALUES.has(
+    String(raw ?? '')
+      .trim()
+      .toLowerCase()
+  )
+}
+
 export function prefix(type: Channel): string {
   if (type === 'error') return colors.red(GLYPH)
   if (type === 'warn') return colors.brightYellow(GLYPH)

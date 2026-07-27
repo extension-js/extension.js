@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import type {FilepathList, PluginInterface, ThemeIcon} from '../../types'
 import * as messages from './messages'
 import {normalizeIconIncludeKeys} from './normalize-keys'
@@ -40,7 +41,7 @@ export class IconsPlugin {
       this.includeList as Record<string, unknown> | undefined
     )
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       const beforeKeys = Object.keys(
         (this.includeList as Record<string, unknown>) || {}
       )

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 
 export class AddDependencies {
@@ -35,7 +36,7 @@ export class AddDependencies {
           })
         }
 
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           const added = Array.isArray(this.dependencyList)
             ? this.dependencyList.length
             : 0

@@ -14,6 +14,7 @@ import locateFirefox, {
 } from 'firefox-location2'
 import locateLibreWolf from 'librewolf-location'
 import locateWaterfox from 'waterfox-location'
+import {isDebug} from '../../../helpers/messaging'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
@@ -224,7 +225,7 @@ export class FirefoxLaunchPlugin {
       return
     }
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled())
     }
 
@@ -443,13 +444,13 @@ export class FirefoxLaunchPlugin {
           ...rawArgs.split(' ').filter((arg) => arg.trim().length > 0)
         )
       }
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         this.ctx.logger?.info?.(
           messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1])
         )
       }
     } else {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         this.ctx.logger?.info?.(messages.firefoxNoBinaryArgsFound())
       }
     }
@@ -506,7 +507,7 @@ export class FirefoxLaunchPlugin {
       this.scheduleWatchTimeout()
 
       try {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           this.ctx.logger?.info?.(
             messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
           )
@@ -516,7 +517,7 @@ export class FirefoxLaunchPlugin {
         // Ignore
       }
     } else {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         this.ctx.logger?.warn?.(
           '[browser] Firefox profile not set; skipping RDP add-on install.'
         )
@@ -547,7 +548,7 @@ export class FirefoxLaunchPlugin {
       return ['pipe', 'pipe', 'pipe'] as const
     }
 
-    return process.env.EXTENSION_AUTHOR_MODE === 'true'
+    return isDebug()
       ? (['pipe', 'pipe', 'pipe'] as const)
       : (['ignore', 'ignore', 'ignore'] as const)
   }
@@ -567,7 +568,7 @@ export class FirefoxLaunchPlugin {
   }
 
   private pipeChildOutput(child: ChildProcess) {
-    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
+    if (!isDebug()) return
 
     child.stdout?.pipe(process.stdout)
     child.stderr?.pipe(process.stderr)
@@ -597,7 +598,7 @@ export class FirefoxLaunchPlugin {
         clearTimeout(this.watchTimeout)
         this.watchTimeout = undefined
       }
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         this.ctx.logger?.info?.(
           messages.browserInstanceExited(this.host.browser)
         )
@@ -613,7 +614,7 @@ export class FirefoxLaunchPlugin {
         stampReadyBrowserExited(this.extensionOutputPath, code)
       }
       this.cleanupInstance().catch((err) => {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           this.ctx.logger?.error?.(
             `[browser] Cleanup error on child close: ${(err as Error)?.message || err}`
           )
@@ -697,7 +698,7 @@ export class FirefoxLaunchPlugin {
       }
       this.cleanupInstance()
         .catch((err) => {
-          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          if (isDebug()) {
             this.ctx.logger?.error?.(
               `[browser] Cleanup error on watch timeout: ${(err as Error)?.message || err}`
             )

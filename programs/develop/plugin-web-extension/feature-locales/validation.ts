@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import {stripBom} from '../../lib/parse-json-safe'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
@@ -60,7 +61,7 @@ export function validateLocales(
       }
     }
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(
         messages.localesIncludeSummary(
           true,
@@ -72,7 +73,7 @@ export function validateLocales(
 
     if (typeof defaultLocale === 'string' && defaultLocale.trim()) {
       if (!hasLocalesRoot) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.localesValidationDetected(
               'default_locale set but _locales missing'
@@ -91,7 +92,7 @@ export function validateLocales(
 
       const defaultLocaleDir = path.join(localesRoot, defaultLocale)
       if (!fs.existsSync(defaultLocaleDir)) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}`
@@ -112,7 +113,7 @@ export function validateLocales(
       const messagesJsonPath = path.join(defaultLocaleDir, 'messages.json')
 
       if (!fs.existsSync(messagesJsonPath)) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}/messages.json`
@@ -138,7 +139,7 @@ export function validateLocales(
         const content = fs.readFileSync(messagesJsonPath, 'utf8')
         defaultLocaleMessages = JSON.parse(stripBom(content))
       } catch {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.localesValidationDetected(
               `invalid JSON in _locales/${defaultLocale}/messages.json`
@@ -188,7 +189,7 @@ export function validateLocales(
           const entry = dict?.[key]
 
           if (!entry || typeof entry.message !== 'string') {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(
                 messages.localesValidationDetected(
                   `missing key "${key}" in default locale`
@@ -207,7 +208,7 @@ export function validateLocales(
           }
         }
       } catch (error) {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(
             messages.localesValidationDetected(
               `could not scan __MSG__ placeholders in _locales/${defaultLocale}/messages.json: ${String((error as Error)?.message || error)}`
@@ -217,7 +218,7 @@ export function validateLocales(
       }
     } else if (hasLocalesRoot) {
       // _locales present but no default_locale in manifest: browsers reject the extension
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           messages.localesValidationDetected(
             '_locales present but no default_locale'
@@ -235,7 +236,7 @@ export function validateLocales(
       return false
     }
   } catch (error) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(
         messages.localesValidationDetected(
           `manifest.json could not be read for locale validation, deferring to manifest validation: ${String((error as Error)?.message || error)}`
@@ -260,7 +261,7 @@ export function validateLocales(
             const s = fs.readFileSync(msgPath, 'utf8')
             JSON.parse(stripBom(s))
           } catch {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(
                 messages.localesValidationDetected(`invalid JSON in ${msgPath}`)
               )
@@ -279,7 +280,7 @@ export function validateLocales(
       }
     }
   } catch (error) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(
         messages.localesValidationDetected(
           `could not scan _locales for JSON validity: ${String((error as Error)?.message || error)}`

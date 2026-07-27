@@ -13,6 +13,7 @@ import {
   filterKeysForThisBrowser,
   getManifestFieldsData
 } from 'browser-extension-manifest-fields'
+import {isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
@@ -525,7 +526,7 @@ export class JsFrameworksPlugin {
       }
     }
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       const integrations: string[] = []
 
       if (maybeInstallReact) integrations.push('React')

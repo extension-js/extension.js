@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 
 export class ManifestLegacyWarnings {
@@ -51,7 +52,7 @@ export class ManifestLegacyWarnings {
                 count++
               }
             })
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(messages.manifestLegacyWarningsSummary(count))
             }
           }

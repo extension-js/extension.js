@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {isDebug} from '../lib/messaging'
 import * as messages from './compilation-lib/messages'
 
 export class CleanDistFolderPlugin {
@@ -24,14 +25,14 @@ export class CleanDistFolderPlugin {
     if (fs.existsSync(distPath)) {
       const removedCount = countFilesRecursively(distPath)
 
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(messages.cleanDistStarting(distPath))
       }
 
       try {
         fs.rmSync(distPath, {recursive: true, force: true})
 
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
           logger.info(
             '[CleanDistFolderPlugin] Removed old hot-update files before compilation.'
@@ -60,7 +61,7 @@ export class CleanDistFolderPlugin {
         )
       }
     } else {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(messages.cleanDistSkippedNotFound(distPath))
       }
     }

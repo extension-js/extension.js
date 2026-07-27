@@ -23,6 +23,7 @@ import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
 } from '../lib/constants'
+import {isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
@@ -139,7 +140,7 @@ export class EnvPlugin {
 
     const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(messages.envSelectedFile(envPath))
     }
 
@@ -246,7 +247,7 @@ export class EnvPlugin {
       k.startsWith('process.env.EXTENSION_PUBLIC_')
     ).length
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(messages.envInjectedPublicVars(injectedCount))
     }
 

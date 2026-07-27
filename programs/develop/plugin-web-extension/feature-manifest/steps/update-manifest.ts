@@ -27,6 +27,7 @@ import {getManifestOverrides} from '../manifest-overrides'
 // type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 
+import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 import {patchChromiumBackground} from './patch-chromium-background'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
@@ -111,7 +112,7 @@ export class UpdateManifest {
               )
             }
 
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               try {
                 const overrideObj = JSON.parse(overrides || '{}')
                 const overrideKeys = Object.keys(overrideObj || {}).length

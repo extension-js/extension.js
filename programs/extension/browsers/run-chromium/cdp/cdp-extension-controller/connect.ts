@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Readable, Writable} from 'node:stream'
+import {isDebug} from '../../../../helpers/messaging'
 import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
 import {checkChromeRemoteDebugging} from '../discovery'
 
@@ -94,7 +95,7 @@ export async function connectToChromeCdp(
       const retryable = isRecoverableBootstrapError(error)
       const hasMoreAttempts = attempt < maxBootstrapAttempts
 
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         const base = String((error as Error)?.message || error)
         console.warn(
           `[CDP] bootstrap attempt ${attempt}/${maxBootstrapAttempts} failed: ${base}`

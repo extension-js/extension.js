@@ -14,6 +14,7 @@ import AdmZip from 'adm-zip'
 import axios from 'axios'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 const NETWORK_TIMEOUT_MS = (() => {
@@ -180,10 +181,7 @@ async function importFromExamplesCatalog(
 }
 
 function isAuthorOrDevMode(): boolean {
-  return (
-    process.env.EXTENSION_ENV === 'development' ||
-    process.env.EXTENSION_AUTHOR_MODE === 'true'
-  )
+  return process.env.EXTENSION_ENV === 'development' || isDebug()
 }
 
 async function withTimeout<T>(

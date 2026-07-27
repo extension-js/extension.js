@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import type {FilepathList} from '../../../types'
 import {collectContentScriptEntryImports} from '../collect-entry-imports'
 import {entryImportsSummary} from '../web-resources-lib/messages'
@@ -36,7 +37,7 @@ export class CollectContentEntryImports {
             const shared = getSharedFor(compilation)
             shared.entryImports = entryImports
 
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               const keys = Object.keys(entryImports || {})
               const total = keys.reduce(
                 (acc, k) =>

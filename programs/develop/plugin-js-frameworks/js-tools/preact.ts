@@ -9,6 +9,7 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {isDebug} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
@@ -18,7 +19,7 @@ let userMessageDelivered = false
 export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('Preact')}`
         )

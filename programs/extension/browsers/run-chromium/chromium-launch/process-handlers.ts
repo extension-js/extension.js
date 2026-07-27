@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {ChildProcess} from 'node:child_process'
+import {isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {
   forceKillChildOnExit,
@@ -41,7 +42,7 @@ function cleanupOne(instance: ChromiumInstanceHandlers) {
   const {browser, child, cleanupInstance} = instance
 
   try {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(messages.enhancedProcessManagementCleanup(browser))
     }
 

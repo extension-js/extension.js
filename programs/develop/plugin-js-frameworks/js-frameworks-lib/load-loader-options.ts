@@ -9,17 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import * as messages from './messages'
 
 let userMessageDelivered = false
-
-function isAuthorMode(): boolean {
-  const v = String(process.env.EXTENSION_AUTHOR_MODE || '')
-    .trim()
-    .toLowerCase()
-  return v === 'true' || v === '1' || v === 'development' || v === 'dev'
-}
 
 export function resolveLoaderConfigPath(
   projectPath: string,
@@ -42,7 +36,7 @@ export async function loadLoaderOptions(
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {
-    if (!userMessageDelivered && isAuthorMode()) {
+    if (!userMessageDelivered && isDebug()) {
       const display = path.basename(configPath)
       console.log(messages.isUsingCustomLoader(display))
       userMessageDelivered = true

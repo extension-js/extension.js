@@ -10,6 +10,7 @@ import * as semver from 'semver'
 import checkForUpdate from 'update-check'
 import {getCliPackageJson} from './cli-package-json'
 import * as messages from './messages'
+import {isDebug} from './messaging'
 
 function isStableVersion(version: string | undefined) {
   const v = semver.parse(version)
@@ -26,7 +27,7 @@ export default async function checkUpdates(): Promise<{
   try {
     update = await checkForUpdate(packageJson)
   } catch (err) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.error(messages.updateFailed(err))
     }
   }

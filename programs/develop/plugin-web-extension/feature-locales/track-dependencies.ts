@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import {getLocales} from './get-locales'
 import * as messages from './messages'
 
@@ -33,7 +34,7 @@ export function trackLocaleDependencies(
     }
   }
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     console.log(messages.localesDepsTracked(added))
   }
 }

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../messages'
@@ -275,7 +276,7 @@ export class EmitFile {
               }
             }
 
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(
                 messages.iconsEmitSummary(feature, {
                   entries: entriesTotal,

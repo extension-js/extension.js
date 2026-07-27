@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {isDebug} from '../lib/messaging'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'
@@ -106,7 +107,7 @@ export class SpecialFoldersPlugin {
           }
         ]
       }).apply(compiler)
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           messages.specialFoldersSetupSummary(true, true, copyIgnore.length)
         )

@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {isDebug} from '../../../helpers/messaging'
 import type {CompilationLike} from '../../browsers-types'
 import type {FirefoxPluginRuntime} from '../firefox-types'
 import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
@@ -29,7 +30,7 @@ export async function setupRdpAfterLaunch(
         // connect: retrying only delays the report and repeats the reason.
         if (controller.getAddonInstallRefusalReason()) break
 
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           try {
             const msg = (error as Error)?.message || String(error)
             console.warn(

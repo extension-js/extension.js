@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
+import {isDebug} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import * as messages from './messages'
 
@@ -21,7 +22,7 @@ export function wasTerminatedByUs(child: ChildProcess | null): boolean {
 }
 
 function authorLog(line: string | null): void {
-  if (line && process.env.EXTENSION_AUTHOR_MODE === 'true') console.log(line)
+  if (line && isDebug()) console.log(line)
 }
 
 function killWindowsTree(child: ChildProcess, sync: boolean): void {

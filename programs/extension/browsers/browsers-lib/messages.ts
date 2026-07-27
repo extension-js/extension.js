@@ -15,6 +15,7 @@ import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
+import {isDebug} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 
 type Browser = BrowserType
@@ -29,7 +30,7 @@ type PackageJson = {
 const require = createRequire(import.meta.url)
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   if (isAuthor) {
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
@@ -954,7 +955,7 @@ export function runningInDevelopment(
   }
 
   if (!management) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       return (
         `${getLoggingPrefix('error')} No management API info received from the client for ${manifestName}.\n` +
         `The extension may not have finished loading, or the in-browser companion did not attach.`

@@ -7,10 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {fmt} from './messaging'
+import {fmt, isDebug} from './messaging'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   if (isAuthor) {
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'

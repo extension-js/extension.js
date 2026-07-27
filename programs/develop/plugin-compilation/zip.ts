@@ -13,6 +13,7 @@ import AdmZip from 'adm-zip'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {DevOptions} from '../types'
 
@@ -158,7 +159,7 @@ export class ZipPlugin {
             path.dirname(outPath),
             `${name}-source.zip`
           )
-          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          if (isDebug()) {
             console.log(messages.packagingSourceFiles(sourcePath))
           }
 
@@ -174,13 +175,13 @@ export class ZipPlugin {
             : name
           const distPath = path.join(outPath, `${filename}.zip`)
 
-          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }
           distZip.writeZip(distPath)
           created.push({kind: 'dist', path: distPath})
         }
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           const sourceItem = created.find((c) => c.kind === 'source')
           const distItem = created.find((c) => c.kind === 'dist')
 

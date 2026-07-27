@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import programPackageJson from '../package.json'
 import * as messages from './messages'
+import {isDebug} from './messaging'
 import {readProjectDependencies} from './project-manifest'
 
 function isReferencedAsModuleSpecifier(
@@ -73,7 +74,7 @@ export function assertNoManagedDependencyConflicts(
   } catch (error) {
     // Be conservative: do not block if we cannot read user's package.json
     // but surface a minimal warning for visibility in development.
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       // eslint-disable-next-line no-console
       console.warn(error)
     }

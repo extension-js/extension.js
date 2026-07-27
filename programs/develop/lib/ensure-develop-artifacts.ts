@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {findExtensionDevelopRoot} from './develop-context'
 import * as messages from './messages'
+import {isDebug} from './messaging'
 import {
   buildInstallCommand,
   execInstallCommand,
@@ -87,7 +88,7 @@ export async function ensureDevelopArtifacts() {
 
   const pm = resolvePackageManager({cwd: developRoot})
   const command = buildInstallCommand(pm, ['run', 'compile'])
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
   const stdio = isAuthor ? 'inherit' : 'ignore'
 
   if (isAuthor) {
