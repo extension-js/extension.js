@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {fmt} from './messaging'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
@@ -25,28 +26,9 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
 const code = (text: string) => colors.blue(text)
 const arg = (text: string) => colors.gray(text)
 
-export const fmt = {
-  heading: (title: string) => colors.underline(colors.blue(title)),
-  label: (k: string) => colors.gray(k.toUpperCase()),
-  val: (v: string) => colors.underline(v),
-  code: (v: string) => colors.blue(v),
-  bullet: (s: string) => `- ${s}`,
-  block(title: string, rows: Array<[string, string]>): string {
-    const head = fmt.heading(title)
-    const body = rows.map(([k, v]) => `${fmt.label(k)} ${v}`).join('\n')
-    return `${head}\n${body}`
-  },
-  truncate(input: unknown, max = 800): string {
-    const s = (() => {
-      try {
-        return typeof input === 'string' ? input : JSON.stringify(input)
-      } catch {
-        return String(input)
-      }
-    })()
-    return s.length > max ? `${s.slice(0, max)}…` : s
-  }
-}
+// Imported for local use and re-exported: consumers and snapshots read fmt
+// from this module, and the definition now lives in messaging.ts.
+export {fmt}
 
 export const commandDescriptions = {
   create:
