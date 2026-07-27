@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
-import {type Channel, prefix} from '../lib/messaging'
+import {artifactNoun, type Channel, prefix} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -20,8 +20,7 @@ function getLoggingPrefix(type: Channel): string {
 
 export function ready(mode: 'development' | 'production', browser: string) {
   const key = String(browser || '').toLowerCase()
-  const extensionOutput =
-    isGeckoBasedBrowser(key) || key === 'edge' ? 'Add-on' : 'Extension'
+  const extensionOutput = artifactNoun(key)
   const cap =
     key === 'firefox' || key === 'gecko-based' || key === 'firefox-based'
       ? 'Firefox'
