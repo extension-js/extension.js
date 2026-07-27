@@ -37,6 +37,16 @@ export class BoringPlugin {
       this.printedPostBannerStartupSuccess = false
     })
 
+    // The launcher prints the card inside this same done cycle and signals
+    // through the environment; convert it now or the parked line waits a cycle.
+    ;(
+      compiler.hooks as {
+        afterDone?: {tap: (name: string, fn: () => void) => void}
+      }
+    ).afterDone?.tap('develop:brand:flush', () => {
+      isBannerPrinted()
+    })
+
     compiler.hooks.done.tap('develop:brand', (stats) => {
       const hasErrors = Boolean(stats?.hasErrors?.())
       const hasWarnings = Boolean(stats?.hasWarnings?.())

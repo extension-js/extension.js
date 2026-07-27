@@ -226,9 +226,9 @@ export async function runOnlyPreviewBrowser(
       buildPreviewFirefoxOptions(opts),
       ctx
     )
-    // Gecko prints its own card from the add-on install step, and the boolean
-    // that call returns is the install verification. Printing first would take
-    // the print-once key and report a healthy install as a failed one.
+    // Identity before the launch here too: the add-on install still verifies
+    // through the banner's nameability verdict, which survives a dedupe hit.
+    await printProdBannerOnce(bannerOptions)
     await launcher.runOnce(
       compilationLike,
       buildBrowserLaunchRequest(previewPluginOptions, 'production', {
@@ -236,8 +236,6 @@ export async function runOnlyPreviewBrowser(
         geckoBinary: previewPluginOptions.geckoBinary
       }) as unknown as Parameters<typeof launcher.runOnce>[1]
     )
-
-    await printProdBannerOnce(bannerOptions)
     return
   }
 

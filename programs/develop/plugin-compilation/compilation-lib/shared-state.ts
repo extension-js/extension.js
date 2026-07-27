@@ -13,8 +13,6 @@ export const sharedState = {
   pendingCompilationLine: '' as string
 }
 
-const BANNER_PRINTED_EVENT = 'extensionjs:banner-printed'
-
 export function markBannerPrinted() {
   sharedState.bannerPrinted = true
 
@@ -24,24 +22,10 @@ export function markBannerPrinted() {
   }
 }
 
-// Listen for the cross-package banner-printed signal so the first deferred
-// compile line flushes immediately; otherwise it parks until the next done hook.
-let listenerInstalled = false
-
-function ensureBannerListener() {
-  if (listenerInstalled) return
-  listenerInstalled = true
-  process.on(BANNER_PRINTED_EVENT, () => {
-    markBannerPrinted()
-  })
-}
-
-ensureBannerListener()
-
 export function isBannerPrinted(): boolean {
   if (sharedState.bannerPrinted) return true
-  // The banner printer lives in another package; if its event was missed
-  // (develop loaded late), fall back to the env var banner.ts also sets.
+  // The card printers live in other bundles, so their signal arrives through
+  // the environment; converting it here also flushes the parked line.
   if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
     markBannerPrinted()
     return true

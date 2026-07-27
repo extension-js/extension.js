@@ -10,24 +10,10 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
-import {card} from '../../helpers/messaging'
+import {card, claimCardKey, isCardKeyClaimed} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import * as messages from './messages'
-
-// Inline shared-state flag: the standalone browser package only needs the
-// boolean marking whether the banner was already emitted this process.
-let bannerPrinted = false
-export const BANNER_PRINTED_EVENT = 'extensionjs:banner-printed'
-function markBannerPrinted() {
-  bannerPrinted = true
-  // Cross-package signal so develop's shared-state can flush a compile line that
-  // arrived before the banner; otherwise it parks until the next done hook.
-  process.emit(BANNER_PRINTED_EVENT)
-}
-export function isBannerPrinted(): boolean {
-  return bannerPrinted
-}
 
 type Info = {extensionId?: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
@@ -50,6 +36,18 @@ function keyFor(browser: BrowserType, outPath: string, hp?: HostPort) {
   const port = hp?.port == null ? '' : String(hp.port)
 
   return `${browser}::${path.resolve(outPath)}::${host}:${port}`
+}
+
+// The cross-bundle key omits host:port on purpose: build's card (printed in
+// the develop bundle) must dedupe this bundle's later attempt for `start`.
+function baseKeyFor(browser: BrowserType, outPath: string) {
+  return `${browser}::${path.resolve(outPath)}`
+}
+
+function markCardPrinted(k: string, browser: BrowserType, outPath: string) {
+  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
+  printedKeys.add(k)
+  claimCardKey(baseKeyFor(browser, outPath))
 }
 
 function toNormalizedId(value: unknown): string {
@@ -198,7 +196,11 @@ export async function printDevBannerOnce(opts: {
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
-  if (printedKeys.has(k)) return false
+  // A dedupe hit must still answer "is the guest nameable": the firefox
+  // add-on install reads this boolean as its verification, not as a receipt.
+  const alreadyPrinted =
+    printedKeys.has(k) ||
+    isCardKeyClaimed(baseKeyFor(opts.browser, opts.outPath))
 
   const manifestPath = path.join(opts.outPath, 'manifest.json')
 
@@ -212,6 +214,8 @@ export async function printDevBannerOnce(opts: {
     manifest,
     extensionPath: opts.outPath
   })
+
+  if (alreadyPrinted && manifestDerivedExtensionId) return true
 
   // Prefer manifest/fallback IDs first so startup banner can render ASAP.
   // Runtime info is best-effort and should never stall the first banner.
@@ -231,6 +235,8 @@ export async function printDevBannerOnce(opts: {
   })
 
   if (!extensionId) return false
+
+  if (alreadyPrinted) return true
 
   const name = info?.name || opts.fallback?.name || manifest.name
   const version = info?.version || opts.fallback?.version || manifest.version
@@ -257,10 +263,7 @@ export async function printDevBannerOnce(opts: {
     )
   )
   console.log(messages.emptyLine())
-  markBannerPrinted()
-  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
-
-  printedKeys.add(k)
+  markCardPrinted(k, opts.browser, opts.outPath)
   return true
 }
 
@@ -275,7 +278,14 @@ export async function printProdBannerOnce(opts: {
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
-  if (printedKeys.has(k)) return false
+  // The pair already has its card: report that state as success so hoisted
+  // callers print first and later, better-informed attempts stay quiet.
+  if (
+    printedKeys.has(k) ||
+    isCardKeyClaimed(baseKeyFor(opts.browser, opts.outPath))
+  ) {
+    return true
+  }
 
   const browserLabel =
     opts.browserVersionLine && opts.browserVersionLine.trim().length > 0
@@ -373,9 +383,6 @@ export async function printProdBannerOnce(opts: {
     console.log(messages.emptyLine())
   }
 
-  markBannerPrinted()
-  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
-
-  printedKeys.add(k)
+  markCardPrinted(k, opts.browser, opts.outPath)
   return true
 }

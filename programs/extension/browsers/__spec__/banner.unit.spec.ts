@@ -1,7 +1,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {claimCardKey} from '../../helpers/messaging'
 import {printDevBannerOnce, printProdBannerOnce} from '../browsers-lib/banner'
 
 function makeTempOutPath(manifest: Record<string, unknown>): string {
@@ -196,6 +197,99 @@ describe('printProdBannerOnce', () => {
     expect(output).toContain('Run ID')
     expect(output).toContain('run-123')
     expect(output).toContain('4242')
+    logSpy.mockRestore()
+  })
+})
+
+describe('nameable is decoupled from already-printed', () => {
+  const previousCardKeys = process.env.EXTENSION_CLI_CARD_KEYS
+  const previousBannerFlag = process.env.EXTENSION_CLI_BANNER_PRINTED
+
+  beforeEach(() => {
+    delete process.env.EXTENSION_CLI_CARD_KEYS
+    delete process.env.EXTENSION_CLI_BANNER_PRINTED
+  })
+
+  afterEach(() => {
+    if (previousCardKeys === undefined)
+      delete process.env.EXTENSION_CLI_CARD_KEYS
+    else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+    if (previousBannerFlag === undefined)
+      delete process.env.EXTENSION_CLI_BANNER_PRINTED
+    else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerFlag
+  })
+
+  // The firefox add-on install treats this boolean as its verification, so a
+  // dedupe hit must keep answering "the guest is nameable", not "no print".
+  it('returns true without reprinting when the same key already printed', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Dedupe Extension',
+      version: '1.0.0'
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const first = await printDevBannerOnce({
+      browser: 'chromium',
+      outPath,
+      hostPort: {host: '127.0.0.1', port: 9345},
+      getInfo: async () => null
+    })
+    const callsAfterFirst = logSpy.mock.calls.length
+    const second = await printDevBannerOnce({
+      browser: 'chromium',
+      outPath,
+      hostPort: {host: '127.0.0.1', port: 9345},
+      getInfo: async () => null
+    })
+
+    expect(first).toBe(true)
+    expect(second).toBe(true)
+    expect(logSpy.mock.calls.length).toBe(callsAfterFirst)
+    logSpy.mockRestore()
+  })
+
+  it('honors a card key claimed by another bundle without printing', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Cross Bundle Extension',
+      version: '1.0.0'
+    })
+    claimCardKey(`chromium::${path.resolve(outPath)}`)
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const dev = await printDevBannerOnce({
+      browser: 'chromium',
+      outPath,
+      hostPort: {host: '127.0.0.1', port: 9346},
+      getInfo: async () => null
+    })
+    const prod = await printProdBannerOnce({
+      browser: 'chromium',
+      outPath
+    })
+
+    expect(dev).toBe(true)
+    expect(prod).toBe(true)
+    expect(logSpy).not.toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
+
+  it('still reports false when no id can be derived after a prior print', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Anonymous Firefox Add-on',
+      version: '1.0.0'
+    })
+    claimCardKey(`firefox::${path.resolve(outPath)}`)
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printDevBannerOnce({
+      browser: 'firefox',
+      outPath,
+      hostPort: {host: '127.0.0.1'},
+      getInfo: async () => null
+    })
+
+    expect(printed).toBe(false)
+    expect(logSpy).not.toHaveBeenCalled()
     logSpy.mockRestore()
   })
 })
