@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
+import {isDebug} from '../lib/messaging'
 import * as messages from './messages'
 
 type SpecialFolder = 'pages' | 'scripts'
@@ -122,7 +123,7 @@ export class WarnUponFolderChanges {
     change: ChangeType,
     filePath: string
   ) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(
         messages.specialFolderChangeDetected(
           change === 'add' ? 'add' : 'remove',

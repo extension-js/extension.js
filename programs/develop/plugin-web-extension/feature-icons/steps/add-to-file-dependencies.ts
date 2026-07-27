@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
@@ -53,7 +54,7 @@ export class AddToFileDependencies {
               }
             }
 
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(messages.iconsDepsTracked(added))
             }
           }

@@ -16,6 +16,7 @@ import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
 import type {BrowserConfig, DevOptions, FileConfig} from '../types'
 import * as messages from './messages'
+import {isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 
 type EnvPreloadResult = {
@@ -394,7 +395,7 @@ export async function isUsingExperimentalConfig(projectPath: string) {
 
   if (configPath) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(messages.isUsingExperimentalConfig('extension.config.js'))
       }
       userMessageDelivered = true

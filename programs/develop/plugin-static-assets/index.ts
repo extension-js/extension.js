@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler, RuleSetRule} from '@rspack/core'
+import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './static-assets-lib/messages'
 
@@ -125,7 +126,7 @@ export class StaticAssetsPlugin {
       ...loaders
     ].filter((rule): rule is RuleSetRule => Boolean(rule))
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       const rulesEnabled: string[] = []
       rulesEnabled.push(hasCustomSvgRule ? 'SVG(custom)' : 'SVG(default)')
       rulesEnabled.push('Images')

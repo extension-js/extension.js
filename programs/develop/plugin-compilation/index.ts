@@ -9,6 +9,7 @@
 import {type Compiler, DefinePlugin, type WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
+import {isDebug} from '../lib/messaging'
 import type {PluginInterface} from '../types'
 import {BoringPlugin} from './boring'
 import {CleanDistFolderPlugin} from './clean-dist'
@@ -131,7 +132,7 @@ export class CompilationPlugin {
         }
       }).apply(compiler)
     } else {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         const reason =
           compiler.options.mode !== 'production'
             ? 'not production mode'

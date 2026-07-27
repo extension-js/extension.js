@@ -8,6 +8,7 @@
 
 import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
+import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 
@@ -51,7 +52,7 @@ export class PolyfillPlugin {
         browser: 'webextension-polyfill'
       }).apply(compiler)
 
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
         )

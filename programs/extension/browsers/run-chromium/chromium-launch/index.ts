@@ -24,6 +24,7 @@ import locateEdge, {
 import locateOpera from 'opera-location2'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
+import {isDebug} from '../../../helpers/messaging'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -440,7 +441,7 @@ export class ChromiumLaunchPlugin {
       ...binariesResolver.managedBrowserCacheEnv(String(managedCacheRoot), b)
     })
 
-    const isAuthorMode = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const isAuthorMode = isDebug()
     const resolveChromeLikeBinary = (): string | null => {
       try {
         try {
@@ -820,7 +821,7 @@ export class ChromiumLaunchPlugin {
           : flag
       )
     }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       this.logger.info(messages.devChromiumDebugPort(selectedPort, desiredPort))
     }
     instanceRegistry.setInstancePorts(this.options.instanceId, {
@@ -875,7 +876,7 @@ export class ChromiumLaunchPlugin {
         if (portReady) break
         await new Promise((r) => setTimeout(r, 500))
       }
-      if (!portReady && process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (!portReady && isDebug()) {
         this.logger.warn?.(
           `[browser] Debug port ${selectedPort} not bound after spawn. CDP may fail`
         )
@@ -1001,7 +1002,7 @@ export class ChromiumLaunchPlugin {
     chromeFlags: string[],
     usePipe: boolean = false
   ) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       this.logger.info(messages.chromeInitializingEnhancedReload())
     }
     const launchArgs = this.options?.startingUrl
@@ -1025,7 +1026,7 @@ export class ChromiumLaunchPlugin {
         logger: this.logger
       })
 
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         this.logger.debug?.(
           '[browser] Final Chrome flags:',
           launchArgs.join(' ')
@@ -1066,7 +1067,7 @@ export class ChromiumLaunchPlugin {
       let disposeSignalHandlers: (() => void) | undefined
 
       child.on('close', (code: number | null) => {
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
         // An exit we didn't ask for means the browser died out from under a live

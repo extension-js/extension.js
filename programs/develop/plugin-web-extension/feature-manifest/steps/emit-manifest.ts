@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
 import {
@@ -62,7 +63,7 @@ export class EmitManifest {
               new sources.RawSource(jsonString)
             )
 
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            if (isDebug()) {
               console.log(messages.manifestEmitSuccess())
             }
           }

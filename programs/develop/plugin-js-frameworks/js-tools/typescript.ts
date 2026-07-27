@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {isDebug} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
@@ -79,7 +80,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
 
   if (hasDep || hasTsFiles) {
     if (tsConfigFilePath) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('TypeScript')}`
         )

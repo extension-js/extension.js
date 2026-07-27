@@ -14,6 +14,7 @@ const cjsRequire = createRequire(import.meta.url)
 
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
 import {hasDependency} from '../../lib/has-dependency'
+import {isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import * as messages from '../css-lib/messages'
@@ -23,7 +24,7 @@ let userMessageDelivered = false
 export function isUsingSass(projectPath: string): boolean {
   if (hasDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('SASS')}`
         )

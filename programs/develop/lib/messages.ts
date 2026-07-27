@@ -12,7 +12,7 @@ import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
-import {fmt} from './messaging'
+import {fmt, isDebug} from './messaging'
 import {stripBom} from './parse-json-safe'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
@@ -20,7 +20,7 @@ import {stripBom} from './parse-json-safe'
 export {fmt}
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   if (isAuthor) {
     const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'

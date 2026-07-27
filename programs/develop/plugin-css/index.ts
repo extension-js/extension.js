@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, type RuleSetRule, WebpackError} from '@rspack/core'
 import {hasDependency} from '../lib/has-dependency'
+import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
@@ -75,7 +76,7 @@ export class CssPlugin {
       ...loaders
     ].filter(Boolean)
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       const integrations: string[] = []
       const usingTailwind = hasDependency(projectPath, 'tailwindcss')
       const usingPostcss =

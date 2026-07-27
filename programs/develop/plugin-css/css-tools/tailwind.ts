@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
 import {hasDependency} from '../../lib/has-dependency'
+import {isDebug} from '../../lib/messaging'
 import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
@@ -21,7 +22,7 @@ export function isUsingTailwind(projectPath: string) {
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      if (isDebug()) {
         console.log(
           `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('Tailwind')}`
         )

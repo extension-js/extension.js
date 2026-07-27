@@ -8,6 +8,7 @@
 
 import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
+import {isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariPluginLike} from '../safari-types'
@@ -70,8 +71,7 @@ function runTool(
   args: string[],
   opts?: {quiet?: boolean}
 ): Promise<ToolResult> {
-  const streamOutput =
-    process.env.EXTENSION_AUTHOR_MODE === 'true' && !opts?.quiet
+  const streamOutput = isDebug() && !opts?.quiet
 
   return new Promise((resolve) => {
     let output = ''

@@ -13,6 +13,7 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import * as messages from './lib/messages'
+import {isDebug} from './lib/messaging'
 import {getDirs, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {sanitize} from './lib/sanitize'
@@ -40,7 +41,7 @@ export async function extensionDev(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const isAuthor = isDebug()
     const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
@@ -155,7 +156,7 @@ export async function extensionDev(
   } catch (error) {
     // Always surface a minimal error: contract errors print once, clean, no stack;
     // author mode keeps the full trace.
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.error(error)
     } else {
       console.error(messages.devCommandFailed(error))

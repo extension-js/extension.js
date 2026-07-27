@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {isDebug} from '../../../../helpers/messaging'
 import {
   RDP_MAX_RETRIES,
   RDP_RETRY_INTERVAL_MS
@@ -204,7 +205,7 @@ export class RemoteFirefox {
           stableReadsRequired: 2
         })
 
-        if (!ready && process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        if (!ready && isDebug()) {
           console.warn(
             `[browser] Firefox add-on output did not fully settle before install: ${addonPath}`
           )
@@ -213,7 +214,7 @@ export class RemoteFirefox {
         // Ignore
       }
     }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       try {
         console.log('[browser] Firefox add-on paths:', candidateAddonPaths)
       } catch {
@@ -276,10 +277,7 @@ export class RemoteFirefox {
     try {
       if (!this.derivedExtensionId) {
         this.derivedExtensionId = await deriveMozExtensionId(client)
-        if (
-          process.env.EXTENSION_AUTHOR_MODE === 'true' &&
-          !this.derivedExtensionId
-        ) {
+        if (isDebug() && !this.derivedExtensionId) {
           console.warn(
             '[browser] Firefox: could not resolve a unique add-on id for the banner (install response had none; multiple or zero moz-extension targets).'
           )

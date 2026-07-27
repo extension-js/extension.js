@@ -15,6 +15,7 @@ import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
+import {isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
@@ -31,7 +32,6 @@ import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-ext
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
-
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -72,7 +72,7 @@ export default function webpackConfig(
     companionUnpackedExtensionDirs,
     manifestPath
   )
-  const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const debug = isDebug()
   const transpilePackageDirs = resolveTranspilePackageDirs(
     packageJsonDir,
     devOptions.transpilePackages

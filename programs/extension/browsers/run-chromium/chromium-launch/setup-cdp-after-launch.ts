@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
+import {isDebug} from '../../../helpers/messaging'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -82,7 +83,7 @@ export async function setupCdpAfterLaunch(
     ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
     : ''
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     if (userDataDir) console.log(messages.devChromeProfilePath(userDataDir))
 
     console.log(
@@ -110,7 +111,7 @@ export async function setupCdpAfterLaunch(
   // Avoid layering another retry loop here, which can make startup feel hung.
   await cdpExtensionController.connect()
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
 
@@ -228,7 +229,7 @@ export async function setupCdpAfterLaunch(
       })
     ])
   } catch (error) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.warn(
         `[CDP] ensureLoaded failed: ${String(
           (error as Error)?.message || error
@@ -274,7 +275,7 @@ export async function setupCdpAfterLaunch(
       })
     }
   } catch (bannerErr) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.warn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
     }
 

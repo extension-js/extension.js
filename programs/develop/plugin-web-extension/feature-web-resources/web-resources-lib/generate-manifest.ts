@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources} from '@rspack/core'
+import {isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -438,7 +439,7 @@ export function generateManifestPatches(
   const rawSource = new sources.RawSource(source)
   setCurrentManifestContent(compilation, source)
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     try {
       const v3Groups =
         canonicalManifest.manifest_version === 3

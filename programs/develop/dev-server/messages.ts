@@ -10,11 +10,12 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {isDebug} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   if (isAuthor) {
     // Author mode: magenta, clearly branded, keeps three-element prefix shape

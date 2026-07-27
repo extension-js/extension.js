@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import * as messages from './messages'
 
 export function trackJsonDependencies(
@@ -44,7 +45,7 @@ export function trackJsonDependencies(
       }
     }
   }
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     console.log(messages.jsonDepsTracked(added))
   }
 }

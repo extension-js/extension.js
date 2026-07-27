@@ -21,6 +21,7 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import * as messages from './lib/messages'
+import {isDebug} from './lib/messaging'
 import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {
@@ -34,7 +35,6 @@ import {
 } from './plugin-js-frameworks/js-tools/typescript'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
-
 import type {BuildOptions} from './types'
 
 export async function extensionBuild(
@@ -53,7 +53,7 @@ export async function extensionBuild(
   )
 
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   try {
     await ensureDevelopArtifacts()
@@ -259,7 +259,7 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
-    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const isAuthor = isDebug()
     if (isAuthor) {
       console.error(error)
     } else {

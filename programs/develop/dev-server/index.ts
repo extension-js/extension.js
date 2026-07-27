@@ -20,6 +20,7 @@ import {
   loadCustomConfig
 } from '../lib/config-loader'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {isDebug} from '../lib/messaging'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
@@ -426,9 +427,7 @@ export async function devServer(
 
   const allowControl = Boolean(extendedOptions.allowControl)
   const allowEval = Boolean(extendedOptions.allowEval)
-  const authorMode =
-    Boolean(extendedOptions.authorMode) ||
-    process.env.EXTENSION_AUTHOR_MODE === 'development'
+  const authorMode = Boolean(extendedOptions.authorMode) || isDebug()
   const bridgeActionsFile = allowControl
     ? new ActionsFileWriter({
         filePath: sessionActionsPath(packageJsonDir, browserName)

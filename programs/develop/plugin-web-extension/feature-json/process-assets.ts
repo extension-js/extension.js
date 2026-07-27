@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
+import {isDebug} from '../../lib/messaging'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
 
@@ -35,7 +36,7 @@ export function processJsonAssets(
   const projectPath = getProjectPathFromCompilation(compilation, manifestPath)
   const publicDir = path.join(projectPath, 'public')
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (isDebug()) {
     const featureKeys = Object.keys(jsonFields || {})
     const criticalCount = featureKeys.filter((key) =>
       isCriticalJsonFeature(key)
@@ -144,7 +145,7 @@ export function processJsonAssets(
       }
     }
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       const entries = Array.isArray(resource)
         ? resource.length
         : resource

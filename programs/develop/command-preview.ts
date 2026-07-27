@@ -13,6 +13,7 @@ import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import * as messages from './lib/messages'
+import {isDebug} from './lib/messaging'
 import {
   computePreviewOutputPath,
   getDirs,
@@ -65,7 +66,7 @@ export async function extensionPreview(
   browserLauncher?: PreviewLauncherFn
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
-  const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
   const userManifestPath =

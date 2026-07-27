@@ -8,6 +8,7 @@
 
 import type {Readable, Writable} from 'node:stream'
 import WebSocket from 'ws'
+import {isDebug} from '../../../helpers/messaging'
 import {
   CDP_COMMAND_TIMEOUT_MS,
   CDP_HEARTBEAT_INTERVAL_MS
@@ -54,7 +55,7 @@ export class CDPClient {
   }
 
   private isDev() {
-    return process.env.EXTENSION_AUTHOR_MODE === 'true'
+    return isDebug()
   }
 
   async connect(): Promise<void> {

@@ -10,6 +10,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {DefinePlugin, type RspackPluginInstance} from '@rspack/core'
 import colors from 'pintor'
+import {isDebug} from '../../lib/messaging'
 import {
   ensureOptionalContractModuleLoaded,
   ensureOptionalContractPackageResolved
@@ -28,7 +29,7 @@ let userMessageDelivered = false
 export function isUsingVue(projectPath: string) {
   const using = hasDependency(projectPath, 'vue')
   if (using && !userMessageDelivered) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (isDebug()) {
       console.log(
         `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('Vue')}`
       )

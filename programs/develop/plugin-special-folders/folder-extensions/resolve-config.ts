@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {isGeckoBasedBrowser} from '../../lib/constants'
+import {isDebug} from '../../lib/messaging'
 import type {CompanionExtensionsConfig} from './types'
 import {
   isDir,
@@ -147,7 +148,7 @@ function findExtensionRoots(dir: string, maxDepth = 3): string[] {
 }
 
 async function runExtensionFromStore(url: string, outDir: string) {
-  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const isAuthor = isDebug()
 
   await fetchExtensionFromStore(url, {
     outDir,
