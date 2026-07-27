@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
-import {artifactNoun, type Channel, prefix} from '../lib/messaging'
+import {artifactNoun, type Channel, card, prefix} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -75,11 +75,12 @@ export function browserRunnerDisabled(args: {
   const browserLabel = capitalizeToken(String(args.browser || 'unknown'))
   const runId = String(ready?.runId || '').trim()
   const pid = Number.isInteger(ready?.pid) ? String(ready?.pid) : ''
+  // No 'n/a' row: card() drops a row whose value is empty.
   const runLabel = runId
-    ? `${colors.gray(runId)}${pid ? ` · ${colors.gray(`PID ${pid}`)}` : ''}`
+    ? `${runId}${pid ? ` · PID ${pid}` : ''}`
     : pid
-      ? colors.gray(`PID ${pid}`)
-      : colors.gray('n/a')
+      ? `PID ${pid}`
+      : ''
   const extensionName = String(manifest?.name || 'Extension')
   const extensionVersion = String(manifest?.version || '').trim()
   const extensionLabel = extensionVersion
@@ -87,14 +88,17 @@ export function browserRunnerDisabled(args: {
     : extensionName
   const extensionJsVersion = getExtensionVersion()
 
-  return [
-    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(extensionJsVersion)}`,
-    `    Browser        ${colors.gray(
-      args.browserModeLabel || `${browserLabel} (build-only mode)`
-    )}`,
-    `    Extension      ${colors.gray(extensionLabel)}`,
-    `    Run ID         ${runLabel}`
-  ].join('\n')
+  return card({
+    version: extensionJsVersion,
+    rows: [
+      {
+        label: 'Browser',
+        value: args.browserModeLabel || `${browserLabel} (build-only mode)`
+      },
+      {label: 'Extension', value: extensionLabel},
+      {label: 'Run ID', value: runLabel}
+    ]
+  })
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
