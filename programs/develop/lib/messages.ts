@@ -12,32 +12,12 @@ import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {isGeckoBasedBrowser} from './constants'
+import {fmt} from './messaging'
 import {stripBom} from './parse-json-safe'
 
-export const fmt = {
-  heading: (title: string) => colors.underline(colors.blue(title)),
-  label: (key: string) => colors.gray(key.toUpperCase()),
-  val: (value: string) => colors.underline(value),
-  code: (value: string) => colors.blue(value),
-  bullet: (value: string) => `- ${value}`,
-  block(title: string, rows: Array<[string, string]>): string {
-    const head = fmt.heading(title)
-    const body = rows
-      .map(([key, value]) => `${fmt.label(key)} ${value}`)
-      .join('\n')
-    return `${head}\n${body}`
-  },
-  truncate(input: unknown, max = 800): string {
-    const s = (() => {
-      try {
-        return typeof input === 'string' ? input : JSON.stringify(input)
-      } catch {
-        return String(input)
-      }
-    })()
-    return s.length > max ? `${s.slice(0, max)}…` : s
-  }
-}
+// Imported for local use and re-exported: consumers and snapshots read fmt
+// from this module, and the definition now lives in messaging.ts.
+export {fmt}
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
