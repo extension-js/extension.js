@@ -12,7 +12,7 @@ import {commandDescriptions} from '../helpers/messages'
 import {
   type Browser,
   installTargets,
-  validateVendorsOrExit,
+  validateVendors,
   vendors
 } from '../helpers/vendors'
 
@@ -44,10 +44,15 @@ export function registerInstallCommand(program: Command) {
         | 'all'
       const browserList = installTargets(selectedBrowser)
 
-      validateVendorsOrExit(browserList, (invalid, supported) => {
-        // eslint-disable-next-line no-console
-        console.error(messages.unsupportedBrowserFlag(invalid, supported))
-      })
+      const vendorsAreSupported = validateVendors(
+        browserList,
+        (invalid, supported) => {
+          // eslint-disable-next-line no-console
+          console.error(messages.unsupportedBrowserFlag(invalid, supported))
+        }
+      )
+
+      if (!vendorsAreSupported) process.exit(1)
 
       const {
         extensionInstall,
@@ -102,10 +107,17 @@ export function registerInstallCommand(program: Command) {
             }
           } else if (target) {
             const list = vendors(target as Browser)
-            validateVendorsOrExit(list, (invalid, supported) => {
-              // eslint-disable-next-line no-console
-              console.error(messages.unsupportedBrowserFlag(invalid, supported))
-            })
+            const vendorsAreSupported = validateVendors(
+              list,
+              (invalid, supported) => {
+                // eslint-disable-next-line no-console
+                console.error(
+                  messages.unsupportedBrowserFlag(invalid, supported)
+                )
+              }
+            )
+
+            if (!vendorsAreSupported) process.exit(1)
 
             for (const browser of list) {
               // eslint-disable-next-line no-console
