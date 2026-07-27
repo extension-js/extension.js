@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Command} from 'commander'
+import {type Command, Option} from 'commander'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -36,6 +36,7 @@ type PreviewOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  debug?: boolean
   author?: boolean
   authorMode?: boolean
 }
@@ -105,16 +106,30 @@ export function registerPreviewCommand(program: Command) {
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
     )
-    .option(
-      '--author, --author-mode',
-      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    .addOption(
+      new Option(
+        '--debug',
+        'print maintainer diagnostics alongside normal output'
+      )
+    )
+    .addOption(
+      new Option(
+        '--author, --author-mode',
+        'deprecated alias for --debug'
+      ).hideHelp()
     )
     .action(
       async (
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...previewOptions}: PreviewOptions
       ) => {
-        if (previewOptions.author || previewOptions.authorMode) {
+        if (
+          previewOptions.debug ||
+          previewOptions.author ||
+          previewOptions.authorMode
+        ) {
+          process.env.EXTENSION_DEBUG = '1'
+          // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

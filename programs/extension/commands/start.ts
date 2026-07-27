@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Command} from 'commander'
+import {type Command, Option} from 'commander'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {
   loadExtensionDevelopModule,
@@ -37,6 +37,7 @@ type StartOptions = {
   host?: string
   polyfill?: boolean | string
   install?: boolean
+  debug?: boolean
   author?: boolean
   authorMode?: boolean
   logLevel?: string
@@ -140,16 +141,30 @@ export function registerStartCommand(program: Command) {
       '--wait-format <pretty|json>',
       'output format for --wait results (default: pretty)'
     )
-    .option(
-      '--author, --author-mode',
-      '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
+    .addOption(
+      new Option(
+        '--debug',
+        'print maintainer diagnostics alongside normal output'
+      )
+    )
+    .addOption(
+      new Option(
+        '--author, --author-mode',
+        'deprecated alias for --debug'
+      ).hideHelp()
     )
     .action(
       async (
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...startOptions}: StartOptions
       ) => {
-        if (startOptions.author || startOptions.authorMode) {
+        if (
+          startOptions.debug ||
+          startOptions.author ||
+          startOptions.authorMode
+        ) {
+          process.env.EXTENSION_DEBUG = '1'
+          // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

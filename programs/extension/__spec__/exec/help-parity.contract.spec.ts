@@ -125,7 +125,10 @@ describe('CLI help parity contract', () => {
 
     for (const command of program.commands) {
       const help = command.helpInformation()
+      // Only visible options: commander renders help through visibleOptions(),
+      // so a deliberately hidden alias is absent by design, not by drift.
       for (const option of command.options) {
+        if (option.hidden) continue
         expect(help).toContain(option.long)
       }
     }
