@@ -7,24 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
-import {isDebug} from '../../lib/messaging'
+import {type Channel, isDebug, prefix} from '../../lib/messaging'
 
-function getLoggingPrefix(
-  feature: string,
-  type: 'warn' | 'info' | 'error' | 'success'
-) {
-  const isAuthor = isDebug()
-
-  if (isAuthor) {
-    const base = type === 'error' ? 'ERROR Author says' : '⏵⏵⏵ Author says'
-    return `${colors.brightMagenta(base)} ${feature}`
-  }
-
-  if (type === 'error') return `${colors.red('ERROR')} ${feature}`
-  if (type === 'warn') return `${colors.brightYellow('⏵⏵⏵')} ${feature}`
-  const arrow = type === 'info' ? colors.gray('⏵⏵⏵') : colors.green('⏵⏵⏵')
-
-  return `${arrow} ${feature}`
+function getLoggingPrefix(feature: string, type: Channel): string {
+  return `${prefix(type)} ${feature}`
 }
 
 export function serverRestartRequiredFromManifestError(

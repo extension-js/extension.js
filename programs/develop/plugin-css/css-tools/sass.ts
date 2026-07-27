@@ -9,6 +9,7 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -25,9 +26,7 @@ export function isUsingSass(projectPath: string): boolean {
   if (hasDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
-        console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('SASS')}`
-        )
+        console.log(`${prefix('debug')} ${messages.isUsingIntegration('SASS')}`)
       }
 
       userMessageDelivered = true

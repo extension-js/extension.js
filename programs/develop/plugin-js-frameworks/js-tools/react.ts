@@ -10,7 +10,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import type {RspackPluginInstance} from '@rspack/core'
 import colors from 'pintor'
-import {isDebug} from '../../lib/messaging'
+import {isDebug, prefix} from '../../lib/messaging'
 import {
   loadOptionalContractModuleWithoutInstall,
   resolveOptionalContractPackageWithoutInstall
@@ -33,7 +33,7 @@ export function isUsingReact(projectPath: string) {
     if (!userMessageDelivered) {
       if (isDebug()) {
         console.log(
-          `${colors.brightMagenta('⏵⏵⏵ Author says')} ${messages.isUsingIntegration('React')}`
+          `${prefix('debug')} ${messages.isUsingIntegration('React')}`
         )
       }
 
