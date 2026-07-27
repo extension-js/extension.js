@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 4.0.18 (July 27, 2026)
+
+<details>
+<summary>Other changes (5)</summary>
+
+- Override transitive postcss to 8.5.18 repo-wide ([b525f957](https://github.com/extension-js/extension.js/commit/b525f9574ce94affa8b68d0a8300b806c3398a95))
+- Bump postcss to 8.5.18 for the source-map path traversal fix ([826b888c](https://github.com/extension-js/extension.js/commit/826b888c3e7044082f70f596b08aca087c06ee00))
+- Hold contract bytes and drift paths steady on Windows checkouts ([7cec56b2](https://github.com/extension-js/extension.js/commit/7cec56b215c4f5b21d39a249a101096c0dd7a41e))
+- Render the compile arrow with prefix() and drop its glyph exemption ([b9a8717a](https://github.com/extension-js/extension.js/commit/b9a8717a1a53bb967b9ebc801d148315e90d17e0))
+- Migrate scripts harnesses from stdout tokens to the ready contract ([c65b332e](https://github.com/extension-js/extension.js/commit/c65b332e36392dc271787912fe8e52265a59d6e5))
+</details>
+
 ## 4.0.17 (July 27, 2026)
 
 ### Features
