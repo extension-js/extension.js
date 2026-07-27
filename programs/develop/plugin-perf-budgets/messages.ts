@@ -39,8 +39,8 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
   })
 
   const remediation =
-    'Recommended: lazy-load with dynamic import(), code-split per route, ' +
-    'or replace large SDKs with thin fetch wrappers. ' +
+    'Lazy-load with dynamic import(), code-split per route, or replace ' +
+    'large SDKs with thin fetch wrappers.\n' +
     'See https://rspack.rs/guide/optimization/code-splitting'
 
   return `${header}\n\n${lines.join('\n')}\n\n${remediation}`

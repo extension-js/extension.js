@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 export function iconsMissingFile(
   manifestField: string,
@@ -24,8 +25,8 @@ export function iconsMissingFile(
   // over, so the promise has to track the severity that ships with it.
   lines.push(
     opts?.fatal
-      ? `Browsers reject the whole extension when this file is missing. We fail the build early to protect you.`
-      : `Browsers can reject or misrender the extension when this file is missing. The build continues.`
+      ? `Browsers reject the whole extension when this file is missing.\nThe build stops here to protect you.`
+      : `Browsers can reject or misrender the extension when this file is missing.\nThe build continues.`
   )
   if (opts?.publicRootHint) {
     lines.push(
@@ -42,8 +43,9 @@ export function themeImageIsEmpty(manifestField: string, filePath: string) {
   lines.push(
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
   )
+  lines.push(`The theme image is empty (0 bytes).`)
   lines.push(
-    `The theme image is empty (0 bytes). Chrome loads the extension but drops the entire theme, so no colors or images apply.`
+    `Chrome loads the extension but drops the entire theme, so no colors or images apply.`
   )
   lines.push('')
   lines.push(`${colors.red('EMPTY FILE')} ${colors.underline(filePath)}`)
@@ -57,11 +59,8 @@ export function manifestIconsEntrypointChange(
 ) {
   const lines: string[] = []
   const fieldLabel = manifestField ? manifestField.replace(/\//g, '.') : 'icons'
-  lines.push(
-    `Entrypoint references changed in ${colors.yellow(
-      fieldLabel
-    )}. Restart the dev server to pick up changes to manifest icons.`
-  )
+  lines.push(`Entrypoint references changed in ${colors.yellow(fieldLabel)}.`)
+  lines.push(`Restart the dev server to pick up changes to manifest icons.`)
   lines.push('')
   if (pathBefore) {
     lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(pathBefore)}`)
@@ -82,16 +81,14 @@ export function iconsEmitSummary(
   }
 ) {
   return (
-    `Icons ${colors.yellow(feature)}, ` +
-    `entries ${colors.gray(String(stats.entries))}, ` +
-    `public ${colors.gray(String(stats.underPublic))}, ` +
-    `emitted ${colors.gray(String(stats.emitted))}, ` +
-    `missing ${colors.gray(String(stats.missing))}`
+    `${prefix('debug')} icons    emit feature=${feature} ` +
+    `entries=${stats.entries} public=${stats.underPublic} ` +
+    `emitted=${stats.emitted} missing=${stats.missing}`
   )
 }
 
 export function iconsDepsTracked(addedCount: number) {
-  return `Icons file dependencies tracked: ${colors.gray(String(addedCount))}`
+  return `${prefix('debug')} icons    deps=${String(addedCount)}`
 }
 
 export function iconsNormalizationSummary(
@@ -100,7 +97,7 @@ export function iconsNormalizationSummary(
   changedCount: number
 ) {
   return (
-    `Icons include normalization, keys ${colors.gray(String(beforeKeys.length))} → ${colors.gray(String(afterKeys.length))}, ` +
-    `normalized ${colors.gray(String(changedCount))}`
+    `${prefix('debug')} icons    normalize keysBefore=${beforeKeys.length} ` +
+    `keysAfter=${afterKeys.length} changed=${changedCount}`
   )
 }

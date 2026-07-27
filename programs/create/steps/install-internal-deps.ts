@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {runInstall} from '../lib/install-runner'
 import * as messages from '../lib/messages'
+import {isDebug, prefix} from '../lib/messaging'
 import {detectPackageManagerFromEnv} from '../lib/package-manager'
 
 const requireFromCreate = createRequire(import.meta.url)
@@ -273,15 +274,21 @@ async function installOptionalDependencies(
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-  logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
+  if (isDebug()) {
+    logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
+  }
+
+  // Match on the rendered prefix, not on the bare glyph: the glyph carries
+  // color escapes whenever the stream is a TTY, so a literal never matches.
+  const infoPrefix = prefix('info')
 
   for (const [index, integration] of plan.integrations.entries()) {
     const missingDeps = plan.dependenciesByIntegration[integration] || []
 
     const baseMessage = messages.installingProjectIntegrations([integration])
     const installMessage = baseMessage.replace(
-      '⏵⏵⏵ ',
-      `⏵⏵⏵ [${index + 1}/${plan.integrations.length}] `
+      infoPrefix,
+      `${infoPrefix} [${index + 1}/${plan.integrations.length}]`
     )
     logger.log(installMessage)
 

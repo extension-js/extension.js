@@ -123,7 +123,7 @@ describe('extension create', () => {
       })
     } catch (error: any) {
       expect(error).toBeTruthy()
-      expect(error.message).toContain('Project name is required')
+      expect(error.message).toContain('A project name is required')
     }
   }, 30000)
 
@@ -147,7 +147,7 @@ describe('extension create', () => {
       extensionCreate('http://example.com', {
         template: DEFAULT_TEMPLATE.name
       })
-    ).rejects.toThrow('URLs are not allowed as a project path')
+    ).rejects.toThrow('A URL is not a valid project path')
   }, 30000)
 
   const monorepoCliPath = path.resolve(

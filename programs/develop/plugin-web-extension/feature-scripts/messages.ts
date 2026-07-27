@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 export function importScriptsDependencyMissing(
   workerPath: string,
@@ -21,7 +22,7 @@ export function importScriptsDependencyMissing(
   return (
     `The background service_worker ${colors.yellow(workerPath)} calls ` +
     `importScripts(${colors.yellow(`'${literal}'`)}), but ` +
-    `${colors.yellow(expectedPath)} is not part of the output. ` +
+    `${colors.yellow(expectedPath)} is not part of the output.\n` +
     `The call will fail at runtime.\n` +
     sibling +
     `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
@@ -45,7 +46,7 @@ export function injectedFileDependencyMissing(
     `${colors.yellow(assetName)} injects ${colors.yellow(
       `'${literal}'`
     )} via executeScript/insertCSS, but ${colors.yellow(expectedPath)} is ` +
-    `not part of the output. The injection will fail at runtime.\n` +
+    `not part of the output.\nThe injection will fail at runtime.\n` +
     sibling +
     `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
       'public/'
@@ -63,7 +64,7 @@ export function fetchedFileDependencyMissing(
       `'${literal}'`
     )} at runtime (fetch/XMLHttpRequest/new URL), but ${colors.yellow(
       expectedPath
-    )} is not part of the output. The request will fail at runtime.\n` +
+    )} is not part of the output.\nThe request will fail at runtime.\n` +
     `Move the file so it resolves to ${colors.yellow(expectedPath)} (or ` +
     `serve it from ${colors.yellow('public/')}) so it ships with the extension.`
   )
@@ -78,7 +79,7 @@ export function getURLDependencyMissing(
     `${colors.yellow(assetName)} references ${colors.yellow(
       `'${literal}'`
     )} via chrome.runtime.getURL(), but ${colors.yellow(expectedPath)} is ` +
-    `not part of the output. The reference will fail at runtime.\n` +
+    `not part of the output.\nThe reference will fail at runtime.\n` +
     `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
       'public/'
     )}) so it ships with the extension.`
@@ -95,7 +96,7 @@ export function runtimeSetSurfaceDependencyMissing(
       `'${literal}'`
     )} as a runtime surface (setPopup/setOptions), but ${colors.yellow(
       expectedPath
-    )} is not part of the output. The surface will open a 404 at runtime.\n` +
+    )} is not part of the output.\nThe surface will open a 404 at runtime.\n` +
     `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
       'public/'
     )}) so it ships with the extension.`
@@ -110,7 +111,7 @@ export function staticImportDependencyMissing(
   return (
     `${colors.yellow(assetName)} (copied verbatim into the output) imports ` +
     `${colors.yellow(`'${literal}'`)}, but ${colors.yellow(expectedPath)} is ` +
-    `not part of the output. The import will fail at runtime.\n` +
+    `not part of the output.\nThe import will fail at runtime.\n` +
     `Move the file to ${colors.yellow(expectedPath)} (or ${colors.yellow(
       'public/'
     )}) so it ships with the extension.`
@@ -120,7 +121,7 @@ export function staticImportDependencyMissing(
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
   return (
-    `${colors.red('ERROR')} scripts/ is a reserved folder in Extension.js.\n` +
+    `${prefix('error')} scripts/ is a reserved folder in Extension.js.\n` +
     `Every file under ${colors.yellow('scripts/')} is wrapped with the browser ` +
     `content-script mount runtime, so Node.js-only files placed here will fail ` +
     `to parse or run.\n` +

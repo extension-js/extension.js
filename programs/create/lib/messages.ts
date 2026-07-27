@@ -8,19 +8,16 @@
 
 import * as path from 'node:path'
 import colors from 'pintor'
+import {fmt, prefix} from './messaging'
 import {resolveScaffoldPackageManager} from './package-manager'
-
-const statusPrefix = colors.brightBlue('⏵⏵⏵')
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
 
   return (
-    `${colors.red('Error')} Couldn't write to the destination directory.\n` +
-    `${colors.red(
-      'Next step: choose a writable path or update folder permissions.'
-    )}` +
-    `\n${colors.red('Path')} ${colors.underline(workingDirFolder)}`
+    `${prefix('error')} Couldn't write to the destination directory.\n` +
+    `${colors.red('Choose a writable path, or update the folder permissions.')}\n` +
+    `${fmt.label('PATH')} ${fmt.val(workingDirFolder)}`
   )
 }
 
@@ -30,33 +27,34 @@ export async function directoryHasConflicts(
 ) {
   const projectName = path.basename(projectPath)
 
-  let message = `Conflicting files found in ${colors.blue(projectName)}.\n\n`
+  // The remedy sits above the list: the first two lines are the whole message
+  // and the files below them are evidence, not instruction.
+  let message =
+    `${prefix('error')} ${colors.blue(projectName)} already contains files that would be overwritten.\n` +
+    `${colors.red('Remove or rename them, or choose a different directory name.')}\n\n`
 
   for (const file of conflictingFiles) {
     message += `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
   }
 
-  message +=
-    `\n${colors.red(
-      'Next step: remove or rename the files above, or choose a different directory name.'
-    )}` + `\n\nPath: ${colors.underline(projectPath)}`
+  message += `\n${fmt.label('PATH')} ${fmt.val(projectPath)}`
 
   return message
 }
 
 export function noProjectName() {
   return (
-    `${colors.red('Error')} Project name is required.\n` +
-    `Next step: provide a project name (for example, ${colors.blue(
-      'my-extension'
-    )}) or run ${colors.blue('--help')} for usage.`
+    `${prefix('error')} A project name is required.\n` +
+    `${colors.red('Pass a name, for example')} ${colors.blue('extension create my-extension')}.\n` +
+    `${colors.red('Run')} ${colors.blue('extension create --help')} ${colors.red('for the full usage.')}`
   )
 }
 
 export function noUrlAllowed() {
-  return `${colors.red(
-    'Error'
-  )} URLs are not allowed as a project path.\nNext step: provide a project name or a local directory path.`
+  return (
+    `${prefix('error')} A URL is not a valid project path.\n` +
+    `${colors.red('Pass a project name or a local directory path.')}`
+  )
 }
 
 export async function successfullInstall(
@@ -93,57 +91,46 @@ export async function successfullInstall(
       installCmd = 'npm install'
   }
 
-  const steps = depsInstalled
-    ? `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
-      `  2. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
-    : `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
-      `  2. ${colors.blue(installCmd)}\n` +
-      `  3. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
+  const runNote = `     ${colors.gray('Run the extension in a fresh browser profile.')}\n`
 
-  const depsNote = depsInstalled
-    ? `\n${colors.gray('Dependencies installed. You can start developing now.')}\n`
-    : '\n'
+  const steps = depsInstalled
+    ? `  1. ${colors.blue('cd')} ${fmt.val(relativePath)}\n` +
+      `  2. ${colors.blue(command)}\n` +
+      runNote
+    : `  1. ${colors.blue('cd')} ${fmt.val(relativePath)}\n` +
+      `  2. ${colors.blue(installCmd)}\n` +
+      `  3. ${colors.blue(command)}\n` +
+      runNote
 
   return (
-    `${statusPrefix} ${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
-    `Next steps:\n\n` +
-    steps +
-    depsNote
+    `${prefix('success')} ${colors.blue(projectName)} is ready.\n\n` +
+    `Next steps:\n` +
+    steps
   )
 }
 
 export function startingNewExtension(projectName: string) {
-  return `${statusPrefix} Creating ${colors.blue(projectName)}...`
-}
-
-export function checkingIfPathIsWriteable() {
-  return `${statusPrefix} Checking if the destination path is writable...`
-}
-
-export function scanningPossiblyConflictingFiles() {
-  return `${statusPrefix} Scanning for conflicting files...`
+  return `${prefix('info')} Create the extension ${colors.blue(projectName)}.`
 }
 
 export function createDirectoryError(projectName: string, error: unknown) {
-  return `${colors.red('Error')} Couldn't create directory ${colors.blue(
-    projectName
-  )}.\n${colors.red(String(error))}\n${colors.red(
-    'Next step: check the path and permissions, then try again.'
-  )}`
+  return (
+    `${prefix('error')} Couldn't create the directory ${colors.blue(projectName)}.\n` +
+    `${colors.red('Check the path and its permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function writingTypeDefinitions(projectName: string) {
-  return `${statusPrefix} Writing type definitions for ${colors.blue(
-    projectName
-  )}...`
+  return `${prefix('debug')} create types name=${projectName}`
 }
 
 export function writingTypeDefinitionsError(error: unknown) {
-  return `${colors.red(
-    'Error'
-  )} Couldn't write the extension type definitions.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check file permissions, then try again.')}`
+  return (
+    `${prefix('error')} Couldn't write the extension type definitions.\n` +
+    `${colors.red('Check the file permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function installingFromTemplate(
@@ -151,12 +138,10 @@ export function installingFromTemplate(
   templateName: string
 ) {
   if (templateName === 'init' || templateName === 'javascript') {
-    return `${statusPrefix} Installing ${colors.blue(projectName)}...`
+    return `${prefix('info')} Install ${colors.blue(projectName)}.`
   }
 
-  return `${statusPrefix} Installing ${colors.blue(
-    projectName
-  )} from template ${colors.yellow(templateName)}...`
+  return `${prefix('info')} Install ${colors.blue(projectName)} from the template ${colors.yellow(templateName)}.`
 }
 
 export function installingFromTemplateError(
@@ -164,19 +149,20 @@ export function installingFromTemplateError(
   template: string,
   error: unknown
 ) {
-  return `${colors.red('Error')} Couldn't find template ${colors.yellow(
-    template
-  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}\n${colors.red(
-    'Next step: choose a valid template name or URL.'
-  )}`
+  return (
+    `${prefix('error')} Couldn't find the template ${colors.yellow(template)}.\n` +
+    `${colors.red('Choose a template name from')} ${colors.blue('extension create --help')}${colors.red(', or pass a GitHub URL.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function templateFetchTimedOut(templateName: string, ms: number) {
   return (
-    `${colors.red('Error')} Timed out after ` +
+    `${prefix('error')} Timed out after ` +
     `${colors.yellow(`${Math.round(ms / 1000)}s`)} ` +
-    `fetching template ${colors.yellow(templateName)}.\n` +
-    `${colors.red('Next step: check your network, or set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
+    `fetching the template ${colors.yellow(templateName)}.\n` +
+    `${colors.red('Check your network connection.')}\n` +
+    `${colors.red('Set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
   )
 }
 
@@ -187,11 +173,11 @@ export function templateNotFoundInCatalog(
   error?: unknown
 ) {
   return (
-    `${colors.red('Error')} Template ${colors.yellow(templateName)} ` +
+    `${prefix('error')} The template ${colors.yellow(templateName)} ` +
     `is not in the extension-js/examples catalog.\n` +
-    (error ? `${colors.red(String(error))}\n` : '') +
-    `${colors.red('Next step: run')} ${colors.yellow('extension create --help')} ` +
-    `${colors.red('to list valid template names, or pass a GitHub URL.')}`
+    `${colors.red('Run')} ${colors.blue('extension create --help')} ${colors.red('to list the valid template names.')}\n` +
+    `${colors.red('Or pass a GitHub URL to use a template from anywhere.')}` +
+    (error ? `\n${colors.red(String(error))}` : '')
   )
 }
 
@@ -199,45 +185,43 @@ export function templateNotFoundInCatalog(
 // credential-helper hang); surface the real cause, not "choose a valid template".
 export function templateDownloadFailed(templateName: string, error: unknown) {
   return (
-    `${colors.red('Error')} Couldn't download template ${colors.yellow(
-      templateName
-    )} from ${colors.yellow('github.com/extension-js/examples')}.\n` +
-    `${colors.red(String((error as Error | undefined)?.message || error))}\n` +
-    `${colors.red('Next step: check your network (or GitHub rate limits) and try again; set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}`
+    `${prefix('error')} Couldn't download the template ${colors.yellow(templateName)} ` +
+    `from ${colors.yellow('github.com/extension-js/examples')}.\n` +
+    `${colors.red('Check your network connection and any GitHub rate limit, then try again.')}\n` +
+    `${colors.red('Set EXTENSION_CREATE_TIMEOUT_MS to allow more time.')}\n` +
+    `${colors.red(String((error as Error | undefined)?.message || error))}`
   )
 }
 
 export function initializingGitForRepository(projectName: string) {
-  return `${statusPrefix} Initializing git repository for ${colors.blue(
-    projectName
-  )}...`
+  return `${prefix('debug')} create git init name=${projectName}`
 }
 
 export function initializingGitSkipped(projectName: string, reason: string) {
-  return `${statusPrefix} Skipped git init for ${colors.blue(
-    projectName
-  )} (${colors.yellow(reason)}). Run ${colors.yellow(
-    'git init'
-  )} yourself if you want version control.`
+  return (
+    `${prefix('warn')} Skip the git init for ${colors.blue(projectName)}.\n` +
+    `${fmt.label('REASON')} ${colors.yellow(reason)}\n` +
+    `Run ${colors.yellow('git init')} yourself if you want version control.`
+  )
 }
 
 export function installingDependencies() {
-  return `${statusPrefix} Installing project-specific dependencies... ${colors.gray(
-    '(This may take a moment)'
-  )}`
+  return (
+    `${prefix('info')} Install the project dependencies.\n` +
+    `${colors.gray('This can take a moment.')}`
+  )
 }
 
 export function foundSpecializedDependencies(count: number) {
-  return `${statusPrefix} Found ${colors.yellow(
-    String(count)
-  )} specialized integration${count === 1 ? '' : 's'} needing installation...`
+  return `${prefix('debug')} create integrations count=${count}`
 }
 
 export function installingProjectIntegrations(integrations: string[]) {
   if (integrations.length === 0) {
-    return `${statusPrefix} Installing specialized dependencies for ${colors.gray(
-      'project tooling'
-    )}... ${colors.gray('(This may take a moment)')}`
+    return (
+      `${prefix('info')} Install the dependencies for the ${colors.gray('project tooling')}.\n` +
+      `${colors.gray('This can take a moment.')}`
+    )
   }
   const formatList = (items: string[]) => {
     if (items.length === 1) return items[0]
@@ -245,9 +229,10 @@ export function installingProjectIntegrations(integrations: string[]) {
     return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
   }
   const tools = formatList(integrations.map((name) => colors.yellow(name)))
-  return `${statusPrefix} Installing specialized dependencies for ${tools}... ${colors.gray(
-    '(This may take a moment)'
-  )}`
+  return (
+    `${prefix('info')} Install the dependencies for ${tools}.\n` +
+    `${colors.gray('This can take a moment.')}`
+  )
 }
 
 export function installingDependenciesFailed(
@@ -255,121 +240,119 @@ export function installingDependenciesFailed(
   gitArgs: string[],
   code: number | null
 ) {
-  return `${colors.red('Error')} Command ${colors.yellow(
-    gitCommand
-  )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
-    `Exit code: ${colors.yellow(String(code))}`
-  )}\n${colors.red('Next step: run the command manually to inspect the error.')}`
+  return (
+    `${prefix('error')} The command ${colors.yellow(gitCommand)} ${colors.yellow(gitArgs.join(' '))} ` +
+    `failed with exit code ${colors.yellow(String(code))}.\n` +
+    `${colors.red('Run it yourself to see the full error.')}`
+  )
 }
 
 export function installingDependenciesProcessError(
   projectName: string,
   error: unknown
 ) {
-  return `${colors.red(
-    'Error'
-  )} Child process failed while installing dependencies for ${colors.blue(
-    projectName
-  )}.\n${colors.red(String(error))}\n${colors.red(
-    'Next step: run the install command manually to inspect the error.'
-  )}`
+  return (
+    `${prefix('error')} The install process for ${colors.blue(projectName)} exited unexpectedly.\n` +
+    `${colors.red('Run the install command yourself to see the full error.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function cantInstallDependencies(projectName: string, error: unknown) {
-  return `${colors.red('Error')} Couldn't install dependencies for ${colors.blue(
-    projectName
-  )}.\n${colors.red(String((error as Error | undefined)?.message || error))}\n${colors.red(
-    'Next step: check your package manager settings, then try again.'
-  )}`
+  return (
+    `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
+    `${colors.red('Check your package manager settings, then try again.')}\n` +
+    `${colors.red(String((error as Error | undefined)?.message || error))}`
+  )
 }
 
 export function writingPackageJsonMetadata() {
-  return `${statusPrefix} Writing ${colors.yellow('package.json')}...`
+  return `${prefix('debug')} create write file=package.json`
 }
 
+// projectName is unused now that the path names the project; the parameter
+// stays so the exported arity holds against the message catalog snapshot.
 export function writingPackageJsonMetadataError(
   projectName: string,
   error: unknown
 ) {
-  return `${colors.red('Error')} Couldn't write ${colors.yellow(
-    'package.json'
-  )} for ${colors.blue(projectName)}.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check file permissions, then try again.')}`
+  return (
+    `${prefix('error')} Couldn't write ${colors.yellow('package.json')}.\n` +
+    `${colors.red('Check the file permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function writingDenoJsonc() {
-  return `${statusPrefix} Writing ${colors.yellow('deno.jsonc')}...`
+  return `${prefix('debug')} create write file=deno.jsonc`
 }
 
 export function writingDenoJsoncError(projectName: string, error: unknown) {
-  return `${colors.red('Error')} Couldn't write ${colors.yellow(
-    'deno.jsonc'
-  )} for ${colors.blue(projectName)}.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check file permissions, then try again.')}`
+  return (
+    `${prefix('error')} Couldn't write ${colors.yellow('deno.jsonc')}.\n` +
+    `${colors.red('Check the file permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function writingTemplateProvenance() {
-  return `${statusPrefix} Writing ${colors.yellow('.extension-create.json')}...`
+  return `${prefix('debug')} create write file=.extension-create.json`
 }
 
 export function writingTemplateProvenanceError(error: unknown) {
-  return `${colors.red('Warning')} Couldn't write ${colors.yellow(
-    '.extension-create.json'
-  )} provenance (non-fatal).\n${colors.red(String(error))}`
+  return (
+    `${prefix('warn')} Couldn't write ${colors.yellow('.extension-create.json')}.\n` +
+    `The project is fine; only the template provenance record is missing.\n` +
+    `${colors.yellow(String(error))}`
+  )
 }
 
 export function writingManifestJsonMetadata() {
-  return `${statusPrefix} Writing ${colors.yellow('manifest.json')}...`
+  return `${prefix('debug')} create write file=manifest.json`
 }
 
 export function writingManifestJsonMetadataError(
   projectName: string,
   error: unknown
 ) {
-  return `${colors.red('Error')} Couldn't write ${colors.yellow(
-    'manifest.json'
-  )} for ${colors.blue(projectName)}.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check file permissions, then try again.')}`
+  return (
+    `${prefix('error')} Couldn't write ${colors.yellow('manifest.json')}.\n` +
+    `${colors.red('Check the file permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function writingReadmeMetaData() {
-  return `${statusPrefix} Writing ${colors.yellow('README.md')}...`
+  return `${prefix('debug')} create write file=README.md`
 }
 
 export function writingGitIgnore() {
-  return `${statusPrefix} Writing ${colors.yellow('.gitignore')}...`
+  return `${prefix('debug')} create write file=.gitignore`
 }
 
 export function writingReadmeMetaDataEError(
   projectName: string,
   error: unknown
 ) {
-  return `${colors.red('Error')} Couldn't write ${colors.yellow(
-    'README.md'
-  )} for ${colors.blue(projectName)}.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check file permissions, then try again.')}`
-}
-
-export function folderExists(projectName: string) {
-  return `${statusPrefix} Ensuring ${colors.blue(projectName)} exists...`
+  return (
+    `${prefix('error')} Couldn't write ${colors.yellow('README.md')}.\n` +
+    `${colors.red('Check the file permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function writingDirectoryError(error: unknown) {
-  return `${colors.red(
-    'Error'
-  )} Couldn't check directory writability.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: check the path and permissions, then try again.')}`
+  return (
+    `${prefix('error')} Couldn't check whether the directory is writable.\n` +
+    `${colors.red('Check the path and its permissions, then try again.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function cantSetupBuiltInTests(projectName: string, error: unknown) {
-  return `${colors.red(
-    'Error'
-  )} Couldn't set up built-in tests for ${colors.yellow(projectName)}.\n${colors.red(
-    String(error)
-  )}\n${colors.red('Next step: run the setup step again or skip tests.')}`
+  return (
+    `${prefix('error')} Couldn't set up the built-in tests.\n` +
+    `${colors.red('The extension itself is fine. Re-run create, or skip the tests.')}\n` +
+    `${colors.red(String(error))}`
+  )
 }

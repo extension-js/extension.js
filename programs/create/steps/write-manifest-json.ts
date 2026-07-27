@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 
 export async function writeManifestJson(
   projectPath: string,
@@ -30,7 +31,7 @@ export async function writeManifestJson(
   }
 
   try {
-    logger.log(messages.writingManifestJsonMetadata())
+    if (isDebug()) logger.log(messages.writingManifestJsonMetadata())
     await fs.writeFile(
       manifestJsonPath,
       JSON.stringify(manifestMetadata, null, 2)

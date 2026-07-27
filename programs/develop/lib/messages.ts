@@ -11,7 +11,6 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
-import {isGeckoBasedBrowser} from './constants'
 import {artifactNoun, type Channel, fmt, prefix} from './messaging'
 import {stripBom} from './parse-json-safe'
 
@@ -37,9 +36,10 @@ export function resolvedWorkspaceManifest(
       ? path.dirname(manifestDir)
       : manifestDir
   const display = path.relative(projectPath, packageDir) || packageDir
-  return `${getLoggingPrefix('info')} ${colors.gray(
-    'Workspace root detected, resolved extension package:'
-  )} ${colors.brightBlue(display)}`
+  return (
+    `${getLoggingPrefix('info')} ${colors.gray('Workspace root detected.')}\n` +
+    `${colors.gray('PACKAGE')} ${colors.brightBlue(display)}`
+  )
 }
 
 export function remoteFetchTimedOut(target: string, ms: number) {
@@ -65,7 +65,8 @@ export function manifestInvalidJson(manifestPath: string, error: unknown) {
 
 export function notAnExtensionManifestError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest. It has no ${colors.yellow('manifest_version')} field.\n` +
+    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest.\n` +
+    `It has no ${colors.yellow('manifest_version')} field.\n` +
     `${colors.red(
       'This looks like a PWA web-app manifest. Point Extension.js at the directory that contains your extension manifest.'
     )}\n` +
@@ -112,22 +113,25 @@ export function building(browser: DevOptions['browser']): string {
   const extensionOutput = artifactNoun(String(browser))
 
   return (
-    `${getLoggingPrefix('info')} Building ${capitalizedBrowserName(browser)} ` +
-    `${extensionOutput} package...`
+    `${getLoggingPrefix('info')} Build the ${capitalizedBrowserName(browser)} ` +
+    `${extensionOutput} package.`
   )
 }
 
 export function previewing(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix('info')} Previewing the extension on ${capitalizedBrowserName(browser)}...`
+  return `${getLoggingPrefix('info')} Preview the extension on ${capitalizedBrowserName(browser)}.`
 }
 
 export function previewSkippedNoBrowser(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix('info')} Skipping browser launch for ${capitalizedBrowserName(browser)} (no-browser).`
+  return `${getLoggingPrefix('info')} Skip the browser launch for ${capitalizedBrowserName(browser)} (no-browser).`
 }
 
 // The browser accepted a dist it had refused, so the guest is running now.
 export function extensionLoadRecovered() {
-  return `${getLoggingPrefix('success')} The browser accepted the extension. It is running now.`
+  return (
+    `${getLoggingPrefix('success')} The browser accepted the extension.\n` +
+    `It is running now.`
+  )
 }
 
 // Still refused after an edit: the reason is the browser's current answer,
@@ -153,15 +157,22 @@ export function browserLaunchFailed(
 }
 
 export function authorInstallNotice(target: string) {
-  return `${getLoggingPrefix('warn')} Author mode: installing ${target}.`
+  return `${prefix('debug')} install  target=${target}`
 }
 
 export function projectInstallFallbackToNpm(pmName: string) {
-  return `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed. Retrying once with npm so the build can continue.`
+  return (
+    `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
+    `Extension.js retries once with npm so the build can continue.`
+  )
 }
 
 export function projectInstallScriptsDisabled(pmName: string) {
-  return `${getLoggingPrefix('info')} Installing project dependencies with ${pmName}. Lifecycle scripts are disabled for safety, set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
+  return (
+    `${getLoggingPrefix('info')} Install the project dependencies with ${pmName}.\n` +
+    `Lifecycle scripts are disabled for safety.\n` +
+    `Set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
+  )
 }
 
 export function buildWebpack(
@@ -194,9 +205,9 @@ export function buildWebpack(
     manifest = {name: path.basename(projectDir), version: ''}
   }
   const assets: StatsAsset[] = statsJson?.assets || []
-  const heading = `${getLoggingPrefix('info')} Building ${colors.blue(
+  const heading = `${getLoggingPrefix('info')} Build ${colors.blue(
     manifest.name
-  )} extension using ${capitalizedBrowserName(browser)} defaults...\n`
+  )} with the ${capitalizedBrowserName(browser)} defaults.\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.\n`
@@ -222,7 +233,7 @@ export function buildWebpack(
 export function buildSuccess() {
   return `${getLoggingPrefix(
     'success'
-  )} Build succeeded with no warnings. Your extension is ${colors.green(
+  )} Build succeeded with no warnings.\nYour extension is ${colors.green(
     'ready for deployment'
   )}.`
 }
@@ -382,7 +393,7 @@ function suggestedHintForWarning(category: BuildWarningCategory): string {
 export function buildSuccessWithWarnings(warningCount: number) {
   return `${getLoggingPrefix(
     'warn'
-  )} Build succeeded with ${warningCount} warning(s). Your extension is ${colors.green(
+  )} Build succeeded with ${warningCount} warning(s).\nYour extension is ${colors.green(
     'ready for deployment'
   )}.`
 }
@@ -434,7 +445,7 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
-  return fmt.block('Fetching project', [
+  return fmt.block('Fetch project', [
     ['URL', fmt.val(`https://github.com/${owner}/${project}`)]
   ])
 }
@@ -443,12 +454,12 @@ export function downloadingProjectPath(projectName: string) {
   const formatted = isPathLike(projectName)
     ? colors.underline(projectName)
     : colors.yellow(projectName)
-  return `${getLoggingPrefix('info')} Downloading ${formatted}...`
+  return `${getLoggingPrefix('info')} Download ${formatted}.`
 }
 
 export function creatingProjectPath(projectPath: string) {
   return (
-    `${getLoggingPrefix('info')} Creating a new browser extension...\n` +
+    `${getLoggingPrefix('info')} Create a new browser extension.\n` +
     `${colors.gray('PATH')} ${colors.underline(projectPath)}`
   )
 }
@@ -465,18 +476,11 @@ export function downloadedProjectFolderNotFound(
 }
 
 export function packagingSourceFiles(zipPath: string) {
-  return (
-    `${getLoggingPrefix('info')} Packaging source files. ` +
-    `Files in ${colors.yellow('.gitignore')} will be excluded...\n` +
-    `${colors.gray('PATH')} ${colors.underline(zipPath)}.`
-  )
+  return `${prefix('debug')} zip      pack=source gitignore=excluded path=${zipPath}`
 }
 
 export function packagingDistributionFiles(zipPath: string) {
-  return (
-    `${getLoggingPrefix('info')} Packaging extension distribution files...\n` +
-    `${colors.gray('PATH')} ${colors.underline(zipPath)}`
-  )
+  return `${prefix('debug')} zip      pack=dist path=${zipPath}`
 }
 
 export function treeWithSourceAndDistFiles(
@@ -486,11 +490,8 @@ export function treeWithSourceAndDistFiles(
   destZip: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.blue(
-      `${name}`
-    )}, ${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${sourceZip}`)} ${colors.gray('(source)')}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${destZip}`)} ${colors.gray('(distribution)')}`
+    `${prefix('debug')} zip      name=${name} browser=${String(browser)} ` +
+    `source=${sourceZip} dist=${destZip}`
   )
 }
 
@@ -501,9 +502,8 @@ export function treeWithDistFilesbrowser(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.blue(`${name}.${ext}`)}, ` +
-    `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} ${colors.gray('(distribution)')}`
+    `${prefix('debug')} zip      name=${name}.${ext} ` +
+    `browser=${String(browser)} dist=${zipPath}`
   )
 }
 
@@ -514,16 +514,15 @@ export function treeWithSourceFiles(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.blue(`${name}-source.${ext}`)}, ` +
-    `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} ${colors.gray('(source)')}`
+    `${prefix('debug')} zip      name=${name}-source.${ext} ` +
+    `browser=${String(browser)} source=${zipPath}`
   )
 }
 
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Writing type definitions for ${colors.blue(manifest.name || '')}...`
+    `Write the type definitions for ${colors.blue(manifest.name || '')}.`
   )
 }
 
@@ -534,12 +533,12 @@ export function writingTypeDefinitionsError(error: unknown) {
 }
 
 export function downloadingText(url: string) {
-  return fmt.block('Downloading extension', [['URL', fmt.val(url)]])
+  return fmt.block('Download extension', [['URL', fmt.val(url)]])
 }
 
 export function unpackagingExtension(zipFilePath: string) {
   return (
-    `${getLoggingPrefix('info')} Unpackaging browser extension...\n` +
+    `${getLoggingPrefix('info')} Unpackage the browser extension.\n` +
     `${colors.gray('PATH')} ${colors.underline(zipFilePath)}`
   )
 }
@@ -576,8 +575,9 @@ export function notAZipArchive(source: string, contentType?: string) {
       : '') +
     `This usually means the URL requires authentication (for example a ` +
     `Slack, Google Drive, or Dropbox file page) and returned an HTML login ` +
-    `page instead of the file. Download the ZIP through the browser and pass ` +
-    `the local path instead, or use a direct-download URL.`
+    `page instead of the file.\n` +
+    `Download the ZIP through the browser and pass the local path instead, ` +
+    `or use a direct-download URL.`
   )
 }
 
@@ -734,15 +734,11 @@ function getWarningBody(warning: LooseBuildWarning): string {
 }
 
 export function isUsingExperimentalConfig(integration: unknown) {
-  return `${getLoggingPrefix('info')} Using ${colors.yellow(String(integration))}.`
+  return `${prefix('debug')} config   using=${String(integration)}`
 }
 
 export function debugDirs(manifestDir: string, packageJsonDir: string) {
-  return (
-    `${getLoggingPrefix('info')} Directories\n` +
-    `${colors.gray('MANIFEST_DIR')} ${colors.underline(manifestDir)}\n` +
-    `${colors.gray('PACKAGE_JSON_DIR')} ${colors.underline(packageJsonDir)}`
-  )
+  return `${prefix('debug')} dirs     manifest=${manifestDir} pkg=${packageJsonDir}`
 }
 
 export function debugBrowser(
@@ -751,33 +747,29 @@ export function debugBrowser(
   geckoBinary?: string
 ) {
   return (
-    `${getLoggingPrefix('info')} Browser Target\n` +
-    `${colors.gray('BROWSER')} ${colors.yellow(String(browser))}\n` +
-    `${colors.gray('CHROMIUM_BINARY')} ${colors.underline(String(chromiumBinary || 'auto'))}\n` +
-    `${colors.gray('GECKO_BINARY')} ${colors.underline(String(geckoBinary || 'auto'))}`
+    `${prefix('debug')} browser  target=${String(browser)} ` +
+    `chromiumBinary=${String(chromiumBinary || 'auto')} ` +
+    `geckoBinary=${String(geckoBinary || 'auto')}`
   )
 }
 
 export function debugOutputPath(pathValue: string) {
-  return `${getLoggingPrefix('info')} Output Path\n${colors.gray('PATH')} ${colors.underline(pathValue)}`
+  return `${prefix('debug')} output   path=${pathValue}`
 }
 
 export function debugPreviewOutput(outputPath: string, distPath: string) {
-  return (
-    `${getLoggingPrefix('info')} Preview Output\n` +
-    `${colors.gray('OUTPUT')} ${colors.underline(outputPath)}\n` +
-    `${colors.gray('DIST')} ${colors.underline(distPath)}`
-  )
+  return `${prefix('debug')} preview  output=${outputPath} dist=${distPath}`
 }
 
 export function debugContextPath(packageJsonDir: string) {
-  return `${getLoggingPrefix('info')} Context\n${colors.gray('CONTEXT')} ${colors.underline(packageJsonDir)}`
+  return `${prefix('debug')} context  path=${packageJsonDir}`
 }
 
 export function debugExtensionsToLoad(extensions: string[]) {
-  const header = `${getLoggingPrefix('info')} Extensions To Load (${extensions.length})`
-  const list = extensions.map((e) => `- ${colors.underline(e)}`).join('\n')
-  return `${header}\n${list}`
+  return (
+    `${prefix('debug')} extensions count=${extensions.length} ` +
+    `paths=${extensions.join(',')}`
+  )
 }
 
 export function noCompanionExtensionsResolved() {
@@ -791,7 +783,8 @@ export function noCompanionExtensionsResolved() {
 
 export function configLoadingError(configPath: string, error: unknown) {
   return (
-    `${colors.red('ERROR')} ${colors.brightBlue('config load failed')}\n` +
+    `${getLoggingPrefix('error')} Could not load ${colors.brightBlue('extension.config.js')}.\n` +
+    `Fix the config file, then run the command again.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
     colors.red(fmt.truncate(error, 1200))
   )
@@ -825,7 +818,7 @@ export function managedDependencyConflict(
 ) {
   const list = duplicates.map((d) => `- ${colors.yellow(d)}`).join('\n')
   return (
-    `${getLoggingPrefix('error')} Your project declares dependencies that are managed by ${colors.blue('Extension.js')} and referenced in ${colors.underline('extension.config.js')}\n` +
+    `${getLoggingPrefix('error')} Your project declares dependencies that are managed by ${colors.blue('Extension.js')} and referenced in ${colors.underline('extension.config.js')}.\n` +
     `${colors.red('This can cause version conflicts and break the development/build process.')}\n\n` +
     `${colors.gray('Managed dependencies (remove these from your package.json):')}\n` +
     `${list}\n\n` +

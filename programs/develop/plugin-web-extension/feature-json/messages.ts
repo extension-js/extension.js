@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 export function entryNotFoundMessageOnly(
   manifestField: string,
@@ -40,8 +41,8 @@ export function jsonMissingFile(
   // the promise has to track the severity that ships with it.
   lines.push(
     opts?.fatal
-      ? `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing. We fail the build early to protect you.`
-      : `Browsers can reject or misread the extension when this file is missing. The build continues.`
+      ? `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing.\nThe build stops here to protect you.`
+      : `Browsers can reject or misread the extension when this file is missing.\nThe build continues.`
   )
 
   if (opts?.publicRootHint) {
@@ -104,18 +105,15 @@ export function jsonEmitSummary(
   }
 ) {
   return (
-    `JSON ${colors.yellow(feature)}, ` +
-    `entries ${colors.gray(String(stats.entries))}, ` +
-    `public ${colors.gray(String(stats.underPublic))}, ` +
-    `emitted ${colors.gray(String(stats.emitted))}, ` +
-    `missing ${colors.gray(String(stats.missing))}, ` +
-    `valid ${colors.gray(String(stats.validatedOk))}, ` +
-    `invalid ${colors.gray(String(stats.invalid))}`
+    `${prefix('debug')} json     emit feature=${feature} ` +
+    `entries=${stats.entries} public=${stats.underPublic} ` +
+    `emitted=${stats.emitted} missing=${stats.missing} ` +
+    `valid=${stats.validatedOk} invalid=${stats.invalid}`
   )
 }
 
 export function jsonDepsTracked(addedCount: number) {
-  return `JSON file dependencies tracked: ${colors.gray(String(addedCount))}`
+  return `${prefix('debug')} json     deps=${String(addedCount)}`
 }
 
 export function jsonIncludeSummary(
@@ -123,7 +121,7 @@ export function jsonIncludeSummary(
   criticalCount: number
 ) {
   return (
-    `JSON include summary, features ${colors.gray(String(totalFeatures))}, ` +
-    `critical ${colors.gray(String(criticalCount))}`
+    `${prefix('debug')} json     include features=${String(totalFeatures)} ` +
+    `critical=${String(criticalCount)}`
   )
 }

@@ -95,17 +95,14 @@ export async function getInstallCommand() {
 
 export async function isDirectoryWriteable(
   directory: string,
-  projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): Promise<boolean> {
   try {
-    logger.log(messages.folderExists(projectName))
-
     await fs.mkdir(directory, {recursive: true})
 
     return true
   } catch (err) {
-    logger.log(messages.writingDirectoryError(err))
+    logger.error(messages.writingDirectoryError(err))
     return false
   }
 }

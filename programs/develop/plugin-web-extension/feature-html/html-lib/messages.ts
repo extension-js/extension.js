@@ -39,7 +39,10 @@ export function javaScriptError(
     // Honest consequence: scripts are bundler entries, so the build emits an EMPTY
     // placeholder - the page loads and DevTools shows no 404.
     lines.push(
-      `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools (likely dead code). Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools (likely dead code).`
+    )
+    lines.push(
+      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
@@ -64,7 +67,10 @@ export function cssError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Chrome loads the page anyway and 404s this reference silently, likely dead code.`
+    )
+    lines.push(
+      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
@@ -91,7 +97,10 @@ export function staticAssetError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently, likely dead code. Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Chrome loads the page anyway and 404s this reference silently, likely dead code.`
+    )
+    lines.push(
+      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
   lines.push('')
@@ -147,8 +156,9 @@ export function remoteResourceWarning(
       : 'Remote styles may be blocked; prefer bundling or self-hosting.'
   const lines: string[] = []
   lines.push(
-    `Remote ${colors.yellow(label)} in ${colors.underline(errorSourcePath)}. ${cspHint}`
+    `Remote ${colors.yellow(label)} in ${colors.underline(errorSourcePath)}.`
   )
+  lines.push(cspHint)
   lines.push('')
   lines.push(`${colors.red('URL')} ${colors.underline(remoteUrl)}`)
   return lines.join('\n')
@@ -159,8 +169,9 @@ export function serverRestartRequiredFromHtml(
   absoluteHtmlPath: string
 ) {
   const lines: string[] = []
+  lines.push(`Entrypoint references changed.`)
   lines.push(
-    `Entrypoint references changed. Restart the dev server to pick up changes to ${colors.yellow('<script>')} and ${colors.yellow('<link rel="stylesheet">')} entries.`
+    `Restart the dev server to pick up changes to ${colors.yellow('<script>')} and ${colors.yellow('<link rel="stylesheet">')} entries.`
   )
   lines.push('')
   lines.push(`${colors.gray('PATH')} ${colors.underline(absoluteHtmlPath)}`)
@@ -179,7 +190,10 @@ export function manifestHtmlEntrypointChange(
   lines.push(
     `Entrypoint references changed${
       fieldLabel ? ` in ${colors.yellow(fieldLabel)}` : ''
-    }. Restart the dev server to pick up changes to manifest entrypoints.`
+    }.`
+  )
+  lines.push(
+    `Restart the dev server to pick up changes to manifest entrypoints.`
   )
   lines.push('')
   if (pathBefore) {
