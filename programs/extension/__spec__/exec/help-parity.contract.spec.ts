@@ -1,6 +1,7 @@
 import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import type {Argument} from 'commander'
 import {Command} from 'commander'
 import {describe, expect, it} from 'vitest'
 import {registerActCommands} from '../../commands/act'
@@ -14,7 +15,13 @@ import {registerPreviewCommand} from '../../commands/preview'
 import {registerPublishCommand} from '../../commands/publish'
 import {registerStartCommand} from '../../commands/start'
 import {registerTelemetryCommand} from '../../commands/telemetry'
-import {programUserHelp} from '../../helpers/messages'
+import {
+  COMMANDS,
+  type CommandName,
+  commandSpec,
+  programUserHelp,
+  registeredArgSignature
+} from '../../helpers/messages'
 
 function stripAnsi(input: string): string {
   return input.replace(/\u001b\[[0-9;]*m/g, '')
@@ -91,6 +98,68 @@ describe('CLI help parity contract', () => {
       'telemetry',
       'uninstall'
     ])
+  })
+
+  it('contract #13: COMMANDS matches every registered argument signature', () => {
+    const registered = buildProgramForInspection().commands
+
+    expect(registered.map((command) => command.name()).sort()).toEqual(
+      COMMANDS.map((spec) => spec.name)
+        .slice()
+        .sort()
+    )
+
+    for (const command of registered) {
+      const spec = commandSpec(command.name() as CommandName)
+      // Commander 15 exposes the parsed positionals, so the table can be
+      // compared against the registration instead of against another copy.
+      const actual = (command.registeredArguments as Argument[])
+        .map((argument) =>
+          argument.required ? `<${argument.name()}>` : `[${argument.name()}]`
+        )
+        .join(' ')
+
+      expect(`${command.name()} ${actual}`.trim()).toBe(
+        `${spec.name} ${registeredArgSignature(spec.positionals)}`.trim()
+      )
+      expect(command.description()).toBe(spec.description)
+    }
+  })
+
+  it('contract #14: the help block prints the generated signature', () => {
+    const help = stripAnsi(programUserHelp())
+
+    for (const spec of COMMANDS) {
+      expect(help).toContain(`- extension ${spec.name} ${spec.args}`)
+      expect(help).toContain(`  ${spec.description}`)
+    }
+  })
+
+  it('contract #15: help labels and value sets are declared, not improvised', () => {
+    const relabelled = COMMANDS.flatMap((spec) =>
+      spec.positionals
+        .filter((positional) => positional.label)
+        .map(
+          (positional) => `${spec.name}:${positional.name}->${positional.label}`
+        )
+    )
+
+    // Frozen list: these two register a name that does not describe what they
+    // accept. A third one must be fixed at the registration, not relabelled.
+    expect(relabelled).toEqual([
+      'preview:project-name->project-path|remote-url',
+      'build:project-name->project-path|remote-url'
+    ])
+
+    // Mirrors the surface allowlist the open handler enforces in act.ts.
+    expect(commandSpec('open').positionals[0].values).toEqual([
+      'popup',
+      'options',
+      'sidebar',
+      'action',
+      'command'
+    ])
+    expect(commandSpec('storage').positionals[0].values).toEqual(['get', 'set'])
   })
 
   it('contract #2: top-level defaults match runtime defaults', () => {

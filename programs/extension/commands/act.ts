@@ -12,6 +12,12 @@ import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
+import {
+  CODES,
+  ENVELOPE,
+  type EnvelopeError,
+  type ErrorCode
+} from '../helpers/messaging'
 
 export function readRecentConsole(
   projectPath: string,
@@ -110,6 +116,7 @@ interface CommonActOptions {
 
 interface RunInput {
   projectPathArg?: string
+  command: string
   op: CommandOp
   target: {context: ActContext; url?: string; tabId?: number}
   args?: Record<string, unknown>
@@ -122,19 +129,130 @@ interface RunInput {
   ) => Record<string, unknown>
 }
 
-function fail(message: string): never {
+// Bridge failures carry a class name, never a code, so the name is the only
+// stable signal that maps a failure onto the E_ table.
+function codeForBridgeError(name: string, message: string): ErrorCode {
+  if (name === 'Timeout') return CODES.E_TIMEOUT
+  if (name === 'Unavailable') return CODES.E_CONTROL_UNAVAILABLE
+  // One name covers three eval gates, so the gate copy is the discriminator.
+  if (name === 'Forbidden') {
+    return /token missing/i.test(message)
+      ? CODES.E_TOKEN_MISSING
+      : CODES.E_EVAL_REFUSED
+  }
+  if (name === 'BadRequest') return CODES.E_ARGS
+  if (name === 'Unsupported') {
+    return /needs a --tab id|no injectable frame|is not open/i.test(message)
+      ? CODES.E_TARGET_NOT_FOUND
+      : CODES.E_NOT_IMPLEMENTED
+  }
+  // The guest threw while running the op, which is a result, not a CLI fault.
+  if (name === 'EvalError') return CODES.E_EVAL
+  if (name === 'InspectError') return CODES.E_INSPECT
+  if (name === 'StorageError') return CODES.E_STORAGE
+
+  return CODES.E_INTERNAL
+}
+
+function statusForCode(code: ErrorCode): string {
+  if (code === CODES.E_TIMEOUT) return 'timeout'
+  if (code === CODES.E_SESSION_NOT_FOUND || code === CODES.E_TARGET_NOT_FOUND) {
+    return 'not-found'
+  }
+  if (
+    code === CODES.E_CONTROL_DENIED ||
+    code === CODES.E_EVAL_REFUSED ||
+    code === CODES.E_TOKEN_MISSING
+  ) {
+    return 'denied'
+  }
+  if (code === CODES.E_ARGS) return 'usage'
+
+  return 'failed'
+}
+
+/**
+ * Wrap an act frame in the schema-1 envelope without dropping a key. `value`,
+ * `truncated`, `error.name`, `error.engine`, `error.hint` and any verb
+ * augmentation (`inspect --with-console` merges `console`) are what the MCP
+ * reads today, so they keep their exact place.
+ */
+export function buildActEnvelope(
+  command: string,
+  result: ActResultLike
+): Record<string, unknown> {
+  const {ok, value, truncated, error, ...extras} = result as ActResultLike &
+    Record<string, unknown>
+  const wasTruncated = truncated === true
+
+  // Extras go first so the envelope owns its own keys while a bridge-supplied
+  // `hint` and the act augmentations keep their top-level slot.
+  if (ok) {
+    return {
+      ...extras,
+      ...ENVELOPE.ok(command, 'ok', value ?? null, {truncated: wasTruncated})
+    }
+  }
+
+  const raw = (error || {}) as Record<string, unknown>
+  const name = typeof raw.name === 'string' ? raw.name : 'Error'
+  const message =
+    typeof raw.message === 'string' ? raw.message : 'command failed'
+  const code = codeForBridgeError(name, message)
+
+  return {
+    ...extras,
+    ...ENVELOPE.fail(
+      command,
+      statusForCode(code),
+      {...raw, code, message, name} as EnvelopeError,
+      {truncated: wasTruncated}
+    )
+  }
+}
+
+// process.exit can cut a queued console.log on a pipe (#79), and this frame is
+// the last thing a machine consumer sees, so write it synchronously.
+function writeFrame(frame: unknown): void {
+  try {
+    fs.writeSync(1, `${JSON.stringify(frame)}\n`)
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(frame))
+  }
+}
+
+interface FailFrame {
+  command: string
+  code: ErrorCode
+  output?: 'pretty' | 'json'
+}
+
+function fail(message: string, frame?: FailFrame): never {
   // eslint-disable-next-line no-console
   console.error(message)
+
+  if (frame && frame.output === 'json') {
+    writeFrame(
+      ENVELOPE.fail(frame.command, statusForCode(frame.code), {
+        code: frame.code,
+        message,
+        name: 'CliError'
+      })
+    )
+  }
+
   process.exit(1)
 }
 
 function printResult(
   result: ActResultLike,
-  output: 'pretty' | 'json' | undefined
+  output: 'pretty' | 'json' | undefined,
+  command: string
 ): void {
   if (output === 'json') {
     // eslint-disable-next-line no-console
-    console.log(JSON.stringify(result))
+    console.log(JSON.stringify(buildActEnvelope(command, result)))
     return
   }
 
@@ -167,11 +285,14 @@ async function runCommand(input: RunInput): Promise<void> {
   const {BridgeController, readReadyContract, readControlToken} =
     await loadExtensionDevelopBridgeModule()
 
+  const outputFrame = {command: input.command, output: input.opts.output}
+
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     fail(
       `No active control channel found for ${browser}. ` +
-        `Run \`extension dev --browser=${browser} --allow-control\` first.`
+        `Run \`extension dev --browser=${browser} --allow-control\` first.`,
+      {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )
   }
 
@@ -188,10 +309,17 @@ async function runCommand(input: RunInput): Promise<void> {
     await controller.connect()
   } catch (err) {
     controller.close()
-    fail(
+    const message =
       (err as Error | undefined)?.message ||
-        'could not connect to the control channel'
-    )
+      'could not connect to the control channel'
+    // A 40xx close is the broker turning the controller away; anything else
+    // (handshake timeout, 1006) means the channel never came up at all.
+    fail(message, {
+      ...outputFrame,
+      code: /code 40\d\d/.test(message)
+        ? CODES.E_CONTROL_DENIED
+        : CODES.E_CONTROL_UNAVAILABLE
+    })
   }
 
   const timeoutMs = input.opts.timeout ? Number(input.opts.timeout) : 5000
@@ -205,7 +333,13 @@ async function runCommand(input: RunInput): Promise<void> {
     })
   } catch (err) {
     controller.close()
-    fail((err as Error | undefined)?.message || 'command failed')
+    const message = (err as Error | undefined)?.message || 'command failed'
+    fail(message, {
+      ...outputFrame,
+      code: /timed out/i.test(message)
+        ? CODES.E_TIMEOUT
+        : CODES.E_CONTROL_UNAVAILABLE
+    })
   } finally {
     controller.close()
   }
@@ -218,7 +352,7 @@ async function runCommand(input: RunInput): Promise<void> {
     }
   }
 
-  printResult(result, input.opts.output)
+  printResult(result, input.opts.output, input.command)
   await exitAfterDrain(result.ok ? 0 : 1)
 }
 
@@ -269,6 +403,7 @@ export function registerActCommands(program: Command): void {
     ) => {
       await runCommand({
         projectPathArg,
+        command: 'eval',
         op: 'eval',
         target: targetFrom(opts),
         args: {expression},
@@ -304,6 +439,7 @@ export function registerActCommands(program: Command): void {
       if (action === 'get') {
         await runCommand({
           projectPathArg,
+          command: 'storage',
           op: 'storage.get',
           target: targetFrom(opts),
           args: opts.key ? {area, key: opts.key} : {area},
@@ -314,7 +450,11 @@ export function registerActCommands(program: Command): void {
       }
       if (action === 'set') {
         if (!opts.key || opts.value == null) {
-          fail('storage set requires --key and --value')
+          fail('storage set requires --key and --value', {
+            command: 'storage',
+            code: CODES.E_ARGS,
+            output: opts.output
+          })
         }
 
         let parsed: unknown
@@ -326,6 +466,7 @@ export function registerActCommands(program: Command): void {
 
         await runCommand({
           projectPathArg,
+          command: 'storage',
           op: 'storage.set',
           target: targetFrom(opts),
           args: {area, items: {[opts.key as string]: parsed}},
@@ -335,7 +476,11 @@ export function registerActCommands(program: Command): void {
         return
       }
 
-      fail(`unknown storage action: ${action} (use get or set)`)
+      fail(`unknown storage action: ${action} (use get or set)`, {
+        command: 'storage',
+        code: CODES.E_ARGS,
+        output: opts.output
+      })
     }
   )
 
@@ -352,6 +497,7 @@ export function registerActCommands(program: Command): void {
   ).action(async (projectPathArg: string, opts: CommonActOptions) => {
     await runCommand({
       projectPathArg,
+      command: 'reload',
       op: 'reload',
       target: targetFrom(opts),
       opts
@@ -400,6 +546,7 @@ export function registerActCommands(program: Command): void {
       if (opts.listTabs) {
         await runCommand({
           projectPathArg,
+          command: 'inspect',
           op: 'tabs.query',
           target: {context: 'background'},
           args: {},
@@ -416,6 +563,7 @@ export function registerActCommands(program: Command): void {
       const target = targetFrom(opts, 'content')
       await runCommand({
         projectPathArg,
+        command: 'inspect',
         op: 'inspect',
         target,
         args: {
@@ -463,7 +611,8 @@ export function registerActCommands(program: Command): void {
       const allowed = ['popup', 'options', 'sidebar', 'action', 'command']
       if (!allowed.includes(surface)) {
         fail(
-          `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`
+          `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`,
+          {command: 'open', code: CODES.E_ARGS, output: opts.output}
         )
       }
       // 'action' and 'command' replay a captured event in the service worker, so
@@ -476,6 +625,7 @@ export function registerActCommands(program: Command): void {
       if (surface === 'command' && opts.name) args.name = opts.name
       await runCommand({
         projectPathArg,
+        command: 'open',
         op: 'open',
         target: {context},
         args,

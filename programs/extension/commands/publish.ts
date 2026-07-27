@@ -9,6 +9,7 @@
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the extension.dev platform MCP.
@@ -75,13 +76,43 @@ export function registerPublishCommand(program: Command) {
     .option('--build-sha <sha>', 'pin the share URL to a specific build')
     .option('--output <pretty|json>', 'output format (default pretty)')
     .action(async (_projectPathArg: string, opts: PublishOptions) => {
+      const asJson = opts.output === 'json'
+
+      // One exit path for every refusal: json gets the envelope, pretty keeps
+      // the prose it already printed.
+      const failWith = async (
+        status: string,
+        error: EnvelopeError,
+        prose: string,
+        hint?: string
+      ) => {
+        if (asJson) {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify(
+              ENVELOPE.fail('publish', status, error, hint ? {hint} : {})
+            )
+          )
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(prose)
+        }
+        await exitAfterDrain(1)
+      }
+
       let req: PublishRequest
       try {
         req = buildPublishRequest(opts)
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error((err as Error | undefined)?.message || 'publish failed')
-        process.exit(1)
+        const message =
+          (err as Error | undefined)?.message || 'publish failed: no token'
+        await failWith(
+          'denied',
+          {code: CODES.E_AUTH_REQUIRED, message},
+          message,
+          'Set EXTENSION_DEV_TOKEN or pass --token.'
+        )
+        return
       }
 
       let res: Response
@@ -92,11 +123,15 @@ export function registerPublishCommand(program: Command) {
           body: req.body
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `Could not reach ${req.url}: ${(err as Error | undefined)?.message || err}`
+        const detail = (err as Error | undefined)?.message || String(err)
+        const message = `Could not reach ${req.url}: ${detail}`
+        await failWith(
+          'failed',
+          {code: CODES.E_NETWORK, message},
+          message,
+          'Check your network, or point --api at a reachable host.'
         )
-        process.exit(1)
+        return
       }
 
       const text = await res.text()
@@ -109,16 +144,18 @@ export function registerPublishCommand(program: Command) {
       }
 
       if (!res.ok) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `publish failed (${res.status}): ${data?.message || text || 'unknown error'}`
+        const message = `publish failed (${res.status}): ${data?.message || text || 'unknown error'}`
+        await failWith(
+          'rejected',
+          {code: CODES.E_PUBLISH_REJECTED, message},
+          message
         )
-        process.exit(1)
+        return
       }
 
-      if (opts.output === 'json') {
+      if (asJson) {
         // eslint-disable-next-line no-console
-        console.log(JSON.stringify(data))
+        console.log(JSON.stringify(ENVELOPE.ok('publish', 'published', data)))
       } else {
         // eslint-disable-next-line no-console
         console.log(data.shareUrl || JSON.stringify(data))

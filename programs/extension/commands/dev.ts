@@ -16,6 +16,7 @@ import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-confi
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -28,7 +29,7 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {parseWaitFormat, runWaitMode} from './dev-wait'
+import {describeWaitError, parseWaitFormat, runWaitMode} from './dev-wait'
 
 type DevOptions = {
   browser?: Browser | 'all'
@@ -53,9 +54,37 @@ type DevOptions = {
   allowControl?: boolean
   allowEval?: boolean
   parentPid?: string | number
+  output?: 'pretty' | 'json'
   debug?: boolean
   author?: boolean
   authorMode?: boolean
+}
+
+function printFrame(frame: unknown): void {
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(frame))
+}
+
+// Under --output json a bare exit leaves stdout empty, so a machine consumer
+// reads exit 1 and has nothing to explain it. Print the frame before exiting.
+function failAndExit(
+  asJson: boolean,
+  status: string,
+  error: {code: ErrorCode; message: string},
+  hint?: string
+): never {
+  if (asJson) {
+    printFrame(ENVELOPE.fail('dev', status, error, hint ? {hint} : {}))
+  }
+  process.exit(1)
+}
+
+// The dev server can move off a busy port after this frame is emitted, so this
+// is the requested port. ready.json carries the port it actually bound.
+function resolveRequestedPort(value: unknown): number {
+  const parsed =
+    typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 8080
 }
 
 export function registerDevCommand(program: Command) {
@@ -167,6 +196,10 @@ export function registerDevCommand(program: Command) {
       '--wait-format <pretty|json>',
       'output format for --wait results (default: pretty)'
     )
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .addOption(
       new Option(
         '--debug',
@@ -204,31 +237,40 @@ export function registerDevCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
+        const asJson = devOptions.output === 'json'
+
         if (devOptions.parentPid !== undefined) {
           const parentPid = parseParentPid(devOptions.parentPid)
           if (parentPid === undefined) {
+            const message = `--parent-pid expects a positive integer pid, got: ${devOptions.parentPid}`
             // eslint-disable-next-line no-console
-            console.error(
-              messages.unhandledError(
-                `--parent-pid expects a positive integer pid, got: ${devOptions.parentPid}`
-              )
-            )
-            process.exit(1)
+            console.error(messages.unhandledError(message))
+            failAndExit(asJson, 'usage', {
+              code: CODES.E_INVALID_OPTION,
+              message
+            })
           }
           setupParentWatchdog(parentPid)
         }
 
         const list = vendors(browser)
+        let unsupportedBrowser = ''
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
+            unsupportedBrowser = invalid
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
         )
 
-        if (!vendorsAreSupported) process.exit(1)
+        if (!vendorsAreSupported) {
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_UNSUPPORTED_BROWSER,
+            message: `Unsupported browser: ${unsupportedBrowser}`
+          })
+        }
 
         // Safari-only options are rejected for other targets so typos don't
         // silently no-op; a malformed bundle id fails before any build.
@@ -246,19 +288,22 @@ export function registerDevCommand(program: Command) {
         ].filter(([, value]) => value !== undefined && value !== false)
 
         if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
+          const flags = safariOnlyFlags.map(([flag]) => flag as string)
           // eslint-disable-next-line no-console
-          console.error(
-            messages.safariOnlyOption(
-              safariOnlyFlags.map(([flag]) => flag as string)
-            )
-          )
-          process.exit(1)
+          console.error(messages.safariOnlyOption(flags))
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: `${flags.join(', ')} apply to safari targets only.`
+          })
         }
 
         if (opts.bundleId && !isValidBundleId(opts.bundleId)) {
           // eslint-disable-next-line no-console
           console.error(messages.safariInvalidBundleId(opts.bundleId))
-          process.exit(1)
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: `--bundle-id expects a reverse-DNS identifier, got: ${opts.bundleId}`
+          })
         }
 
         // Safari: fail fast on a missing toolchain BEFORE the bundle; dev repackages
@@ -269,11 +314,18 @@ export function registerDevCommand(program: Command) {
           if (issue) {
             // eslint-disable-next-line no-console
             console.error(issue)
-            process.exit(1)
+            failAndExit(asJson, 'failed', {
+              code: CODES.E_SAFARI_TOOLCHAIN,
+              message: String(issue)
+            })
           }
         }
 
         if (devOptions.wait) {
+          // --output json implies a json wait frame, so a caller never has to
+          // pass both flags to get one machine-readable stdout.
+          const waitAsJson =
+            asJson || parseWaitFormat(devOptions.waitFormat) === 'json'
           let waitResult: Awaited<ReturnType<typeof runWaitMode>>
 
           try {
@@ -287,31 +339,26 @@ export function registerDevCommand(program: Command) {
           } catch (error) {
             // A throw here used to leave stdout empty, so a machine consumer
             // saw exit 1 and no frame explaining it.
-            if (parseWaitFormat(devOptions.waitFormat) === 'json') {
-              // eslint-disable-next-line no-console
-              console.log(
-                JSON.stringify({
-                  ok: false,
-                  mode: 'wait',
-                  command: 'dev',
-                  browsers: list,
-                  results: [],
-                  error: {
-                    message:
-                      error instanceof Error ? error.message : String(error)
-                  }
-                })
+            if (waitAsJson) {
+              const failure = describeWaitError(error)
+              printFrame(
+                ENVELOPE.fail(
+                  'dev',
+                  failure.status,
+                  {code: failure.code, message: failure.message},
+                  {hint: failure.hint}
+                )
               )
             }
 
             throw error
           }
 
-          if (waitResult.format === 'json') {
-            // eslint-disable-next-line no-console
-            console.log(
-              JSON.stringify({
-                ok: true,
+          if (waitAsJson) {
+            // mode/command/browsers/results are the pre-envelope wait frame,
+            // kept whole inside value so no consumer loses a field.
+            printFrame(
+              ENVELOPE.ok('dev', 'ready', {
                 mode: 'wait',
                 command: 'dev',
                 browsers: waitResult.browsers,
@@ -322,8 +369,26 @@ export function registerDevCommand(program: Command) {
           return
         }
 
-        const {extensionDev} = await loadExtensionDevelopModule()
         const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
+
+        // dev never terminates, so json mode gets one startup frame now rather
+        // than a result frame that would only arrive when the session dies.
+        if (asJson) {
+          printFrame(
+            ENVELOPE.ok('dev', 'started', {
+              projectPath: pathOrRemoteUrl || process.cwd(),
+              browser: list[0],
+              browsers: list,
+              port: resolveRequestedPort(
+                (devOptions as unknown as {port?: string | number}).port
+              ),
+              pid: process.pid,
+              noBrowser
+            })
+          )
+        }
+
+        const {extensionDev} = await loadExtensionDevelopModule()
 
         for (const vendor of list) {
           const logsOption = (devOptions as unknown as {logs?: string}).logs
@@ -388,7 +453,25 @@ export function registerDevCommand(program: Command) {
 
           // extensionDev returns a BuildEmitter from the BrowsersPlugin.
           // Browser launch/reload is handled internally by the plugin.
-          await extensionDev(pathOrRemoteUrl, devArgs)
+          try {
+            await extensionDev(pathOrRemoteUrl, devArgs)
+          } catch (error) {
+            if (!asJson) throw error
+
+            printFrame(
+              ENVELOPE.fail(
+                'dev',
+                'failed',
+                {
+                  code: CODES.E_INTERNAL,
+                  message:
+                    error instanceof Error ? error.message : String(error)
+                },
+                {hint: 'Fix the error above and run dev again.'}
+              )
+            )
+            process.exit(1)
+          }
         }
       }
     )

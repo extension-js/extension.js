@@ -218,6 +218,9 @@ export function registerBuildCommand(program: Command) {
 
         const {extensionBuild} = await loadExtensionDevelopModule()
         const asJson = buildOptions.output === 'json'
+        // Tells develop to route human lines to stderr, so stdout carries
+        // only the envelope and stays parseable as one JSON document.
+        if (asJson) process.env.EXTENSION_OUTPUT = 'json'
         const built: string[] = []
 
         for (const vendor of list) {

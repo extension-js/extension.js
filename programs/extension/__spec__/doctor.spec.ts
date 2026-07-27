@@ -278,7 +278,7 @@ describe('extension doctor', () => {
 })
 
 describe('extension doctor (command surface)', () => {
-  it('prints json results and exits 0 on a healthy session', async () => {
+  it('emits a healthy schema-1 envelope and exits 0 on a healthy session', async () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
@@ -293,8 +293,109 @@ describe('extension doctor (command surface)', () => {
         'json'
       ])
       expect(code).toBe(0)
-      const results = JSON.parse(String(logSpy.mock.calls[0][0]))
-      expect(results.every((r: any) => r.status === 'pass')).toBe(true)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame).toMatchObject({
+        schema: 1,
+        ok: true,
+        command: 'doctor',
+        status: 'healthy',
+        error: null,
+        warnings: []
+      })
+      expect(frame.value.every((r: any) => r.status === 'pass')).toBe(true)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('emits an unhealthy envelope that still carries the checks and exits 1', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({readReadyContract: () => null})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(1)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame.schema).toBe(1)
+      expect(frame.ok).toBe(false)
+      expect(frame.status).toBe('unhealthy')
+      expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
+      // A failure frame carrying a payload: the check list IS the diagnosis,
+      // and it must survive ENVELOPE.fail rather than be nulled out.
+      expect(frame.value.map((r: any) => r.check)).toEqual(ALL_CHECKS)
+      expect(frame.hint).toContain('extension dev')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('maps each failing check to its own code rather than one bucket', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    // eval-token is the first failure here, so it, not ready-contract, names
+    // the frame.
+    StubController.readyFrame = {capabilities: {eval: true, storage: true}}
+    state.mod = healthyModule({readControlToken: () => null})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(1)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame.error.code).toBe('E_TOKEN_MISSING')
+      expect(frame.error.code).not.toBe('E_DOCTOR_CHECKS_FAILED')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('emits a failure envelope when the doctor run itself throws', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({
+      readReadyContract: () => {
+        throw new Error('contract unreadable')
+      }
+    })
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(1)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame).toMatchObject({
+        schema: 1,
+        ok: false,
+        command: 'doctor',
+        status: 'failed',
+        value: null
+      })
+      expect(frame.error.code).toBe('E_INTERNAL')
+      expect(frame.error.message).toContain('contract unreadable')
     } finally {
       vi.restoreAllMocks()
     }

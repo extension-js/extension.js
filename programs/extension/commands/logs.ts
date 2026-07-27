@@ -9,9 +9,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
-import {ENVELOPE} from '../helpers/messaging'
+import {CODES, ENVELOPE} from '../helpers/messaging'
 
 type LogsOptions = {
   browser?: string
@@ -149,6 +150,19 @@ function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
   )
 }
 
+// D7 keeps log records in their own encoding; only a terminating frame is an
+// envelope. process.exit can cut a queued console.log on a pipe (#79), so the
+// frame is written synchronously, which is safe here because both failure
+// paths bail out before a single record has been printed.
+function writeFrame(frame: unknown): void {
+  try {
+    fs.writeSync(1, `${JSON.stringify(frame)}\n`)
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(frame))
+  }
+}
+
 function logsFilePath(projectPath: string, browser: string): string {
   return path.resolve(
     projectPath,
@@ -206,11 +220,22 @@ export function registerLogsCommand(program: Command) {
       // One-shot: read the logs.ndjson file directly (no control channel needed).
       const file = logsFilePath(projectPath, browser)
       if (!fs.existsSync(file)) {
-        // eslint-disable-next-line no-console
-        console.error(
+        const message =
           `No logs found at ${file}. Start a dev session (extension dev) first, ` +
-            `or pass --browser to match it.`
-        )
+          `or pass --browser to match it.`
+        // eslint-disable-next-line no-console
+        console.error(message)
+
+        if (format !== 'pretty') {
+          writeFrame(
+            ENVELOPE.fail('logs', 'not-found', {
+              code: CODES.E_LOGS_NOT_FOUND,
+              message,
+              name: 'CliError'
+            })
+          )
+        }
+
         process.exit(1)
       }
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
@@ -237,11 +262,22 @@ async function followLogs(
 
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
-    // eslint-disable-next-line no-console
-    console.error(
+    const message =
       `No active dev session control channel found for ${browser}. ` +
-        `Run \`extension dev --browser=${browser}\` first.`
-    )
+      `Run \`extension dev --browser=${browser}\` first.`
+    // eslint-disable-next-line no-console
+    console.error(message)
+
+    if (format !== 'pretty') {
+      writeFrame(
+        ENVELOPE.fail('logs', 'not-found', {
+          code: CODES.E_SESSION_NOT_FOUND,
+          message,
+          name: 'CliError'
+        })
+      )
+    }
+
     process.exit(1)
   }
 
@@ -266,6 +302,8 @@ async function followLogs(
     consumer.close()
 
     if (format !== 'pretty') {
+      // console.log, not writeFrame: records already streamed through stdout,
+      // and a synchronous write would jump the queue and land before them.
       // eslint-disable-next-line no-console
       console.log(
         JSON.stringify(
@@ -274,7 +312,7 @@ async function followLogs(
       )
     }
 
-    process.exit(0)
+    void exitAfterDrain(0)
   }
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))

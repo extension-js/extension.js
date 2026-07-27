@@ -14,6 +14,7 @@ import {
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -25,7 +26,7 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {parseWaitFormat, runWaitMode} from './dev-wait'
+import {describeWaitError, parseWaitFormat, runWaitMode} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -50,6 +51,34 @@ type StartOptions = {
   wait?: boolean
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
+  output?: 'pretty' | 'json'
+}
+
+function printFrame(frame: unknown): void {
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(frame))
+}
+
+// Under --output json a bare exit leaves stdout empty, so a machine consumer
+// reads exit 1 and has nothing to explain it. Print the frame before exiting.
+function failAndExit(
+  asJson: boolean,
+  status: string,
+  error: {code: ErrorCode; message: string},
+  hint?: string
+): never {
+  if (asJson) {
+    printFrame(ENVELOPE.fail('start', status, error, hint ? {hint} : {}))
+  }
+  process.exit(1)
+}
+
+// The preview server can move off a busy port after this frame is emitted, so
+// this is the requested port. ready.json carries the port it actually bound.
+function resolveRequestedPort(value: unknown): number {
+  const parsed =
+    typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 8080
 }
 
 export function registerStartCommand(program: Command) {
@@ -141,6 +170,10 @@ export function registerStartCommand(program: Command) {
       '--wait-format <pretty|json>',
       'output format for --wait results (default: pretty)'
     )
+    .option(
+      '--output <pretty|json>',
+      'result format. Use json for a schema-1 envelope on stdout'
+    )
     .addOption(
       new Option(
         '--debug',
@@ -170,24 +203,39 @@ export function registerStartCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
+        const asJson = startOptions.output === 'json'
         const list = vendors(browser)
+        let unsupportedBrowser = ''
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
+            unsupportedBrowser = invalid
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
         )
 
-        if (!vendorsAreSupported) process.exit(1)
+        if (!vendorsAreSupported) {
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_UNSUPPORTED_BROWSER,
+            message: `Unsupported browser: ${unsupportedBrowser}`
+          })
+        }
 
         if (list.some(isSafariVendor)) {
           console.error(messages.safariCommandNotSupported('start'))
-          process.exit(1)
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_UNSUPPORTED_BROWSER,
+            message: 'Safari targets are not supported by start.'
+          })
         }
 
         if (startOptions.wait) {
+          // --output json implies a json wait frame, so a caller never has to
+          // pass both flags to get one machine-readable stdout.
+          const waitAsJson =
+            asJson || parseWaitFormat(startOptions.waitFormat) === 'json'
           let waitResult: Awaited<ReturnType<typeof runWaitMode>>
 
           try {
@@ -201,31 +249,26 @@ export function registerStartCommand(program: Command) {
           } catch (error) {
             // A throw here used to leave stdout empty, so a machine consumer
             // saw exit 1 and no frame explaining it.
-            if (parseWaitFormat(startOptions.waitFormat) === 'json') {
-              // eslint-disable-next-line no-console
-              console.log(
-                JSON.stringify({
-                  ok: false,
-                  mode: 'wait',
-                  command: 'start',
-                  browsers: list,
-                  results: [],
-                  error: {
-                    message:
-                      error instanceof Error ? error.message : String(error)
-                  }
-                })
+            if (waitAsJson) {
+              const failure = describeWaitError(error)
+              printFrame(
+                ENVELOPE.fail(
+                  'start',
+                  failure.status,
+                  {code: failure.code, message: failure.message},
+                  {hint: failure.hint}
+                )
               )
             }
 
             throw error
           }
 
-          if (waitResult.format === 'json') {
-            // eslint-disable-next-line no-console
-            console.log(
-              JSON.stringify({
-                ok: true,
+          if (waitAsJson) {
+            // mode/command/browsers/results are the pre-envelope wait frame,
+            // kept whole inside value so no consumer loses a field.
+            printFrame(
+              ENVELOPE.ok('start', 'ready', {
                 mode: 'wait',
                 command: 'start',
                 browsers: waitResult.browsers,
@@ -234,6 +277,21 @@ export function registerStartCommand(program: Command) {
             )
           }
           return
+        }
+
+        // start keeps running behind the launched browser, so json mode gets one
+        // startup frame now rather than a result frame at session end.
+        if (asJson) {
+          printFrame(
+            ENVELOPE.ok('start', 'started', {
+              projectPath: pathOrRemoteUrl || process.cwd(),
+              browser: list[0],
+              browsers: list,
+              port: resolveRequestedPort(startOptions.port),
+              pid: process.pid,
+              noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1'
+            })
+          )
         }
 
         const {extensionBuild} = await loadExtensionDevelopModule()
@@ -247,18 +305,38 @@ export function registerStartCommand(program: Command) {
           const logContexts = parseLogContexts(logContextOption)
           const logLevel = logsOption || startOptions.logLevel || 'off'
 
-          await extensionBuild(pathOrRemoteUrl, {
-            browser: vendor as StartOptions['browser'],
-            // CLI surface: a failed build ends this process with the clean
-            // error line. Library imports of extensionBuild reject instead.
-            exitOnError: true,
-            // The build-phase receipt should name the command the user ran.
-            metadataCommand: 'start',
-            polyfill: startOptions.polyfill?.toString() !== 'false',
-            install: startOptions.install,
-            extensions: parseExtensionsList(startOptions.extensions),
-            silent: true
-          })
+          try {
+            await extensionBuild(pathOrRemoteUrl, {
+              browser: vendor as StartOptions['browser'],
+              // CLI surface: a failed build ends this process with the clean
+              // error line. Library imports of extensionBuild reject instead.
+              // Under --output json we catch instead, so the failure can be
+              // reported as one envelope rather than a bare exit code.
+              exitOnError: !asJson,
+              // The build-phase receipt should name the command the user ran.
+              metadataCommand: 'start',
+              polyfill: startOptions.polyfill?.toString() !== 'false',
+              install: startOptions.install,
+              extensions: parseExtensionsList(startOptions.extensions),
+              silent: true
+            })
+          } catch (error) {
+            if (!asJson) throw error
+
+            printFrame(
+              ENVELOPE.fail(
+                'start',
+                'build-failed',
+                {
+                  code: CODES.E_COMPILE,
+                  message:
+                    error instanceof Error ? error.message : String(error)
+                },
+                {hint: 'Fix the error above and run start again.'}
+              )
+            )
+            process.exit(1)
+          }
 
           const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
           if (noBrowser) {
