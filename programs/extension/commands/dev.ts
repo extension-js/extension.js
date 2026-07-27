@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Command} from 'commander'
+import {type Command, Option} from 'commander'
 import {launchBrowser} from '../browsers'
 import {
   packageSafariExtension,
@@ -53,6 +53,7 @@ type DevOptions = {
   allowControl?: boolean
   allowEval?: boolean
   parentPid?: string | number
+  debug?: boolean
   author?: boolean
   authorMode?: boolean
 }
@@ -166,9 +167,17 @@ export function registerDevCommand(program: Command) {
       '--wait-format <pretty|json>',
       'output format for --wait results (default: pretty)'
     )
-    .option(
-      '--author, --author-mode',
-      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    .addOption(
+      new Option(
+        '--debug',
+        'print maintainer diagnostics alongside normal output'
+      )
+    )
+    .addOption(
+      new Option(
+        '--author, --author-mode',
+        'deprecated alias for --debug'
+      ).hideHelp()
     )
     .option(
       '--allow-control',
@@ -187,7 +196,9 @@ export function registerDevCommand(program: Command) {
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...devOptions}: DevOptions
       ) => {
-        if (devOptions.author || devOptions.authorMode) {
+        if (devOptions.debug || devOptions.author || devOptions.authorMode) {
+          process.env.EXTENSION_DEBUG = '1'
+          // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'

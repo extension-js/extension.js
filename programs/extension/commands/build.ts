@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Command} from 'commander'
+import {type Command, Option} from 'commander'
 import {
   packageSafariExtension,
   safariBuildPreflight
@@ -38,6 +38,7 @@ type BuildOptions = {
   appName?: string
   bundleId?: string
   forceRegenerate?: boolean
+  debug?: boolean
   author?: boolean
   authorMode?: boolean
 }
@@ -107,16 +108,30 @@ export function registerBuildCommand(program: Command) {
       '--force-regenerate',
       'regenerate the Safari Xcode project even when up to date (safari targets only)'
     )
-    .option(
-      '--author, --author-mode',
-      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    .addOption(
+      new Option(
+        '--debug',
+        'print maintainer diagnostics alongside normal output'
+      )
+    )
+    .addOption(
+      new Option(
+        '--author, --author-mode',
+        'deprecated alias for --debug'
+      ).hideHelp()
     )
     .action(
       async (
         pathOrRemoteUrl: string,
         {browser = 'chromium', ...buildOptions}: BuildOptions
       ) => {
-        if (buildOptions.author || buildOptions.authorMode) {
+        if (
+          buildOptions.debug ||
+          buildOptions.author ||
+          buildOptions.authorMode
+        ) {
+          process.env.EXTENSION_DEBUG = '1'
+          // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
           if (!process.env.EXTENSION_VERBOSE)
             process.env.EXTENSION_VERBOSE = '1'
