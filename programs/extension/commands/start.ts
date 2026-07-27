@@ -19,6 +19,7 @@ import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {resolveOutputFormat} from '../helpers/output-flag'
 import {
   type Browser,
   isSafariVendor,
@@ -26,7 +27,7 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {describeWaitError, parseWaitFormat, runWaitMode} from './dev-wait'
+import {describeWaitError, runWaitMode} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -89,7 +90,7 @@ export function registerStartCommand(program: Command) {
     .description(commandDescriptions.start)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit; pair with --output json for machine output\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -167,12 +168,13 @@ export function registerStartCommand(program: Command) {
       'timeout in milliseconds when using --wait (default: 60000)'
     )
     .option(
-      '--wait-format <pretty|json>',
-      'output format for --wait results (default: pretty)'
-    )
-    .option(
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
+    )
+    .addOption(
+      // Deprecated alias of --output. Hidden so --help advertises one name;
+      // resolveOutputFormat still honors it and warns once on stderr.
+      new Option('--wait-format <pretty|json>').hideHelp()
     )
     .addOption(
       new Option(
@@ -203,7 +205,7 @@ export function registerStartCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
-        const asJson = startOptions.output === 'json'
+        const asJson = resolveOutputFormat(startOptions) === 'json'
         const list = vendors(browser)
         let unsupportedBrowser = ''
 
@@ -232,10 +234,9 @@ export function registerStartCommand(program: Command) {
         }
 
         if (startOptions.wait) {
-          // --output json implies a json wait frame, so a caller never has to
-          // pass both flags to get one machine-readable stdout.
-          const waitAsJson =
-            asJson || parseWaitFormat(startOptions.waitFormat) === 'json'
+          // The deprecated --wait-format alias already mapped onto --output in
+          // resolveOutputFormat, so one flag decides the whole stdout dialect.
+          const waitAsJson = asJson
           let waitResult: Awaited<ReturnType<typeof runWaitMode>>
 
           try {
@@ -244,7 +245,7 @@ export function registerStartCommand(program: Command) {
               pathOrRemoteUrl,
               browsers: list,
               waitTimeout: startOptions.waitTimeout,
-              waitFormat: startOptions.waitFormat
+              waitFormat: waitAsJson ? 'json' : 'pretty'
             })
           } catch (error) {
             // A throw here used to leave stdout empty, so a machine consumer

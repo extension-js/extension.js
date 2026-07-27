@@ -173,12 +173,6 @@ describe('webpack/command-dev', () => {
     const localErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {})
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      // @ts-expect-error
-      .mockImplementation(() => {
-        throw new Error('exit 1')
-      })
 
     ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
       throw new Error(
@@ -188,17 +182,16 @@ describe('webpack/command-dev', () => {
 
     await expect(
       extensionDev('/proj', {browser: 'chrome'} as any)
-    ).rejects.toThrow('exit 1')
+    ).rejects.toThrow(/Missing tsconfig\.json/)
 
     expect(localErrorSpy).toHaveBeenCalledTimes(1)
     const printed = localErrorSpy.mock.calls[0][0]
     expect(typeof printed).toBe('string')
     expect(printed).toMatch(/Missing tsconfig\.json/)
     expect(printed).not.toMatch(/\n\s+at /)
-    exitSpy.mockRestore()
   })
 
-  it('exits process(1) on unexpected error', async () => {
+  it('rejects on failure so the CLI wrapper can frame or exit it', async () => {
     const exitSpy = vi
       .spyOn(process, 'exit')
       // @ts-expect-error
@@ -210,9 +203,12 @@ describe('webpack/command-dev', () => {
       throw new Error('boom')
     })
 
+    // Library contract: no exitOnError means reject, never process.exit; the
+    // CLI wrapper opts into exiting on its pretty path.
     await expect(
       extensionDev('/proj', {browser: 'firefox'} as any)
-    ).rejects.toThrow('exit 1')
+    ).rejects.toThrow('boom')
+    expect(exitSpy).not.toHaveBeenCalled()
     exitSpy.mockRestore()
   })
 })

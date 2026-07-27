@@ -755,6 +755,13 @@ export function removedNoRunnerFlag() {
   )
 }
 
+export function deprecatedOutputAlias(flag: string) {
+  return (
+    `${getLoggingPrefix('warn')} ${code(flag)} is deprecated and maps to ${code('--output')}.\n` +
+    `Pass ${code('--output')} ${arg('<pretty|json>')} instead.`
+  )
+}
+
 export function noBrowserNotSupportedForCommand(command?: string) {
   return (
     `${getLoggingPrefix('error')} ${code(

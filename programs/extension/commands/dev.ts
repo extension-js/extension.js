@@ -21,6 +21,7 @@ import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
 import {
   type Browser,
@@ -29,7 +30,7 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {describeWaitError, parseWaitFormat, runWaitMode} from './dev-wait'
+import {describeWaitError, runWaitMode} from './dev-wait'
 
 type DevOptions = {
   browser?: Browser | 'all'
@@ -95,7 +96,7 @@ export function registerDevCommand(program: Command) {
     .description(commandDescriptions.dev)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --no-reload     emit a dev-mode dist without the content-script reload runtime; tabs need manual reload to see changes\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --no-reload     emit a dev-mode dist without the content-script reload runtime; tabs need manual reload to see changes\n  --wait          wait for ready contract and exit; pair with --output json for machine output\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -193,12 +194,13 @@ export function registerDevCommand(program: Command) {
       'timeout in milliseconds when using --wait (default: 60000)'
     )
     .option(
-      '--wait-format <pretty|json>',
-      'output format for --wait results (default: pretty)'
-    )
-    .option(
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
+    )
+    .addOption(
+      // Deprecated alias of --output. Hidden so --help advertises one name;
+      // resolveOutputFormat still honors it and warns once on stderr.
+      new Option('--wait-format <pretty|json>').hideHelp()
     )
     .addOption(
       new Option(
@@ -237,7 +239,7 @@ export function registerDevCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
-        const asJson = devOptions.output === 'json'
+        const asJson = resolveOutputFormat(devOptions) === 'json'
 
         if (devOptions.parentPid !== undefined) {
           const parentPid = parseParentPid(devOptions.parentPid)
@@ -322,10 +324,9 @@ export function registerDevCommand(program: Command) {
         }
 
         if (devOptions.wait) {
-          // --output json implies a json wait frame, so a caller never has to
-          // pass both flags to get one machine-readable stdout.
-          const waitAsJson =
-            asJson || parseWaitFormat(devOptions.waitFormat) === 'json'
+          // The deprecated --wait-format alias already mapped onto --output in
+          // resolveOutputFormat, so one flag decides the whole stdout dialect.
+          const waitAsJson = asJson
           let waitResult: Awaited<ReturnType<typeof runWaitMode>>
 
           try {
@@ -334,7 +335,7 @@ export function registerDevCommand(program: Command) {
               pathOrRemoteUrl,
               browsers: list,
               waitTimeout: devOptions.waitTimeout,
-              waitFormat: devOptions.waitFormat
+              waitFormat: waitAsJson ? 'json' : 'pretty'
             })
           } catch (error) {
             // A throw here used to leave stdout empty, so a machine consumer
@@ -403,6 +404,9 @@ export function registerDevCommand(program: Command) {
 
           const devArgs: Record<string, unknown> = {
             ...devOptions,
+            // Under --output json the wrapper catches and frames the failure;
+            // extensionDev must reject instead of exiting for that to happen.
+            exitOnError: !asJson,
             profile:
               devOptions.profile === false || devOptions.profile === 'false'
                 ? false
@@ -458,12 +462,20 @@ export function registerDevCommand(program: Command) {
           } catch (error) {
             if (!asJson) throw error
 
+            // A producer that tagged its failure keeps its code; anything
+            // untagged is an internal fault rather than a known class.
+            const tagged = (error as {code?: unknown} | null)?.code
+            const code =
+              typeof tagged === 'string' && tagged in CODES
+                ? (tagged as ErrorCode)
+                : CODES.E_INTERNAL
+
             printFrame(
               ENVELOPE.fail(
                 'dev',
                 'failed',
                 {
-                  code: CODES.E_INTERNAL,
+                  code,
                   message:
                     error instanceof Error ? error.message : String(error)
                 },

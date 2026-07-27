@@ -224,6 +224,9 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
+  // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
+  // this); defaults to false: as a library, a failure is a rejected promise.
+  exitOnError?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']

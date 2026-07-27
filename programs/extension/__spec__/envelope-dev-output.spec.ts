@@ -181,4 +181,68 @@ describe('extension dev --output json', () => {
     expect(await run(['dev', '.', '--wait', '--wait-format', 'json'])).toBe(0)
     expect(frames()[0]).toMatchObject({schema: 1, status: 'ready'})
   })
+
+  it('lets --output win over a contradicting --wait-format alias', async () => {
+    expect(
+      await run([
+        'dev',
+        '.',
+        '--wait',
+        '--output',
+        'pretty',
+        '--wait-format',
+        'json'
+      ])
+    ).toBe(0)
+    expect(logSpy).not.toHaveBeenCalled()
+  })
+
+  it('frames a runtime failure instead of dying with a bare exit', async () => {
+    extensionDev.mockRejectedValueOnce(
+      Object.assign(new Error('dev server start failed'), {
+        code: 'E_DEV_SERVER_START'
+      })
+    )
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+
+    const emitted = frames()
+    // Frame 1 is the startup frame; the failure closes the stream.
+    expect(emitted[0]).toMatchObject({ok: true, status: 'started'})
+    expect(emitted[1]).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'dev',
+      status: 'failed',
+      value: null,
+      error: {
+        code: CODES.E_DEV_SERVER_START,
+        message: 'dev server start failed'
+      }
+    })
+    expect(typeof emitted[1].hint).toBe('string')
+  })
+
+  it('asks extensionDev to reject under json and to exit under pretty', async () => {
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+    expect((extensionDev.mock.calls[0] as unknown[])?.[1]).toMatchObject({
+      exitOnError: false
+    })
+
+    extensionDev.mockClear()
+    expect(await run(['dev', '.'])).toBe(0)
+    expect((extensionDev.mock.calls[0] as unknown[])?.[1]).toMatchObject({
+      exitOnError: true
+    })
+  })
+
+  it('maps an untagged runtime failure to E_INTERNAL', async () => {
+    extensionDev.mockRejectedValueOnce(new Error('boom'))
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()[1]).toMatchObject({
+      ok: false,
+      status: 'failed',
+      error: {code: CODES.E_INTERNAL, message: 'boom'}
+    })
+  })
 })
