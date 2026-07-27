@@ -61,6 +61,12 @@ jobs:
       - name: Check prose
         run: pnpm check:prose
 
+      # The messaging standard: line prefixes, brand spelling, ellipsis, and
+      # the imperative voice of every command description. Pure Node over
+      # string literals, so it needs no build. See docs/MESSAGING.md.
+      - name: Check messaging standard
+        run: pnpm check:messaging
+
       - name: Typecheck
         run: pnpm typecheck
 
