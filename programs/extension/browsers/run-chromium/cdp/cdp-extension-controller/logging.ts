@@ -6,7 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {isDebug} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {
@@ -85,14 +84,8 @@ export function registerAutoEnableLogging(
           })
         }
       }
-    } catch (error: unknown) {
-      if (isDebug()) {
-        console.warn(
-          messages.cdpProtocolEventHandlerError(
-            String((error as Error)?.message || error)
-          )
-        )
-      }
+    } catch {
+      // Ignore
     }
   })
 }
