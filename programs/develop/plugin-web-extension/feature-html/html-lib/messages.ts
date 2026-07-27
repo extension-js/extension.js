@@ -67,7 +67,7 @@ export function cssError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently, likely dead code.`
+      `Chrome loads the page anyway and 404s this reference silently, so it is likely dead code.`
     )
     lines.push(
       `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
@@ -97,7 +97,7 @@ export function staticAssetError(
   }
   if (opts?.deadRefHint) {
     lines.push(
-      `Chrome loads the page anyway and 404s this reference silently, likely dead code.`
+      `Chrome loads the page anyway and 404s this reference silently, so it is likely dead code.`
     )
     lines.push(
       `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
@@ -152,8 +152,8 @@ export function remoteResourceWarning(
   const label = kind === 'script' ? '<script>' : '<link>'
   const cspHint =
     kind === 'script'
-      ? 'Remote scripts are blocked by MV3 CSP; bundle or self-host instead.'
-      : 'Remote styles may be blocked; prefer bundling or self-hosting.'
+      ? 'Remote scripts are blocked by the MV3 CSP.\nBundle the script or self-host it instead.'
+      : 'Remote styles can be blocked by the CSP.\nBundle the stylesheet or self-host it instead.'
   const lines: string[] = []
   lines.push(
     `Remote ${colors.yellow(label)} in ${colors.underline(errorSourcePath)}.`

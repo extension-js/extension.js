@@ -24,10 +24,12 @@ export function warFieldError(
     lines.push(
       `The file ${colors.yellow(opts.relativeRef)} defined in ${colors.yellow(
         'web_accessible_resources'
-      )} was not found`
+      )} was not found.`
     )
   } else {
-    lines.push(`${colors.yellow('web_accessible_resources')}: file not found`)
+    lines.push(
+      `A file listed in ${colors.yellow('web_accessible_resources')} was not found.`
+    )
   }
 
   lines.push(
@@ -44,7 +46,7 @@ export function warFieldError(
     lines.push(`These resolve from the built extension root.`)
     lines.push('')
     lines.push(
-      `Fix: Add the file to ${colors.yellow('public/')} or update the path to a root-absolute location.`
+      `Add the file to ${colors.yellow('public/')}, or update the path to a root-absolute location.`
     )
   } else if (opts?.sourceSibling) {
     lines.push(
@@ -52,7 +54,7 @@ export function warFieldError(
     )
     lines.push('')
     lines.push(
-      `Fix: Import the file from a script so it gets bundled, or move a prebuilt copy to ${colors.yellow('public/')} and reference it with a leading '/'.`
+      `Import the file from a script so it gets bundled, or move a prebuilt copy to ${colors.yellow('public/')} and reference it with a leading '/'.`
     )
   } else {
     lines.push(
@@ -60,7 +62,7 @@ export function warFieldError(
     )
     lines.push('')
     lines.push(
-      `Fix: Create the missing file or update the path to an existing source file.`
+      `Create the missing file, or update the path to an existing source file.`
     )
   }
 
@@ -86,7 +88,7 @@ export function warStringEntryInMv3(entry: string) {
   )
   lines.push('')
   lines.push(
-    `Fix: Wrap it like ${colors.yellow(`{"resources": ["${entry}"], "matches": ["<all_urls>"]}`)} with the matches your pages need.`
+    `Wrap it like ${colors.yellow(`{"resources": ["${entry}"], "matches": ["<all_urls>"]}`)} with the matches your pages need.`
   )
   lines.push('')
   lines.push(`${colors.red('INVALID MV3 ENTRY')} ${colors.underline(entry)}`)
