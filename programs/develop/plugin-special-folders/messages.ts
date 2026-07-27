@@ -19,7 +19,8 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   // downstream tooling matches on, so a restart notice read as a failed build.
   return (
     `${prefix('warn')} ${addingOrRemoving} ${colors.yellow(typeOfAsset)} in ` +
-    `${colors.underline(`${folder}/`)} needs a dev server restart to apply.`
+    `${colors.underline(`${folder}/`)} changes the extension entrypoints.\n` +
+    `Restart the dev server to apply the change.`
   )
 }
 
