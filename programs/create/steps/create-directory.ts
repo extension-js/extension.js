@@ -23,11 +23,8 @@ export async function createDirectory(
   try {
     const isCurrentDirWriteable = await utils.isDirectoryWriteable(
       projectPath,
-      projectName,
       logger
     )
-
-    logger.log(messages.checkingIfPathIsWriteable())
 
     if (!isCurrentDirWriteable) {
       logger.error(messages.destinationNotWriteable(projectPath))
@@ -35,8 +32,6 @@ export async function createDirectory(
     }
 
     const currentDir = await fs.readdir(projectPath)
-
-    logger.log(messages.scanningPossiblyConflictingFiles())
 
     const conflictingFiles = await Promise.all(
       currentDir

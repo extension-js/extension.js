@@ -10,6 +10,7 @@ import {readFileSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
 export async function resolveExtensionBinary(): Promise<string> {
@@ -225,7 +226,7 @@ export async function overridePackageJson(
   }
 
   try {
-    logger.log(messages.writingPackageJsonMetadata())
+    if (isDebug()) logger.log(messages.writingPackageJsonMetadata())
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
       `${JSON.stringify(packageMetadata, null, 2)}\n`

@@ -7,28 +7,31 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {prefix} from '../../lib/messaging'
 
 export function installingRootDependencies(integration: string) {
   return (
-    `${colors.gray('⏵⏵⏵')} ${integration} dependencies are being installed. ` +
-    `This only happens for core contributors...`
+    `${prefix('info')} Install the ${integration} dependencies.\n` +
+    `This only happens for core contributors.`
   )
 }
 
 export function integrationInstalledSuccessfully(integration: string) {
-  return `${colors.green('⏵⏵⏵')} ${integration} dependencies installed successfully.`
+  return `${prefix('success')} ${integration} dependencies are installed.`
 }
 
+// The caller owns the prefix here: every call site already wraps this in a
+// debug line, so a glyph inside the string would print twice.
 export function isUsingIntegration(name: string) {
-  return `${colors.gray('⏵⏵⏵')} Using ${colors.brightBlue(name)}...`
+  return `integration use=${name}`
 }
 
 export function youAreAllSet(name: string) {
-  return `${colors.green('⏵⏵⏵')} ${name} installation completed.`
+  return `${prefix('success')} ${name} is installed.`
 }
 
 export function creatingTSConfig() {
-  return `${colors.gray('⏵⏵⏵')} Creating default tsconfig.json...`
+  return `${prefix('info')} Create a default tsconfig.json.`
 }
 
 export function failedToInstallIntegration(
@@ -36,22 +39,23 @@ export function failedToInstallIntegration(
   error: unknown
 ) {
   return (
-    `${colors.red('ERROR')} ${colors.brightBlue(integration)} Installation Error\n` +
-    `${colors.red('Failed to detect package manager or install dependencies.')}\n` +
+    `${prefix('error')} Could not install the ${colors.brightBlue(integration)} dependencies.\n` +
+    `${colors.red('Extension.js could not detect a package manager.')}\n` +
+    `Install the dependencies by hand, then run the command again.\n` +
     `${colors.red(String(error ?? ''))}`
   )
 }
 
 export function isUsingCustomLoader(loaderPath: string) {
-  return `${colors.gray('⏵⏵⏵')} Using custom loader: ${colors.yellow(loaderPath)}.`
+  return `${prefix('debug')} loader   custom=${loaderPath}`
 }
 
 export function jsFrameworksIntegrationsEnabled(integrations: string[]) {
-  const list =
-    integrations.length > 0
-      ? integrations.map((n) => colors.yellow(n)).join(', ')
-      : colors.gray('none')
-  return `${colors.gray('⏵⏵⏵')} JS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
+  const names = integrations.length > 0 ? integrations.join(',') : 'none'
+  return (
+    `${prefix('debug')} js       integrations=${integrations.length} ` +
+    `names=${names}`
+  )
 }
 
 export function jsFrameworksConfigsDetected(
@@ -59,22 +63,18 @@ export function jsFrameworksConfigsDetected(
   tsRoot?: string,
   targets?: string[]
 ) {
-  const fmt = (v?: string) => (v ? colors.underline(v) : colors.gray('none'))
-  const tgt = targets?.length
-    ? targets.map((t) => colors.gray(t)).join(', ')
-    : colors.gray('default')
+  const val = (v?: string) => v || 'none'
+  const tgt = targets?.length ? targets.join(',') : 'default'
   return (
-    `${colors.gray('⏵⏵⏵')} JS: Configs\n` +
-    `${colors.gray('TSCONFIG')} ${fmt(tsConfigPath)}\n` +
-    `${colors.gray('TSROOT')} ${fmt(tsRoot)}\n` +
-    `${colors.gray('SWC_TARGETS')} ${tgt}`
+    `${prefix('debug')} js       config tsconfig=${val(tsConfigPath)} ` +
+    `tsRoot=${val(tsRoot)} swcTargets="${tgt}"`
   )
 }
 
 export function jsFrameworksHmrSummary(enabled: boolean, frameworks: string[]) {
-  const list =
-    frameworks.length > 0
-      ? frameworks.map((n) => colors.yellow(n)).join(', ')
-      : colors.gray('none')
-  return `${colors.gray('⏵⏵⏵')} JS: HMR ${enabled ? colors.green('enabled') : colors.gray('disabled')} for ${list}`
+  const names = frameworks.length > 0 ? frameworks.join(',') : 'none'
+  return (
+    `${prefix('debug')} js       hmr=${enabled ? 'enabled' : 'disabled'} ` +
+    `frameworks=${names}`
+  )
 }

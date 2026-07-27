@@ -9,6 +9,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
 import {
   getTemplateAwareScripts,
@@ -145,7 +146,7 @@ export async function writeDenoJsonc(
     : undefined
 
   try {
-    logger.log(messages.writingDenoJsonc())
+    if (isDebug()) logger.log(messages.writingDenoJsonc())
     await fs.writeFile(
       path.join(projectPath, 'deno.jsonc'),
       renderDenoJsonc(tasks, imports)

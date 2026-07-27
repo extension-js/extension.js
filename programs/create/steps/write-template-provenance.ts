@@ -10,6 +10,7 @@ import {readFileSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import type {TemplateProvenance} from './import-external-template'
 
 // A scaffold drops this so the project records exactly which template corpus it
@@ -51,7 +52,7 @@ export async function writeTemplateProvenance(
   if (!provenance?.template) return
   const record = buildProvenanceRecord(provenance)
   try {
-    logger.log(messages.writingTemplateProvenance())
+    if (isDebug()) logger.log(messages.writingTemplateProvenance())
     await fs.writeFile(
       path.join(projectPath, TEMPLATE_PROVENANCE_FILE),
       `${JSON.stringify(record, null, 2)}\n`

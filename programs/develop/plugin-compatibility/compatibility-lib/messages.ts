@@ -18,16 +18,14 @@ const code = (text: string) => colors.blue(text)
 
 export function webextensionPolyfillNotFound() {
   return (
-    `${getLoggingPrefix('warn')} webextension-polyfill not found.\n` +
-    `Install it to enable the browser API polyfill:\n` +
-    `${code('npm install webextension-polyfill')}`
+    `${getLoggingPrefix('warn')} webextension-polyfill is not installed.\n` +
+    `The browser API polyfill is disabled for this build.\n` +
+    `Install it with ${code('npm install webextension-polyfill')}.`
   )
 }
 
-function capitalizedBrowserName(browser: DevOptions['browser']) {
-  const b = String(browser || '')
-  const cap = b.charAt(0).toUpperCase() + b.slice(1)
-  return colors.yellow(`${cap}`)
+function browserKey(browser: DevOptions['browser']) {
+  return String(browser || 'unknown')
 }
 
 export function compatibilityPolyfillEnabled(
@@ -35,8 +33,8 @@ export function compatibilityPolyfillEnabled(
   polyfillPath: string
 ) {
   return (
-    `${colors.gray('⏵⏵⏵')} Compatibility: Polyfill enabled for ${capitalizedBrowserName(browser)}\n` +
-    `${colors.gray('ALIAS')} ${colors.underline(polyfillPath)}`
+    `${prefix('debug')} compat   polyfill=enabled browser=${browserKey(browser)} ` +
+    `alias=${polyfillPath}`
   )
 }
 
@@ -44,9 +42,12 @@ export function compatibilityPolyfillSkipped(
   reason: string,
   browser: DevOptions['browser']
 ) {
-  return `${colors.gray('⏵⏵⏵')} Compatibility: Polyfill ${colors.gray('skipped')} for ${capitalizedBrowserName(browser)} (${colors.gray(reason)})`
+  return (
+    `${prefix('debug')} compat   polyfill=skipped ` +
+    `browser=${browserKey(browser)} reason="${reason}"`
+  )
 }
 
 export function compatibilityPolyfillDisabled(browser: DevOptions['browser']) {
-  return `${colors.gray('⏵⏵⏵')} Compatibility: Polyfill ${colors.gray('disabled')} for ${capitalizedBrowserName(browser)}`
+  return `${prefix('debug')} compat   polyfill=disabled browser=${browserKey(browser)}`
 }

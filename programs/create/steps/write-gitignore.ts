@@ -9,6 +9,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 
 const globalDependencies = ['', '# dependencies', 'node_modules']
 const globalTesting = ['', '# testing', 'coverage']
@@ -82,7 +83,7 @@ export async function writeGitignore(
     return
   }
 
-  logger.log(messages.writingGitIgnore())
+  if (isDebug()) logger.log(messages.writingGitIgnore())
 
   const shouldPrefixWithNewline =
     currentContents.length > 0 && !currentContents.endsWith('\n')

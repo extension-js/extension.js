@@ -8,6 +8,7 @@
 
 import {spawn} from 'cross-spawn'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 
 export async function initializeGitRepository(
   projectPath: string,
@@ -17,7 +18,7 @@ export async function initializeGitRepository(
   const gitCommand = 'git'
   const gitArgs = ['init', '--quiet']
 
-  logger.log(messages.initializingGitForRepository(projectName))
+  if (isDebug()) logger.log(messages.initializingGitForRepository(projectName))
 
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'

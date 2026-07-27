@@ -8,8 +8,7 @@
 
 import colors from 'pintor'
 import type {InstallBrowserTarget} from './browser-target'
-
-const statusPrefix = colors.brightBlue('⏵⏵⏵')
+import {fmt, prefix} from './messaging'
 
 function titleCase(value: string): string {
   return value.length ? value[0].toUpperCase() + value.slice(1) : value
@@ -19,14 +18,20 @@ export function installingBrowser(
   browser: InstallBrowserTarget,
   destination: string
 ): string {
-  return `${statusPrefix} Installing ${colors.blue(titleCase(browser))} into ${colors.underline(destination)}...`
+  return (
+    `${prefix('info')} Install ${colors.blue(titleCase(browser))}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(destination)}`
+  )
 }
 
 export function installSucceeded(
   browser: InstallBrowserTarget,
   destination: string
 ): string {
-  return `${statusPrefix} ${colors.green('Installed')} ${colors.blue(titleCase(browser))} in ${colors.underline(destination)}`
+  return (
+    `${prefix('success')} ${colors.blue(titleCase(browser))} is installed.\n` +
+    `${fmt.label('PATH')} ${fmt.val(destination)}`
+  )
 }
 
 export function installFailed(
@@ -39,52 +44,67 @@ export function installFailed(
   const details = String(stderr || '').trim()
   const detailSuffix = details ? `\n${colors.red(details)}` : ''
   return (
-    `${colors.red('Error')} Failed to install ${colors.blue(titleCase(browser))}.\n` +
-    `Command: ${colors.yellow(command)} ${colors.yellow(args.join(' '))}\n` +
-    `Exit code: ${colors.yellow(String(code))}` +
+    `${prefix('error')} Couldn't install ${colors.blue(titleCase(browser))}.\n` +
+    `${colors.red('The command')} ${colors.yellow(command)} ${colors.yellow(args.join(' '))} ` +
+    `${colors.red(`failed with exit code ${colors.yellow(String(code))}`)}${colors.red('.')}\n` +
+    `${colors.red('Run it yourself to see the full error.')}` +
     detailSuffix
   )
 }
 
 export function edgeInstallNeedsInteractivePrivilegedSession(): string {
   return (
-    `${colors.red('Error')} Edge installation on Linux requires a privileged interactive session.\n` +
-    `Run this command in a terminal session where sudo can prompt for credentials, or install Edge system-wide with your package manager.\n` +
-    `Examples:\n` +
-    `- Ubuntu/Debian: ${colors.blue('sudo apt install microsoft-edge-stable')}\n` +
-    `- Fedora: ${colors.blue('sudo dnf install microsoft-edge-stable')}\n` +
-    `Then run Extension.js with ${colors.blue('--browser=edge')} (or use ${colors.blue('chromium')} when privileged install is unavailable).`
+    `${prefix('error')} Edge needs a privileged interactive session on Linux.\n` +
+    `${colors.red('Run this command in a terminal where sudo can prompt for credentials.')}\n` +
+    `${colors.red('Or install Edge system-wide with your package manager.')}\n` +
+    `  ${colors.gray('-')} Ubuntu/Debian: ${colors.blue('sudo apt install microsoft-edge-stable')}\n` +
+    `  ${colors.gray('-')} Fedora: ${colors.blue('sudo dnf install microsoft-edge-stable')}\n` +
+    `${colors.red('Then run Extension.js with')} ${colors.blue('--browser=edge')}${colors.red('.')}\n` +
+    `${colors.red('Use')} ${colors.blue('--browser=chromium')} ${colors.red('when a privileged install is unavailable.')}`
   )
 }
 
 export function edgeInstallUsingSystemBinary(path: string): string {
   return (
-    `${statusPrefix} ${colors.yellow('Edge channel install was skipped due privilege requirements.')}\n` +
-    `${statusPrefix} Using existing system Edge binary at ${colors.underline(path)}.`
+    `${prefix('warn')} Skip the Edge channel install because it needs elevated privileges.\n` +
+    `${colors.yellow('Use the Edge binary already on this system instead.')}\n` +
+    `${fmt.label('PATH')} ${fmt.val(path)}`
   )
 }
 
 export function uninstallRequiresTarget(): string {
-  return `${colors.red('Error')} Missing browser target. Use --browser <name> or --all.`
+  return (
+    `${prefix('error')} A browser target is required.\n` +
+    `${colors.red('Pass')} ${colors.blue('--browser <name>')}${colors.red(', or')} ${colors.blue('--all')} ${colors.red('to remove every browser.')}`
+  )
 }
 
 export function uninstallingBrowsers(
   cacheRoot: string,
   browsers: InstallBrowserTarget[]
 ): string {
-  return `${statusPrefix} Removing browser binaries (${browsers.join(', ')}) from ${colors.underline(cacheRoot)}...`
+  return (
+    `${prefix('info')} Remove the browser binaries for ${colors.blue(browsers.join(', '))}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(cacheRoot)}`
+  )
 }
 
 export function uninstallSucceeded(
   browser: InstallBrowserTarget,
   removedPath: string
 ): string {
-  return `${statusPrefix} ${colors.green('Removed')} ${colors.blue(titleCase(browser))} from ${colors.underline(removedPath)}`
+  return (
+    `${prefix('success')} ${colors.blue(titleCase(browser))} is removed.\n` +
+    `${fmt.label('PATH')} ${fmt.val(removedPath)}`
+  )
 }
 
 export function uninstallNoop(
   browser: InstallBrowserTarget,
   checkedPath: string
 ): string {
-  return `${statusPrefix} ${colors.gray(`${titleCase(browser)} is already absent`)} (${colors.underline(checkedPath)})`
+  return (
+    `${prefix('info')} ${colors.blue(titleCase(browser))} is already absent.\n` +
+    `${fmt.label('PATH')} ${fmt.val(checkedPath)}`
+  )
 }

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 
 export async function generateExtensionTypes(
   projectPath: string,
@@ -33,7 +34,7 @@ export async function generateExtensionTypes(
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
-    logger.log(messages.writingTypeDefinitions(projectName))
+    if (isDebug()) logger.log(messages.writingTypeDefinitions(projectName))
 
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error) {

@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {findManifestJsonPath} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
+import {isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
 import * as utils from '../lib/utils'
 
@@ -90,7 +91,7 @@ export async function writeReadmeFile(
     `[Extension.js docs](https://extension.js.org).\n`
 
   try {
-    logger.log(messages.writingReadmeMetaData())
+    if (isDebug()) logger.log(messages.writingReadmeMetaData())
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error) {
