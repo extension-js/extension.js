@@ -22,10 +22,10 @@ import {
   type Browser,
   isSafariVendor,
   parseOptionalBoolean,
-  validateVendorsOrExit,
+  validateVendors,
   vendors
 } from '../helpers/vendors'
-import {runWaitMode} from './dev-wait'
+import {parseWaitFormat, runWaitMode} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -157,10 +157,15 @@ export function registerStartCommand(program: Command) {
 
         const list = vendors(browser)
 
-        validateVendorsOrExit(list, (invalid, supported) => {
-          // eslint-disable-next-line no-console
-          console.error(messages.unsupportedBrowserFlag(invalid, supported))
-        })
+        const vendorsAreSupported = validateVendors(
+          list,
+          (invalid, supported) => {
+            // eslint-disable-next-line no-console
+            console.error(messages.unsupportedBrowserFlag(invalid, supported))
+          }
+        )
+
+        if (!vendorsAreSupported) process.exit(1)
 
         if (list.some(isSafariVendor)) {
           console.error(messages.safariCommandNotSupported('start'))
@@ -168,13 +173,38 @@ export function registerStartCommand(program: Command) {
         }
 
         if (startOptions.wait) {
-          const waitResult = await runWaitMode({
-            command: 'start',
-            pathOrRemoteUrl,
-            browsers: list,
-            waitTimeout: startOptions.waitTimeout,
-            waitFormat: startOptions.waitFormat
-          })
+          let waitResult: Awaited<ReturnType<typeof runWaitMode>>
+
+          try {
+            waitResult = await runWaitMode({
+              command: 'start',
+              pathOrRemoteUrl,
+              browsers: list,
+              waitTimeout: startOptions.waitTimeout,
+              waitFormat: startOptions.waitFormat
+            })
+          } catch (error) {
+            // A throw here used to leave stdout empty, so a machine consumer
+            // saw exit 1 and no frame explaining it.
+            if (parseWaitFormat(startOptions.waitFormat) === 'json') {
+              // eslint-disable-next-line no-console
+              console.log(
+                JSON.stringify({
+                  ok: false,
+                  mode: 'wait',
+                  command: 'start',
+                  browsers: list,
+                  results: [],
+                  error: {
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  }
+                })
+              )
+            }
+
+            throw error
+          }
 
           if (waitResult.format === 'json') {
             // eslint-disable-next-line no-console

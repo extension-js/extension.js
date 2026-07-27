@@ -71,7 +71,9 @@ function parseWaitTimeoutMs(value?: string | number): number {
   return fallback
 }
 
-function parseWaitFormat(value?: string): WaitFormat {
+// Exported so a caller can resolve the format before runWaitMode runs, and
+// still report a machine-readable frame when it throws.
+export function parseWaitFormat(value?: string): WaitFormat {
   return value === 'json' ? 'json' : 'pretty'
 }
 

@@ -20,7 +20,7 @@ import {
   type Browser,
   isSafariVendor,
   parseOptionalBoolean,
-  validateVendorsOrExit,
+  validateVendors,
   vendors
 } from '../helpers/vendors'
 
@@ -124,10 +124,15 @@ export function registerBuildCommand(program: Command) {
 
         const list = vendors(browser)
 
-        validateVendorsOrExit(list, (invalid, supported) => {
-          // eslint-disable-next-line no-console
-          console.error(messages.unsupportedBrowserFlag(invalid, supported))
-        })
+        const vendorsAreSupported = validateVendors(
+          list,
+          (invalid, supported) => {
+            // eslint-disable-next-line no-console
+            console.error(messages.unsupportedBrowserFlag(invalid, supported))
+          }
+        )
+
+        if (!vendorsAreSupported) process.exit(1)
 
         // Validate --mode upfront so users get a clear error rather than a
         // silent fall-through to the production default.

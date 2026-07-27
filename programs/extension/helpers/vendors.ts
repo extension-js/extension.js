@@ -42,10 +42,12 @@ export const installTargets = (browser?: Browser | 'all') => {
     : vendors(browser)
 }
 
-export function validateVendorsOrExit(
+// Reports validity instead of exiting: a shared helper that calls
+// process.exit leaves the caller no way to wrap the failure in its own output.
+export function validateVendors(
   vendorsList: string[],
   onInvalid: (invalid: string, supported: string[]) => void
-) {
+): boolean {
   const supported = [
     'chrome',
     'edge',
@@ -66,7 +68,9 @@ export function validateVendorsOrExit(
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
       onInvalid(v, supported)
-      process.exit(1)
+      return false
     }
   }
+
+  return true
 }

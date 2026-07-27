@@ -18,7 +18,7 @@ import {
 import {
   type Browser,
   isSafariVendor,
-  validateVendorsOrExit,
+  validateVendors,
   vendors
 } from '../helpers/vendors'
 
@@ -122,10 +122,15 @@ export function registerPreviewCommand(program: Command) {
 
         const list = vendors(browser)
 
-        validateVendorsOrExit(list, (invalid, supported) => {
-          // eslint-disable-next-line no-console
-          console.error(messages.unsupportedBrowserFlag(invalid, supported))
-        })
+        const vendorsAreSupported = validateVendors(
+          list,
+          (invalid, supported) => {
+            // eslint-disable-next-line no-console
+            console.error(messages.unsupportedBrowserFlag(invalid, supported))
+          }
+        )
+
+        if (!vendorsAreSupported) process.exit(1)
 
         if (list.some(isSafariVendor)) {
           console.error(messages.safariCommandNotSupported('preview'))
