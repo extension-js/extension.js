@@ -56,7 +56,8 @@ export function remoteFetchTimedOut(target: string, ms: number) {
 export function manifestInvalidJson(manifestPath: string, error: unknown) {
   const detail = error instanceof Error ? error.message : String(error)
   return (
-    `${getLoggingPrefix('error')} Could not parse manifest.json. It is not valid JSON.\n` +
+    `${getLoggingPrefix('error')} Could not parse manifest.json.\n` +
+    `It is not valid JSON.\n` +
     `${colors.red('Fix the syntax error and try again.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
     `${colors.red(detail)}`
@@ -67,8 +68,9 @@ export function notAnExtensionManifestError(manifestPath: string) {
   return (
     `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest.\n` +
     `It has no ${colors.yellow('manifest_version')} field.\n` +
+    `${colors.red('This looks like a PWA web-app manifest.')}\n` +
     `${colors.red(
-      'This looks like a PWA web-app manifest. Point Extension.js at the directory that contains your extension manifest.'
+      'Point Extension.js at the directory that contains your extension manifest.'
     )}\n` +
     `${colors.gray('PATH')} ${colors.underline(manifestPath)}`
   )
@@ -527,9 +529,11 @@ export function writingTypeDefinitions(manifest: Manifest) {
 }
 
 export function writingTypeDefinitionsError(error: unknown) {
-  return `${getLoggingPrefix(
-    'error'
-  )} Failed to write the extension type definition.\n${colors.red(String(error))}`
+  return (
+    `${getLoggingPrefix('error')} Failed to write the extension type definition.\n` +
+    `Check the file permissions, then try again.\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function downloadingText(url: string) {
@@ -552,7 +556,9 @@ export function unpackagedSuccessfully() {
 export function failedToDownloadOrExtractZIPFileError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Failed to download or extract ZIP file.\n${colors.red(String(error))}`
+    `Failed to download or extract ZIP file.\n` +
+    `Check the URL and your network, then try again.\n` +
+    `${colors.red(String(error))}`
   )
 }
 
@@ -560,6 +566,7 @@ export function invalidRemoteZip(url: string, contentType: string) {
   return (
     `${getLoggingPrefix('error')} ` +
     `Remote URL does not appear to be a ZIP archive.\n` +
+    `Use a direct-download URL, or download the file and pass the local path.\n` +
     `${colors.gray('URL')} ${colors.underline(url)}\n` +
     `${colors.gray('Content-Type')} ${colors.underline(contentType || 'unknown')}`
   )
@@ -585,6 +592,7 @@ export function localZipNotFound(zipFilePath: string) {
   return (
     `${getLoggingPrefix('error')} ` +
     `ZIP file not found.\n` +
+    `Check the path and try again.\n` +
     `${colors.gray('PATH')} ${colors.underline(zipFilePath)}`
   )
 }

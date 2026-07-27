@@ -102,23 +102,32 @@ export function browserRunnerDisabled(args: {
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
-  return `Port: Requested port ${colors.brightBlue(requestedPort.toString())} is in use; using ${colors.brightBlue(newPort.toString())} instead.`
+  return (
+    `The requested port ${colors.brightBlue(requestedPort.toString())} is in use.\n` +
+    `The dev server uses ${colors.brightBlue(newPort.toString())} instead.`
+  )
 }
 
 export function extensionJsRunnerError(error: unknown) {
-  return `Extension.js Runner Error:\n${colors.red(String(error))}`
+  return `Extension.js could not start the runner.\n${colors.red(String(error))}`
 }
 
 export function autoExitModeEnabled(ms: number) {
-  return `Auto-exit enabled. Will exit after ${colors.brightBlue(ms.toString())} ms if idle.`
+  return (
+    `Auto-exit is enabled.\n` +
+    `The process exits after ${colors.brightBlue(ms.toString())} ms if idle.`
+  )
 }
 
 export function autoExitTriggered(ms: number) {
-  return `Auto-exit triggered after ${colors.brightBlue(ms.toString())} ms. Cleaning up…`
+  return (
+    `Auto-exit triggered after ${colors.brightBlue(ms.toString())} ms.\n` +
+    `Clean up and exit.`
+  )
 }
 
 export function autoExitForceKill(ms: number) {
-  return `Force-killing process after ${colors.brightBlue(ms.toString())} ms to ensure exit.`
+  return `Force-kill the process after ${colors.brightBlue(ms.toString())} ms to ensure exit.`
 }
 
 export function devServerStartTimeout(ms: number) {
@@ -136,7 +145,7 @@ export function bundlerFatalError(error: unknown) {
 }
 
 export function bundlerRecompiling() {
-  return `Recompiling due to file changes…`
+  return `Recompile due to file changes…`
 }
 
 export function noEntrypointsDetected(port: number) {
