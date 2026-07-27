@@ -22,7 +22,8 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import * as messages from './lib/messages'
-import {isDebug} from './lib/messaging'
+import {card, claimCardKey, isDebug} from './lib/messaging'
+import {parseJsonSafe} from './lib/parse-json-safe'
 import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {
@@ -37,6 +38,51 @@ import {
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
+
+// The card is the session header, printed before the first work line, and its
+// key is what lets `start` dedupe the preview leg instead of reprinting.
+function printBuildCard(
+  manifestPath: string,
+  browser: string,
+  distPath: string
+) {
+  if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
+
+  let extensionLabel = ''
+  try {
+    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    const name = String(manifest?.name || '').trim()
+    const version = String(manifest?.version || '').trim()
+    extensionLabel = name && version ? `${name} ${version}` : name
+  } catch {
+    // Ignore
+  }
+
+  const browserLabel = String(browser || '')
+    .split('-')
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join('-')
+  const suffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
+  if (suffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+
+  humanLine(' ')
+  humanLine(
+    card({
+      version:
+        process.env.EXTENSION_DEVELOP_VERSION ||
+        process.env.EXTENSION_CLI_VERSION,
+      suffix,
+      rows: [
+        {label: 'Browser', value: browserLabel},
+        {label: 'Extension', value: extensionLabel},
+        {label: 'Output', value: distPath}
+      ]
+    })
+  )
+  humanLine(' ')
+  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
+}
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
@@ -54,7 +100,10 @@ export async function extensionBuild(
   )
 
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+  const distPath = getDistPath(packageJsonDir, browser)
   const isAuthor = isDebug()
+
+  printBuildCard(projectStructure.manifestPath, browser, distPath)
 
   try {
     await ensureDevelopArtifacts()
@@ -87,8 +136,6 @@ export async function extensionBuild(
     const commandConfig = await loadCommandConfig(packageJsonDir, 'build')
     const specialFoldersData =
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
-
-    const distPath = getDistPath(packageJsonDir, browser)
 
     // Vite-style `emptyOutDir`: wipe the per-browser dist before the build so
     // output is deterministic despite stale hashed bundles from prior dev runs.

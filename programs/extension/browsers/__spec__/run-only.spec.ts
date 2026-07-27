@@ -84,9 +84,9 @@ describe('runOnlyPreviewBrowser', () => {
     )
   })
 
-  // Gecko's add-on install prints the card itself and returns the print-once
-  // boolean as its verification, so a card printed first fails the install.
-  it('leaves the card after the launch on firefox', async () => {
+  // The gecko install verifies through the banner's nameability verdict, so
+  // printing the card first no longer reports a healthy install as failed.
+  it('prints the card before it launches firefox', async () => {
     await runOnlyPreviewBrowser({
       browser: 'firefox',
       outPath: '/tmp/ext-firefox',
@@ -94,7 +94,7 @@ describe('runOnlyPreviewBrowser', () => {
       extensionsToLoad: ['/tmp/ext-firefox']
     })
 
-    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeGreaterThan(
+    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeLessThan(
       firefoxRunOnce.mock.invocationCallOrder[0]
     )
   })

@@ -105,6 +105,26 @@ export function card(input: CardInput = {}): string {
   return [head, ...body].join('\n')
 }
 
+// One identity card per (browser, dist) pair per process. The registry rides
+// on the environment because the CLI and develop bundles cannot share modules.
+const CARD_KEYS_ENV = 'EXTENSION_CLI_CARD_KEYS'
+const CARD_KEYS_SEPARATOR = '\u001f'
+
+export function isCardKeyClaimed(key: string): boolean {
+  const claimed = String(process.env[CARD_KEYS_ENV] || '')
+  if (!claimed) return false
+  return claimed.split(CARD_KEYS_SEPARATOR).includes(key)
+}
+
+export function claimCardKey(key: string): boolean {
+  if (isCardKeyClaimed(key)) return false
+  const claimed = String(process.env[CARD_KEYS_ENV] || '')
+  process.env[CARD_KEYS_ENV] = claimed
+    ? `${claimed}${CARD_KEYS_SEPARATOR}${key}`
+    : key
+  return true
+}
+
 const GECKO_BROWSERS = new Set([
   'firefox',
   'firefox-based',

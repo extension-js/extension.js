@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import * as messages from './lib/messages'
+import {card} from './lib/messaging'
 import {
   isDenoRuntime,
   resolveScaffoldPackageManager,
@@ -78,6 +79,24 @@ export async function extensionCreate(
     : path.join(process.cwd(), projectNameInput)
 
   const projectName = path.basename(projectPath)
+
+  // The card is the session header, printed before the first step line and
+  // through the injected logger so programmatic hosts keep capturing it.
+  const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
+  if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+  logger.log(' ')
+  logger.log(
+    card({
+      version: cliVersion || process.env.EXTENSION_CLI_VERSION,
+      suffix: updateSuffix,
+      rows: [
+        {label: 'Extension', value: projectName},
+        {label: 'Output', value: projectPath}
+      ]
+    })
+  )
+  logger.log(' ')
+  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
   await createDirectory(projectPath, projectName, logger)
   const templateProvenance = await importExternalTemplate(
