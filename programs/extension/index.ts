@@ -11,7 +11,7 @@
 // Must be the first import: exits with a version message on Node < 22.12,
 // where requiring the ESM-only commander would crash with ERR_REQUIRE_ESM.
 import './helpers/node-version-guard'
-import {program} from 'commander'
+import {Option, program} from 'commander'
 import {registerActCommands} from './commands/act'
 import {registerBuildCommand} from './commands/build'
 import {registerCreateCommand} from './commands/create'
@@ -28,6 +28,7 @@ import {getCliPackageJson} from './helpers/cli-package-json'
 import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
+import {warnDeprecatedOutputAlias} from './helpers/output-flag'
 import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
 
 // Public type surface for extension.config.js, re-exported from the root. The
@@ -47,12 +48,27 @@ function developVersion() {
 
 process.env.EXTENSION_DEVELOP_VERSION = developVersion()
 
-function resolveAIHelpFormatFromArgv(argv: string[]): string {
-  const equalArg = argv.find((arg) => arg.startsWith('--format='))
-  if (equalArg) return equalArg.slice('--format='.length)
+function scanArgvValue(argv: string[], flag: string): string | undefined {
+  const equalArg = argv.find((arg) => arg.startsWith(`${flag}=`))
+  if (equalArg) return equalArg.slice(flag.length + 1)
 
-  const formatIndex = argv.indexOf('--format')
-  if (formatIndex >= 0) return argv[formatIndex + 1] || ''
+  const flagIndex = argv.indexOf(flag)
+  if (flagIndex >= 0) return argv[flagIndex + 1] || ''
+
+  return undefined
+}
+
+// --ai-help bypasses commander, so the deprecated --format alias has to be
+// honored by this raw scan too, not only by the registered Option.
+function resolveAIHelpFormatFromArgv(argv: string[]): string {
+  const direct = scanArgvValue(argv, '--output')
+  if (direct !== undefined) return direct
+
+  const alias = scanArgvValue(argv, '--format')
+  if (alias !== undefined) {
+    warnDeprecatedOutputAlias('--format')
+    return alias
+  }
 
   return 'pretty'
 }
@@ -129,7 +145,12 @@ extensionJs
   .version(String(cliPackageJson.version))
   .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
-  .option('--format <pretty|json>', 'output format for --ai-help', 'pretty')
+  .addOption(
+    // Deprecated alias of --output, --ai-help only. A visible root --output
+    // would swallow every subcommand's own --output, so commander never
+    // declares the canonical name here; the --ai-help argv scan resolves it.
+    new Option('--format <pretty|json>').hideHelp()
+  )
   .addHelpText('after', messages.programUserHelp())
   .showHelpAfterError(true)
   .showSuggestionAfterError(true)

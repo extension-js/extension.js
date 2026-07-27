@@ -38,6 +38,11 @@ export async function extensionDev(
   let browsersPlugin: RunnerPlugin | undefined
   let emitter: BuildEmitter = new BuildEmitter()
 
+  // The CLI wrapper passes exitOnError=true; as a library import a failed dev
+  // session must be a rejected promise, never a process.exit inside the host.
+  const shouldExitOnError =
+    (devOptions.exitOnError ?? false) && process.env.VITEST !== 'true'
+
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
@@ -160,6 +165,9 @@ export async function extensionDev(
       console.error(error)
     } else {
       console.error(messages.devCommandFailed(error))
+    }
+    if (!shouldExitOnError) {
+      throw error
     }
     process.exit(1)
   }

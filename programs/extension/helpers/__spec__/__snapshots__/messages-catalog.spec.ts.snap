@@ -124,6 +124,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "commandArgSignature: function(1)",
     "commandDescriptions: object",
     "commandSpec: function(1)",
+    "deprecatedOutputAlias: function(1)",
     "fmt: object",
     "invalidAIHelpFormat: function(1)",
     "noBrowserNotSupportedForCommand: function(1)",
