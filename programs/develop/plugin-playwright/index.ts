@@ -23,7 +23,10 @@ export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
 export type ReadyStatus = 'starting' | 'ready' | 'error' | 'stopped'
 
 export type ReadyMetadata = {
+  // The ready contract's own version. Independent of `schema` below, which
+  // advertises that this engine speaks the schema-1 result envelope.
   schemaVersion: 2
+  schema: 1
   status: ReadyStatus
   command: PlaywrightAutomationCommand
   browser: string
@@ -243,6 +246,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
   const base = {
     schemaVersion: 2 as const,
+    // Capability advertisement: a reader that sees this can trust the engine's
+    // own status codes and stop falling back to scraping human output.
+    schema: 1 as const,
     command: options.command,
     browser: options.browser,
     runId: getRunIdForSession(metadataDir),
