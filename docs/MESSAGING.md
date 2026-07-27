@@ -21,9 +21,9 @@ Every user-facing line is a prefix followed by one sentence, one concern per lin
 All five channels occupy the same three columns, so output stays aligned no matter what
 happened. The color carries the severity.
 
-`ERROR`, `✖✖✖`, and a bare `⚠` are not prefixes. `✖✖✖` still appears inside a compilation
-error body, where it marks the failing module rather than the line. That is why the rule is
-positional: a retired glyph is only a violation at the head of a rendered line.
+`ERROR`, `✖✖✖`, and a bare `⚠` are not prefixes. The rule is positional: a retired glyph is
+only a violation at the head of a rendered line, so bundler output quoted inside a
+compilation error body can never trip it.
 
 ## Copy rules
 
@@ -85,8 +85,9 @@ A top-level command prints one card before its first work line:
 Rows are omitted when the value is unknown. There is no `n/a`.
 
 **The extension ID and the run ID are never abbreviated.** People paste the extension ID
-straight into `chrome://extensions`, and external harnesses read the full value off this line
-as their readiness signal. Truncating it would make those harnesses hang instead of fail.
+straight into `chrome://extensions`, and a truncated value sends them hunting for the rest.
+Machine consumers never read this line: session state lives in `ready.json` and
+`events.ndjson` under `dist/extension-js/<browser>/`, and those are the interfaces to parse.
 
 Fallback paths render the same card with fewer rows, never a different layout.
 

@@ -20,11 +20,12 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
   const hasErrors = stats.hasErrors()
   const hasWarnings = stats.hasWarnings()
 
+  // One glyph across all five channels; the color carries the severity.
   const arrow = hasErrors
-    ? colors.red('✖✖✖')
+    ? prefix('error')
     : hasWarnings
-      ? colors.brightYellow('⏵⏵⏵')
-      : colors.gray('⏵⏵⏵')
+      ? prefix('warn')
+      : prefix('info')
   const label = hasErrors
     ? colors.red('with errors')
     : hasWarnings
