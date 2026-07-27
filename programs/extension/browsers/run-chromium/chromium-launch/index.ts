@@ -42,7 +42,10 @@ import * as messages from '../../browsers-lib/messages'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
-import {stampReadyBrowserExited} from '../../browsers-lib/ready-stamp'
+import {
+  stampReadyBrowserExited,
+  stampReadyProfileLocked
+} from '../../browsers-lib/ready-stamp'
 import {
   pickSharedBrowserRuntimeOptions,
   toExtensionLoadList
@@ -84,7 +87,9 @@ interface LaunchDoneStats {
   }
 }
 
-async function maybePrintDevBanner(args: {
+// The card is the header for the session, so it lands before the spawn and
+// before any ready line the launch reports. Never let it break a launch.
+async function maybePrintLaunchBanner(args: {
   compilation: CompilationLike
   chromiumConfig: string[]
   browser: ChromiumLaunchOptions['browser']
@@ -93,7 +98,6 @@ async function maybePrintDevBanner(args: {
   enableCdp: boolean
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
-  if (mode !== 'development') return
   const loadExtensionFlag = args.chromiumConfig.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -102,6 +106,19 @@ async function maybePrintDevBanner(args: {
     loadExtensionFlag
   )
   if (!extensionOutputPath) return
+
+  // A production dist is already written, so it needs no stability wait.
+  // CDP re-offers a richer card later; the key dedupes the second attempt.
+  if (mode === 'production') {
+    await printProdBannerOnce({
+      browser: args.browser,
+      outPath: extensionOutputPath,
+      browserVersionLine: args.browserVersionLine
+    })
+    return
+  }
+
+  if (mode !== 'development') return
   const ready = await waitForStableManifest(extensionOutputPath, {
     timeoutMs: 10000
   })
@@ -798,13 +815,29 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    let chromiumConfig: string[] = browserConfig(compilation, {
-      ...this.options,
-      profile: this.options.profile,
-      instanceId: this.options.instanceId,
-      extension: extensionsToLoad,
-      logLevel: this.options.logLevel
-    })
+    let chromiumConfig: string[]
+    try {
+      chromiumConfig = browserConfig(compilation, {
+        ...this.options,
+        profile: this.options.profile,
+        instanceId: this.options.instanceId,
+        extension: extensionsToLoad,
+        logLevel: this.options.logLevel
+      })
+    } catch (error) {
+      // A locked profile aborts before the spawn, so no exit handler will ever
+      // stamp it. Record the case here or the contract stays on "starting".
+      if (utils.isProfileLockedError(error)) {
+        stampReadyProfileLocked(
+          getExtensionOutputPath(compilation, undefined),
+          {
+            message: error.message,
+            owner: error.profileLockOwner
+          }
+        )
+      }
+      throw error
+    }
 
     const desiredPort = utils.deriveDebugPortWithInstance(
       this.options.port,
@@ -829,13 +862,18 @@ export class ChromiumLaunchPlugin {
     })
 
     const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
-    await maybePrintDevBanner({
-      compilation,
-      chromiumConfig,
-      browser: this.options.browser,
-      hostPort: {host: '127.0.0.1', port: selectedPort},
-      enableCdp
-    })
+    try {
+      await maybePrintLaunchBanner({
+        compilation,
+        chromiumConfig,
+        browser: this.options.browser,
+        hostPort: {host: '127.0.0.1', port: selectedPort},
+        browserVersionLine,
+        enableCdp
+      })
+    } catch {
+      // Ignore
+    }
 
     if (this.options.dryRun) {
       logChromiumDryRun(browserBinaryLocation, chromiumConfig)
@@ -903,32 +941,6 @@ export class ChromiumLaunchPlugin {
     if (!enableCdp) reportReady()
 
     try {
-      const mode = (compilation?.options?.mode || 'development') as string
-
-      // Always print a manifest-based production summary once,
-      // even if CDP fails later. CDP will attempt to "upgrade" this when it succeeds.
-      try {
-        if (mode === 'production') {
-          const loadExtensionFlag = chromiumConfig.find((flag: string) =>
-            flag.startsWith('--load-extension=')
-          )
-          const extensionOutputPath = getExtensionOutputPath(
-            compilation,
-            loadExtensionFlag
-          )
-
-          if (extensionOutputPath) {
-            await printProdBannerOnce({
-              browser: this.options.browser,
-              outPath: extensionOutputPath,
-              browserVersionLine
-            })
-          }
-        }
-      } catch {
-        // Ignore
-      }
-
       const cdpConfig: ChromiumPluginRuntime = {
         ...pickSharedBrowserRuntimeOptions({
           ...this.options,

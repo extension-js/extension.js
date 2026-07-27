@@ -6,6 +6,11 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import {getChromeVersion} from 'chrome-location2'
+import {getChromiumVersion} from 'chromium-location'
+import {getEdgeVersion} from 'edge-location'
+import {getFirefoxVersion} from 'firefox-location2'
 import {printProdBannerOnce} from './browsers-lib/banner'
 import {
   isChromiumBrowser,
@@ -136,13 +141,42 @@ function buildPreviewFirefoxOptions(
   }
 }
 
+// The card renders before the launch now, so it cannot lean on the version the
+// launcher resolves. A pinned binary is the one case the card's own probe gets
+// wrong: it would name the system browser instead of the one being run.
+function resolvePinnedBinaryVersionLine(
+  opts: PreviewRunOptions
+): string | undefined {
+  try {
+    if (isFirefoxBrowser(opts.browser)) {
+      if (!opts.geckoBinary || !fs.existsSync(opts.geckoBinary))
+        return undefined
+      return getFirefoxVersion(opts.geckoBinary) || undefined
+    }
+
+    if (!opts.chromiumBinary || !fs.existsSync(opts.chromiumBinary)) {
+      return undefined
+    }
+    if (opts.browser === 'edge') {
+      return getEdgeVersion(opts.chromiumBinary) || undefined
+    }
+    if (opts.browser === 'chromium' || opts.browser === 'chromium-based') {
+      return getChromiumVersion(opts.chromiumBinary) || undefined
+    }
+    return getChromeVersion(opts.chromiumBinary) || undefined
+  } catch {
+    return undefined
+  }
+}
+
 function buildPreviewBannerOptions(opts: PreviewRunOptions) {
   return {
     browser: opts.browser,
     outPath: opts.outPath,
     includeExtensionId: true,
     includeRunId: false,
-    readyPath: opts.readyPath
+    readyPath: opts.readyPath,
+    browserVersionLine: resolvePinnedBinaryVersionLine(opts)
   }
 }
 
@@ -178,8 +212,10 @@ export async function runOnlyPreviewBrowser(
       buildPreviewChromiumOptions(opts),
       ctx
     )
-    await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
+    // Identity before the launch: the card is the header for the session, not
+    // a summary trailing the browser it describes.
     await printProdBannerOnce(bannerOptions)
+    await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
     return
   }
 
@@ -190,6 +226,9 @@ export async function runOnlyPreviewBrowser(
       buildPreviewFirefoxOptions(opts),
       ctx
     )
+    // Gecko prints its own card from the add-on install step, and the boolean
+    // that call returns is the install verification. Printing first would take
+    // the print-once key and report a healthy install as a failed one.
     await launcher.runOnce(
       compilationLike,
       buildBrowserLaunchRequest(previewPluginOptions, 'production', {

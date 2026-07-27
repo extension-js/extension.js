@@ -66,8 +66,37 @@ describe('runOnlyPreviewBrowser', () => {
       outPath: '/tmp/ext',
       includeExtensionId: true,
       includeRunId: false,
-      readyPath: undefined
+      readyPath: undefined,
+      browserVersionLine: undefined
     })
+  })
+
+  it('prints the card before it launches chromium', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'chromium',
+      outPath: '/tmp/ext',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext']
+    })
+
+    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeLessThan(
+      chromiumRunOnce.mock.invocationCallOrder[0]
+    )
+  })
+
+  // Gecko's add-on install prints the card itself and returns the print-once
+  // boolean as its verification, so a card printed first fails the install.
+  it('leaves the card after the launch on firefox', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: '/tmp/ext-firefox',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext-firefox']
+    })
+
+    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeGreaterThan(
+      firefoxRunOnce.mock.invocationCallOrder[0]
+    )
   })
 
   it('prints production banner for firefox preview', async () => {
@@ -101,7 +130,8 @@ describe('runOnlyPreviewBrowser', () => {
       outPath: '/tmp/ext-firefox',
       includeExtensionId: true,
       includeRunId: false,
-      readyPath: undefined
+      readyPath: undefined,
+      browserVersionLine: undefined
     })
   })
 

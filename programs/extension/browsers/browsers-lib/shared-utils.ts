@@ -245,6 +245,25 @@ function removeChromiumSingletonArtifacts(profilePath: string): string[] {
   return removed
 }
 
+export const PROFILE_LOCKED_ERROR_CODE = 'profile_locked'
+
+export interface ProfileLockedError extends Error {
+  code: string
+  profileLockOwner: {host: string; pid: number}
+}
+
+// Tagged rather than prose-matched: the ready contract stamps this code, and a
+// consumer must never have to grep the sentence to recognize the case.
+export function isProfileLockedError(
+  error: unknown
+): error is ProfileLockedError {
+  return (
+    !!error &&
+    (error as {code?: unknown}).code === PROFILE_LOCKED_ERROR_CODE &&
+    typeof (error as {message?: unknown}).message === 'string'
+  )
+}
+
 export function prepareChromiumProfileForLaunch(profilePath: string) {
   const owner = readChromiumSingletonOwner(profilePath)
   if (!owner) return {removedArtifacts: [] as string[]}
@@ -260,11 +279,15 @@ export function prepareChromiumProfileForLaunch(profilePath: string) {
     }
   }
 
-  throw new Error(
+  const error = new Error(
     `Chromium profile "${profilePath}" is already in use by process ${owner.pid}` +
       ` on host ${owner.host}. Close that browser session or use a different profile ` +
       `before starting Extension.js.`
-  )
+  ) as ProfileLockedError
+  error.code = PROFILE_LOCKED_ERROR_CODE
+  error.profileLockOwner = {host: owner.host, pid: owner.pid}
+
+  throw error
 }
 
 export function markManagedEphemeralProfile(profilePath: string) {
