@@ -10,17 +10,11 @@
 // Inlined from dev-server/messages.ts to avoid importing the full bundler package.
 
 import colors from 'pintor'
-import {prefix} from '../../helpers/messaging'
+import {artifactNoun, prefix} from '../../helpers/messaging'
 
 export function ready(mode: 'development' | 'production', browser: string) {
   const key = String(browser || '').toLowerCase()
-  const extensionOutput =
-    key === 'firefox' ||
-    key === 'gecko-based' ||
-    key === 'firefox-based' ||
-    key === 'edge'
-      ? 'Add-on'
-      : 'Extension'
+  const extensionOutput = artifactNoun(key)
   const cap =
     key === 'firefox' || key === 'gecko-based' || key === 'firefox-based'
       ? 'Firefox'

@@ -24,9 +24,12 @@ describe('ready() banner message', () => {
     }
   })
 
-  it('treats edge as an Add-on output while keeping its own capitalized name', () => {
+  // Edge distributes through a store called Add-ons, but the artifact itself is
+  // an extension, and `build` has always called it one. One rule, both commands.
+  it('calls the edge artifact an Extension, matching the build output', () => {
     const msg = stripAnsi(ready('development', 'edge'))
-    expect(msg).toContain('Add-on')
+    expect(msg).toContain('Extension')
+    expect(msg).not.toContain('Add-on')
     expect(msg).toContain('Edge')
   })
 
