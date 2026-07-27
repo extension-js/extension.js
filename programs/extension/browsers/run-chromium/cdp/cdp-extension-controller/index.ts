@@ -357,14 +357,8 @@ export class CDPExtensionController {
         flatten: true,
         filter: EXTENSION_AUTO_ATTACH_FILTER
       })
-    } catch (error: unknown) {
-      if (isDebug()) {
-        console.warn(
-          messages.cdpAutoAttachSetupFailed(
-            String((error as Error)?.message || error)
-          )
-        )
-      }
+    } catch {
+      // Ignore
     }
 
     registerAutoEnableLogging(this.cdp, () => this.extensionId, this.logSink)

@@ -80,13 +80,8 @@ export class CDPClient {
           this.pendingRequests.forEach(({reject, timeout}, id) => {
             try {
               reject(new Error(reason))
-            } catch (error) {
-              if (this.isDev()) {
-                const err = error as Error
-                console.warn(
-                  messages.cdpPendingRejectFailed(String(err.message || err))
-                )
-              }
+            } catch {
+              // Ignore
             }
 
             if (timeout) clearTimeout(timeout)
@@ -293,13 +288,8 @@ export class CDPClient {
       for (const eventCallback of this.eventCallbacks) {
         eventCallback(message)
       }
-    } catch (error) {
-      if (this.isDev()) {
-        const err = error as Error
-        console.warn(
-          messages.cdpFailedToHandleMessage(String(err.message || err))
-        )
-      }
+    } catch {
+      // Ignore
     }
   }
 
