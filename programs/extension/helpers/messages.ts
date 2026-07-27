@@ -288,7 +288,11 @@ export function unhandledError(err: unknown) {
 }
 
 export function updateFailed(err: unknown) {
-  return `${getLoggingPrefix('error')} Failed to check for updates.\n${colors.red(String((err as Error | undefined)?.message || err))}`
+  return (
+    `${getLoggingPrefix('warn')} Couldn't check for updates.\n` +
+    `${colors.yellow('The command continues without the update check.')}\n` +
+    `${colors.yellow(String((err as Error | undefined)?.message || err))}`
+  )
 }
 
 export function checkUpdates(
@@ -299,9 +303,9 @@ export function checkUpdates(
   const releaseNotesUrl = `https://github.com/extension-js/extension.js/releases/tag/v${latest}`
   const suffix = colors.gray(`(version ${latest} is available!)`)
   const message =
-    `${getLoggingPrefix('info')} 🧩 ${colors.blue('Extension.js')} update available.\n\n` +
-    `You are currently using version ${colors.red(String(packageJson.version))}. ` +
-    `Latest stable is ${colors.green(latest)}.\n` +
+    `${getLoggingPrefix('info')} 🧩 An ${colors.blue('Extension.js')} update is available.\n\n` +
+    `You are on version ${colors.red(String(packageJson.version))}.\n` +
+    `The latest stable is ${colors.green(latest)}.\n` +
     `See what's new: ${colors.underline(releaseNotesUrl)}\n` +
     `Update to the latest stable to get fixes and new features.`
 
@@ -310,14 +314,17 @@ export function checkUpdates(
 
 export function noURLWithoutStart(argument: string) {
   return (
-    `The default ${colors.gray('create')} command does not accept URLs.\n` +
-    `If you meant to start from a URL, use ${colors.gray('start')}:\n` +
+    `${getLoggingPrefix('error')} The default ${colors.gray('create')} command does not accept a URL.\n` +
+    `Use ${colors.gray('start')} to run an extension from a URL:\n` +
     `${code(`npx extension@latest start ${arg(argument)}`)}`
   )
 }
 
 export function notImplemented(argument: string) {
-  return `${getLoggingPrefix('error')} ${arg(argument)} command not implemented yet.\n${colors.red('NOT IMPLEMENTED')}`
+  return (
+    `${getLoggingPrefix('error')} The ${arg(argument)} command is not implemented yet.\n` +
+    `${colors.red('Run')} ${code('extension --help')} ${colors.red('to list the available commands.')}`
+  )
 }
 
 export function programUserHelp() {
@@ -341,7 +348,8 @@ ${'Common Options'}
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
 - ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY=0')})
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
-- ${code('--format')} ${arg('<pretty|json>')}          Output format for ${code('--ai-help')} (default: pretty)
+- ${code('--output')} ${arg('<pretty|json>')}          Result format for ${code('--ai-help')} and machine-readable command results (default: pretty)
+  ${code('--format')} and ${code('--wait-format')} still work as deprecated aliases of ${code('--output')}
 - ${code('--help')}                                    Show help output
 - ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080; use 0 for OS-assigned)
 - ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1; use 0.0.0.0 for Docker/devcontainers)
@@ -381,27 +389,30 @@ ${colors.underline('Path Resolution (important)')}
 
 ${'AI Assistants'}
 - For AI-oriented guidance and deeper tips, run ${code('extension --ai-help')}
-- For machine-readable AI guidance, run ${code('extension --ai-help --format json')}
+- For machine-readable AI guidance, run ${code('extension --ai-help --output json')}
 
  ${'Report issues'}
  - ${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}`
 }
 
 export function unsupportedBrowserFlag(value: string, supported: string[]) {
-  return `${getLoggingPrefix('error')} Unsupported --browser value: ${value}. Supported: ${supported.join(', ')}.`
+  return (
+    `${getLoggingPrefix('error')} Unsupported --browser value: ${value}.\n` +
+    `${colors.red('Choose one of:')} ${supported.join(', ')}${colors.red('.')}`
+  )
 }
 
 export function safariOnlyOption(flags: string[]) {
   return (
     `${getLoggingPrefix('error')} ${flags.map(code).join(', ')} ` +
-    `only appl${flags.length === 1 ? 'ies' : 'y'} to Safari targets. ` +
+    `only appl${flags.length === 1 ? 'ies' : 'y'} to Safari targets.\n` +
     `Add ${code('--browser safari')} (or ${code('webkit-based')}).`
   )
 }
 
 export function safariInvalidBundleId(bundleId: string) {
   return (
-    `${getLoggingPrefix('error')} Invalid bundle identifier: ${code(bundleId)}\n` +
+    `${getLoggingPrefix('error')} Invalid bundle identifier: ${code(bundleId)}.\n` +
     `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
     `each starting with a letter (e.g. ${code('com.example.my-extension')}).`
   )
@@ -616,10 +627,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         description: 'Show AI-assistant oriented help and tips'
       },
       {
-        name: '--format',
+        name: '--output',
         values: ['pretty', 'json'],
         default: 'pretty',
-        description: 'Output format for --ai-help'
+        description:
+          'Result format for --ai-help (--format is a deprecated alias)'
       },
       {
         name: '--no-telemetry',
@@ -678,7 +690,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         readyPath: 'dist/extension-js/<browser>/ready.json',
         eventsPath: 'dist/extension-js/<browser>/events.ndjson',
         waitFlag:
-          '--wait blocks until ready.json reports ready (or error) then exits; pair with --wait-format=json for machine output',
+          '--wait blocks until ready.json reports ready (or error) then exits; pair with --output json for machine output (--wait-format is a deprecated alias)',
         statuses: ['starting', 'ready', 'error'],
         readyFields: [
           'status',
@@ -725,11 +737,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
     },
     examples: [
       'extension --ai-help',
-      'extension --ai-help --format json',
+      'extension --ai-help --output json',
       'extension dev ./my-ext --logs=info --log-format=json',
       'extension dev ./my-ext --host 0.0.0.0 --no-browser',
-      'extension dev ./my-ext --wait --browser=chromium --wait-format=json',
-      'extension start ./my-ext --wait --browser=chromium --wait-format=json',
+      'extension dev ./my-ext --wait --browser=chromium --output json',
+      'extension start ./my-ext --wait --browser=chromium --output json',
       'extension dev ./my-ext --gecko-binary flatpak:org.mozilla.firefox',
       'extension install chromium',
       'extension install --where',
@@ -741,10 +753,8 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
 
 export function invalidAIHelpFormat(value: string) {
   return (
-    `${getLoggingPrefix('error')} Invalid value for ${code('--format')}: ${colors.red(String(value))}\n` +
-    `Allowed values: ${arg('pretty, json')}. Example: ${code(
-      'extension --ai-help --format json'
-    )}`
+    `${getLoggingPrefix('error')} Invalid value for ${code('--output')}: ${colors.red(String(value))}.\n` +
+    `${colors.red('Pass')} ${arg('pretty')} ${colors.red('or')} ${arg('json')}${colors.red(', for example')} ${code('extension --ai-help --output json')}${colors.red('.')}`
   )
 }
 

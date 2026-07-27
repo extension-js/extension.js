@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import checkUpdates from '../check-updates'
 
 vi.mock('../cli-package-json', () => ({
@@ -28,7 +28,7 @@ describe('check-updates', () => {
     updateCheck.mockResolvedValueOnce({latest: '2.1.0'})
     const result = await checkUpdates()
     expect(result).not.toBeNull()
-    expect(result?.message).toMatch(/update available/i)
+    expect(result?.message).toMatch(/update is available/i)
     expect(result?.message).toMatch(/2.1.0/)
     expect(result?.suffix).toMatch(/2.1.0/)
   })
@@ -45,7 +45,7 @@ describe('check-updates', () => {
     await checkUpdates()
     expect(errorSpy).toHaveBeenCalled()
     expect(errorSpy.mock.calls.join('\n')).toMatch(
-      /Failed to check for updates/i
+      /Couldn't check for updates/i
     )
   })
 })
