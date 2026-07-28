@@ -50,6 +50,7 @@ vi.mock('../lib/dark-mode', () => ({
 
 const metadataWriter = vi.hoisted(() => ({
   readyPath: '',
+  setManagedExtensionDirs: vi.fn(),
   writeStarting: vi.fn(),
   writeReady: vi.fn(),
   writeError: vi.fn(),

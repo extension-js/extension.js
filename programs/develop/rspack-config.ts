@@ -284,7 +284,12 @@ export default function webpackConfig(
       instanceId: devOptions.instanceId,
       controlPort: devOptions.controlPort,
       controlPath: devOptions.controlPath,
-      logsPath: devOptions.logsPath
+      logsPath: devOptions.logsPath,
+      // Everything loaded besides the user's extension, recorded in ready.json
+      // so consumers never hardcode the companion extension ids.
+      managedExtensionDirs: unpackedExtensionDirsToLoad.filter(
+        (dir) => path.resolve(dir) !== path.resolve(primaryExtensionOutputDir)
+      )
     })
   )
 
