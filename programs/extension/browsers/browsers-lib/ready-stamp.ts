@@ -37,6 +37,32 @@ export function stampReadyRdpPort(
   }
 }
 
+// Publish which profile directory and browser process this session launched.
+// An ephemeral profile's leaf name is generated, so no path helper can rebuild
+// it, and the pid is the only supported handle for reaping the browser.
+export function stampReadyBrowserLaunch(
+  extensionOutputPath: string | undefined,
+  details: {profilePath?: string; browserPid?: number}
+) {
+  try {
+    if (!extensionOutputPath) return
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    const profilePath = String(details?.profilePath || '').trim()
+    if (profilePath) ready.profilePath = profilePath
+    if (
+      typeof details?.browserPid === 'number' &&
+      Number.isFinite(details.browserPid)
+    ) {
+      ready.browserPid = details.browserPid
+    }
+    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Stamp a browser-side load refusal into ready.json. Unlike a browser exit this
 // always flips to error: the session is running but the guest is not in it, and
 // every other surface (stdout, logs) looks identical to a healthy run.

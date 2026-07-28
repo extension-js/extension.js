@@ -54,6 +54,10 @@ export type ReadyMetadata = {
   // Gecko launches only: the RDP debugger-server port, stamped by the Firefox
   // launcher post-launch (the CDP-extras pairing seam for downstream tooling).
   rdpPort?: number
+  // Stamped by the browser launcher post-launch: the resolved profile dir (an
+  // ephemeral profile's leaf name is generated) and the browser process pid.
+  profilePath?: string
+  browserPid?: number
   // Provenance: which toolchain produced this tree, for which extension;
   // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string
@@ -317,6 +321,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           Array.isArray(prev.managedExtensions)
         ) {
           payload.managedExtensions = prev.managedExtensions
+        }
+        if (typeof prev.profilePath === 'string') {
+          payload.profilePath = prev.profilePath
+        }
+        if (typeof prev.browserPid === 'number') {
+          payload.browserPid = prev.browserPid
         }
         if (typeof prev.browserExitedAt === 'string') {
           ;(payload as Record<string, unknown>).browserExitedAt =

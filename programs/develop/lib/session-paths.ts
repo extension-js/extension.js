@@ -92,6 +92,24 @@ export function browserArtifactsDir(
   return path.join(sessionArtifactsRootDir(projectPath), browser)
 }
 
+// The managed-profile root for one project+browser. A run's leaf under it is
+// 'dev' when persisted and a generated name otherwise, so only ready.json can
+// name the full profile path of an ephemeral run.
+export function browserProfileRootDir(
+  projectPath: string,
+  browser: string
+): string {
+  return path.join(
+    sessionArtifactsRootDir(projectPath),
+    'profiles',
+    `${browser}-profile`
+  )
+}
+
+export function browserDistDir(projectPath: string, browser: string): string {
+  return path.resolve(projectPath, 'dist', browser)
+}
+
 export function readyContractPath(
   projectPath: string,
   browser: string
@@ -144,6 +162,12 @@ export const SESSION_ARTIFACTS: ReadonlyArray<SessionArtifact> = [
     keying: 'legacy-shared',
     build: (projectPath) => legacyControlTokenPath(projectPath)
   },
+  {
+    name: 'browser-profile-root',
+    keying: 'per-browser',
+    build: browserProfileRootDir
+  },
+  {name: 'browser-dist', keying: 'per-browser', build: browserDistDir},
   {name: 'ready-contract', keying: 'per-browser', build: readyContractPath},
   {name: 'events-log', keying: 'per-browser', build: eventsPath},
   {name: 'bridge-logs', keying: 'per-browser', build: logsPath},
