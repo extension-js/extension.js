@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "not-found",
+  "value": null,
+  "error": {
+    "code": "E_TARGET_NOT_FOUND",
+    "message": "the expression never executed in tab 12: no injectable frame returned a result (restricted page, or outside host_permissions)",
+    "name": "TargetNotFound",
+    "engine": "chromium"
+  },
+  "warnings": []
+}

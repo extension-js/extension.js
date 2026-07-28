@@ -146,15 +146,19 @@ function codeForBridgeError(
   if (refusal && refusal in REFUSAL_TO_CODE) return REFUSAL_TO_CODE[refusal]
   if (name === 'Timeout') return CODES.E_TIMEOUT
   if (name === 'Unavailable') return CODES.E_CONTROL_UNAVAILABLE
-  // One name covers three eval gates, so the gate copy is the discriminator.
-  if (name === 'Forbidden') {
-    return /token missing/i.test(message)
-      ? CODES.E_TOKEN_MISSING
-      : CODES.E_EVAL_REFUSED
+  if (name === 'EvalTokenMissing') return CODES.E_TOKEN_MISSING
+  // Forbidden is the collapsed denial older sessions still send.
+  if (
+    name === 'EvalDisabled' ||
+    name === 'EvalTokenMismatch' ||
+    name === 'Forbidden'
+  ) {
+    return CODES.E_EVAL_REFUSED
   }
+  if (name === 'TargetNotFound') return CODES.E_TARGET_NOT_FOUND
   if (name === 'BadRequest') return CODES.E_ARGS
   if (name === 'Unsupported') {
-    return /needs a --tab id|no injectable frame|is not open/i.test(message)
+    return /needs a --tab id|is not open/i.test(message)
       ? CODES.E_TARGET_NOT_FOUND
       : CODES.E_NOT_IMPLEMENTED
   }

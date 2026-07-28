@@ -48,10 +48,14 @@ const ERROR_NAMES = [
   'AmbiguousInstanceError',
   'BadRequest',
   'CliError',
+  'EvalDisabled',
   'EvalError',
+  'EvalTokenMismatch',
+  'EvalTokenMissing',
   'Forbidden',
   'InspectError',
   'StorageError',
+  'TargetNotFound',
   'TemplateDownloadError',
   'TemplateNotFoundError',
   'Timeout',
@@ -186,7 +190,7 @@ describe('the golden envelope fixtures', () => {
   it('collects a non-zero fixture set', () => {
     // Guards the known trap: a glob or include miss silently reporting green
     // over zero files. Every fixture family added later raises this floor.
-    expect(fixtures.length).toBeGreaterThanOrEqual(9)
+    expect(fixtures.length).toBeGreaterThanOrEqual(10)
   })
 
   it('covers success and failure for each representative family', () => {
@@ -199,6 +203,7 @@ describe('the golden envelope fixtures', () => {
     expect(fixtures).toContain('golden.eval.ok.json')
     expect(fixtures).toContain('golden.eval.eval.json')
     expect(fixtures).toContain('golden.open.headed-window-required.json')
+    expect(fixtures).toContain('golden.eval.target-not-found.json')
   })
 
   it.each(fixtures)('%s validates against envelope.schema.json', (name) => {

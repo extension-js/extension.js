@@ -348,11 +348,15 @@ describe('BridgeBroker (Slice 2: act)', () => {
     expect(ctl.sent[0]).toMatchObject({
       type: 'result',
       ok: false,
-      error: {name: 'Forbidden'}
+      error: {name: 'EvalTokenMismatch'}
     })
     expect(exec.sent.find((f) => f.type === 'command')).toBeUndefined()
     const rec = actions.records.at(-1)!
-    expect(rec).toMatchObject({op: 'eval', ok: false, errorName: 'Forbidden'})
+    expect(rec).toMatchObject({
+      op: 'eval',
+      ok: false,
+      errorName: 'EvalTokenMismatch'
+    })
     expect(typeof rec.exprHash).toBe('string')
     expect(rec.expr).toBeUndefined()
 
@@ -370,11 +374,11 @@ describe('BridgeBroker (Slice 2: act)', () => {
     ).toBeDefined()
   })
 
-  it('names the failing eval gate leg in the Forbidden message', () => {
+  it('names the failing eval gate leg on the wire', () => {
     const evalDeny = (
       brokerOpts: Record<string, unknown>,
       helloToken?: string
-    ): string => {
+    ): {name: string; message: string} => {
       const b = new BridgeBroker(base(brokerOpts))
       helloProducer(b, new FakeConn('exec'))
       const ctl = new FakeConn('ctl')
@@ -388,19 +392,24 @@ describe('BridgeBroker (Slice 2: act)', () => {
         args: {expression: '1'}
       })
       const result = ctl.sent[0] as any
-      expect(result).toMatchObject({ok: false, error: {name: 'Forbidden'}})
-      return result.error.message
+      expect(result).toMatchObject({ok: false})
+      return result.error
     }
 
-    expect(evalDeny({allowEval: false}, 'anything')).toContain('--allow-eval')
+    const disabled = evalDeny({allowEval: false}, 'anything')
+    expect(disabled.name).toBe('EvalDisabled')
+    expect(disabled.message).toContain('--allow-eval')
 
-    expect(evalDeny({allowEval: true, controlToken: 'secret'})).toContain(
-      'token missing'
+    const missing = evalDeny({allowEval: true, controlToken: 'secret'})
+    expect(missing.name).toBe('EvalTokenMissing')
+    expect(missing.message).toContain('token missing')
+
+    const mismatch = evalDeny(
+      {allowEval: true, controlToken: 'secret'},
+      'WRONG'
     )
-
-    expect(
-      evalDeny({allowEval: true, controlToken: 'secret'}, 'WRONG')
-    ).toContain('token mismatch')
+    expect(mismatch.name).toBe('EvalTokenMismatch')
+    expect(mismatch.message).toContain('token mismatch')
   })
 
   it('writes the raw eval source only in author mode', () => {

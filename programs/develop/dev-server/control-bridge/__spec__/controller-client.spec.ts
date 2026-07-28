@@ -192,7 +192,7 @@ describe('BridgeController (integration)', () => {
       target: {context: 'background'},
       args: {expression: 'chrome.runtime.id'}
     })
-    expect(result).toMatchObject({ok: false, error: {name: 'Forbidden'}})
+    expect(result).toMatchObject({ok: false, error: {name: 'EvalDisabled'}})
   })
 
   it('eval succeeds with --allow-eval and the matching token', async () => {

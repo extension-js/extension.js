@@ -528,7 +528,11 @@
     "names": {
       "Timeout": "E_TIMEOUT",
       "Unavailable": "E_CONTROL_UNAVAILABLE",
-      "Forbidden": ["E_TOKEN_MISSING", "E_EVAL_REFUSED"],
+      "Forbidden": "E_EVAL_REFUSED",
+      "EvalDisabled": "E_EVAL_REFUSED",
+      "EvalTokenMissing": "E_TOKEN_MISSING",
+      "EvalTokenMismatch": "E_EVAL_REFUSED",
+      "TargetNotFound": "E_TARGET_NOT_FOUND",
       "BadRequest": "E_ARGS",
       "Unsupported": [
         "E_TARGET_NOT_FOUND",
