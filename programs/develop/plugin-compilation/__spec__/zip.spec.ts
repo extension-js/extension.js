@@ -107,7 +107,52 @@ describe('ZipPlugin', () => {
     expect(spy).toHaveBeenCalled()
     const out = toPosix(String(spy.mock.calls[0][0]))
     expect(out).toContain('/p/out/dist/edge/')
-    expect(out).toMatch(/my-file-name\.zip$/)
+    expect(out).toMatch(/My File Name\.zip$/)
+  })
+
+  it('honors an explicit zipFilename with dashes and extension verbatim', async () => {
+    const {compiler, emitDone} = makeCompiler('/p/app', '/p/out/dist/chrome')
+    const plugin = new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipFilename: 'my-extension.zip'}
+    })
+    plugin.apply(compiler)
+
+    const spy = vi.spyOn((AdmZip as any).prototype, 'writeZip')
+    await emitDone()
+    const out = toPosix(String(spy.mock.calls[0][0]))
+    expect(out).toMatch(/\/p\/out\/dist\/chrome\/my-extension\.zip$/)
+  })
+
+  it('appends .zip once and strips path segments from an explicit name', async () => {
+    const {compiler, emitDone} = makeCompiler('/p/app', '/p/out/dist/chrome')
+    const plugin = new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipFilename: '../up/Release_v2'}
+    })
+    plugin.apply(compiler)
+
+    const spy = vi.spyOn((AdmZip as any).prototype, 'writeZip')
+    await emitDone()
+    const out = toPosix(String(spy.mock.calls[0][0]))
+    expect(out).toMatch(/\/p\/out\/dist\/chrome\/Release_v2\.zip$/)
+  })
+
+  it('names each written zip on default-verbosity stdout', async () => {
+    const {compiler, emitDone} = makeCompiler('/p/app', '/p/out/dist/chrome')
+    const plugin = new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipFilename: 'payload.zip'}
+    })
+    plugin.apply(compiler)
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    await emitDone()
+    const lines = log.mock.calls.map((c) => String(c[0]))
+    log.mockRestore()
+    const artifactLine = lines.find((l) => l.includes('payload.zip'))
+    expect(artifactLine).toBeTruthy()
+    expect(artifactLine).toContain('browser=chrome')
   })
 
   it('pushes warning on error without throwing', async () => {

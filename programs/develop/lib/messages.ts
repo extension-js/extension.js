@@ -481,6 +481,17 @@ export function packagingSourceFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=source gitignore=excluded path=${zipPath}`
 }
 
+export function zipArtifactReady(
+  browser: DevOptions['browser'],
+  zipPath: string,
+  sizeInBytes: number
+) {
+  return (
+    `${prefix('info')} zip      browser=${String(browser)} ` +
+    `path=${zipPath} (${getFileSize(sizeInBytes)})`
+  )
+}
+
 export function packagingDistributionFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=dist path=${zipPath}`
 }
