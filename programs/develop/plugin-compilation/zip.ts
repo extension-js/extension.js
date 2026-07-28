@@ -221,7 +221,7 @@ export class ZipPlugin {
             )
           } else if (distItem) {
             console.log(
-              messages.treeWithDistFilesbrowser(
+              messages.treeWithDistFilesBrowser(
                 name,
                 'zip',
                 this.browser,

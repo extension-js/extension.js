@@ -497,7 +497,7 @@ export function treeWithSourceAndDistFiles(
   )
 }
 
-export function treeWithDistFilesbrowser(
+export function treeWithDistFilesBrowser(
   name: string,
   ext: string,
   browser: DevOptions['browser'],
