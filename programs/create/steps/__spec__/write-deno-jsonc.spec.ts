@@ -48,7 +48,7 @@ describe('writeDenoJsonc', () => {
   })
 
   it('does nothing outside the Deno runtime', async () => {
-    await writeDenoJsonc(projectPath, 'my-ext', {}, noopLogger)
+    await writeDenoJsonc(projectPath, {}, noopLogger)
     await expect(
       fsp.access(path.join(projectPath, 'deno.jsonc'))
     ).rejects.toThrow()
@@ -56,7 +56,7 @@ describe('writeDenoJsonc', () => {
 
   it('writes a parseable deno.jsonc with tasks and nodeModulesDir', async () => {
     await withDenoGlobal(async () => {
-      await writeDenoJsonc(projectPath, 'my-ext', {}, noopLogger)
+      await writeDenoJsonc(projectPath, {}, noopLogger)
     })
 
     const contents = await fsp.readFile(
@@ -82,7 +82,6 @@ describe('writeDenoJsonc', () => {
     await withDenoGlobal(async () => {
       await writeDenoJsonc(
         projectPath,
-        'my-ext',
         {template: 'monorepo-basic'},
         noopLogger
       )
@@ -108,7 +107,6 @@ describe('writeDenoJsonc', () => {
     await withDenoGlobal(async () => {
       await writeDenoJsonc(
         projectPath,
-        'my-ext',
         {cliVersion: '4.0.5', primary: true},
         noopLogger
       )
@@ -135,7 +133,6 @@ describe('writeDenoJsonc', () => {
     await withDenoGlobal(async () => {
       await writeDenoJsonc(
         projectPath,
-        'my-ext',
         {cliVersion: '4.0.5-canary.1', primary: true},
         noopLogger
       )
@@ -149,7 +146,7 @@ describe('writeDenoJsonc', () => {
 
   it('primary mode works without a template package.json', async () => {
     await withDenoGlobal(async () => {
-      await writeDenoJsonc(projectPath, 'my-ext', {primary: true}, noopLogger)
+      await writeDenoJsonc(projectPath, {primary: true}, noopLogger)
     })
 
     const config = parseJsonc(
@@ -165,7 +162,7 @@ describe('writeDenoJsonc', () => {
     await fsp.writeFile(path.join(projectPath, 'deno.json'), templateConfig)
 
     await withDenoGlobal(async () => {
-      await writeDenoJsonc(projectPath, 'my-ext', {}, noopLogger)
+      await writeDenoJsonc(projectPath, {}, noopLogger)
     })
 
     await expect(

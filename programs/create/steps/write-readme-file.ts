@@ -95,7 +95,7 @@ export async function writeReadmeFile(
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error) {
-    logger.error(messages.writingReadmeMetaDataEError(projectName, error))
+    logger.error(messages.writingReadmeMetaDataError(error))
     throw error
   }
 }

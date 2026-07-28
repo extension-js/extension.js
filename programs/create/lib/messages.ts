@@ -144,11 +144,7 @@ export function installingFromTemplate(
   return `${prefix('info')} Install ${colors.blue(projectName)} from the template ${colors.yellow(templateName)}.`
 }
 
-export function installingFromTemplateError(
-  projectName: string,
-  template: string,
-  error: unknown
-) {
+export function installingFromTemplateError(template: string, error: unknown) {
   return (
     `${prefix('error')} Couldn't find the template ${colors.yellow(template)}.\n` +
     `${colors.red('Choose a template name from')} ${colors.blue('extension create --help')}${colors.red(', or pass a GitHub URL.')}\n` +
@@ -236,12 +232,12 @@ export function installingProjectIntegrations(integrations: string[]) {
 }
 
 export function installingDependenciesFailed(
-  gitCommand: string,
-  gitArgs: string[],
+  pmCommand: string,
+  pmArgs: string[],
   code: number | null
 ) {
   return (
-    `${prefix('error')} The command ${colors.yellow(gitCommand)} ${colors.yellow(gitArgs.join(' '))} ` +
+    `${prefix('error')} The command ${colors.yellow(pmCommand)} ${colors.yellow(pmArgs.join(' '))} ` +
     `failed with exit code ${colors.yellow(String(code))}.\n` +
     `${colors.red('Run it yourself to see the full error.')}`
   )
@@ -270,12 +266,7 @@ export function writingPackageJsonMetadata() {
   return `${prefix('debug')} create write file=package.json`
 }
 
-// projectName is unused now that the path names the project; the parameter
-// stays so the exported arity holds against the message catalog snapshot.
-export function writingPackageJsonMetadataError(
-  projectName: string,
-  error: unknown
-) {
+export function writingPackageJsonMetadataError(error: unknown) {
   return (
     `${prefix('error')} Couldn't write ${colors.yellow('package.json')}.\n` +
     `${colors.red('Check the file permissions, then try again.')}\n` +
@@ -287,7 +278,7 @@ export function writingDenoJsonc() {
   return `${prefix('debug')} create write file=deno.jsonc`
 }
 
-export function writingDenoJsoncError(projectName: string, error: unknown) {
+export function writingDenoJsoncError(error: unknown) {
   return (
     `${prefix('error')} Couldn't write ${colors.yellow('deno.jsonc')}.\n` +
     `${colors.red('Check the file permissions, then try again.')}\n` +
@@ -311,10 +302,7 @@ export function writingManifestJsonMetadata() {
   return `${prefix('debug')} create write file=manifest.json`
 }
 
-export function writingManifestJsonMetadataError(
-  projectName: string,
-  error: unknown
-) {
+export function writingManifestJsonMetadataError(error: unknown) {
   return (
     `${prefix('error')} Couldn't write ${colors.yellow('manifest.json')}.\n` +
     `${colors.red('Check the file permissions, then try again.')}\n` +
@@ -330,10 +318,7 @@ export function writingGitIgnore() {
   return `${prefix('debug')} create write file=.gitignore`
 }
 
-export function writingReadmeMetaDataEError(
-  projectName: string,
-  error: unknown
-) {
+export function writingReadmeMetaDataError(error: unknown) {
   return (
     `${prefix('error')} Couldn't write ${colors.yellow('README.md')}.\n` +
     `${colors.red('Check the file permissions, then try again.')}\n` +
@@ -349,7 +334,7 @@ export function writingDirectoryError(error: unknown) {
   )
 }
 
-export function cantSetupBuiltInTests(projectName: string, error: unknown) {
+export function cantSetupBuiltInTests(error: unknown) {
   return (
     `${prefix('error')} Couldn't set up the built-in tests.\n` +
     `${colors.red('The extension itself is fine. Re-run create, or skip the tests.')}\n` +

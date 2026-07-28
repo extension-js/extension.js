@@ -112,18 +112,12 @@ export async function extensionCreate(
   if (isDenoRuntime() && !isMonorepoTemplate) {
     await writeDenoJsonc(
       projectPath,
-      projectName,
       {template, cliVersion, primary: true},
       logger
     )
   } else {
-    await overridePackageJson(
-      projectPath,
-      projectName,
-      {template, cliVersion},
-      logger
-    )
-    await writeDenoJsonc(projectPath, projectName, {template}, logger)
+    await overridePackageJson(projectPath, {template, cliVersion}, logger)
+    await writeDenoJsonc(projectPath, {template}, logger)
   }
 
   // Stamp provenance before git init so the record is part of the first commit.
@@ -135,10 +129,10 @@ export async function extensionCreate(
   }
 
   await writeReadmeFile(projectPath, projectName, logger)
-  await writeManifestJson(projectPath, projectName, logger)
+  await writeManifestJson(projectPath, logger)
   await initializeGitRepository(projectPath, projectName, logger)
   await writeGitignore(projectPath, logger)
-  await setupBuiltInTests(projectPath, projectName, logger)
+  await setupBuiltInTests(projectPath, logger)
 
   if (utils.isTypeScriptTemplate(template)) {
     await generateExtensionTypes(projectPath, projectName, logger)
