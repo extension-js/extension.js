@@ -107,13 +107,22 @@ async function maybePrintLaunchBanner(args: {
   )
   if (!extensionOutputPath) return
 
+  // The profile is session identity, so the card carries it as a row.
+  const userDataDirFlag = args.chromiumConfig.find((flag: string) =>
+    flag.startsWith('--user-data-dir=')
+  )
+  const profilePath = userDataDirFlag
+    ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
+    : undefined
+
   // A production dist is already written, so it needs no stability wait.
   // CDP re-offers a richer card later; the key dedupes the second attempt.
   if (mode === 'production') {
     await printProdBannerOnce({
       browser: args.browser,
       outPath: extensionOutputPath,
-      browserVersionLine: args.browserVersionLine
+      browserVersionLine: args.browserVersionLine,
+      profilePath
     })
     return
   }
@@ -129,7 +138,8 @@ async function maybePrintLaunchBanner(args: {
     outPath: extensionOutputPath,
     hostPort: args.hostPort,
     getInfo: async () => null,
-    browserVersionLine: args.browserVersionLine
+    browserVersionLine: args.browserVersionLine,
+    profilePath
   })
 }
 

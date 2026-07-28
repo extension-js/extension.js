@@ -79,10 +79,15 @@ A top-level command prints one card before its first work line:
     Browser        Chromium 141
     Extension      out-probe 1.0.0
     Extension ID   aicjcgkbnbnjnnckchpjcjjcdnpjjhga
+    Profile        /work/out-probe/dist/extension-js/profiles/chromium-profile
     Run ID         ms250dnw-hkhe4xpd · PID 46476
 ```
 
-Rows are omitted when the value is unknown. There is no `n/a`.
+Rows are omitted when the value is unknown. There is no `n/a`. The launched
+browser's profile directory is session identity, so it renders as the
+`Profile` row on the paths that know it. A launch that cannot show the card,
+such as the deduped preview leg of `start`, keeps the standalone debug profile
+line instead.
 
 **The extension ID and the run ID are never abbreviated.** People paste the extension ID
 straight into `chrome://extensions`, and a truncated value sends them hunting for the rest.

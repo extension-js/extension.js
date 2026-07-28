@@ -40,6 +40,32 @@ describe('printDevBannerOnce', () => {
     const extracted = idLine.split('Extension ID')[1]?.trim() || ''
     expect(extracted).toMatch(/^[a-p]{32}$/)
     expect(output).not.toContain('(temporary)')
+    expect(output).not.toContain('Profile')
+    logSpy.mockRestore()
+  })
+
+  it('renders the Profile row when the launch knows its profile path', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Managed Session Extension',
+      version: '1.0.0'
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printDevBannerOnce({
+      browser: 'chromium',
+      outPath,
+      hostPort: {host: '127.0.0.1', port: 9333},
+      getInfo: async () => null,
+      profilePath: '/tmp/extension-js-profiles/chromium-profile'
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    const profileLine =
+      output.split('\n').find((line) => /^\s+Profile\s{2,}/.test(line)) || ''
+    expect(profileLine).toContain('/tmp/extension-js-profiles/chromium-profile')
     logSpy.mockRestore()
   })
 
@@ -197,6 +223,30 @@ describe('printProdBannerOnce', () => {
     expect(output).toContain('Run ID')
     expect(output).toContain('run-123')
     expect(output).toContain('4242')
+    logSpy.mockRestore()
+  })
+
+  it('renders the Profile row in the production banner when provided', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Prod Managed Session Extension',
+      version: '2.0.0'
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printProdBannerOnce({
+      browser: 'chromium',
+      outPath,
+      browserVersionLine: 'Chromium 120.0',
+      profilePath: '/tmp/extension-js-profiles/chromium-profile'
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    const profileLine =
+      output.split('\n').find((line) => /^\s+Profile\s{2,}/.test(line)) || ''
+    expect(profileLine).toContain('/tmp/extension-js-profiles/chromium-profile')
     logSpy.mockRestore()
   })
 })
