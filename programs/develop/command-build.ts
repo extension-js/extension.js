@@ -206,6 +206,7 @@ export async function extensionBuild(
 
     let summary: BuildSummary = {
       browser,
+      output_path: distPath,
       total_assets: 0,
       total_bytes: 0,
       largest_asset_bytes: 0,
@@ -249,7 +250,7 @@ export async function extensionBuild(
             errors: true
           })
 
-          summary = getBuildSummary(browser, info)
+          summary = getBuildSummary(browser, info, distPath)
 
           // Hosts that shell out to `extension build` cannot see the returned
           // summary, so persist it next to ready.json. Best-effort only.
@@ -294,13 +295,28 @@ export async function extensionBuild(
     ) {
       const safariConfig = await loadBrowserConfig(packageJsonDir, browser)
 
-      await buildOptions.safariPackager(distPath, 'full', {
+      const safari = await buildOptions.safariPackager(distPath, 'full', {
         appName: buildOptions.appName ?? safariConfig.appName,
         bundleId: buildOptions.bundleId ?? safariConfig.bundleId,
         macOsOnly: buildOptions.macOsOnly ?? safariConfig.macOsOnly,
         forceRegenerate: buildOptions.forceRegenerate,
         safariBinary: buildOptions.safariBinary ?? safariConfig.safariBinary
       })
+
+      // The app identity (and whether the bundle id was generated rather than
+      // user-owned) was a human log line only. Fold it into the summary so a
+      // programmatic caller does not have to read project.pbxproj to learn it.
+      if (safari) {
+        summary = {...summary, safari}
+        try {
+          fs.writeFileSync(
+            buildSummaryPath(packageJsonDir, browser),
+            JSON.stringify(summary)
+          )
+        } catch {
+          // Never fail a green build over the informational contract.
+        }
+      }
     }
 
     return summary

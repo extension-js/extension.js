@@ -8,11 +8,9 @@
 
 import {type Command, Option} from 'commander'
 import {launchBrowser} from '../browsers'
-import {
-  packageSafariExtension,
-  safariPreflightError
-} from '../browsers/run-safari/safari-launch'
+import {safariPreflightError} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
+import {createSafariPackager} from '../browsers/run-safari/safari-packager'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -125,6 +123,11 @@ export function registerDevCommand(program: Command) {
     .option(
       '--bundle-id <reverse.dns>',
       'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+    )
+    .option(
+      '--macos-only [boolean]',
+      'generate a macOS-only Safari Xcode project (safari targets only). Pass `false` for a universal macOS + iOS project. Defaults to `true`',
+      parseOptionalBoolean
     )
     .option(
       '--force-regenerate',
@@ -280,6 +283,7 @@ export function registerDevCommand(program: Command) {
           safariBinary?: string
           appName?: string
           bundleId?: string
+          macosOnly?: boolean
           forceRegenerate?: boolean
         }
         const safariOnlyFlags = [
@@ -287,15 +291,20 @@ export function registerDevCommand(program: Command) {
           ['--app-name', opts.appName],
           ['--bundle-id', opts.bundleId],
           ['--force-regenerate', opts.forceRegenerate]
-        ].filter(([, value]) => value !== undefined && value !== false)
+        ]
+          .filter(([, value]) => value !== undefined && value !== false)
+          .map(([flag]) => flag as string)
+
+        // --macos-only carries an explicit boolean, so `false` is a real use
+        // rather than an unset flag; only `undefined` means it was not passed.
+        if (opts.macosOnly !== undefined) safariOnlyFlags.push('--macos-only')
 
         if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
-          const flags = safariOnlyFlags.map(([flag]) => flag as string)
           // eslint-disable-next-line no-console
-          console.error(messages.safariOnlyOption(flags))
+          console.error(messages.safariOnlyOption(safariOnlyFlags))
           failAndExit(asJson, 'usage', {
             code: CODES.E_INVALID_OPTION,
-            message: `${flags.join(', ')} apply to safari targets only.`
+            message: `${safariOnlyFlags.join(', ')} apply to safari targets only.`
           })
         }
 
@@ -419,6 +428,7 @@ export function registerDevCommand(program: Command) {
             polyfill:
               devOptions.polyfill?.toString() === 'false' ? false : true,
             noOpen: devOptions.open === false,
+            macOsOnly: opts.macosOnly,
             startingUrl: devOptions.startingUrl,
             install: devOptions.install,
             noBrowser,
@@ -435,24 +445,10 @@ export function registerDevCommand(program: Command) {
             launcher: noBrowser ? undefined : launchBrowser,
             // Inject the Safari packager; SafariDevPlugin calls it on each rebuild (full
             // first, then incremental resync), CLI flags already win over config.
-            safariPackager: async (
-              distPath: string,
-              mode: 'full' | 'resync',
-              overrides?: Record<string, unknown>
-            ) => {
-              await packageSafariExtension(
-                {
-                  extension: [distPath],
-                  browser: vendor as Browser,
-                  noOpen: devOptions.open === false,
-                  dryRun: false,
-                  ...overrides
-                },
-                distPath,
-                undefined,
-                mode
-              )
-            }
+            safariPackager: createSafariPackager({
+              browser: vendor as 'safari' | 'webkit-based',
+              noOpen: devOptions.open === false
+            })
           }
 
           // extensionDev returns a BuildEmitter from the BrowsersPlugin.

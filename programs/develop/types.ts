@@ -90,6 +90,7 @@ export interface JsFramework {
 }
 
 import type {Configuration} from '@rspack/core'
+import type {SafariPackageSummary} from './lib/build-summary'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 
 export type BrowserType =
@@ -166,6 +167,18 @@ export interface SafariPackagerOverrides {
   safariBinary?: string
 }
 
+/**
+ * The packaging callback develop calls once the Safari dist is on disk. The
+ * CLI injects `createSafariPackager()` from `extension/browsers`; a library
+ * caller must inject the same thing or no Safari app is produced at all.
+ * Returning a summary is optional so older packagers keep type-checking.
+ */
+export type SafariPackagerFn = (
+  distPath: string,
+  mode: 'full' | 'resync',
+  overrides?: SafariPackagerOverrides
+) => Promise<SafariPackageSummary | void>
+
 export interface NonBinaryOptions extends BrowserOptionsBase {
   browser: Exclude<
     BrowserType,
@@ -224,6 +237,17 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
+  /**
+   * Open the agent-bridge control channel for the bounded act verbs
+   * (storage/reload/open). The CLI sets this from `--allow-control`.
+   */
+  allowControl?: boolean
+  /**
+   * Additionally allow the `eval` verb, which runs arbitrary code inside a
+   * context and writes a 0600 session token. Only honored together with
+   * `allowControl`. The CLI sets this from `--allow-eval`.
+   */
+  allowEval?: boolean
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
   exitOnError?: boolean
@@ -231,11 +255,7 @@ export interface DevOptions extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']
   forceRegenerate?: boolean
-  safariPackager?: (
-    distPath: string,
-    mode: 'full' | 'resync',
-    overrides?: SafariPackagerOverrides
-  ) => Promise<void>
+  safariPackager?: SafariPackagerFn
 }
 
 export interface BuildOptions {
@@ -279,11 +299,7 @@ export interface BuildOptions {
   bundleId?: SafariOptions['bundleId']
   macOsOnly?: SafariOptions['macOsOnly']
   forceRegenerate?: boolean
-  safariPackager?: (
-    distPath: string,
-    mode: 'full' | 'resync',
-    overrides?: SafariPackagerOverrides
-  ) => Promise<void>
+  safariPackager?: SafariPackagerFn
 }
 
 export interface PreviewOptions extends BrowserOptionsBase {

@@ -143,6 +143,21 @@ describe('extension dev', () => {
     expect(extensionDev).not.toHaveBeenCalled()
   })
 
+  it('forwards --macos-only false so a universal project is reachable', async () => {
+    expect(
+      await run(['dev', '.', '--browser', 'safari', '--macos-only', 'false'])
+    ).toBe(0)
+    const [, opts] = extensionDev.mock.calls[0] as any[]
+    expect(opts.macOsOnly).toBe(false)
+  })
+
+  it('rejects --macos-only false for non-safari targets', async () => {
+    // `false` is a real value for this flag, not an unset boolean, so the
+    // safari-only gate has to notice it rather than filter it out.
+    expect(await run(['dev', '.', '--macos-only', 'false'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--macos-only/)
+  })
+
   it('fails fast when the safari toolchain preflight reports an issue', async () => {
     safariPreflightError.mockReturnValue('xcode missing')
     expect(await run(['dev', '.', '--browser', 'safari'])).toBe(1)
