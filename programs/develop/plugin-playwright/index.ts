@@ -8,6 +8,10 @@
 
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
+import {
+  type ManagedExtensionRecord,
+  managedExtensionRecords
+} from '../lib/extension-id'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {
@@ -63,6 +67,9 @@ export type ReadyMetadata = {
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached'
   executorAttachedAt?: string
+  // Every extension the engine loads besides the user's (built-in companions
+  // plus --extensions dirs), so a target census can subtract them by id.
+  managedExtensions?: ManagedExtensionRecord[]
 }
 
 export type PlaywrightAutomationEvent = {
@@ -88,6 +95,7 @@ type WriterOptions = {
   controlPort?: number | string | null
   controlPath?: string
   logsPath?: string
+  managedExtensionDirs?: string[]
 }
 
 type PluginOptions = {
@@ -103,6 +111,7 @@ type PluginOptions = {
   controlPort?: number | string | null
   controlPath?: string
   logsPath?: string
+  managedExtensionDirs?: string[]
 }
 
 function nowISO() {
@@ -244,6 +253,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     )
   }
 
+  const toManagedRecords = (
+    dirs: string[] | undefined
+  ): ManagedExtensionRecord[] | undefined =>
+    Array.isArray(dirs) && dirs.length > 0
+      ? managedExtensionRecords(options.browser, dirs)
+      : undefined
+
+  let managedExtensions = toManagedRecords(options.managedExtensionDirs)
+
   const base = {
     schemaVersion: 2 as const,
     // Capability advertisement: a reader that sees this can trust the engine's
@@ -286,6 +304,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
+    if (managedExtensions) payload.managedExtensions = managedExtensions
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
     try {
@@ -293,6 +312,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
         if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+        if (
+          !payload.managedExtensions &&
+          Array.isArray(prev.managedExtensions)
+        ) {
+          payload.managedExtensions = prev.managedExtensions
+        }
         if (typeof prev.browserExitedAt === 'string') {
           ;(payload as Record<string, unknown>).browserExitedAt =
             prev.browserExitedAt
@@ -351,6 +376,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     metadataDir,
     readyPath,
     eventsPath,
+    setManagedExtensionDirs(dirs: string[]) {
+      managedExtensions = toManagedRecords(dirs)
+    },
     writeStarting() {
       if (foreignLiveDevSession) return
       // A new run is the only truth: reset the timeline so prior-run entries don't
@@ -442,7 +470,8 @@ export class PlaywrightPlugin {
       instanceId: options.instanceId,
       controlPort: options.controlPort,
       controlPath: options.controlPath,
-      logsPath: options.logsPath
+      logsPath: options.logsPath,
+      managedExtensionDirs: options.managedExtensionDirs
     })
   }
 

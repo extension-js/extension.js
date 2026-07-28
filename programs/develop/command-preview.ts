@@ -231,6 +231,12 @@ export async function extensionPreview(
     projectStructure.manifestPath
   )
 
+  metadata.setManagedExtensionDirs(
+    unpackedExtensionDirsToLoad.filter(
+      (dir) => path.resolve(dir) !== path.resolve(outputPath)
+    )
+  )
+
   const resolvedOpts: ResolvedPreviewOptions = {
     browser,
     outPath: outputPath,
