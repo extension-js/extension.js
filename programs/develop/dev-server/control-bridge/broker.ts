@@ -91,6 +91,14 @@ const EVAL_DENIED: Record<Exclude<EvalGate, 'ok'>, string> = {
     'session, reconnect the controller, or restart the dev session'
 }
 
+// The gate survives to the wire as the error name, so the CLI maps it to a
+// code without sniffing the denial prose.
+const EVAL_DENIED_NAME: Record<Exclude<EvalGate, 'ok'>, string> = {
+  'eval-disabled': 'EvalDisabled',
+  'no-token': 'EvalTokenMissing',
+  'token-mismatch': 'EvalTokenMismatch'
+}
+
 // Why no executor is connected, in priority order; each cause has a different
 // remediation. The 'no executor connected' prefix is load-bearing for specs.
 type ExecutorAbsence =
@@ -584,7 +592,7 @@ export class BridgeBroker {
     }
     const evalGate = this.evalGate.get(controller) ?? 'eval-disabled'
     if (isEval && evalGate !== 'ok') {
-      deny('Forbidden', EVAL_DENIED[evalGate])
+      deny(EVAL_DENIED_NAME[evalGate], EVAL_DENIED[evalGate])
       return
     }
 

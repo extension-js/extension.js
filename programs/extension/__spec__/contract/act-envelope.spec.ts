@@ -84,11 +84,11 @@ const FAILURE_FIXTURES = [
     status: 'timeout'
   },
   {
-    name: 'Forbidden (eval disabled)',
+    name: 'EvalDisabled',
     result: {
       ok: false,
       error: {
-        name: 'Forbidden',
+        name: 'EvalDisabled',
         message:
           'eval is disabled for this session: restart the dev session with --allow-eval'
       }
@@ -97,7 +97,33 @@ const FAILURE_FIXTURES = [
     status: 'denied'
   },
   {
-    name: 'Forbidden (no token)',
+    name: 'EvalTokenMissing',
+    result: {
+      ok: false,
+      error: {
+        name: 'EvalTokenMissing',
+        message:
+          'eval session token missing from the hello: the controller could not read the session token'
+      }
+    },
+    code: CODES.E_TOKEN_MISSING,
+    status: 'denied'
+  },
+  {
+    name: 'EvalTokenMismatch',
+    result: {
+      ok: false,
+      error: {
+        name: 'EvalTokenMismatch',
+        message:
+          'eval session token mismatch: the token on disk belongs to another session'
+      }
+    },
+    code: CODES.E_EVAL_REFUSED,
+    status: 'denied'
+  },
+  {
+    name: 'Forbidden (legacy collapsed denial, prose never sniffed)',
     result: {
       ok: false,
       error: {
@@ -106,8 +132,22 @@ const FAILURE_FIXTURES = [
           'eval session token missing from the hello: the controller could not read the session token'
       }
     },
-    code: CODES.E_TOKEN_MISSING,
+    code: CODES.E_EVAL_REFUSED,
     status: 'denied'
+  },
+  {
+    name: 'TargetNotFound',
+    result: {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message:
+          'the expression never executed in tab 12: no injectable frame returned a result (restricted page, or outside host_permissions)',
+        engine: 'chromium'
+      }
+    },
+    code: CODES.E_TARGET_NOT_FOUND,
+    status: 'not-found'
   },
   {
     name: 'BadRequest',

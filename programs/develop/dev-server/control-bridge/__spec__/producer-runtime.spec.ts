@@ -477,8 +477,28 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-null')
-    expect(r).toMatchObject({ok: false, error: {name: 'EvalError'}})
+    expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
     expect(r.error.message).toContain('never executed')
+  })
+
+  it('eval content: a rejected injection reports TargetNotFound, not a guest throw', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () => Promise.reject(new Error('No tab with id: 404.'))
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-gone',
+      op: 'eval',
+      target: {context: 'content', tabId: 404},
+      args: {expression: '1'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-gone')
+    expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
+    expect(r.error.message).toContain('No tab with id: 404')
   })
 
   it('eval content: a CSP-blocked eval inside the tab reports Unsupported with the MAIN-world alternative', async () => {

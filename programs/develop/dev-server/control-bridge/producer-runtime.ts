@@ -236,10 +236,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               },
               args: [String(args.expression)]
             }], function (err, res) {
-              if (err) { replyErr(cmdId, "EvalError", (err && err.message) || err); return; }
+              if (err) { replyErr(cmdId, "TargetNotFound", (err && err.message) || err); return; }
               var frame = res && res[0] ? res[0].result : undefined;
               if (!frame || frame.__extjsEval !== 1) {
-                replyErr(cmdId, "EvalError", "the expression never executed in tab " + target.tabId + ": no injectable frame returned a result (restricted page, or outside host_permissions)");
+                replyErr(cmdId, "TargetNotFound", "the expression never executed in tab " + target.tabId + ": no injectable frame returned a result (restricted page, or outside host_permissions)");
                 return;
               }
               if (frame.ok) { replyOk(cmdId, frame.value); return; }
