@@ -63,6 +63,20 @@ function resolveManifestName(
 
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
 
+// Companion extensions under ./extensions are loaded beside yours for local
+// debugging and are somebody else's code, so they are never part of your
+// source. Relying on .gitignore to keep them out is not enough: the ignore
+// file is written by whatever placed the companion, it is absent in a project
+// that is not a repository, and a source zip is published. A companion that
+// carries broad host permissions would otherwise ship inside a release
+// someone downloads and trusts.
+const COMPANION_DIR = 'extensions'
+
+function isCompanionExtension(file: string): boolean {
+  const [first] = toPosix(file).split('/')
+  return first === COMPANION_DIR
+}
+
 async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
@@ -75,7 +89,9 @@ async function getFilesToZip(projectDir: string): Promise<string[]> {
   }
 
   const files = await glob('**/*', {cwd: projectDir, dot: true})
-  return files.filter((file) => !ig.ignores(file))
+  return files.filter(
+    (file) => !ig.ignores(file) && !isCompanionExtension(file)
+  )
 }
 
 export class ZipPlugin {
