@@ -531,3 +531,90 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 })
+
+describe('webpack-config MV2 on chromium warning', () => {
+  const buildConfig = (manifest: Record<string, unknown>) => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-webpack-config-'))
+    const packageJsonPath = path.join(root, 'package.json')
+    const manifestPath = path.join(root, 'manifest.json')
+    fs.writeFileSync(packageJsonPath, JSON.stringify({name: 'demo'}), 'utf-8')
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8')
+
+    return webpackConfig(
+      {manifestPath, packageJsonPath} as any,
+      {
+        browser: 'chrome',
+        mode: 'production',
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        noBrowser: true
+      } as any
+    )
+  }
+
+  const captureMv2Tap = (config: any) => {
+    let tapped: ((compilation: any) => void) | undefined
+    const hook = {
+      tap: (nameOrOptions: any, fn: any) => {
+        const name =
+          typeof nameOrOptions === 'string' ? nameOrOptions : nameOrOptions?.name
+        if (name === 'warn-mv2-on-chromium') tapped = fn
+      },
+      tapAsync: () => undefined,
+      tapPromise: () => undefined
+    }
+    const compiler: any = {
+      hooks: new Proxy({}, {get: () => hook}),
+      rspack: {WebpackError: Error},
+      options: {}
+    }
+    for (const plugin of config.plugins ?? []) {
+      if (
+        plugin &&
+        plugin.constructor === Object &&
+        typeof plugin.apply === 'function'
+      ) {
+        try {
+          plugin.apply(compiler)
+        } catch (error) {
+          void error
+        }
+      }
+    }
+    return tapped
+  }
+
+  it('warns that an MV2 extension manifest will not install on chromium', () => {
+    const config = buildConfig({
+      manifest_version: 2,
+      name: 'x',
+      version: '1.0.0'
+    })
+    const tap = captureMv2Tap(config)
+    expect(tap).toBeDefined()
+
+    const compilation: any = {warnings: []}
+    tap?.(compilation)
+    expect(compilation.warnings).toHaveLength(1)
+    expect(String(compilation.warnings[0])).toMatch(/will not install/)
+  })
+
+  it('stays quiet for an MV2 theme manifest, which Chrome still installs', () => {
+    const config = buildConfig({
+      manifest_version: 2,
+      name: 'x',
+      version: '1.0.0',
+      theme: {colors: {frame: [0, 0, 0]}}
+    })
+    expect(captureMv2Tap(config)).toBeUndefined()
+  })
+
+  it('stays quiet for MV3 manifests', () => {
+    const config = buildConfig({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0'
+    })
+    expect(captureMv2Tap(config)).toBeUndefined()
+  })
+})

@@ -221,7 +221,17 @@ export default function webpackConfig(
         const target = String(devOptions.browser)
         // Family classification: brave/opera/vivaldi/yandex drop MV2 too.
         const isChromiumTarget = isChromiumBasedBrowser(target)
-        if (manifest?.manifest_version !== 2 || !isChromiumTarget) return
+        // Chrome classifies any manifest carrying a theme key as a theme and
+        // still installs MV2 themes, so only extension manifests get the warning.
+        const isThemeManifest = Boolean(
+          manifest?.theme && typeof manifest.theme === 'object'
+        )
+        if (
+          manifest?.manifest_version !== 2 ||
+          !isChromiumTarget ||
+          isThemeManifest
+        )
+          return
         compiler.hooks.thisCompilation.tap(
           'warn-mv2-on-chromium',
           (compilation: Compilation) => {
