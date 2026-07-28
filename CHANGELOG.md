@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 4.0.20 (July 28, 2026)
+
+### Features
+
+- Add a capabilities command answering versions and json-capable commands ([80e8e399](https://github.com/extension-js/extension.js/commit/80e8e39934bcb492709a81ec1e356b9e0ef9fe4a))
+
+<details>
+<summary>Other changes (17)</summary>
+
+- Report inspect refused targets as TargetNotFound like eval ([0c11de92](https://github.com/extension-js/extension.js/commit/0c11de9210024745297bb5e0201f4f828c28b6a0))
+- Admit the capabilities command and theme message to contract guards ([a20476c8](https://github.com/extension-js/extension.js/commit/a20476c8f9342c9bc6c882504aec96658c0fc90b))
+- Frame every CLI exit path as one stdout envelope with structured refs ([764e7521](https://github.com/extension-js/extension.js/commit/764e75213ff2574c2cda0b29836c4669879db02d))
+- Stamp profile path and browser pid, publish profile and dist helpers ([9fa709af](https://github.com/extension-js/extension.js/commit/9fa709af1d86b54e8260218bb217017e22bacdc8))
+- Publish the whole ready contract and its type from the bridge entry ([06ed3bd1](https://github.com/extension-js/extension.js/commit/06ed3bd169a01104cd5a4d2037d0a6b69ed5c8be))
+- Mint the documented eval hint on guest-throw failures ([276219f8](https://github.com/extension-js/extension.js/commit/276219f8a637b837f47539c9e3af72a5d9b53e48))
+- Report the resolved build mode in the JSON envelope ([04b556c0](https://github.com/extension-js/extension.js/commit/04b556c04b5be16498b2088e2a193ef13d0ca092))
+- Name eval refusals on the wire and map unreachable targets ([1ba027fc](https://github.com/extension-js/extension.js/commit/1ba027fc6264612f1abce2aa2dd5cb698ae9a489))
+- Hand the WebSocket close code and reason to BridgeConsumer callers ([89c128ea](https://github.com/extension-js/extension.js/commit/89c128ea60c746cc8e7800e5ef72167a5b1c1ab2))
+- Name open refusals on the wire so consumers stop matching prose ([15544bf0](https://github.com/extension-js/extension.js/commit/15544bf0703df837c053bce24a99e2ec3a928177))
+- Record engine-loaded companion extension ids in ready.json ([33d919ff](https://github.com/extension-js/extension.js/commit/33d919ff383a71eddb57d50fe83890200dc1133d))
+- Reach the shipped dist contract through a package exports entry ([82fed76b](https://github.com/extension-js/extension.js/commit/82fed76b89d4e16994d00566ca492f653a21b3b4))
+- Publish a browser-safe contracts entry with zero-import wire constants ([c4807b90](https://github.com/extension-js/extension.js/commit/c4807b909c3126a0c11af92f9a57aa422c64972e))
+- Name the theme image in the missing theme-image build error ([8f741066](https://github.com/extension-js/extension.js/commit/8f7410668783cc081043fe513a2b8745d90c8d25))
+- Scope the MV2 install warning to manifests Chrome actually refuses ([e5215f98](https://github.com/extension-js/extension.js/commit/e5215f9853d353823cc46945888f4308740ed675))
+- Fail chromium builds over theme color values Chrome refuses at load ([706581d5](https://github.com/extension-js/extension.js/commit/706581d58d82f6dc34db8d4a22fe53af20c84f7b))
+- Match Chrome's message-name charset in the manifest placeholder scan ([59130e63](https://github.com/extension-js/extension.js/commit/59130e63cfd4471033c0da84199c326ee22f31e1))
+</details>
+
 ## 4.0.19 (July 28, 2026)
 
 ### Fixes
