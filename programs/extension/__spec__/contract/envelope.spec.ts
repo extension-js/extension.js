@@ -68,6 +68,19 @@ describe('the schema-1 result envelope', () => {
     )
   })
 
+  it('carries structured refs beside the error sentence', () => {
+    const frame = ENVELOPE.fail('dev', 'usage', {
+      code: CODES.E_FLAG_NOT_SUPPORTED_HERE,
+      message: "unknown option '--nope'",
+      refs: {flag: '--nope'}
+    })
+    expect(validate(frame as never)).toEqual([])
+    expect(frame.error?.refs).toEqual({flag: '--nope'})
+    expect(Object.keys(schema.properties.error.oneOf[1].properties)).toContain(
+      'refs'
+    )
+  })
+
   it('stays a superset of the act frame the MCP already reads', () => {
     const frame = ENVELOPE.fail(
       'eval',

@@ -29,7 +29,16 @@
             "message": { "type": "string" },
             "name": { "type": "string" },
             "engine": { "type": "string" },
-            "hint": { "type": "string" }
+            "hint": { "type": "string" },
+            "refs": {
+              "type": "object",
+              "properties": {
+                "flag": { "type": "string" },
+                "command": { "type": "string" },
+                "path": { "type": "string" },
+                "version": { "type": "string" }
+              }
+            }
           }
         }
       ]

@@ -283,6 +283,15 @@ export const CODES = {
 
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]
 
+// The actionable parts a message or hint names, carried beside the sentence so
+// a consumer can render its own copy instead of rewriting the engine's.
+export interface EnvelopeErrorRefs {
+  flag?: string
+  command?: string
+  path?: string
+  version?: string
+}
+
 // name and engine exist so the act frame stays a subset of this shape: the MCP
 // reads frame.error.message and frame.error.hint today and must keep working.
 export interface EnvelopeError {
@@ -291,6 +300,7 @@ export interface EnvelopeError {
   name?: string
   engine?: string
   hint?: string
+  refs?: EnvelopeErrorRefs
 }
 
 export interface Envelope<T = unknown> {
