@@ -1741,6 +1741,44 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       value: {url: 'https://x.test/', summary: {extensionRootCount: 1}}
     })
   })
+
+  it('inspect content: a null snapshot reports TargetNotFound, not InspectError', async () => {
+    const ws = setup({
+      scripting: {executeScript: () => Promise.resolve([{result: null}])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'i-null',
+      op: 'inspect',
+      target: {context: 'content', tabId: 9},
+      args: {include: ['summary']}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    const r = results(ws).find((f) => f.cmdId === 'i-null')
+    expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
+    expect(r.error.message).toContain('no injectable frame')
+  })
+
+  it('inspect content: a rejected injection reports TargetNotFound', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () => Promise.reject(new Error('No tab with id: 404.'))
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'i-gone',
+      op: 'inspect',
+      target: {context: 'content', tabId: 404},
+      args: {include: ['summary']}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    const r = results(ws).find((f) => f.cmdId === 'i-gone')
+    expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
+    expect(r.error.message).toContain('No tab with id: 404')
+  })
 })
 
 describe('bridge producer runtime, storage on callback-only engines (#54)', () => {

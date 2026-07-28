@@ -505,6 +505,20 @@ describe('the act frame as a schema-1 envelope', () => {
     expect(frame).toEqual(golden)
   })
 
+  it('maps an inspect refused target to E_TARGET_NOT_FOUND like eval', () => {
+    const frame = buildActEnvelope('inspect', {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message:
+          'no injectable frame returned a snapshot for tab 9 (restricted page, or outside host_permissions)',
+        engine: 'chromium'
+      }
+    })
+    expect((frame.error as {code: string}).code).toBe(CODES.E_TARGET_NOT_FOUND)
+    expect(frame.status).toBe('not-found')
+  })
+
   it('survives the JSON round trip the MCP performs on stdout', () => {
     // lib/act.ts:88-93 does JSON.parse(stdout.trim()), so the frame must be one
     // serializable document with no undefined holes.
