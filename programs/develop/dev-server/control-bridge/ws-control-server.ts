@@ -8,10 +8,14 @@
 
 import {type RawData, WebSocket, WebSocketServer} from 'ws'
 import type {BridgeBroker, BridgeConnection} from './broker'
-import {type AnyFrame, CONTROL_WS_PATH, type ServerFrame} from './contracts'
+import {
+  type AnyFrame,
+  CLOSE_SLOW_CONSUMER,
+  CONTROL_WS_PATH,
+  type ServerFrame
+} from './contracts'
 
 const SLOW_CONSUMER_BYTES = 8 * 1024 * 1024
-const CLOSE_SLOW_CONSUMER = 4008
 
 // MV3 service workers idle out after ~30s; a WebSocket message resets that
 // timer (Chrome 116+), so ping producers faster to keep the SW reachable.

@@ -1,3 +1,5 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const extensionBuild = vi.fn(async () => {})
@@ -16,6 +18,7 @@ vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
   isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
 }))
 
+import {getBuildSummary} from '../../develop/lib/build-summary'
 import {registerBuildCommand} from '../commands/build'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
@@ -176,6 +179,94 @@ describe('extension build', () => {
       output_path: '/tmp/project/dist/chromium',
       total_bytes: 2048,
       warnings: ['a warning']
+    })
+  })
+
+  // The golden envelope is what a host reads to learn the build frame's shape
+  // without running a build. It shipped documenting `{projectPath, browsers,
+  // mode}` long after `summaries` joined `value`, so a reader was told the
+  // summary channel does not exist.
+  describe('the golden build envelope documents the real frame', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, 'contract', 'golden.build.built.json'),
+        'utf8'
+      )
+    )
+
+    function emitJsonFrame(argv: string[]) {
+      extensionBuild.mockResolvedValueOnce({
+        browser: 'chromium',
+        output_path: '/home/dev/my-extension/dist/chromium',
+        total_assets: 12,
+        total_bytes: 248320,
+        largest_asset_bytes: 131072,
+        warnings_count: 1,
+        errors_count: 0,
+        warnings: ['Asset size exceeds the recommended limit (128 KiB).']
+      } as never)
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      return run(argv).then((code) => {
+        expect(code).toBe(0)
+        return JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]))
+      })
+    }
+
+    it('names every key the command actually puts in value', async () => {
+      // The golden is the `--mode` form, so it can document that key at all.
+      const frame = await emitJsonFrame([
+        'build',
+        '.',
+        '--mode',
+        'production',
+        '--output',
+        'json'
+      ])
+
+      expect(
+        Object.keys(golden).sort(),
+        'the golden envelope names keys the build frame does not, or misses some'
+      ).toEqual(Object.keys(frame).sort())
+      expect(
+        Object.keys(golden.value).sort(),
+        'the golden value under-documents what `build --output json` emits'
+      ).toEqual(Object.keys(frame.value).sort())
+      expect(golden.command).toBe(frame.command)
+      expect(golden.status).toBe(frame.status)
+      expect(golden.value.mode).toBe(frame.value.mode)
+      // Build warnings ride inside the summary, never the envelope's own
+      // warnings array. A golden that omitted summaries hid that entirely.
+      expect(golden.warnings).toEqual([])
+      expect(golden.value.summaries[0].warnings.length).toBeGreaterThan(0)
+    })
+
+    it('carries mode only because that invocation passes --mode', async () => {
+      // Without the flag `mode` is undefined and JSON.stringify drops the key
+      // outright. A reader who took the golden for "always present" would
+      // write a parser that trips on the default invocation, so the one
+      // conditional key in the frame is pinned rather than left implied.
+      const frame = await emitJsonFrame(['build', '.', '--output', 'json'])
+      expect('mode' in frame.value).toBe(false)
+      expect(Object.keys(golden.value).sort()).toEqual(
+        [...Object.keys(frame.value), 'mode'].sort()
+      )
+    })
+
+    it('spells its summary with the fields getBuildSummary emits', () => {
+      // Pinned against the produced object rather than the type, so a renamed
+      // field fails here instead of quietly aging the golden out of date.
+      const real = getBuildSummary(
+        'chromium',
+        {
+          assets: [{size: 131072}, {size: 117248}],
+          warnings: [{message: 'a warning'}],
+          errors: []
+        },
+        '/home/dev/my-extension/dist/chromium'
+      )
+      expect(Object.keys(golden.value.summaries[0]).sort()).toEqual(
+        Object.keys(real).sort()
+      )
     })
   })
 })
