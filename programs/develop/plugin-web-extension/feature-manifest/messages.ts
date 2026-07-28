@@ -52,6 +52,24 @@ export function fatalManifestShapeFixed(field: string, detail: string) {
   return lines.join('\n')
 }
 
+export function invalidThemeValue(
+  field: string,
+  detail: string,
+  value: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `Check the ${colors.yellow(field)} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(detail)
+  lines.push(
+    `Chrome rejects the whole extension when this value is malformed.\nThe build stops here to protect you.`
+  )
+  lines.push('')
+  lines.push(`${colors.red('INVALID VALUE')} ${value}`)
+  return lines.join('\n')
+}
+
 export function missingGeckoDataCollectionPermissions() {
   const lines: string[] = []
   lines.push(
