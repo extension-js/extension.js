@@ -25,10 +25,18 @@
       "types": "./dist/bridge-entry.d.ts",
       "import": "./dist/bridge.mjs"
     },
+    "./contracts": {
+      "development": "./contracts-entry.ts",
+      "types": "./dist/contracts-entry.d.ts",
+      "browser": "./dist/contracts.mjs",
+      "import": "./dist/contracts.mjs",
+      "default": "./dist/contracts.mjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/module.mjs",
   "types": "./dist/module.d.ts",
+  "sideEffects": false,
   "files": [
     "dist",
     "runtime"

@@ -160,6 +160,20 @@ export default defineConfig({
         filename: {js: '[name].mjs'},
         externals
       }
+    },
+    // Wire constants and frame types only, web target and no banner, so the
+    // emitted chunk imports nothing and browser bundles can consume it.
+    {
+      format: 'esm',
+      syntax: 'es2022',
+      dts: shouldGenerateDts,
+      source: {
+        entry: {contracts: path.resolve(__dirname, './contracts-entry.ts')}
+      },
+      output: {
+        target: 'web',
+        filename: {js: '[name].mjs'}
+      }
     }
   ],
   plugins: []
