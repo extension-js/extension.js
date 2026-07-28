@@ -472,9 +472,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               },
               args: [includeHtml, maxBytes]
             }], function (err, res) {
-              if (err) { replyErr(cmdId, "InspectError", (err && err.message) || err); return; }
+              if (err) { replyErr(cmdId, "TargetNotFound", (err && err.message) || err); return; }
               var snap = res && res[0] ? res[0].result : undefined;
-              if (snap == null) { replyErr(cmdId, "InspectError", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
+              if (snap == null) { replyErr(cmdId, "TargetNotFound", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
               replyOk(cmdId, snap);
             });
           } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
