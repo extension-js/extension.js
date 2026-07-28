@@ -76,6 +76,13 @@ export function readReadyContract(
   }
 }
 
+// The close code names a deliberate refusal (the CLOSE_ constants), so the
+// client hands it to the caller instead of reducing every close to a void.
+export interface ConsumerCloseInfo {
+  code: number
+  reason: string
+}
+
 export interface ConsumerOptions {
   controlPort: number
   instanceId: string
@@ -85,7 +92,7 @@ export interface ConsumerOptions {
   onReady?: (frame: ReadyFrame) => void
   onLog?: (event: LogEvent) => void
   onGap?: (frame: GapFrame) => void
-  onClose?: () => void
+  onClose?: (info: ConsumerCloseInfo) => void
 }
 
 export class BridgeConsumer {
@@ -95,9 +102,15 @@ export class BridgeConsumer {
   private readonly maxBackoff = 5000
   private closed = false
   private timer: NodeJS.Timeout | null = null
+  private lastCloseInfo: ConsumerCloseInfo | null = null
 
   constructor(options: ConsumerOptions) {
     this.opts = options
+  }
+
+  /** Why the last socket closed; null until a close has happened. */
+  get lastClose(): ConsumerCloseInfo | null {
+    return this.lastCloseInfo
   }
 
   start(): void {
@@ -166,9 +179,10 @@ export class BridgeConsumer {
       else if (frame.type === 'gap') this.opts.onGap?.(frame)
     })
 
-    socket.on('close', () => {
+    socket.on('close', (code: number, reason: Buffer) => {
       this.socket = null
-      this.opts.onClose?.()
+      this.lastCloseInfo = {code, reason: reason?.toString() ?? ''}
+      this.opts.onClose?.(this.lastCloseInfo)
       if (this.opts.reconnect) this.scheduleReconnect()
     })
 

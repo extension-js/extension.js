@@ -3,8 +3,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {BridgeBroker} from '../broker'
-import {BridgeConsumer, readReadyContract} from '../consumer-client'
-import type {IncomingLogEvent} from '../contracts'
+import {
+  BridgeConsumer,
+  type ConsumerCloseInfo,
+  readReadyContract
+} from '../consumer-client'
+import {CLOSE_BAD_INSTANCE, type IncomingLogEvent} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
 import {type ControlServer, startControlServer} from '../ws-control-server'
 
@@ -115,5 +119,43 @@ describe('BridgeConsumer (integration)', () => {
     consumer.start()
     await new Promise((r) => setTimeout(r, 200))
     expect(readyCalled).toBe(false)
+  })
+
+  it('hands the close code and reason to onClose and records lastClose', async () => {
+    const broker = new BridgeBroker({instanceId: 'right', runId: 'run-A'})
+    server = await startControlServer({broker})
+    const closes: ConsumerCloseInfo[] = []
+    const c = new BridgeConsumer({
+      controlPort: server.port,
+      instanceId: 'wrong',
+      onClose: (info) => closes.push(info)
+    })
+    consumer = c
+    expect(c.lastClose).toBeNull()
+    c.start()
+    await new Promise((r) => setTimeout(r, 300))
+    expect(closes).toEqual([
+      {code: CLOSE_BAD_INSTANCE, reason: 'instanceId mismatch'}
+    ])
+    expect(c.lastClose).toEqual({
+      code: CLOSE_BAD_INSTANCE,
+      reason: 'instanceId mismatch'
+    })
+  })
+
+  it('keeps a zero-argument onClose callback working', async () => {
+    const broker = new BridgeBroker({instanceId: 'right', runId: 'run-A'})
+    server = await startControlServer({broker})
+    let closed = 0
+    consumer = new BridgeConsumer({
+      controlPort: server.port,
+      instanceId: 'wrong',
+      onClose: () => {
+        closed += 1
+      }
+    })
+    consumer.start()
+    await new Promise((r) => setTimeout(r, 300))
+    expect(closed).toBe(1)
   })
 })

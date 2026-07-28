@@ -8,6 +8,7 @@
 
 export {
   BridgeConsumer,
+  type ConsumerCloseInfo,
   type ConsumerOptions,
   type ReadyContractInfo,
   readReadyContract
