@@ -25,10 +25,21 @@ import {registerPublishCommand} from './commands/publish'
 import {registerStartCommand} from './commands/start'
 import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
+import {
+  commanderErrorEnvelope,
+  commanderExitCode,
+  earlyExitEnvelope,
+  internalErrorEnvelope,
+  isCommanderError,
+  isErrorFramed,
+  wantsJsonOutput,
+  writeStdoutFrame
+} from './helpers/cli-failure'
 import {getCliPackageJson} from './helpers/cli-package-json'
 import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
+import {CODES} from './helpers/messaging'
 import {warnDeprecatedOutputAlias} from './helpers/output-flag'
 import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
 
@@ -82,12 +93,40 @@ function resolveCommandFromArgv(argv: string[]): string | undefined {
   return undefined
 }
 
+// A pre-parse refusal must still leave one machine frame on stdout when the
+// caller asked for json, or the exit code arrives with nothing explaining it.
+function failBeforeParse(
+  argv: string[],
+  humanMessage: string,
+  code: (typeof CODES)[keyof typeof CODES],
+  plainMessage: string,
+  flag: string
+): never {
+  // eslint-disable-next-line no-console
+  console.error(humanMessage)
+  if (wantsJsonOutput(argv)) {
+    writeStdoutFrame(
+      earlyExitEnvelope(
+        resolveCommandFromArgv(argv) || 'extension',
+        code,
+        plainMessage,
+        {flag}
+      )
+    )
+  }
+  process.exit(1)
+}
+
 function applyNoBrowserArgvShim(argv: string[]): string[] {
   const hasNoRunner = argv.includes('--no-runner')
   if (hasNoRunner) {
-    // eslint-disable-next-line no-console
-    console.error(messages.removedNoRunnerFlag())
-    process.exit(1)
+    failBeforeParse(
+      argv,
+      messages.removedNoRunnerFlag(),
+      CODES.E_REMOVED_FLAG,
+      '--no-runner was removed. Use --no-browser instead.',
+      '--no-runner'
+    )
   }
 
   let nextArgv = argv
@@ -97,11 +136,14 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   if (hasNoReload) {
     const command = resolveCommandFromArgv(nextArgv)
     if (command !== 'dev') {
-      // eslint-disable-next-line no-console
-      console.error(
-        `--no-reload is only supported on \`extension dev\` (got: ${command || 'no command'}).`
+      const message = `--no-reload is only supported on \`extension dev\` (got: ${command || 'no command'}).`
+      failBeforeParse(
+        nextArgv,
+        message,
+        CODES.E_FLAG_NOT_SUPPORTED_HERE,
+        message,
+        '--no-reload'
       )
-      process.exit(1)
     }
     process.env.EXTENSION_NO_RELOAD = 'true'
     nextArgv = nextArgv.filter((arg) => arg !== '--no-reload')
@@ -115,9 +157,15 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
     command === 'dev' || command === 'start' || command === 'preview'
 
   if (!supportsNoBrowser) {
-    // eslint-disable-next-line no-console
-    console.error(messages.noBrowserNotSupportedForCommand(command))
-    process.exit(1)
+    failBeforeParse(
+      nextArgv,
+      messages.noBrowserNotSupportedForCommand(command),
+      CODES.E_FLAG_NOT_SUPPORTED_HERE,
+      command
+        ? `--no-browser is not supported on \`extension ${command}\`.`
+        : '--no-browser needs a command that launches a browser.',
+      '--no-browser'
+    )
   }
 
   process.env.EXTENSION_CLI_NO_BROWSER = '1'
@@ -155,6 +203,9 @@ extensionJs
   .addHelpText('after', messages.programUserHelp())
   .showHelpAfterError(true)
   .showSuggestionAfterError(true)
+  // Before the register* calls: subcommands copy the override at creation, and
+  // without it a parse failure exits before any json envelope can be written.
+  .exitOverride()
 
 registerCreateCommand(extensionJs)
 registerDevCommand(extensionJs)
@@ -208,16 +259,32 @@ if (process.argv.includes('--ai-help')) {
   runAIHelp()
 } else {
   const argv = applyNoBrowserArgvShim(process.argv)
+  const asJson = wantsJsonOutput(argv)
+  const commandName = resolveCommandFromArgv(argv) || 'extension'
 
-  extensionJs
-    .parseAsync(argv)
-    .then(() => {
+  void (async () => {
+    try {
+      await extensionJs.parseAsync(argv)
       markCommandSuccess()
-    })
-    .catch((err: unknown) => {
+    } catch (err: unknown) {
+      if (isCommanderError(err)) {
+        const exitCode = commanderExitCode(err)
+        // exitCode 0 is help or version display, not a failure.
+        if (exitCode === 0) process.exit(0)
+        markCommandFailure()
+        if (asJson) {
+          writeStdoutFrame(commanderErrorEnvelope(err, commandName))
+        }
+        process.exit(exitCode)
+      }
+
       markCommandFailure()
       // eslint-disable-next-line no-console
       console.error(messages.unhandledError(err))
+      if (asJson && !isErrorFramed(err)) {
+        writeStdoutFrame(internalErrorEnvelope(err, commandName))
+      }
       process.exit(1)
-    })
+    }
+  })()
 }

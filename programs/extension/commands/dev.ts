@@ -11,6 +11,7 @@ import {launchBrowser} from '../browsers'
 import {safariPreflightError} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {markErrorFramed} from '../helpers/cli-failure'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -359,6 +360,7 @@ export function registerDevCommand(program: Command) {
                   {hint: failure.hint}
                 )
               )
+              markErrorFramed(error)
             }
 
             throw error

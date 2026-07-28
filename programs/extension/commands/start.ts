@@ -8,6 +8,7 @@
 
 import {type Command, Option} from 'commander'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {markErrorFramed} from '../helpers/cli-failure'
 import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -260,6 +261,7 @@ export function registerStartCommand(program: Command) {
                   {hint: failure.hint}
                 )
               )
+              markErrorFramed(error)
             }
 
             throw error
