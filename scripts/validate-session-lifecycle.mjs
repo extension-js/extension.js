@@ -376,7 +376,10 @@ async function runDoctor(projectDir, browserName = browser) {
     ['doctor', projectDir, `--browser=${browserName}`, '--output', 'json'],
     {cwd: repoRoot}
   )
-  return {checks: parseJsonResult(res.stdout, 'doctor'), code: res.code}
+  const parsed = parseJsonResult(res.stdout, 'doctor')
+  // Doctor speaks the schema-1 envelope, its checks ride under value.
+  const checks = Array.isArray(parsed) ? parsed : parsed.value
+  return {checks, code: res.code}
 }
 
 function controlPortFile(projectDir, browserName) {
