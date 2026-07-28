@@ -227,6 +227,13 @@ const COMMAND_TABLE = [
     description:
       'Diagnose a dev session: ready contract, control channel, token, executor, browser',
     supportsSourceInspection: false
+  },
+  {
+    name: 'capabilities',
+    positionals: [],
+    description:
+      'Print the engine version, contract versions, and json-capable commands',
+    supportsSourceInspection: false
   }
 ] as const satisfies readonly CommandTableEntry[]
 
