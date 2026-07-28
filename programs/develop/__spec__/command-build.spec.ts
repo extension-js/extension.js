@@ -417,6 +417,8 @@ describe('webpack/command-build', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {})
     process.env.VITEST = 'true'
+    // Nightly jobs export author mode, pin it off for this assertion.
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
     ;(ensureArtifactsMod.ensureDevelopArtifacts as any).mockRejectedValueOnce(
       new Error('boom')
     )

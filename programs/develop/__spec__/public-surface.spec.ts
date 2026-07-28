@@ -98,11 +98,12 @@ describe('the extension-develop/bridge entry', () => {
   })
 
   it('agrees with the paths the dev server actually writes', () => {
+    // path.resolve mirrors session-paths, which adds the drive on Windows.
     expect(bridge.readyContractPath('/p', 'chromium')).toBe(
-      path.join('/p', 'dist', 'extension-js', 'chromium', 'ready.json')
+      path.resolve('/p', 'dist', 'extension-js', 'chromium', 'ready.json')
     )
     expect(bridge.logsPath('/p', 'chromium')).toBe(
-      path.join('/p', 'dist', 'extension-js', 'chromium', 'logs.ndjson')
+      path.resolve('/p', 'dist', 'extension-js', 'chromium', 'logs.ndjson')
     )
   })
 

@@ -173,6 +173,8 @@ describe('webpack/command-dev', () => {
     const localErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {})
+    // Nightly jobs export author mode, pin it off for this assertion.
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
 
     ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
       throw new Error(
