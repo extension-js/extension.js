@@ -6,6 +6,7 @@ import {Command} from 'commander'
 import {describe, expect, it} from 'vitest'
 import {registerActCommands} from '../../commands/act'
 import {registerBuildCommand} from '../../commands/build'
+import {registerCapabilitiesCommand} from '../../commands/capabilities'
 import {registerCreateCommand} from '../../commands/create'
 import {registerDevCommand} from '../../commands/dev'
 import {registerDoctorCommand} from '../../commands/doctor'
@@ -51,6 +52,7 @@ function buildProgramForInspection() {
   registerInstallCommand(program)
   registerTelemetryCommand(program)
   registerDoctorCommand(program)
+  registerCapabilitiesCommand(program)
 
   return program
 }
@@ -82,6 +84,7 @@ describe('CLI help parity contract', () => {
     expect(helpCommands).toEqual(registeredCommands)
     expect(helpCommands).toEqual([
       'build',
+      'capabilities',
       'create',
       'dev',
       'doctor',
@@ -130,7 +133,7 @@ describe('CLI help parity contract', () => {
     const help = stripAnsi(programUserHelp())
 
     for (const spec of COMMANDS) {
-      expect(help).toContain(`- extension ${spec.name} ${spec.args}`)
+      expect(help).toContain(`- extension ${spec.name} ${spec.args}`.trimEnd())
       expect(help).toContain(`  ${spec.description}`)
     }
   })

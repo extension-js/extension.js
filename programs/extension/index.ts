@@ -14,6 +14,7 @@ import './helpers/node-version-guard'
 import {Option, program} from 'commander'
 import {registerActCommands} from './commands/act'
 import {registerBuildCommand} from './commands/build'
+import {registerCapabilitiesCommand} from './commands/capabilities'
 import {registerCreateCommand} from './commands/create'
 import {registerDevCommand} from './commands/dev'
 import {registerDoctorCommand} from './commands/doctor'
@@ -166,6 +167,7 @@ registerPublishCommand(extensionJs)
 registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)
+registerCapabilitiesCommand(extensionJs)
 
 // Handled before commander parses: the JSON frame can outgrow one pipe
 // buffer, so the exit must wait for stdout to drain (#79).
