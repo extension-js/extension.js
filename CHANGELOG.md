@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 4.0.19 (July 28, 2026)
+
+### Fixes
+
+- Repair CI env and platform assumptions in three spec surfaces ([de3644da](https://github.com/extension-js/extension.js/commit/de3644da6b15b5836154ae14a447377404f89083))
+
+<details>
+<summary>Other changes (6)</summary>
+
+- Publish the log ranking and the control close codes ([0edd8b10](https://github.com/extension-js/extension.js/commit/0edd8b10a4fe87bb8c541a1c95f8172a57377afd))
+- Rename treeWithDistFilesBrowser to repair the missing separator ([ce99a79e](https://github.com/extension-js/extension.js/commit/ce99a79ee61eb78a05283ba8dfd5d154bc888296))
+- Move the chromium profile path from the debug stream to the card ([992fb320](https://github.com/extension-js/extension.js/commit/992fb3207dfb1135df568ad228906e92e1ba6f79))
+- Rename pm args and drop dead params in create message catalog ([f5bd1407](https://github.com/extension-js/extension.js/commit/f5bd1407510874f28a0ba62556bfc9c7598012ef))
+- Let a library caller package Safari and read what the build made ([f116418e](https://github.com/extension-js/extension.js/commit/f116418ebee574a3c3bd2c5e7973cd5bf9e54538))
+- Keep companion extensions out of the source zip ([c269b83c](https://github.com/extension-js/extension.js/commit/c269b83c0f4149d5ac39382fd1b5f691204cf338))
+</details>
+
 ## 4.0.18 (July 27, 2026)
 
 <details>
