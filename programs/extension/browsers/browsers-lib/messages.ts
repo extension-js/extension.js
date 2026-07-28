@@ -373,6 +373,19 @@ export function chromiumExtensionLoadRefused(
   )
 }
 
+// Chrome 150 drops --load-extension unless the switch policy is disabled, and
+// a dropped switch looks exactly like a healthy launch. Say so rather than
+// claiming a session the browser may be running without the extension.
+export function chromiumExtensionLoadUnconfirmed(extensionPath: string) {
+  return (
+    `${getLoggingPrefix('warn')} Extension.js could not confirm that the browser loaded this extension.\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `This browser rejected the debugging call that loads and verifies it, so the extension may be missing.\n` +
+    `Chrome ignores the --load-extension switch unless the DisableLoadExtensionCommandLineSwitch policy is disabled.\n` +
+    `Open chrome://extensions to check whether the extension is there, and report this if it is not.`
+  )
+}
+
 // The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
 // reason at install time, so the shape is the same and only the nouns differ.
 export function geckoAddonLoadRefused(addonPath: string, reason: string) {

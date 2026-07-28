@@ -52,7 +52,8 @@ describe('loadUnpacked verdict classification', () => {
     })
 
     await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
-      status: 'unknown'
+      status: 'unknown',
+      unsupported: true
     })
   })
 
