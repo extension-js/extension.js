@@ -11,7 +11,7 @@ import * as fs from 'node:fs'
 import {isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
-import type {SafariPluginLike} from '../safari-types'
+import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {logSafariDryRun} from './dry-run'
 import {
   alignBundleIdentifiers,
@@ -123,6 +123,31 @@ async function confirmRegisteredWithSafari(
 
 export type SafariPipelineMode = 'full' | 'resync'
 
+/**
+ * What the pipeline resolved for this app. `bundleIdDerived` used to exist
+ * only as a log line, which left a machine caller unable to learn that its
+ * app carries a generated dev.extensionjs.* id Apple will not accept.
+ */
+export interface SafariPackageResult {
+  appName: string
+  bundleId: string
+  bundleIdDerived: boolean
+  appPath: string
+  xcodeProjectPath: string
+  macOsOnly: boolean
+}
+
+function describePackage(config: SafariBuildConfig): SafariPackageResult {
+  return {
+    appName: config.appName,
+    bundleId: config.bundleIdentifier,
+    bundleIdDerived: config.bundleIdDerived,
+    appPath: builtAppPath(config),
+    xcodeProjectPath: xcodeProjectPath(config),
+    macOsOnly: config.macOsOnly
+  }
+}
+
 export function safariPreflightError(): string | null {
   const tc = detectSafariToolchain()
   if (!tc.platformOk) return messages.safariRequiresMacOS(process.platform)
@@ -174,7 +199,7 @@ async function runSafariPipeline(
   host: SafariPluginLike,
   logger: BrowserLogger,
   mode: SafariPipelineMode
-): Promise<void> {
+): Promise<SafariPackageResult> {
   const config = resolveSafariBuildConfig(compilation, host)
   const converterArgs = composeConverterArgs(config)
   const xcodebuildArgs = composeXcodebuildArgs(config)
@@ -185,13 +210,13 @@ async function runSafariPipeline(
       `xcodebuild ${xcodebuildArgs.join(' ')}`
     )
 
-    return
+    return describePackage(config)
   }
 
   const toolchain = detectSafariToolchain()
   if (!toolchain.platformOk) {
     logger.warn?.(messages.safariRequiresMacOS(process.platform))
-    return
+    return describePackage(config)
   }
 
   if (!toolchain.ok) {
@@ -206,7 +231,7 @@ async function runSafariPipeline(
       logger.error?.(messages.safariToolchainMissing(missing))
     }
 
-    return
+    return describePackage(config)
   }
 
   const projectExists = fs.existsSync(xcodeProjectPath(config))
@@ -295,7 +320,7 @@ async function runSafariPipeline(
   // Resync mode (dev rebuilds): just report and stop, no reopen/re-guide.
   if (mode === 'resync') {
     logger.info?.(messages.safariRebuilt(config.appName))
-    return
+    return describePackage(config)
   }
 
   logger.info?.(messages.safariBuilt(appPath))
@@ -308,7 +333,7 @@ async function runSafariPipeline(
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
     logger.info?.(messages.safariOpenHint(appPath, config.appName))
-    return
+    return describePackage(config)
   }
 
   const target = fs.existsSync(appPath) ? appPath : xcodeProjectPath(config)
@@ -328,6 +353,8 @@ async function runSafariPipeline(
   } else {
     logger.warn?.(messages.safariNotYetRegistered(config.appName))
   }
+
+  return describePackage(config)
 }
 
 export async function packageSafariExtension(
@@ -335,11 +362,16 @@ export async function packageSafariExtension(
   outputPath: string,
   logger?: BrowserLogger,
   mode: SafariPipelineMode = 'full'
-): Promise<void> {
+): Promise<SafariPackageResult> {
   const compilation = {
     options: {output: {path: outputPath}},
     outputOptions: {path: outputPath}
   } as unknown as CompilationLike
 
-  await runSafariPipeline(compilation, host, logger || fallbackLogger(), mode)
+  return await runSafariPipeline(
+    compilation,
+    host,
+    logger || fallbackLogger(),
+    mode
+  )
 }

@@ -123,4 +123,59 @@ describe('extension build', () => {
     expect(distPath).toBe('/tmp/dist/safari')
     expect(mode).toBe('full')
   })
+
+  it('forwards --macos-only false so a universal project is reachable', async () => {
+    expect(
+      await run(['build', '.', '--browser', 'safari', '--macos-only', 'false'])
+    ).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.macOsOnly).toBe(false)
+  })
+
+  it('treats a bare --macos-only as true', async () => {
+    expect(
+      await run(['build', '.', '--browser', 'safari', '--macos-only'])
+    ).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.macOsOnly).toBe(true)
+  })
+
+  it('leaves macOsOnly unset when the flag is absent', async () => {
+    expect(await run(['build', '.', '--browser', 'safari'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.macOsOnly).toBeUndefined()
+  })
+
+  it('rejects --macos-only false for non-safari targets', async () => {
+    // `false` is a real value for this flag, not an unset boolean, so the
+    // safari-only gate has to notice it rather than filter it out.
+    expect(await run(['build', '.', '--macos-only', 'false'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0]?.[0])).toMatch(/--macos-only/)
+  })
+
+  it('carries the build summary in the --output json envelope', async () => {
+    extensionBuild.mockResolvedValueOnce({
+      browser: 'chromium',
+      output_path: '/tmp/project/dist/chromium',
+      total_assets: 3,
+      total_bytes: 2048,
+      largest_asset_bytes: 1024,
+      warnings_count: 1,
+      errors_count: 0,
+      warnings: ['a warning']
+    } as never)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(await run(['build', '.', '--output', 'json'])).toBe(0)
+
+    const frame = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]))
+    expect(frame.ok).toBe(true)
+    expect(frame.value.summaries).toHaveLength(1)
+    expect(frame.value.summaries[0]).toMatchObject({
+      browser: 'chromium',
+      output_path: '/tmp/project/dist/chromium',
+      total_bytes: 2048,
+      warnings: ['a warning']
+    })
+  })
 })

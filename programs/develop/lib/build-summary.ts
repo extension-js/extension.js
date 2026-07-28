@@ -6,8 +6,26 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+/**
+ * What the injected Safari packager reports back about the app it produced.
+ * `bundleIdDerived` is the load-bearing one: a generated `dev.extensionjs.*`
+ * identifier is fine locally and rejected by Apple for distribution, and the
+ * only other place that fact appeared was a human log line.
+ */
+export interface SafariPackageSummary {
+  appName?: string
+  bundleId?: string
+  bundleIdDerived?: boolean
+  appPath?: string
+  xcodeProjectPath?: string
+  macOsOnly?: boolean
+}
+
 export type BuildSummary = {
   browser: string
+  /** Absolute dist directory the build emitted into. Hosts that shell out
+   * would otherwise have to re-derive `<project>/dist/<browser>` themselves. */
+  output_path?: string
   total_assets: number
   total_bytes: number
   largest_asset_bytes: number
@@ -16,6 +34,8 @@ export type BuildSummary = {
   /** Plain-text warning messages (ANSI-stripped, capped) so programmatic
    * consumers get a structured channel instead of scraping stdout. */
   warnings?: string[]
+  /** Present only for safari/webkit-based builds that ran the packager. */
+  safari?: SafariPackageSummary
 }
 
 const MAX_SUMMARY_WARNINGS = 20
@@ -29,7 +49,8 @@ export function getBuildSummary(
     assets?: Array<{size?: number}>
     warnings?: unknown[]
     errors?: unknown[]
-  } | null
+  } | null,
+  outputPath?: string
 ): BuildSummary {
   const assets = info?.assets || []
   const warnings = (info?.warnings || [])
@@ -45,6 +66,7 @@ export function getBuildSummary(
 
   return {
     browser,
+    ...(outputPath ? {output_path: outputPath} : {}),
     total_assets: assets.length,
     total_bytes: assets.reduce((n, a) => n + (a.size || 0), 0),
     largest_asset_bytes: assets.reduce((m, a) => Math.max(m, a.size || 0), 0),

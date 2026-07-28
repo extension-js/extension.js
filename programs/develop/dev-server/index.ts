@@ -344,11 +344,10 @@ export async function devServer(
   devOptions: DevOptions
 ) {
   // CLI-only extras that ride along on DevOptions without being part of the
-  // public options contract.
+  // public options contract. allowControl/allowEval used to live here too;
+  // they are declared on DevOptions now so a library caller can name them.
   const extendedOptions = devOptions as DevOptions & {
     publicHost?: string
-    allowControl?: boolean
-    allowEval?: boolean
     authorMode?: boolean
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void

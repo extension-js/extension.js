@@ -12,6 +12,7 @@ import './lib/rust-min-stack'
 import {extensionBuild} from './command-build'
 import {extensionDev} from './command-dev'
 import {extensionPreview} from './command-preview'
+import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
 import {
   type BrowserController,
   type BrowserLauncherFn,
@@ -21,12 +22,18 @@ import {
   type CompiledEvent
 } from './plugin-browsers'
 import type {ReloadInstruction, ReloadType} from './plugin-reload'
+import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import type {
+  BrowserConfig,
+  BrowserType,
   BuildOptions,
   DevOptions,
   FileConfig,
   Manifest,
-  PreviewOptions
+  PreviewOptions,
+  SafariPackagerFn,
+  SafariPackagerOverrides,
+  StartOptions
 } from './types'
 
 export {
@@ -38,8 +45,18 @@ export {
   // should import 'extension-develop/preview' to skip the bundler toolchain.
   extensionPreview,
   type PreviewOptions,
+  type StartOptions,
   type FileConfig,
+  type BrowserConfig,
+  type BrowserType,
+  type CompanionExtensionsConfig,
   type Manifest,
+  // extensionBuild resolves to a BuildSummary; naming it required reaching
+  // into the package's internals before this export existed.
+  type BuildSummary,
+  type SafariPackageSummary,
+  type SafariPackagerFn,
+  type SafariPackagerOverrides,
   BuildEmitter,
   type CompiledEvent,
   type BuildErrorEvent,

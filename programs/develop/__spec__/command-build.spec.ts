@@ -36,6 +36,7 @@ vi.mock('../lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
   return {
     loadCustomConfig: vi.fn(async () => userConfigSpy),
+    loadBrowserConfig: vi.fn(async () => ({})),
     loadCommandConfig: vi.fn(async () => ({
       some: 'cmd',
       transpilePackages: ['@workspace/ui']
@@ -149,6 +150,7 @@ describe('webpack/command-build', () => {
     })
     expect(summary).toEqual({
       browser: 'chrome',
+      output_path: path.join('/proj', 'dist', 'chrome'),
       total_assets: 2,
       total_bytes: 40,
       largest_asset_bytes: 30,
@@ -564,6 +566,114 @@ describe('webpack/command-build', () => {
       expect(persisted.browser).toBe('chrome')
       expect(persisted.warnings_count).toBe(1)
       expect(persisted.warnings).toEqual(['Deprecation: legacy API'])
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
+  it('names the dist it emitted into, in the summary and on disk', async () => {
+    // Without this a host that shells out has to re-derive
+    // `<project>/dist/<browser>` from the engine's own layout rules.
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-outpath-'))
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    try {
+      const summary = await extensionBuild(tmp, {
+        browser: 'chrome',
+        silent: true
+      })
+
+      expect(summary.output_path).toBe(path.join(tmp, 'dist', 'chrome'))
+
+      const persisted = JSON.parse(
+        realFs.readFileSync(
+          path.join(
+            tmp,
+            'dist',
+            'extension-js',
+            'chrome',
+            'build-summary.json'
+          ),
+          'utf8'
+        )
+      )
+      expect(persisted.output_path).toBe(path.join(tmp, 'dist', 'chrome'))
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
+  it('folds the safari packager identity into the summary it returns', async () => {
+    // The generated dev.extensionjs.* bundle id was a log line and nothing
+    // else, so a machine caller could not learn that its app is undistributable.
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-safari-'))
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    const safariPackager = vi.fn(async () => ({
+      appName: 'My App',
+      bundleId: 'dev.extensionjs.My-App',
+      bundleIdDerived: true,
+      appPath: '/tmp/My App.app',
+      macOsOnly: true
+    }))
+
+    try {
+      const summary = await extensionBuild(tmp, {
+        browser: 'safari',
+        silent: true,
+        safariPackager
+      })
+
+      expect(safariPackager).toHaveBeenCalledTimes(1)
+      expect(summary.safari).toEqual({
+        appName: 'My App',
+        bundleId: 'dev.extensionjs.My-App',
+        bundleIdDerived: true,
+        appPath: '/tmp/My App.app',
+        macOsOnly: true
+      })
+
+      const persisted = JSON.parse(
+        realFs.readFileSync(
+          path.join(
+            tmp,
+            'dist',
+            'extension-js',
+            'safari',
+            'build-summary.json'
+          ),
+          'utf8'
+        )
+      )
+      expect(persisted.safari.bundleIdDerived).toBe(true)
     } finally {
       realFs.rmSync(tmp, {recursive: true, force: true})
     }

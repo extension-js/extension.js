@@ -9,10 +9,12 @@
 import type {Compiler} from '@rspack/core'
 import {BuildEmitter, type RunnerPlugin} from './index'
 
+// The dev plugin ignores whatever the packager reports back (only `build`
+// folds it into a summary), so the return is deliberately unconstrained.
 export type SafariPackagerFn = (
   distPath: string,
   mode: 'full' | 'resync'
-) => Promise<void>
+) => Promise<unknown>
 
 // Safari has no live-reload channel, but the dev server already runs the
 // bundler in watch mode. This plugin rides that watch loop: the first

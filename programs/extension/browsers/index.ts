@@ -308,3 +308,32 @@ async function launchFirefox(
 
 // Re-export run-only for backward compatibility with the preview command
 export {runOnlyPreviewBrowser} from './run-only'
+
+// Safari packaging. develop owns no Xcode code and only packages when the
+// caller injects a packager, so this surface is what makes `browser: 'safari'`
+// reachable from a library import rather than only from the CLI.
+export {
+  packageSafariExtension,
+  type SafariBuildPreflight,
+  type SafariPackageResult,
+  type SafariPipelineMode,
+  safariBuildPreflight,
+  safariPreflightError
+} from './run-safari/safari-launch'
+export {
+  builtAppPath,
+  isValidBundleId,
+  macOsSchemeName,
+  resolveSafariBuildConfig,
+  xcodeProjectPath
+} from './run-safari/safari-launch/safari-config'
+export {
+  createSafariPackager,
+  type SafariPackagerFn,
+  type SafariPackagerOptions,
+  type SafariPackagerOverrides
+} from './run-safari/safari-packager'
+export type {
+  SafariBuildConfig,
+  SafariPluginLike
+} from './run-safari/safari-types'

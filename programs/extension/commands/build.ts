@@ -7,11 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {type Command, Option} from 'commander'
-import {
-  packageSafariExtension,
-  safariBuildPreflight
-} from '../browsers/run-safari/safari-launch'
+import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
+import {createSafariPackager} from '../browsers/run-safari/safari-packager'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -38,6 +36,7 @@ type BuildOptions = {
   open?: boolean
   appName?: string
   bundleId?: string
+  macosOnly?: boolean
   forceRegenerate?: boolean
   debug?: boolean
   output?: 'pretty' | 'json'
@@ -105,6 +104,11 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--bundle-id <reverse.dns>',
       'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+    )
+    .option(
+      '--macos-only [boolean]',
+      'generate a macOS-only Safari Xcode project (safari targets only). Pass `false` for a universal macOS + iOS project. Defaults to `true`',
+      parseOptionalBoolean
     )
     .option(
       '--force-regenerate',
@@ -179,15 +183,19 @@ export function registerBuildCommand(program: Command) {
           ['--app-name', buildOptions.appName],
           ['--bundle-id', buildOptions.bundleId],
           ['--force-regenerate', buildOptions.forceRegenerate]
-        ].filter(([, value]) => value !== undefined && value !== false)
+        ]
+          .filter(([, value]) => value !== undefined && value !== false)
+          .map(([flag]) => flag as string)
+
+        // --macos-only carries an explicit boolean, so `false` is a real use
+        // rather than an unset flag; only `undefined` means it was not passed.
+        if (buildOptions.macosOnly !== undefined) {
+          safariOnlyFlags.push('--macos-only')
+        }
 
         if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
           // eslint-disable-next-line no-console
-          console.error(
-            messages.safariOnlyOption(
-              safariOnlyFlags.map(([flag]) => flag as string)
-            )
-          )
+          console.error(messages.safariOnlyOption(safariOnlyFlags))
           process.exit(1)
         }
 
@@ -222,10 +230,11 @@ export function registerBuildCommand(program: Command) {
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
         const built: string[] = []
+        const summaries: unknown[] = []
 
         for (const vendor of list) {
           try {
-            await extensionBuild(pathOrRemoteUrl, {
+            const summary = await extensionBuild(pathOrRemoteUrl, {
               browser: vendor as BuildOptions['browser'],
               // CLI surface: a failed build ends this process with the clean
               // error line. Library imports of extensionBuild reject instead.
@@ -242,32 +251,20 @@ export function registerBuildCommand(program: Command) {
               mode,
               appName: buildOptions.appName,
               bundleId: buildOptions.bundleId,
+              macOsOnly: buildOptions.macosOnly,
               forceRegenerate: buildOptions.forceRegenerate,
               safariPackager: safariPackagingEnabled
-                ? async (
-                    distPath: string,
-                    packagerMode: 'full' | 'resync',
-                    overrides?: Record<string, unknown>
-                  ) => {
-                    await packageSafariExtension(
-                      {
-                        extension: [distPath],
-                        browser: vendor as Browser,
-                        // build is a packaging command: never open the app unless
-                        // explicitly asked (--open). dev keeps open-by-default.
-                        noOpen: buildOptions.open !== true,
-                        dryRun: false,
-                        ...overrides
-                      },
-                      distPath,
-                      undefined,
-                      packagerMode
-                    )
-                  }
+                ? createSafariPackager({
+                    browser: vendor as 'safari' | 'webkit-based',
+                    // build is a packaging command: never open the app unless
+                    // explicitly asked (--open). dev keeps open-by-default.
+                    noOpen: buildOptions.open !== true
+                  })
                 : undefined
             })
 
             built.push(vendor)
+            if (summary) summaries.push(summary)
           } catch (error) {
             if (!asJson) throw error
 
@@ -294,10 +291,14 @@ export function registerBuildCommand(program: Command) {
           // eslint-disable-next-line no-console
           console.log(
             JSON.stringify(
+              // `summaries` carries what the pretty run only printed: output
+              // path, asset totals, warning text and the Safari app identity.
+              // Without it a machine caller has to scrape the human summary.
               ENVELOPE.ok('build', 'built', {
                 projectPath: pathOrRemoteUrl,
                 browsers: built,
-                mode
+                mode,
+                summaries
               })
             )
           )
