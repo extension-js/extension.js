@@ -38,6 +38,31 @@ export function iconsMissingFile(
   return lines.join('\n')
 }
 
+export function themeImageMissingFile(
+  manifestField: string,
+  filePath: string,
+  opts?: {publicRootHint?: boolean}
+) {
+  const lines: string[] = []
+  lines.push(
+    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(
+    `The theme image path must point to an existing file that will be packaged with the extension.`
+  )
+  lines.push(
+    `Browsers reject the whole extension when this file is missing.\nThe build stops here to protect you.`
+  )
+  if (opts?.publicRootHint) {
+    lines.push(
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+    )
+  }
+  lines.push('')
+  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+  return lines.join('\n')
+}
+
 export function themeImageIsEmpty(manifestField: string, filePath: string) {
   const lines: string[] = []
   lines.push(
