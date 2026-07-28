@@ -13,6 +13,7 @@ export {
   readReadyContract
 } from './dev-server/control-bridge/consumer-client'
 export type {
+  BridgeRefusalCode,
   BridgeTarget,
   CommandOp,
   GapFrame,
@@ -34,7 +35,11 @@ export {
   CLOSE_SLOW_CONSUMER,
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
-  LOG_EVENT_VERSION
+  LOG_EVENT_VERSION,
+  REFUSAL_API_UNAVAILABLE,
+  REFUSAL_NEEDS_HEADED_WINDOW,
+  REFUSAL_NEEDS_USER_GESTURE,
+  REFUSAL_SURFACE_NOT_OPEN
 } from './dev-server/control-bridge/contracts'
 export {
   controlPortFilePath,

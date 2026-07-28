@@ -144,6 +144,64 @@ const FAILURE_FIXTURES = [
     status: 'failed'
   },
   {
+    name: 'Unsupported (named: needs a headed window)',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'openPopup: Could not find an active browser window.',
+        engine: 'chromium',
+        code: 'needs_headed_window'
+      }
+    },
+    code: CODES.E_HEADED_WINDOW_REQUIRED,
+    status: 'failed'
+  },
+  {
+    name: 'Unsupported (named: needs a user gesture)',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'sidePanel.open: sidePanel.open() may only be called in response to a user gesture.',
+        engine: 'chromium',
+        code: 'needs_user_gesture'
+      }
+    },
+    code: CODES.E_USER_GESTURE_REQUIRED,
+    status: 'failed'
+  },
+  {
+    name: 'Unsupported (named: surface not open)',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          "surface 'popup' is not open (open it first: extension open popup)",
+        engine: 'chromium',
+        code: 'surface_not_open'
+      }
+    },
+    code: CODES.E_TARGET_NOT_FOUND,
+    status: 'not-found'
+  },
+  {
+    name: 'Unsupported (named: API unavailable)',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'action.openPopup not available',
+        engine: 'firefox',
+        code: 'api_unavailable'
+      }
+    },
+    code: CODES.E_NOT_IMPLEMENTED,
+    status: 'failed'
+  },
+  {
     name: 'EvalError',
     result: {
       ok: false,
@@ -341,6 +399,30 @@ describe('the act frame as a schema-1 envelope', () => {
     expect(frame.ok).toBe(false)
     expect(frame.value).toBeNull()
     expect(problems(frame)).toEqual([])
+  })
+
+  it('lets a named refusal win over message prose', () => {
+    const frame = buildActEnvelope('open', {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: "surface 'popup' is not open",
+        code: 'api_unavailable'
+      }
+    })
+    expect((frame.error as {code: string}).code).toBe(CODES.E_NOT_IMPLEMENTED)
+  })
+
+  it('falls back to the prose mapping when the refusal name is unknown', () => {
+    const frame = buildActEnvelope('open', {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: "surface 'popup' is not open",
+        code: 'some_future_refusal'
+      }
+    })
+    expect((frame.error as {code: string}).code).toBe(CODES.E_TARGET_NOT_FOUND)
   })
 
   it('survives the JSON round trip the MCP performs on stdout', () => {

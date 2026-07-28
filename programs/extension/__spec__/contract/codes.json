@@ -423,6 +423,14 @@
       "area": "control",
       "summary": "No tab, frame, or context matched the requested target."
     },
+    "E_HEADED_WINDOW_REQUIRED": {
+      "area": "control",
+      "summary": "The surface needs a headed browser window this session does not have."
+    },
+    "E_USER_GESTURE_REQUIRED": {
+      "area": "control",
+      "summary": "The surface needs a real user gesture the caller cannot synthesize."
+    },
     "E_EVAL": {
       "area": "control",
       "summary": "The evaluated expression threw inside the page."
@@ -522,7 +530,12 @@
       "Unavailable": "E_CONTROL_UNAVAILABLE",
       "Forbidden": ["E_TOKEN_MISSING", "E_EVAL_REFUSED"],
       "BadRequest": "E_ARGS",
-      "Unsupported": ["E_TARGET_NOT_FOUND", "E_NOT_IMPLEMENTED"],
+      "Unsupported": [
+        "E_TARGET_NOT_FOUND",
+        "E_NOT_IMPLEMENTED",
+        "E_HEADED_WINDOW_REQUIRED",
+        "E_USER_GESTURE_REQUIRED"
+      ],
       "EvalError": "E_EVAL",
       "InspectError": "E_INSPECT",
       "StorageError": "E_STORAGE",

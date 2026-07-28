@@ -150,6 +150,27 @@ describe('the extension-develop/bridge entry', () => {
     expect(bridge.CLOSE_SLOW_CONSUMER).toBe(4008)
   })
 
+  it('publishes the refusal codes the producer names a refusal with', () => {
+    expect(bridge.REFUSAL_NEEDS_HEADED_WINDOW).toBe('needs_headed_window')
+    expect(bridge.REFUSAL_NEEDS_USER_GESTURE).toBe('needs_user_gesture')
+    expect(bridge.REFUSAL_SURFACE_NOT_OPEN).toBe('surface_not_open')
+    expect(bridge.REFUSAL_API_UNAVAILABLE).toBe('api_unavailable')
+
+    const producerSource = source(
+      'dev-server/control-bridge/producer-runtime.ts'
+    )
+    for (const code of [
+      bridge.REFUSAL_NEEDS_HEADED_WINDOW,
+      bridge.REFUSAL_NEEDS_USER_GESTURE,
+      bridge.REFUSAL_SURFACE_NOT_OPEN,
+      bridge.REFUSAL_API_UNAVAILABLE
+    ]) {
+      expect(producerSource, `the producer never sends ${code}`).toContain(
+        `"${code}"`
+      )
+    }
+  })
+
   it('publishes the same close codes the broker actually closes with', () => {
     // A published constant that drifts from the number on the wire is worse
     // than no constant at all, so the two are compared, never assumed equal.

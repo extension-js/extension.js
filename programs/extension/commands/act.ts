@@ -102,7 +102,7 @@ interface ActResultLike {
   ok?: boolean
   value?: unknown
   truncated?: boolean
-  error?: {name?: unknown; message?: unknown; engine?: unknown}
+  error?: {name?: unknown; message?: unknown; engine?: unknown; code?: unknown}
 }
 
 interface CommonActOptions {
@@ -129,9 +129,21 @@ interface RunInput {
   ) => Record<string, unknown>
 }
 
-// Bridge failures carry a class name, never a code, so the name is the only
-// stable signal that maps a failure onto the E_ table.
-function codeForBridgeError(name: string, message: string): ErrorCode {
+// A named refusal from the guest maps straight onto the E_ table. Refusals
+// the guest does not name yet fall back to the class name and its prose.
+const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
+  needs_headed_window: CODES.E_HEADED_WINDOW_REQUIRED,
+  needs_user_gesture: CODES.E_USER_GESTURE_REQUIRED,
+  surface_not_open: CODES.E_TARGET_NOT_FOUND,
+  api_unavailable: CODES.E_NOT_IMPLEMENTED
+}
+
+function codeForBridgeError(
+  name: string,
+  message: string,
+  refusal?: string
+): ErrorCode {
+  if (refusal && refusal in REFUSAL_TO_CODE) return REFUSAL_TO_CODE[refusal]
   if (name === 'Timeout') return CODES.E_TIMEOUT
   if (name === 'Unavailable') return CODES.E_CONTROL_UNAVAILABLE
   // One name covers three eval gates, so the gate copy is the discriminator.
@@ -198,7 +210,8 @@ export function buildActEnvelope(
   const name = typeof raw.name === 'string' ? raw.name : 'Error'
   const message =
     typeof raw.message === 'string' ? raw.message : 'command failed'
-  const code = codeForBridgeError(name, message)
+  const refusal = typeof raw.code === 'string' ? raw.code : undefined
+  const code = codeForBridgeError(name, message, refusal)
 
   return {
     ...extras,

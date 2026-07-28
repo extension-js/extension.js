@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "open",
+  "status": "failed",
+  "value": null,
+  "error": {
+    "code": "E_HEADED_WINDOW_REQUIRED",
+    "message": "openPopup: Could not find an active browser window.",
+    "name": "Unsupported",
+    "engine": "chromium"
+  },
+  "warnings": []
+}
