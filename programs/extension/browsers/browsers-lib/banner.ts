@@ -10,7 +10,12 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
-import {card, claimCardKey, isCardKeyClaimed} from '../../helpers/messaging'
+import {
+  browserRowValue,
+  card,
+  claimCardKey,
+  isCardKeyClaimed
+} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import * as messages from './messages'
@@ -290,10 +295,13 @@ export async function printProdBannerOnce(opts: {
     return true
   }
 
-  const browserLabel =
-    opts.browserVersionLine && opts.browserVersionLine.trim().length > 0
-      ? opts.browserVersionLine.trim()
-      : String(opts.browser || 'unknown')
+  const browserLabel = browserRowValue(
+    String(opts.browser || 'unknown'),
+    messages.resolveBrowserVersionLine(
+      String(opts.browser || ''),
+      opts.browserVersionLine
+    )
+  )
 
   try {
     const manifestPath = path.join(opts.outPath, 'manifest.json')

@@ -137,6 +137,48 @@ describe('webpack/command-preview (run-only)', () => {
     expect(call.outPath).toBe('/proj')
   })
 
+  it('describes itself as preview by default', async () => {
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const printed = localLog.mock.calls
+      .map((c: any[]) => String(c[0]))
+      .join('\n')
+    expect(printed).toContain('Preview the extension on Chrome.')
+    expect(printed).not.toContain('Start the extension on')
+  })
+
+  it('describes itself as start when invoked by start', async () => {
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', metadataCommand: 'start'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const printed = localLog.mock.calls
+      .map((c: any[]) => String(c[0]))
+      .join('\n')
+    expect(printed).toContain('Start the extension on Chrome.')
+    expect(printed).not.toContain('Preview the extension on')
+  })
+
   it('uses dist/<browser> when dist manifest exists', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
       if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))

@@ -124,6 +124,10 @@ export function previewing(browser: DevOptions['browser']) {
   return `${getLoggingPrefix('info')} Preview the extension on ${capitalizedBrowserName(browser)}.`
 }
 
+export function starting(browser: DevOptions['browser']) {
+  return `${getLoggingPrefix('info')} Start the extension on ${capitalizedBrowserName(browser)}.`
+}
+
 export function previewSkippedNoBrowser(browser: DevOptions['browser']) {
   return `${getLoggingPrefix('info')} Skip the browser launch for ${capitalizedBrowserName(browser)} (no-browser).`
 }

@@ -105,6 +105,18 @@ export function card(input: CardInput = {}): string {
   return [head, ...body].join('\n')
 }
 
+// The card's Browser row has one spelling across every command: the browser
+// name title-cased, followed by its version whenever the caller knows it.
+export function browserRowValue(browser: string, versionLine?: string): string {
+  const name = String(browser || '').trim() || 'unknown'
+  const display = name.charAt(0).toUpperCase() + name.slice(1)
+  const line = String(versionLine || '').trim()
+  if (!line) return display
+  // A bare version number carries no browser name, so it needs the prefix.
+  if (!/[a-zA-Z]/.test(line)) return `${display} ${line}`
+  return line.charAt(0).toUpperCase() + line.slice(1)
+}
+
 // One identity card per (browser, dist) pair per process. The registry rides
 // on the environment because the CLI and develop bundles cannot share modules.
 const CARD_KEYS_ENV = 'EXTENSION_CLI_CARD_KEYS'
