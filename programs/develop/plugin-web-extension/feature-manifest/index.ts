@@ -17,6 +17,7 @@ import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
+import {ValidateThemeValues} from './steps/validate-theme-values'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.
@@ -50,6 +51,11 @@ export class ManifestPlugin {
     }
 
     new EmitManifest({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
+
+    new ValidateThemeValues({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
