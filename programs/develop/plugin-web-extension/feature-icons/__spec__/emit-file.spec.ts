@@ -234,6 +234,8 @@ describe('EmitFile step', () => {
     const e = String(compilation.errors[0])
     expect(e).toMatch(/NOT FOUND/i)
     expect(e).toMatch(/reject the whole extension/i)
+    expect(e).toMatch(/theme image path/i)
+    expect(e).not.toMatch(/icon path/i)
   })
 
   it('warns on a 0-byte theme image, which kills the theme but loads', async () => {

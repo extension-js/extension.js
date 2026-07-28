@@ -199,10 +199,14 @@ export class EmitFile {
                   reportToCompilation(
                     compilation,
                     compiler,
-                    messages.iconsMissingFile(feature, displayPath, {
-                      publicRootHint: isPublicRoot,
-                      fatal: isFatal
-                    }),
+                    isThemeImage
+                      ? messages.themeImageMissingFile(feature, displayPath, {
+                          publicRootHint: isPublicRoot
+                        })
+                      : messages.iconsMissingFile(feature, displayPath, {
+                          publicRootHint: isPublicRoot,
+                          fatal: isFatal
+                        }),
                     severity,
                     'manifest.json'
                   )
