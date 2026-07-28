@@ -69,3 +69,99 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
     ).toBe(false)
   })
 })
+
+describe('validateLocales manifest placeholder scan', () => {
+  const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tmpRoot = path.resolve(__dirname, '__tmp_placeholders__', uniq)
+  const manifestPath = path.join(tmpRoot, 'manifest.json')
+
+  const writeProject = (
+    manifest: Record<string, unknown>,
+    messages: Record<string, unknown>
+  ) => {
+    fs.mkdirSync(path.join(tmpRoot, '_locales', 'en'), {recursive: true})
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+    fs.writeFileSync(
+      path.join(tmpRoot, '_locales', 'en', 'messages.json'),
+      JSON.stringify(messages)
+    )
+  }
+
+  afterEach(() => {
+    if (fs.existsSync(tmpRoot))
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
+    vi.restoreAllMocks()
+  })
+
+  it('collects placeholder names containing @, matching Chrome', () => {
+    writeProject(
+      {default_locale: 'en', name: '__MSG_brand@name__'},
+      {appName: {message: 'App'}}
+    )
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+
+    expect(result).toBe(false)
+    expect(String(compilation.errors[0])).toContain('brand@name')
+  })
+
+  it('passes when the @-carrying message key is defined', () => {
+    writeProject(
+      {default_locale: 'en', name: '__MSG_brand@name__'},
+      {'brand@name': {message: 'App'}}
+    )
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+
+    expect(result).toBe(true)
+    expect(compilation.errors).toHaveLength(0)
+  })
+
+  it('never requires the predefined @@ names in messages.json', () => {
+    writeProject(
+      {
+        default_locale: 'en',
+        name: '__MSG_appName__',
+        description: '__MSG_@@extension_id__ and __MSG_@@ui_locale__'
+      },
+      {appName: {message: 'App'}}
+    )
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+
+    expect(result).toBe(true)
+    expect(compilation.errors).toHaveLength(0)
+  })
+
+  it('closes the placeholder at the first __, matching Chrome', () => {
+    writeProject(
+      {default_locale: 'en', name: '__MSG_a__b__'},
+      {a__b: {message: 'wrong key'}}
+    )
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+
+    expect(result).toBe(false)
+    expect(String(compilation.errors[0])).toContain('"a"')
+  })
+})

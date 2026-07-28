@@ -163,13 +163,14 @@ export function validateLocales(
 
         const collectMsgKeys = (value: unknown, acc: Set<string>) => {
           if (typeof value === 'string') {
-            // Allow placeholders anywhere a string is used
-            const regex = /__MSG_([a-zA-Z0-9_]+)__/g
+            // Chrome allows @ in message names and closes the placeholder at the
+            // first __, so the class carries @ and the run is lazy to match that.
+            const regex = /__MSG_([A-Za-z0-9_@]+?)__/g
             let matches: RegExpExecArray | null
 
             while ((matches = regex.exec(value)) !== null) {
               const key = matches[1]
-              if (key) acc.add(key)
+              if (key && !key.startsWith('@@')) acc.add(key)
             }
           } else if (Array.isArray(value)) {
             for (const item of value) {
