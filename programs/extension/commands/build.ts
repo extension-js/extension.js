@@ -297,7 +297,9 @@ export function registerBuildCommand(program: Command) {
               ENVELOPE.ok('build', 'built', {
                 projectPath: pathOrRemoteUrl,
                 browsers: built,
-                mode,
+                // The frame records the mode the build resolved to, so the
+                // key survives the default invocation with no --mode flag.
+                mode: mode ?? 'production',
                 summaries
               })
             )

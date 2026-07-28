@@ -213,7 +213,6 @@ describe('extension build', () => {
     }
 
     it('names every key the command actually puts in value', async () => {
-      // The golden is the `--mode` form, so it can document that key at all.
       const frame = await emitJsonFrame([
         'build',
         '.',
@@ -240,16 +239,24 @@ describe('extension build', () => {
       expect(golden.value.summaries[0].warnings.length).toBeGreaterThan(0)
     })
 
-    it('carries mode only because that invocation passes --mode', async () => {
-      // Without the flag `mode` is undefined and JSON.stringify drops the key
-      // outright. A reader who took the golden for "always present" would
-      // write a parser that trips on the default invocation, so the one
-      // conditional key in the frame is pinned rather than left implied.
+    it('emits the resolved mode on the default invocation', async () => {
       const frame = await emitJsonFrame(['build', '.', '--output', 'json'])
-      expect('mode' in frame.value).toBe(false)
+      expect(frame.value.mode).toBe('production')
       expect(Object.keys(golden.value).sort()).toEqual(
-        [...Object.keys(frame.value), 'mode'].sort()
+        Object.keys(frame.value).sort()
       )
+    })
+
+    it('echoes an explicit --mode override in the frame', async () => {
+      const frame = await emitJsonFrame([
+        'build',
+        '.',
+        '--mode',
+        'development',
+        '--output',
+        'json'
+      ])
+      expect(frame.value.mode).toBe('development')
     })
 
     it('spells its summary with the fields getBuildSummary emits', () => {
