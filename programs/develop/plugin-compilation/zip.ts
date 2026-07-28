@@ -35,6 +35,18 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
+// An explicit --zip-filename is honored as typed: only path separators,
+// reserved characters and trailing dots are stripped, never dashes or case.
+function explicitZipFilename(input: string): string {
+  const flat = path.basename(input.trim())
+  const safe = flat
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
+    .replace(/\.+$/, '')
+    .trim()
+  if (!safe) return 'extension.zip'
+  return /\.zip$/i.test(safe) ? safe : `${safe}.zip`
+}
+
 // Resolve an i18n manifest name (__MSG_appName__) against the default locale's
 // messages.json so the zip carries the real name; falls back to dir basename.
 function resolveManifestName(
@@ -186,16 +198,27 @@ export class ZipPlugin {
         if (this.zipData.zip) {
           const distZip = new AdmZip()
           distZip.addLocalFolder(outPath)
-          const filename = this.zipData.zipFilename
-            ? sanitize(this.zipData.zipFilename)
-            : name
-          const distPath = path.join(outPath, `${filename}.zip`)
+          const zipName = this.zipData.zipFilename
+            ? explicitZipFilename(this.zipData.zipFilename)
+            : `${name}.zip`
+          const distPath = path.join(outPath, zipName)
 
           if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }
           distZip.writeZip(distPath)
           created.push({kind: 'dist', path: distPath})
+        }
+        for (const artifact of created) {
+          let size = 0
+          try {
+            size = fs.statSync(artifact.path).size
+          } catch {
+            // Ignore
+          }
+          console.log(
+            messages.zipArtifactReady(this.browser, artifact.path, size)
+          )
         }
         if (isDebug()) {
           const sourceItem = created.find((c) => c.kind === 'source')

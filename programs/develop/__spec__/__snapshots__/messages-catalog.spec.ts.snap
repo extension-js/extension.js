@@ -66,6 +66,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "unpackagingExtension: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
+    "zipArtifactReady: function(3)",
   ],
   "plugin-compatibility/compatibility-lib/messages.ts": [
     "compatibilityPolyfillDisabled: function(1)",
