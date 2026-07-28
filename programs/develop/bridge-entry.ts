@@ -73,6 +73,8 @@ export {
 export {
   actionsPath,
   browserArtifactsDir,
+  browserDistDir,
+  browserProfileRootDir,
   buildSummaryPath,
   eventsPath,
   logsPath,

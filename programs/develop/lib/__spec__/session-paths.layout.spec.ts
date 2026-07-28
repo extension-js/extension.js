@@ -26,7 +26,10 @@ describe('session-state layout', () => {
 
       const segments = chrome.split(path.sep)
       const carriesBrowserKey = segments.some(
-        (segment) => segment === 'chrome' || segment.includes('-chrome')
+        (segment) =>
+          segment === 'chrome' ||
+          segment.includes('-chrome') ||
+          segment.startsWith('chrome-')
       )
       expect(carriesBrowserKey, `${artifact.name}: ${chrome}`).toBe(true)
     }

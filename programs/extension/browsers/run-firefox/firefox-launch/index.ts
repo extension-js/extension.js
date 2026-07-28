@@ -29,6 +29,7 @@ import {
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   stampReadyBrowserExited,
+  stampReadyBrowserLaunch,
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort
 } from '../../browsers-lib/ready-stamp'
@@ -466,6 +467,10 @@ export class FirefoxLaunchPlugin {
         isFirefoxHeadlessRequested()
       )
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+      stampReadyBrowserLaunch(this.extensionOutputPath, {
+        profilePath,
+        browserPid: this.child?.pid
+      })
       // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
       // a persistent ('dev') or user-provided profile is never removed
       this.child.on('close', () => {
@@ -535,6 +540,9 @@ export class FirefoxLaunchPlugin {
         args,
         wslFallbackBinary
       )
+      stampReadyBrowserLaunch(this.extensionOutputPath, {
+        browserPid: this.child?.pid
+      })
       this.wireChildLifecycle()
       if (debugPort > 0) {
         stampReadyRdpPort(this.extensionOutputPath, debugPort)

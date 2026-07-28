@@ -57,6 +57,29 @@ describe('ready.json writer preservation', () => {
     expect(after.rdpPort).toBe(9224)
   })
 
+  it('preserves the launcher-stamped profilePath and browserPid across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.profilePath = path.join(
+      tmp,
+      'dist',
+      'extension-js',
+      'profiles',
+      'chromium-profile',
+      'brave-Crimson-panda'
+    )
+    ready.browserPid = 4242
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.profilePath).toBe(ready.profilePath)
+    expect(after.browserPid).toBe(4242)
+  })
+
   it('ready.json runId equals getSessionRunId for the same session', () => {
     const writer = makeWriter()
     writer.writeReady()
@@ -75,6 +98,8 @@ describe('ready.json writer preservation', () => {
     const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect('browserExitedAt' in after).toBe(false)
     expect('browserExitCode' in after).toBe(false)
+    expect('profilePath' in after).toBe(false)
+    expect('browserPid' in after).toBe(false)
   })
 
   it('stamps runtime:"attached"/executorAttachedAt once and preserves it across recompiles', () => {

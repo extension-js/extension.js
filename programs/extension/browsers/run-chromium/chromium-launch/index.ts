@@ -44,6 +44,7 @@ import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   stampReadyBrowserExited,
+  stampReadyBrowserLaunch,
   stampReadyProfileLocked
 } from '../../browsers-lib/ready-stamp'
 import {
@@ -906,6 +907,14 @@ export class ChromiumLaunchPlugin {
       chromiumConfig,
       usePipe
     )
+
+    stampReadyBrowserLaunch(this.closeHandlerContext?.extensionOutputPath, {
+      profilePath: chromiumConfig
+        .find((flag) => flag.startsWith('--user-data-dir='))
+        ?.slice('--user-data-dir='.length)
+        .replace(/^"|"$/g, ''),
+      browserPid: child?.pid
+    })
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
     // Chrome, child.stdio[4] reads responses.

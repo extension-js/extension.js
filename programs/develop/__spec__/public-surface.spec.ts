@@ -87,6 +87,8 @@ describe('the extension-develop/bridge entry', () => {
       'actionsPath',
       'buildSummaryPath',
       'browserArtifactsDir',
+      'browserDistDir',
+      'browserProfileRootDir',
       'sessionArtifactsRootDir',
       'sessionStateDir'
     ]) {
@@ -105,6 +107,40 @@ describe('the extension-develop/bridge entry', () => {
     expect(bridge.logsPath('/p', 'chromium')).toBe(
       path.resolve('/p', 'dist', 'extension-js', 'chromium', 'logs.ndjson')
     )
+    expect(bridge.browserProfileRootDir('/p', 'chromium')).toBe(
+      path.resolve('/p', 'dist', 'extension-js', 'profiles', 'chromium-profile')
+    )
+    expect(bridge.browserDistDir('/p', 'chromium')).toBe(
+      path.resolve('/p', 'dist', 'chromium')
+    )
+  })
+
+  it('agrees with the profile root the browser launchers actually build', () => {
+    const launcherConfigs = [
+      path.join(
+        developRoot,
+        '..',
+        'extension',
+        'browsers',
+        'run-chromium',
+        'chromium-launch',
+        'browser-config.ts'
+      ),
+      path.join(
+        developRoot,
+        '..',
+        'extension',
+        'browsers',
+        'run-firefox',
+        'firefox-launch',
+        'browser-config.ts'
+      )
+    ]
+    for (const configPath of launcherConfigs) {
+      const flat = fs.readFileSync(configPath, 'utf8').replace(/\s+/g, ' ')
+      expect(flat, configPath).toContain("'extension-js', 'profiles'")
+      expect(flat, configPath).toContain('-profile')
+    }
   })
 
   it('publishes the whole-document ready reader beside the narrow one', () => {
