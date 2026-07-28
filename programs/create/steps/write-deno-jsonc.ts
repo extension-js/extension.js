@@ -124,7 +124,6 @@ interface WriteDenoJsoncOptions {
 
 export async function writeDenoJsonc(
   projectPath: string,
-  projectName: string,
   {template = 'javascript', cliVersion, primary = false}: WriteDenoJsoncOptions,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
@@ -157,7 +156,7 @@ export async function writeDenoJsonc(
       await fs.rm(path.join(projectPath, 'package.json'), {force: true})
     }
   } catch (error) {
-    logger.error(messages.writingDenoJsoncError(projectName, error))
+    logger.error(messages.writingDenoJsoncError(error))
     throw error
   }
 }

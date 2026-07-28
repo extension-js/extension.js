@@ -12,7 +12,6 @@ import * as messages from '../lib/messages'
 
 export async function setupBuiltInTests(
   projectPath: string,
-  projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   try {
@@ -22,7 +21,7 @@ export async function setupBuiltInTests(
       fs.unlinkSync(testSpecPath)
     }
   } catch (error) {
-    logger.error(messages.cantSetupBuiltInTests(projectName, error))
+    logger.error(messages.cantSetupBuiltInTests(error))
     throw error
   }
 }

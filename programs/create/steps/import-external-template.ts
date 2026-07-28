@@ -406,9 +406,7 @@ export async function importExternalTemplate(
     } else if (error instanceof TemplateDownloadError) {
       logger.error(messages.templateDownloadFailed(templateName, error))
     } else {
-      logger.error(
-        messages.installingFromTemplateError(projectName, templateName, error)
-      )
+      logger.error(messages.installingFromTemplateError(templateName, error))
     }
     // Clean the partial target dir so a retry into the same name is not poisoned.
     await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})

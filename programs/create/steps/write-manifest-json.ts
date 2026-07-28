@@ -14,7 +14,6 @@ import {isDebug} from '../lib/messaging'
 
 export async function writeManifestJson(
   projectPath: string,
-  projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   // Templates may store the manifest at `src/manifest.json` instead of root.
@@ -37,7 +36,7 @@ export async function writeManifestJson(
       JSON.stringify(manifestMetadata, null, 2)
     )
   } catch (error) {
-    logger.error(messages.writingManifestJsonMetadataError(projectName, error))
+    logger.error(messages.writingManifestJsonMetadataError(error))
     throw error
   }
 }

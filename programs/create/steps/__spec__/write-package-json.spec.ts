@@ -30,7 +30,6 @@ describe('overridePackageJson template-aware scripts', () => {
 
       await overridePackageJson(
         projectPath,
-        'seed',
         {
           cliVersion: '3.8.7-canary.205.b380650'
         },
@@ -58,7 +57,6 @@ describe('overridePackageJson template-aware scripts', () => {
 
       await overridePackageJson(
         projectPath,
-        'seed',
         {
           cliVersion: '3.8.7'
         },
@@ -102,7 +100,6 @@ describe('overridePackageJson template-aware scripts', () => {
       try {
         await overridePackageJson(
           projectPath,
-          'dev-local-cli',
           {
             cliVersion: '0.0.1'
           },
@@ -140,7 +137,6 @@ describe('overridePackageJson template-aware scripts', () => {
 
       await overridePackageJson(
         projectPath,
-        'custom-monorepo-template',
         {
           template: 'custom-monorepo-template',
           cliVersion: '0.0.1'
@@ -180,7 +176,6 @@ describe('overridePackageJson template-aware scripts', () => {
 
       await overridePackageJson(
         projectPath,
-        'seed',
         {
           template: 'custom-monorepo-template',
           cliVersion: '0.0.1'
@@ -260,12 +255,7 @@ describe('overridePackageJson dependency build-script approval', () => {
         JSON.stringify({name: 'seed', private: true})
       )
 
-      await overridePackageJson(
-        projectPath,
-        'seed',
-        {cliVersion: '4.0.1'},
-        console
-      )
+      await overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
@@ -288,12 +278,7 @@ describe('overridePackageJson dependency build-script approval', () => {
         })
       )
 
-      await overridePackageJson(
-        projectPath,
-        'seed',
-        {cliVersion: '4.0.1'},
-        console
-      )
+      await overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
@@ -320,12 +305,7 @@ describe('overridePackageJson dependency build-script approval', () => {
         })
       )
 
-      await overridePackageJson(
-        projectPath,
-        'seed',
-        {cliVersion: '4.0.1'},
-        console
-      )
+      await overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
 
       const pkg = JSON.parse(
         await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')

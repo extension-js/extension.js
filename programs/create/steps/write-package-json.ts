@@ -137,7 +137,6 @@ export function resolveExtensionDevDependencyVersion(
 
 export async function overridePackageJson(
   projectPath: string,
-  projectName: string,
   {template = 'javascript', cliVersion}: OverridePackageJsonOptions,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
@@ -232,7 +231,7 @@ export async function overridePackageJson(
       `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
   } catch (error) {
-    logger.error(messages.writingPackageJsonMetadataError(projectName, error))
+    logger.error(messages.writingPackageJsonMetadataError(error))
     throw error
   }
 }
