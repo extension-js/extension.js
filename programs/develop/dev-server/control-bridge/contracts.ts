@@ -145,6 +145,19 @@ export interface CommandFrame {
   timeoutMs?: number
 }
 
+// Machine names for a refused command. The guest sets one beside the
+// browser's own sentence so a consumer branches on it, never on the prose.
+export const REFUSAL_NEEDS_HEADED_WINDOW = 'needs_headed_window'
+export const REFUSAL_NEEDS_USER_GESTURE = 'needs_user_gesture'
+export const REFUSAL_SURFACE_NOT_OPEN = 'surface_not_open'
+export const REFUSAL_API_UNAVAILABLE = 'api_unavailable'
+
+export type BridgeRefusalCode =
+  | typeof REFUSAL_NEEDS_HEADED_WINDOW
+  | typeof REFUSAL_NEEDS_USER_GESTURE
+  | typeof REFUSAL_SURFACE_NOT_OPEN
+  | typeof REFUSAL_API_UNAVAILABLE
+
 export interface ResultFrame {
   type: 'result'
   cmdId: string
@@ -157,6 +170,7 @@ export interface ResultFrame {
     message: string
     stack?: string
     engine?: string
+    code?: BridgeRefusalCode
   }
 }
 

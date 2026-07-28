@@ -96,11 +96,21 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
-    function replyErr(cmdId, name, message) {
+    function replyErr(cmdId, name, message, code) {
       var frame = {type: "result", cmdId: cmdId, ok: false, error: {name: name, message: String(message), engine: engineName()}};
+      if (code) frame.error.code = code;
       try { socket && socket.send(JSON.stringify(frame)); } catch (e) {
         // Ignore
       }
+    }
+
+    // Name the refusal the browser wrote as prose, so a consumer branches on
+    // error.code instead of matching the engine's sentence.
+    function openRefusalCode(message) {
+      var m = String(message == null ? "" : message);
+      if (/user gesture|user input|user interaction|user action/i.test(m)) return "needs_user_gesture";
+      if (/browser window|active window/i.test(m)) return "needs_headed_window";
+      return undefined;
     }
 
     // Resolve a numeric tab id when the caller did not pass one: match
@@ -246,7 +256,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               {__extjsEvalRequest: true, target: target, args: {expression: String(args.expression)}},
               function (resp) {
                 if ((chrome.runtime && chrome.runtime.lastError) || !resp) {
-                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")");
+                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")", "surface_not_open");
                 } else if (resp.ok) {
                   replyOk(cmdId, resp.value);
                 } else {
@@ -349,10 +359,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           if (surface === "popup") {
             if (chrome.action && chrome.action.openPopup) {
               nsCall("action", "openPopup", [], function (err) {
-                if (err) replyErr(cmdId, "Unsupported", "openPopup: " + ((err && err.message) || err));
-                else replyOk(cmdId, {opened: "popup"});
+                if (err) {
+                  var openMsg = (err && err.message) || err;
+                  replyErr(cmdId, "Unsupported", "openPopup: " + openMsg, openRefusalCode(openMsg));
+                } else replyOk(cmdId, {opened: "popup"});
               });
-            } else { replyErr(cmdId, "Unsupported", "action.openPopup not available"); }
+            } else { replyErr(cmdId, "Unsupported", "action.openPopup not available", "api_unavailable"); }
           } else if (surface === "options") {
             try { chrome.runtime.openOptionsPage(function () { replyOk(cmdId, {opened: "options"}); }); }
             catch (e) { replyErr(cmdId, "Unsupported", "openOptionsPage: " + e); }
@@ -360,11 +372,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             if (chrome.sidePanel && chrome.sidePanel.open && chrome.windows) {
               chrome.windows.getCurrent(function (w) {
                 nsCall("sidePanel", "open", [{windowId: w.id}], function (err) {
-                  if (err) replyErr(cmdId, "Unsupported", "sidePanel.open: " + ((err && err.message) || err));
-                  else replyOk(cmdId, {opened: "sidebar"});
+                  if (err) {
+                    var sideMsg = (err && err.message) || err;
+                    replyErr(cmdId, "Unsupported", "sidePanel.open: " + sideMsg, openRefusalCode(sideMsg));
+                  } else replyOk(cmdId, {opened: "sidebar"});
                 });
               });
-            } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")"); }
+            } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")", "api_unavailable"); }
           } else if (surface === "action") {
             // With a default_popup the click opens it; without one, replay the
             // onClicked listeners captured at install time.
@@ -372,8 +386,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               getActionPopup(function (popup) {
                 if (popup) {
                   nsCall("action", "openPopup", [], function (err) {
-                    if (err) replyErr(cmdId, "Unsupported", "openPopup: " + ((err && err.message) || err));
-                    else replyOk(cmdId, {triggered: "popup"});
+                    if (err) {
+                      var actMsg = (err && err.message) || err;
+                      replyErr(cmdId, "Unsupported", "openPopup: " + actMsg, openRefusalCode(actMsg));
+                    } else replyOk(cmdId, {triggered: "popup"});
                   });
                 } else if (actionClickedListeners.length) {
                   resolveActiveTab(args, function (tab) {
@@ -392,7 +408,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   replyErr(cmdId, "Unsupported", "action has no popup and no onClicked listener registered");
                 }
               });
-            } else { replyErr(cmdId, "Unsupported", "chrome.action not available (engine: " + engineName() + ")"); }
+            } else { replyErr(cmdId, "Unsupported", "chrome.action not available (engine: " + engineName() + ")", "api_unavailable"); }
           } else if (surface === "command") {
             var commandName = (args && args.name) || undefined;
             if (!commandListeners.length) {
@@ -468,7 +484,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               {__extjsInspectRequest: true, target: target, args: args},
               function (resp) {
                 if (chrome.runtime.lastError || !resp) {
-                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")");
+                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")", "surface_not_open");
                 } else if (resp.ok) {
                   replyOk(cmdId, resp.value);
                 } else {

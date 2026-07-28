@@ -556,7 +556,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-closed')
-    expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_open'}
+    })
     expect(r.error.message).toContain('not open')
     expect(r.error.message).not.toContain('tabId')
   })
@@ -891,6 +894,112 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: false,
       error: {name: 'Unsupported'}
     })
+  })
+
+  it('open popup: names a missing-window refusal on error.code', async () => {
+    const ws = setup({
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('popup.html'),
+        openPopup: () =>
+          Promise.reject(new Error('Could not find an active browser window.')),
+        onClicked: {addListener() {}}
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-hw',
+      op: 'open',
+      target: {context: 'popup'},
+      args: {surface: 'popup'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'op-hw')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'needs_headed_window'}
+    })
+    expect(r.error.message).toContain(
+      'Could not find an active browser window.'
+    )
+  })
+
+  it('open sidebar: names a user-gesture refusal on error.code', async () => {
+    const ws = setup({
+      sidePanel: {
+        open: () =>
+          Promise.reject(
+            new Error(
+              'sidePanel.open() may only be called in response to a user gesture.'
+            )
+          )
+      },
+      windows: {getCurrent: (cb: (w: {id: number}) => void) => cb({id: 1})}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-ug',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'op-ug')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'needs_user_gesture'}
+    })
+  })
+
+  it('open popup: names a missing API on error.code', async () => {
+    const ws = setup({action: {}})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-api',
+      op: 'open',
+      target: {context: 'popup'},
+      args: {surface: 'popup'}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'op-api')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'api_unavailable'}
+    })
+  })
+
+  it('open sidebar: names a missing sidePanel API on error.code', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-side-api',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'op-side-api')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'api_unavailable'}
+    })
+  })
+
+  it('open popup: an unclassified engine sentence carries no error.code', async () => {
+    const ws = setup({
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('popup.html'),
+        openPopup: () => Promise.reject(new Error('something else went wrong')),
+        onClicked: {addListener() {}}
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-none',
+      op: 'open',
+      target: {context: 'popup'},
+      args: {surface: 'popup'}
+    })
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'op-none')
+    expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
+    expect(r.error.code).toBeUndefined()
   })
 
   it('the relay answers a surface inspect request for its own context', () => {
