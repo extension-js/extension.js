@@ -32,6 +32,7 @@
       "import": "./dist/contracts.mjs",
       "default": "./dist/contracts.mjs"
     },
+    "./contract/*": "./dist/contract/*",
     "./package.json": "./package.json"
   },
   "main": "./dist/module.mjs",
