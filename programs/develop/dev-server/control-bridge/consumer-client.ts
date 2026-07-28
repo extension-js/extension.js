@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import {WebSocket} from 'ws'
 import {readyContractPath} from '../../lib/session-paths'
+import type {ReadyMetadata} from '../../plugin-playwright'
 import {
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
@@ -22,6 +23,10 @@ export interface ReadyContractInfo {
   controlPort: number
   instanceId: string
   runId: string
+  /** Ready-contract version, `ReadyMetadata['schemaVersion']` on current engines. */
+  schemaVersion?: number
+  /** Result-envelope capability advertisement, `1` on current engines. */
+  schema?: number
   logsPath?: string
   status?: string
   /** Dev-server pid; absent in pre-4.1 contracts. */
@@ -41,6 +46,30 @@ export interface ReadyContractInfo {
   ts?: string
 }
 
+// The whole ready contract, exactly as the engine wrote it. Optional because a
+// reader may hold a file an older or newer engine produced.
+export type ReadyContractDocument = Partial<ReadyMetadata> &
+  Record<string, unknown>
+
+// The documented reader: passes the whole document through so no field the
+// engine stamps (errors, code, message, rdpPort, distPath, ...) is dropped.
+export function readReadyContractDocument(
+  projectPath: string,
+  browser = 'chrome'
+): ReadyContractDocument | null {
+  const readyPath = readyContractPath(projectPath, browser)
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed as ReadyContractDocument
+  } catch {
+    return null
+  }
+}
+
 export function readReadyContract(
   projectPath: string,
   browser = 'chrome'
@@ -55,6 +84,9 @@ export function readReadyContract(
       controlPort: c.controlPort,
       instanceId: String(c.instanceId),
       runId: String(c.runId || ''),
+      schemaVersion:
+        typeof c.schemaVersion === 'number' ? c.schemaVersion : undefined,
+      schema: typeof c.schema === 'number' ? c.schema : undefined,
       logsPath: c.logsPath,
       status: c.status,
       pid: typeof c.pid === 'number' ? c.pid : undefined,

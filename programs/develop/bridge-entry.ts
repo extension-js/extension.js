@@ -10,8 +10,10 @@ export {
   BridgeConsumer,
   type ConsumerCloseInfo,
   type ConsumerOptions,
+  type ReadyContractDocument,
   type ReadyContractInfo,
-  readReadyContract
+  readReadyContract,
+  readReadyContractDocument
 } from './dev-server/control-bridge/consumer-client'
 export type {
   BridgeRefusalCode,
@@ -78,3 +80,10 @@ export {
   sessionArtifactsRootDir,
   sessionStateDir
 } from './lib/session-paths'
+// The writer's own type for ready.json, so a consumer names the contract the
+// engine maintains instead of hand-declaring a twenty-field mirror of it.
+export type {
+  PlaywrightAutomationCommand,
+  ReadyMetadata,
+  ReadyStatus
+} from './plugin-playwright'
