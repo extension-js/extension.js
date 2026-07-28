@@ -87,6 +87,8 @@ export async function extensionPreview(
   const distPath = getDistPath(packageJsonDir, browser)
   const metadataCommand =
     previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
+  const runningMessage =
+    metadataCommand === 'start' ? messages.starting : messages.previewing
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(browser),
@@ -153,13 +155,13 @@ export async function extensionPreview(
       })
     )
     console.log(devServerMessages.spacerLine())
-    console.log(messages.previewing(browser))
+    console.log(runningMessage(browser))
     console.log(messages.previewSkippedNoBrowser(browser))
     metadata.writeReady()
     return
   }
 
-  console.log(messages.previewing(browser))
+  console.log(runningMessage(browser))
 
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(

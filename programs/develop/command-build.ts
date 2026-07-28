@@ -22,7 +22,7 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import * as messages from './lib/messages'
-import {card, claimCardKey, isDebug} from './lib/messaging'
+import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
@@ -58,11 +58,7 @@ function printBuildCard(
     // Ignore
   }
 
-  const browserLabel = String(browser || '')
-    .split('-')
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-    .join('-')
+  const browserLabel = browserRowValue(String(browser || ''))
   const suffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (suffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
 

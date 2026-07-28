@@ -10,7 +10,13 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../lib/constants'
-import {artifactNoun, type Channel, card, prefix} from '../lib/messaging'
+import {
+  artifactNoun,
+  browserRowValue,
+  type Channel,
+  card,
+  prefix
+} from '../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -93,7 +99,10 @@ export function browserRunnerDisabled(args: {
     rows: [
       {
         label: 'Browser',
-        value: args.browserModeLabel || `${browserLabel} (build-only mode)`
+        value: browserRowValue(
+          String(args.browser || 'unknown'),
+          args.browserModeLabel || `${browserLabel} (build-only mode)`
+        )
       },
       {label: 'Extension', value: extensionLabel},
       {label: 'Run ID', value: runLabel}

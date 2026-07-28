@@ -15,7 +15,13 @@ import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
-import {type Channel, card, isDebug, prefix} from '../../helpers/messaging'
+import {
+  browserRowValue,
+  type Channel,
+  card,
+  isDebug,
+  prefix
+} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 
 type Browser = BrowserType
@@ -141,6 +147,43 @@ function managedBrowserDisplayName(browser: string): string {
 
 export function capitalizedBrowserName(browser: Browser) {
   return `${browser.charAt(0).toUpperCase() + browser.slice(1)}`
+}
+
+// Reads the version off the binary the command will actually launch, so the
+// card names it even when the caller pinned no binary of its own.
+export function resolveBrowserVersionLine(
+  browser: string,
+  pinnedLine?: string
+): string {
+  const pinned = String(pinnedLine || '').trim()
+  if (pinned) return pinned
+
+  try {
+    if (browser === 'chromium' || browser === 'chromium-based') {
+      const p = locateChromium()
+      if (p && typeof p === 'string' && fs.existsSync(p)) {
+        return getChromiumVersion(p) || 'Chromium'
+      }
+    } else if (browser === 'chrome') {
+      const p: string = locateChromeOrExplain({allowFallback: true})
+      if (p && fs.existsSync(p)) {
+        return getChromeVersion(p) || 'Chrome'
+      }
+    } else if (browser === 'edge') {
+      const p = locateEdge()
+      if (p && fs.existsSync(p)) {
+        return getEdgeVersion(p) || 'Microsoft Edge'
+      }
+    } else if (browser === 'firefox') {
+      const p = locateFirefox(true)
+      if (p && typeof p === 'string' && fs.existsSync(p)) {
+        return getFirefoxVersion(p) || 'Firefox'
+      }
+    }
+  } catch {
+    // Ignore
+  }
+  return ''
 }
 
 export function creatingUserProfile(profilePath: string) {
@@ -959,47 +1002,10 @@ export function runningInDevelopment(
       }
     })()
 
-  let effectiveBrowserLine =
-    browserVersionLine && browserVersionLine.trim().length > 0
-      ? browserVersionLine.trim()
-      : ''
-
-  if (!effectiveBrowserLine) {
-    try {
-      if (browser === 'chromium' || browser === 'chromium-based') {
-        const p = locateChromium()
-        if (p && typeof p === 'string' && fs.existsSync(p)) {
-          effectiveBrowserLine = getChromiumVersion(p) || 'Chromium'
-        }
-      } else if (browser === 'chrome') {
-        const p: string = locateChromeOrExplain({allowFallback: true})
-        if (p && fs.existsSync(p)) {
-          effectiveBrowserLine = getChromeVersion(p) || 'Chrome'
-        }
-      } else if (browser === 'edge') {
-        const p = locateEdge()
-        if (p && fs.existsSync(p)) {
-          effectiveBrowserLine = getEdgeVersion(p) || 'Microsoft Edge'
-        }
-      } else if (browser === 'firefox') {
-        const p = locateFirefox(true)
-        if (p && typeof p === 'string' && fs.existsSync(p)) {
-          effectiveBrowserLine = getFirefoxVersion(p) || 'Firefox'
-        }
-      }
-    } catch {
-      // best-effort only; fall back to generic browser label below
-    }
-  }
-
-  let browserLabel =
-    effectiveBrowserLine && effectiveBrowserLine.trim().length > 0
-      ? effectiveBrowserLine.trim()
-      : capitalize(String(browser || 'unknown'))
-
-  if (browserLabel && !/[a-zA-Z]/.test(browserLabel)) {
-    browserLabel = `${capitalize(String(browser || 'unknown'))} ${browserLabel}`
-  }
+  const browserLabel = browserRowValue(
+    String(browser || 'unknown'),
+    resolveBrowserVersionLine(browser, browserVersionLine)
+  )
 
   const cleanId = String(id || '').trim()
 
