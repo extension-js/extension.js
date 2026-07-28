@@ -107,6 +107,24 @@ describe('the extension-develop/bridge entry', () => {
     )
   })
 
+  it('publishes the whole-document ready reader beside the narrow one', () => {
+    expect(typeof bridge.readReadyContractDocument).toBe('function')
+  })
+
+  it('exports the ready contract type the writer maintains', () => {
+    const bridgeSource = source('bridge-entry.ts')
+    for (const name of [
+      'ReadyMetadata',
+      'ReadyStatus',
+      'ReadyContractDocument'
+    ]) {
+      expect(
+        bridgeSource,
+        `extension-develop/bridge must export ${name}.`
+      ).toContain(name)
+    }
+  })
+
   it('publishes the control-channel wire constants', () => {
     expect(bridge.CONTROL_WS_PATH).toBe('/extjs-control')
     expect(bridge.CONTROL_ENVELOPE_VERSION).toBe(1)

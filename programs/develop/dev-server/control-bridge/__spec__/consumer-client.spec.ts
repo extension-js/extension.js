@@ -6,7 +6,8 @@ import {BridgeBroker} from '../broker'
 import {
   BridgeConsumer,
   type ConsumerCloseInfo,
-  readReadyContract
+  readReadyContract,
+  readReadyContractDocument
 } from '../consumer-client'
 import {CLOSE_BAD_INSTANCE, type IncomingLogEvent} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
@@ -57,6 +58,74 @@ describe('readReadyContract', () => {
 
   it('returns null when there is no ready.json', () => {
     expect(readReadyContract(dir, 'chrome')).toBeNull()
+  })
+
+  it('carries schema and schemaVersion through the narrow reader', () => {
+    writeReady({
+      schemaVersion: 2,
+      schema: 1,
+      controlPort: 8147,
+      instanceId: 'inst-1',
+      runId: 'r'
+    })
+    expect(readReadyContract(dir, 'chrome')).toMatchObject({
+      schemaVersion: 2,
+      schema: 1
+    })
+  })
+})
+
+describe('readReadyContractDocument', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ready-doc-'))
+  })
+  afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
+
+  function writeReady(obj: unknown) {
+    const d = path.join(dir, 'dist', 'extension-js', 'chrome')
+    fs.mkdirSync(d, {recursive: true})
+    fs.writeFileSync(path.join(d, 'ready.json'), JSON.stringify(obj))
+  }
+
+  it('passes the whole document through, including failure evidence', () => {
+    const written = {
+      schemaVersion: 2,
+      schema: 1,
+      status: 'error',
+      command: 'dev',
+      browser: 'chrome',
+      runId: 'run-A',
+      distPath: '/proj/dist/chrome',
+      manifestPath: '/proj/manifest.json',
+      toolchainVersion: '4.0.18',
+      rdpPort: 6006,
+      code: 'compile_error',
+      message: 'Compilation failed',
+      errors: ['x is not defined']
+    }
+    writeReady(written)
+    expect(readReadyContractDocument(dir, 'chrome')).toEqual(written)
+  })
+
+  it('does not require controlPort or instanceId', () => {
+    writeReady({schemaVersion: 2, schema: 1, status: 'ready', runId: 'r'})
+    expect(readReadyContractDocument(dir, 'chrome')).toMatchObject({
+      schemaVersion: 2,
+      schema: 1,
+      status: 'ready'
+    })
+  })
+
+  it('returns null for a missing, invalid, or non-object file', () => {
+    expect(readReadyContractDocument(dir, 'chrome')).toBeNull()
+    writeReady('not-an-object')
+    expect(readReadyContractDocument(dir, 'chrome')).toBeNull()
+    writeReady([1, 2])
+    expect(readReadyContractDocument(dir, 'chrome')).toBeNull()
+    const d = path.join(dir, 'dist', 'extension-js', 'chrome')
+    fs.writeFileSync(path.join(d, 'ready.json'), '{broken')
+    expect(readReadyContractDocument(dir, 'chrome')).toBeNull()
   })
 })
 
