@@ -154,6 +154,17 @@ export async function setupCdpAfterLaunch(
     (await cdpExtensionController.verifyGuestLoaded?.()) ??
     ({status: 'unknown'} as const)
 
+  if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
+    const unconfirmedPath =
+      extensionOutputPath || selectedExtensionPaths[0] || ''
+    console.warn(messages.chromiumExtensionLoadUnconfirmed(unconfirmedPath))
+    plugin.logSink?.({
+      level: 'warn',
+      text: `extension_load_unconfirmed: ${unconfirmedPath}`,
+      source: 'browser'
+    })
+  }
+
   if (loadOutcome.status === 'refused') {
     const refusedPath = extensionOutputPath || selectedExtensionPaths[0] || ''
     console.error(
