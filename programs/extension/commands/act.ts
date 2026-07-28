@@ -216,13 +216,21 @@ export function buildActEnvelope(
     typeof raw.message === 'string' ? raw.message : 'command failed'
   const refusal = typeof raw.code === 'string' ? raw.code : undefined
   const code = codeForBridgeError(name, message, refusal)
+  // The bridge error shape carries no hint, so the CLI mints the one the
+  // shipped golden documents for a guest throw.
+  const hint =
+    typeof raw.hint === 'string'
+      ? raw.hint
+      : code === CODES.E_EVAL
+        ? 'The expression threw inside the page. Check the expression itself.'
+        : undefined
 
   return {
     ...extras,
     ...ENVELOPE.fail(
       command,
       statusForCode(code),
-      {...raw, code, message, name} as EnvelopeError,
+      {...raw, code, message, name, ...(hint ? {hint} : {})} as EnvelopeError,
       {truncated: wasTruncated}
     )
   }

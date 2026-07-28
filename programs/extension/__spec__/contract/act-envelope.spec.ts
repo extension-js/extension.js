@@ -465,6 +465,46 @@ describe('the act frame as a schema-1 envelope', () => {
     expect((frame.error as {code: string}).code).toBe(CODES.E_TARGET_NOT_FOUND)
   })
 
+  it('reproduces golden.eval.eval.json from a real guest throw', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(path.join(here, 'golden.eval.eval.json'), 'utf8')
+    )
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      truncated: true,
+      error: {
+        name: 'EvalError',
+        message: 'ReferenceError: chrom is not defined',
+        engine: 'chromium'
+      }
+    })
+
+    expect(frame).toEqual(golden)
+    expect((frame.error as {hint: string}).hint).toBe(
+      'The expression threw inside the page. Check the expression itself.'
+    )
+  })
+
+  it('reproduces golden.eval.target-not-found.json from a refused target', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(here, 'golden.eval.target-not-found.json'),
+        'utf8'
+      )
+    )
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message:
+          'the expression never executed in tab 12: no injectable frame returned a result (restricted page, or outside host_permissions)',
+        engine: 'chromium'
+      }
+    })
+
+    expect(frame).toEqual(golden)
+  })
+
   it('survives the JSON round trip the MCP performs on stdout', () => {
     // lib/act.ts:88-93 does JSON.parse(stdout.trim()), so the frame must be one
     // serializable document with no undefined holes.
