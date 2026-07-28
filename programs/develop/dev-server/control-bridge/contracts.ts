@@ -214,3 +214,17 @@ export type ServerFrame =
 export type AnyFrame = ClientFrame | ServerFrame
 
 export const CONTROL_WS_PATH = '/extjs-control'
+
+// Why the server hung up. These live with the wire constants rather than in
+// the broker so a client can name a refusal without importing the server, and
+// so it never has to spell 4002 in its own source. A close in this range is
+// always a deliberate refusal, never a transport failure.
+
+/** The hello named an instanceId from a previous dev session. */
+export const CLOSE_BAD_INSTANCE = 4001
+/** The hello was malformed: wrong envelope version, or an unknown role. */
+export const CLOSE_BAD_HELLO = 4002
+/** A controller dialed a session started without `--allow-control`. */
+export const CLOSE_CONTROL_UNAVAILABLE = 4003
+/** The socket fell far enough behind that it was dropped to protect the broker. */
+export const CLOSE_SLOW_CONSUMER = 4008

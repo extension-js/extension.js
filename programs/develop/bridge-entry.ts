@@ -23,8 +23,15 @@ export type {
   ResultFrame
 } from './dev-server/control-bridge/contracts'
 // The wire constants a consumer needs to dial the channel by hand, instead of
-// copying '/extjs-control' and the envelope version into its own source.
+// copying '/extjs-control' and the envelope version into its own source. The
+// CLOSE_ codes are why the server hung up: without them a client is left
+// inferring "anything >= 4000 was probably deliberate", which reports an
+// envelope-version refusal as "no logs" rather than as a refusal.
 export {
+  CLOSE_BAD_HELLO,
+  CLOSE_BAD_INSTANCE,
+  CLOSE_CONTROL_UNAVAILABLE,
+  CLOSE_SLOW_CONSUMER,
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
   LOG_EVENT_VERSION
@@ -38,8 +45,13 @@ export {
   type CommandInput,
   type ControllerOptions
 } from './dev-server/control-bridge/controller-client'
+// matchesLogQuery answers one yes/no per event against a whole query. Ranking
+// is the separate question a consumer asks when it sorts, groups or picks the
+// worst level in a batch, and it carries the rule that 'log' ranks as 'info'.
 export {
+  LOG_LEVEL_ORDER,
   type LogQuery,
+  logLevelRank,
   matchesLogQuery,
   readLogEvents
 } from './dev-server/control-bridge/logs-query'

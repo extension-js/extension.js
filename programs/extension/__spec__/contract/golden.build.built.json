@@ -6,7 +6,19 @@
   "value": {
     "projectPath": "/home/dev/my-extension",
     "browsers": ["chromium"],
-    "mode": "production"
+    "mode": "production",
+    "summaries": [
+      {
+        "browser": "chromium",
+        "output_path": "/home/dev/my-extension/dist/chromium",
+        "total_assets": 12,
+        "total_bytes": 248320,
+        "largest_asset_bytes": 131072,
+        "warnings_count": 1,
+        "errors_count": 0,
+        "warnings": ["Asset size exceeds the recommended limit (128 KiB)."]
+      }
+    ]
   },
   "error": null,
   "warnings": []

@@ -116,4 +116,56 @@ describe('the extension-develop/bridge entry', () => {
     expect(typeof bridge.matchesLogQuery).toBe('function')
     expect(typeof bridge.readLogEvents).toBe('function')
   })
+
+  it('publishes the level ranking, not just the yes/no filter', () => {
+    // matchesLogQuery answers one event against one whole query. Sorting a
+    // batch, or naming its worst level, is a different question, and a
+    // consumer that cannot ask it re-invents the order and gets 'log' wrong.
+    expect(typeof bridge.logLevelRank).toBe('function')
+    expect(bridge.LOG_LEVEL_ORDER).toEqual([
+      'error',
+      'warn',
+      'info',
+      'debug',
+      'trace'
+    ])
+    expect(bridge.logLevelRank('error')).toBeLessThan(
+      bridge.logLevelRank('trace')
+    )
+    // The console emits `log`; the filter vocabulary calls it `info`. That
+    // aliasing is the engine's rule, not something to re-derive downstream.
+    expect(bridge.logLevelRank('log')).toBe(bridge.logLevelRank('info'))
+    expect(bridge.logLevelRank('not-a-level')).toBe(
+      bridge.LOG_LEVEL_ORDER.length
+    )
+  })
+
+  it('publishes the close codes the server refuses a hello with', () => {
+    // Without these a client can only guess that "code >= 4000 was probably
+    // deliberate", which reports a version refusal as an empty log read.
+    expect(bridge.CLOSE_BAD_INSTANCE).toBe(4001)
+    expect(bridge.CLOSE_BAD_HELLO).toBe(4002)
+    expect(bridge.CLOSE_CONTROL_UNAVAILABLE).toBe(4003)
+    expect(bridge.CLOSE_SLOW_CONSUMER).toBe(4008)
+  })
+
+  it('publishes the same close codes the broker actually closes with', () => {
+    // A published constant that drifts from the number on the wire is worse
+    // than no constant at all, so the two are compared, never assumed equal.
+    const brokerSource = source('dev-server/control-bridge/broker.ts')
+    const serverSource = source(
+      'dev-server/control-bridge/ws-control-server.ts'
+    )
+    for (const name of [
+      'CLOSE_BAD_INSTANCE',
+      'CLOSE_BAD_HELLO',
+      'CLOSE_CONTROL_UNAVAILABLE'
+    ]) {
+      expect(brokerSource, `${name} is no longer used by the broker`).toContain(
+        `conn.close(${name}`
+      )
+    }
+    expect(serverSource).toContain('socket.close(CLOSE_SLOW_CONSUMER')
+    expect(serverSource).not.toMatch(/const CLOSE_SLOW_CONSUMER = \d/)
+  })
 })

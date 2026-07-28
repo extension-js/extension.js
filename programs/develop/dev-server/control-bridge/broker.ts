@@ -11,6 +11,9 @@ import {
   type AnyFrame,
   type BridgeRole,
   type BridgeTarget,
+  CLOSE_BAD_HELLO,
+  CLOSE_BAD_INSTANCE,
+  CLOSE_CONTROL_UNAVAILABLE,
   CONTROL_ENVELOPE_VERSION,
   type CommandFrame,
   type CommandOp,
@@ -50,9 +53,14 @@ export interface BridgeBrokerOptions {
   onExecutorAttached?: () => void
 }
 
-export const CLOSE_BAD_INSTANCE = 4001
-export const CLOSE_BAD_HELLO = 4002
-export const CLOSE_CONTROL_UNAVAILABLE = 4003
+// Defined with the wire constants in ./contracts, re-exported here because
+// every caller that closes a connection already imports the broker.
+export {
+  CLOSE_BAD_HELLO,
+  CLOSE_BAD_INSTANCE,
+  CLOSE_CONTROL_UNAVAILABLE,
+  CLOSE_SLOW_CONSUMER
+} from './contracts'
 
 export const DEFAULT_CMD_TIMEOUT_MS = 5000
 export const MAX_CMD_TIMEOUT_MS = 30_000
