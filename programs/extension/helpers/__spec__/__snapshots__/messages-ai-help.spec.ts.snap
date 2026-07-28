@@ -161,6 +161,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "summary": "Diagnose a dev session: ready contract, control channel, token, executor, browser",
       "supportsSourceInspection": false,
     },
+    {
+      "name": "capabilities",
+      "summary": "Print the engine version, contract versions, and json-capable commands",
+      "supportsSourceInspection": false,
+    },
   ],
   "examples": [
     "extension --ai-help",
