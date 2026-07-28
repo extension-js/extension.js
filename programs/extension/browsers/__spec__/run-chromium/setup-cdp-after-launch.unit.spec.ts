@@ -39,6 +39,7 @@ vi.mock('../../browsers-lib/banner', () => ({
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {claimCardKey} from '../../../helpers/messaging'
 import * as banner from '../../browsers-lib/banner'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
@@ -102,7 +103,8 @@ describe('setupCdpAfterLaunch', () => {
       | undefined
     expect(firstCallArgs).toMatchObject({
       browser: 'chromium',
-      outPath: userExtensionPath
+      outPath: userExtensionPath,
+      profilePath: '/tmp/extension-profile'
     })
     for (const [callArgs] of printDevBannerOnceSpy.mock.calls) {
       await (callArgs as {getInfo?: () => Promise<unknown>})?.getInfo?.()
@@ -218,5 +220,89 @@ describe('setupCdpAfterLaunch', () => {
       chromiumArgs
     )
     expect(openTabSpy).not.toHaveBeenCalled()
+  })
+
+  // The card carries the profile row now, so the standalone debug line only
+  // survives where the card cannot: a pair whose key another card claimed.
+  it('keeps the debug profile line when the card key is already claimed', async () => {
+    const extDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Claimed Ext'
+    })
+    const previousDebug = process.env.EXTENSION_DEBUG
+    const previousCardKeys = process.env.EXTENSION_CLI_CARD_KEYS
+    process.env.EXTENSION_DEBUG = '1'
+    delete process.env.EXTENSION_CLI_CARD_KEYS
+    claimCardKey(`chromium::${path.resolve(extDir)}`)
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await setupCdpAfterLaunch(
+        {options: {mode: 'development', output: {path: extDir}}} as any,
+        {browser: 'chromium', port: 9333, instanceId: 'i'} as any,
+        [
+          `--load-extension=${extDir}`,
+          '--remote-debugging-port=9333',
+          '--user-data-dir=/tmp/extension-profile'
+        ]
+      )
+
+      const output = logSpy.mock.calls
+        .map((call) => String(call[0] || ''))
+        .join('\n')
+      expect(output).toContain('Chrome profile:')
+      expect(output).toContain('/tmp/extension-profile')
+    } finally {
+      logSpy.mockRestore()
+      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
+      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousCardKeys === undefined)
+        delete process.env.EXTENSION_CLI_CARD_KEYS
+      else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+    }
+  })
+
+  it('drops the debug profile line when the card can carry the row', async () => {
+    const extDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Unclaimed Ext'
+    })
+    const previousDebug = process.env.EXTENSION_DEBUG
+    const previousCardKeys = process.env.EXTENSION_CLI_CARD_KEYS
+    process.env.EXTENSION_DEBUG = '1'
+    delete process.env.EXTENSION_CLI_CARD_KEYS
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await setupCdpAfterLaunch(
+        {options: {mode: 'development', output: {path: extDir}}} as any,
+        {browser: 'chromium', port: 9333, instanceId: 'i'} as any,
+        [
+          `--load-extension=${extDir}`,
+          '--remote-debugging-port=9333',
+          '--user-data-dir=/tmp/extension-profile'
+        ]
+      )
+
+      const output = logSpy.mock.calls
+        .map((call) => String(call[0] || ''))
+        .join('\n')
+      expect(output).not.toContain('Chrome profile:')
+
+      const devCalls = vi.mocked(banner.printDevBannerOnce).mock.calls
+      expect(devCalls.length).toBeGreaterThan(0)
+      for (const [callArgs] of devCalls) {
+        expect(callArgs).toMatchObject({
+          profilePath: '/tmp/extension-profile'
+        })
+      }
+    } finally {
+      logSpy.mockRestore()
+      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
+      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousCardKeys === undefined)
+        delete process.env.EXTENSION_CLI_CARD_KEYS
+      else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+    }
   })
 })

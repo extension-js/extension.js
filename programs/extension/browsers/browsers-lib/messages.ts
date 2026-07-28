@@ -893,7 +893,7 @@ export function runningInDevelopment(
   message: DevClientMessage,
   browserVersionLine?: string,
   updateSuffix?: string,
-  opts?: {includeExtensionId?: boolean; runLabel?: string}
+  opts?: {includeExtensionId?: boolean; runLabel?: string; profilePath?: string}
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
@@ -1024,6 +1024,7 @@ export function runningInDevelopment(
         label: 'Extension ID',
         value: includeExtensionId ? cleanId : ''
       },
+      {label: 'Profile', value: String(opts?.profilePath || '').trim()},
       {label: 'Run ID', value: opts?.runLabel || ''}
     ]
   })

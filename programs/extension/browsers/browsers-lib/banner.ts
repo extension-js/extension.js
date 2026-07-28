@@ -193,6 +193,7 @@ export async function printDevBannerOnce(opts: {
   getInfo: () => Promise<Info>
   fallback?: {name?: string; version?: string; extensionId?: string}
   browserVersionLine?: string
+  profilePath?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
@@ -259,7 +260,8 @@ export async function printDevBannerOnce(opts: {
       opts.browser,
       message,
       opts.browserVersionLine,
-      updateSuffix || undefined
+      updateSuffix || undefined,
+      {profilePath: opts.profilePath}
     )
   )
   console.log(messages.emptyLine())
@@ -275,6 +277,7 @@ export async function printProdBannerOnce(opts: {
   includeExtensionId?: boolean
   readyPath?: string
   includeRunId?: boolean
+  profilePath?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
@@ -335,7 +338,8 @@ export async function printProdBannerOnce(opts: {
           updateSuffix || undefined,
           {
             includeExtensionId: opts.includeExtensionId,
-            runLabel
+            runLabel,
+            profilePath: opts.profilePath
           }
         )
       )
@@ -362,7 +366,8 @@ export async function printProdBannerOnce(opts: {
           updateSuffix || undefined,
           {
             includeExtensionId: opts.includeExtensionId,
-            runLabel
+            runLabel,
+            profilePath: opts.profilePath
           }
         )
       )
@@ -376,7 +381,8 @@ export async function printProdBannerOnce(opts: {
       card({
         rows: [
           {label: 'Browser', value: browserLabel},
-          {label: 'Output', value: opts.outPath}
+          {label: 'Output', value: opts.outPath},
+          {label: 'Profile', value: opts.profilePath || ''}
         ]
       })
     )

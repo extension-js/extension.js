@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
-import {isDebug} from '../../../helpers/messaging'
+import {isCardKeyClaimed, isDebug} from '../../../helpers/messaging'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -83,8 +83,18 @@ export async function setupCdpAfterLaunch(
     ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
     : ''
 
+  // The identity card carries the profile row now. The standalone line only
+  // survives where this launch cannot show the card: the pair's key is already
+  // claimed (start prints build's card first) or no output path exists to
+  // resolve a card against.
+  const profileOnCard =
+    Boolean(extensionOutputPath) &&
+    !isCardKeyClaimed(`${plugin.browser}::${path.resolve(extensionOutputPath)}`)
+
   if (isDebug()) {
-    if (userDataDir) console.log(messages.devChromeProfilePath(userDataDir))
+    if (userDataDir && !profileOnCard) {
+      console.log(messages.devChromeProfilePath(userDataDir))
+    }
 
     console.log(
       messages.devChromiumDebugPort(
@@ -158,6 +168,12 @@ export async function setupCdpAfterLaunch(
     })
     stampReadyExtensionLoadRefused(extensionOutputPath, loadOutcome.reason)
 
+    // The refusal withholds the card, so the profile line keeps the
+    // information until the recovery banner can carry it.
+    if (isDebug() && userDataDir && profileOnCard) {
+      console.log(messages.devChromeProfilePath(userDataDir))
+    }
+
     // No banner and no Extension ID: there is nothing in the browser to name.
     // The flag withholds the launch path's "ready for development" claim.
     plugin.extensionLoadRefused = loadOutcome.reason
@@ -170,7 +186,8 @@ export async function setupCdpAfterLaunch(
         browser: plugin.browser,
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => cdpExtensionController.getInfoBestEffort(),
-        browserVersionLine: plugin.browserVersionLine
+        browserVersionLine: plugin.browserVersionLine,
+        profilePath: userDataDir || undefined
       })
     }
     return
@@ -188,7 +205,8 @@ export async function setupCdpAfterLaunch(
         browser: plugin.browser,
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => null,
-        browserVersionLine: plugin.browserVersionLine
+        browserVersionLine: plugin.browserVersionLine,
+        profilePath: userDataDir || undefined
       })
     } catch {
       // best-effort only
@@ -202,7 +220,8 @@ export async function setupCdpAfterLaunch(
         browser: plugin.browser,
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => cdpExtensionController.getInfoBestEffort(),
-        browserVersionLine: plugin.browserVersionLine
+        browserVersionLine: plugin.browserVersionLine,
+        profilePath: userDataDir || undefined
       })
     } catch {
       // best-effort only
@@ -246,7 +265,8 @@ export async function setupCdpAfterLaunch(
           browser: plugin.browser,
           hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
           getInfo: async () => extensionControllerInfo,
-          browserVersionLine: plugin.browserVersionLine
+          browserVersionLine: plugin.browserVersionLine,
+          profilePath: userDataDir || undefined
         })
 
         if (!bannerPrinted) {
@@ -255,7 +275,8 @@ export async function setupCdpAfterLaunch(
             browser: plugin.browser,
             hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
             getInfo: async () => cdpExtensionController.getInfoBestEffort(),
-            browserVersionLine: plugin.browserVersionLine
+            browserVersionLine: plugin.browserVersionLine,
+            profilePath: userDataDir || undefined
           })
         }
       }
@@ -271,7 +292,8 @@ export async function setupCdpAfterLaunch(
         browser: plugin.browser,
         outPath: extensionOutputPath,
         browserVersionLine: plugin.browserVersionLine,
-        runtime
+        runtime,
+        profilePath: userDataDir || undefined
       })
     }
   } catch (bannerErr) {
@@ -287,7 +309,8 @@ export async function setupCdpAfterLaunch(
         await printProdBannerOnce({
           browser: plugin.browser,
           outPath: extensionOutputPath,
-          browserVersionLine: plugin.browserVersionLine
+          browserVersionLine: plugin.browserVersionLine,
+          profilePath: userDataDir || undefined
         })
       }
     } catch {
