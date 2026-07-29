@@ -26,13 +26,12 @@ export function javaScriptError(
   opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
 ) {
   const lines: string[] = []
-  lines.push(`Missing script file in ${colors.underline(errorSourcePath)}.`)
-  lines.push(
-    `Update your ${colors.yellow('<script>')} src to point to a file that exists.`
-  )
+  lines.push(`The page references a script file that doesn't exist.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
   if (opts?.deadRefHint) {
@@ -41,12 +40,15 @@ export function javaScriptError(
     lines.push(
       `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools (likely dead code).`
     )
+  }
+  lines.push(
+    `Update the ${colors.blue('<script>')} src to point to a file that exists.`
+  )
+  if (opts?.deadRefHint) {
     lines.push(
-      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
 }
 
@@ -56,25 +58,27 @@ export function cssError(
   opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
 ) {
   const lines: string[] = []
-  lines.push(`Missing stylesheet in ${colors.underline(errorSourcePath)}.`)
-  lines.push(
-    `Update your ${colors.yellow('<link>')} href to point to a file that exists.`
-  )
+  lines.push(`The page references a stylesheet that doesn't exist.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
   if (opts?.deadRefHint) {
     lines.push(
       `Chrome loads the page anyway and 404s this reference silently, so it is likely dead code.`
     )
+  }
+  lines.push(
+    `Update the ${colors.blue('<link>')} href to point to a file that exists.`
+  )
+  if (opts?.deadRefHint) {
     lines.push(
-      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
 }
 
@@ -85,26 +89,28 @@ export function staticAssetError(
 ) {
   const extname = path.extname(missingFilePath)
   const lines: string[] = []
-  lines.push(`Missing asset in ${colors.underline(errorSourcePath)}.`)
+  lines.push(`The page references an asset that doesn't exist.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   const ref = opts?.refLabel || `*${extname}`
-  lines.push(
-    `Update the ${colors.yellow(ref)} reference to point to a file that exists.`
-  )
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
   if (opts?.deadRefHint) {
     lines.push(
       `Chrome loads the page anyway and 404s this reference silently, so it is likely dead code.`
     )
+  }
+  lines.push(
+    `Update the ${colors.blue(ref)} reference to point to a file that exists.`
+  )
+  if (opts?.deadRefHint) {
     lines.push(
-      `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+      `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
     )
   }
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
 }
 
@@ -114,7 +120,7 @@ export function fileNotFound(
   opts?: {publicRootHint?: boolean; refLabel?: string; deadRefHint?: boolean}
 ) {
   if (!errorSourcePath) {
-    throw new Error('This state should not occur. Please report a bug.')
+    throw new Error('This state should not occur. Report a bug.')
   }
   switch (path.extname(missingFilePath)) {
     case '.js':
@@ -150,17 +156,19 @@ export function remoteResourceWarning(
   kind: 'script' | 'style'
 ) {
   const label = kind === 'script' ? '<script>' : '<link>'
-  const cspHint =
-    kind === 'script'
-      ? 'Remote scripts are blocked by the MV3 CSP.\nBundle the script or self-host it instead.'
-      : 'Remote styles can be blocked by the CSP.\nBundle the stylesheet or self-host it instead.'
   const lines: string[] = []
   lines.push(
-    `Remote ${colors.yellow(label)} in ${colors.underline(errorSourcePath)}.`
+    kind === 'script'
+      ? `The page loads a remote ${colors.blue(label)}, which the MV3 CSP blocks.`
+      : `The page loads a remote ${colors.blue(label)}, which the CSP can block.`
   )
-  lines.push(cspHint)
-  lines.push('')
-  lines.push(`${colors.red('URL')} ${colors.underline(remoteUrl)}`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('GOT')} ${colors.underline(remoteUrl)}`)
+  lines.push(
+    kind === 'script'
+      ? `Bundle the script or self-host it instead.`
+      : `Bundle the stylesheet or self-host it instead.`
+  )
   return lines.join('\n')
 }
 
@@ -170,11 +178,10 @@ export function serverRestartRequiredFromHtml(
 ) {
   const lines: string[] = []
   lines.push(`Entrypoint references changed.`)
-  lines.push(
-    `Restart the dev server to pick up changes to ${colors.yellow('<script>')} and ${colors.yellow('<link rel="stylesheet">')} entries.`
-  )
-  lines.push('')
   lines.push(`${colors.gray('PATH')} ${colors.underline(absoluteHtmlPath)}`)
+  lines.push(
+    `Restart the dev server to pick up changes to ${colors.blue('<script>')} and ${colors.blue('<link rel="stylesheet">')} entries.`
+  )
   return lines.join('\n')
 }
 
@@ -189,19 +196,18 @@ export function manifestHtmlEntrypointChange(
     : undefined
   lines.push(
     `Entrypoint references changed${
-      fieldLabel ? ` in ${colors.yellow(fieldLabel)}` : ''
+      fieldLabel ? ` in ${colors.blue(fieldLabel)}` : ''
     }.`
   )
+  if (pathBefore) {
+    lines.push(`${colors.gray('EXPECTED')} ${colors.underline(pathBefore)}`)
+  }
+  if (pathAfter) {
+    lines.push(`${colors.gray('GOT')} ${colors.underline(pathAfter)}`)
+  }
   lines.push(
     `Restart the dev server to pick up changes to manifest entrypoints.`
   )
-  lines.push('')
-  if (pathBefore) {
-    lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(pathBefore)}`)
-  }
-  if (pathAfter) {
-    lines.push(`${colors.green('PATH AFTER')} ${colors.underline(pathAfter)}`)
-  }
   return lines.join('\n')
 }
 
@@ -210,14 +216,11 @@ export function manifestPageMissing(
   missingFilePath: string
 ) {
   const lines: string[] = []
+  lines.push(`Can't find the page listed in ${colors.blue(manifestField)}.`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   lines.push(
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+    `Update the path in your ${colors.blue('manifest.json')} to an HTML file that exists.`
   )
-  lines.push(
-    `The page path must point to an existing HTML file that will be bundled.`
-  )
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(missingFilePath)}`)
   return lines.join('\n')
 }
 
@@ -230,5 +233,5 @@ export function manifestFieldMessageOnly(manifestField: string) {
   const fieldLabel = isContentScripts
     ? `content_scripts (index ${contentIndex})`
     : manifestFieldName
-  return `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
+  return `Check the ${colors.blue(fieldLabel)} field in your ${colors.blue('manifest.json')} file.`
 }

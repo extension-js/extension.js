@@ -344,7 +344,7 @@ describe('EmitFile step', () => {
 
     expect(compilation.errors.length).toBe(1)
     const e = String(compilation.errors[0])
-    expect(e).toMatch(/Check the .* manifest\.json/i)
+    expect(e).toMatch(/Can't find an icon file listed in/i)
     expect(e).toMatch(/NOT FOUND/i)
     expect(e).toContain('/abs/assets/missing.png')
   })
@@ -390,7 +390,7 @@ describe('EmitFile step', () => {
 
     expect(compilation.errors.length).toBe(1)
     const e = String(compilation.errors[0])
-    expect(e).toMatch(/Check the .* manifest\.json/i)
+    expect(e).toMatch(/Can't find an icon file listed in/i)
     expect(e).toMatch(/NOT FOUND/i)
     expect(e).toContain('/abs/assets/missing.png')
   })

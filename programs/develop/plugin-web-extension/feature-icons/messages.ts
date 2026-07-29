@@ -15,26 +15,23 @@ export function iconsMissingFile(
   opts?: {publicRootHint?: boolean; fatal?: boolean}
 ) {
   const lines: string[] = []
-  lines.push(
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
-  )
-  lines.push(
-    `The icon path must point to an existing file that will be packaged with the extension.`
-  )
+  lines.push(`Can't find an icon file listed in ${colors.blue(manifestField)}.`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(filePath)}`)
   // The build only stops for the fields a browser refuses the whole extension
   // over, so the promise has to track the severity that ships with it.
   lines.push(
     opts?.fatal
-      ? `Browsers reject the whole extension when this file is missing.\nThe build stops here to protect you.`
+      ? `Browsers reject the whole extension when this file is missing.\nThe build stops here.`
       : `Browsers can reject or misrender the extension when this file is missing.\nThe build continues.`
   )
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+  lines.push(
+    `Update the icon path in your ${colors.blue('manifest.json')} to a file that ships with the extension.`
+  )
   return lines.join('\n')
 }
 
@@ -84,15 +81,14 @@ export function manifestIconsEntrypointChange(
 ) {
   const lines: string[] = []
   const fieldLabel = manifestField ? manifestField.replace(/\//g, '.') : 'icons'
-  lines.push(`Entrypoint references changed in ${colors.yellow(fieldLabel)}.`)
-  lines.push(`Restart the dev server to pick up changes to manifest icons.`)
-  lines.push('')
+  lines.push(`Entrypoint references changed in ${colors.blue(fieldLabel)}.`)
   if (pathBefore) {
-    lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(pathBefore)}`)
+    lines.push(`${colors.gray('EXPECTED')} ${colors.underline(pathBefore)}`)
   }
   if (pathAfter) {
-    lines.push(`${colors.green('PATH AFTER')} ${colors.underline(pathAfter)}`)
+    lines.push(`${colors.gray('GOT')} ${colors.underline(pathAfter)}`)
   }
+  lines.push(`Restart the dev server to pick up changes to manifest icons.`)
   return lines.join('\n')
 }
 

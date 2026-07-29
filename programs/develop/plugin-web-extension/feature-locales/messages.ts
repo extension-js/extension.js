@@ -9,16 +9,21 @@
 import {prefix} from '../../lib/messaging'
 
 export function manifestNotFoundMessageOnly(absPath: string) {
-  return `Check for a valid manifest.json file.\n\nNOT FOUND ${absPath}`
+  return (
+    `Can't find a manifest.json file.\n` +
+    `NOT FOUND ${absPath}\n` +
+    `Add a manifest.json file to your project root.`
+  )
 }
 
 export function entryNotFoundMessageOnly(
   manifestField: string,
   absPath?: string
 ) {
-  const guidance = `Check the ${manifestField} field in your manifest.json file.`
-  const suffix = absPath ? `\n\nNOT FOUND ${absPath}` : ''
-  return guidance + suffix
+  const lines = [`Can't find the file listed in ${manifestField}.`]
+  if (absPath) lines.push(`NOT FOUND ${absPath}`)
+  lines.push(`Update the ${manifestField} field in your manifest.json file.`)
+  return lines.join('\n')
 }
 
 // The following messages intentionally avoid color/ANSI so unit tests and CLI output remain clean
@@ -31,14 +36,16 @@ export function defaultLocaleSpecifiedButLocalesMissing() {
 
 export function defaultLocaleFolderMissing(defaultLocale: string) {
   return (
-    `Default locale folder is missing: _locales/${defaultLocale}.\n` +
-    'Create it and add messages.json.'
+    `The default locale folder is missing.\n` +
+    `NOT FOUND _locales/${defaultLocale}\n` +
+    'Create the folder and add a messages.json file.'
   )
 }
 
 export function defaultLocaleMessagesMissing(defaultLocale: string) {
   return (
-    `Default locale messages.json is missing: _locales/${defaultLocale}/messages.json.\n` +
+    `The default locale messages.json file is missing.\n` +
+    `NOT FOUND _locales/${defaultLocale}/messages.json\n` +
     'Create the file with your strings.'
   )
 }
@@ -52,22 +59,22 @@ export function localesPresentButNoDefaultLocale() {
 
 export function invalidMessagesJson(absPath: string) {
   return (
-    `Invalid JSON in locale messages file: ${absPath}.\n` +
+    `Can't parse a locale messages.json file.\n` +
+    `PATH ${absPath}\n` +
     'Fix the JSON syntax and try again.'
   )
 }
 
 export function missingManifestMessageKey(key: string, defaultLocale?: string) {
-  const header = 'Check the i18n placeholders in your manifest.json file.'
   const localePath = defaultLocale
     ? `_locales/${defaultLocale}/messages.json`
     : '_locales/<default>/messages.json'
-  const guidance =
-    `The key "${key}" referenced via __MSG_${key}__ must be defined in ${localePath}.\n` +
-    'Add the key to that file.'
-  const final = `MISSING KEY ${key} in ${localePath}`
-
-  return `${header}\n${guidance}\n\n${final}`
+  return (
+    `The manifest references __MSG_${key}__, but the key "${key}" isn't defined.\n` +
+    `NOT FOUND ${key}\n` +
+    `PATH ${localePath}\n` +
+    `Add the key to the messages file.`
+  )
 }
 
 export function localesIncludeSummary(
@@ -106,13 +113,12 @@ export function localesMustBeAtProjectRoot(
   expectedAt: string
 ) {
   return (
-    '_locales/ is canonically placed at the project root, next to ' +
-    'package.json, public/ and dist/, because Chrome reads locales from ' +
-    'the extension root.\n' +
-    'This one sits in the legacy next-to-manifest location.\n' +
-    'Move it to the project root to silence this warning.\n' +
-    'The build uses it either way.\n\n' +
-    `  found:    ${foundAt}\n` +
-    `  preferred: ${expectedAt}`
+    'The _locales folder sits in the legacy next-to-manifest location.\n' +
+    `GOT ${foundAt}\n` +
+    `EXPECTED ${expectedAt}\n` +
+    'Chrome reads locales from the extension root, so _locales/ is ' +
+    'canonically placed at the project root.\n' +
+    'The build uses it either way.\n' +
+    'Move the folder to the project root to silence this warning.'
   )
 }
