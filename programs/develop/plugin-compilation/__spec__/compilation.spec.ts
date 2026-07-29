@@ -287,6 +287,37 @@ describe('CompilationPlugin', () => {
     expect(warnOrder).toBeLessThan(launchOrder)
   })
 
+  it('skips the raw stats renderer under build so errors print once', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    const {compiler, emitDone} = createCompiler('production')
+
+    const plugin = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: false,
+      command: 'build',
+      port: 8080
+    })
+    plugin.apply(compiler as any)
+
+    const stats = {
+      hasErrors: () => true,
+      hasWarnings: () => false,
+      toString: () => 'ERROR in ./missing-entry.js',
+      toJson: () => ({assets: [{name: 'a.js'}], entrypoints: {main: {}}}),
+      compilation: {startTime: 0, endTime: 8}
+    }
+    emitDone(stats)
+
+    const rendered = consoleErrorSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(rendered).not.toContain('ERROR in ./missing-entry.js')
+    consoleErrorSpy.mockRestore()
+  })
+
   vi.mock('../zip', () => {
     const apply = vi.fn()
     class ZipPluginMock {

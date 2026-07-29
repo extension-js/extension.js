@@ -124,7 +124,8 @@ export default function webpackConfig(
       port:
         typeof devOptions.port === 'string'
           ? parseInt(devOptions.port, 10)
-          : devOptions.port
+          : devOptions.port,
+      command: devOptions.metadataCommand
     }),
     new StaticAssetsPlugin({
       manifestPath,

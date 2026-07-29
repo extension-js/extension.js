@@ -27,6 +27,7 @@ export class CompilationPlugin {
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
   public readonly port?: number
+  public readonly command?: 'dev' | 'start' | 'preview' | 'build'
 
   constructor(
     options: PluginInterface & {clean: boolean} & {
@@ -34,6 +35,7 @@ export class CompilationPlugin {
       zipSource?: boolean
       zipFilename?: string
       port?: number
+      command?: 'dev' | 'start' | 'preview' | 'build'
     }
   ) {
     this.manifestPath = options.manifestPath
@@ -43,6 +45,7 @@ export class CompilationPlugin {
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
     this.port = options.port
+    this.command = options.command
   }
 
   private applyIgnoreWarnings(compiler: Compiler): void {
@@ -146,8 +149,10 @@ export class CompilationPlugin {
       browser: this.browser || 'chrome'
     }).apply(compiler)
 
-    // Register warning/error stats output before browser-runner done hooks.
-    // This keeps aggregated diagnostics visible before launch-related logs.
-    setupCompilerDoneDiagnostics(compiler, this.port)
+    // The build path renders errors and warnings once through the stats
+    // handler in command-build, so only dev keeps this raw renderer.
+    if (this.command !== 'build' && this.command !== 'start') {
+      setupCompilerDoneDiagnostics(compiler, this.port)
+    }
   }
 }
