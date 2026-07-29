@@ -6,7 +6,12 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {isDebug} from '../../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../../helpers/messaging'
 import {
   RDP_MAX_RETRIES,
   RDP_RETRY_INTERVAL_MS
@@ -126,7 +131,7 @@ export class RemoteFirefox {
           // ECONNREFUSED is the expected "server not up yet" case, but a silent
           // loop hides a dead port; name the port periodically so it's diagnosable.
           if (isDebug() && attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
-            console.log(
+            humanLine(
               messages.waitingForBrowserDebugger(
                 this.options.browser,
                 port,
@@ -138,7 +143,7 @@ export class RemoteFirefox {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
-          console.error(
+          humanError(
             messages.generalBrowserError(
               this.options.browser,
               err.stack || String(error)
@@ -149,7 +154,7 @@ export class RemoteFirefox {
       }
     }
 
-    console.error(messages.errorConnectingToBrowser(this.options.browser, port))
+    humanError(messages.errorConnectingToBrowser(this.options.browser, port))
     throw lastError
   }
 
@@ -206,7 +211,7 @@ export class RemoteFirefox {
         })
 
         if (!ready && isDebug()) {
-          console.warn(
+          humanWarn(
             `[browser] Firefox add-on output did not fully settle before install: ${addonPath}`
           )
         }
@@ -216,7 +221,7 @@ export class RemoteFirefox {
     }
     if (isDebug()) {
       try {
-        console.log('[browser] Firefox add-on paths:', candidateAddonPaths)
+        humanLine('[browser] Firefox add-on paths:', candidateAddonPaths)
       } catch {
         // Ignore
       }
@@ -278,7 +283,7 @@ export class RemoteFirefox {
       if (!this.derivedExtensionId) {
         this.derivedExtensionId = await deriveMozExtensionId(client)
         if (isDebug() && !this.derivedExtensionId) {
-          console.warn(
+          humanWarn(
             '[browser] Firefox: could not resolve a unique add-on id for the banner (install response had none; multiple or zero moz-extension targets).'
           )
         }

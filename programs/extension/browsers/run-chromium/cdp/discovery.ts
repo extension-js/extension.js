@@ -8,6 +8,7 @@
 
 import * as http from 'node:http'
 import * as net from 'node:net'
+import {humanLine, humanWarn} from '../../../helpers/messaging'
 import {CDP_HTTP_TIMEOUT_MS} from '../../browsers-lib/constants'
 import * as messages from '../../browsers-lib/messages'
 
@@ -55,13 +56,13 @@ export async function discoverWebSocketDebuggerUrl(
         : undefined
     if (wsUrl) {
       if (isDev) {
-        console.log(messages.cdpClientTargetWebSocketUrlStored())
+        humanLine(messages.cdpClientTargetWebSocketUrlStored())
       }
       return wsUrl
     }
   } catch (error: unknown) {
     if (isDev) {
-      console.warn(
+      humanWarn(
         '[CDP] Failed to read /json/version:',
         String((error as Error)?.message || error)
       )
@@ -72,7 +73,7 @@ export async function discoverWebSocketDebuggerUrl(
     Record<string, unknown>
   >
   if (isDev) {
-    console.log(messages.cdpClientFoundTargets((targets || []).length || 0))
+    humanLine(messages.cdpClientFoundTargets((targets || []).length || 0))
   }
 
   const pageTarget = (targets || []).find((target) => {
@@ -90,7 +91,7 @@ export async function discoverWebSocketDebuggerUrl(
       : ''
   if (pageWs) {
     if (isDev) {
-      console.log(messages.cdpClientTargetWebSocketUrlStored())
+      humanLine(messages.cdpClientTargetWebSocketUrlStored())
     }
     return pageWs
   }

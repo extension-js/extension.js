@@ -9,7 +9,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
-import {isCardKeyClaimed, isDebug} from '../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isCardKeyClaimed,
+  isDebug
+} from '../../../helpers/messaging'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -93,10 +99,10 @@ export async function setupCdpAfterLaunch(
 
   if (isDebug()) {
     if (userDataDir && !profileOnCard) {
-      console.log(messages.devChromeProfilePath(userDataDir))
+      humanLine(messages.devChromeProfilePath(userDataDir))
     }
 
-    console.log(
+    humanLine(
       messages.devChromiumDebugPort(
         chromeRemoteDebugPort,
         chromeRemoteDebugPort
@@ -122,7 +128,7 @@ export async function setupCdpAfterLaunch(
   await cdpExtensionController.connect()
 
   if (isDebug()) {
-    console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
+    humanLine(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
 
   try {
@@ -157,7 +163,7 @@ export async function setupCdpAfterLaunch(
   if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
     const unconfirmedPath =
       extensionOutputPath || selectedExtensionPaths[0] || ''
-    console.warn(messages.chromiumExtensionLoadUnconfirmed(unconfirmedPath))
+    humanWarn(messages.chromiumExtensionLoadUnconfirmed(unconfirmedPath))
     plugin.logSink?.({
       level: 'warn',
       text: `extension_load_unconfirmed: ${unconfirmedPath}`,
@@ -167,7 +173,7 @@ export async function setupCdpAfterLaunch(
 
   if (loadOutcome.status === 'refused') {
     const refusedPath = extensionOutputPath || selectedExtensionPaths[0] || ''
-    console.error(
+    humanError(
       messages.chromiumExtensionLoadRefused(refusedPath, loadOutcome.reason)
     )
     plugin.logSink?.({
@@ -182,7 +188,7 @@ export async function setupCdpAfterLaunch(
     // The refusal withholds the card, so the profile line keeps the
     // information until the recovery banner can carry it.
     if (isDebug() && userDataDir && profileOnCard) {
-      console.log(messages.devChromeProfilePath(userDataDir))
+      humanLine(messages.devChromeProfilePath(userDataDir))
     }
 
     // No banner and no Extension ID: there is nothing in the browser to name.
@@ -266,7 +272,7 @@ export async function setupCdpAfterLaunch(
     ])
   } catch (error) {
     if (isDebug()) {
-      console.warn(
+      humanWarn(
         `[CDP] ensureLoaded failed: ${String(
           (error as Error)?.message || error
         )}`
@@ -321,7 +327,7 @@ export async function setupCdpAfterLaunch(
     }
   } catch (bannerErr) {
     if (isDebug()) {
-      console.warn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
+      humanWarn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
     }
 
     // Fallback: even if CDP/rich info fails, try to print a manifest-based

@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {ChildProcess} from 'node:child_process'
-import {isDebug} from '../../../helpers/messaging'
+import {humanError, humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {
   forceKillChildOnExit,
@@ -51,15 +51,13 @@ async function attemptCleanup(
 
   try {
     if (isDebug()) {
-      console.log(messages.enhancedProcessManagementCleanup(browser))
+      humanLine(messages.enhancedProcessManagementCleanup(browser))
     }
 
     gracefulTerminateChild(childRef(), browser)
     await cleanupInstance()
   } catch (error) {
-    console.error(
-      messages.enhancedProcessManagementCleanupError(browser, error)
-    )
+    humanError(messages.enhancedProcessManagementCleanupError(browser, error))
   }
 }
 
@@ -98,7 +96,7 @@ function installGlobalHandlersOnce(): void {
       // (auto-exit, Ctrl+C). Ignoring keeps a graceful shutdown clean.
       return
     }
-    console.error(
+    humanError(
       messages.enhancedProcessManagementUncaughtException(
         firstBrowserLabel(),
         error
@@ -110,7 +108,7 @@ function installGlobalHandlersOnce(): void {
 
   process.on('unhandledRejection', async (reason) => {
     if (isBenignSocketTeardown(reason)) return
-    console.error(
+    humanError(
       messages.enhancedProcessManagementUnhandledRejection(
         firstBrowserLabel(),
         reason

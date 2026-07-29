@@ -8,7 +8,12 @@
 
 import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
-import {isDebug} from '../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
@@ -31,9 +36,9 @@ import {detectSafariToolchain} from './toolchain'
 
 function fallbackLogger(): BrowserLogger {
   return {
-    info: (...a: unknown[]) => console.log(...a),
-    warn: (...a: unknown[]) => console.warn(...a),
-    error: (...a: unknown[]) => console.error(...a),
+    info: (...a: unknown[]) => humanLine(...a),
+    warn: (...a: unknown[]) => humanWarn(...a),
+    error: (...a: unknown[]) => humanError(...a),
     debug: (...a: unknown[]) => console?.debug?.(...a)
   } as BrowserLogger
 }

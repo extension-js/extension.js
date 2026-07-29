@@ -24,7 +24,12 @@ import locateEdge, {
 import locateOpera from 'opera-location2'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
-import {isDebug} from '../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../helpers/messaging'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -208,9 +213,9 @@ export class ChromiumLaunchPlugin {
   ): Promise<void> {
     if (!this.logger) {
       this.logger = {
-        info: (...a: unknown[]) => console.log(...a),
-        warn: (...a: unknown[]) => console.warn(...a),
-        error: (...a: unknown[]) => console.error(...a),
+        info: (...a: unknown[]) => humanLine(...a),
+        warn: (...a: unknown[]) => humanWarn(...a),
+        error: (...a: unknown[]) => humanError(...a),
         debug: (...a: unknown[]) => console.debug?.(...a)
       } as BrowserLogger
     }
@@ -233,9 +238,9 @@ export class ChromiumLaunchPlugin {
       typeof host?.getInfrastructureLogger === 'function'
         ? host.getInfrastructureLogger('ChromiumLaunchPlugin')
         : ({
-            info: (...a: unknown[]) => console.log(...a),
-            warn: (...a: unknown[]) => console.warn(...a),
-            error: (...a: unknown[]) => console.error(...a),
+            info: (...a: unknown[]) => humanLine(...a),
+            warn: (...a: unknown[]) => humanWarn(...a),
+            error: (...a: unknown[]) => humanError(...a),
             debug: (...a: unknown[]) => console.debug?.(...a)
           } as BrowserLogger)
 
@@ -258,9 +263,9 @@ export class ChromiumLaunchPlugin {
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
         if (!this.didReportReady && !this.extensionLoadRefused) {
-          // Use console.log so the message is always visible; infrastructureLogging
-          // level is 'error' by default, which would suppress logger.info()
-          console.log(
+          // Use the human sink so the message is always visible; infrastructure
+          // logging level is 'error' by default, which suppresses logger.info()
+          humanLine(
             devServerReady(
               stats.compilation.options.mode as 'development' | 'production',
               this.options.browser
@@ -404,8 +409,7 @@ export class ChromiumLaunchPlugin {
             .trim() === 'true'
       })
       if (choice.swappedToSystem && choice.binary) {
-        // eslint-disable-next-line no-console
-        console.log(
+        humanWarn(
           messages.preferringSystemBrowserOverSnapshot(
             choice.binary,
             browserBinaryLocation
@@ -414,8 +418,7 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = choice.binary
       } else if (choice.usedManagedSnapshot) {
         usedManagedSnapshot = true
-        // eslint-disable-next-line no-console
-        console.log(messages.devChannelSnapshotInUse(browserBinaryLocation))
+        humanWarn(messages.devChannelSnapshotInUse(browserBinaryLocation))
       }
     }
 
@@ -517,7 +520,7 @@ export class ChromiumLaunchPlugin {
 
     switch (browser) {
       case 'chrome': {
-        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
         if (!skipDetection) {
           browserBinaryLocation = resolveChromeLikeBinary()
@@ -531,7 +534,7 @@ export class ChromiumLaunchPlugin {
       case 'opera':
       case 'vivaldi':
       case 'yandex': {
-        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
         if (!skipDetection) {
           try {
@@ -560,14 +563,14 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'chromium': {
-        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
         // Prefer an explicit binary; otherwise KEEP the binary already resolved above,
         // or the post-switch fallback would re-resolve the managed snapshot.
         if (this.options?.chromiumBinary) {
           const normalized = normalizePath(String(this.options.chromiumBinary))
           if (!normalized || !fs.existsSync(normalized)) {
-            console.error(
+            humanError(
               messages.invalidChromiumBinaryPath(
                 String(this.options.chromiumBinary)
               )
@@ -597,7 +600,7 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'edge': {
-        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
         try {
           const override = String(process.env.EDGE_BINARY || '').trim()
@@ -661,7 +664,7 @@ export class ChromiumLaunchPlugin {
         if (this.options?.chromiumBinary) {
           const normalized = normalizePath(String(this.options.chromiumBinary))
           if (!normalized || !fs.existsSync(normalized)) {
-            console.error(
+            humanError(
               messages.invalidChromiumBinaryPath(
                 String(this.options.chromiumBinary)
               )
@@ -671,7 +674,7 @@ export class ChromiumLaunchPlugin {
           browserBinaryLocation = normalized
           binaryPinnedByFlag = true
         } else {
-          console.error(messages.requireChromiumBinaryForChromiumBased())
+          humanError(messages.requireChromiumBinaryForChromiumBased())
           process.exit(1)
         }
         if (!browserBinaryLocation && !skipDetection) {
@@ -718,8 +721,7 @@ export class ChromiumLaunchPlugin {
         const normalized = normalizePath(familyFallback?.binary || null)
 
         if (familyFallback && isUsableBinary(normalized)) {
-          // eslint-disable-next-line no-console
-          console.log(
+          humanWarn(
             messages.usingManagedChromiumFamilyFallback(
               browser,
               familyFallback.browser,
@@ -792,16 +794,13 @@ export class ChromiumLaunchPlugin {
         )
         const refusal = diagnoseChromiumManifestRefusal(m)
         if (refusal === 'mv2') {
-          // eslint-disable-next-line no-console
-          console.warn(messages.mv2NotSupportedByChromium(String(extPath)))
+          humanWarn(messages.mv2NotSupportedByChromium(String(extPath)))
         } else if (refusal === 'mv3-background-scripts') {
-          // eslint-disable-next-line no-console
-          console.warn(
+          humanWarn(
             messages.mv3BackgroundScriptsNotSupportedByChromium(String(extPath))
           )
         } else if (refusal === 'unsupported-manifest-version') {
-          // eslint-disable-next-line no-console
-          console.warn(
+          humanWarn(
             messages.unsupportedManifestVersionOnChromium(
               String(extPath),
               m?.manifest_version
@@ -810,8 +809,7 @@ export class ChromiumLaunchPlugin {
         }
         const invalidPatterns = findInvalidMatchPatterns(m)
         if (invalidPatterns.length) {
-          // eslint-disable-next-line no-console
-          console.warn(
+          humanWarn(
             messages.chromiumInvalidMatchPatterns(
               String(extPath),
               invalidPatterns
@@ -825,8 +823,7 @@ export class ChromiumLaunchPlugin {
           ...findMissingManagedSchema(m, String(extPath))
         ]
         if (loadBlockers.length) {
-          // eslint-disable-next-line no-console
-          console.warn(
+          humanWarn(
             messages.chromiumManifestLoadBlockers(String(extPath), loadBlockers)
           )
         }
@@ -956,9 +953,9 @@ export class ChromiumLaunchPlugin {
     const reportReady = () => {
       if (compilation.options.mode !== 'development') return
       if (this.didReportReady || this.extensionLoadRefused) return
-      // Use console.log so the message is always visible; infrastructureLogging
-      // level is 'error' by default, which would suppress logger.info()
-      console.log(
+      // Use the human sink so the message is always visible; infrastructure
+      // logging level is 'error' by default, which suppresses logger.info()
+      humanLine(
         devServerReady(
           compilation.options.mode as 'development' | 'production',
           this.options.browser
@@ -1034,7 +1031,7 @@ export class ChromiumLaunchPlugin {
       const hint = /timed out|did not complete/i.test(message)
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
-      console.error(`[browser] ${message}${hint}`)
+      humanError(`[browser] ${message}${hint}`)
       // A broken CDP wire is not a refusal verdict; keep the pre-existing
       // behavior of still reporting ready so a flaky handshake stays cosmetic.
       reportReady()
@@ -1170,7 +1167,7 @@ export class ChromiumLaunchPlugin {
         raw,
         displayCacheDir
       )
-      console.error(pretty)
+      humanError(pretty)
     } catch {
       try {
         const pretty = messages.prettyPuppeteerInstallGuidance(
@@ -1178,9 +1175,9 @@ export class ChromiumLaunchPlugin {
           raw,
           ''
         )
-        console.error(pretty)
+        humanError(pretty)
       } catch {
-        console.error(raw)
+        humanError(raw)
       }
     }
   }

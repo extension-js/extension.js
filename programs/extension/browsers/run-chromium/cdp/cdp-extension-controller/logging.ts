@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {humanLine} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {
@@ -67,7 +68,7 @@ export function registerAutoEnableLogging(
       ) {
         if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
           const ts = new Date().toISOString()
-          console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
+          humanLine(messages.cdpUnifiedExtensionLog(ts, message.params))
         }
 
         // Browser-generated Log entries never pass the page's console hook, so

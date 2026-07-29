@@ -14,7 +14,12 @@ import locateFirefox, {
 } from 'firefox-location2'
 import locateLibreWolf from 'librewolf-location'
 import locateWaterfox from 'waterfox-location'
-import {isDebug} from '../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../helpers/messaging'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
@@ -115,9 +120,9 @@ export class FirefoxLaunchPlugin {
   ): Promise<void> {
     if (!this.ctx.logger) {
       this.ctx.logger = {
-        info: (...a: unknown[]) => console.log(...a),
-        warn: (...a: unknown[]) => console.warn(...a),
-        error: (...a: unknown[]) => console.error(...a),
+        info: (...a: unknown[]) => humanLine(...a),
+        warn: (...a: unknown[]) => humanWarn(...a),
+        error: (...a: unknown[]) => humanError(...a),
         debug: (...a: unknown[]) => console?.debug?.(...a)
       } as BrowserLogger
     }
@@ -151,9 +156,9 @@ export class FirefoxLaunchPlugin {
       typeof host?.getInfrastructureLogger === 'function'
         ? host.getInfrastructureLogger('FirefoxLaunchPlugin')
         : ({
-            info: (...a: unknown[]) => console.log(...a),
-            warn: (...a: unknown[]) => console.warn(...a),
-            error: (...a: unknown[]) => console.error(...a),
+            info: (...a: unknown[]) => humanLine(...a),
+            warn: (...a: unknown[]) => humanWarn(...a),
+            error: (...a: unknown[]) => humanError(...a),
             debug: (...a: unknown[]) => console?.debug?.(...a)
           } as BrowserLogger)
 
@@ -194,7 +199,7 @@ export class FirefoxLaunchPlugin {
           stats.compilation.options.mode === 'development' &&
           !this.host.extensionLoadRefused
         ) {
-          console.log(
+          humanLine(
             devServerReady(
               stats.compilation.options.mode as 'development' | 'production',
               this.host.browser
@@ -253,7 +258,7 @@ export class FirefoxLaunchPlugin {
     }
     const exitForLaunchFailure = (message?: string): never => {
       if (message) {
-        console.error(message)
+        humanError(message)
       }
       process.exit(1)
     }
@@ -667,7 +672,7 @@ export class FirefoxLaunchPlugin {
   // stdout, logs.ndjson, and a non-ready contract. The session stays alive.
   private reportAddonLoadRefused(reason: string) {
     const refusedPath = this.extensionOutputPath || ''
-    console.error(messages.geckoAddonLoadRefused(refusedPath, reason))
+    humanError(messages.geckoAddonLoadRefused(refusedPath, reason))
     this.host.logSink?.({
       level: 'error',
       text: `extension_load_refused: ${refusedPath}${
@@ -729,9 +734,9 @@ export class FirefoxLaunchPlugin {
         raw,
         displayCacheDir
       )
-      console.error(pretty)
+      humanError(pretty)
     } catch {
-      console.error(raw)
+      humanError(raw)
     }
   }
 }
