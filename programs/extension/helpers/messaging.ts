@@ -50,6 +50,36 @@ export function prefix(type: Channel): string {
   return colors.gray(GLYPH)
 }
 
+// Closed on purpose: an unknown value means pretty, so a typo can never
+// silently swallow the human output a terminal user is reading.
+const MACHINE_OUTPUT_VALUES = new Set(['json', 'ndjson'])
+
+// True when stdout belongs to a machine (EXTENSION_OUTPUT is json or ndjson):
+// frames own the streams and the human sinks below go quiet.
+export function isMachineOutput(): boolean {
+  return MACHINE_OUTPUT_VALUES.has(
+    String(process.env.EXTENSION_OUTPUT || '')
+      .trim()
+      .toLowerCase()
+  )
+}
+
+export function humanLine(...parts: unknown[]): void {
+  if (isMachineOutput()) return
+  console.log(...parts)
+}
+
+export function humanWarn(...parts: unknown[]): void {
+  if (isMachineOutput()) return
+  console.warn(...parts)
+}
+
+// Never suppressed: failures must stay visible in machine mode, and
+// console.error targets stderr, so the stdout frame stream stays clean.
+export function humanError(...parts: unknown[]): void {
+  console.error(...parts)
+}
+
 export const fmt = {
   heading: (title: string) => colors.underline(colors.blue(title)),
   label: (key: string) => colors.gray(key.toUpperCase()),
