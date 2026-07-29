@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.0.21 (July 29, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Report a chromium session that cannot confirm the extension loaded ([7665d933](https://github.com/extension-js/extension.js/commit/7665d93315f7d011f95c770c2b1e653c9a06b522))
+- Print one browser row spelling across dev start preview build ([f7e4f67a](https://github.com/extension-js/extension.js/commit/f7e4f67a4a6fd14f95090f5f0bf31cf62c041b92))
+- Honor explicit zip filenames and name written zips on stdout ([1293f181](https://github.com/extension-js/extension.js/commit/1293f1812b4c803bfde2c9fcefc9f0a87150ac9f))
+</details>
+
 ## 4.0.20 (July 28, 2026)
 
 ### Features
