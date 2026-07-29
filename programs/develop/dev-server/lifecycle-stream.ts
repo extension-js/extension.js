@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {CODES, ENVELOPE, type Envelope} from '../lib/messaging'
+import {CODES, ENVELOPE, type Envelope, isMachineOutput} from '../lib/messaging'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.
@@ -30,18 +30,9 @@ const MAX_OUTPUT_CHARS = 2000
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
 
-// Closed on purpose: an unknown value means pretty, so a typo can never
-// silently swallow the human output a terminal user is reading.
-const MACHINE_OUTPUT_VALUES = new Set(['json', 'ndjson'])
-
-// True when stdout belongs to a machine: frames only, human copy on stderr.
-export function isMachineOutput(): boolean {
-  return MACHINE_OUTPUT_VALUES.has(
-    String(process.env.EXTENSION_OUTPUT || '')
-      .trim()
-      .toLowerCase()
-  )
-}
+// Machine-mode detection lives in lib/messaging.ts so every sink reads one
+// signal; re-exported here for the consumers that always imported it here.
+export {isMachineOutput}
 
 export function isLifecycleStreamEnabled(): boolean {
   return isMachineOutput()
