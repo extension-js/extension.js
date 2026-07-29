@@ -10,32 +10,30 @@ import {ready} from '../browsers-lib/ready-message'
 const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
 
 describe('ready() banner message', () => {
-  it('labels Chromium-family browsers an "Extension"', () => {
+  it('labels Chromium-family browsers an "Extension" and names no browser', () => {
     const msg = stripAnsi(ready('development', 'chrome'))
-    expect(msg).toContain('Chrome Extension')
-    expect(msg).toContain('ready for development')
+    expect(msg).toContain('Extension ready for development. Watching for file changes.')
+    expect(msg).not.toContain('Chrome')
   })
 
-  it('labels Firefox-family browsers an "Add-on" and normalizes the name', () => {
+  it('labels Firefox-family browsers an "Add-on" and names no browser', () => {
     for (const browser of ['firefox', 'gecko-based', 'firefox-based']) {
       const msg = stripAnsi(ready('production', browser))
-      expect(msg).toContain('Firefox Add-on')
-      expect(msg).toContain('ready for production')
+      expect(msg).toContain('Add-on ready for production.')
+      expect(msg).not.toContain('Firefox')
+      expect(msg).not.toContain('Watching for file changes')
     }
   })
 
-  // Edge distributes through a store called Add-ons, but the artifact itself is
-  // an extension, and `build` has always called it one. One rule, both commands.
   it('calls the edge artifact an Extension, matching the build output', () => {
     const msg = stripAnsi(ready('development', 'edge'))
     expect(msg).toContain('Extension')
     expect(msg).not.toContain('Add-on')
-    expect(msg).toContain('Edge')
   })
 
-  it('does not throw and capitalizes for an unknown browser', () => {
+  it('does not throw for an unknown browser', () => {
     const msg = stripAnsi(ready('development', 'brave'))
-    expect(msg).toContain('Brave Extension')
+    expect(msg).toContain('Extension ready for development')
   })
 
   it('tolerates an empty browser string', () => {

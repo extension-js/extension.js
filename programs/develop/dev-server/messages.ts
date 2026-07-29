@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import colors from 'pintor'
-import {isGeckoBasedBrowser} from '../lib/constants'
 import {
   artifactNoun,
   browserRowValue,
@@ -25,16 +24,11 @@ function getLoggingPrefix(type: Channel): string {
 }
 
 export function ready(mode: 'development' | 'production', browser: string) {
-  const key = String(browser || '').toLowerCase()
-  const extensionOutput = artifactNoun(key)
-  const cap =
-    key === 'firefox' || key === 'gecko-based' || key === 'firefox-based'
-      ? 'Firefox'
-      : String(browser || '')
-          .charAt(0)
-          .toUpperCase() + String(browser || '').slice(1)
-  const pretty = colors.green(`ready for ${mode}`)
-  return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
+  const noun = artifactNoun(browser)
+  const state = colors.green(`ready for ${mode}`)
+  const watching =
+    mode === 'development' ? ' Watching for file changes.' : ''
+  return `${getLoggingPrefix('success')} ${noun} ${state}.${watching}`
 }
 
 function readJsonRecord(filePath: string): Record<string, unknown> | null {
