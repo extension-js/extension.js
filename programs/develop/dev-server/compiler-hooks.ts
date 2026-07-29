@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler, Stats} from '@rspack/core'
-import {scrubBrand} from '../lib/branding'
+import {renderStatsBlocks} from '../lib/stats-handler'
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
@@ -64,22 +64,11 @@ export function setupCompilerDoneDiagnostics(
   compiler.hooks.done.tap('extension.js:done', (stats: Stats) => {
     try {
       if (stats?.hasErrors?.()) {
-        const str = stats?.toString?.({
-          colors: true,
-          all: false,
-          errors: true,
-          warnings: true
-        })
-        if (str) console.error(scrubBrand(str))
+        const str = renderStatsBlocks(stats, {errors: true, warnings: true})
+        if (str) console.error(str)
       } else if (stats?.hasWarnings?.()) {
-        const str = stats?.toString?.({
-          colors: true,
-          all: false,
-          errors: false,
-          warnings: true
-        })
-
-        if (str) console.warn(scrubBrand(str))
+        const str = renderStatsBlocks(stats, {errors: false, warnings: true})
+        if (str) console.warn(str)
       }
 
       if (!reportedNoEntries && typeof port === 'number') {
@@ -98,14 +87,9 @@ export function setupCompilerDoneDiagnostics(
           console.warn(messages.noEntrypointsDetected(port))
         }
       }
-    } catch (error) {
-      const str = stats?.toString({
-        colors: true,
-        all: false,
-        errors: true,
-        warnings: true
-      })
-      if (str) console.error(scrubBrand(str))
+    } catch {
+      const str = renderStatsBlocks(stats, {errors: true, warnings: true})
+      if (str) console.error(str)
     }
   })
 }
