@@ -60,6 +60,7 @@ export interface PortAllocation {
 interface LocalInstanceInfo {
   instanceId: string
   port: number
+  instanceExplicit: boolean
 }
 
 function resolveInstanceIdOverride(): string | undefined {
@@ -93,10 +94,16 @@ export class PortManager {
       requestedPort < 65536
     const base = isValidRequested ? requestedPort : this.basePort
     const port = await findAvailablePortNear(base, undefined, host)
-    const instanceId =
-      resolveInstanceIdOverride() || crypto.randomBytes(8).toString('hex')
+    // Read the override before anything exports a resolved id back into the
+    // environment, or every later session would look user-pinned.
+    const override = resolveInstanceIdOverride()
+    const instanceId = override || crypto.randomBytes(8).toString('hex')
 
-    this.currentInstance = {instanceId, port}
+    this.currentInstance = {
+      instanceId,
+      port,
+      instanceExplicit: override !== undefined
+    }
 
     return {port, instanceId}
   }

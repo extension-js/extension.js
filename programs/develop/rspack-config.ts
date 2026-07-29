@@ -283,6 +283,7 @@ export default function webpackConfig(
         process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
         (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,
+      instanceExplicit: devOptions.instanceExplicit,
       controlPort: devOptions.controlPort,
       controlPath: devOptions.controlPath,
       logsPath: devOptions.logsPath,

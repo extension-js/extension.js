@@ -589,6 +589,7 @@ export async function devServer(
     browser: devOptions.browser,
     mode: 'development',
     instanceId: currentInstance.instanceId,
+    instanceExplicit: currentInstance.instanceExplicit,
     controlPort: bridgeControlPort,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
@@ -657,6 +658,7 @@ export async function devServer(
     port,
     host: connectableHost,
     instanceId: currentInstance.instanceId,
+    instanceExplicit: currentInstance.instanceExplicit,
     controlPort: bridgeControlPort,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath
