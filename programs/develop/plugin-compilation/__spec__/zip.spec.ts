@@ -43,6 +43,7 @@ vi.mock('fs', async () => {
 
 import AdmZip from 'adm-zip'
 import {ZipPlugin} from '../zip'
+import {getZipArtifacts} from '../zip-artifacts'
 
 function makeCompiler(ctx: string, outPath: string) {
   let doneCb: any
@@ -138,7 +139,7 @@ describe('ZipPlugin', () => {
     expect(out).toMatch(/\/p\/out\/dist\/chrome\/Release_v2\.zip$/)
   })
 
-  it('names each written zip on default-verbosity stdout', async () => {
+  it('records each written zip on the compilation for the build receipt', async () => {
     const {compiler, emitDone} = makeCompiler('/p/app', '/p/out/dist/chrome')
     const plugin = new ZipPlugin({
       browser: 'chrome',
@@ -147,12 +148,16 @@ describe('ZipPlugin', () => {
     plugin.apply(compiler)
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    await emitDone()
-    const lines = log.mock.calls.map((c) => String(c[0]))
+    const stats = await emitDone()
     log.mockRestore()
-    const artifactLine = lines.find((l) => l.includes('payload.zip'))
-    expect(artifactLine).toBeTruthy()
-    expect(artifactLine).toContain('browser=chrome')
+
+    const artifacts = getZipArtifacts(stats.compilation)
+    expect(artifacts.length).toBe(1)
+    expect(toPosix(artifacts[0].path)).toMatch(
+      /\/p\/out\/dist\/chrome\/payload\.zip$/
+    )
+    expect(artifacts[0].kind).toBe('dist')
+    expect(typeof artifacts[0].size).toBe('number')
   })
 
   it('pushes warning on error without throwing', async () => {
