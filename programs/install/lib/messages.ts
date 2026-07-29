@@ -19,7 +19,7 @@ export function installingBrowser(
   destination: string
 ): string {
   return (
-    `${prefix('info')} Install ${colors.blue(titleCase(browser))}.\n` +
+    `${prefix('info')} Installing ${colors.blue(titleCase(browser))}…\n` +
     `${fmt.label('PATH')} ${fmt.val(destination)}`
   )
 }
@@ -66,8 +66,8 @@ export function edgeInstallNeedsInteractivePrivilegedSession(): string {
 
 export function edgeInstallUsingSystemBinary(path: string): string {
   return (
-    `${prefix('warn')} Skip the Edge channel install because it needs elevated privileges.\n` +
-    `${colors.yellow('Use the Edge binary already on this system instead.')}\n` +
+    `${prefix('warn')} Skipping the Edge channel install, it needs elevated privileges.\n` +
+    `${colors.yellow('Using the Edge binary already on this system instead.')}\n` +
     `${fmt.label('PATH')} ${fmt.val(path)}`
   )
 }
@@ -84,7 +84,7 @@ export function uninstallingBrowsers(
   browsers: InstallBrowserTarget[]
 ): string {
   return (
-    `${prefix('info')} Remove the browser binaries for ${colors.blue(browsers.join(', '))}.\n` +
+    `${prefix('info')} Removing the browser binaries for ${colors.blue(browsers.join(', '))}…\n` +
     `${fmt.label('PATH')} ${fmt.val(cacheRoot)}`
   )
 }

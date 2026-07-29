@@ -502,7 +502,7 @@ export function unpackagingExtension(zipFilePath: string) {
 }
 
 export function unpackagedSuccessfully() {
-  return `${getLoggingPrefix('success')} Browser extension unpackaged.`
+  return `${getLoggingPrefix('success')} Extension unpackaged.`
 }
 
 export function failedToDownloadOrExtractZIPFileError(error: unknown) {
