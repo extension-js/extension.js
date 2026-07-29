@@ -26,7 +26,10 @@ export interface StatsToStringLike {
 
 // These warnings already printed on the human channel at the moment the
 // plugin acted, so the stats render skips them to keep one visible line each.
-const EMIT_TIME_WARNING_CODES = new Set(['ManifestFatalShapeWarning'])
+const EMIT_TIME_WARNING_CODES = new Set([
+  'ManifestFatalShapeWarning',
+  'ManifestLegacyWarning'
+])
 
 export function isEmitTimeWarning(
   warning: {code?: unknown} | string | null | undefined

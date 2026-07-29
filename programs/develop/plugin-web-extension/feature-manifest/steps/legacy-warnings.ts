@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
+import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 
@@ -43,9 +44,14 @@ export class ManifestLegacyWarnings {
 
             legacy.forEach((needle) => {
               if (text.includes(needle)) {
-                const warn = new WebpackError(
-                  messages.legacyManifestPathWarning(needle)
-                ) as Error & {file?: string; name?: string}
+                const message = messages.legacyManifestPathWarning(needle)
+                // The human line prints here, when the path is found; the pushed
+                // warning is the stats/json record and the stats render skips it.
+                humanLine(message)
+                const warn = new WebpackError(message) as Error & {
+                  file?: string
+                  name?: string
+                }
                 warn.name = 'ManifestLegacyWarning'
                 warn.file = 'manifest.json'
                 compilation.warnings.push(warn)
