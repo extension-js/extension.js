@@ -247,30 +247,27 @@ export function browserNotInstalledError(
   )
 }
 
+// The card's Browser row already names what runs and why, so this warn keeps
+// only the cause and the remedy.
 export function usingManagedChromiumFamilyFallback(
   requestedBrowser: Browser,
-  fallbackBrowser: Browser,
-  binaryPath: string
+  _fallbackBrowser: Browser,
+  _binaryPath: string
 ) {
   return (
-    `${getLoggingPrefix('info')} ${managedBrowserDisplayName(requestedBrowser)} isn't installed, ` +
-    `so the managed ${managedBrowserDisplayName(fallbackBrowser)} runs instead.\n` +
-    `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
+    `${getLoggingPrefix('warn')} ${managedBrowserDisplayName(requestedBrowser)} isn't installed.\n` +
     `Run ${colors.blue(`npx extension install ${requestedBrowser}`)} to use ` +
     `${managedBrowserDisplayName(requestedBrowser)} itself.`
   )
 }
 
+// The card's Browser and Binary rows already name the chosen binary, so this
+// warn keeps only the remedy for choosing the snapshot instead.
 export function preferringSystemBrowserOverSnapshot(
-  systemBinary: string,
-  snapshotBinary: string
+  _systemBinary: string,
+  _snapshotBinary: string
 ) {
-  return (
-    `${getLoggingPrefix('info')} Using the installed browser instead of the cached Chromium snapshot (a dev-channel build).\n` +
-    `${colors.gray('USING')} ${colors.underline(systemBinary)}\n` +
-    `${colors.gray('CACHED')} ${colors.underline(snapshotBinary)}\n` +
-    `Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached snapshot.`
-  )
+  return `${getLoggingPrefix('warn')} Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached Chromium snapshot instead.`
 }
 
 export function mv2NotSupportedByChromium(extensionPath: string) {
@@ -385,11 +382,11 @@ export function geckoAddonLoadRefused(addonPath: string, reason: string) {
   )
 }
 
-export function devChannelSnapshotInUse(binaryPath: string) {
+// The card's Browser row already carries the cached-snapshot provenance, so
+// this warn keeps only the consequence and the remedy.
+export function devChannelSnapshotInUse(_binaryPath: string) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This is a Chromium tip-of-tree snapshot (dev channel, not a stable release).')}\n` +
-    `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
-    `Behavior may differ from stable Chrome.\n` +
+    `${getLoggingPrefix('warn')} Chromium snapshot behavior may differ from stable Chrome.\n` +
     `Install a stable browser or remove the snapshot to stop using it.`
   )
 }
@@ -1081,7 +1078,9 @@ export function runningInDevelopment(
       },
       {
         label: 'Profile',
-        value: collapseHomeDirInCardValue(String(opts?.profilePath || '').trim())
+        value: collapseHomeDirInCardValue(
+          String(opts?.profilePath || '').trim()
+        )
       },
       {label: 'Run ID', value: opts?.runLabel || ''}
     ]
