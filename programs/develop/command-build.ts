@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {humanLine} from './dev-server/lifecycle-stream'
@@ -35,9 +36,29 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import {getZipArtifacts} from './plugin-compilation/zip-artifacts'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
+
+function collapseHomeDir(value: string): string {
+  const home = os.homedir()
+  if (!home || !value.startsWith(home)) return value
+  const rest = value.slice(home.length)
+  if (rest === '') return '~'
+  if (rest.startsWith(nodePath.sep) || rest.startsWith('/')) return `~${rest}`
+  return value
+}
+
+function relativeToCwd(target: string): string | null {
+  const relative = nodePath.relative(process.cwd(), target)
+  if (relative && !relative.startsWith('..') && !nodePath.isAbsolute(relative)) {
+    return relative
+  }
+  return null
+}
+
+const reportedBuildFailures = new WeakSet<object>()
 
 // The card is the session header, printed before the first work line, and its
 // key is what lets `start` dedupe the preview leg instead of reprinting.
@@ -72,7 +93,7 @@ function printBuildCard(
       rows: [
         {label: 'Browser', value: browserLabel},
         {label: 'Extension', value: extensionLabel},
-        {label: 'Output', value: distPath}
+        {label: 'Output', value: collapseHomeDir(distPath)}
       ]
     })
   )
@@ -98,8 +119,6 @@ export async function extensionBuild(
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
   const distPath = getDistPath(packageJsonDir, browser)
   const isAuthor = isDebug()
-
-  printBuildCard(projectStructure.manifestPath, browser, distPath)
 
   try {
     await ensureDevelopArtifacts()
@@ -227,14 +246,17 @@ export async function extensionBuild(
           )
         }
 
-        if (!buildOptions?.silent && stats) {
-          // The summary is informational; a throw here would leave this promise
-          // pending and the process would exit 0 before the error handling below.
-          try {
-            humanLine(messages.buildWebpack(manifestDir, stats, browser))
-          } catch {
-            // Ignore summary failures; error reporting happens below.
+        // The identity card and asset tree are informational; a throw here
+        // would leave this promise pending and the process would exit 0.
+        try {
+          printBuildCard(projectStructure.manifestPath, browser, distPath)
+
+          if (!buildOptions?.silent) {
+            const assetsTree = messages.buildAssetsTree(stats)
+            if (assetsTree) humanLine(assetsTree)
           }
+        } catch {
+          // Ignore
         }
 
         if (!stats.hasErrors()) {
@@ -260,23 +282,42 @@ export async function extensionBuild(
           }
 
           if (summary.warnings_count > 0) {
-            humanLine(messages.buildSuccessWithWarnings(summary.warnings_count))
             const warningDetails = messages.buildWarningsDetails(
               info?.warnings || []
             )
 
             if (warningDetails) {
-              humanLine(`\n${warningDetails}`)
+              humanLine(warningDetails)
             }
-          } else {
-            humanLine(messages.buildSuccess())
+          }
+
+          const distDisplay =
+            relativeToCwd(distPath) || collapseHomeDir(distPath)
+          humanLine(
+            messages.buildComplete(browser, distDisplay, summary.total_bytes)
+          )
+
+          for (const artifact of getZipArtifacts(stats.compilation)) {
+            const zipDisplay = relativeToCwd(artifact.path) || artifact.path
+            humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
           resolve()
         } else {
           handleStatsErrors(stats)
 
+          let errorCount = 1
+          try {
+            const info = stats.toJson({all: false, errors: true})
+            errorCount = Math.max(1, info?.errors?.length || 1)
+          } catch {
+            // Ignore
+          }
+          console.error(messages.buildFailed(errorCount))
+
           if (!shouldExitOnError) {
-            return reject(new Error('Build failed with errors'))
+            const failure = new Error('Build failed with errors')
+            reportedBuildFailures.add(failure)
+            return reject(failure)
           }
           process.exit(1)
         }
@@ -317,11 +358,15 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
-    const isAuthor = isDebug()
-    if (isAuthor) {
-      console.error(error)
-    } else {
-      console.error(messages.buildCommandFailed(error))
+    const alreadyReported =
+      error instanceof Error && reportedBuildFailures.has(error)
+    if (!alreadyReported) {
+      if (isDebug()) {
+        console.error(error)
+      } else {
+        console.error(messages.buildCommandFailed(error))
+      }
+      console.error(messages.buildFailed(1))
     }
     if (!shouldExitOnError) {
       throw error

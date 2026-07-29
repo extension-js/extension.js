@@ -95,6 +95,7 @@ import * as configLoaderMod from '../lib/config-loader'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
 import * as messages from '../lib/messages'
+import {recordZipArtifact} from '../plugin-compilation/zip-artifacts'
 import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
 import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
 import webpackConfig from '../rspack-config'
@@ -171,7 +172,7 @@ describe('webpack/command-build', () => {
     expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj')
   })
 
-  it('prints branded success message when there are no warnings', async () => {
+  it('closes a clean build with the built-for-production line', async () => {
     const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
@@ -195,11 +196,79 @@ describe('webpack/command-build', () => {
 
     const printed = localLogSpy.mock.calls.map((call) => String(call[0] || ''))
     expect(
-      printed.some((line) => line.includes('Build succeeded with no warnings'))
+      printed.some((line) => line.includes('built for production in'))
     ).toBe(true)
+    expect(printed.some((line) => line.includes('Build succeeded'))).toBe(false)
+    expect(printed.some((line) => line.includes('ready for deployment'))).toBe(
+      false
+    )
   })
 
-  it('prints warning summary and warning details when warnings are present', async () => {
+  it('prints one packaged receipt per zip artifact after the closer', async () => {
+    const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const compilation = {}
+    recordZipArtifact(compilation, {
+      kind: 'dist',
+      path: path.join('/proj', 'dist', 'chrome', 'probe.zip'),
+      size: 2048
+    })
+    const stats = {
+      hasErrors: () => false,
+      toJson: () => ({assets: [{name: 'a.js', size: 10}], warnings: []}),
+      compilation
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    const printed = localLogSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(printed).toContain('Packaged')
+    expect(printed).toContain('probe.zip')
+    expect(printed).toContain('(2.0 KB)')
+    const closerAt = printed.indexOf('built for production in')
+    const receiptAt = printed.indexOf('Packaged')
+    expect(closerAt).toBeGreaterThanOrEqual(0)
+    expect(receiptAt).toBeGreaterThan(closerAt)
+  })
+
+  it('ends a failed build with one error-count closer', async () => {
+    process.env.VITEST = 'true'
+    const localErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+
+    const stats = {
+      hasErrors: () => true,
+      toString: () => 'ERROR in ./missing-entry.js',
+      toJson: () => ({errors: [{message: 'a'}, {message: 'b'}]})
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await expect(
+      extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        exitOnError: false
+      })
+    ).rejects.toThrow(/Build failed with errors/)
+
+    const printed = localErrorSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(printed).toContain('Build failed with 2 errors.')
+    expect(printed.match(/Build failed with \d+ error/g)?.length).toBe(1)
+  })
+
+  it('prints warning details and still closes on the success channel', async () => {
     const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
@@ -247,22 +316,19 @@ describe('webpack/command-build', () => {
     const printed = localLogSpy.mock.calls
       .map((call) => String(call[0] || ''))
       .join('\n')
-    expect(printed).toContain('Build succeeded with 2 warning(s)')
     expect(printed).toContain('Performance: asset size limit exceeded')
     expect(printed).toContain('Threshold:')
     expect(printed).toContain('Source:')
     expect(printed).toContain('Hint:')
     expect(printed).toContain('Performance: entrypoint size limit exceeded')
     expect(printed).not.toContain('Assets over limit')
+    expect(printed).not.toContain('Build succeeded')
+    const warningsAt = printed.indexOf('Performance: asset size limit exceeded')
+    const closerAt = printed.indexOf('built for production in')
+    expect(closerAt).toBeGreaterThan(warningsAt)
   })
 
   it('formats build output with the original asset tree', () => {
-    const readFileSyncSpy = vi
-      .spyOn(fs, 'readFileSync')
-      .mockReturnValue(
-        JSON.stringify({name: 'my-extension', version: '0.1.0'}) as any
-      )
-
     const stats = {
       hasErrors: () => false,
       compilation: {
@@ -298,15 +364,18 @@ describe('webpack/command-build', () => {
       })
     }
 
-    const output = messages.buildWebpack('/proj', stats, 'chromium' as any)
+    const output = messages.buildAssetsTree(stats as any)
 
-    expect(readFileSyncSpy).toHaveBeenCalled()
     expect(output).toContain('.\n├─')
     expect(output).toContain('background')
     expect(output).toContain('service_worker.js')
     expect(output).toContain('sidebar')
     expect(output).toContain('03bc89f8e5771202.wasm')
-    expect(output).toContain('Build completed in 1.04 seconds.\n')
+    expect(output).not.toContain('Build completed')
+    expect(output).not.toContain('Version:')
+    expect(output).not.toContain('Size:')
+    expect(output).not.toContain('Build Target:')
+    expect(output).not.toContain('Build Status:')
     expect(output).not.toContain('Entrypoints')
     expect(output).not.toContain('Largest assets')
   })
@@ -432,9 +501,11 @@ describe('webpack/command-build', () => {
     ).rejects.toThrow(/boom/)
 
     expect(localErrorSpy).toHaveBeenCalled()
-    const message = String(localErrorSpy.mock.calls[0]?.[0] || '')
-    expect(message).toContain('Build failed')
+    const message = localErrorSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
     expect(message).toContain('boom')
+    expect(message).toContain('Build failed with 1 error.')
   })
 
   it('skips user dependency install when install option is false', async () => {
