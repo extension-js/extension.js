@@ -19,6 +19,77 @@ export interface StatsToStringLike {
     errors?: boolean
     warnings?: boolean
   }) => string
+  toJson?: (options?: {all?: boolean; warnings?: boolean}) => {
+    warnings?: Array<{code?: unknown; message?: unknown}>
+  }
+}
+
+// These warnings already printed on the human channel at the moment the
+// plugin acted, so the stats render skips them to keep one visible line each.
+const EMIT_TIME_WARNING_CODES = new Set(['ManifestFatalShapeWarning'])
+
+export function isEmitTimeWarning(
+  warning: {code?: unknown} | string | null | undefined
+): boolean {
+  if (!warning || typeof warning === 'string') return false
+  return EMIT_TIME_WARNING_CODES.has(String(warning.code || ''))
+}
+
+function collectEmitTimeWarningTexts(stats: StatsToStringLike): Set<string> {
+  const texts = new Set<string>()
+  try {
+    const warnings = stats.toJson?.({all: false, warnings: true})?.warnings
+    for (const warning of warnings || []) {
+      if (!isEmitTimeWarning(warning)) continue
+      const text = String(warning?.message ?? '')
+        .replace(ANSI_PATTERN, '')
+        .trim()
+      if (text) texts.add(text)
+    }
+  } catch {
+    // Ignore
+  }
+  return texts
+}
+
+function dropEmitTimeWarningBlocks(raw: string, excluded: Set<string>): string {
+  if (excluded.size === 0) return raw
+
+  const kept: string[] = []
+  let block: string[] | null = null
+
+  const flush = () => {
+    if (!block) return
+    const body = block
+      .slice(1)
+      .map((line) => line.replace(ANSI_PATTERN, ''))
+      .join('\n')
+      .trim()
+    if (!excluded.has(body)) kept.push(...block)
+    block = null
+  }
+
+  for (const line of String(raw).split('\n')) {
+    const plain = line.replace(ANSI_PATTERN, '')
+    if (/^WARNING(?: in .+)?$/.test(plain)) {
+      flush()
+      block = [line]
+      continue
+    }
+    if (/^ERROR(?: in .+)?$/.test(plain)) {
+      flush()
+      kept.push(line)
+      continue
+    }
+    if (block) {
+      block.push(line)
+      continue
+    }
+    kept.push(line)
+  }
+  flush()
+
+  return kept.join('\n')
 }
 
 // The bundler's ERROR/WARNING head lines become standard-anatomy headers; the
@@ -67,7 +138,11 @@ export function renderStatsBlocks(
     warnings: opts.warnings
   })
   if (!raw) return ''
-  return wrapStatsBlocks(scrubBrand(raw))
+  const filtered = opts.warnings
+    ? dropEmitTimeWarningBlocks(raw, collectEmitTimeWarningTexts(stats))
+    : raw
+  if (!filtered.trim()) return ''
+  return wrapStatsBlocks(scrubBrand(filtered))
 }
 
 export function handleStatsErrors(stats: import('@rspack/core').Stats): void {

@@ -108,6 +108,51 @@ describe('UpdateManifest', () => {
     expect(out.icons).toBeDefined()
   })
 
+  it('prints the fatal-shape repair when the manifest is patched, before the asset is written', () => {
+    const order: string[] = []
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {
+      order.push('print')
+    })
+    const warnings: any[] = []
+    const source = JSON.stringify({name: 'x', version: 1})
+    const assets: Record<string, any> = {
+      'manifest.json': {source: () => source}
+    }
+    const compilation: any = {
+      errors: [],
+      warnings,
+      options: {mode: 'production'},
+      assets,
+      getAsset: (n: string) =>
+        assets[n] ? {source: assets[n].source} : undefined,
+      getAssets: () =>
+        Object.entries(assets).map(([name, src]) => ({name, source: src})),
+      hooks: {
+        processAssets: {tap: (_opts: any, fn: any) => fn()}
+      },
+      updateAsset: () => {
+        order.push('asset')
+      }
+    }
+    const compiler: any = {
+      options: {mode: 'production'},
+      hooks: {
+        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      }
+    }
+
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+
+    expect(warnings.length).toBe(1)
+    expect(warnings[0].name).toBe('ManifestFatalShapeWarning')
+    expect(logSpy.mock.calls.map((call) => call[0])).toEqual([
+      warnings[0].message
+    ])
+    expect(order).toEqual(['print', 'asset'])
+
+    logSpy.mockRestore()
+  })
+
   it('emits manifest.json when no public asset exists yet', () => {
     const emitted: Record<string, string> = {}
     const compilation: any = {
