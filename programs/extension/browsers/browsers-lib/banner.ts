@@ -413,7 +413,10 @@ export async function printProdBannerOnce(opts: {
               ? messages.collapseHomeDirInCardValue(opts.binaryPath || '')
               : ''
           },
-          {label: 'Output', value: opts.outPath},
+          {
+            label: 'Output',
+            value: messages.collapseHomeDirInCardValue(opts.outPath)
+          },
           {
             label: 'Profile',
             value: messages.collapseHomeDirInCardValue(opts.profilePath || '')
