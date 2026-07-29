@@ -36,17 +36,6 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
   return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
 }
 
-export function portInUse(requestedPort: number, newPort: number) {
-  return (
-    `Port ${colors.brightBlue(requestedPort.toString())} is in use.\n` +
-    `The dev server listens on port ${colors.brightBlue(newPort.toString())} instead.`
-  )
-}
-
-export function extensionJsRunnerError(error: unknown) {
-  return `Extension.js could not start the runner.\n${colors.red(String(error))}`
-}
-
 export function cleanDistStarting(distPath: string) {
   return `${prefix('debug')} clean    start path=${distPath}`
 }

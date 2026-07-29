@@ -24,7 +24,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildComplete: function(3)",
     "buildFailed: function(1)",
     "buildWarningsDetails: function(1)",
-    "building: function(1)",
     "configLoadingError: function(2)",
     "creatingProjectPath: function(1)",
     "debugBrowser: function(3)",
@@ -82,8 +81,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
     "envSelectedFile: function(1)",
-    "extensionJsRunnerError: function(1)",
-    "portInUse: function(2)",
     "zipPackagingSkipped: function(1)",
   ],
   "plugin-css/css-lib/messages.ts": [
