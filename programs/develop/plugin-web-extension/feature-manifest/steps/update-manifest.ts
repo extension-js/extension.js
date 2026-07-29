@@ -27,6 +27,7 @@ import {getManifestOverrides} from '../manifest-overrides'
 // type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 
+import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 import {patchChromiumBackground} from './patch-chromium-background'
@@ -153,9 +154,17 @@ export class UpdateManifest {
             )
             patchedManifest = sanitized.manifest
             for (const fix of sanitized.fixes) {
-              const warn = new WebpackError(
-                messages.fatalManifestShapeFixed(fix.field, fix.detail)
-              ) as Error & {file?: string; name?: string}
+              const message = messages.fatalManifestShapeFixed(
+                fix.field,
+                fix.detail
+              )
+              // The human line prints here, when the repair happens; the pushed
+              // warning is the stats/json record and the stats render skips it.
+              humanLine(message)
+              const warn = new WebpackError(message) as Error & {
+                file?: string
+                name?: string
+              }
               warn.name = 'ManifestFatalShapeWarning'
               warn.file = 'manifest.json'
               compilation.warnings.push(warn)

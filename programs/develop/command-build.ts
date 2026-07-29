@@ -32,11 +32,11 @@ import {
   ensureSessionArtifactsIgnoreFile
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
+import {getZipArtifacts} from './plugin-compilation/zip-artifacts'
 import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
-import {getZipArtifacts} from './plugin-compilation/zip-artifacts'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
@@ -52,7 +52,11 @@ function collapseHomeDir(value: string): string {
 
 function relativeToCwd(target: string): string | null {
   const relative = nodePath.relative(process.cwd(), target)
-  if (relative && !relative.startsWith('..') && !nodePath.isAbsolute(relative)) {
+  if (
+    relative &&
+    !relative.startsWith('..') &&
+    !nodePath.isAbsolute(relative)
+  ) {
     return relative
   }
   return null
@@ -133,13 +137,17 @@ export async function extensionBuild(
     }
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
-    const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
-      await Promise.all([
-        import('@rspack/core'),
-        import('webpack-merge'),
-        import('./lib/stats-handler'),
-        import('./rspack-config')
-      ])
+    const [
+      {rspack},
+      {merge},
+      {handleStatsErrors, isEmitTimeWarning},
+      {default: webpackConfig}
+    ] = await Promise.all([
+      import('@rspack/core'),
+      import('webpack-merge'),
+      import('./lib/stats-handler'),
+      import('./rspack-config')
+    ])
 
     const debug = isAuthor
     const userManifestPath =
@@ -282,8 +290,12 @@ export async function extensionBuild(
           }
 
           if (summary.warnings_count > 0) {
+            // Emit-time warnings already printed when the plugin acted; the
+            // summary keeps them all so the json record stays complete.
             const warningDetails = messages.buildWarningsDetails(
-              info?.warnings || []
+              (info?.warnings || []).filter(
+                (warning) => !isEmitTimeWarning(warning)
+              )
             )
 
             if (warningDetails) {
