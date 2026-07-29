@@ -5,6 +5,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
   "browsers/browsers-lib/messages.ts": [
     "addonInstallError: function(2)",
     "bestEffortBannerPrintFailed: function(1)",
+    "binaryProvenanceNote: function(1)",
     "browserInstanceExited: function(1)",
     "browserLaunchError: function(2)",
     "browserNotInstalledError: function(2)",
@@ -33,6 +34,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "chromiumExtensionLoadUnconfirmed: function(1)",
     "chromiumInvalidMatchPatterns: function(2)",
     "chromiumManifestLoadBlockers: function(2)",
+    "collapseHomeDirInCardValue: function(1)",
     "connectionClosedError: function(1)",
     "creatingUserProfile: function(1)",
     "devChannelSnapshotInUse: function(1)",
@@ -80,7 +82,6 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "requireChromiumBinaryForChromiumBased: function(0)",
     "requireGeckoBinaryForGeckoBased: function(0)",
     "resolveBrowserVersionLine: function(2)",
-    "resolvedBrowserBinary: function(3)",
     "runningInDevelopment: function(6)",
     "safariBuildCalled: function(0)",
     "safariBuilding: function(1)",

@@ -106,6 +106,31 @@ export function chooseChromiumBinaryPreferringStable(opts: {
   return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
 }
 
+export type BinaryProvenance = 'managed' | 'pinned' | 'system' | 'snapshot'
+
+// The card names every non-default binary a session runs. A silently selected
+// cached snapshot or system fallback must never be invisible in dev output.
+export function classifyBinaryProvenance(opts: {
+  binaryPath: string
+  managedCacheRoot: string
+  pinnedByFlag?: boolean
+  usedManagedSnapshot?: boolean
+}): BinaryProvenance {
+  if (opts.pinnedByFlag) return 'pinned'
+  if (opts.usedManagedSnapshot) return 'snapshot'
+
+  const root = path.resolve(String(opts.managedCacheRoot || '').trim())
+  const binary = path.resolve(String(opts.binaryPath || '').trim())
+  if (!root || !binary) return 'system'
+
+  const relative = path.relative(root, binary)
+  const underManagedRoot =
+    relative.length > 0 &&
+    !relative.startsWith('..') &&
+    !path.isAbsolute(relative)
+  return underManagedRoot ? 'managed' : 'system'
+}
+
 // EXTENSION_BROWSER_FLAGS: launcher-agnostic escape hatch to append flags per
 // launch; whitespace-separated, appended AFTER config flags so env wins.
 export function parseEnvBrowserFlags(raw: string | undefined | null): string[] {
