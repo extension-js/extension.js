@@ -12,10 +12,6 @@ import {humanLine} from '../dev-server/lifecycle-stream'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
-import {
-  isBannerPrinted,
-  setPendingCompilationLine
-} from './compilation-lib/shared-state'
 
 export class BoringPlugin {
   public static readonly name: string = 'plugin-boring'
@@ -23,7 +19,7 @@ export class BoringPlugin {
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
   private sawUserInvalidation = false
-  private printedPostBannerStartupSuccess = false
+  private printedStartupSuccess = false
   private lastKnownManifestName?: string
 
   constructor(options: PluginInterface) {
@@ -34,17 +30,7 @@ export class BoringPlugin {
   public apply(compiler: Compiler): void {
     compiler.hooks.watchClose.tap('develop:brand:watch-close', () => {
       this.sawUserInvalidation = false
-      this.printedPostBannerStartupSuccess = false
-    })
-
-    // The launcher prints the card inside this same done cycle and signals
-    // through the environment; convert it now or the parked line waits a cycle.
-    ;(
-      compiler.hooks as {
-        afterDone?: {tap: (name: string, fn: () => void) => void}
-      }
-    ).afterDone?.tap('develop:brand:flush', () => {
-      isBannerPrinted()
+      this.printedStartupSuccess = false
     })
 
     compiler.hooks.done.tap('develop:brand', (stats) => {
@@ -97,25 +83,12 @@ export class BoringPlugin {
           if (hasUserFileChange) this.sawUserInvalidation = true
         }
 
-        // Multiple successful compiles can precede the banner during startup; keep
-        // only the last and flush it when the banner arrives.
-        if (
-          browserLaunchEnabled &&
-          !isBannerPrinted() &&
-          !hasErrors &&
-          !hasWarnings
-        ) {
-          this.printedPostBannerStartupSuccess = true
-          setPendingCompilationLine(line)
-          return
-        }
-
-        // Runner startup can produce extra successful passes; keep one post-banner
+        // Runner startup can produce extra successful passes; keep one startup
         // success line and suppress duplicates until the first real invalidation.
         if (browserLaunchEnabled && !hasErrors && !hasWarnings) {
           if (!this.sawUserInvalidation) {
-            if (!this.printedPostBannerStartupSuccess) {
-              this.printedPostBannerStartupSuccess = true
+            if (!this.printedStartupSuccess) {
+              this.printedStartupSuccess = true
             } else {
               return
             }
