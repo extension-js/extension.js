@@ -2,9 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {prefix} from '../../helpers/messaging'
 import * as messages from '../browsers-lib/messages'
 import {launchBrowser} from '../index'
 import {
+  packageSafariExtension,
   safariBuildPreflight,
   safariPreflightError,
   toolOutputTail
@@ -300,6 +302,96 @@ describe('run-safari messages', () => {
     expect(msg).toMatch(/Allow Unsigned Extensions/)
     expect(msg).toMatch(/Settings ▸ Extensions/)
     expect(msg).toMatch(/React Sidebar Example/)
+  })
+
+  it('renders the derived bundle id note at warn with the shared-id fact', () => {
+    const msg = messages.safariDefaultBundleIdNote('dev.extensionjs.My-App')
+    expect(msg.startsWith(prefix('warn'))).toBe(true)
+    expect(msg).toMatch(/dev\.extensionjs\.My-App/)
+    expect(msg).toMatch(/generated from the app name/)
+    expect(msg).toMatch(/Every project built from the same source shares/)
+    expect(msg).toMatch(/first team to register it takes it/)
+    expect(msg).toMatch(/--bundle-id/)
+    expect(msg).toMatch(/a new id is a new extension with none of your users/)
+    expect(msg).not.toMatch(/Apple/)
+  })
+
+  it('keeps the registration miss no louder than the identity warning', () => {
+    const msg = messages.safariNotYetRegistered('My App')
+    expect(msg.startsWith(prefix('info'))).toBe(true)
+    expect(msg).toMatch(/Open the app once/)
+  })
+})
+
+describe('derived bundle id warning timing', () => {
+  let distDir: string
+
+  beforeEach(() => {
+    distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-warn-'))
+    writeManifest(distDir, {name: 'Warn Demo', version: '1.0.0'})
+  })
+  afterEach(() => {
+    try {
+      fs.rmSync(distDir, {recursive: true, force: true})
+      fs.rmSync(`${distDir}-xcode`, {recursive: true, force: true})
+    } catch {
+      // Ignore
+    }
+  })
+
+  function channelLogger() {
+    const warns: string[] = []
+    const infos: string[] = []
+    return {
+      logger: {
+        info: (m: string) => infos.push(String(m)),
+        warn: (m: string) => warns.push(String(m)),
+        error: () => {},
+        debug: () => {}
+      } as any,
+      warns,
+      infos
+    }
+  }
+
+  it('warns once at config resolution, before any packaging tool runs', async () => {
+    const {logger, warns, infos} = channelLogger()
+    await packageSafariExtension(
+      {extension: [distDir], browser: 'safari'} as any,
+      distDir,
+      logger,
+      'full'
+    )
+    expect(warns).toHaveLength(1)
+    expect(warns[0]).toMatch(/dev\.extensionjs\.Warn-Demo/)
+    expect(warns[0]).toMatch(/--bundle-id/)
+    expect(infos).toHaveLength(0)
+  })
+
+  it('stays silent when the user supplies their own bundle id', async () => {
+    const {logger, warns} = channelLogger()
+    await packageSafariExtension(
+      {
+        extension: [distDir],
+        browser: 'safari',
+        bundleId: 'com.example.mine'
+      } as any,
+      distDir,
+      logger,
+      'full'
+    )
+    expect(warns).toHaveLength(0)
+  })
+
+  it('does not repeat the warning on resync rebuilds', async () => {
+    const {logger, warns} = channelLogger()
+    await packageSafariExtension(
+      {extension: [distDir], browser: 'safari'} as any,
+      distDir,
+      logger,
+      'resync'
+    )
+    expect(warns).toHaveLength(0)
   })
 })
 

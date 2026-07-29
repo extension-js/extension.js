@@ -9,8 +9,8 @@
 /**
  * What the injected Safari packager reports back about the app it produced.
  * `bundleIdDerived` is the load-bearing one: a generated `dev.extensionjs.*`
- * identifier is fine locally and rejected by Apple for distribution, and the
- * only other place that fact appeared was a human log line.
+ * identifier comes from the app name, so every project built from the same
+ * source shares it and the first registration takes it.
  */
 export interface SafariPackageSummary {
   appName?: string

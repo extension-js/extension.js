@@ -131,7 +131,8 @@ export type SafariPipelineMode = 'full' | 'resync'
 /**
  * What the pipeline resolved for this app. `bundleIdDerived` used to exist
  * only as a log line, which left a machine caller unable to learn that its
- * app carries a generated dev.extensionjs.* id Apple will not accept.
+ * app carries a generated dev.extensionjs.* id shared with every project
+ * built from the same source.
  */
 export interface SafariPackageResult {
   appName: string
@@ -208,6 +209,12 @@ async function runSafariPipeline(
   const config = resolveSafariBuildConfig(compilation, host)
   const converterArgs = composeConverterArgs(config)
   const xcodebuildArgs = composeXcodebuildArgs(config)
+
+  // Warn while --bundle-id is still a free choice, before the converter and
+  // xcodebuild bake the identity into the project.
+  if (mode === 'full' && config.bundleIdDerived) {
+    logger.warn?.(messages.safariDefaultBundleIdNote(config.bundleIdentifier))
+  }
 
   if (host.dryRun || isTestEnv()) {
     logSafariDryRun(
@@ -330,10 +337,6 @@ async function runSafariPipeline(
 
   logger.info?.(messages.safariBuilt(appPath))
 
-  if (config.bundleIdDerived) {
-    logger.info?.(messages.safariDefaultBundleIdNote(config.bundleIdentifier))
-  }
-
   if (!config.open) {
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
@@ -356,7 +359,7 @@ async function runSafariPipeline(
   if (await confirmRegisteredWithSafari(config.bundleIdentifier)) {
     logger.info?.(messages.safariRegistered(config.appName))
   } else {
-    logger.warn?.(messages.safariNotYetRegistered(config.appName))
+    logger.info?.(messages.safariNotYetRegistered(config.appName))
   }
 
   return describePackage(config)
