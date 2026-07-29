@@ -16,6 +16,7 @@ import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {DevOptions} from '../types'
+import {recordZipArtifact} from './zip-artifacts'
 
 export interface ZipPluginOptions {
   manifestPath?: string
@@ -216,9 +217,11 @@ export class ZipPlugin {
           } catch {
             // Ignore
           }
-          console.log(
-            messages.zipArtifactReady(this.browser, artifact.path, size)
-          )
+          recordZipArtifact(stats?.compilation, {
+            kind: artifact.kind,
+            path: artifact.path,
+            size
+          })
         }
         if (isDebug()) {
           const sourceItem = created.find((c) => c.kind === 'source')
