@@ -238,7 +238,7 @@ describe('get-project-path', () => {
     )
 
     await expect(getProjectStructure(root)).rejects.toThrow(
-      /not a browser extension manifest/i
+      /isn't a browser extension manifest/i
     )
   })
 

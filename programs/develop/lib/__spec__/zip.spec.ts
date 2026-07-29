@@ -51,7 +51,7 @@ describe('extractLocalZip', () => {
 
     const target = makeTempDir('extjs-zip-html-out-')
     await expect(extractLocalZip(zipPath, target)).rejects.toThrow(
-      /not a ZIP archive/i
+      /isn't a ZIP archive/i
     )
   })
 

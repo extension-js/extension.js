@@ -36,41 +36,34 @@ export function resolvedWorkspaceManifest(
   const display = path.relative(projectPath, packageDir) || packageDir
   return (
     `${getLoggingPrefix('info')} ${colors.gray('Workspace root detected.')}\n` +
-    `${colors.gray('PACKAGE')} ${colors.brightBlue(display)}`
+    `${colors.gray('PACKAGE')} ${colors.underline(display)}`
   )
 }
 
 export function remoteFetchTimedOut(target: string, ms: number) {
   return (
-    `${getLoggingPrefix('error')} Timed out after ${colors.yellow(
-      `${Math.round(ms / 1000)}s`
-    )} fetching ${colors.underline(target)}.\n` +
-    `${colors.red(
-      'Check your network, or set EXTENSION_FETCH_TIMEOUT_MS to allow more time.'
-    )}`
+    `${getLoggingPrefix('error')} Timed out after ${Math.round(ms / 1000)} s fetching the remote file.\n` +
+    `${colors.gray('URL')} ${colors.underline(target)}\n` +
+    `Check your network, or set ${colors.blue('EXTENSION_FETCH_TIMEOUT_MS')} to allow more time.`
   )
 }
 
 export function manifestInvalidJson(manifestPath: string, error: unknown) {
   const detail = error instanceof Error ? error.message : String(error)
   return (
-    `${getLoggingPrefix('error')} Could not parse manifest.json.\n` +
-    `It is not valid JSON.\n` +
-    `${colors.red('Fix the syntax error and try again.')}\n` +
+    `${getLoggingPrefix('error')} Couldn't parse manifest.json as JSON.\n` +
     `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
-    `${colors.red(detail)}`
+    `${colors.gray('REASON')} ${colors.red(detail)}\n` +
+    `Fix the syntax error, then run the command again.`
   )
 }
 
 export function notAnExtensionManifestError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} manifest.json is not a browser extension manifest.\n` +
-    `It has no ${colors.yellow('manifest_version')} field.\n` +
-    `${colors.red('This looks like a PWA web-app manifest.')}\n` +
-    `${colors.red(
-      'Point Extension.js at the directory that contains your extension manifest.'
-    )}\n` +
-    `${colors.gray('PATH')} ${colors.underline(manifestPath)}`
+    `${getLoggingPrefix('error')} manifest.json isn't a browser extension manifest.\n` +
+    `It has no ${colors.blue('manifest_version')} field, so it looks like a PWA web-app manifest.\n` +
+    `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
+    `Point Extension.js at the directory that contains your extension manifest.`
   )
 }
 
@@ -80,8 +73,8 @@ export function manifestNotFoundError(
 ) {
   const base =
     `${getLoggingPrefix('error')} Manifest file not found.\n` +
-    `${colors.red('Ensure the path to your extension exists and try again.')}` +
-    `\n${colors.red('NOT FOUND')}\n${colors.gray('PATH')} ${colors.underline(manifestPath)}`
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Ensure the path to your extension exists, then try again.`
 
   if (!candidates.length) return base
 
@@ -106,16 +99,7 @@ export function manifestNotFoundError(
     })
     .join('\n')
 
-  return `${base}\n\n${colors.gray(hint)}\n${colors.brightBlue(suggestions)}`
-}
-
-export function building(browser: DevOptions['browser']): string {
-  const extensionOutput = artifactNoun(String(browser))
-
-  return (
-    `${getLoggingPrefix('info')} Build the ${capitalizedBrowserName(browser)} ` +
-    `${extensionOutput} package.`
-  )
+  return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
 }
 
 export function previewing(
@@ -135,7 +119,7 @@ export function starting(browser: DevOptions['browser'], noBrowser?: boolean) {
 export function extensionLoadRecovered() {
   return (
     `${getLoggingPrefix('success')} The browser accepted the extension.\n` +
-    `It is running now.`
+    `It's running now.`
   )
 }
 
@@ -155,7 +139,7 @@ export function browserLaunchFailed(
   reason: string
 ) {
   return (
-    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} could not be started, so the extension is NOT running.\n` +
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
     `${reason}\n` +
     `The dev server keeps watching, but nothing will load until this is fixed.`
   )
@@ -174,9 +158,9 @@ export function projectInstallFallbackToNpm(pmName: string) {
 
 export function projectInstallScriptsDisabled(pmName: string) {
   return (
-    `${getLoggingPrefix('info')} Install the project dependencies with ${pmName}.\n` +
+    `${getLoggingPrefix('info')} Installing the project dependencies with ${pmName}…\n` +
     `Lifecycle scripts are disabled for safety.\n` +
-    `Set EXTENSION_ALLOW_INSTALL_SCRIPTS=true to run them.`
+    `Set ${colors.blue('EXTENSION_ALLOW_INSTALL_SCRIPTS=true')} to run them.`
   )
 }
 
@@ -358,7 +342,7 @@ function suggestedHintForWarning(category: BuildWarningCategory): string {
     return 'Verify browser target and manifest compatibility for this build.'
   }
   if (category === 'Runtime-risk') {
-    return 'Address this before release; it may fail or degrade at runtime.'
+    return 'Address this before release. It may fail or degrade at runtime.'
   }
   return 'Re-run with EXTENSION_VERBOSE=1 to inspect full warning details.'
 }
@@ -410,7 +394,7 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
-  return fmt.block('Fetch project', [
+  return fmt.block('Fetching project', [
     ['URL', fmt.val(`https://github.com/${owner}/${project}`)]
   ])
 }
@@ -418,13 +402,13 @@ export function fetchingProjectPath(owner: string, project: string) {
 export function downloadingProjectPath(projectName: string) {
   const formatted = isPathLike(projectName)
     ? colors.underline(projectName)
-    : colors.yellow(projectName)
-  return `${getLoggingPrefix('info')} Download ${formatted}.`
+    : projectName
+  return `${getLoggingPrefix('info')} Downloading ${formatted}…`
 }
 
 export function creatingProjectPath(projectPath: string) {
   return (
-    `${getLoggingPrefix('info')} Create a new browser extension.\n` +
+    `${getLoggingPrefix('info')} Creating a new browser extension…\n` +
     `${colors.gray('PATH')} ${colors.underline(projectPath)}`
   )
 }
@@ -436,7 +420,7 @@ export function downloadedProjectFolderNotFound(
   return (
     `${getLoggingPrefix('error')} Downloaded project folder not found.\n` +
     `${colors.gray('PATH')} ${colors.underline(cwd)}\n` +
-    `${colors.gray('Tried')} ${colors.underline(candidates.join(', '))}`
+    `${colors.gray('NOT FOUND')} ${colors.underline(candidates.join(', '))}`
   )
 }
 
@@ -494,66 +478,63 @@ export function treeWithSourceFiles(
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Write the type definitions for ${colors.blue(manifest.name || '')}.`
+    `Writing the type definitions for ${manifest.name || 'the extension'}…`
   )
 }
 
 export function writingTypeDefinitionsError(error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Failed to write the extension type definition.\n` +
-    `Check the file permissions, then try again.\n` +
-    `${colors.red(String(error))}`
+    `${getLoggingPrefix('error')} Couldn't write the extension type definitions.\n` +
+    `${colors.gray('REASON')} ${colors.red(String(error))}\n` +
+    `Check the file permissions, then try again.`
   )
 }
 
 export function downloadingText(url: string) {
-  return fmt.block('Download extension', [['URL', fmt.val(url)]])
+  return fmt.block('Downloading extension', [['URL', fmt.val(url)]])
 }
 
 export function unpackagingExtension(zipFilePath: string) {
   return (
-    `${getLoggingPrefix('info')} Unpackage the browser extension.\n` +
+    `${getLoggingPrefix('info')} Unpackaging the browser extension…\n` +
     `${colors.gray('PATH')} ${colors.underline(zipFilePath)}`
   )
 }
 
 export function unpackagedSuccessfully() {
-  return `${getLoggingPrefix(
-    'info'
-  )} Browser extension unpackaged ${colors.green('successfully')}.`
+  return `${getLoggingPrefix('success')} Browser extension unpackaged.`
 }
 
 export function failedToDownloadOrExtractZIPFileError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Failed to download or extract ZIP file.\n` +
-    `Check the URL and your network, then try again.\n` +
-    `${colors.red(String(error))}`
+    `Couldn't download or extract the ZIP file.\n` +
+    `${colors.gray('REASON')} ${colors.red(String(error))}\n` +
+    `Check the URL and your network, then try again.`
   )
 }
 
 export function invalidRemoteZip(url: string, contentType: string) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Remote URL does not appear to be a ZIP archive.\n` +
-    `Use a direct-download URL, or download the file and pass the local path.\n` +
+    `The remote URL doesn't point to a ZIP archive.\n` +
     `${colors.gray('URL')} ${colors.underline(url)}\n` +
-    `${colors.gray('Content-Type')} ${colors.underline(contentType || 'unknown')}`
+    `${colors.gray('GOT')} ${colors.underline(contentType || 'unknown')}\n` +
+    `Use a direct-download URL, or download the file and pass the local path.`
   )
 }
 
 export function notAZipArchive(source: string, contentType?: string) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `The downloaded content is not a ZIP archive.\n` +
+    `The downloaded content isn't a ZIP archive.\n` +
     `${colors.gray('SOURCE')} ${colors.underline(source)}\n` +
     (contentType
-      ? `${colors.gray('Content-Type')} ${colors.underline(contentType)}\n`
+      ? `${colors.gray('GOT')} ${colors.underline(contentType)}\n`
       : '') +
-    `This usually means the URL requires authentication (for example a ` +
-    `Slack, Google Drive, or Dropbox file page) and returned an HTML login ` +
-    `page instead of the file.\n` +
-    `Download the ZIP through the browser and pass the local path instead, ` +
+    `The URL likely requires authentication and returned an HTML login page instead of the file.\n` +
+    `This happens with Slack, Google Drive, and Dropbox file pages.\n` +
+    `Download the ZIP in the browser and pass the local path, ` +
     `or use a direct-download URL.`
   )
 }
@@ -562,8 +543,8 @@ export function localZipNotFound(zipFilePath: string) {
   return (
     `${getLoggingPrefix('error')} ` +
     `ZIP file not found.\n` +
-    `Check the path and try again.\n` +
-    `${colors.gray('PATH')} ${colors.underline(zipFilePath)}`
+    `${colors.gray('NOT FOUND')} ${colors.underline(zipFilePath)}\n` +
+    `Check the path, then try again.`
   )
 }
 
@@ -752,19 +733,18 @@ export function debugExtensionsToLoad(extensions: string[]) {
 
 export function noCompanionExtensionsResolved() {
   return (
-    `${getLoggingPrefix('warn')} No companion extensions resolved from ${colors.underline('extensions')} config.\n` +
-    `${colors.gray(
-      'Ensure each companion extension is an unpacked extension directory containing a manifest.json (e.g., ./extensions/<name>/manifest.json).'
-    )}`
+    `${getLoggingPrefix('warn')} No companion extensions resolved from the ${colors.blue('extensions')} config.\n` +
+    `Point each entry at an unpacked extension directory that contains a ` +
+    `manifest.json, for example ./extensions/<name>/manifest.json.`
   )
 }
 
 export function configLoadingError(configPath: string, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Could not load ${colors.brightBlue('extension.config.js')}.\n` +
-    `Fix the config file, then run the command again.\n` +
+    `${getLoggingPrefix('error')} Couldn't load ${colors.blue('extension.config.js')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
-    colors.red(fmt.truncate(error, 1200))
+    `${colors.red(fmt.truncate(error, 1200))}\n` +
+    `Fix the config file, then run the command again.`
   )
 }
 
@@ -796,12 +776,11 @@ export function managedDependencyConflict(
 ) {
   const list = duplicates.map((d) => `- ${colors.yellow(d)}`).join('\n')
   return (
-    `${getLoggingPrefix('error')} Your project declares dependencies that are managed by ${colors.blue('Extension.js')} and referenced in ${colors.underline('extension.config.js')}.\n` +
-    `${colors.red('This can cause version conflicts and break the development/build process.')}\n\n` +
-    `${colors.gray('Managed dependencies (remove these from your package.json):')}\n` +
+    `${getLoggingPrefix('error')} Your project declares dependencies that Extension.js already manages, so the build was aborted.\n` +
+    `${colors.red('Duplicate declarations can cause version conflicts and break the build.')}\n\n` +
+    `${colors.gray('Remove these from your package.json:')}\n` +
     `${list}\n\n` +
     `${colors.gray('PATH')} ${colors.underline(userPackageJsonPath)}\n` +
-    `If you need a different version, open an issue so we can consider bundling it safely.\n` +
-    `Operation aborted.`
+    `If you need a different version, open an issue so we can consider bundling it safely.`
   )
 }
