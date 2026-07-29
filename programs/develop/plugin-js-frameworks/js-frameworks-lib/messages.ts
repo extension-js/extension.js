@@ -11,7 +11,7 @@ import {prefix} from '../../lib/messaging'
 
 export function installingRootDependencies(integration: string) {
   return (
-    `${prefix('info')} Install the ${integration} dependencies.\n` +
+    `${prefix('info')} Installing the ${integration} dependencies…\n` +
     `This only happens for core contributors.`
   )
 }
@@ -31,18 +31,19 @@ export function youAreAllSet(name: string) {
 }
 
 export function creatingTSConfig() {
-  return `${prefix('info')} Create a default tsconfig.json.`
+  return `${prefix('info')} Creating a default tsconfig.json…`
 }
 
 export function failedToInstallIntegration(
   integration: string,
   error: unknown
 ) {
+  const detail = String(error ?? '').trim()
   return (
-    `${prefix('error')} Could not install the ${colors.brightBlue(integration)} dependencies.\n` +
-    `${colors.red('Extension.js could not detect a package manager.')}\n` +
-    `Install the dependencies by hand, then run the command again.\n` +
-    `${colors.red(String(error ?? ''))}`
+    `${prefix('error')} Couldn't install the ${integration} dependencies.\n` +
+    `${colors.red("Extension.js couldn't detect a package manager.")}\n` +
+    (detail ? `${colors.gray('REASON')} ${colors.red(detail)}\n` : '') +
+    `Install the dependencies by hand, then run the command again.`
   )
 }
 

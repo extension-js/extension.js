@@ -28,8 +28,7 @@ function getLoggingPrefix(type: Channel): string {
 export function ready(mode: 'development' | 'production', browser: string) {
   const noun = artifactNoun(browser)
   const state = colors.green(`ready for ${mode}`)
-  const watching =
-    mode === 'development' ? ' Watching for file changes.' : ''
+  const watching = mode === 'development' ? ' Watching for file changes.' : ''
   return `${getLoggingPrefix('success')} ${noun} ${state}.${watching}`
 }
 
@@ -130,60 +129,66 @@ export function browserRunnerDisabled(args: {
 
 export function portInUse(requestedPort: number, newPort: number) {
   return (
-    `The requested port ${colors.brightBlue(requestedPort.toString())} is in use.\n` +
-    `The dev server uses ${colors.brightBlue(newPort.toString())} instead.`
+    `${getLoggingPrefix('warn')} Port ${requestedPort} is in use.\n` +
+    `The dev server listens on port ${newPort} instead.`
   )
 }
 
 export function extensionJsRunnerError(error: unknown) {
-  return `Extension.js could not start the runner.\n${colors.red(String(error))}`
+  return (
+    `${getLoggingPrefix('error')} Extension.js couldn't start the runner.\n` +
+    `${colors.red(String(error))}`
+  )
 }
 
 export function autoExitModeEnabled(ms: number) {
   return (
-    `Auto-exit is enabled.\n` +
-    `The process exits after ${colors.brightBlue(ms.toString())} ms if idle.`
+    `${getLoggingPrefix('info')} Auto-exit is enabled.\n` +
+    `The process exits after ${ms} ms of idle time.`
   )
 }
 
 export function autoExitTriggered(ms: number) {
   return (
-    `Auto-exit triggered after ${colors.brightBlue(ms.toString())} ms.\n` +
-    `Clean up and exit.`
+    `${getLoggingPrefix('info')} Auto-exit triggered after ${ms} ms.\n` +
+    `The process cleans up and exits now.`
   )
 }
 
 export function autoExitForceKill(ms: number) {
-  return `Force-kill the process after ${colors.brightBlue(ms.toString())} ms to ensure exit.`
+  return (
+    `${getLoggingPrefix('warn')} The process didn't exit within ${ms} ms, ` +
+    `so it exits forcibly now.`
+  )
 }
 
 export function devServerStartTimeout(ms: number) {
   return [
-    `Dev server startup is taking longer than expected (${colors.brightBlue(ms.toString())} ms).`,
-    `The bundler may have encountered an error before emitting the first build.`,
-    `If nothing else prints, try setting ${colors.brightBlue('EXTENSION_VERBOSE=1')} for more logs.`
+    `${getLoggingPrefix('warn')} The dev server didn't start within ${ms} ms.`,
+    `The bundler may have hit an error before emitting the first build.`,
+    `If nothing else prints, set ${colors.blue('EXTENSION_VERBOSE=1')} to see more logs.`
   ].join('\n')
 }
 
 export function bundlerFatalError(error: unknown) {
   const text =
     error instanceof Error ? error.stack || error.message : String(error)
-  return `Build failed to start:\n${colors.red(text)}`
+  return `${getLoggingPrefix('error')} The build failed to start.\n${colors.red(text)}`
 }
 
 export function bundlerRecompiling() {
-  return `Recompile due to file changes…`
+  return `${getLoggingPrefix('info')} Recompiling due to file changes…`
 }
 
 export function noEntrypointsDetected(port: number) {
   return [
-    `No entrypoints or assets were produced by the initial compilation.`,
-    `The dev server is running on 127.0.0.1:${colors.brightBlue(port.toString())}, but nothing is being built.`,
+    `${getLoggingPrefix('warn')} The first compilation produced no entrypoints or assets.`,
+    `The dev server is running on 127.0.0.1:${port}, but nothing is being built.`,
     `Possible causes:`,
-    `  • Empty or missing entry configuration.`,
-    `  • Extension-related plugins are disabled (entries not derived from manifest).`,
-    `  • All sources are ignored or excluded.`,
-    `Try enabling verbose logs with ${colors.brightBlue('EXTENSION_VERBOSE=1')} or review your extension config.`
+    `- Empty or missing entry configuration.`,
+    `- Extension plugins are disabled, so entries aren't derived from the manifest.`,
+    `- All sources are ignored or excluded.`,
+    `Set ${colors.blue('EXTENSION_VERBOSE=1')} to see verbose logs, or review your extension config.`
   ].join('\n')
 }
 

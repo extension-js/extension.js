@@ -22,11 +22,12 @@ export interface OversizedAsset {
 }
 
 export function perfBudgetWarning(assets: OversizedAsset[]): string {
+  const count = assets.length
   const header =
-    `${assets.length === 1 ? 'asset exceeds' : 'assets exceed'} the ` +
+    `${count === 1 ? 'One asset exceeds' : `${count} assets exceed`} the ` +
     'extension performance budget. Browser extensions inject content ' +
     'scripts on every navigation and wake service workers from cold, so ' +
-    'we apply tighter budgets than the rspack default.'
+    'Extension.js applies tighter budgets than the rspack default.'
 
   const lines = assets.map((a) => {
     const over = ((a.size / a.budget) * 100 - 100).toFixed(0)

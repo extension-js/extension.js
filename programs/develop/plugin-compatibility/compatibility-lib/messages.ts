@@ -18,7 +18,7 @@ const code = (text: string) => colors.blue(text)
 
 export function webextensionPolyfillNotFound() {
   return (
-    `${getLoggingPrefix('warn')} webextension-polyfill is not installed.\n` +
+    `${getLoggingPrefix('warn')} webextension-polyfill isn't installed.\n` +
     `The browser API polyfill is disabled for this build.\n` +
     `Install it with ${code('npm install webextension-polyfill')}.`
   )

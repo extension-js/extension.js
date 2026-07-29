@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import colors from 'pintor'
+import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
 
 // Every dev mode reloads through the control-bridge broker (the SW producer's
@@ -44,7 +44,7 @@ function viaBroker(
 // The one stdout announcement per dispatched reload: one server-built string
 // echoed by producer console and devtools pill, zero drift.
 export function formatReloadingLine(label: string): string {
-  return `Reloading ${colors.brightBlue(label)}…`
+  return `${prefix('info')} Reloading ${label}…`
 }
 
 // The single place deciding HOW a classified reload executes: the SW producer

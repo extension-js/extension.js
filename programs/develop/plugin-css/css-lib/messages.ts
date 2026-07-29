@@ -42,18 +42,10 @@ export function youAreAllSet(name: string) {
 export function missingSassDependency() {
   return [
     `${prefix('error')} Couldn't compile the Sass styles.`,
-    `The ${colors.brightBlue('"sass"')} package is not installed in your project.`,
-    '',
-    `Add it to your devDependencies, for example:`,
-    `  ${colors.gray('npm install --save-dev sass')}`,
-    `  ${colors.gray('pnpm add -D sass')}`,
-    '',
-    'Sample package.json:',
-    '  {',
-    '    "devDependencies": {',
-    `      "sass": ${colors.yellow('"<version>"')}`,
-    '    }',
-    '  }'
+    `The ${colors.blue('sass')} package isn't installed in your project.`,
+    `Add it to your devDependencies:`,
+    `- ${colors.blue('npm install --save-dev sass')}`,
+    `- ${colors.blue('pnpm add -D sass')}`
   ].join('\n')
 }
 
@@ -62,10 +54,11 @@ export function postCssPluginNotResolved(
   projectPath: string
 ) {
   return [
-    `${prefix('warn')} PostCSS plugin ${colors.brightBlue(`"${pluginName}"`)} could not be resolved from ${colors.underline(projectPath)}.`,
+    `${prefix('warn')} Couldn't resolve the PostCSS plugin ${colors.blue(pluginName)}.`,
     'The plugin was skipped so the build can continue.',
     'Styles it would generate are missing from the output.',
-    `Install it in your project to re-enable it, for example: ${colors.gray(`npm install --save-dev ${pluginName}`)}`
+    `${colors.gray('PATH')} ${colors.underline(projectPath)}`,
+    `Install it in your project to re-enable it: ${colors.blue(`npm install --save-dev ${pluginName}`)}`
   ].join('\n')
 }
 
@@ -79,11 +72,12 @@ export function cssParseErrorShippedVerbatim(
       ? String(errObj?.reason)
       : String(errObj?.message || error)
   return [
-    `${prefix('warn')} Invalid CSS in ${colors.underline(resourcePath)}.`,
-    `Reason: ${reason}.`,
-    'Browsers skip invalid rules, so the stylesheet was copied as-is instead of failing the build.',
-    'PostCSS/Tailwind processing was NOT applied to this file.',
-    'Fix the CSS to re-enable it.'
+    `${prefix('warn')} The CSS in this file doesn't parse, so it was copied as-is.`,
+    `${colors.gray('PATH')} ${colors.underline(resourcePath)}`,
+    `${colors.gray('REASON')} ${reason}`,
+    `Browsers skip rules they can't parse, so the build kept going.`,
+    `PostCSS and Tailwind processing wasn't applied to this file.`,
+    'Fix the CSS to re-enable processing.'
   ].join('\n')
 }
 
@@ -92,21 +86,23 @@ export function preprocessorShippedUncompiled(
   tool: 'sass' | 'less'
 ) {
   const pkg = tool === 'sass' ? 'sass' : 'less'
+  const language = tool === 'sass' ? 'Sass/SCSS' : 'Less'
   return [
-    `${prefix('warn')} ${colors.underline(resourcePath)} shipped UNCOMPILED.`,
-    `The ${colors.brightBlue(`"${pkg}"`)} package is not installed in this project.`,
-    `The raw ${tool === 'sass' ? 'Sass/SCSS' : 'Less'} source was copied as-is into the output .css, which browsers will treat as broken CSS (unstyled surfaces).`,
-    `Install it to compile this file, for example: ${colors.gray(`npm install --save-dev ${pkg}`)}`
+    `${prefix('warn')} This ${language} file shipped uncompiled.`,
+    `${colors.gray('PATH')} ${colors.underline(resourcePath)}`,
+    `The ${colors.blue(pkg)} package isn't installed in this project.`,
+    `The raw ${language} source was copied as-is into the output .css.`,
+    `Browsers treat it as broken CSS, so those surfaces render unstyled.`,
+    `Install it to compile this file: ${colors.blue(`npm install --save-dev ${pkg}`)}`
   ].join('\n')
 }
 
 export function deadCssUrlRef(issuerPath: string, request: string) {
   return [
-    `Missing file in ${colors.underline(issuerPath)}.`,
-    `The ${colors.yellow(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
-    `Chrome applies the rest of the stylesheet and 404s this reference silently, so it is likely dead code.`,
-    `Set ${colors.yellow('EXTENSION_STRICT_REFS=true')} to make this a build error.`,
-    '',
-    `${colors.red('NOT FOUND')} ${colors.underline(request)}`
+    `A ${colors.blue(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
+    `Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.`,
+    `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
   ].join('\n')
 }

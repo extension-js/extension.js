@@ -10,8 +10,7 @@ import colors from 'pintor'
 
 export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
   return (
-    '' +
-    `Check the ${colors.yellow(backgroundChunkName.replace('/', '.'))} ` +
-    `field in your ${colors.yellow('manifest.json')} file.`
+    `Check the ${colors.blue(backgroundChunkName.replace('/', '.'))} ` +
+    `field in your ${colors.blue('manifest.json')} file.`
   )
 }
