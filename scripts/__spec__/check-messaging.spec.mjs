@@ -4,9 +4,17 @@ import {
   findAsciiEllipsis,
   findBrandInMarkdown,
   findBrandInSource,
+  findBrightBlueMisuse,
+  findEmoji,
+  findExclamations,
+  findForbiddenWords,
+  findInvalidOpeners,
   findNonImperative,
   findRetiredPrefixes,
+  findSemicolons,
+  findUnderlinePeriods,
   findWeakVerbs,
+  functionAt,
   lineAt,
   lineHeads,
   readCommandTable,
@@ -242,6 +250,135 @@ test('the suffix heuristic guards the verb list, not the copy', () => {
 
 test('the shipped verb list carries no weak verb', () => {
   assert.deepEqual(findWeakVerbs(), [])
+})
+
+test('flags forbidden words on word boundaries, case-insensitively', () => {
+  const source = [
+    "const a = 'Extension compiled successfully in 512 ms.'",
+    "const b = 'Please try again.'",
+    "const c = 'Oops, something went wrong.'"
+  ].join('\n')
+  const found = findForbiddenWords(source)
+  assert.deepEqual(
+    found.map((hit) => hit.word.toLowerCase()),
+    ['successfully', 'please', 'oops']
+  )
+})
+
+test('a word merely containing a forbidden word is fine', () => {
+  const source = "const a = 'The dev server pleased nobody, displeasing all.'"
+  assert.deepEqual(findForbiddenWords(source), [])
+})
+
+test('flags an exclamation mark in a message string', () => {
+  const found = findExclamations("const m = 'Extension ready!'")
+  assert.equal(found.length, 1)
+})
+
+test('a negation in code never reaches the exclamation rule', () => {
+  const source = "if (!ready) run()\nconst m = 'Extension ready.'"
+  assert.deepEqual(findExclamations(source), [])
+})
+
+test('flags a semicolon in a message string', () => {
+  const found = findSemicolons("const m = 'Build done; launching browser.'")
+  assert.equal(found.length, 1)
+})
+
+test('statement semicolons never reach the semicolon rule', () => {
+  const source = "const a = 1;\nconst m = 'Build done.';"
+  assert.deepEqual(findSemicolons(source), [])
+})
+
+test('flags an emoji in a message string', () => {
+  const found = findEmoji("const m = 'Extension ready 🚀'")
+  assert.equal(found.length, 1)
+  assert.equal(found[0].emoji, '🚀')
+})
+
+test('the glyph, the ellipsis, and the middle dot are not emoji', () => {
+  const source = "const m = '⏵⏵⏵ Compiling… · PID 41250'"
+  assert.deepEqual(findEmoji(source), [])
+})
+
+test('an allowed emoji passes and any other still fails', () => {
+  const source = "const head = ' 🧩 Extension.js'\nconst m = 'Done 🎉'"
+  const found = findEmoji(source, ['🧩'])
+  assert.equal(found.length, 1)
+  assert.equal(found[0].emoji, '🎉')
+})
+
+test('flags a rendered line opening with Invalid', () => {
+  const found = findInvalidOpeners("const m = 'Invalid manifest field.'")
+  assert.equal(found.length, 1)
+})
+
+test('flags an Invalid opener hiding behind a prefix hole', () => {
+  const source = 'const m = `$' + "{prefix('error')} Invalid port value.`"
+  assert.equal(findInvalidOpeners(source).length, 1)
+})
+
+test('Invalid mid-sentence or as a longer word is fine', () => {
+  const source = [
+    "const a = 'Chrome rejected an invalid pattern.'",
+    "const b = 'Invalidated the cache.'"
+  ].join('\n')
+  assert.deepEqual(findInvalidOpeners(source), [])
+})
+
+test('flags brightBlue around a value with no typeable token', () => {
+  const source = [
+    'const a = colors.brightBlue(port)',
+    "const b = colors.brightBlue('3000')"
+  ].join('\n')
+  assert.equal(findBrightBlueMisuse(source).length, 2)
+})
+
+test('brightBlue around typeable text passes', () => {
+  const source = [
+    "const a = colors.brightBlue('--browser edge')",
+    "const b = colors.brightBlue('npx extension@latest dev')",
+    "const c = colors.brightBlue('EXTENSION_DEBUG=1')",
+    "const d = colors.brightBlue('pnpm dev')",
+    "const e = colors.brightBlue('extension build')"
+  ].join('\n')
+  assert.deepEqual(findBrightBlueMisuse(source), [])
+})
+
+test('flags a period glued to a dynamic underlined value', () => {
+  const source = 'const m = `Wrote $' + '{colors.underline(outputPath)}.`'
+  assert.equal(findUnderlinePeriods(source).length, 1)
+})
+
+test('flags the fmt.val spelling of underline too', () => {
+  const source = 'const m = `Wrote $' + '{fmt.val(zipPath)}.`'
+  assert.equal(findUnderlinePeriods(source).length, 1)
+})
+
+test("a quoted name ending a sentence is the author's choice", () => {
+  const source =
+    'const m = `Check $' + "{colors.underline(code('extension.config.js'))}.`"
+  assert.deepEqual(findUnderlinePeriods(source), [])
+})
+
+test('an underlined value followed by more prose is fine', () => {
+  const source =
+    'const m = `Wrote $' + '{colors.underline(outputPath)} to disk.`'
+  assert.deepEqual(findUnderlinePeriods(source), [])
+})
+
+test('names the enclosing function for a violation line', () => {
+  const source = [
+    'export function readyMessage(browser) {',
+    "  return 'Extension ready!'",
+    '}',
+    'const zipNote = () => {',
+    "  return 'zipped'",
+    '}'
+  ].join('\n')
+  assert.equal(functionAt(source, 2), 'readyMessage')
+  assert.equal(functionAt(source, 5), 'zipNote')
+  assert.equal(functionAt(source, 0), 'module scope')
 })
 
 // Imperatives that end in -s are exactly why the heuristic may not be the gate.
