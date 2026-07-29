@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+## 4.0.22 (July 29, 2026)
+
+### Fixes
+
+- Sweep install messages and move the unpack receipt to success ([c0e5c7be](https://github.com/extension-js/extension.js/commit/c0e5c7beb230074c07fdda8070eb20c132deaeef))
+- Sweep CLI helper messages and help headings to the style spec ([9e8b8114](https://github.com/extension-js/extension.js/commit/9e8b811411ffc72f7cda5f060da485513b019211))
+- Sweep the browsers-lib catalog to the terminal style spec ([c7e1f5c5](https://github.com/extension-js/extension.js/commit/c7e1f5c5b81528d98439dd620fc408125b3ad122))
+- Sweep the create catalog to error anatomy and progress voice ([2770a88f](https://github.com/extension-js/extension.js/commit/2770a88f5a3f3d79abae5a4f8af5c26eae7d315e))
+
+<details>
+<summary>Other changes (16)</summary>
+
+- Extend check-messaging with word, emoji, color, and period rules ([017c274a](https://github.com/extension-js/extension.js/commit/017c274a0ff2b5685d03a0a9ed457c4032f32a20))
+- Rewrite docs/MESSAGING.md as the spec v1 terminal-output standard ([d1119637](https://github.com/extension-js/extension.js/commit/d1119637b18f1de3e0a4d574ca8cae50dcb544e1))
+- Wrap bundler stats blocks in the standard error anatomy ([eb56804d](https://github.com/extension-js/extension.js/commit/eb56804dc7fcf3fb06e7242567c157f6f91af3d6))
+- Render commander parse failures through the error anatomy ([b5d9e59b](https://github.com/extension-js/extension.js/commit/b5d9e59bbbf524ff140ca54526239f801ecf6558))
+- Reword develop lib messages to spec anatomy and drop dead twins ([113f4f33](https://github.com/extension-js/extension.js/commit/113f4f339dd14ba7943d410af48eb67b84785994))
+- Glyph dev-server flow lines and sweep plugin catalog copy ([6eee6efe](https://github.com/extension-js/extension.js/commit/6eee6efe6aa493b2478ac252ba1459dff335c1b3))
+- Align web-extension feature catalogs with the error anatomy ([158ff71e](https://github.com/extension-js/extension.js/commit/158ff71eb8b7c9aafed9b094ab2f7efc35557bc3))
+- Collapse the build summary into card, asset tree, and one closer ([6312a294](https://github.com/extension-js/extension.js/commit/6312a29437ee5a39cc7ec103dcbf9866d26e6b8a))
+- Record zip artifacts on the compilation instead of printing early ([6d1174c3](https://github.com/extension-js/extension.js/commit/6d1174c3dd33c0971dbc82b54d283fd160f3fdf2))
+- Render build errors once by skipping the raw renderer under build ([ac1c42d0](https://github.com/extension-js/extension.js/commit/ac1c42d040786cb6be723679db071a1e415166fb))
+- Collapse the home dir in the fallback card Output row ([55e2af24](https://github.com/extension-js/extension.js/commit/55e2af241e594fc6d9082ece1696007c6d2e1def))
+- Pin the dev no-browser boot transcript order with an exec spec ([08c551b4](https://github.com/extension-js/extension.js/commit/08c551b4af27a349e9ad7d8161d329ac82e99afb))
+- Give the no-browser card an Output row, one mode marker, update hint ([b2333596](https://github.com/extension-js/extension.js/commit/b23335964582775ae6ea921bf482857f9695c491))
+- Move the resolved binary onto the card with provenance rows ([fc115198](https://github.com/extension-js/extension.js/commit/fc11519803fc3ff715a29f65ebabe44205e12b54))
+- Unify the ready line wording and move it to the success channel ([892929a8](https://github.com/extension-js/extension.js/commit/892929a861d561aaf1eefbe117f18b3b395b488f))
+- Print the compile line immediately and drop successfully from it ([0b55bfee](https://github.com/extension-js/extension.js/commit/0b55bfee5c25c17ef9c84749af9abe870bfd8a16))
+</details>
+
 ## 4.0.21 (July 29, 2026)
 
 <details>
