@@ -752,9 +752,10 @@ export function safariConverterWarnings(warnings: string[]) {
 
 export function safariDefaultBundleIdNote(bundleId: string) {
   return (
-    `${getLoggingPrefix('info')} Using the generated bundle id ${colors.gray(bundleId)}.\n` +
-    `For an app you plan to distribute, set your own with ${colors.blue('--bundle-id')} now.\n` +
-    `Changing it later makes Safari treat the extension as a new identity.`
+    `${getLoggingPrefix('warn')} The bundle id ${colors.gray(bundleId)} is generated from the app name.\n` +
+    `Every project built from the same source shares this id, and the first team to register it takes it.\n` +
+    `Set your own with ${colors.blue('--bundle-id')} before your first submission.\n` +
+    `After a submission, a new id is a new extension with none of your users.`
   )
 }
 
@@ -795,7 +796,7 @@ export function safariRegistered(appName: string) {
 
 export function safariNotYetRegistered(appName: string) {
   return (
-    `${getLoggingPrefix('warn')} Safari hasn't picked up ${colors.yellow(appName)} yet.\n` +
+    `${getLoggingPrefix('info')} Safari hasn't picked up ${colors.yellow(appName)} yet.\n` +
     `Open the app once, then check Safari ▸ Settings ▸ Extensions.`
   )
 }
