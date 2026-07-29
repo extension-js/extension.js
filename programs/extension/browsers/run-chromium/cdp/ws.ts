@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import WebSocket from 'ws'
+import {humanError, humanLine} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 
 export function establishBrowserConnection(
@@ -20,7 +21,7 @@ export function establishBrowserConnection(
 
     ws.on('open', () => {
       if (isDev) {
-        console.log(messages.cdpClientBrowserConnectionEstablished())
+        humanLine(messages.cdpClientBrowserConnectionEstablished())
       }
       resolve(ws)
     })
@@ -31,14 +32,14 @@ export function establishBrowserConnection(
 
     ws.on('error', (error: Error) => {
       if (isDev) {
-        console.error(messages.cdpClientConnectionError(error.message))
+        humanError(messages.cdpClientConnectionError(error.message))
       }
       onRejectPending(error.message)
       reject(error)
     })
 
     ws.on('close', () => {
-      if (isDev) console.log(messages.cdpClientConnectionClosed())
+      if (isDev) humanLine(messages.cdpClientConnectionClosed())
       onRejectPending('CDP connection closed')
 
       reject(new Error('CDP WebSocket closed before the connection opened'))

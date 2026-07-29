@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {isDebug} from '../../../helpers/messaging'
+import {humanWarn, isDebug} from '../../../helpers/messaging'
 import type {CompilationLike} from '../../browsers-types'
 import type {FirefoxPluginRuntime} from '../firefox-types'
 import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
@@ -33,7 +33,7 @@ export async function setupRdpAfterLaunch(
         if (isDebug()) {
           try {
             const msg = (error as Error)?.message || String(error)
-            console.warn(
+            humanWarn(
               `[browser] Firefox RDP setup retry ${i + 1}/${attempts}: ${msg}`
             )
           } catch {

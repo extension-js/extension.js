@@ -8,7 +8,12 @@
 
 import type {Readable, Writable} from 'node:stream'
 import WebSocket from 'ws'
-import {isDebug} from '../../../helpers/messaging'
+import {
+  humanError,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../helpers/messaging'
 import {
   CDP_COMMAND_TIMEOUT_MS,
   CDP_HEARTBEAT_INTERVAL_MS
@@ -96,7 +101,7 @@ export class CDPClient {
       this.startHeartbeat()
 
       if (this.isDev()) {
-        console.log(messages.cdpClientConnected(this.host, this.port))
+        humanLine(messages.cdpClientConnected(this.host, this.port))
       }
     } catch (error) {
       const err = error as Error
@@ -123,14 +128,14 @@ export class CDPClient {
 
     input.on('error', (error: Error) => {
       if (this.isDev()) {
-        console.error(`[CDP] Pipe read error: ${error.message}`)
+        humanError(`[CDP] Pipe read error: ${error.message}`)
       }
 
       this.rejectAllPending('CDP pipe read error')
     })
 
     input.on('close', () => {
-      if (this.isDev()) console.log('[CDP] Pipe closed')
+      if (this.isDev()) humanLine('[CDP] Pipe closed')
 
       this.rejectAllPending('CDP pipe closed')
       this.pipeIn = null
@@ -139,7 +144,7 @@ export class CDPClient {
     this.startHeartbeat()
 
     if (this.isDev()) {
-      console.log(messages.cdpClientConnected(this.host, this.port))
+      humanLine(messages.cdpClientConnected(this.host, this.port))
     }
   }
 
@@ -201,7 +206,7 @@ export class CDPClient {
           // (a real death fires pipe 'close'). Log once and keep the heartbeat.
           if (!this.heartbeatStallWarned) {
             this.heartbeatStallWarned = true
-            console.warn(
+            humanWarn(
               '[CDP] Browser is not answering CDP commands (heartbeat timed out). Keeping the session, it resumes automatically if the browser recovers.'
             )
           }
@@ -209,7 +214,7 @@ export class CDPClient {
         }
         // WebSocket transport: a dead ws really is dead, close it.
         if (this.isDev()) {
-          console.warn('[CDP] Heartbeat failed, connection appears dead')
+          humanWarn('[CDP] Heartbeat failed, connection appears dead')
         }
         this.disconnect()
       }
@@ -276,7 +281,7 @@ export class CDPClient {
         const params = message.params || {}
 
         if (this.isDev()) {
-          console.log(
+          humanLine(
             messages.cdpClientAttachedToTarget(
               String(params.sessionId || ''),
               String(params.targetInfo?.type || '')

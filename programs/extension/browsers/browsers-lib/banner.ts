@@ -13,6 +13,7 @@ import {
   browserRowValue,
   card,
   claimCardKey,
+  humanLine,
   isCardKeyClaimed
 } from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
@@ -260,8 +261,8 @@ export async function printDevBannerOnce(opts: {
   // launch flow calls this twice and an early consume would lose the hint.
   const updateSuffix = readUpdateSuffixOnce()
 
-  console.log(messages.emptyLine())
-  console.log(
+  humanLine(messages.emptyLine())
+  humanLine(
     messages.runningInDevelopment(
       manifest,
       opts.browser,
@@ -275,7 +276,7 @@ export async function printDevBannerOnce(opts: {
       }
     )
   )
-  console.log(messages.emptyLine())
+  humanLine(messages.emptyLine())
   markCardPrinted(k, opts.browser, opts.outPath)
   return true
 }
@@ -344,8 +345,8 @@ export async function printProdBannerOnce(opts: {
       // Read the suffix at the moment of printing, see printDevBannerOnce
       // for context. Avoids losing it across a try-catch fallback path.
       const updateSuffix = readUpdateSuffixOnce()
-      console.log(messages.emptyLine())
-      console.log(
+      humanLine(messages.emptyLine())
+      humanLine(
         messages.runningInDevelopment(
           manifest,
           opts.browser,
@@ -361,7 +362,7 @@ export async function printProdBannerOnce(opts: {
           }
         )
       )
-      console.log(messages.emptyLine())
+      humanLine(messages.emptyLine())
     } else {
       const message = {
         data: {
@@ -374,8 +375,8 @@ export async function printProdBannerOnce(opts: {
       }
 
       const updateSuffix = readUpdateSuffixOnce()
-      console.log(messages.emptyLine())
-      console.log(
+      humanLine(messages.emptyLine())
+      humanLine(
         messages.runningInDevelopment(
           manifest,
           opts.browser,
@@ -391,14 +392,14 @@ export async function printProdBannerOnce(opts: {
           }
         )
       )
-      console.log(messages.emptyLine())
+      humanLine(messages.emptyLine())
     }
   } catch {
     // Fallback: still print a minimal card from information already available;
     // don't consume the suffix, leave it for a better-informed later attempt.
     const provenanceNote = messages.binaryProvenanceNote(opts.binaryProvenance)
-    console.log(messages.emptyLine())
-    console.log(
+    humanLine(messages.emptyLine())
+    humanLine(
       card({
         rows: [
           {
@@ -424,7 +425,7 @@ export async function printProdBannerOnce(opts: {
         ]
       })
     )
-    console.log(messages.emptyLine())
+    humanLine(messages.emptyLine())
   }
 
   markCardPrinted(k, opts.browser, opts.outPath)

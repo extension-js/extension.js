@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {isDebug} from '../../../helpers/messaging'
+import {humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
@@ -190,9 +190,8 @@ export function browserConfig(
 
   if (resolved.kind === 'managed') {
     // Profile provisioning is an internal step; surface it only under --debug.
-    // eslint-disable-next-line no-console
     if (isDebug())
-      console.log(messages.creatingUserProfile(shownPath(userProfilePath)))
+      humanLine(messages.creatingUserProfile(shownPath(userProfilePath)))
 
     if (!resolved.persisted) {
       try {

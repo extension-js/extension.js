@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
-import {isDebug} from '../../../../helpers/messaging'
+import {humanLine, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import * as messages from '../../../browsers-lib/messages'
 import type {BrowserLogSink} from '../../../browsers-types'
@@ -293,7 +293,7 @@ export class CDPExtensionController {
           version = String(manifest?.version || '') || undefined
         } catch (e2: unknown) {
           if (isDebug()) {
-            console.warn(
+            humanWarn(
               '[CDP] Fallback manifest read failed:',
               String((e2 as Error)?.message || e2)
             )
@@ -440,7 +440,7 @@ export class CDPExtensionController {
           ) {
             if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
               const ts = new Date().toISOString()
-              console.log(messages.cdpUnifiedExtensionLog(ts, message.params))
+              humanLine(messages.cdpUnifiedExtensionLog(ts, message.params))
             }
           }
         } catch {
@@ -449,7 +449,7 @@ export class CDPExtensionController {
       })
     } catch (e) {
       if (isDebug()) {
-        console.warn('[CDP] enableLogging failed:', String(e))
+        humanWarn('[CDP] enableLogging failed:', String(e))
       }
     }
   }

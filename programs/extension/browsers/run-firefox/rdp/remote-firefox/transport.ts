@@ -8,7 +8,7 @@
 
 import EventEmitter from 'node:events'
 import net from 'node:net'
-import {isDebug} from '../../../../helpers/messaging'
+import {humanLine, isDebug} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
 
@@ -47,7 +47,7 @@ export class RdpTransport extends EventEmitter {
       try {
         const c = net.createConnection({host, port}, () => {
           if (isDebug()) {
-            console.log(messages.firefoxRdpClientConnected(host, port))
+            humanLine(messages.firefoxRdpClientConnected(host, port))
           }
           resolve()
         })
