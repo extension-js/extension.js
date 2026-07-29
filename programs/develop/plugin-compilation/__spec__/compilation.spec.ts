@@ -45,6 +45,7 @@ vi.mock('../compilation-lib/messages', () => ({
 
 vi.mock('pintor', () => ({
   default: {
+    brightYellow: (s: string) => s,
     gray: (s: string) => s,
     green: (s: string) => s,
     red: (s: string) => s
@@ -278,7 +279,7 @@ describe('CompilationPlugin', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtWarn, 12ms)')
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'WARNING in Content script requires a default export.'
+      '⏵⏵⏵ Build warning in Content script requires a default export.'
     )
     expect(browserLaunchSpy).toHaveBeenCalledWith('launch')
 
