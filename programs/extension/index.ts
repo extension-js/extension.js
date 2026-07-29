@@ -28,6 +28,7 @@ import checkUpdates from './helpers/check-updates'
 import {
   commanderErrorEnvelope,
   commanderExitCode,
+  commanderHumanError,
   earlyExitEnvelope,
   internalErrorEnvelope,
   isCommanderError,
@@ -201,7 +202,9 @@ extensionJs
     new Option('--format <pretty|json>').hideHelp()
   )
   .addHelpText('after', messages.programUserHelp())
-  .showHelpAfterError(true)
+  // Parse failures render through commanderHumanError in the catch block, so
+  // commander's own error line and help dump stay silent.
+  .configureOutput({outputError: () => {}})
   .showSuggestionAfterError(true)
   // Before the register* calls: subcommands copy the override at creation, and
   // without it a parse failure exits before any json envelope can be written.
@@ -272,6 +275,8 @@ if (process.argv.includes('--ai-help')) {
         // exitCode 0 is help or version display, not a failure.
         if (exitCode === 0) process.exit(0)
         markCommandFailure()
+        // eslint-disable-next-line no-console
+        console.error(commanderHumanError(err, commandName))
         if (asJson) {
           writeStdoutFrame(commanderErrorEnvelope(err, commandName))
         }

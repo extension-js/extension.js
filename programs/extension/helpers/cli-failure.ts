@@ -7,12 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import colors from 'pintor'
 import {
   CODES,
   ENVELOPE,
   type EnvelopeError,
   type EnvelopeErrorRefs,
-  type ErrorCode
+  type ErrorCode,
+  prefix
 } from './messaging'
 
 // One machine-readable stdout frame per process: commands that already framed
@@ -132,6 +134,53 @@ export function commanderErrorEnvelope(
   if (refs) error.refs = refs
 
   return ENVELOPE.fail(command, 'usage', error)
+}
+
+const SUGGESTION_PATTERN = /\(Did you mean (one of )?(.+)\?\)/
+
+function sentenceCase(input: string): string {
+  const trimmed = input.trim()
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+  return /[.!?]$/.test(capitalized) ? capitalized : `${capitalized}.`
+}
+
+// The styled twin of commanderErrorEnvelope: same classification, rendered as
+// the standard error anatomy (label line, then one typeable remedy).
+export function commanderHumanError(
+  err: CommanderErrorLike,
+  command: string
+): string {
+  const commanderCode = String(err.code)
+  const message = String(err.message || 'the command line could not be parsed')
+    .replace(/^error:\s*/i, '')
+    .trim()
+  const refs = refsFromMessage(commanderCode, message)
+
+  let label: string | undefined
+  let noun: 'options' | 'commands' = 'options'
+  if (commanderCode === 'commander.unknownOption' && refs?.flag) {
+    label = `Unknown option ${refs.flag}.`
+  } else if (commanderCode === 'commander.unknownCommand' && refs?.command) {
+    label = `Unknown command ${refs.command}.`
+    noun = 'commands'
+  } else if (
+    commanderCode === 'commander.optionMissingArgument' &&
+    refs?.flag
+  ) {
+    label = `Missing value for ${refs.flag}.`
+  }
+  if (!label) label = sentenceCase(message.split('\n')[0])
+
+  const helpTarget =
+    noun === 'options' && command && command !== 'extension'
+      ? `extension ${command}`
+      : 'extension'
+  const suggestion = SUGGESTION_PATTERN.exec(message)
+  const remedy = suggestion
+    ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
+    : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
+
+  return `${prefix('error')} ${label}\n${remedy}`
 }
 
 export function internalErrorEnvelope(

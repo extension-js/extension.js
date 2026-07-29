@@ -43,7 +43,7 @@ describe('pre-command failures under --output json', () => {
     const error = frame.error as Record<string, unknown>
     expect(error.code).toBe('E_UNKNOWN_COMMAND')
     expect(error.refs).toEqual({command: 'nonexistent-cmd'})
-    expect(result.stderr).toContain("unknown command 'nonexistent-cmd'")
+    expect(result.stderr).toContain('Unknown command nonexistent-cmd.')
   })
 
   it('frames an unknown option with the flag carried as a ref', () => {
@@ -55,7 +55,7 @@ describe('pre-command failures under --output json', () => {
     const error = frames[0].error as Record<string, unknown>
     expect(error.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
     expect(error.refs).toEqual({flag: '--nope'})
-    expect(result.stderr).toContain("unknown option '--nope'")
+    expect(result.stderr).toContain('Unknown option --nope.')
   })
 
   it('frames a missing required argument', () => {
@@ -84,6 +84,37 @@ describe('pre-command failures under --output json', () => {
 
     expect(result.status).toBe(1)
     expect(result.stdout).not.toContain('"schema":1')
+  })
+
+  it('renders a human unknown option without the native commander line', () => {
+    const result = run(['build', '--frobnicate'])
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('Unknown option --frobnicate.')
+    expect(result.stderr).toContain(
+      'Run extension build --help to see the options.'
+    )
+    expect(result.stderr).not.toContain('error: unknown option')
+    expect(result.stderr).not.toContain('Usage:')
+  })
+
+  it('renders a human unknown command with the root help remedy', () => {
+    const result = run(['nonexistent-cmd'])
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('Unknown command nonexistent-cmd.')
+    expect(result.stderr).toContain('Run extension --help to see the commands.')
+    expect(result.stderr).not.toContain('error: unknown command')
+    expect(result.stderr).not.toContain('Usage:')
+  })
+
+  it('restyles the suggestion commander computed for a near-miss flag', () => {
+    const result = run(['dev', '--brower'])
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('Unknown option --brower.')
+    expect(result.stderr).toContain('Did you mean')
+    expect(result.stderr).toContain('--browser')
   })
 
   it('keeps --help and --version on exit 0 with no envelope', () => {

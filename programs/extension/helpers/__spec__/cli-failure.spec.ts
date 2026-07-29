@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   commanderErrorEnvelope,
   commanderExitCode,
+  commanderHumanError,
   earlyExitEnvelope,
   internalErrorEnvelope,
   isCommanderError,
@@ -9,6 +10,16 @@ import {
   markErrorFramed,
   wantsJsonOutput
 } from '../cli-failure'
+
+const ESC = String.fromCharCode(27)
+const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;]*m`, 'g')
+
+function humanLines(
+  err: Parameters<typeof commanderHumanError>[0],
+  command: string
+) {
+  return commanderHumanError(err, command).replace(ANSI_PATTERN, '').split('\n')
+}
 
 describe('wantsJsonOutput', () => {
   it('detects --output json and --output=json', () => {
@@ -102,6 +113,86 @@ describe('commanderErrorEnvelope', () => {
     )
     expect(frame.error?.code).toBe('E_ARGS')
     expect(frame.error?.refs).toBeUndefined()
+  })
+})
+
+describe('commanderHumanError', () => {
+  it('renders an unknown option as a label plus a help remedy', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.unknownOption',
+        message: "error: unknown option '--nope'"
+      },
+      'build'
+    )
+
+    expect(lines[0]).toBe('⏵⏵⏵ Unknown option --nope.')
+    expect(lines[1]).toBe('Run extension build --help to see the options.')
+  })
+
+  it('restyles the closest-match suggestion as the remedy', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.unknownOption',
+        message: "error: unknown option '--brower'\n(Did you mean --browser?)"
+      },
+      'dev'
+    )
+
+    expect(lines[0]).toBe('⏵⏵⏵ Unknown option --brower.')
+    expect(lines[1]).toBe('Did you mean --browser?')
+  })
+
+  it('renders an unknown command with the root help remedy', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.unknownCommand',
+        message: "error: unknown command 'nonexistent-cmd'"
+      },
+      'nonexistent-cmd'
+    )
+
+    expect(lines[0]).toBe('⏵⏵⏵ Unknown command nonexistent-cmd.')
+    expect(lines[1]).toBe('Run extension --help to see the commands.')
+  })
+
+  it('keeps a command suggestion when commander computed one', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.unknownCommand',
+        message: "error: unknown command 'buidl'\n(Did you mean build?)"
+      },
+      'buidl'
+    )
+
+    expect(lines[0]).toBe('⏵⏵⏵ Unknown command buidl.')
+    expect(lines[1]).toBe('Did you mean build?')
+  })
+
+  it('renders a missing option value by the flag it names', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.optionMissingArgument',
+        message: "error: option '--browser <browser>' argument missing"
+      },
+      'dev'
+    )
+
+    expect(lines[0]).toBe('⏵⏵⏵ Missing value for --browser.')
+    expect(lines[1]).toBe('Run extension dev --help to see the options.')
+  })
+
+  it('falls back to the sentence-cased commander message', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.missingArgument',
+        message: "error: missing required argument 'pathOrRemoteUrl'"
+      },
+      'create'
+    )
+
+    expect(lines[0]).toBe("⏵⏵⏵ Missing required argument 'pathOrRemoteUrl'.")
+    expect(lines[1]).toBe('Run extension create --help to see the options.')
   })
 })
 
