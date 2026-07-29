@@ -198,7 +198,9 @@ export async function setupCdpAfterLaunch(
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => cdpExtensionController.getInfoBestEffort(),
         browserVersionLine: plugin.browserVersionLine,
-        profilePath: userDataDir || undefined
+        profilePath: userDataDir || undefined,
+        binaryPath: plugin.binaryPath,
+        binaryProvenance: plugin.binaryProvenance
       })
     }
     return
@@ -217,7 +219,9 @@ export async function setupCdpAfterLaunch(
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => null,
         browserVersionLine: plugin.browserVersionLine,
-        profilePath: userDataDir || undefined
+        profilePath: userDataDir || undefined,
+        binaryPath: plugin.binaryPath,
+        binaryProvenance: plugin.binaryProvenance
       })
     } catch {
       // best-effort only
@@ -232,7 +236,9 @@ export async function setupCdpAfterLaunch(
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => cdpExtensionController.getInfoBestEffort(),
         browserVersionLine: plugin.browserVersionLine,
-        profilePath: userDataDir || undefined
+        profilePath: userDataDir || undefined,
+        binaryPath: plugin.binaryPath,
+        binaryProvenance: plugin.binaryProvenance
       })
     } catch {
       // best-effort only
@@ -277,7 +283,9 @@ export async function setupCdpAfterLaunch(
           hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
           getInfo: async () => extensionControllerInfo,
           browserVersionLine: plugin.browserVersionLine,
-          profilePath: userDataDir || undefined
+          profilePath: userDataDir || undefined,
+          binaryPath: plugin.binaryPath,
+          binaryProvenance: plugin.binaryProvenance
         })
 
         if (!bannerPrinted) {
@@ -287,7 +295,9 @@ export async function setupCdpAfterLaunch(
             hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
             getInfo: async () => cdpExtensionController.getInfoBestEffort(),
             browserVersionLine: plugin.browserVersionLine,
-            profilePath: userDataDir || undefined
+            profilePath: userDataDir || undefined,
+            binaryPath: plugin.binaryPath,
+            binaryProvenance: plugin.binaryProvenance
           })
         }
       }
@@ -304,7 +314,9 @@ export async function setupCdpAfterLaunch(
         outPath: extensionOutputPath,
         browserVersionLine: plugin.browserVersionLine,
         runtime,
-        profilePath: userDataDir || undefined
+        profilePath: userDataDir || undefined,
+        binaryPath: plugin.binaryPath,
+        binaryProvenance: plugin.binaryProvenance
       })
     }
   } catch (bannerErr) {
@@ -321,7 +333,9 @@ export async function setupCdpAfterLaunch(
           browser: plugin.browser,
           outPath: extensionOutputPath,
           browserVersionLine: plugin.browserVersionLine,
-          profilePath: userDataDir || undefined
+          profilePath: userDataDir || undefined,
+          binaryPath: plugin.binaryPath,
+          binaryProvenance: plugin.binaryProvenance
         })
       }
     } catch {

@@ -9,7 +9,6 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import colors from 'pintor'
 import {
   browserRowValue,
   card,
@@ -23,6 +22,7 @@ import * as messages from './messages'
 type Info = {extensionId?: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
 type ReadyLike = {runId?: unknown; pid?: unknown} | null
+type BinaryProvenance = 'managed' | 'pinned' | 'system' | 'snapshot'
 
 const printedKeys = new Set<string>()
 
@@ -199,6 +199,8 @@ export async function printDevBannerOnce(opts: {
   fallback?: {name?: string; version?: string; extensionId?: string}
   browserVersionLine?: string
   profilePath?: string
+  binaryPath?: string
+  binaryProvenance?: BinaryProvenance
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
@@ -266,7 +268,11 @@ export async function printDevBannerOnce(opts: {
       message,
       opts.browserVersionLine,
       updateSuffix || undefined,
-      {profilePath: opts.profilePath}
+      {
+        profilePath: opts.profilePath,
+        binaryPath: opts.binaryPath,
+        binaryProvenance: opts.binaryProvenance
+      }
     )
   )
   console.log(messages.emptyLine())
@@ -283,6 +289,8 @@ export async function printProdBannerOnce(opts: {
   readyPath?: string
   includeRunId?: boolean
   profilePath?: string
+  binaryPath?: string
+  binaryProvenance?: BinaryProvenance
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
@@ -347,7 +355,9 @@ export async function printProdBannerOnce(opts: {
           {
             includeExtensionId: opts.includeExtensionId,
             runLabel,
-            profilePath: opts.profilePath
+            profilePath: opts.profilePath,
+            binaryPath: opts.binaryPath,
+            binaryProvenance: opts.binaryProvenance
           }
         )
       )
@@ -375,7 +385,9 @@ export async function printProdBannerOnce(opts: {
           {
             includeExtensionId: opts.includeExtensionId,
             runLabel,
-            profilePath: opts.profilePath
+            profilePath: opts.profilePath,
+            binaryPath: opts.binaryPath,
+            binaryProvenance: opts.binaryProvenance
           }
         )
       )
@@ -384,13 +396,28 @@ export async function printProdBannerOnce(opts: {
   } catch {
     // Fallback: still print a minimal card from information already available;
     // don't consume the suffix, leave it for a better-informed later attempt.
+    const provenanceNote = messages.binaryProvenanceNote(opts.binaryProvenance)
     console.log(messages.emptyLine())
     console.log(
       card({
         rows: [
-          {label: 'Browser', value: browserLabel},
+          {
+            label: 'Browser',
+            value: provenanceNote
+              ? `${browserLabel} ${provenanceNote}`
+              : browserLabel
+          },
+          {
+            label: 'Binary',
+            value: provenanceNote
+              ? messages.collapseHomeDirInCardValue(opts.binaryPath || '')
+              : ''
+          },
           {label: 'Output', value: opts.outPath},
-          {label: 'Profile', value: opts.profilePath || ''}
+          {
+            label: 'Profile',
+            value: messages.collapseHomeDirInCardValue(opts.profilePath || '')
+          }
         ]
       })
     )

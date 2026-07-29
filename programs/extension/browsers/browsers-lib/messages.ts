@@ -261,20 +261,6 @@ export function usingManagedChromiumFamilyFallback(
   )
 }
 
-// One always-on line naming the exact binary a dev session runs. A silently
-// selected cached snapshot must never be invisible in dev output.
-export function resolvedBrowserBinary(
-  browser: Browser,
-  binaryPath: string,
-  versionLine?: string
-) {
-  const version =
-    versionLine && versionLine.trim().length > 0
-      ? versionLine.trim()
-      : capitalizedBrowserName(browser)
-  return `${getLoggingPrefix('info')} Browser: ${version} ${colors.gray('at')} ${colors.underline(binaryPath)}.`
-}
-
 export function preferringSystemBrowserOverSnapshot(
   systemBinary: string,
   snapshotBinary: string
@@ -943,13 +929,42 @@ export interface DevClientMessage {
   data?: {id?: string; management?: DevClientManagementInfo}
 }
 
+// Card values collapse the home dir for scanability. Evidence and debug lines
+// never do, so a pasted path stays valid.
+export function collapseHomeDirInCardValue(value: string): string {
+  const raw = String(value || '')
+  const home = os.homedir()
+  if (!home || !raw.startsWith(home)) return raw
+  const rest = raw.slice(home.length)
+  if (rest === '') return '~'
+  if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
+  return raw
+}
+
+// The card names every non-default binary this session runs, so a silently
+// selected snapshot or system fallback is never invisible in dev output.
+export function binaryProvenanceNote(
+  provenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+): string {
+  if (provenance === 'pinned') return '(pinned with --chromium-binary)'
+  if (provenance === 'system') return '(system, not the managed default)'
+  if (provenance === 'snapshot') return '(cached snapshot)'
+  return ''
+}
+
 export function runningInDevelopment(
   manifest: DevManifestInfo,
   browser: BrowserType,
   message: DevClientMessage,
   browserVersionLine?: string,
   updateSuffix?: string,
-  opts?: {includeExtensionId?: boolean; runLabel?: string; profilePath?: string}
+  opts?: {
+    includeExtensionId?: boolean
+    runLabel?: string
+    profilePath?: string
+    binaryPath?: string
+    binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  }
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
@@ -1015,10 +1030,17 @@ export function runningInDevelopment(
       }
     })()
 
-  const browserLabel = browserRowValue(
+  const baseBrowserLabel = browserRowValue(
     String(browser || 'unknown'),
     resolveBrowserVersionLine(browser, browserVersionLine)
   )
+  const provenanceNote = binaryProvenanceNote(opts?.binaryProvenance)
+  const browserLabel = provenanceNote
+    ? `${baseBrowserLabel} ${provenanceNote}`
+    : baseBrowserLabel
+  const binaryRowValue = provenanceNote
+    ? collapseHomeDirInCardValue(String(opts?.binaryPath || '').trim())
+    : ''
 
   const cleanId = String(id || '').trim()
 
@@ -1035,6 +1057,7 @@ export function runningInDevelopment(
     suffix: updateNotice.trim(),
     rows: [
       {label: 'Browser', value: browserLabel},
+      {label: 'Binary', value: binaryRowValue},
       {
         label: 'Extension',
         value: displayVersion ? `${displayName} ${displayVersion}` : displayName
@@ -1043,7 +1066,10 @@ export function runningInDevelopment(
         label: 'Extension ID',
         value: includeExtensionId ? cleanId : ''
       },
-      {label: 'Profile', value: String(opts?.profilePath || '').trim()},
+      {
+        label: 'Profile',
+        value: collapseHomeDirInCardValue(String(opts?.profilePath || '').trim())
+      },
       {label: 'Run ID', value: opts?.runLabel || ''}
     ]
   })

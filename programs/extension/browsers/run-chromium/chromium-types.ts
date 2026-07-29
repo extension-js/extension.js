@@ -95,6 +95,10 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   bannerPrintedOnce?: boolean
   cdpController?: Controller
   browserVersionLine?: string
+  // The resolved binary and how it was chosen, rendered on the identity card
+  // so a non-default binary is never invisible in dev output.
+  binaryPath?: string
+  binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   // Set by the post-launch CDP flow when the browser answered that it refused
   // the guest, so the launch path can withhold the "ready" claim.
   extensionLoadRefused?: string

@@ -96,6 +96,8 @@ async function maybePrintLaunchBanner(args: {
   browser: ChromiumLaunchOptions['browser']
   hostPort: {host: string; port: number}
   browserVersionLine?: string
+  binaryPath?: string
+  binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   enableCdp: boolean
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
@@ -123,7 +125,9 @@ async function maybePrintLaunchBanner(args: {
       browser: args.browser,
       outPath: extensionOutputPath,
       browserVersionLine: args.browserVersionLine,
-      profilePath
+      profilePath,
+      binaryPath: args.binaryPath,
+      binaryProvenance: args.binaryProvenance
     })
     return
   }
@@ -140,7 +144,9 @@ async function maybePrintLaunchBanner(args: {
     hostPort: args.hostPort,
     getInfo: async () => null,
     browserVersionLine: args.browserVersionLine,
-    profilePath
+    profilePath,
+    binaryPath: args.binaryPath,
+    binaryProvenance: args.binaryProvenance
   })
 }
 
@@ -262,7 +268,7 @@ export class ChromiumLaunchPlugin {
           )
         }
       } catch (error) {
-        // Do not swallow: otherwise users can get stuck at "compiled successfully"
+        // Do not swallow: otherwise users can get stuck after the compile line
         // with no feedback when the browser fails to launch (common in WSL/CI).
         try {
           this.logger.error(
@@ -292,6 +298,8 @@ export class ChromiumLaunchPlugin {
 
     let browserBinaryLocation: string | null = null
     let printedGuidance = false
+    let binaryPinnedByFlag = false
+    let usedManagedSnapshot = false
     const normalizePath = (p: string | null): string | null => {
       if (!p) return null
       const normalized = normalizeBinaryPathForWsl(p)
@@ -405,6 +413,7 @@ export class ChromiumLaunchPlugin {
         )
         browserBinaryLocation = choice.binary
       } else if (choice.usedManagedSnapshot) {
+        usedManagedSnapshot = true
         // eslint-disable-next-line no-console
         console.log(messages.devChannelSnapshotInUse(browserBinaryLocation))
       }
@@ -566,6 +575,7 @@ export class ChromiumLaunchPlugin {
             process.exit(1)
           }
           browserBinaryLocation = normalized
+          binaryPinnedByFlag = true
         }
 
         if (!browserBinaryLocation && !skipDetection) {
@@ -659,6 +669,7 @@ export class ChromiumLaunchPlugin {
             process.exit(1)
           }
           browserBinaryLocation = normalized
+          binaryPinnedByFlag = true
         } else {
           console.error(messages.requireChromiumBinaryForChromiumBased())
           process.exit(1)
@@ -755,16 +766,14 @@ export class ChromiumLaunchPlugin {
       // ignore – banner will fall back to generic browser label
     }
 
-    // Always name the exact binary this session runs (one line). A silently
-    // preferred cached snapshot must be visible in dev output.
-    // eslint-disable-next-line no-console
-    console.log(
-      messages.resolvedBrowserBinary(
-        browser,
-        browserBinaryLocation,
-        browserVersionLine
-      )
-    )
+    // The identity card names the exact binary this session runs, so a
+    // silently preferred snapshot or system fallback stays visible there.
+    const binaryProvenance = utils.classifyBinaryProvenance({
+      binaryPath: browserBinaryLocation,
+      managedCacheRoot: String(managedCacheRoot || ''),
+      pinnedByFlag: binaryPinnedByFlag,
+      usedManagedSnapshot
+    })
 
     const extensionsToLoad = toExtensionLoadList(this.options.extension)
 
@@ -880,6 +889,8 @@ export class ChromiumLaunchPlugin {
         browser: this.options.browser,
         hostPort: {host: '127.0.0.1', port: selectedPort},
         browserVersionLine,
+        binaryPath: browserBinaryLocation,
+        binaryProvenance,
         enableCdp
       })
     } catch {
@@ -969,7 +980,9 @@ export class ChromiumLaunchPlugin {
         logSink: this.options.logSink,
         bannerPrintedOnce: false,
         cdpController: undefined,
-        browserVersionLine
+        browserVersionLine,
+        binaryPath: browserBinaryLocation,
+        binaryProvenance
       }
 
       // Optional CDP wiring (dev + inspection). Run-only preview disables this
