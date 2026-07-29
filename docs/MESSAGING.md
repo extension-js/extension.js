@@ -25,18 +25,169 @@ happened. The color carries the severity.
 only a violation at the head of a rendered line, so bundler output quoted inside a
 compilation error body can never trip it.
 
+## Voice
+
+Every line is one of two classes, and the class decides the mood.
+
+**Status lines** state what happens or happened. Present or past tense, never imperative:
+"Recompiling due to file changes…", "Extension ready for development." A status line written
+as a command reads like an order to the user, which is the defect class this split retired.
+
+**Instruction lines** are imperative remedies: "Install Chrome, or choose another browser
+with `--browser edge`." They appear in error and warning remedies, in help text, and in
+command descriptions. One action per sentence.
+
+The rest of the voice rules:
+
+- Second person, active voice. The subject is the thing that acts: "The dev server listens
+  on port 3001", not "Port 3001 will be used".
+- Say the result, not the mechanism. "Chrome could not load the extension", not "CDP attach
+  failed on target". Internals go to debug.
+- Sentence case everywhere. Proper nouns only (Chrome, Extension.js, Manifest V3).
+  Exceptions: card labels ("Extension ID") and uppercase evidence labels ("PATH", "REASON").
+- Tense by channel: progress is present tense with a single trailing `…` allowed. Success is
+  stative, marked by the green glyph, with no celebration words. Failure is a plain statement
+  followed by an imperative remedy.
+- Contractions preferred: "can't" over "cannot".
+- Prefer "choose" over "pick" or "select".
+- Sentences stay under 25 words, one instruction per sentence.
+
 ## Copy rules
 
-1. Imperative mood, present tense. "Start the dev server", not "Starts" or "Starting".
-2. One sentence per line, ending with a period. Continuation detail goes on its own line.
-3. Never name an internal step the user did not ask for. Writing a lockfile or scanning a
+1. One sentence per line, ending with a period, on every human channel. Debug key=value
+   lines never end with a period. Card rows and evidence rows are data, no periods.
+2. No em dashes, no semicolons, no exclamation marks in message prose.
+3. Forbidden words: "successfully" (the channel already signals success), "please", "oops"
+   and "sorry", and "Invalid" as a sentence opener. Say what would be valid, or open with
+   "Can't …" and put the offending value in an evidence row.
+4. Emoji are banned everywhere except the identity card's 🧩 head.
+5. Every value carries its noun: "port 8080", "Chrome 138.0.7204.49", "512 ms", "PID 41250".
+6. Never name an internal step the user did not ask for. Writing a lockfile or scanning a
    folder is debug, not info.
-4. An error states what stopped, then what to do. Never only the first.
-5. The brand is `Extension.js` in prose, always. The lowercase forms are for identifiers only:
-   cache directories, config paths, bundler tap names, resource queries.
-6. The artifact is an `Extension` on Chromium and Safari, an `Add-on` on Gecko. Edge ships
-   extensions through a store called Add-ons; the artifact is still an Extension.
-7. The ellipsis is `…` (U+2026), never three periods.
+7. The brand is `Extension.js` in prose, always. The lowercase forms are for identifiers
+   only: cache directories, config paths, bundler tap names, resource queries.
+8. The artifact is an `Extension` on Chromium and Safari, an `Add-on` on Gecko. Edge ships
+   extensions through a store called Add-ons, but the artifact is still an Extension.
+9. The ellipsis is `…` (U+2026), never three periods.
+
+## One fact once
+
+Every fact has exactly one home per tier:
+
+| Fact class | Home |
+| --- | --- |
+| Session identity (versions, browser, extension, ID, profile, binary, run) | the card, only |
+| Events (compiled, recompiling, exited, port fallback) | flow lines |
+| Diagnostics | debug channel, key=value |
+
+Consequences:
+
+- Flow lines never restate a fact the card already shows. The binary path lives in the card,
+  never in a pre-card flow line.
+- The ready line names no browser. The card's Browser row already did.
+- Paths appear in card rows and error evidence only. Card rows collapse the home directory
+  to `~` for scanability. Evidence and debug rows never collapse, because they must paste
+  back into a shell unchanged.
+- Versions appear in the card only, unless the version is the error cause.
+- Ports appear only when deviating from the default or when the user must connect.
+  Otherwise they are debug.
+
+## Tier ladder
+
+New messages declare their tier before their copy is written.
+
+- Tier 1, default: the card, one compile line per build, the ready line, warnings, and
+  errors. Nothing else.
+- Tier 2, debug (`--debug` or `EXTENSION_DEBUG=1`): `··· <area> key=value` lines in a
+  frozen grep-able format. Debug adds lines, it never rewrites tier 1.
+- Tier 3, machine: the JSON envelope, `ready.json`, and `events.ndjson`.
+
+## The boot sequence
+
+The contract for `extension dev` with the default managed browser:
+
+```
+⏵⏵⏵ [12:01:33] My Extension compiled in 512 ms.
+
+ 🧩 Extension.js 4.0.20
+    Browser        Chrome for Testing 138.0.7204.49
+    Extension      My Extension 1.0.0
+    Extension ID   pjkghmlbdmhkfellgkkcolmnlhwmubhe
+    Profile        ~/.extension-js/profiles/chrome
+    Run ID         f3a9 · PID 41250
+
+⏵⏵⏵ Extension ready for development. Watching for file changes.
+```
+
+A non-default binary (pinned, system fallback, or cached snapshot) grows the card by one
+row. No flow line is added:
+
+```
+ 🧩 Extension.js 4.0.20
+    Browser        Chromium 139.0.7259.2 (system, not the managed default)
+    Binary         /Applications/Chromium.app/Contents/MacOS/Chromium
+    ...
+```
+
+The encoded rules:
+
+- The order is compiled, then card, then ready, in both launch modes.
+- The compile line keeps its timestamp and never says "successfully". The marked variants
+  are the failures: "compiled with warnings in N ms.", "compiled with errors in N ms."
+- Exactly one blank line above and below the card. The card prints once per
+  (browser, dist) pair.
+- The ready line is green, uses `artifactNoun()`, names no browser, and states the watch
+  state.
+- The provenance parenthetical on the Browser row appears only on deviation.
+- Rebuilds reprint only the compile line.
+- `build` swaps the Profile and Run ID rows for an Output row and closes with
+  "Extension built for production in dist/chrome." A failed build closes with
+  "Build failed with N errors."
+- Timestamps appear only on recurring lines, which is the compile family.
+
+## Color and glyph
+
+One meaning per color, and meaning never lives only in color (`NO_COLOR` safe, pintor
+implements the full NO_COLOR, FORCE_COLOR, and TTY matrix).
+
+| Color | Meaning |
+| --- | --- |
+| red | failure |
+| yellow | warning |
+| green | success and ready |
+| gray | de-emphasis: timestamps, card values, evidence labels |
+| blue | typeable input: commands, flags, env vars |
+| brightBlue | the brand word in the card head, nothing else |
+| underline | a location: path or URL |
+| dim | the debug channel |
+
+Ports and durations are values, not input, so they are never blue. One glyph `⏵⏵⏵` on
+human channels, `···` dimmed for debug.
+
+## Error anatomy
+
+A failure has a fixed three-part shape:
+
+```
+⏵⏵⏵ Can't find the Chrome binary.
+NOT FOUND /Users/dev/.chromium/chrome
+Install Chrome, or choose another browser with --browser edge.
+```
+
+1. The label line: red glyph, one sentence, what did not happen. Never "Error:", never
+   `E_` codes (those live in the envelope).
+2. Evidence rows: uppercase gray label, underlined value, one fact per row. The approved
+   evidence labels are `PATH`, `REASON`, `NOT FOUND`, `USING`, `CACHED`, `EXPECTED`, `GOT`.
+3. The remedy, last: imperative, one action per sentence, typeable text in blue, at most
+   three alternatives as `- ` bullets. If the remedy is unknown, say what to report. Never
+   pad.
+
+Info lines that carry data reuse the same row grammar with the data-line label set: `URL`,
+`GOT`, `SOURCE`, `FLAGS`, `CONFIG`. A new label in either set gets added to this page on
+purpose, not invented inline.
+
+Warnings use the same shape in yellow, and a warning prints before the action it concerns.
+A warning with no evidence and no remedy is probably an info or debug line.
 
 ## Command descriptions
 
@@ -51,6 +202,9 @@ are imperative and end in `-s`, while a noun phrase like "Configuration of the d
 in neither `-s` nor `-ing` and is still wrong. The suffix heuristic runs against the verb list
 itself instead, so it can never block legitimate copy. It exists to stop one specific move:
 widening the list with `Creates` to make a failing description pass.
+
+Commander's own parse failures render through the error anatomy too, with suggestions as the
+remedy. The raw `error: unknown option` form never reaches the user.
 
 ## Debug output
 
@@ -68,26 +222,26 @@ Debug lines are greppable, not prose:
 ```
 
 The older `--author`, `--author-mode`, and `EXTENSION_AUTHOR_MODE` names still work as hidden
-aliases and accept any truthy value. They are deprecated; use `--debug`.
+aliases and accept any truthy value. They are deprecated, use `--debug` instead.
 
 ## The identity card
 
-A top-level command prints one card before its first work line:
+A top-level command prints one card, in the boot order above:
 
 ```
  🧩 Extension.js 4.0.16
     Browser        Chromium 141
     Extension      out-probe 1.0.0
     Extension ID   aicjcgkbnbnjnnckchpjcjjcdnpjjhga
-    Profile        /work/out-probe/dist/extension-js/profiles/chromium-profile
+    Profile        ~/.extension-js/profiles/chromium
     Run ID         ms250dnw-hkhe4xpd · PID 46476
 ```
 
-Rows are omitted when the value is unknown. There is no `n/a`. The launched
-browser's profile directory is session identity, so it renders as the
-`Profile` row on the paths that know it. A launch that cannot show the card,
-such as the deduped preview leg of `start`, keeps the standalone debug profile
-line instead.
+Rows are omitted when the value is unknown. There is no `n/a`. Row presence follows fact
+availability, not call site: `build` and the `--no-browser` modes show an Output row, a
+launch shows Profile and Run ID, a non-default binary adds a Binary row. A launch that
+cannot show the card, such as the deduped preview leg of `start`, keeps the standalone debug
+profile line instead.
 
 **The extension ID and the run ID are never abbreviated.** People paste the extension ID
 straight into `chrome://extensions`, and a truncated value sends them hunting for the rest.
@@ -136,6 +290,32 @@ may be added over time, but an existing code is never renamed or removed within 
 `--output json` is arriving command by command. The envelope shape above is the target for all
 of them, and new code follows it.
 
+## Frozen contracts
+
+These shapes are parsed by tools and tests. Copy inside them may change, the shapes may not.
+
+- The schema-1 envelope and its `CODES`. Copy inside `error.message` may change.
+- The `ready.json` and `events.ndjson` provenance fields.
+- The debug grep format: `···` glyph, 8-character area, key=value pairs.
+- Card parse stability: the `🧩 Extension.js` head, the 15-character label column, the
+  4-space row indent, empty rows omitted. Adding a row is shape-compatible. The column
+  width and the head must not move.
+- The four `messaging.ts` copies stay byte-identical (see below).
+- `pnpm check:prose` applies to all message strings.
+- The current channel-to-stream mapping (see deferred deviations).
+
+## Deferred deviations
+
+Known departures from the target, accepted on purpose. Do not fix them piecemeal.
+
+- Human output does not yet split across stdout and stderr by channel. The harnesses were
+  recently migrated onto the current mapping, so re-splitting is churn without payoff for
+  now. The mapping itself is frozen above.
+- The browser runner still writes through raw `console` calls: 113 call sites across 23
+  files bypass the develop `humanLine` sink. Unifying them is a seam behind one primitive
+  in the canonical `messaging.ts`, starting with the browsers-lib banner. Until then, new
+  code in that bundle uses the existing catalog functions, never a new raw `console` call.
+
 ## Where the copy lives
 
 Message strings live in a `messages.ts` beside the code that prints them. The shared primitives
@@ -160,11 +340,15 @@ then copy it over the others.
 ## Checking your work
 
 ```sh
-pnpm check:messaging   # prefixes, brand spelling, ellipsis, command voice
+pnpm check:messaging   # prefixes, brand, ellipsis, voice, forbidden words,
+                       # emoji, semicolons, brightBlue, glued periods
 pnpm check:prose       # no em dashes anywhere
 pnpm test:cli          # the command table, the help screen, and the JSON contract
+pnpm test:dev          # the boot transcripts, byte for byte
 ```
 
-`pnpm check:messaging` prints the offending `file:line`, the rule it broke, and the fix. It
-reads string literals rather than raw file text, so a spread, a regex, or an identifier can
-never trip a copy rule.
+`pnpm check:messaging` prints the offending `file:line`, the enclosing function, the rule it
+broke, and the fix. It reads string literals rather than raw file text, so a spread, a regex,
+or an identifier can never trip a copy rule. What a script cannot judge stays review
+discipline: the status against instruction voice split, one-fact-once, tier placement, and
+noun-with-value.
