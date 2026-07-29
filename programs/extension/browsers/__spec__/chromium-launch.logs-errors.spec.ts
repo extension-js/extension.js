@@ -47,7 +47,7 @@ describe('ChromiumLaunchPlugin', () => {
 
     expect(logger.error).toHaveBeenCalled()
     const msg = String((logger.error.mock.calls[0] || [])[0] || '')
-    expect(msg).toMatch(/Error launching/i)
+    expect(msg).toMatch(/Can't launch/i)
     expect(msg).toMatch(/boom/)
   })
 

@@ -213,7 +213,7 @@ export function firefoxRdpRuntimeCapabilitySummary(
 }
 
 export function skippingBrowserLaunchDueToCompileErrors() {
-  return `${getLoggingPrefix('warn')} Skip the browser launch due to compile errors.`
+  return `${getLoggingPrefix('warn')} Skipping the browser launch, the build has compile errors.`
 }
 
 export function browserNotInstalledError(
@@ -222,8 +222,8 @@ export function browserNotInstalledError(
 ) {
   const isUnreachable =
     browserBinaryLocation === 'null'
-      ? `Browser ${capitalizedBrowserName(browser)} is not installed.\n`
-      : `Can't find the path for browser ${capitalizedBrowserName(browser)}.\n`
+      ? `${capitalizedBrowserName(browser)} isn't installed.\n`
+      : `Can't find the ${capitalizedBrowserName(browser)} binary.\n`
 
   const wslHint = (() => {
     if (!isWsl()) return ''
@@ -231,18 +231,18 @@ export function browserNotInstalledError(
     // Also note: shell aliases do not apply to child_process.spawn.
     const example = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
     return (
-      `\n\n${getLoggingPrefix('info')} WSL detected\n` +
+      `\n\nWSL detected:\n` +
       `- Install a Linux browser in WSL, or\n` +
       `- Provide a Windows binary path via ${colors.blue('--chromium-binary')} ${colors.gray(`"${example}"`)}\n` +
-      `  (Tip: a shell alias like ${colors.gray('google-chrome=...')} won't be used by Extension.js; use a real path or wrapper script.)`
+      `  (Tip: a shell alias like ${colors.gray('google-chrome=...')} won't be used by Extension.js, use a real path or wrapper script.)`
     )
   })()
 
   return (
     `${getLoggingPrefix('error')} ${isUnreachable}` +
-    `Either install the missing browser or choose a different one via ` +
-    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.\n\n` +
-    `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || `${capitalizedBrowserName(browser)}BROWSER`)}` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(browserBinaryLocation || `${capitalizedBrowserName(browser)}BROWSER`)}\n` +
+    `Install the missing browser, or choose another one with ` +
+    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.` +
     wslHint
   )
 }
@@ -253,7 +253,7 @@ export function usingManagedChromiumFamilyFallback(
   binaryPath: string
 ) {
   return (
-    `${getLoggingPrefix('info')} ${managedBrowserDisplayName(requestedBrowser)} is not installed, ` +
+    `${getLoggingPrefix('info')} ${managedBrowserDisplayName(requestedBrowser)} isn't installed, ` +
     `so the managed ${managedBrowserDisplayName(fallbackBrowser)} runs instead.\n` +
     `${colors.gray('PATH')} ${colors.underline(binaryPath)}\n` +
     `Run ${colors.blue(`npx extension install ${requestedBrowser}`)} to use ` +
@@ -266,7 +266,7 @@ export function preferringSystemBrowserOverSnapshot(
   snapshotBinary: string
 ) {
   return (
-    `${getLoggingPrefix('info')} Use the installed browser instead of the cached Chromium snapshot (a dev-channel build).\n` +
+    `${getLoggingPrefix('info')} Using the installed browser instead of the cached Chromium snapshot (a dev-channel build).\n` +
     `${colors.gray('USING')} ${colors.underline(systemBinary)}\n` +
     `${colors.gray('CACHED')} ${colors.underline(snapshotBinary)}\n` +
     `Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached snapshot.`
@@ -277,7 +277,7 @@ export function mv2NotSupportedByChromium(extensionPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares Manifest V2, which modern Chromium refuses to load.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser will reject it at launch (a native dialog, not a console error), so the dev session cannot attach.\n` +
+    `The browser will reject it at launch (a native dialog, not a console error), so the dev session can't attach.\n` +
     `Run it on an MV2-capable browser (${colors.blue('--browser firefox')}) or migrate the manifest to MV3.`
   )
 }
@@ -288,7 +288,7 @@ export function mv3BackgroundScriptsNotSupportedByChromium(
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker, Chromium refuses to load it.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch with no console error, so the dev session cannot attach.\n` +
+    `The browser rejects it at launch with no console error, so the dev session can't attach.\n` +
     `Run it on the browser it targets (${colors.blue('--browser firefox')}) or declare ${colors.blue('background.service_worker')} for Chromium.`
   )
 }
@@ -304,7 +304,7 @@ export function unsupportedManifestVersionOnChromium(
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses as an unsupported manifest version.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch (a native dialog, not a console error), so the dev session cannot attach.\n` +
+    `The browser rejects it at launch (a native dialog, not a console error), so the dev session can't attach.\n` +
     `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
   )
 }
@@ -316,14 +316,14 @@ export function chromiumInvalidMatchPatterns(
   const shown = patterns.slice(0, 6)
   const more = patterns.length - shown.length
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares match patterns Chrome refuses, the whole extension will not load.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow("This extension declares match patterns Chrome refuses, the whole extension won't load.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     shown
       .map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`)
       .join('') +
     (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
     `A match pattern's host wildcard must be ${colors.blue('*')} or ${colors.blue('*.domain.tld')}, ` +
-    `a wildcard anywhere else in the host is invalid.\n` +
+    `Chrome refuses a wildcard anywhere else in the host.\n` +
     `Replace the host with ${colors.blue('*')} or ${colors.blue('*.domain.tld')} in the source manifest.`
   )
 }
@@ -333,7 +333,7 @@ export function chromiumManifestLoadBlockers(
   blockers: string[]
 ) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This manifest declares shapes Chrome refuses, the whole extension will not load.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow("This manifest declares shapes Chrome refuses, the whole extension won't load.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     blockers
       .map((blocker) => `${colors.gray('REASON')} ${colors.red(blocker)}\n`)
@@ -350,12 +350,12 @@ export function chromiumExtensionLoadRefused(
   reason: string
 ) {
   return (
-    `${getLoggingPrefix('error')} ${colors.red('The browser refused to load this extension, so it is NOT running.')}\n` +
+    `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this extension, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No service worker, content script, or page from this extension will run, and no Extension ID was assigned.\n` +
     `Fix the reason above and save.\n` +
-    `If the browser does not pick it up, restart the dev session.`
+    `If the browser doesn't pick it up, restart the dev session.`
   )
 }
 
@@ -364,11 +364,11 @@ export function chromiumExtensionLoadRefused(
 // claiming a session the browser may be running without the extension.
 export function chromiumExtensionLoadUnconfirmed(extensionPath: string) {
   return (
-    `${getLoggingPrefix('warn')} Extension.js could not confirm that the browser loaded this extension.\n` +
+    `${getLoggingPrefix('warn')} Extension.js couldn't confirm that the browser loaded this extension.\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     `This browser rejected the debugging call that loads and verifies it, so the extension may be missing.\n` +
     `Chrome ignores the --load-extension switch unless the DisableLoadExtensionCommandLineSwitch policy is disabled.\n` +
-    `Open chrome://extensions to check whether the extension is there, and report this if it is not.`
+    `Open chrome://extensions to check whether the extension is there, and report this if it isn't.`
   )
 }
 
@@ -376,12 +376,12 @@ export function chromiumExtensionLoadUnconfirmed(extensionPath: string) {
 // reason at install time, so the shape is the same and only the nouns differ.
 export function geckoAddonLoadRefused(addonPath: string, reason: string) {
   return (
-    `${getLoggingPrefix('error')} ${colors.red('The browser refused to load this add-on, so it is NOT running.')}\n` +
+    `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this add-on, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No background script, content script, or page from this add-on will run, and no Extension ID was assigned.\n` +
     `Fix the reason above and save.\n` +
-    `If the browser does not pick it up, restart the dev session.`
+    `If the browser doesn't pick it up, restart the dev session.`
   )
 }
 
@@ -396,7 +396,7 @@ export function devChannelSnapshotInUse(binaryPath: string) {
 
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Error launching ${capitalizedBrowserName(browser)}:\n` +
+    `${getLoggingPrefix('error')} Can't launch ${capitalizedBrowserName(browser)}.\n` +
     `${colors.red(errorDetail(error))}`
   )
 }
@@ -411,8 +411,8 @@ export function enhancedProcessManagementTerminating(browser: Browser) {
 
 export function enhancedProcessManagementForceKill(browser: Browser) {
   return (
-    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} did not exit gracefully, forcing the process to close.\n` +
-    `This is a normal cleanup step and does not affect your build output.`
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} didn't exit gracefully, forcing the process to close.\n` +
+    `This is a normal cleanup step and doesn't affect your build output.`
   )
 }
 
@@ -421,7 +421,7 @@ export function enhancedProcessManagementCleanupError(
   error: unknown
 ) {
   return (
-    `${getLoggingPrefix('error')} Error during ${capitalizedBrowserName(browser)} cleanup:\n` +
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} cleanup failed.\n` +
     `${colors.red(errorDetail(error))}`
   )
 }
@@ -431,7 +431,7 @@ export function enhancedProcessManagementUncaughtException(
   error: unknown
 ) {
   return (
-    `${getLoggingPrefix('error')} Uncaught exception in ${capitalizedBrowserName(browser)} process:\n` +
+    `${getLoggingPrefix('error')} Uncaught exception in the ${capitalizedBrowserName(browser)} process.\n` +
     `${colors.red(errorDetail(error))}`
   )
 }
@@ -441,14 +441,14 @@ export function enhancedProcessManagementUnhandledRejection(
   reason: unknown
 ) {
   return (
-    `${getLoggingPrefix('error')} Unhandled rejection in ${capitalizedBrowserName(browser)} process:\n` +
+    `${getLoggingPrefix('error')} Unhandled rejection in the ${capitalizedBrowserName(browser)} process.\n` +
     `${colors.red(errorDetail(reason))}`
   )
 }
 
 export function generalBrowserError(browser: Browser, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} General error in ${capitalizedBrowserName(browser)}:\n` +
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} hit an unexpected error.\n` +
     `${colors.red(errorDetail(error))}`
   )
 }
@@ -456,7 +456,7 @@ export function generalBrowserError(browser: Browser, error: unknown) {
 export function errorConnectingToBrowser(browser: Browser, port?: number) {
   const where = typeof port === 'number' ? ` on port ${port}` : ''
   return (
-    `${getLoggingPrefix('error')} Unable to connect to ${capitalizedBrowserName(browser)}${where} after several retries.\n` +
+    `${getLoggingPrefix('error')} Can't connect to ${capitalizedBrowserName(browser)}${where} after several retries.\n` +
     `Another browser instance is usually still holding that debugging port, often one left over from an earlier dev session.\n` +
     `Close ${capitalizedBrowserName(browser)} windows opened by Extension.js and run the command again, or pass ${colors.blue('--profile')} ${colors.gray('<path>')} to launch against a separate profile.`
   )
@@ -468,12 +468,12 @@ export function waitingForBrowserDebugger(
   attempt: number,
   maxRetries: number
 ) {
-  return `${getLoggingPrefix('info')} Wait for the ${capitalizedBrowserName(browser)} debugger server on port ${port} (attempt ${attempt}/${maxRetries}).`
+  return `${getLoggingPrefix('debug')} browser  debugger=wait target=${browser} port=${port} attempt=${attempt}/${maxRetries}`
 }
 
 export function addonInstallError(browser: Browser, message: string) {
   return (
-    `${getLoggingPrefix('error')} Can't install add-on into ${capitalizedBrowserName(browser)}:\n` +
+    `${getLoggingPrefix('error')} Can't install the add-on into ${capitalizedBrowserName(browser)}.\n` +
     `${colors.red(message)}`
   )
 }
@@ -489,7 +489,7 @@ export function messagingClientClosedError(browser: Browser) {
 export function connectionClosedError(browser: Browser) {
   return (
     `${getLoggingPrefix('error')} The debugging connection to ${capitalizedBrowserName(browser)} closed unexpectedly.\n` +
-    `Reload and HMR need that connection, so the dev session cannot keep the extension up to date.\n` +
+    `Reload and HMR need that connection, so the dev session can't keep the extension up to date.\n` +
     `Restart the dev session.\n` +
     `If it keeps happening, launch with ${colors.blue('--profile')} ${colors.gray('<path>')} to rule out a corrupted browser profile.`
   )
@@ -504,7 +504,7 @@ export function targetActorHasActiveRequestError(
 
 export function parsingPacketError(browser: Browser, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Failed to parse packet from ${capitalizedBrowserName(browser)}:\n` +
+    `${getLoggingPrefix('error')} Can't parse a message from ${capitalizedBrowserName(browser)}.\n` +
     `${colors.red(errorDetail(error))}`
   )
 }
@@ -518,7 +518,7 @@ export function messageWithoutSenderError(
   }
 ) {
   return (
-    `${getLoggingPrefix('error')} Message without sender from ${capitalizedBrowserName(browser)}:\n` +
+    `${getLoggingPrefix('error')} Received a message without a sender from ${capitalizedBrowserName(browser)}.\n` +
     `${colors.red(JSON.stringify(message))}`
   )
 }
@@ -528,11 +528,11 @@ export function chromeProcessExited(code: number) {
 }
 
 export function chromeProcessError(error: unknown) {
-  return `${getLoggingPrefix('error')} Chrome process error:\n${colors.red(errorDetail(error))}`
+  return `${getLoggingPrefix('error')} The Chrome process reported an error.\n${colors.red(errorDetail(error))}`
 }
 
 export function chromeFailedToSpawn(error: unknown) {
-  return `${getLoggingPrefix('error')} Failed to spawn Chrome:\n${colors.red(errorDetail(error))}`
+  return `${getLoggingPrefix('error')} Can't start the Chrome process.\n${colors.red(errorDetail(error))}`
 }
 
 export function chromeInitializingEnhancedReload() {
@@ -544,19 +544,19 @@ export function locatingBrowser(browser: Browser) {
 }
 
 export function devChromeProfilePath(path: string) {
-  return `${getLoggingPrefix('info')} Chrome profile: ${colors.underline(path)}`
+  return `${getLoggingPrefix('debug')} browser  profile=chrome path=${path}`
 }
 
 export function chromiumDryRunNotLaunching() {
-  return `${getLoggingPrefix('info')} Dry run: skip the browser launch.`
+  return `${getLoggingPrefix('info')} Dry run: skipping the browser launch.`
 }
 
 export function chromiumDryRunBinary(path: string) {
-  return `${getLoggingPrefix('info')} Binary: ${colors.underline(path)}.`
+  return `${getLoggingPrefix('info')} ${colors.gray('PATH')} ${colors.underline(path)}`
 }
 
 export function chromiumDryRunFlags(flags: string) {
-  return `${getLoggingPrefix('info')} Flags: ${colors.gray(flags)}.`
+  return `${getLoggingPrefix('info')} ${colors.gray('FLAGS')} ${colors.gray(flags)}`
 }
 
 export function prettyPuppeteerInstallGuidance(
@@ -586,9 +586,9 @@ export function prettyPuppeteerInstallGuidance(
   const installCommand = preferredManagedInstallCommand(browserNorm)
   const browserDisplay = managedBrowserDisplayName(browserNorm)
 
-  body.push(`${getLoggingPrefix('warn')} Browser setup required`)
-  body.push('')
-  body.push(`${browserDisplay} is not available in the managed browser cache.`)
+  body.push(
+    `${getLoggingPrefix('warn')} ${browserDisplay} isn't available in the managed browser cache.`
+  )
   body.push('')
   body.push(
     colors.gray(`Install ${browserDisplay} into the managed browser cache:`)
@@ -611,9 +611,9 @@ export function prettyPuppeteerInstallGuidance(
   }
   if (finalCachePath) {
     body.push('')
-    body.push(`${dim('INSTALL PATH')} ${colors.underline(finalCachePath)}`)
+    body.push(`${dim('PATH')} ${colors.underline(finalCachePath)}`)
   }
-  body.push(`${dim('NEXT')} Re-run your command after the install finishes.`)
+  body.push(`Run your command again after the install finishes.`)
   return `${body.join('\n')}\n`
 }
 
@@ -630,19 +630,19 @@ export function firefoxNoBinaryArgsFound() {
 }
 
 export function firefoxFailedToStart(error: unknown) {
-  return `${getLoggingPrefix('error')} Firefox failed to start:\n${colors.red(errorDetail(error))}`
+  return `${getLoggingPrefix('error')} Firefox failed to start.\n${colors.red(errorDetail(error))}`
 }
 
 export function firefoxDryRunNotLaunching() {
-  return `${getLoggingPrefix('info')} Dry run: skip the browser launch.`
+  return `${getLoggingPrefix('info')} Dry run: skipping the browser launch.`
 }
 
 export function firefoxDryRunBinary(path: string) {
-  return `${getLoggingPrefix('info')} Binary (detected): ${colors.underline(path)}.`
+  return `${getLoggingPrefix('info')} ${colors.gray('PATH')} ${colors.underline(path)}`
 }
 
 export function firefoxDryRunConfig(cfg: string) {
-  return `${getLoggingPrefix('info')} Config: ${colors.gray(cfg)}.`
+  return `${getLoggingPrefix('info')} ${colors.gray('CONFIG')} ${colors.gray(cfg)}`
 }
 
 export function safariBuildCalled() {
@@ -668,7 +668,7 @@ export function safariPackagingSkippedNonMac(platform: string) {
   return (
     `${getLoggingPrefix('warn')} Safari packaging needs macOS with Xcode, detected ` +
     `${colors.gray(prettyPlatform(platform))}, so the Xcode packaging step is skipped.\n` +
-    `The web-extension build in ${colors.yellow('dist/safari')} is still complete and can be ` +
+    `The web-extension build in ${colors.underline('dist/safari')} is still complete and can be ` +
     `packaged later on a Mac with ${colors.blue('extension build --browser=safari')}.`
   )
 }
@@ -693,30 +693,40 @@ export function safariXcodeRequired(developerDir: string | null) {
 
 export function safariToolchainMissing(tool: string) {
   return (
-    `${getLoggingPrefix('error')} Safari packaging tool not found: ${colors.underline(tool)}\n` +
+    `${getLoggingPrefix('error')} Can't find the Safari packaging tool.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(tool)}\n` +
     `Your Xcode install looks incomplete.\n` +
-    `Try ${colors.blue('xcodebuild -runFirstLaunch')}, or reinstall Xcode from the Mac App Store.`
+    `Run ${colors.blue('xcodebuild -runFirstLaunch')}, or reinstall Xcode from the Mac App Store.`
   )
 }
 
 export function safariConverting(extensionDir: string) {
-  return `${getLoggingPrefix('info')} Convert the web extension into a Safari app project from ${colors.underline(extensionDir)}.`
+  return (
+    `${getLoggingPrefix('info')} Converting the web extension into a Safari app project…\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionDir)}`
+  )
 }
 
 export function safariConverted(projectDir: string) {
-  return `${getLoggingPrefix('success')} Generated the Safari Xcode project at ${colors.underline(projectDir)}.`
+  return (
+    `${getLoggingPrefix('success')} Generated the Safari Xcode project.\n` +
+    `${colors.gray('PATH')} ${colors.underline(projectDir)}`
+  )
 }
 
 export function safariBuilding(scheme: string) {
-  return `${getLoggingPrefix('info')} Build the Safari app with xcodebuild (scheme: ${colors.gray(scheme)}).`
+  return `${getLoggingPrefix('info')} Building the Safari app with xcodebuild (scheme ${colors.gray(scheme)})…`
 }
 
 export function safariBuilt(appPath: string) {
-  return `${getLoggingPrefix('success')} Built the Safari app at ${colors.underline(appPath)}.`
+  return (
+    `${getLoggingPrefix('success')} Built the Safari app.\n` +
+    `${colors.gray('PATH')} ${colors.underline(appPath)}`
+  )
 }
 
 export function safariOpening(target: string) {
-  return `${getLoggingPrefix('info')} Open ${colors.underline(target)}.`
+  return `${getLoggingPrefix('info')} Opening ${colors.underline(target)}`
 }
 
 export function safariToolFailed(
@@ -737,7 +747,7 @@ export function safariToolFailed(
 export function safariConverterWarnings(warnings: string[]) {
   return (
     `${getLoggingPrefix('warn')} safari-web-extension-converter reported ` +
-    `${colors.yellow(String(warnings.length))} warning(s), some manifest keys/APIs ` +
+    `${colors.yellow(String(warnings.length))} ${warnings.length === 1 ? 'warning' : 'warnings'}, some manifest keys/APIs ` +
     `may not be supported by Safari:\n` +
     warnings.map((line) => `  ${colors.gray('•')} ${line}`).join('\n')
   )
@@ -745,7 +755,7 @@ export function safariConverterWarnings(warnings: string[]) {
 
 export function safariDefaultBundleIdNote(bundleId: string) {
   return (
-    `${getLoggingPrefix('info')} Use the generated bundle id ${colors.gray(bundleId)}.\n` +
+    `${getLoggingPrefix('info')} Using the generated bundle id ${colors.gray(bundleId)}.\n` +
     `For an app you plan to distribute, set your own with ${colors.blue('--bundle-id')} now.\n` +
     `Changing it later makes Safari treat the extension as a new identity.`
   )
@@ -755,7 +765,7 @@ export function safariOpenHint(appPath: string, appName: string) {
   return (
     `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +
     `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n` +
-    `Then enable ${colors.brightBlue(appName)} via Safari ▸ Develop ▸ ` +
+    `Then enable ${colors.yellow(appName)} via Safari ▸ Develop ▸ ` +
     `${colors.yellow('Allow Unsigned Extensions')} and Safari ▸ Settings ▸ Extensions.`
   )
 }
@@ -774,7 +784,7 @@ export function safariDryRunXcodebuild(cmd: string) {
 
 export function safariNextSteps(appName: string) {
   return (
-    `${getLoggingPrefix('info')} One-time setup to load ${colors.brightBlue(appName)} in Safari:\n` +
+    `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
     `  ${colors.gray('1.')} Safari ▸ Settings ▸ Advanced ▸ check ${colors.yellow('“Show features for web developers”')}\n` +
     `  ${colors.gray('2.')} Safari ▸ Develop ▸ ${colors.yellow('Allow Unsigned Extensions')} ${colors.gray('(resets each launch)')}\n` +
     `  ${colors.gray('3.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n` +
@@ -783,26 +793,26 @@ export function safariNextSteps(appName: string) {
 }
 
 export function safariRegistered(appName: string) {
-  return `${getLoggingPrefix('success')} Safari recognizes ${colors.brightBlue(appName)}, finish enabling it with the steps above.`
+  return `${getLoggingPrefix('success')} Safari recognizes ${colors.yellow(appName)}, finish enabling it with the steps above.`
 }
 
 export function safariNotYetRegistered(appName: string) {
   return (
-    `${getLoggingPrefix('warn')} Safari hasn't picked up ${colors.brightBlue(appName)} yet.\n` +
+    `${getLoggingPrefix('warn')} Safari hasn't picked up ${colors.yellow(appName)} yet.\n` +
     `Open the app once, then check Safari ▸ Settings ▸ Extensions.`
   )
 }
 
 export function safariRebuilt(appName: string) {
-  return `${getLoggingPrefix('success')} Rebuilt ${colors.brightBlue(appName)}, reload the page (or toggle the extension) in Safari to see changes.`
+  return `${getLoggingPrefix('success')} Rebuilt ${colors.yellow(appName)}, reload the page (or toggle the extension) in Safari to see changes.`
 }
 
 export function safariProjectStale() {
-  return `${getLoggingPrefix('info')} Regenerate the Xcode project, manifest.json or identity options changed since it was generated.`
+  return `${getLoggingPrefix('info')} Regenerating the Xcode project, manifest.json or identity options changed since it was generated.`
 }
 
 export function safariForcedRegeneration() {
-  return `${getLoggingPrefix('info')} Regenerate the Xcode project, --force-regenerate is set.`
+  return `${getLoggingPrefix('info')} Regenerating the Xcode project, ${colors.blue('--force-regenerate')} is set.`
 }
 
 export function safariRegenerationDiscards(preservedKeys: string[]) {
@@ -822,7 +832,7 @@ export function safariSettingsPreserved(keys: string[]) {
 }
 
 export function safariSkippingConversion() {
-  return `${getLoggingPrefix('info')} Skip the conversion, the Xcode project is up to date with manifest.json.`
+  return `${getLoggingPrefix('info')} Skipping the conversion, the Xcode project is up to date with manifest.json.`
 }
 
 export function cdpClientFoundTargets(count: number) {
@@ -838,7 +848,7 @@ export function cdpClientConnected(host: string, port: number) {
 }
 
 export function cdpClientConnectionError(error: string) {
-  return `${getLoggingPrefix('error')} Chrome CDP Client connection error: ${colors.red(error)}`
+  return `${getLoggingPrefix('error')} The Chrome debugging connection failed.\n${colors.red(error)}`
 }
 
 export function cdpClientBrowserConnectionEstablished() {
@@ -857,18 +867,22 @@ export function cdpClientExtensionUnloadFailed(
   extensionId: string,
   error: string
 ) {
-  return `${getLoggingPrefix('error')} Chrome CDP Client: Failed to unload extension ${colors.gray(extensionId)}: ${colors.red(error)}`
+  return `${getLoggingPrefix('error')} Chrome couldn't unload extension ${colors.gray(extensionId)}.\n${colors.red(error)}`
 }
 
 export function cdpClientExtensionInfoFailed(
   extensionId: string,
   error: string
 ) {
-  return `${getLoggingPrefix('error')} Chrome CDP Client: Failed to get extension info for ${colors.gray(extensionId)}: ${colors.red(error)}`
+  return `${getLoggingPrefix('error')} Chrome couldn't read extension info for ${colors.gray(extensionId)}.\n${colors.red(error)}`
 }
 
 export function cdpClientExtensionLoadFailed(path: string, error: string) {
-  return `${getLoggingPrefix('error')} Chrome CDP Client: Failed to load extension from ${colors.underline(path)}: ${colors.red(error)}`
+  return (
+    `${getLoggingPrefix('error')} Chrome couldn't load the extension.\n` +
+    `${colors.gray('PATH')} ${colors.underline(path)}\n` +
+    `${colors.red(error)}`
+  )
 }
 
 export function firefoxRdpClientConnected(host: string, port: number) {
@@ -881,7 +895,7 @@ export function firefoxRdpClientTestingEvaluation() {
 
 export function firefoxRdpClientFailedToGetMainHTML() {
   return (
-    `${getLoggingPrefix('error')} Could not read the page document over the Firefox remote debugging protocol.\n` +
+    `${getLoggingPrefix('error')} Couldn't read the page document over the Firefox remote debugging protocol.\n` +
     `The tab usually navigated or closed before the request finished.\n` +
     `Reload the page and try again.\n` +
     `If it persists, restart the dev session.`
@@ -987,15 +1001,14 @@ export function runningInDevelopment(
 
   if (!message.data) {
     return (
-      `${getLoggingPrefix('error')} No Client Data Received for ${manifestName}\n\n` +
-      `${colors.red("This error happens when the program can't get the data from your extension.")}\n` +
-      `${colors.red('There are many reasons this might happen.')}\n` +
+      `${getLoggingPrefix('error')} No client data received for ${manifestName}.\n\n` +
+      `${colors.red("Extension.js can't read data from your extension.")}\n` +
       `${colors.red('To fix, ensure that:')}\n\n` +
-      `- Your extension is set as enabled in ${colors.underline(browserDevToolsUrl)}\n` +
+      `- Your extension is enabled in ${colors.underline(browserDevToolsUrl)}\n` +
       `- No previous ${capitalize(browser)} browser instance is open\n\n` +
-      `If that is not the case, restart both the ${colors.yellow(manifest.name || '')} and the\n` +
+      `If both hold, restart the ${colors.yellow(manifest.name || '')} and the\n` +
       `${colors.yellow('Manager Extension')} in ${colors.underline(browserDevToolsUrl)} and try again.\n` +
-      `If the issue still persists, please report a bug:\n` +
+      `If the issue persists, report a bug:\n` +
       colors.underline(`https://github.com/extension-js/extension.js/issues`)
     )
   }
@@ -1009,7 +1022,7 @@ export function runningInDevelopment(
     if (isDebug()) {
       return (
         `${getLoggingPrefix('error')} No management API info received from the client for ${manifestName}.\n` +
-        `The extension may not have finished loading, or the in-browser companion did not attach.`
+        `The extension may not have finished loading, or the in-browser companion didn't attach.`
       )
     }
   }
@@ -1085,15 +1098,15 @@ export function separatorLine() {
 }
 
 export function devChromiumDebugPort(finalPort: number, requestedPort: number) {
-  return `${getLoggingPrefix('info')} Chromium debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+  return `${getLoggingPrefix('debug')} browser  cdpPort=${finalPort} requested=${requestedPort}`
 }
 
 export function devFirefoxDebugPort(finalPort: number, requestedPort: number) {
-  return `${getLoggingPrefix('info')} Firefox debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+  return `${getLoggingPrefix('debug')} browser  rdpPort=${finalPort} requested=${requestedPort}`
 }
 
 export function devFirefoxProfilePath(profilePath: string) {
-  return `${getLoggingPrefix('info')} Firefox profile: ${colors.underline(profilePath)}`
+  return `${getLoggingPrefix('debug')} browser  profile=firefox path=${profilePath}`
 }
 
 export function cdpUnifiedExtensionLog(ts: string, payload: unknown) {
@@ -1108,40 +1121,40 @@ export function cdpUnifiedExtensionLog(ts: string, payload: unknown) {
 }
 
 export function firefoxInspectSourceNonFatal(message: string) {
-  return `${getLoggingPrefix('warn')} Firefox Inspect non-fatal error: ${colors.yellow(message)}`
+  return `${getLoggingPrefix('warn')} Firefox inspect hit a non-fatal error.\n${colors.yellow(message)}`
 }
 
 export function browserRunnerError(body: string) {
-  return `${getLoggingPrefix('error')} ${colors.brightBlue('Browser runner error')}\n${body}`
+  return `${getLoggingPrefix('error')} ${body}`
 }
 
 export function requireChromiumBinaryForChromiumBased() {
   const body =
-    `Configuration required\n` +
-    `Provide ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} when using ${colors.yellow('chromium-based')}.\n`
+    `The ${colors.yellow('chromium-based')} target needs a Chromium binary.\n` +
+    `Pass ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} to choose one.\n`
   return browserRunnerError(body)
 }
 
 export function requireGeckoBinaryForGeckoBased() {
   const body =
-    `Configuration required\n` +
-    `Provide ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} when using ${colors.yellow('gecko-based')} or ${colors.yellow('firefox-based')}.\n`
+    `The ${colors.yellow('gecko-based')} and ${colors.yellow('firefox-based')} targets need a Firefox or Gecko binary.\n` +
+    `Pass ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} to choose one.\n`
   return browserRunnerError(body)
 }
 
 export function invalidChromiumBinaryPath(p: string) {
   const body =
-    `Invalid binary path\n` +
-    `Chromium binary not found at ${colors.underline(p)}.\n` +
-    `Provide a working path via ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')}.`
+    `Can't find a Chromium binary at the given path.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
+    `Pass ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} with a working path.`
   return browserRunnerError(body)
 }
 
 export function invalidGeckoBinaryPath(p: string) {
   const body =
-    `Invalid binary path\n` +
-    `Firefox/Gecko binary not found at ${colors.underline(p)}.\n` +
-    `Provide a working path via ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')}.`
+    `Can't find a Firefox or Gecko binary at the given path.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
+    `Pass ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} with a working path.`
   return browserRunnerError(body)
 }
 

@@ -290,7 +290,8 @@ describe('run-safari messages', () => {
 
   it('reports a broken Xcode install when a tool is absent', () => {
     const msg = messages.safariToolchainMissing('xcodebuild')
-    expect(msg).toMatch(/tool not found/)
+    expect(msg).toMatch(/Can't find the Safari packaging tool\./)
+    expect(msg).toMatch(/NOT FOUND/)
     expect(msg).toMatch(/xcodebuild/)
   })
 

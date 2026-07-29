@@ -125,7 +125,7 @@ export class RemoteFirefox {
           lastError = error
           // ECONNREFUSED is the expected "server not up yet" case, but a silent
           // loop hides a dead port; name the port periodically so it's diagnosable.
-          if (attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
+          if (isDebug() && attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
             console.log(
               messages.waitingForBrowserDebugger(
                 this.options.browser,

@@ -250,7 +250,7 @@ describe('setupCdpAfterLaunch', () => {
       const output = logSpy.mock.calls
         .map((call) => String(call[0] || ''))
         .join('\n')
-      expect(output).toContain('Chrome profile:')
+      expect(output).toContain('profile=chrome')
       expect(output).toContain('/tmp/extension-profile')
     } finally {
       logSpy.mockRestore()
@@ -287,7 +287,7 @@ describe('setupCdpAfterLaunch', () => {
       const output = logSpy.mock.calls
         .map((call) => String(call[0] || ''))
         .join('\n')
-      expect(output).not.toContain('Chrome profile:')
+      expect(output).not.toContain('profile=chrome')
 
       const devCalls = vi.mocked(banner.printDevBannerOnce).mock.calls
       expect(devCalls.length).toBeGreaterThan(0)
