@@ -76,18 +76,25 @@ function listExampleDirs() {
 // Parse a captured build output and extract perf-warning facts.
 // The plugin-perf-budgets PerfBudgetWarning is the authoritative signal,
 // rspack's stock single-threshold warning is disabled in rspack-config.ts,
-// so the only "Build succeeded with N warning(s)" line that should fire
-// for size-related issues comes from us.
+// so the only classified warning block that should fire for size-related
+// issues comes from us. The legacy "Build succeeded with N warning(s)"
+// pattern is kept so archived transcripts still parse.
 function parseBuildOutput(text, receiptOk) {
-  const hadBuildWarnLine = /Build succeeded with \d+ warning\(s\)/i.test(text)
+  const hadBuildWarnLine =
+    /Build succeeded with \d+ warning\(s\)/i.test(text) ||
+    /compiled with warnings in \d+ ms/i.test(text)
   const hadAssetWarn =
     /exceed the extension performance budget/i.test(text) ||
     /asset size limit exceeded/i.test(text) || // legacy rspack pattern, kept for future-proofing
     /asset(s)? exceed the recommended size limit/i.test(text)
   const hadRecommendationWarn = /Rspack performance recommendations/i.test(text)
   // A fresh build receipt (ready.json, command=build) is the primary success
-  // signal; the pretty compile line is free copy and is not matched.
-  const ok = receiptOk || /Build succeeded/i.test(text)
+  // signal; the closer line is the human fallback for both the current and
+  // the pre-collapse grammar.
+  const ok =
+    receiptOk ||
+    /built for production/i.test(text) ||
+    /Build succeeded/i.test(text)
 
   // Extract per-asset entries from the structured PerfBudgetWarning block:
   //

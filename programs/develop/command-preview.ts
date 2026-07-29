@@ -153,8 +153,7 @@ export async function extensionPreview(
       })
     )
     console.log(devServerMessages.spacerLine())
-    console.log(runningMessage(browser))
-    console.log(messages.previewSkippedNoBrowser(browser))
+    console.log(runningMessage(browser, true))
     metadata.writeReady()
     return
   }

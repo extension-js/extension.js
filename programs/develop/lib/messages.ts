@@ -6,13 +6,11 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import {artifactNoun, type Channel, fmt, prefix} from './messaging'
-import {stripBom} from './parse-json-safe'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -120,16 +118,17 @@ export function building(browser: DevOptions['browser']): string {
   )
 }
 
-export function previewing(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix('info')} Preview the extension on ${capitalizedBrowserName(browser)}.`
+export function previewing(
+  browser: DevOptions['browser'],
+  noBrowser?: boolean
+) {
+  const suffix = noBrowser ? ' (no-browser mode)' : ''
+  return `${getLoggingPrefix('info')} Previewing on ${capitalizedBrowserName(browser)}${suffix}.`
 }
 
-export function starting(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix('info')} Start the extension on ${capitalizedBrowserName(browser)}.`
-}
-
-export function previewSkippedNoBrowser(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix('info')} Skip the browser launch for ${capitalizedBrowserName(browser)} (no-browser).`
+export function starting(browser: DevOptions['browser'], noBrowser?: boolean) {
+  const suffix = noBrowser ? ' (no-browser mode)' : ''
+  return `${getLoggingPrefix('info')} Starting on ${capitalizedBrowserName(browser)}${suffix}.`
 }
 
 // The browser accepted a dist it had refused, so the guest is running now.
@@ -181,67 +180,35 @@ export function projectInstallScriptsDisabled(pmName: string) {
   )
 }
 
-export function buildWebpack(
-  projectDir: string,
-  stats: Stats | undefined,
-  browser: DevOptions['browser']
-): string {
+export function buildAssetsTree(stats: Stats | undefined): string {
   const statsJson = stats?.toJson?.({
     all: false,
-    assets: true,
-    timings: true
+    assets: true
   })
-  const outputPath =
-    typeof stats?.compilation?.outputOptions?.path === 'string'
-      ? stats.compilation.outputOptions.path
-      : ''
-  // Failed builds may not emit manifest.json; fall back to the project manifest
-  // so this summary never throws inside the compiler.run callback.
-  const distManifestPath = outputPath
-    ? path.join(outputPath, 'manifest.json')
-    : ''
-  const manifestPath =
-    distManifestPath && fs.existsSync(distManifestPath)
-      ? distManifestPath
-      : path.join(projectDir, 'manifest.json')
-  let manifest: Record<string, string> = {}
-  try {
-    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
-  } catch {
-    manifest = {name: path.basename(projectDir), version: ''}
-  }
   const assets: StatsAsset[] = statsJson?.assets || []
-  const heading = `${getLoggingPrefix('info')} Build ${colors.blue(
-    manifest.name
-  )} with the ${capitalizedBrowserName(browser)} defaults.\n`
-  const buildTime = `\nBuild completed in ${(
-    (statsJson?.time || 0) / 1000
-  ).toFixed(2)} seconds.\n`
-  const buildTarget = `Build Target: ${colors.gray(capitalizedBrowserName(browser))}\n`
-  const buildStatus = `Build Status: ${
-    stats?.hasErrors?.() ? colors.red('Failed') : colors.green('Success')
-  }\n`
-  const version = `\nVersion: ${colors.gray(manifest.version)}\n`
-  const size = `Size: ${colors.gray(getAssetsSize(assets))}\n`
-
-  let output = ''
-  output += heading
-  output += getAssetsTree(assets)
-  output += version
-  output += size
-  output += buildTarget
-  output += buildStatus
-  output += buildTime
-
-  return output
+  return getAssetsTree(assets)
 }
 
-export function buildSuccess() {
-  return `${getLoggingPrefix(
-    'success'
-  )} Build succeeded with no warnings.\nYour extension is ${colors.green(
-    'ready for deployment'
-  )}.`
+export function buildComplete(
+  browser: DevOptions['browser'],
+  distDisplayPath: string,
+  totalBytes?: number
+) {
+  const noun = artifactNoun(String(browser))
+  const size =
+    typeof totalBytes === 'number' && totalBytes > 0
+      ? ` (${getHumanSize(totalBytes)})`
+      : ''
+  return (
+    `${getLoggingPrefix('success')} ${noun} built for production in ` +
+    `${colors.underline(distDisplayPath)}${size}.`
+  )
+}
+
+export function buildFailed(errorCount: number) {
+  const count = Math.max(1, Math.floor(errorCount || 1))
+  const noun = count === 1 ? 'error' : 'errors'
+  return `${getLoggingPrefix('error')} Build failed with ${count} ${noun}.`
 }
 
 type BuildWarningCategory =
@@ -396,14 +363,6 @@ function suggestedHintForWarning(category: BuildWarningCategory): string {
   return 'Re-run with EXTENSION_VERBOSE=1 to inspect full warning details.'
 }
 
-export function buildSuccessWithWarnings(warningCount: number) {
-  return `${getLoggingPrefix(
-    'warn'
-  )} Build succeeded with ${warningCount} warning(s).\nYour extension is ${colors.green(
-    'ready for deployment'
-  )}.`
-}
-
 export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
   if (!Array.isArray(warnings) || warnings.length === 0) return ''
 
@@ -485,14 +444,10 @@ export function packagingSourceFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=source gitignore=excluded path=${zipPath}`
 }
 
-export function zipArtifactReady(
-  browser: DevOptions['browser'],
-  zipPath: string,
-  sizeInBytes: number
-) {
+export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   return (
-    `${prefix('info')} zip      browser=${String(browser)} ` +
-    `path=${zipPath} (${getFileSize(sizeInBytes)})`
+    `${getLoggingPrefix('success')} Packaged ${colors.underline(zipPath)} ` +
+    `(${getHumanSize(sizeInBytes)}).`
   )
 }
 
@@ -622,13 +577,11 @@ function getFileSize(fileSizeInBytes: number): string {
   return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
 }
 
-function getAssetsSize(assets: {size: number}[] | undefined) {
-  let totalSize = 0
-  assets?.forEach((asset) => {
-    totalSize += asset?.size || 0
-  })
-
-  return getFileSize(totalSize)
+function getHumanSize(sizeInBytes: number): string {
+  const bytes = Math.max(0, sizeInBytes || 0)
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 interface AssetTreeNode {
@@ -681,6 +634,8 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
       }
     })
   })
+
+  if (Object.keys(assetTree).length === 0) return ''
 
   return `.\n${printTree(assetTree)}`
 }
@@ -818,10 +773,10 @@ export function buildCommandFailed(error: unknown) {
     if (error instanceof Error && error.message) return error.message
     return String(error || 'Unknown error')
   })()
-  return (
-    `${getLoggingPrefix('error')} Build failed.\n` +
-    `${colors.red(fmt.truncate(message, 1200))}`
-  )
+  // A message carrying its own error glyph is already a rendered block, so a
+  // second "Build failed." headline on top of it would double the label line.
+  if (message.includes(getLoggingPrefix('error'))) return message
+  return `${getLoggingPrefix('error')} ${colors.red(fmt.truncate(message, 1200))}`
 }
 
 export function devCommandFailed(error: unknown) {

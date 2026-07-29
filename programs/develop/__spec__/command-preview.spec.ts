@@ -154,8 +154,8 @@ describe('webpack/command-preview (run-only)', () => {
     const printed = localLog.mock.calls
       .map((c: any[]) => String(c[0]))
       .join('\n')
-    expect(printed).toContain('Preview the extension on Chrome.')
-    expect(printed).not.toContain('Start the extension on')
+    expect(printed).toContain('Previewing on Chrome.')
+    expect(printed).not.toContain('Starting on')
   })
 
   it('describes itself as start when invoked by start', async () => {
@@ -175,8 +175,8 @@ describe('webpack/command-preview (run-only)', () => {
     const printed = localLog.mock.calls
       .map((c: any[]) => String(c[0]))
       .join('\n')
-    expect(printed).toContain('Start the extension on Chrome.')
-    expect(printed).not.toContain('Preview the extension on')
+    expect(printed).toContain('Starting on Chrome.')
+    expect(printed).not.toContain('Previewing on')
   })
 
   it('uses dist/<browser> when dist manifest exists', async () => {
@@ -240,6 +240,8 @@ describe('webpack/command-preview (run-only)', () => {
       .join('\n')
     expect(output).toContain('Run ID')
     expect(output).toContain('preview-run')
+    expect(output).toContain('Previewing on Chrome (no-browser mode).')
+    expect(output).not.toContain('Skip the browser launch')
     consoleSpy.mockRestore()
   })
 
