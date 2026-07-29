@@ -164,6 +164,19 @@ export function projectInstallScriptsDisabled(pmName: string) {
   )
 }
 
+export function anotherDevSessionActive(
+  browser: string,
+  pid: number,
+  runId: string
+) {
+  const run = runId ? `, run ${runId}` : ''
+  return (
+    `${getLoggingPrefix('warn')} Another dev session is already writing dist/${browser} (PID ${pid}${run}).\n` +
+    `Both sessions rebuild the same output, so the last compile wins.\n` +
+    `Stop the other session, or pass ${fmt.code('--instance-id')} to run them side by side.`
+  )
+}
+
 export function buildAssetsTree(stats: Stats | undefined): string {
   const statsJson = stats?.toJson?.({
     all: false,

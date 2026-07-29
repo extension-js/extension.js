@@ -12,6 +12,8 @@ import {
   type ManagedExtensionRecord,
   managedExtensionRecords
 } from '../lib/extension-id'
+import * as messages from '../lib/messages'
+import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {
@@ -47,6 +49,7 @@ export type ReadyMetadata = {
   code?: string
   message?: string
   instanceId?: string
+  instanceExplicit?: boolean
   controlPort?: number | null
   controlPath?: string
   logsPath?: string
@@ -96,6 +99,7 @@ type WriterOptions = {
   port?: number | string | null
   host?: string
   instanceId?: string
+  instanceExplicit?: boolean
   controlPort?: number | string | null
   controlPath?: string
   logsPath?: string
@@ -112,6 +116,7 @@ type PluginOptions = {
   host?: string
   command?: PlaywrightAutomationCommand
   instanceId?: string
+  instanceExplicit?: boolean
   controlPort?: number | string | null
   controlPath?: string
   logsPath?: string
@@ -203,6 +208,61 @@ function writeJsonAtomic(filePath: string, value: unknown) {
   }
 }
 
+export interface LiveDevSessionOwner {
+  pid: number
+  runId: string
+  instanceId?: string
+  instanceExplicit?: boolean
+}
+
+export function detectLiveDevSessionOwner(
+  readyPath: string,
+  isAlive: (pid: number) => boolean = (pid) => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+): LiveDevSessionOwner | null {
+  try {
+    if (!fs.existsSync(readyPath)) return null
+    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (prev?.command !== 'dev') return null
+    if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
+    if (prev.status !== 'ready' && prev.status !== 'starting') return null
+    if (!isAlive(prev.pid)) return null
+    return {
+      pid: prev.pid as number,
+      runId: typeof prev.runId === 'string' ? prev.runId : '',
+      instanceId:
+        typeof prev.instanceId === 'string' ? prev.instanceId : undefined,
+      instanceExplicit: prev.instanceExplicit === true
+    }
+  } catch {
+    return null
+  }
+}
+
+// Every session gets an auto instance id, so id inequality means nothing.
+// Silence needs both sides to have ASKED for distinct instances.
+export function shouldWarnDevOverDev(
+  owner: LiveDevSessionOwner,
+  my: {instanceId?: string; instanceExplicit?: boolean}
+): boolean {
+  if (
+    owner.instanceExplicit &&
+    my.instanceExplicit &&
+    owner.instanceId &&
+    my.instanceId &&
+    owner.instanceId !== my.instanceId
+  ) {
+    return false
+  }
+  return true
+}
+
 export function getPlaywrightMetadataDir(
   packageJsonDir: string,
   browser: string
@@ -231,22 +291,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     return null
   }
 
+  const liveOwner = detectLiveDevSessionOwner(readyPath)
+
   // A second command against a project owned by a LIVE dev session must never
   // rewrite that session's contracts; detect the owner once and no-op writes.
-  const foreignLiveDevSession = (() => {
-    if (options.command === 'dev') return null
-    try {
-      if (!fs.existsSync(readyPath)) return null
-      const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-      if (prev?.command !== 'dev') return null
-      if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
-      if (prev.status !== 'ready' && prev.status !== 'starting') return null
-      process.kill(prev.pid, 0) // throws when the pid is gone
-      return {pid: prev.pid as number}
-    } catch {
-      return null
-    }
-  })()
+  const foreignLiveDevSession =
+    options.command !== 'dev' && liveOwner ? liveOwner : null
   if (foreignLiveDevSession) {
     console.warn(
       `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
@@ -254,6 +304,25 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         `session's ready.json/events.ndjson. The output dir is shared, so ` +
         `the dev browser may pick up freshly ${options.command}-built files. ` +
         `Stop the dev session first for a clean ${options.command} receipt.`
+    )
+  }
+
+  // A second dev session over the same target keeps going (distinct
+  // --instance-id runs are a supported flow) but never silently.
+  if (
+    options.command === 'dev' &&
+    liveOwner &&
+    shouldWarnDevOverDev(liveOwner, {
+      instanceId: options.instanceId,
+      instanceExplicit: options.instanceExplicit
+    })
+  ) {
+    humanWarn(
+      messages.anotherDevSessionActive(
+        options.browser,
+        liveOwner.pid,
+        liveOwner.runId
+      )
     )
   }
 
@@ -280,6 +349,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     port: toPort(options.port),
     host: options.host,
     instanceId: options.instanceId,
+    ...(options.instanceExplicit ? {instanceExplicit: true} : {}),
     controlPort: toPort(options.controlPort),
     controlPath: options.controlPath,
     logsPath: options.logsPath,
@@ -478,6 +548,7 @@ export class PlaywrightPlugin {
       port: options.port,
       host: options.host,
       instanceId: options.instanceId,
+      instanceExplicit: options.instanceExplicit,
       controlPort: options.controlPort,
       controlPath: options.controlPath,
       logsPath: options.logsPath,

@@ -17,6 +17,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "spacerLine: function(0)",
   ],
   "lib/messages.ts": [
+    "anotherDevSessionActive: function(3)",
     "authorInstallNotice: function(1)",
     "browserLaunchFailed: function(2)",
     "buildAssetsTree: function(1)",
