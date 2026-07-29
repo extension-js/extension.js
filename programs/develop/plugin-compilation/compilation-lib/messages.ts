@@ -26,14 +26,14 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
     : hasWarnings
       ? prefix('warn')
       : prefix('info')
-  const label = hasErrors
-    ? colors.red('with errors')
+  const status = hasErrors
+    ? `compiled ${colors.red('with errors')}`
     : hasWarnings
-      ? colors.yellow('with warnings')
-      : colors.green('successfully')
+      ? `compiled ${colors.yellow('with warnings')}`
+      : 'compiled'
   const app = manifestName
   const time = `${durationMs} ms`
-  return `${arrow} ${timestamp} ${app} compiled ${label} in ${time}.`
+  return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
