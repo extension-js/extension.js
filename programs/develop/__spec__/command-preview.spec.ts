@@ -241,7 +241,7 @@ describe('webpack/command-preview (run-only)', () => {
     expect(output).toContain('Run ID')
     expect(output).toContain('preview-run')
     expect(output).toContain('Previewing on Chrome (no-browser mode).')
-    expect(output).not.toContain('Skip the browser launch')
+    expect(output).not.toContain('Skipping the browser launch')
     consoleSpy.mockRestore()
   })
 

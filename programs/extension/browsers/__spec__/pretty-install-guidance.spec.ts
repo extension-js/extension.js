@@ -38,13 +38,16 @@ describe('prettyPuppeteerInstallGuidance', () => {
     )
 
     expect(msg).toContain('pnpm extension install chrome')
-    expect(msg).toContain('Browser setup required')
+    expect(msg).toContain(
+      "Chrome for Testing isn't available in the managed browser cache."
+    )
     expect(msg).toContain(
       'Install Chrome for Testing into the managed browser cache:'
     )
     expect(msg).toContain('  pnpm extension install chrome')
-    expect(msg).toContain('Chrome for Testing is not available')
-    expect(msg).toContain('INSTALL PATH')
+    expect(msg).toContain("Chrome for Testing isn't available")
+    expect(msg).toContain('PATH')
+    expect(msg).toContain('Run your command again after the install finishes.')
   })
 
   it('recommends Chrome for Testing as the stable alternative for chromium', () => {
@@ -60,7 +63,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
       '/tmp/extension.js/browsers'
     )
 
-    expect(msg).toContain('Chromium is not available')
+    expect(msg).toContain("Chromium isn't available")
     expect(msg).toContain('npx extension install chromium')
     expect(msg).toContain(
       'Or install Chrome for Testing (stable channel), chromium targets use it automatically:'

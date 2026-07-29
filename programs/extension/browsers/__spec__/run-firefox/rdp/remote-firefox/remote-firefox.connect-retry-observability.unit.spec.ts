@@ -64,22 +64,51 @@ describe('RemoteFirefox connect retry observability', () => {
     }
   })
 
-  it('logs periodic progress naming the port while ECONNREFUSED retries run', async () => {
-    const RemoteFirefox = await importRemoteFirefox(25)
-    const rf: any = new RemoteFirefox({
-      extension: 'dist/firefox',
-      browser: 'firefox'
-    } as any)
+  it('logs periodic debug progress naming the port while ECONNREFUSED retries run', async () => {
+    const previousDebug = process.env.EXTENSION_DEBUG
+    process.env.EXTENSION_DEBUG = '1'
+    try {
+      const RemoteFirefox = await importRemoteFirefox(25)
+      const rf: any = new RemoteFirefox({
+        extension: 'dist/firefox',
+        browser: 'firefox'
+      } as any)
 
-    await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
+      await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
 
-    const progressLines = (console.log as any).mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .filter((line: string) => line.includes('debugger server'))
-    expect(progressLines).toHaveLength(2)
-    expect(progressLines[0]).toContain('port 9330')
-    expect(progressLines[0]).toContain('(attempt 10/25)')
-    expect(progressLines[1]).toContain('(attempt 20/25)')
+      const progressLines = (console.log as any).mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .filter((line: string) => line.includes('debugger=wait'))
+      expect(progressLines).toHaveLength(2)
+      expect(progressLines[0]).toContain('port=9330')
+      expect(progressLines[0]).toContain('attempt=10/25')
+      expect(progressLines[1]).toContain('attempt=20/25')
+    } finally {
+      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
+      else process.env.EXTENSION_DEBUG = previousDebug
+    }
+  })
+
+  it('keeps the retry counter off the default verbosity tier', async () => {
+    const previousDebug = process.env.EXTENSION_DEBUG
+    delete process.env.EXTENSION_DEBUG
+    try {
+      const RemoteFirefox = await importRemoteFirefox(25)
+      const rf: any = new RemoteFirefox({
+        extension: 'dist/firefox',
+        browser: 'firefox'
+      } as any)
+
+      await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
+
+      const progressLines = (console.log as any).mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .filter((line: string) => line.includes('debugger=wait'))
+      expect(progressLines).toHaveLength(0)
+    } finally {
+      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
+      else process.env.EXTENSION_DEBUG = previousDebug
+    }
   })
 
   it('names the port in the final give-up error', async () => {
