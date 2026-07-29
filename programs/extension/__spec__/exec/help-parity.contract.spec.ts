@@ -60,8 +60,8 @@ function buildProgramForInspection() {
 function extractAvailableCommandsFromTopHelp(help: string): string[] {
   const clean = stripAnsi(help)
   const section = clean
-    .split('Available Commands')[1]
-    ?.split('Common Options')[0]
+    .split('Available commands')[1]
+    ?.split('Common options')[0]
     ?.trim()
 
   if (!section) return []
@@ -197,7 +197,7 @@ describe('CLI help parity contract', () => {
     expect(out).toContain(
       'Development tips for extension developers and AI assistants'
     )
-    expect(out).toContain('Managed Dependencies (Important)')
+    expect(out).toContain('Managed dependencies (important)')
   })
 
   it('contract #5: command --help output contains declared options', () => {

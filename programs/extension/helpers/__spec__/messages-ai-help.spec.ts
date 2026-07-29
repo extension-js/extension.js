@@ -6,9 +6,9 @@ import {
 } from '../messages'
 
 describe('programAIHelp', () => {
-  it('includes Managed Dependencies guidance', () => {
+  it('includes managed dependencies guidance', () => {
     const help = programAIHelp()
-    expect(help).toMatch(/Managed Dependencies \(Important\)/)
+    expect(help).toMatch(/Managed dependencies \(important\)/)
     expect(help).toMatch(/do not add/i)
     expect(help).toMatch(/print an error and abort/i)
   })

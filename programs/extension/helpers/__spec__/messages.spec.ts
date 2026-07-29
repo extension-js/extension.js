@@ -36,7 +36,7 @@ describe('messages helpers', () => {
   it('prints not implemented error with command name', () => {
     const msg = notImplemented('foo')
     expect(msg).toMatch(/foo/)
-    expect(msg).toMatch(/is not implemented yet\./)
+    expect(msg).toMatch(/isn't implemented yet\./)
     expect(msg).toMatch(/extension --help/)
   })
 
@@ -49,11 +49,11 @@ describe('messages helpers', () => {
   it('program user help mentions key sections and commands', () => {
     const help = programUserHelp()
     expect(help).toMatch(/Usage:/)
-    expect(help).toMatch(/Available Commands/)
+    expect(help).toMatch(/Available commands/)
     expect(help).toMatch(/extension create/)
     expect(help).toMatch(/extension dev/)
     expect(help).toMatch(/extension doctor/)
-    expect(help).toMatch(/Common Options/)
+    expect(help).toMatch(/Common options/)
   })
 
   it('prints the corrected argument signatures', () => {
