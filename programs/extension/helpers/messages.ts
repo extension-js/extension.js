@@ -165,7 +165,7 @@ const COMMAND_TABLE = [
     name: 'inspect',
     positionals: [{name: 'project-path', required: false}],
     description:
-      'Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)',
+      'Inspect a page or content DOM through the agent bridge (CDP-free, requires --allow-control)',
     supportsSourceInspection: true
   },
   {
@@ -308,10 +308,10 @@ export function checkUpdates(
 ) {
   const latest = String(update.latest)
   const releaseNotesUrl = `https://github.com/extension-js/extension.js/releases/tag/v${latest}`
-  const suffix = colors.gray(`(version ${latest} is available!)`)
+  const suffix = colors.gray(`(version ${latest} is available)`)
   const message =
-    `${getLoggingPrefix('info')} 🧩 An ${colors.blue('Extension.js')} update is available.\n\n` +
-    `You are on version ${colors.red(String(packageJson.version))}.\n` +
+    `${getLoggingPrefix('info')} An ${colors.blue('Extension.js')} update is available.\n\n` +
+    `You're on version ${colors.red(String(packageJson.version))}.\n` +
     `The latest stable is ${colors.green(latest)}.\n` +
     `See what's new: ${colors.underline(releaseNotesUrl)}\n` +
     `Update to the latest stable to get fixes and new features.`
@@ -321,7 +321,7 @@ export function checkUpdates(
 
 export function noURLWithoutStart(argument: string) {
   return (
-    `${getLoggingPrefix('error')} The default ${colors.gray('create')} command does not accept a URL.\n` +
+    `${getLoggingPrefix('error')} The default ${colors.gray('create')} command doesn't accept a URL.\n` +
     `Use ${colors.gray('start')} to run an extension from a URL:\n` +
     `${code(`npx extension@latest start ${arg(argument)}`)}`
   )
@@ -329,7 +329,7 @@ export function noURLWithoutStart(argument: string) {
 
 export function notImplemented(argument: string) {
   return (
-    `${getLoggingPrefix('error')} The ${arg(argument)} command is not implemented yet.\n` +
+    `${getLoggingPrefix('error')} The ${arg(argument)} command isn't implemented yet.\n` +
     `${colors.red('Run')} ${code('extension --help')} ${colors.red('to list the available commands.')}`
   )
 }
@@ -341,15 +341,15 @@ ${'Usage:'} extension [command] [options]
 
 ${'Notes'}
 - All high-level commands offer their own \`--help\` with usage and flag lists.
-- Telemetry is anonymous and privacy-safe by default; see ${code('docs/TELEMETRY.md')} for the full contract.
+- Telemetry is anonymous and privacy-safe by default, see ${code('docs/TELEMETRY.md')} for the full contract.
 
 ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
 
-${'Available Commands'}
+${'Available commands'}
 ${availableCommandsBlock()}
 
-${'Common Options'}
+${'Common options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
@@ -358,23 +358,23 @@ ${'Common Options'}
 - ${code('--output')} ${arg('<pretty|json>')}          Result format for ${code('--ai-help')} and machine-readable command results (default: pretty)
   ${code('--format')} and ${code('--wait-format')} still work as deprecated aliases of ${code('--output')}
 - ${code('--help')}                                    Show help output
-- ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080; use 0 for OS-assigned)
-- ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1; use 0.0.0.0 for Docker/devcontainers)
-- ${code('--public-host')} ${arg('<address>')}        Connectable host the browser dials for HMR + reload bridge when it differs from ${code('--host')} (remote/devcontainer; default: the bind host, or 127.0.0.1 when bound to 0.0.0.0)
+- ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080, use 0 for OS-assigned)
+- ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1, use 0.0.0.0 for Docker/devcontainers)
+- ${code('--public-host')} ${arg('<address>')}        Connectable host the browser dials for HMR + reload bridge when it differs from ${code('--host')} (remote/devcontainer, default: the bind host, or 127.0.0.1 when bound to 0.0.0.0)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
-${'Browser-Specific Options'}
+${'Browser-specific options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
 - ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
   Use ${code('flatpak:org.mozilla.firefox')} as the path to launch a Flatpak-installed Firefox
 
-${'Build Options'}
+${'Build options'}
 - ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension
 - ${code('--zip-source')} ${arg('[boolean]')}          Include source files in ZIP
 - ${code('--zip-filename')} ${arg('<name>')}           Custom ZIP filename
 
-${colors.underline('Centralized Logger (terminal output)')}
+${colors.underline('Centralized logger (terminal output)')}
 - The manager extension embeds a centralized logger that streams events to the CLI.
 - Enable and filter logs directly via ${code('extension dev')} flags:
   - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level (default: off)
@@ -389,17 +389,17 @@ ${colors.underline('Centralized Logger (terminal output)')}
 ${code('extension --help')}
 This command outputs a help file with key command options.
 
-${colors.underline('Path Resolution (important)')}
+${colors.underline('Path resolution (important)')}
 - Leading ${code('/')} in manifest/HTML means extension root (the directory containing ${code('manifest.json')}).
 - Relative paths resolve from the ${code('manifest.json')} directory.
 - Absolute OS paths are used as-is.
 
-${'AI Assistants'}
+${'AI assistants'}
 - For AI-oriented guidance and deeper tips, run ${code('extension --ai-help')}
 - For machine-readable AI guidance, run ${code('extension --ai-help --output json')}
 
  ${'Report issues'}
- - ${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}`
+ - ${colors.underline('https://github.com/extension-js/extension.js/issues/new')}`
 }
 
 export function unsupportedBrowserFlag(value: string, supported: string[]) {
@@ -419,7 +419,7 @@ export function safariOnlyOption(flags: string[]) {
 
 export function safariInvalidBundleId(bundleId: string) {
   return (
-    `${getLoggingPrefix('error')} Invalid bundle identifier: ${code(bundleId)}.\n` +
+    `${getLoggingPrefix('error')} Can't use ${code(bundleId)} as a bundle identifier.\n` +
     `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
     `each starting with a letter (e.g. ${code('com.example.my-extension')}).`
   )
@@ -440,30 +440,30 @@ export function safariCommandNotSupported(
 export function programAIHelp() {
   return `\n${getLoggingPrefix('info')} ${colors.gray('Development tips for extension developers and AI assistants')}
 
-${'Browser-Specific Configuration'}
+${'Browser-specific configuration'}
 - Use browser prefixes in manifest.json for browser-specific fields:
   ${code('{"firefox:manifest": 2, "chrome:manifest": 3}')}
   This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
 
-${'Centralized Logger (for AI & CI)'}
+${'Centralized logger (for AI & CI)'}
 - Logs from all contexts are centralized by the manager extension and streamed to the CLI.
 - Prefer these flags to control terminal logs during ${code('extension dev')}:
   - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level
   - ${code('--log-context')} ${arg('<list|all>')}                     Contexts to include
-  - ${code('--log-format')} ${arg('<pretty|json|ndjson>')}            Pretty for humans; JSON for machines/NDJSON pipelines
+  - ${code('--log-format')} ${arg('<pretty|json|ndjson>')}            Pretty for humans, JSON for machines/NDJSON pipelines
   - ${code('--no-log-timestamps')} ${arg(' ')}                        Disable timestamps (pretty)
   - ${code('--no-log-color')} ${arg(' ')}                             Disable ANSI colors (pretty)
   - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by URL
   - ${code('--log-tab')} ${arg('<id>')}                               Filter by tabId
 - Good CI pattern: ${code('EXTENSION_DEBUG=1 EXTENSION_AUTO_EXIT_MS=6000 extension dev ./ext --logs=info --log-format=json')}
 
-${'Special Folders for Entrypoints'}
+${'Special folders for entrypoints'}
 - Use special folders to handle entrypoints and assets not declared in manifest.json:
 - ${colors.underline(code('public/'))}  - Static assets automatically copied to build (resolves to output root)
 - ${colors.underline(code('pages/'))}   - HTML files not declared in manifest (e.g., welcome pages)
 - ${colors.underline(code('scripts/'))} - JavaScript files not declared in manifest (e.g., executable scripts)
 
-${'Predictable Output Paths'}
+${'Predictable output paths'}
 - Core HTML destinations are standardized across browsers so you can reference them safely in code/tests:
   - ${code('devtools_page')} → ${code('devtools/index.html')}
   - ${code('sidebar_action.default_panel')} (MV2) and ${code('side_panel.default_path')} (MV3) → ${code('sidebar/index.html')}
@@ -477,31 +477,31 @@ ${'Predictable Output Paths'}
   - ${code('user_scripts.api_script')} → ${code('user_scripts/api_script.js')}
   - ${code('icons/*')} → ${code('icons/')} (feature-specific icon folders preserved where applicable)
 
-${'Public & Special Folders (Output Behavior)'}
+${'Public & special folders (output behavior)'}
 - ${colors.underline(code('public/'))} is the web root in output. Authors can use ${code('/foo')}, ${code('/public/foo')}, ${code('public/foo')}, or ${code('./public/foo')} and they all emit as ${code('dist/<browser>/foo')}.
-- ${colors.underline(code('pages/'))} files emit as ${code('pages/<name>.html')}. Relative assets referenced inside page HTML are emitted under ${code('assets/')} preserving relative structure; public-root URLs are preserved.
+- ${colors.underline(code('pages/'))} files emit as ${code('pages/<name>.html')}. Relative assets referenced inside page HTML are emitted under ${code('assets/')} preserving relative structure, public-root URLs are preserved.
 - ${colors.underline(code('scripts/'))} files emit as ${code('scripts/<name>.js')} with extracted CSS when applicable.
 
-${'Shadow DOM for Content Scripts'}
+${'Shadow DOM for content scripts'}
 - Add ${code('use shadow-dom')} directive to content scripts for style isolation
 - Automatically creates ${code('#extension-root')} element with shadow DOM
 - All CSS imports are automatically injected into shadow DOM
 - Prevents style conflicts with host page
 
-${'Environment Variables'}
+${'Environment variables'}
 - Use ${code(arg('EXTENSION_PUBLIC_*'))} prefix for variables accessible in extension code
 - Supported in both ${code('process.env')} and ${code('import.meta.env')}
 - Environment file priority: ${colors.underline(code(arg('.env.{browser}.{mode}')))} > ${colors.underline(code(arg('.env.{browser}')))} > ${colors.underline(code(arg('.env.{mode}')))} > ${colors.underline(code(arg('.env')))}
 - Example: ${code(arg('EXTENSION_PUBLIC_API_KEY=your_key'))}
 
-${'Available Templates'}
+${'Available templates'}
 - ${colors.green('Frameworks')}: ${code(arg('react'))}, ${code(arg('preact'))}, ${code(arg('vue'))}, ${code(arg('svelte'))}
 - ${colors.green('Languages')}: ${code(arg('javascript'))}, ${code(arg('typescript'))}
 - ${colors.green('Contexts')}: ${code(arg('content'))} (content scripts), ${code(arg('new'))} (new tab), ${code(arg('action'))} (popup)
 - ${colors.green('Styling')}: ${code(arg('tailwind'))}, ${code(arg('sass'))}, ${code(arg('less'))}
 - ${colors.green('Configs')}: ${code(arg('eslint'))}, ${code(arg('prettier'))}, ${code(arg('stylelint'))}
 
-${'Webpack/Rspack Configuration'}
+${'Webpack/Rspack configuration'}
 - Create ${colors.underline(code(arg('extension.config.js')))} for custom webpack configuration
 - Function receives base config, return modified config
 - Supports all webpack/rspack loaders and plugins
@@ -513,14 +513,14 @@ ${'Webpack/Rspack Configuration'}
   ${code('  }')}
   ${code('}')}
 
-${'Managed Dependencies (Important)'}
+${'Managed dependencies (important)'}
 - ${colors.green('Do not add')} packages that ${colors.blue('Extension.js')} already ships in its own toolchain.
 - The guard only triggers when a managed package is declared in your ${code('package.json')} ${colors.gray('and')} is imported (as a module specifier) in your ${colors.underline(code('extension.config.js'))}.
 - In that case, the program will ${colors.red('print an error and abort')} to avoid version conflicts.
 - Remove the duplicate from your project ${code('package.json')} or avoid referencing it in ${colors.underline(code('extension.config.js'))} and rely on the built-in version instead.
 - If you truly need a different version, open an issue so we can evaluate a safe upgrade.
 
-${'Framework-Specific Configuration'}
+${'Framework-specific configuration'}
 - Create ${colors.underline(code(arg('vue.loader.js')))} for Vue-specific loader configuration
 - Create ${colors.underline(code(arg('svelte.loader.js')))} for Svelte-specific loader configuration
 - Automatically detected and used by Extension.js
@@ -534,26 +534,26 @@ ${'Framework-Specific Configuration'}
 ${'Hot Module Replacement (HMR)'}
 - Automatically enabled in development mode
 - CSS changes trigger automatic style updates
-- React components fast-refresh; Svelte components hot-update
+- React components fast-refresh, Svelte components hot-update
 - Preact and Vue rebuild with a live reload (component state resets)
 - Content scripts automatically re-inject on changes
 - Service workers, _locales and manifest changes reload the extension
 
-${'Non-Destructive Testing in CI'}
+${'Non-destructive testing in CI'}
 - Prefer ${code('EXTENSION_DEBUG=1')} to copy local templates and avoid network.
 - Reuse Playwright's Chromium via ${code('--chromium-binary')} path when available.
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} and ${code(arg('EXTENSION_FORCE_KILL_MS'))} for non-interactive dev sessions.
 
-${'File Watching & HMR Examples'}
-- Content script JS/TS changes trigger reinjection; CSS changes update styles live.
+${'File watching & HMR examples'}
+- Content script JS/TS changes trigger reinjection, CSS changes update styles live.
 - For watch-source HTML prints, update a visible string in ${code('content/scripts.*')} and assert it appears in stdout.
 
 ${'Troubleshooting'}
-- Use ${code('--silent true')} during builds to reduce noise; logs still surface errors.
+- Use ${code('--silent true')} during builds to reduce noise, logs still surface errors.
 - When ports conflict, pass ${code('--port 0')} to auto-select an available port.
 - In Docker/devcontainers, pass ${code('--host 0.0.0.0')} so the dev server is reachable from the host.
 
-${'Non-Interactive / Auto Mode (CI)'}
+${'Non-interactive / auto mode (CI)'}
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
   Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
   Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --starting-url ${arg('https://example.com')}
@@ -570,7 +570,7 @@ ${'Flatpak Firefox'}
 - Use ${code('--gecko-binary flatpak:org.mozilla.firefox')} (or ${code('--firefox-binary')}) to launch a Flatpak-installed Firefox.
 - Extension.js rewrites the binary path to ${code('flatpak run')} with the correct filesystem grants automatically.
 
-${'Cross-Browser Compatibility'}
+${'Cross-browser compatibility'}
 - Use ${code('--polyfill')} flag to enable webextension-polyfill
 - Automatically handles browser API differences
 - Supports Chrome, Edge, Firefox with single codebase`
@@ -697,7 +697,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         readyPath: 'dist/extension-js/<browser>/ready.json',
         eventsPath: 'dist/extension-js/<browser>/events.ndjson',
         waitFlag:
-          '--wait blocks until ready.json reports ready (or error) then exits; pair with --output json for machine output (--wait-format is a deprecated alias)',
+          '--wait blocks until ready.json reports ready (or error) then exits, pair with --output json for machine output (--wait-format is a deprecated alias)',
         statuses: ['starting', 'ready', 'error'],
         readyFields: [
           'status',
@@ -760,7 +760,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
 
 export function invalidAIHelpFormat(value: string) {
   return (
-    `${getLoggingPrefix('error')} Invalid value for ${code('--output')}: ${colors.red(String(value))}.\n` +
+    `${getLoggingPrefix('error')} Can't use ${colors.red(String(value))} as a value for ${code('--output')}.\n` +
     `${colors.red('Pass')} ${arg('pretty')} ${colors.red('or')} ${arg('json')}${colors.red(', for example')} ${code('extension --ai-help --output json')}${colors.red('.')}`
   )
 }
@@ -785,6 +785,6 @@ export function noBrowserNotSupportedForCommand(command?: string) {
       '--no-browser'
     )} is only supported for ${code('dev')}, ${code('start')}, and ${code(
       'preview'
-    )}.\n` + `Received command: ${code(command || '(none)')}`
+    )}.\n` + `${fmt.label('GOT')} ${code(command || '(none)')}`
   )
 }

@@ -77,7 +77,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         "ready",
         "error",
       ],
-      "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits; pair with --output json for machine output (--wait-format is a deprecated alias)",
+      "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits, pair with --output json for machine output (--wait-format is a deprecated alias)",
     },
   },
   "commands": [
@@ -133,7 +133,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "inspect",
-      "summary": "Inspect a page or content DOM through the agent bridge (CDP-free; requires --allow-control)",
+      "summary": "Inspect a page or content DOM through the agent bridge (CDP-free, requires --allow-control)",
       "supportsSourceInspection": true,
     },
     {
