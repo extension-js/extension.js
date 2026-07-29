@@ -229,7 +229,7 @@ describe('LocalesPlugin (unit)', () => {
     const err: any = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
-      'Invalid JSON in locale messages file'
+      "Can't parse a locale messages.json file."
     )
     expect(String(err.message)).toContain('Fix the JSON syntax')
   })
@@ -258,11 +258,10 @@ describe('LocalesPlugin (unit)', () => {
     const err: any = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
-      'Check the i18n placeholders in your manifest.json file.'
+      'The manifest references __MSG_extDesc__, but the key "extDesc" isn\'t defined.'
     )
-    expect(String(err.message)).toContain(
-      'MISSING KEY extDesc in _locales/en/messages.json'
-    )
+    expect(String(err.message)).toContain('NOT FOUND extDesc')
+    expect(String(err.message)).toContain('PATH _locales/en/messages.json')
     expect(err.file).toBe('manifest.json')
   })
 
@@ -302,7 +301,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(err.name).toBe('ManifestNotFoundError')
     expect(err.file).toBe(missingManifestPath)
     expect(typeof err.message).toBe('string')
-    expect(err.message).toContain('Check for a valid manifest.json file.')
+    expect(err.message).toContain("Can't find a manifest.json file.")
     expect(hasAnsi(err.message)).toBe(false)
     expect((compilation as any)._emitted).toBeUndefined()
 
@@ -339,9 +338,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(compilation.errors.length).toBe(1)
     const err: any = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
-    expect(String(err.message)).toContain(
-      'Default locale folder is missing: _locales/fr.'
-    )
+    expect(String(err.message)).toContain('NOT FOUND _locales/fr')
   })
 
   it('errors when default locale messages.json is missing', () => {
@@ -357,9 +354,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(compilation.errors.length).toBe(1)
     const err: any = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
-    expect(String(err.message)).toContain(
-      'Default locale messages.json is missing: _locales/en/messages.json.'
-    )
+    expect(String(err.message)).toContain('NOT FOUND _locales/en/messages.json')
   })
 
   it('errors when default locale messages.json has invalid JSON', () => {
@@ -375,7 +370,7 @@ describe('LocalesPlugin (unit)', () => {
     const err: any = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
-      'Invalid JSON in locale messages file'
+      "Can't parse a locale messages.json file."
     )
     expect(String(err.message)).toContain('Fix the JSON syntax')
   })

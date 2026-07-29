@@ -14,13 +14,13 @@ export function entryNotFoundMessageOnly(
   absPath?: string
 ) {
   const lines: string[] = []
-  lines.push(
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
-  )
+  lines.push(`Can't find the file listed in ${colors.blue(manifestField)}.`)
   if (absPath) {
-    lines.push('')
-    lines.push(`${colors.red('NOT FOUND')} ${colors.underline(absPath)}`)
+    lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(absPath)}`)
   }
+  lines.push(
+    `Update the ${colors.blue(manifestField)} field in your ${colors.blue('manifest.json')} file.`
+  )
   return lines.join('\n')
 }
 
@@ -32,26 +32,25 @@ export function jsonMissingFile(
   const lines: string[] = []
 
   lines.push(
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+    `Can't find the JSON file listed in ${colors.blue(manifestField)}.`
   )
-  lines.push(
-    `The JSON path must point to an existing file that will be packaged with the extension.`
-  )
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(filePath)}`)
   // Only the critical features (rulesets, managed schemas) stop the build, so
   // the promise has to track the severity that ships with it.
   lines.push(
     opts?.fatal
-      ? `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing.\nThe build stops here to protect you.`
+      ? `Browsers can reject or crash the extension when required JSON files like rulesets are missing.\nThe build stops here.`
       : `Browsers can reject or misread the extension when this file is missing.\nThe build continues.`
   )
 
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
-  lines.push('')
-  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+  lines.push(
+    `Update the JSON path in your ${colors.blue('manifest.json')} to a file that ships with the extension.`
+  )
 
   return lines.join('\n')
 }
@@ -62,21 +61,19 @@ export function invalidJsonSyntax(
   cause: string
 ) {
   return [
-    `Invalid JSON.`,
-    ``,
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
-    `The JSON at ${colors.underline(file)} could not be parsed:`,
-    `${colors.red(cause)}`
+    `Can't parse the JSON file listed in ${colors.blue(manifestField)}.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('REASON')} ${colors.underline(cause)}`,
+    `Fix the JSON syntax, then rebuild.`
   ].join('\n')
 }
 
 export function invalidRulesetStructure(manifestField: string, file: string) {
   return [
-    `Invalid Declarative Net Request ruleset.`,
-    ``,
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
-    `Chrome expects a top-level JSON array of rule objects.`,
-    `${colors.red('INVALID SHAPE')} ${colors.underline(file)}`
+    `The Declarative Net Request ruleset listed in ${colors.blue(manifestField)} isn't a rule array.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('EXPECTED')} ${colors.underline('a top-level JSON array of rule objects')}`,
+    `Update the file to contain an array of rules.`
   ].join('\n')
 }
 
@@ -85,11 +82,10 @@ export function invalidManagedSchemaStructure(
   file: string
 ) {
   return [
-    `Invalid managed storage schema.`,
-    ``,
-    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`,
-    `Expected a top-level JSON object describing the schema.`,
-    `${colors.red('INVALID SHAPE')} ${colors.underline(file)}`
+    `The managed storage schema listed in ${colors.blue(manifestField)} isn't a schema object.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('EXPECTED')} ${colors.underline('a top-level JSON object describing the schema')}`,
+    `Update the file to contain a schema object.`
   ].join('\n')
 }
 

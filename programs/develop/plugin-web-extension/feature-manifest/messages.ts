@@ -15,40 +15,35 @@ export function serverRestartRequiredFromManifestError(
 ) {
   const lines: string[] = []
   lines.push(`Entrypoint references changed.`)
+  if (fileRemoved) {
+    lines.push(`${colors.gray('EXPECTED')} ${colors.underline(fileRemoved)}`)
+  }
+  if (fileAdded) {
+    lines.push(`${colors.gray('GOT')} ${colors.underline(fileAdded)}`)
+  }
   lines.push(
     `Restart the dev server to pick up changes to manifest entrypoints.`
   )
-  lines.push('')
-  if (fileRemoved) {
-    lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(fileRemoved)}`)
-  }
-  if (fileAdded) {
-    lines.push(`${colors.green('PATH AFTER')} ${colors.underline(fileAdded)}`)
-  }
   return lines.join('\n')
 }
 
 export function legacyManifestPathWarning(legacyPath: string) {
   const lines: string[] = []
-  lines.push(`${prefix('warn')} Deprecated manifest path detected.`)
+  lines.push(`${prefix('warn')} The manifest uses a deprecated path.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(legacyPath)}`)
   lines.push(
     `Extension.js rewrites it to the standardized folders in the next major.`
   )
-  lines.push('')
-  lines.push(`${colors.brightBlue('PATH')} ${colors.underline(legacyPath)}`)
   return lines.join('\n')
 }
 
 export function fatalManifestShapeFixed(field: string, detail: string) {
   const lines: string[] = []
   lines.push(
-    `${prefix('warn')} Repaired a manifest field Chrome refuses to load the extension over.`
+    `${prefix('warn')} Repaired the ${colors.blue(field)} field, which Chrome refuses to load the extension over.`
   )
-  lines.push(`Fix it in your manifest.json.`)
-  lines.push('')
-  lines.push(
-    `${colors.brightBlue('FIELD')} ${colors.underline(field)}, ${detail}`
-  )
+  lines.push(`${colors.gray('REASON')} ${colors.underline(detail)}`)
+  lines.push(`Fix the field in your ${colors.blue('manifest.json')} file.`)
   return lines.join('\n')
 }
 
@@ -73,24 +68,22 @@ export function invalidThemeValue(
 export function missingGeckoDataCollectionPermissions() {
   const lines: string[] = []
   lines.push(
-    `${prefix('warn')} addons.mozilla.org requires ${colors.yellow('browser_specific_settings.gecko.data_collection_permissions')} for new add-ons.`
+    `${prefix('warn')} addons.mozilla.org requires ${colors.blue('browser_specific_settings.gecko.data_collection_permissions')} for new add-ons.`
   )
   lines.push(
-    `Declare {"required": ["none"]} if this extension transmits no data.`
+    `Declare ${colors.blue('{"required": ["none"]}')} if this extension transmits no data.`
   )
-  lines.push('')
   lines.push(
-    `${colors.brightBlue('DOCS')} ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')}`
+    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for details.`
   )
   return lines.join('\n')
 }
 
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
-  lines.push(`Invalid ${colors.yellow('manifest.json')}.`)
+  lines.push(`Can't read your ${colors.blue('manifest.json')} file.`)
+  lines.push(`${colors.gray('REASON')} ${colors.underline(String(error))}`)
   lines.push(`Update your manifest and try again.`)
-  lines.push('')
-  lines.push(`${colors.red('REASON')} ${colors.red(String(error))}`)
   return lines.join('\n')
 }
 
