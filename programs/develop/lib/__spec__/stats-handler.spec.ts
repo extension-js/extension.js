@@ -110,6 +110,7 @@ describe('renderStatsBlocks', () => {
 
 describe('renderStatsBlocks with emit-time warnings', () => {
   const fatalBody = '  ⚠ Repaired the version field.\n  │ Fix it.'
+  const legacyBody = '  ⚠ The manifest uses a deprecated path.\n  │ PATH x'
   const perfBody = '  ⚠ asset size limit exceeded'
 
   it('drops a warning block already printed at emit time', () => {
@@ -119,6 +120,19 @@ describe('renderStatsBlocks with emit-time warnings', () => {
         warnings: [
           {code: 'ManifestFatalShapeWarning', message: `${fatalBody}\n`}
         ]
+      })
+    }
+
+    const rendered = renderStatsBlocks(stats, {errors: false, warnings: true})
+
+    expect(rendered).toBe('')
+  })
+
+  it('drops the legacy-path warning block the same way', () => {
+    const stats = {
+      toString: () => `WARNING in manifest.json\n${legacyBody}`,
+      toJson: () => ({
+        warnings: [{code: 'ManifestLegacyWarning', message: `${legacyBody}\n`}]
       })
     }
 
@@ -194,8 +208,9 @@ describe('renderStatsBlocks with emit-time warnings', () => {
 })
 
 describe('isEmitTimeWarning', () => {
-  it('marks the emit-time warning codes and nothing else', () => {
+  it('marks the two emit-time warning codes and nothing else', () => {
     expect(isEmitTimeWarning({code: 'ManifestFatalShapeWarning'})).toBe(true)
+    expect(isEmitTimeWarning({code: 'ManifestLegacyWarning'})).toBe(true)
     expect(isEmitTimeWarning({code: 'AmoDataCollectionWarning'})).toBe(false)
     expect(isEmitTimeWarning({message: 'no code'})).toBe(false)
     expect(isEmitTimeWarning('a warning')).toBe(false)
