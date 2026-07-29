@@ -30,6 +30,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
   browser: string
   manifestPath: string
   readyPath: string
+  distPath?: string
 }): void {
   let printed = false
   opts.compiler.hooks.done.tap(
@@ -45,7 +46,8 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
         messages.browserRunnerDisabled({
           browser: opts.browser,
           manifestPath: opts.manifestPath,
-          readyPath: opts.readyPath
+          readyPath: opts.readyPath,
+          distPath: opts.distPath
         })
       )
       humanLine(messages.spacerLine())

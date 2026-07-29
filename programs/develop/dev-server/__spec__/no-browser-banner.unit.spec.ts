@@ -27,7 +27,8 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
       compiler,
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
-      readyPath: '/proj/dist/chromium/.extension-ready.json'
+      readyPath: '/proj/dist/chromium/.extension-ready.json',
+      distPath: '/proj/dist/chromium'
     })
 
     expect(compiler.hooks.done.tap).toHaveBeenCalledWith(
@@ -41,9 +42,10 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
     expect(output).toMatch(/ready for development/i)
     expect(output).toMatch(/Extension\.js/)
+    expect(output).toContain('(no-browser mode)')
+    expect(output).toContain('Output')
+    expect(output).toContain('/proj/dist/chromium')
 
-    // The card is the header for the session, so it precedes the state line
-    // it describes. Asserting both strings exist would pass in either order.
     expect(output.indexOf('Extension.js')).toBeLessThan(
       output.search(/ready for development/i)
     )
@@ -64,7 +66,8 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
       compiler,
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
-      readyPath: '/proj/dist/chromium/.extension-ready.json'
+      readyPath: '/proj/dist/chromium/.extension-ready.json',
+      distPath: '/proj/dist/chromium'
     })
 
     const tapFn = (compiler.hooks.done.tap as any).mock.calls[0][1]

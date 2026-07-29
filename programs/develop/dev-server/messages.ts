@@ -8,6 +8,8 @@
 
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import colors from 'pintor'
 import {
   artifactNoun,
@@ -64,11 +66,23 @@ function getExtensionVersion(): string {
   )
 }
 
+// Card values collapse the home dir for scanability. Evidence and debug lines
+// never do, so a pasted path stays valid.
+function collapseHomeDirInCardValue(value: string): string {
+  const raw = String(value || '')
+  const home = os.homedir()
+  if (!home || !raw.startsWith(home)) return raw
+  const rest = raw.slice(home.length)
+  if (rest === '') return '~'
+  if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
+  return raw
+}
+
 export function browserRunnerDisabled(args: {
   browser: string
   manifestPath: string
   readyPath: string
-  browserModeLabel?: string
+  distPath?: string
 }) {
   const manifest = readJsonRecord(args.manifestPath)
   const ready = readJsonRecord(args.readyPath)
@@ -88,17 +102,27 @@ export function browserRunnerDisabled(args: {
     : extensionName
   const extensionJsVersion = getExtensionVersion()
 
+  // Consume the update-suffix env var only once committed to printing, the
+  // same way the build card does, so the hint lands on exactly one card.
+  const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
+  if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+
   return card({
     version: extensionJsVersion,
+    suffix: updateSuffix,
     rows: [
       {
         label: 'Browser',
         value: browserRowValue(
           String(args.browser || 'unknown'),
-          args.browserModeLabel || `${browserLabel} (build-only mode)`
+          `${browserLabel} (no-browser mode)`
         )
       },
       {label: 'Extension', value: extensionLabel},
+      {
+        label: 'Output',
+        value: collapseHomeDirInCardValue(String(args.distPath || '').trim())
+      },
       {label: 'Run ID', value: runLabel}
     ]
   })
