@@ -290,6 +290,12 @@ may be added over time, but an existing code is never renamed or removed within 
 `--output json` is arriving command by command. The envelope shape above is the target for all
 of them, and new code follows it.
 
+Human lines route through the sinks in `messaging.ts`: `humanLine()`, `humanWarn()`, and
+`humanError()`. When `EXTENSION_OUTPUT` is `json` or `ndjson`, `humanLine()` and `humanWarn()`
+go quiet so frames own the stream, while `humanError()` always writes to stderr, because a
+launch failure must never disappear just because a machine is listening. Never print a human
+line with a raw `console` call.
+
 ## Frozen contracts
 
 These shapes are parsed by tools and tests. Copy inside them may change, the shapes may not.
@@ -311,16 +317,15 @@ Known departures from the target, accepted on purpose. Do not fix them piecemeal
 - Human output does not yet split across stdout and stderr by channel. The harnesses were
   recently migrated onto the current mapping, so re-splitting is churn without payoff for
   now. The mapping itself is frozen above.
-- The browser runner still writes through raw `console` calls: 113 call sites across 23
-  files bypass the develop `humanLine` sink. Unifying them is a seam behind one primitive
-  in the canonical `messaging.ts`, starting with the browsers-lib banner. Until then, new
-  code in that bundle uses the existing catalog functions, never a new raw `console` call.
+- The `logs` command's record printers keep their raw `console.log` calls on purpose: the
+  records are the command's payload, chosen by `--log-format`, not human chrome, so the
+  machine-mode suppression in the sinks must not apply to them.
 
 ## Where the copy lives
 
 Message strings live in a `messages.ts` beside the code that prints them. The shared primitives
-(`prefix()`, `fmt`, `card()`, `artifactNoun()`, the envelope, and the error-code table) live in
-a `messaging.ts`.
+(`prefix()`, `fmt`, `card()`, `artifactNoun()`, the human sinks, the envelope, and the
+error-code table) live in a `messaging.ts`.
 
 That file is duplicated, on purpose, into each program that needs it:
 
