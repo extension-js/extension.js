@@ -16,8 +16,8 @@ describe('preprocessor-passthrough-loader', () => {
     const {result, warnings} = run('/project/popup/styles.scss', source)
     expect(result).toBe(source)
     expect(warnings.length).toBe(1)
-    expect(String(warnings[0])).toMatch(/UNCOMPILED/)
-    expect(String(warnings[0])).toMatch(/"sass"/)
+    expect(String(warnings[0])).toMatch(/shipped uncompiled/)
+    expect(String(warnings[0])).toMatch(/The sass package isn't installed/)
     expect(String(warnings[0])).toMatch(/npm install --save-dev sass/)
   })
 
@@ -25,7 +25,7 @@ describe('preprocessor-passthrough-loader', () => {
     const {result, warnings} = run('/project/styles.sass', '.a\n  color: red')
     expect(result).toBe('.a\n  color: red')
     expect(warnings.length).toBe(1)
-    expect(String(warnings[0])).toMatch(/"sass"/)
+    expect(String(warnings[0])).toMatch(/The sass package isn't installed/)
   })
 
   it('ships LESS verbatim with an install-less warning', () => {
@@ -33,8 +33,8 @@ describe('preprocessor-passthrough-loader', () => {
     const {result, warnings} = run('/project/content/styles.less', source)
     expect(result).toBe(source)
     expect(warnings.length).toBe(1)
-    expect(String(warnings[0])).toMatch(/UNCOMPILED/)
-    expect(String(warnings[0])).toMatch(/"less"/)
+    expect(String(warnings[0])).toMatch(/shipped uncompiled/)
+    expect(String(warnings[0])).toMatch(/The less package isn't installed/)
     expect(String(warnings[0])).toMatch(/npm install --save-dev less/)
   })
 })

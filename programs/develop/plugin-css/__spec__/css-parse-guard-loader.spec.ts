@@ -48,7 +48,7 @@ describe('css-parse-guard-loader', () => {
     const {result, warnings} = await runPitch(file)
     expect(result).toBe(BROKEN_CSS)
     expect(warnings.length).toBe(1)
-    expect(String(warnings[0])).toMatch(/Invalid CSS/i)
+    expect(String(warnings[0])).toMatch(/doesn't parse/i)
     expect(String(warnings[0])).toMatch(/copied as-is/i)
   })
 
