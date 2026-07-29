@@ -138,13 +138,13 @@ export async function extensionCreate(
     await generateExtensionTypes(projectPath, projectName, logger)
   }
 
-  const successfulInstall = await messages.successfullInstall(
+  const readyMessage = await messages.scaffoldReady(
     projectPath,
     projectName,
     Boolean(install)
   )
 
-  logger.log(successfulInstall)
+  logger.log(readyMessage)
 
   return {
     projectPath,

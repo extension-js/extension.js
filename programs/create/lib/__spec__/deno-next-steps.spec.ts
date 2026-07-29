@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {writeReadmeFile} from '../../steps/write-readme-file'
-import {successfullInstall} from '../messages'
+import {scaffoldReady} from '../messages'
 import {isDenoRuntime} from '../package-manager'
 
 function withDenoGlobal(body: () => Promise<void> | void) {
@@ -30,7 +30,7 @@ describe('deno-aware scaffold next steps', () => {
 
   it('suggests deno install / deno task dev in the next steps', async () => {
     await withDenoGlobal(async () => {
-      const message = await successfullInstall('/tmp/my-ext', 'my-ext', false)
+      const message = await scaffoldReady('/tmp/my-ext', 'my-ext', false)
       expect(message).toContain('deno install')
       expect(message).toContain('deno task dev')
       expect(message).not.toContain('npm install')
