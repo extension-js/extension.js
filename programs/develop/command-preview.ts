@@ -149,9 +149,7 @@ export async function extensionPreview(
         browser: browserLabel,
         manifestPath: projectStructure.manifestPath,
         readyPath: metadata.readyPath,
-        browserModeLabel: `${
-          browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1)
-        } (no-browser mode)`
+        distPath: outputPath
       })
     )
     console.log(devServerMessages.spacerLine())

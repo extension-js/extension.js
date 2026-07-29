@@ -686,7 +686,8 @@ export async function devServer(
       compiler,
       browser: String(devOptions.browser || 'chromium'),
       manifestPath,
-      readyPath: metadata.readyPath
+      readyPath: metadata.readyPath,
+      distPath: primaryDistPath
     })
   }
 
