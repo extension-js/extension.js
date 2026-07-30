@@ -13,6 +13,7 @@ import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-ru
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {resolveNoBrowser} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -219,7 +220,10 @@ export function registerPreviewCommand(program: Command) {
                 geckoBinary: previewOptions.geckoBinary,
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
-                noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+                noBrowser: await resolveNoBrowser(
+                  pathOrRemoteUrl || process.cwd(),
+                  'preview'
+                ),
                 extensions: parseExtensionsList(previewOptions.extensions),
                 logLevel: logsOption || previewOptions.logLevel || 'off',
                 logContexts,
