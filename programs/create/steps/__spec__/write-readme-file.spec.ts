@@ -50,6 +50,29 @@ describe('writeReadmeFile', () => {
     )
   })
 
+  it('names the sponsor, because the scaffold is the only surface a stranger keeps', async () => {
+    await withTempProject(
+      async (projectPath) => {
+        await fsp.writeFile(
+          path.join(projectPath, 'manifest.json'),
+          JSON.stringify({manifest_version: 3})
+        )
+      },
+      async (projectPath) => {
+        await writeReadmeFile(projectPath, 'my-ext', noopLogger)
+        const contents = await fsp.readFile(
+          path.join(projectPath, 'README.md'),
+          'utf8'
+        )
+        expect(contents).toContain('docs.extension.dev')
+        expect(contents).toContain('utm_source=create-readme')
+        expect(contents).toContain('sponsors Extension.js')
+        expect(contents).toContain('local and free')
+        expect(contents).toContain('https://extension.js.org')
+      }
+    )
+  })
+
   it('embeds public/screenshot.png when present and skips the embed otherwise', async () => {
     await withTempProject(
       async (projectPath) => {
