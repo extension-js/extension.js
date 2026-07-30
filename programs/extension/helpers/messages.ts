@@ -8,6 +8,13 @@
 
 import colors from 'pintor'
 import {type Channel, fmt, prefix} from './messaging'
+import {
+  DEFAULT_TEMPLATE,
+  listTemplates,
+  TEMPLATE_ALIASES,
+  TEMPLATE_CATALOG_URL,
+  TEMPLATE_GROUPS
+} from './template-catalog'
 
 function getLoggingPrefix(type: Channel): string {
   return prefix(type)
@@ -495,11 +502,16 @@ ${'Environment variables'}
 - Example: ${code(arg('EXTENSION_PUBLIC_API_KEY=your_key'))}
 
 ${'Available templates'}
-- ${colors.green('Frameworks')}: ${code(arg('react'))}, ${code(arg('preact'))}, ${code(arg('vue'))}, ${code(arg('svelte'))}
-- ${colors.green('Languages')}: ${code(arg('javascript'))}, ${code(arg('typescript'))}
-- ${colors.green('Contexts')}: ${code(arg('content'))} (content scripts), ${code(arg('new'))} (new tab), ${code(arg('action'))} (popup)
-- ${colors.green('Styling')}: ${code(arg('tailwind'))}, ${code(arg('sass'))}, ${code(arg('less'))}
-- ${colors.green('Configs')}: ${code(arg('eslint'))}, ${code(arg('prettier'))}, ${code(arg('stylelint'))}
+${TEMPLATE_GROUPS.map(
+  (group) =>
+    `- ${colors.green(group.title)} ${arg(`(${group.summary})`)}: ${group.templates
+      .map((template) => code(template))
+      .join(', ')}`
+).join('\n')}
+- ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}
+- ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted; it ships inside the CLI and needs no network.
+- Every other name is downloaded from ${code(TEMPLATE_CATALOG_URL)} at create time. A GitHub or ZIP URL works in place of a name.
+- A name that is not on this list fails with ${code('TemplateNotFoundError')}; run ${code('extension create --help')} for the same list.
 
 ${'Webpack/Rspack configuration'}
 - Create ${colors.underline(code(arg('extension.config.js')))} for custom webpack configuration
@@ -589,6 +601,15 @@ export type ProgramAIHelpJSON = {
     default?: string
     description: string
   }>
+  templates: {
+    default: string
+    bundled: string[]
+    catalogUrl: string
+    names: string[]
+    groups: Array<{title: string; summary: string; templates: string[]}>
+    aliases: Array<{name: string; resolvesTo: string; note: string}>
+    notes: string[]
+  }
   capabilities: {
     logger: {
       levels: string[]
@@ -678,6 +699,25 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'Connectable host the browser dials for HMR + the reload bridge when it differs from the bind host (remote/devcontainer)'
       }
     ],
+    templates: {
+      default: DEFAULT_TEMPLATE,
+      bundled: [DEFAULT_TEMPLATE],
+      catalogUrl: TEMPLATE_CATALOG_URL,
+      names: listTemplates(),
+      groups: TEMPLATE_GROUPS.map((group) => ({
+        title: group.title,
+        summary: group.summary,
+        templates: [...group.templates]
+      })),
+      aliases: TEMPLATE_ALIASES.map((alias) => ({...alias})),
+      notes: [
+        `extension create <name> with no --template scaffolds ${DEFAULT_TEMPLATE}`,
+        `${DEFAULT_TEMPLATE} is bundled with the CLI and scaffolds offline; every other name downloads the examples archive at create time`,
+        'a GitHub URL or a ZIP URL is accepted in place of a catalog name',
+        'a name outside names[] fails with TemplateNotFoundError and creates nothing',
+        'this list ships with the CLI, so it is the list this CLI version can scaffold, not necessarily the current contents of the catalog repository'
+      ]
+    },
     capabilities: {
       logger: {
         levels: ['off', 'error', 'warn', 'info', 'debug', 'trace', 'all'],
