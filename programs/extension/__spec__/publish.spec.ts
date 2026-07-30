@@ -12,6 +12,13 @@ describe('buildPublishRequest', () => {
     expect(() => buildPublishRequest({})).toThrow(/EXTENSION_DEV_TOKEN/)
   })
 
+  it('names an openable docs URL when no token is set', () => {
+    delete process.env.EXTENSION_DEV_TOKEN
+    expect(() => buildPublishRequest({})).toThrow(
+      /https:\/\/docs\.extension\.dev\/tools\/publish/
+    )
+  })
+
   it('uses --token, default API base, and a Bearer header', () => {
     const req = buildPublishRequest({token: 'tok_abc'})
     expect(req.url).toBe('https://www.extension.dev/api/cli/publish')
