@@ -551,6 +551,11 @@ jobs:
           echo "Publish not visible on npm after waiting." >&2
           exit 1
 
+      - name: Verify the published tarball carries the shipped invariants
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: node scripts/verify-published-artifact.mjs --package extension --version "$VERSION"
+
       - name: Create GitHub Deployment (in_progress)
         if: ${{ inputs.channel != 'canary' }}
         id: create_deployment
