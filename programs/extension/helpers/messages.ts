@@ -509,9 +509,9 @@ ${TEMPLATE_GROUPS.map(
       .join(', ')}`
 ).join('\n')}
 - ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}
-- ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted; it ships inside the CLI and needs no network.
+- ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted. It ships inside the CLI and needs no network.
 - Every other name is downloaded from ${code(TEMPLATE_CATALOG_URL)} at create time. A GitHub or ZIP URL works in place of a name.
-- A name that is not on this list fails with ${code('TemplateNotFoundError')}; run ${code('extension create --help')} for the same list.
+- A name that is not on this list fails with ${code('TemplateNotFoundError')}. Run ${code('extension create --help')} for the same list.
 
 ${'Webpack/Rspack configuration'}
 - Create ${colors.underline(code(arg('extension.config.js')))} for custom webpack configuration
@@ -712,7 +712,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       aliases: TEMPLATE_ALIASES.map((alias) => ({...alias})),
       notes: [
         `extension create <name> with no --template scaffolds ${DEFAULT_TEMPLATE}`,
-        `${DEFAULT_TEMPLATE} is bundled with the CLI and scaffolds offline; every other name downloads the examples archive at create time`,
+        `${DEFAULT_TEMPLATE} is bundled with the CLI and scaffolds offline. Every other name downloads the examples archive at create time`,
         'a GitHub URL or a ZIP URL is accepted in place of a catalog name',
         'a name outside names[] fails with TemplateNotFoundError and creates nothing',
         'this list ships with the CLI, so it is the list this CLI version can scaffold, not necessarily the current contents of the catalog repository'
