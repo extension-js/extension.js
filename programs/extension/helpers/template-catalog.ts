@@ -28,8 +28,16 @@ export interface TemplateAlias {
 export const TEMPLATE_GROUPS: readonly TemplateGroup[] = [
   {
     title: 'Starters',
-    summary: 'one language or framework, sidebar UI',
-    templates: ['javascript', 'typescript', 'react', 'preact', 'vue', 'svelte']
+    summary: 'a bare manifest, or one language or framework with sidebar UI',
+    templates: [
+      'init',
+      'javascript',
+      'typescript',
+      'react',
+      'preact',
+      'vue',
+      'svelte'
+    ]
   },
   {
     title: 'Sidebar',
@@ -102,13 +110,24 @@ export const TEMPLATE_GROUPS: readonly TemplateGroup[] = [
   }
 ]
 
-export const TEMPLATE_ALIASES: readonly TemplateAlias[] = [
-  {
-    name: 'init',
-    resolvesTo: DEFAULT_TEMPLATE,
-    note: `scaffolds ${DEFAULT_TEMPLATE}, not the catalog folder of the same name`
-  }
-]
+/* @invariant A NAME IN THIS LIST DELIVERS SOMETHING OTHER THAN ITSELF, WHICH IS
+ * WHY THE LIST IS EMPTY AND SHOULD STAY THAT WAY.
+ *
+ * It held one entry, `init`, which scaffolded `javascript` while a genuinely
+ * different `init` folder sat in the catalog: a bare manifest with icons and no
+ * background, content script or sidebar. Eleven people typed the word in the
+ * ninety days before 2026-07-30 and every one of them received an extension
+ * nobody asked for. The first fix was to disclose the redirection in the help
+ * text, which made the CLI honest about lying. Cezar ruled on 2026-07-30 that
+ * it be true to its word instead, so `init` is now an ordinary catalog name and
+ * resolves to the folder it names.
+ *
+ * The mechanism survives for a real alias, one where two names genuinely mean
+ * the same template. It must never again be used to point a name at different
+ * bytes, because a listing that teaches the wrong contract is worse than no
+ * listing at all.
+ */
+export const TEMPLATE_ALIASES: readonly TemplateAlias[] = []
 
 export function listTemplates(): string[] {
   return TEMPLATE_GROUPS.flatMap((group) => group.templates)

@@ -280,10 +280,8 @@ export async function importExternalTemplate(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): Promise<TemplateProvenance> {
   const templateName = path.basename(template)
-  // Default template is `javascript`. `init` remains an alias for the same examples folder.
-  const resolvedTemplate = templateName === 'init' ? 'javascript' : template
-  const resolvedTemplateName =
-    templateName === 'init' ? 'javascript' : templateName
+  const resolvedTemplate = template
+  const resolvedTemplateName = templateName
 
   const isHttp = /^https?:\/\//i.test(template)
   const isGithub = /^https?:\/\/github\.com\//i.test(template)

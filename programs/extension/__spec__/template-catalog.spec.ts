@@ -47,8 +47,16 @@ describe('template catalog', () => {
     }
   })
 
-  it('resolves the init alias to the default template', () => {
-    expect(templateAliasFor('init')?.resolvesTo).toBe(DEFAULT_TEMPLATE)
+  it('lists init as an ordinary name that is not the default', () => {
+    expect(listTemplates()).toContain('init')
+    expect(templateAliasFor('init')).toBeUndefined()
+    expect(DEFAULT_TEMPLATE).not.toBe('init')
+  })
+
+  it('points no name at a template other than itself', () => {
+    for (const name of listTemplates()) {
+      expect(templateAliasFor(name), name).toBeUndefined()
+    }
   })
 
   it('renders every name in the plain listing', () => {
@@ -93,11 +101,10 @@ describe('--ai-help', () => {
     expect(json.templates.bundled).toEqual([DEFAULT_TEMPLATE])
   })
 
-  it('declares the alias so an agent can predict the substitution', () => {
+  it('declares no substitution, because every name delivers itself', () => {
     const json = programAIHelpJSON('0.0.0')
-    expect(json.templates.aliases).toEqual([
-      expect.objectContaining({name: 'init', resolvesTo: DEFAULT_TEMPLATE})
-    ])
+    expect(json.templates.aliases).toEqual([])
+    expect(json.templates.names).toContain('init')
   })
 })
 
