@@ -695,9 +695,8 @@ export async function devServer(
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
-  const requestedPort = Number(devOptions.port)
-  if (Number.isFinite(requestedPort) && requestedPort !== port) {
-    humanLine(messages.portInUse(requestedPort, port))
+  if (messages.shouldWarnPortConflict(devOptions.port, port)) {
+    humanLine(messages.portInUse(Number(devOptions.port), port))
   }
 
   const serverConfig: Configuration = {
