@@ -21,6 +21,25 @@ export type TelemetryProps = {
   source?: string
 }
 
+/* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
+ * VERSION DIMENSION INTO SOMETHING THAT LOOKED LIKE A DIFFERENT BUILD.
+ *
+ * A published canary is stamped `<semver>-canary.<epoch>.<sha8>`, which is
+ * thirty-three characters for a four-part semver, so the old cap removed the
+ * last character of the sha. Read against the npm registry on 2026-07-30: every
+ * canary version string in the ninety-day window that has no npm release is
+ * exactly thirty-two characters long and is a strict prefix of one that does,
+ * with no exceptions in twenty-one distinct strings. Thousands of ordinary
+ * canary runs were therefore arriving under a version that has never been
+ * published, which is the exact shape of a source build and is not one.
+ *
+ * Sixty-four matches `sanitizeTag` and leaves room for a longer prerelease. The
+ * cap stays because an unbounded string from a package.json is still untrusted
+ * input; what changes is that it now sits above the longest real value instead
+ * of one character below it.
+ */
+const VERSION_MAX_LENGTH = 64
+
 function sanitizeTag(value: string): string {
   return String(value)
     .trim()
@@ -81,6 +100,52 @@ function isCI(): boolean {
       v.BUILDKITE ||
       v.CIRCLECI ||
       v.TRAVIS
+  )
+}
+
+/* @invariant A REGISTRY INSTALL ALWAYS SITS UNDER A PACKAGE-MANAGER DIRECTORY
+ * AND A CHECKOUT OF THIS REPOSITORY NEVER DOES. THAT IS THE WHOLE TEST, AND IT
+ * READS A PATH SHAPE RATHER THAN A PATH.
+ *
+ * npm, pnpm, yarn, bun and `npx` all land the package under a `node_modules`
+ * segment, and the ones that do not use that name use a cache directory whose
+ * name is in the list below. Running `extension` from a clone of
+ * extension-js/extension.js resolves this module inside `programs/extension`,
+ * with no such segment above it. So the emitted boolean answers "did this
+ * invocation come from something a user installed" without the process ever
+ * knowing, sending, or hashing where on disk it lives. Only the verdict leaves
+ * the machine, so there is no new surface to consent to.
+ *
+ * WHY THE OBVIOUS DISCRIMINATOR IS THE WRONG ONE, and this is the reason the
+ * property exists at all rather than being read off the version. It was put to
+ * me that a canary version carrying a seven-character sha is provably a source
+ * build because no such version exists on npm. Checked against the registry on
+ * 2026-07-30 for every canary string in the ninety-day window: all twenty-one
+ * are either published exactly, or are a strict prefix of a published version
+ * whose sha is eight characters. Every single one of the "missing" strings is
+ * exactly thirty-two characters long, and `track` used to cap `version` at
+ * thirty-two. They are published builds truncated by this file, not source
+ * builds, and inferring provenance from them would have relabelled thousands of
+ * ordinary canary runs. The cap is now sixty-four, matching `sanitizeTag`, and
+ * the provenance question is answered by something that actually knows.
+ *
+ * The honest limit: a yarn Plug'n'Play install resolves out of a zip and could
+ * read as a checkout. `.yarn` is in the list for that reason, but treat the
+ * false half of this boolean as "not a plain registry install" rather than as a
+ * proven clone.
+ */
+const INSTALL_DIRECTORY_MARKERS = [
+  'node_modules',
+  '.pnpm',
+  '.yarn',
+  '.npm',
+  '.bun'
+]
+
+export function isSourceCheckout(startDir: string = __dirname): boolean {
+  const segments = String(startDir ?? '').split(/[\\/]+/)
+  return !segments.some((segment) =>
+    INSTALL_DIRECTORY_MARKERS.includes(segment)
   )
 }
 
@@ -220,6 +285,40 @@ function envExplicitlyEnables(): boolean {
   return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
 }
 
+/* @invariant A STORED `enabled` DOES NOT CARRY ACROSS INTO A PIPELINE, AND A
+ * STORED `disabled` STILL WINS EVERYWHERE. THE TWO HALVES OF THE FILE ARE NOT
+ * THE SAME KIND OF THING, WHICH IS WHY THIS IS A SPLIT AND NOT A REORDER.
+ *
+ * The hole, reproduced against published `extension@4.0.24` rather than
+ * inferred: with an isolated config home, one ordinary run writes `enabled` to
+ * `telemetry/consent` through the first-run notice, and a second run on that
+ * same home with `CI=true` and nothing attached to stdout answers
+ * `Telemetry: enabled (source: config)`. The CI gate never executed. A control
+ * on a fresh home under the same environment answers `disabled`, so the gate
+ * itself works and the stored branch was simply sitting above it. Most of the
+ * fleet is unaffected because a GitHub-hosted runner gets a new home every run;
+ * what leaks is self-hosted runners, baked container images, and any pipeline
+ * that caches a home directory.
+ *
+ * The judgement, made deliberately. A consent file records exactly one thing,
+ * that at some moment a person at that keyboard did not object. It cannot
+ * record who is running now, so it cannot tell "I agreed at this machine" from
+ * "a pipeline inherited my home directory". Consent that cannot name the run it
+ * covers is not consent for that run, and a pipeline cannot agree to anything.
+ * So a stored `enabled` is demoted BELOW the CI gate.
+ *
+ * A stored `disabled` is a refusal, which is a different act. A refusal does
+ * not need re-confirming by the person who made it, and a blunt reorder would
+ * have relabelled it `source: 'ci'` while silencing it for a different stated
+ * reason. The reason is the part an audit reads, so `disabled` stays above
+ * everything and keeps reporting `config`.
+ *
+ * Nothing legitimate loses its route. `EXTENSION_TELEMETRY=1` still sits above
+ * both and is the deliberate machine-level opt-in a self-hosted runner or the
+ * smoke job uses; that is what `telemetry-check.yml` sets. The gate remains
+ * `isCI() && !process.stdout.isTTY`, unchanged, because a devcontainer or agent
+ * sandbox sets a CI marker while a person watches a terminal.
+ */
 export function resolveTelemetryConsent(argv: string[] = process.argv): {
   enabled: boolean
   source: TelemetrySource
@@ -229,13 +328,13 @@ export function resolveTelemetryConsent(argv: string[] = process.argv): {
   if (envExplicitlyEnables()) return {enabled: true, source: 'env'}
 
   const storage = resolveTelemetryStorage()
-  if (storage) {
-    const stored = readConsentFile(storage.consentFile)
-    if (stored === 'enabled') return {enabled: true, source: 'config'}
-    if (stored === 'disabled') return {enabled: false, source: 'config'}
-  }
+  const stored = storage ? readConsentFile(storage.consentFile) : null
+
+  if (stored === 'disabled') return {enabled: false, source: 'config'}
 
   if (isCI() && !process.stdout.isTTY) return {enabled: false, source: 'ci'}
+
+  if (stored === 'enabled') return {enabled: true, source: 'config'}
 
   return {enabled: true, source: 'default'}
 }
@@ -269,6 +368,7 @@ export class Telemetry {
     arch: string
     node_major: number
     is_ci: boolean
+    is_source_build: boolean
   }
   private recent = new Map<string, number>()
   private buffer: Array<{
@@ -294,7 +394,8 @@ export class Telemetry {
       os: process.platform,
       arch: process.arch,
       node_major: Number(String(process.versions.node).split('.')[0]) || 0,
-      is_ci: isCI()
+      is_ci: isCI(),
+      is_source_build: isSourceCheckout()
     }
 
     if (!this.disabled) {
@@ -323,7 +424,10 @@ export class Telemetry {
       const enforcedProps: TelemetryProps = {
         command: String(props.command ?? 'unknown').slice(0, 32),
         success: Boolean(props.success),
-        version: String(props.version ?? this.version).slice(0, 32)
+        version: String(props.version ?? this.version).slice(
+          0,
+          VERSION_MAX_LENGTH
+        )
       }
       if (props.template) enforcedProps.template = sanitizeTag(props.template)
       if (props.source) enforcedProps.source = sanitizeTag(props.source)
