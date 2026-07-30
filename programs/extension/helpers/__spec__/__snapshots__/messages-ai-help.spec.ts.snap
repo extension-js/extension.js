@@ -229,13 +229,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
   ],
   "templates": {
-    "aliases": [
-      {
-        "name": "init",
-        "note": "scaffolds javascript, not the catalog folder of the same name",
-        "resolvesTo": "javascript",
-      },
-    ],
+    "aliases": [],
     "bundled": [
       "javascript",
     ],
@@ -243,8 +237,9 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     "default": "javascript",
     "groups": [
       {
-        "summary": "one language or framework, sidebar UI",
+        "summary": "a bare manifest, or one language or framework with sidebar UI",
         "templates": [
+          "init",
           "javascript",
           "typescript",
           "react",
@@ -331,6 +326,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       },
     ],
     "names": [
+      "init",
       "javascript",
       "typescript",
       "react",
