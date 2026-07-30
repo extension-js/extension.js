@@ -62,7 +62,7 @@ The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or t
 
 Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it and records an `enabled` consent marker so the notice does not repeat.
 
-**CI is off by default.** When `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI` or `TRAVIS` is set, telemetry does not report, because the first-run notice cannot be shown to anyone and a pipeline cannot agree to be measured. A stored consent file still wins, so a machine you deliberately opted in stays opted in. To turn it on for a pipeline, set `EXTENSION_TELEMETRY=1`.
+**Unattended CI is off by default.** When a CI marker (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`) is set **and stdout is not a terminal**, telemetry does not report, because the first-run notice cannot be shown to anyone and a pipeline cannot agree to be measured. A devcontainer, Codespace or agent sandbox sets a CI marker too, but there is a person at a terminal, so those keep reporting and can opt out the normal ways. A stored consent file still wins. To turn it on for a pipeline, set `EXTENSION_TELEMETRY=1`.
 
 ## Local audit log
 

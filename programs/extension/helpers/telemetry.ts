@@ -235,7 +235,7 @@ export function resolveTelemetryConsent(argv: string[] = process.argv): {
     if (stored === 'disabled') return {enabled: false, source: 'config'}
   }
 
-  if (isCI()) return {enabled: false, source: 'ci'}
+  if (isCI() && !process.stdout.isTTY) return {enabled: false, source: 'ci'}
 
   return {enabled: true, source: 'default'}
 }
