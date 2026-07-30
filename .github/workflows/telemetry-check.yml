@@ -11,6 +11,7 @@ jobs:
     env:
       # Telemetry is normally disabled in CI; explicitly opt-in for this job only
       EXTENSION_TELEMETRY_DISABLED: '0'
+      EXTENSION_TELEMETRY: '1'
       EXTENSION_TELEMETRY_DEBUG: '1'
     steps:
       - uses: actions/checkout@v7

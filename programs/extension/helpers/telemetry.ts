@@ -28,7 +28,7 @@ function sanitizeTag(value: string): string {
     .slice(0, 64)
 }
 
-export type TelemetrySource = 'env' | 'flag' | 'config' | 'default'
+export type TelemetrySource = 'env' | 'flag' | 'config' | 'ci' | 'default'
 
 type TelemetryInit = {
   app: string
@@ -213,12 +213,20 @@ function envDisables(): boolean {
   return raw === '0' || raw === 'false' || raw === 'off' || raw === 'no'
 }
 
+function envExplicitlyEnables(): boolean {
+  const raw = String(process.env.EXTENSION_TELEMETRY ?? '')
+    .trim()
+    .toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
+}
+
 export function resolveTelemetryConsent(argv: string[] = process.argv): {
   enabled: boolean
   source: TelemetrySource
 } {
   if (envDisables()) return {enabled: false, source: 'env'}
   if (argv.includes('--no-telemetry')) return {enabled: false, source: 'flag'}
+  if (envExplicitlyEnables()) return {enabled: true, source: 'env'}
 
   const storage = resolveTelemetryStorage()
   if (storage) {
@@ -226,6 +234,8 @@ export function resolveTelemetryConsent(argv: string[] = process.argv): {
     if (stored === 'enabled') return {enabled: true, source: 'config'}
     if (stored === 'disabled') return {enabled: false, source: 'config'}
   }
+
+  if (isCI()) return {enabled: false, source: 'ci'}
 
   return {enabled: true, source: 'default'}
 }
