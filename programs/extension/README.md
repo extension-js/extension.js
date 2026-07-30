@@ -58,6 +58,8 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 | Framework agnostic | [Vanilla](https://templates.extension.dev/javascript), [TS](https://templates.extension.dev/typescript), [React](https://templates.extension.dev/react), [Vue](https://templates.extension.dev/vue), [Svelte](https://templates.extension.dev/svelte), [Preact](https://templates.extension.dev/preact), no lock-in |
 | Custom Chromium and Gecko binaries | `--chromium-binary`, `--gecko-binary` |
 
+Extension.js is sponsored by [extension.dev](https://docs.extension.dev/?utm_source=readme), the platform that hosts the build, share and store submission side of shipping an extension. To hand someone an unpublished build behind a link, with no zip and no install on their side, see [Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review?utm_source=readme).
+
 ## Frameworks
 
 <div align="center">
