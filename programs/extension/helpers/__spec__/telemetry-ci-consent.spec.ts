@@ -54,6 +54,54 @@ describe('a machine is not a developer who agreed to be measured', () => {
     expect(resolveTelemetryConsent([])).toEqual({enabled: false, source: 'ci'})
   })
 
+  // A pipeline has no TTY and cannot be shown the first-run notice, so it never
+  // agreed. A devcontainer, Codespace or agent sandbox sets CI too, but there is
+  // a person at a terminal, and 469 identities in the 90 days before this shipped
+  // carried a CI marker while running dev, start or preview, which no pipeline
+  // does. Gating on the marker alone silenced all of them.
+  it('keeps reporting when CI is set but a person has a terminal', () => {
+    const saved = process.stdout.isTTY
+    try {
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: true,
+        configurable: true
+      })
+      for (const marker of CI_VARS) {
+        delete process.env[marker]
+      }
+      process.env.CI = 'true'
+      expect(resolveTelemetryConsent([])).toEqual({
+        enabled: true,
+        source: 'default'
+      })
+    } finally {
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: saved,
+        configurable: true
+      })
+    }
+  })
+
+  it('still goes silent when CI is set and nothing is attached to stdout', () => {
+    const saved = process.stdout.isTTY
+    try {
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: false,
+        configurable: true
+      })
+      process.env.CI = 'true'
+      expect(resolveTelemetryConsent([])).toEqual({
+        enabled: false,
+        source: 'ci'
+      })
+    } finally {
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: saved,
+        configurable: true
+      })
+    }
+  })
+
   it('reports ci rather than default, so the reason is legible', () => {
     process.env.GITHUB_ACTIONS = 'true'
     expect(resolveTelemetryConsent([]).source).toBe('ci')
