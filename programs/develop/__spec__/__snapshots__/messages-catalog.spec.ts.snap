@@ -14,6 +14,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "noEntrypointsDetected: function(1)",
     "portInUse: function(2)",
     "ready: function(2)",
+    "shouldWarnPortConflict: function(2)",
     "spacerLine: function(0)",
   ],
   "lib/messages.ts": [

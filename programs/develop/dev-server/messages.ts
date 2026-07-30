@@ -127,6 +127,20 @@ export function browserRunnerDisabled(args: {
   })
 }
 
+// Port 0 asks the OS for any free port, so a differing answer is the
+// requested behavior, not a conflict worth a warning.
+export function shouldWarnPortConflict(
+  requested: unknown,
+  actual: number
+): boolean {
+  const requestedPort = Number(requested)
+  return (
+    Number.isFinite(requestedPort) &&
+    requestedPort !== 0 &&
+    requestedPort !== actual
+  )
+}
+
 export function portInUse(requestedPort: number, newPort: number) {
   return (
     `${getLoggingPrefix('warn')} Port ${requestedPort} is in use.\n` +
