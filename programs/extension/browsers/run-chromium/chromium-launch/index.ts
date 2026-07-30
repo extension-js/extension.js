@@ -31,6 +31,7 @@ import {
   isDebug
 } from '../../../helpers/messaging'
 import {
+  expectedChromiumExtensionId,
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
@@ -916,12 +917,16 @@ export class ChromiumLaunchPlugin {
       usePipe
     )
 
-    stampReadyBrowserLaunch(this.closeHandlerContext?.extensionOutputPath, {
+    const launchOutputPath = this.closeHandlerContext?.extensionOutputPath
+    stampReadyBrowserLaunch(launchOutputPath, {
       profilePath: chromiumConfig
         .find((flag) => flag.startsWith('--user-data-dir='))
         ?.slice('--user-data-dir='.length)
         .replace(/^"|"$/g, ''),
-      browserPid: child?.pid
+      browserPid: child?.pid,
+      extensionId: launchOutputPath
+        ? expectedChromiumExtensionId(launchOutputPath)
+        : undefined
     })
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to

@@ -166,6 +166,19 @@ export function expectedChromiumExtensionId(outPath: string): string {
   return deriveChromiumExtensionIdFromPath(outPath)
 }
 
+// The id Gecko will give this dist: only a declared gecko id is knowable
+// before install; a temporary-addon id is minted by the browser itself.
+export function expectedGeckoExtensionId(outPath: string): string {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(outPath, 'manifest.json'), 'utf-8')
+    )
+    return deriveFirefoxExtensionIdFromManifest(manifest)
+  } catch {
+    return ''
+  }
+}
+
 function resolveExtensionId(args: {
   browser: BrowserType
   info: Info

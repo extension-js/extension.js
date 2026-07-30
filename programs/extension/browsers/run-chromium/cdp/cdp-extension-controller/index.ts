@@ -12,6 +12,7 @@ import type {Readable, Writable} from 'node:stream'
 import {humanLine, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import * as messages from '../../../browsers-lib/messages'
+import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {
   CdpProtocolMessage,
@@ -114,6 +115,7 @@ export class CDPExtensionController {
       const present = await this.waitForExtensionTarget(expectedId, 12, 200)
       if (present) {
         if (!this.extensionId) this.extensionId = expectedId
+        stampReadyExtensionId(this.outPath, expectedId)
         return {status: 'loaded', extensionId: expectedId}
       }
     }
@@ -125,9 +127,10 @@ export class CDPExtensionController {
       return {status: 'unknown'}
     }
 
-    if (outcome.status === 'loaded' && !this.extensionId) {
+    if (outcome.status === 'loaded') {
       // The browser's own id, so the banner stops relying on the path hash.
-      this.extensionId = outcome.extensionId
+      if (!this.extensionId) this.extensionId = outcome.extensionId
+      stampReadyExtensionId(this.outPath, outcome.extensionId)
     }
 
     if (outcome.status === 'refused') {
@@ -235,6 +238,7 @@ export class CDPExtensionController {
     }
 
     if (this.extensionId) {
+      stampReadyExtensionId(this.outPath, this.extensionId)
       try {
         let info: {
           extensionInfo?: {name?: string; version?: string}
@@ -276,6 +280,7 @@ export class CDPExtensionController {
       if (!this.extensionId) {
         throw new Error('Failed to determine extension ID via CDP')
       }
+      stampReadyExtensionId(this.outPath, this.extensionId)
 
       await this.enableLogging()
 

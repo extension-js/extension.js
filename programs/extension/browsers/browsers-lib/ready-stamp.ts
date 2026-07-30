@@ -42,7 +42,7 @@ export function stampReadyRdpPort(
 // it, and the pid is the only supported handle for reaping the browser.
 export function stampReadyBrowserLaunch(
   extensionOutputPath: string | undefined,
-  details: {profilePath?: string; browserPid?: number}
+  details: {profilePath?: string; browserPid?: number; extensionId?: string}
 ) {
   try {
     if (!extensionOutputPath) return
@@ -57,6 +57,28 @@ export function stampReadyBrowserLaunch(
     ) {
       ready.browserPid = details.browserPid
     }
+    const extensionId = String(details?.extensionId || '').trim()
+    if (extensionId) ready.extensionId = extensionId
+    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
+// Publish the id the browser serves the extension under. Launch stamps the
+// derived id; a later browser confirmation overwrites it when they disagree.
+export function stampReadyExtensionId(
+  extensionOutputPath: string | undefined,
+  extensionId: string | undefined
+) {
+  try {
+    const id = String(extensionId || '').trim()
+    if (!extensionOutputPath || !id) return
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (ready.extensionId === id) return
+    ready.extensionId = id
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never block launch on this

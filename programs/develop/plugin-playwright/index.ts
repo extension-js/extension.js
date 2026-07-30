@@ -7,8 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {isGeckoBasedBrowser} from '../lib/constants'
 import {
+  chromiumExtensionId,
+  geckoExtensionId,
   type ManagedExtensionRecord,
   managedExtensionRecords
 } from '../lib/extension-id'
@@ -66,6 +70,9 @@ export type ReadyMetadata = {
   toolchainVersion: string
   extensionName?: string
   extensionVersion?: string
+  // The id the browser serves the dist under: browser-confirmed when the
+  // launcher stamped it, otherwise derived the way the browser derives it.
+  extensionId?: string
   // Stamped by the browser launcher when the browser exits mid-session
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
@@ -171,6 +178,23 @@ export function getSessionRunId(
   browser: string
 ): string {
   return getRunIdForSession(getPlaywrightMetadataDir(packageJsonDir, browser))
+}
+
+// The one identifier a consumer cannot read from the manifest alone: gecko
+// declares it, chromium hashes the manifest key or the loaded dist path.
+function deriveDistExtensionId(
+  browser: string,
+  distPath: string
+): string | undefined {
+  try {
+    if (!fs.existsSync(path.join(distPath, 'manifest.json'))) return undefined
+    const id = isGeckoBasedBrowser(browser)
+      ? geckoExtensionId(distPath)
+      : chromiumExtensionId(distPath)
+    return id || undefined
+  } catch {
+    return undefined
+  }
 }
 
 function readManifestProvenance(manifestPath: string): {
@@ -379,6 +403,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
     if (managedExtensions) payload.managedExtensions = managedExtensions
+    const derivedExtensionId = deriveDistExtensionId(
+      options.browser,
+      options.distPath
+    )
+    if (derivedExtensionId) payload.extensionId = derivedExtensionId
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
     try {
@@ -397,6 +426,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         }
         if (typeof prev.browserPid === 'number') {
           payload.browserPid = prev.browserPid
+        }
+        // The launcher's stamp may carry the browser-confirmed id, which
+        // outranks the derived one, so the previous value wins on recompile.
+        if (typeof prev.extensionId === 'string' && prev.extensionId) {
+          payload.extensionId = prev.extensionId
         }
         if (typeof prev.browserExitedAt === 'string') {
           ;(payload as Record<string, unknown>).browserExitedAt =

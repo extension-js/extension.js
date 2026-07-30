@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {chromiumExtensionId} from '../../lib/extension-id'
 import {createPlaywrightMetadataWriter, getSessionRunId} from '../index'
 
 describe('ready.json writer preservation', () => {
@@ -100,6 +101,68 @@ describe('ready.json writer preservation', () => {
     expect('browserExitCode' in after).toBe(false)
     expect('profilePath' in after).toBe(false)
     expect('browserPid' in after).toBe(false)
+    expect('extensionId' in after).toBe(false)
+  })
+
+  it('derives the extension id from the emitted dist once it exists', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0'})
+    )
+
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe(chromiumExtensionId(distPath))
+  })
+
+  it('derives the declared gecko id for a firefox session', () => {
+    const distPath = path.join(tmp, 'dist', 'firefox')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({
+        name: 'Fixture',
+        version: '1.0.0',
+        browser_specific_settings: {gecko: {id: 'fixture@extension.js'}}
+      })
+    )
+
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'firefox',
+      command: 'dev',
+      distPath,
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe('fixture@extension.js')
+  })
+
+  it('keeps a launcher-confirmed extension id over the derived one across recompiles', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0'})
+    )
+
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.extensionId = 'glocgelajdejkheibpdooiagpkkbfmhe'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
   })
 
   it('stamps runtime:"attached"/executorAttachedAt once and preserves it across recompiles', () => {
