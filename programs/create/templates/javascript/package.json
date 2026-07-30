@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "javascript",
-  "description": "JavaScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
+  "description": "Adds a sidebar panel to the browser with a simple page.",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
