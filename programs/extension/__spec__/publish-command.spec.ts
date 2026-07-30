@@ -39,6 +39,9 @@ describe('extension publish', () => {
     delete process.env.EXTENSION_DEV_TOKEN
     expect(await run(['publish'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_TOKEN')
+    expect(String(errorSpy.mock.calls[0][0])).toContain(
+      'https://docs.extension.dev/tools/publish'
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

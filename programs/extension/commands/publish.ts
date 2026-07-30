@@ -14,6 +14,7 @@ import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the extension.dev platform MCP.
 const DEFAULT_API = 'https://www.extension.dev'
+const PUBLISH_DOCS_URL = 'https://docs.extension.dev/tools/publish'
 
 export interface PublishRequest {
   url: string
@@ -36,8 +37,9 @@ export function buildPublishRequest(opts: PublishInput): PublishRequest {
 
   if (!token) {
     throw new Error(
-      'No token. Set EXTENSION_DEV_TOKEN (create one in the extension.dev ' +
-        'dashboard, or via the project access-tokens API) or pass --token.'
+      'No token. Publishing needs an extension.dev access token.\n' +
+        `Get one: ${PUBLISH_DOCS_URL}\n` +
+        'Then set EXTENSION_DEV_TOKEN, or pass --token.'
     )
   }
 
@@ -110,7 +112,7 @@ export function registerPublishCommand(program: Command) {
           'denied',
           {code: CODES.E_AUTH_REQUIRED, message},
           message,
-          'Set EXTENSION_DEV_TOKEN or pass --token.'
+          `Get a token at ${PUBLISH_DOCS_URL}, then set EXTENSION_DEV_TOKEN or pass --token.`
         )
         return
       }
