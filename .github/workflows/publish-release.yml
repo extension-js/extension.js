@@ -59,10 +59,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
-      # OIDC trusted publishing needs npm >= 11.5.1, and Node 22 ships npm 10.x,
-      # so pin the newest npm rather than depend on the runtime's patch level.
+      # OIDC trusted publishing needs npm >= 11.5.1 and Node 22 ships npm 10.x,
+      # so npm has to be upgraded here. It is PINNED and never `@latest`:
+      # npm 12.0.2 shipped 2026-07-29 and turned unknown CLI flags from a
+      # warning into a hard EUNKNOWNCONFIG error, which killed the publish on
+      # `--no-git-checks` (a pnpm flag that had ridden along harmlessly for
+      # months) before the OIDC token exchange was ever attempted. A floating
+      # tag on the tool that performs the publish makes every release hostage
+      # to that tool's next major.
       - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11.19.0
 
       - name: Verify pnpm
         run: |
@@ -409,7 +415,9 @@ jobs:
       - name: Publish extension-create [OIDC+provenance]
         if: steps.check_create.outputs.exists == 'false'
         working-directory: programs/create
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-create)
@@ -445,7 +453,9 @@ jobs:
       - name: Publish extension-develop [OIDC+provenance]
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-develop)
@@ -481,7 +491,9 @@ jobs:
       - name: Publish extension-install [OIDC+provenance]
         if: steps.check_install.outputs.exists == 'false'
         working-directory: programs/install
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
 
       - name: Verify publish (extension-install)
         if: steps.check_install.outputs.exists == 'false'
@@ -516,7 +528,9 @@ jobs:
       - name: Publish extension [OIDC+provenance]
         if: steps.check_cli.outputs.exists == 'false'
         working-directory: programs/extension
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension)
