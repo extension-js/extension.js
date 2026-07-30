@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 4.0.25 (July 30, 2026)
+
+### Fixes
+
+- Stop a stored consent from speaking for a pipeline that inherited it ([4c845971](https://github.com/extension-js/extension.js/commit/4c845971bbf20e26906a8c91853bb5c9babc51e6))
+
+<details>
+<summary>Other changes (6)</summary>
+
+- Update the AI help snapshot for the reworded template note ([751bd442](https://github.com/extension-js/extension.js/commit/751bd44284ad67319f268e93427eb616f0cd45b5))
+- Say the template rules in sentences the messaging check allows ([620d4f15](https://github.com/extension-js/extension.js/commit/620d4f156e36cba349813153b8b7e380a6b5fb7f))
+- Show every template name in create help instead of only to agents ([8fba658c](https://github.com/extension-js/extension.js/commit/8fba658c65fd3214115eba43cd447766f24ae8c5))
+- Resync the bundled javascript template with the examples repo ([3cb2d4f6](https://github.com/extension-js/extension.js/commit/3cb2d4f6b3090da157bd590ae71463fd5a54a1dc))
+- Give the default scaffold its own name, identity, and first commit ([d3dd41f8](https://github.com/extension-js/extension.js/commit/d3dd41f85e3af784b5049d253597017cc0d9e0f6))
+- Tell the reader where to get a token when publish has none ([e8cb2661](https://github.com/extension-js/extension.js/commit/e8cb2661ca726549489a8f06c60417aa58ffd89c))
+</details>
+
 ## 4.0.24 (July 30, 2026)
 
 ### Fixes
