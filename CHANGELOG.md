@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 4.0.23 (July 30, 2026)
+
+### Features
+
+- Surface legacy manifest path warnings at scan time, not stats time ([51c1b0c8](https://github.com/extension-js/extension.js/commit/51c1b0c854467c00e7e4b99f25101c19e46e5559))
+- Surface fatal manifest repairs at patch time with one visible line ([9fd5d2e5](https://github.com/extension-js/extension.js/commit/9fd5d2e5fdf357dc1e6cb587ad0989e056e945a1))
+- Add machine-aware human sinks to the shared messaging primitives ([8ba132ac](https://github.com/extension-js/extension.js/commit/8ba132ac65ff26e4ae49d2695a4148668c29a58d))
+
+### Fixes
+
+- Stop warning about a port conflict when port 0 asked for any port ([ec1cdd33](https://github.com/extension-js/extension.js/commit/ec1cdd33a02b9240ea73f7ab3d2ed9f9dca6f749))
+
+<details>
+<summary>Other changes (11)</summary>
+
+- Print where to share a build and name the sponsor in the README ([fdd9b947](https://github.com/extension-js/extension.js/commit/fdd9b94704db43b1d9a8f068c78a1ac1c59562db))
+- Name the sponsor in the README every scaffold keeps ([9fd4c4d5](https://github.com/extension-js/extension.js/commit/9fd4c4d5bd85ce23430619a8b46495277a4108fa))
+- Pin npm and drop a pnpm flag that npm 12 turns into a hard error ([4f05a582](https://github.com/extension-js/extension.js/commit/4f05a58210da951a365424922380670da259bb31))
+- Publish all four packages through OIDC instead of a shared npm token ([9672f35e](https://github.com/extension-js/extension.js/commit/9672f35e14c744f5a61837f16ad0ab3628e66735))
+- Honor commands noBrowser from the file config, flag still wins ([e8da1e2a](https://github.com/extension-js/extension.js/commit/e8da1e2a13b22892cb9240d9e7a2718a6b32ffca))
+- Stamp the user extension id on the ready contract for both families ([c4f7c103](https://github.com/extension-js/extension.js/commit/c4f7c103a487c604381371705a6bc348d7c1b8da))
+- Warn early that a derived Safari bundle id is shared, drop Apple claim ([858b2f2b](https://github.com/extension-js/extension.js/commit/858b2f2bcbb79cb2995cbc413311633d1fc2b5ed))
+- Warn when a second dev session targets the same browser dist ([95743e52](https://github.com/extension-js/extension.js/commit/95743e5290fd6fe73b9b6421003b33a7333b3f84))
+- Document the human sinks and the logs printer exception ([4f5130f3](https://github.com/extension-js/extension.js/commit/4f5130f3a9f5afe64cc676b8446b6274d3c2a9df))
+- Trim snapshot and fallback notices to cause and remedy warn lines ([bcb54782](https://github.com/extension-js/extension.js/commit/bcb54782f77374c8c13f368c1add4f4f6d48112a))
+- Route browsers-bundle console output through the human sinks ([e2016e21](https://github.com/extension-js/extension.js/commit/e2016e213d7afbd3c9b0dcd1fc5c22f7deb8d7be))
+</details>
+
 ## 4.0.22 (July 29, 2026)
 
 ### Fixes
