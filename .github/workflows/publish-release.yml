@@ -59,6 +59,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      # OIDC trusted publishing needs npm >= 11.5.1, and Node 22 ships npm 10.x,
+      # so pin the newest npm rather than depend on the runtime's patch level.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Verify pnpm
         run: |
           pnpm --version
@@ -401,29 +406,10 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish extension-create [token+provenance]
+      - name: Publish extension-create [OIDC+provenance]
         if: steps.check_create.outputs.exists == 'false'
         working-directory: programs/create
-        run: |
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "NPM_TOKEN secret is missing." >&2
-            exit 1
-          fi
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$NPM_CONFIG_USERCONFIG"
-          else
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$HOME/.npmrc"
-          fi
-          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-create)
@@ -456,29 +442,10 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish extension-develop [token+provenance]
+      - name: Publish extension-develop [OIDC+provenance]
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
-        run: |
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "NPM_TOKEN secret is missing." >&2
-            exit 1
-          fi
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$NPM_CONFIG_USERCONFIG"
-          else
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$HOME/.npmrc"
-          fi
-          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-develop)
@@ -511,29 +478,10 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish extension-install [token+provenance]
+      - name: Publish extension-install [OIDC+provenance]
         if: steps.check_install.outputs.exists == 'false'
         working-directory: programs/install
-        run: |
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "NPM_TOKEN secret is missing." >&2
-            exit 1
-          fi
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$NPM_CONFIG_USERCONFIG"
-          else
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$HOME/.npmrc"
-          fi
-          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       - name: Verify publish (extension-install)
         if: steps.check_install.outputs.exists == 'false'
@@ -565,29 +513,10 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish extension [token+provenance]
+      - name: Publish extension [OIDC+provenance]
         if: steps.check_cli.outputs.exists == 'false'
         working-directory: programs/extension
-        run: |
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "NPM_TOKEN secret is missing." >&2
-            exit 1
-          fi
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$NPM_CONFIG_USERCONFIG"
-          else
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
-              echo "always-auth=true"
-            } > "$HOME/.npmrc"
-          fi
-          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension)
