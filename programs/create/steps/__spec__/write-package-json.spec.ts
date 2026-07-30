@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   overridePackageJson,
   resolveExtensionDevDependencyVersion
@@ -11,6 +11,36 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-pkg-'))
   try {
     return await fn(dir)
+  } finally {
+    await fs.rm(dir, {recursive: true, force: true})
+  }
+}
+
+function invokedWith(
+  manager: 'npm' | 'pnpm' | 'yarn' | 'bun',
+  version = '1.0.0'
+) {
+  vi.stubEnv('npm_config_user_agent', `${manager}/${version} node/v22.12.0`)
+  vi.stubEnv('npm_execpath', '')
+  vi.stubEnv('NPM_EXEC_PATH', '')
+}
+
+async function withGitIdentity<T>(
+  identity: {name: string; email: string} | undefined,
+  fn: () => Promise<T>
+) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-ident-'))
+  const configPath = path.join(dir, 'gitconfig')
+  await fs.writeFile(
+    configPath,
+    identity
+      ? `[user]\n\tname = ${identity.name}\n\temail = ${identity.email}\n`
+      : '[core]\n\tpager = cat\n'
+  )
+  vi.stubEnv('GIT_CONFIG_GLOBAL', configPath)
+  vi.stubEnv('GIT_CONFIG_SYSTEM', '/dev/null')
+  try {
+    return await fn()
   } finally {
     await fs.rm(dir, {recursive: true, force: true})
   }
@@ -247,8 +277,87 @@ describe('resolveExtensionDevDependencyVersion (#57, never silently pin "latest"
   })
 })
 
+describe('overridePackageJson author identity', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('writes the identity git will commit the scaffold with', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'seed', private: true})
+      )
+
+      await withGitIdentity(
+        {name: 'Scaffold Tester', email: 'scaffold@example.com'},
+        () => overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.author).toEqual({
+        name: 'Scaffold Tester',
+        email: 'scaffold@example.com'
+      })
+    })
+  })
+
+  it('omits the author when git cannot name one', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'seed', private: true})
+      )
+
+      await withGitIdentity(undefined, () =>
+        overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+      )
+
+      const raw = await fs.readFile(
+        path.join(projectPath, 'package.json'),
+        'utf8'
+      )
+      expect(JSON.parse(raw).author).toBeUndefined()
+      expect(raw).not.toContain('Your Name')
+      expect(raw).not.toContain('your@email.com')
+    })
+  })
+
+  it("never carries the template author's identity forward", async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          author: {name: 'Template Author', email: 'template@example.com'}
+        })
+      )
+
+      await withGitIdentity(undefined, () =>
+        overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+      )
+
+      const raw = await fs.readFile(
+        path.join(projectPath, 'package.json'),
+        'utf8'
+      )
+      expect(raw).not.toContain('Template Author')
+      expect(raw).not.toContain('template@example.com')
+    })
+  })
+})
+
 describe('overridePackageJson dependency build-script approval', () => {
-  it('suppresses the universal no-op `less` build script in plain scaffolds', async () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('suppresses the no-op `less` build script for a pnpm scaffold', async () => {
+    invokedWith('pnpm', '10.28.0')
     await withTempDir(async (projectPath) => {
       await fs.writeFile(
         path.join(projectPath, 'package.json'),
@@ -267,7 +376,49 @@ describe('overridePackageJson dependency build-script approval', () => {
     })
   })
 
+  it('writes no pnpm settings block for a scaffold pnpm never installs', async () => {
+    invokedWith('npm', '11.11.0')
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'seed', private: true})
+      )
+
+      await overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+
+      const raw = await fs.readFile(
+        path.join(projectPath, 'package.json'),
+        'utf8'
+      )
+      expect(JSON.parse(raw).pnpm).toBeUndefined()
+      expect(raw).not.toContain('ignoredBuiltDependencies')
+    })
+  })
+
+  it('keeps the suppression when the template pins pnpm itself', async () => {
+    invokedWith('npm', '11.11.0')
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          packageManager: 'pnpm@10.28.0'
+        })
+      )
+
+      await overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
+    })
+  })
+
   it('approves native ML build scripts (pnpm + bun) when the transformers stack is present', async () => {
+    invokedWith('pnpm', '10.28.0')
     await withTempDir(async (projectPath) => {
       await fs.writeFile(
         path.join(projectPath, 'package.json'),
@@ -295,6 +446,7 @@ describe('overridePackageJson dependency build-script approval', () => {
   })
 
   it('merges with build-script config a template already declares', async () => {
+    invokedWith('pnpm', '10.28.0')
     await withTempDir(async (projectPath) => {
       await fs.writeFile(
         path.join(projectPath, 'package.json'),

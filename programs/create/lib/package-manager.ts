@@ -6,14 +6,33 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Package-manager detection comes from the standalone prefers-yarn package,
-// re-exported under the names the create steps already import.
-import {detectPackageManagerFromEnv} from 'prefers-yarn'
+export {getPackageManagerSpec as getPackageManagerSpecFromEnv} from 'prefers-yarn'
 
-export {
-  detectPackageManagerFromEnv,
-  getPackageManagerSpec as getPackageManagerSpecFromEnv
-} from 'prefers-yarn'
+const NODE_PACKAGE_MANAGERS = ['pnpm', 'yarn', 'bun', 'npm'] as const
+
+type NodePackageManager = (typeof NODE_PACKAGE_MANAGERS)[number]
+
+/* @invariant Only the manager that INVOKED this process may answer here. An
+ * installed binary, a PATH entry, or an installer variable such as BUN_INSTALL
+ * says what the machine has, never what the person typed, and recommending the
+ * wrong second step is worse than recommending the default one. */
+export function detectPackageManagerFromEnv(): NodePackageManager {
+  const userAgent = (process.env.npm_config_user_agent || '').toLowerCase()
+  for (const manager of NODE_PACKAGE_MANAGERS) {
+    if (userAgent.includes(`${manager}/`)) return manager
+  }
+
+  const execPath = (
+    process.env.npm_execpath ||
+    process.env.NPM_EXEC_PATH ||
+    ''
+  ).toLowerCase()
+  for (const manager of NODE_PACKAGE_MANAGERS) {
+    if (execPath.includes(manager)) return manager
+  }
+
+  return 'npm'
+}
 
 // Deno sets neither npm_config_user_agent nor npm_execpath, so detection would
 // fall through to npm; detect Deno via its runtime globals instead.

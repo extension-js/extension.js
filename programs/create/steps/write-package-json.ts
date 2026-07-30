@@ -9,9 +9,13 @@
 import {readFileSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {readGitIdentity} from '../lib/git-identity'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
-import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
+import {
+  getPackageManagerSpecFromEnv,
+  resolveScaffoldPackageManager
+} from '../lib/package-manager'
 
 export async function resolveExtensionBinary(): Promise<string> {
   const developRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
@@ -80,8 +84,11 @@ interface OverridePackageJsonOptions {
   cliVersion?: string
 }
 
-// less rides in transitively; its postinstall is a no-op outside less.js's own
-// monorepo, so suppress pnpm's "Ignored build scripts" noise in scaffolds.
+/* @invariant less rides in transitively and its postinstall is a no-op outside
+ * less.js's own monorepo, so pnpm's "Ignored build scripts" note is noise. The
+ * suppression is a pnpm field, so it is written only for a scaffold pnpm will
+ * install; every other scaffold would carry a settings block for a package
+ * manager it never runs. */
 const BUILD_NOOP_DEPENDENCIES = ['less']
 
 // Native packages that MUST run their install script or break at runtime
@@ -187,9 +194,12 @@ export async function overridePackageJson(
       ? packageJson.pnpm
       : {}
   ) as {ignoredBuiltDependencies?: string[]; onlyBuiltDependencies?: string[]}
+  const installsWithPnpm =
+    String(packageManagerSpec || '').startsWith('pnpm@') ||
+    resolveScaffoldPackageManager() === 'pnpm'
   const ignoredBuilt = uniq([
     ...(existingPnpm.ignoredBuiltDependencies || []),
-    ...BUILD_NOOP_DEPENDENCIES
+    ...(installsWithPnpm ? BUILD_NOOP_DEPENDENCIES : [])
   ])
   const onlyBuilt = uniq([
     ...(existingPnpm.onlyBuiltDependencies || []),
@@ -200,8 +210,25 @@ export async function overridePackageJson(
     ...nativeBuildDeps
   ])
 
+  const pnpmSettings = {
+    ...existingPnpm,
+    ...(ignoredBuilt.length ? {ignoredBuiltDependencies: ignoredBuilt} : {}),
+    ...(onlyBuilt.length ? {onlyBuiltDependencies: onlyBuilt} : {})
+  }
+
+  const identity = readGitIdentity(projectPath)
+  const author = identity.name
+    ? {
+        name: identity.name,
+        ...(identity.email ? {email: identity.email} : {})
+      }
+    : undefined
+
+  const templateFields: Record<string, unknown> = {...packageJson}
+  delete templateFields.author
+
   const packageMetadata = {
-    ...packageJson,
+    ...templateFields,
     name: path.basename(projectPath),
     private: true,
     ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
@@ -211,17 +238,9 @@ export async function overridePackageJson(
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
-    pnpm: {
-      ...existingPnpm,
-      ...(ignoredBuilt.length ? {ignoredBuiltDependencies: ignoredBuilt} : {}),
-      ...(onlyBuilt.length ? {onlyBuiltDependencies: onlyBuilt} : {})
-    },
+    ...(Object.keys(pnpmSettings).length ? {pnpm: pnpmSettings} : {}),
     ...(trustedDeps.length ? {trustedDependencies: trustedDeps} : {}),
-    author: {
-      name: 'Your Name',
-      email: 'your@email.com',
-      url: 'https://yourwebsite.com'
-    }
+    ...(author ? {author} : {})
   }
 
   try {
