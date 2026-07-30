@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 4.0.24 (July 30, 2026)
+
+### Fixes
+
+- Stop reporting telemetry from CI, where nobody can consent ([e12fd206](https://github.com/extension-js/extension.js/commit/e12fd206f6e39a1ff976662c1e802d593a5fe715))
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Prove a release shipped the fix by reading the published tarball ([631bced8](https://github.com/extension-js/extension.js/commit/631bced83be601c8194c90d1a5d82eaa27acae4c))
+- Keep reporting when CI is set but a person has a terminal ([a92c9f29](https://github.com/extension-js/extension.js/commit/a92c9f29b4f708f499338868b79dc77008b71b33))
+- Resync the bundled javascript template with the examples repo ([9de01978](https://github.com/extension-js/extension.js/commit/9de01978671a41f39b7d56efd355e47cc359ec9d))
+</details>
+
 ## 4.0.23 (July 30, 2026)
 
 ### Features
