@@ -16,6 +16,7 @@ import {
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {resolveNoBrowser} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -292,7 +293,10 @@ export function registerStartCommand(program: Command) {
               browsers: list,
               port: resolveRequestedPort(startOptions.port),
               pid: process.pid,
-              noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1'
+              noBrowser: await resolveNoBrowser(
+                pathOrRemoteUrl || process.cwd(),
+                'start'
+              )
             })
           )
         }
@@ -341,7 +345,10 @@ export function registerStartCommand(program: Command) {
             process.exit(1)
           }
 
-          const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
+          const noBrowser = await resolveNoBrowser(
+            pathOrRemoteUrl || process.cwd(),
+            'start'
+          )
           if (noBrowser) {
             continue
           }

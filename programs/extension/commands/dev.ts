@@ -16,6 +16,7 @@ import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {resolveNoBrowser} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
@@ -381,7 +382,10 @@ export function registerDevCommand(program: Command) {
           return
         }
 
-        const noBrowser = process.env.EXTENSION_CLI_NO_BROWSER === '1'
+        const noBrowser = await resolveNoBrowser(
+          pathOrRemoteUrl || process.cwd(),
+          'dev'
+        )
 
         // dev never terminates, so json mode gets one startup frame now rather
         // than a result frame that would only arrive when the session dies.

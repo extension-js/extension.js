@@ -36,6 +36,7 @@ import type {
   StartOptions
 } from './types'
 
+export {loadCommandConfig} from './lib/config-loader'
 export {
   extensionBuild,
   type BuildOptions,
