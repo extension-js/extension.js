@@ -16,7 +16,9 @@ Per CLI run, at most one of:
 | `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
 | `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version` |
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`. Nothing else.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else.
+
+`is_source_build` is a boolean and nothing more. It is `false` when the CLI was resolved from a package manager directory, which is what an ordinary install looks like, and `true` when it was resolved from a checkout of this repository. It exists so a run of the framework's own development can be told apart from a run by somebody using it. No path, no directory name and no hash of either is collected or transmitted; only the boolean leaves the machine.
 
 ## Explicitly never collected
 
@@ -62,7 +64,9 @@ The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or t
 
 Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it and records an `enabled` consent marker so the notice does not repeat.
 
-**Unattended CI is off by default.** When a CI marker (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`) is set **and stdout is not a terminal**, telemetry does not report, because the first-run notice cannot be shown to anyone and a pipeline cannot agree to be measured. A devcontainer, Codespace or agent sandbox sets a CI marker too, but there is a person at a terminal, so those keep reporting and can opt out the normal ways. A stored consent file still wins. To turn it on for a pipeline, set `EXTENSION_TELEMETRY=1`.
+**Unattended CI is off by default.** When a CI marker (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`) is set **and stdout is not a terminal**, telemetry does not report, because the first-run notice cannot be shown to anyone and a pipeline cannot agree to be measured. A devcontainer, Codespace or agent sandbox sets a CI marker too, but there is a person at a terminal, so those keep reporting and can opt out the normal ways. To turn it on for a pipeline, set `EXTENSION_TELEMETRY=1`.
+
+A stored `enabled` consent file does **not** override this. That file records that a person agreed at that keyboard once; it cannot tell that apart from a pipeline that later inherited the same home directory, which is the case on self-hosted runners, baked container images and any CI that caches `$HOME`. A stored `disabled` still wins everywhere, because a refusal never needs re-confirming.
 
 ## Local audit log
 
