@@ -15,6 +15,10 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {
+  DEFAULT_TEMPLATE,
+  renderCreateTemplateHelp
+} from '../helpers/template-catalog'
 import {parseOptionalBoolean} from '../helpers/vendors'
 
 const require = createRequire(import.meta.url)
@@ -48,7 +52,7 @@ export function registerCreateCommand(program: Command) {
     .description(commandDescriptions.create)
     .option(
       '-t, --template <template-name>',
-      'specify a template for the created project'
+      `catalog name, GitHub URL, or ZIP URL to scaffold from; every catalog name is listed below (default: ${DEFAULT_TEMPLATE})`
     )
     .option(
       '--install [boolean]',
@@ -64,6 +68,7 @@ export function registerCreateCommand(program: Command) {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .addHelpText('after', renderCreateTemplateHelp())
     .action(
       async (
         pathOrRemoteUrl: string,
