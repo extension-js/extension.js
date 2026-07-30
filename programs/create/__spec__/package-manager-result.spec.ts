@@ -75,6 +75,34 @@ describe('resolveScaffoldPackageManager', () => {
     )
     expect(resolveScaffoldPackageManager()).toBe('npm')
   })
+
+  it('ignores an installer variable that only says what is on the machine', async () => {
+    clearPmEnv()
+    vi.stubEnv('BUN_INSTALL', '/Users/someone/.bun')
+    const {resolveScaffoldPackageManager} = await import(
+      '../lib/package-manager'
+    )
+    expect(resolveScaffoldPackageManager()).toBe('npm')
+  })
+
+  it('reads the invoking manager out of a bun-run install', async () => {
+    clearPmEnv()
+    vi.stubEnv('BUN_INSTALL', '/Users/someone/.bun')
+    vi.stubEnv('npm_config_user_agent', 'bun/1.1.0 npm/? node/v22.12.0')
+    const {resolveScaffoldPackageManager} = await import(
+      '../lib/package-manager'
+    )
+    expect(resolveScaffoldPackageManager()).toBe('bun')
+  })
+
+  it('reads the invoking manager out of an exec path when no agent is set', async () => {
+    clearPmEnv()
+    vi.stubEnv('npm_execpath', '/usr/local/lib/node_modules/yarn/bin/yarn.js')
+    const {resolveScaffoldPackageManager} = await import(
+      '../lib/package-manager'
+    )
+    expect(resolveScaffoldPackageManager()).toBe('yarn')
+  })
 })
 
 describe('CreateResult.packageManager', () => {

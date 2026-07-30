@@ -30,6 +30,7 @@ import {writeGitignore} from './steps/write-gitignore'
 import {writeManifestJson} from './steps/write-manifest-json'
 import {overridePackageJson} from './steps/write-package-json'
 import {writeReadmeFile} from './steps/write-readme-file'
+import {writeStoreMetadata} from './steps/write-store-metadata'
 import {writeTemplateProvenance} from './steps/write-template-provenance'
 
 export interface CreateLogger {
@@ -84,6 +85,8 @@ export async function extensionCreate(
   // through the injected logger so programmatic hosts keep capturing it.
   const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+  const requestedTemplate =
+    path.basename(String(template)) === 'init' ? 'javascript' : String(template)
   logger.log(' ')
   logger.log(
     card({
@@ -91,6 +94,7 @@ export async function extensionCreate(
       suffix: updateSuffix,
       rows: [
         {label: 'Extension', value: projectName},
+        {label: 'Template', value: requestedTemplate},
         {label: 'Output', value: projectPath}
       ]
     })
@@ -106,6 +110,15 @@ export async function extensionCreate(
     logger
   )
 
+  if (templateProvenance?.template) {
+    logger.log(
+      messages.usingTemplate(
+        templateProvenance.template,
+        templateProvenance.source
+      )
+    )
+  }
+
   // Deno-created scaffolds get deno.jsonc instead of package.json (issue #482);
   // monorepo templates keep package.json with a tasks-only deno.jsonc beside it.
   const isMonorepoTemplate = String(template).toLowerCase().includes('monorepo')
@@ -120,7 +133,6 @@ export async function extensionCreate(
     await writeDenoJsonc(projectPath, {template}, logger)
   }
 
-  // Stamp provenance before git init so the record is part of the first commit.
   await writeTemplateProvenance(projectPath, templateProvenance, logger)
 
   if (install) {
@@ -129,14 +141,26 @@ export async function extensionCreate(
   }
 
   await writeReadmeFile(projectPath, projectName, logger)
-  await writeManifestJson(projectPath, logger)
-  await initializeGitRepository(projectPath, projectName, logger)
+  const templateManifestName = await writeManifestJson(projectPath, logger)
+  await writeStoreMetadata(
+    projectPath,
+    projectName,
+    templateManifestName,
+    logger
+  )
   await writeGitignore(projectPath, logger)
   await setupBuiltInTests(projectPath, logger)
 
   if (utils.isTypeScriptTemplate(template)) {
     await generateExtensionTypes(projectPath, projectName, logger)
   }
+
+  await initializeGitRepository(
+    projectPath,
+    projectName,
+    templateProvenance?.template,
+    logger
+  )
 
   const readyMessage = await messages.scaffoldReady(
     projectPath,

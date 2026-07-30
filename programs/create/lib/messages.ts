@@ -142,6 +142,18 @@ export function installingFromTemplate(
   return `${prefix('info')} Copying the template ${colors.blue(templateName)}…`
 }
 
+export function usingTemplate(templateName: string, source: string) {
+  const origin =
+    source === 'bundled'
+      ? 'bundled with this CLI'
+      : `from ${fmt.val(fmt.truncate(source, 120))}`
+
+  return (
+    `${prefix('info')} Using the ${colors.blue(templateName)} template, ` +
+    `${origin}.`
+  )
+}
+
 export function installingFromTemplateError(template: string, error: unknown) {
   return (
     `${prefix('error')} Couldn't find the template ${colors.blue(template)}.\n` +
@@ -198,6 +210,14 @@ export function initializingGitSkipped(projectName: string, reason: string) {
     `${prefix('warn')} Skipping the git init for ${colors.blue(projectName)}.\n` +
     `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
     `Run ${colors.blue('git init')} yourself if you want version control.`
+  )
+}
+
+export function firstCommitSkipped(projectName: string, reason: string) {
+  return (
+    `${prefix('warn')} Left ${colors.blue(projectName)} uncommitted.\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
+    `Run ${colors.blue('git add -A && git commit')} to record the scaffold.`
   )
 }
 
@@ -307,6 +327,18 @@ export function writingManifestJsonMetadataError(error: unknown) {
     `${prefix('error')} Couldn't write ${colors.blue('manifest.json')}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
     `${colors.red('Check the file permissions, then try again.')}`
+  )
+}
+
+export function writingStoreMetadata(projectName: string) {
+  return `${prefix('debug')} create write file=STORE.md name=${projectName}`
+}
+
+export function writingStoreMetadataError(error: unknown) {
+  return (
+    `${prefix('warn')} Couldn't update ${colors.blue('STORE.md')}.\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
+    `Edit the listing name in ${colors.blue('STORE.md')} before you submit.`
   )
 }
 
