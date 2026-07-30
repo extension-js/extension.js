@@ -5,7 +5,11 @@ for this material at submission time; keep it current as the code
 changes instead of rewriting it at the end. Replace the placeholder
 lines marked TODO before you submit.
 
-Last updated: 2026-07-20
+Packaging your extension is local and free. Submitting the result to a
+store is what [extension.dev](https://docs.extension.dev/publish/overview?utm_source=store-md)
+does, and it sponsors Extension.js.
+
+Last updated: 2026-07-30
 
 ## Listing
 
