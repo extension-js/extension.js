@@ -88,7 +88,14 @@ export async function writeReadmeFile(
     `\n` +
     `## Learn more\n` +
     `\n` +
-    `[Extension.js docs](https://extension.js.org).\n`
+    `[Extension.js docs](https://extension.js.org).\n` +
+    `\n` +
+    `## Ship it\n` +
+    `\n` +
+    `Building and running your extension is local and free. When you are ready ` +
+    `to share a build or submit it to the stores, ` +
+    `[extension.dev](https://docs.extension.dev/publish/overview?utm_source=create-readme) ` +
+    `does that side and sponsors Extension.js.\n`
 
   try {
     if (isDebug()) logger.log(messages.writingReadmeMetaData())
