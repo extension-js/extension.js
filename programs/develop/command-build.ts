@@ -313,6 +313,7 @@ export async function extensionBuild(
             const zipDisplay = relativeToCwd(artifact.path) || artifact.path
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
+          humanLine(messages.buildShareHint())
           resolve()
         } else {
           handleStatsErrors(stats)

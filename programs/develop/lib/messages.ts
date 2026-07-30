@@ -202,6 +202,15 @@ export function buildComplete(
   )
 }
 
+export function buildShareHint() {
+  return (
+    `${getLoggingPrefix('info')} Send this build to someone for review: ` +
+    colors.underline(
+      'https://docs.extension.dev/share/unpublished-build-for-review?utm_source=cli-build'
+    )
+  )
+}
+
 export function buildFailed(errorCount: number) {
   const count = Math.max(1, Math.floor(errorCount || 1))
   const noun = count === 1 ? 'error' : 'errors'
