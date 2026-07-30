@@ -58,6 +58,10 @@ export class FirefoxRDPController {
     return this.remote.getAddonInstallRefusalReason()
   }
 
+  getExtensionId(): string | undefined {
+    return this.remote.getDerivedExtensionId()
+  }
+
   async enableUnifiedLogging(opts: {
     level?: string
     contexts?: string[] | undefined

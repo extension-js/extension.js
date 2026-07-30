@@ -3,7 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {claimCardKey} from '../../helpers/messaging'
-import {printDevBannerOnce, printProdBannerOnce} from '../browsers-lib/banner'
+import {
+  expectedGeckoExtensionId,
+  printDevBannerOnce,
+  printProdBannerOnce
+} from '../browsers-lib/banner'
 
 function makeTempOutPath(manifest: Record<string, unknown>): string {
   const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-banner-'))
@@ -341,5 +345,24 @@ describe('nameable is decoupled from already-printed', () => {
     expect(printed).toBe(false)
     expect(logSpy).not.toHaveBeenCalled()
     logSpy.mockRestore()
+  })
+})
+
+describe('expectedGeckoExtensionId', () => {
+  it('returns the declared gecko id from the dist manifest', () => {
+    const outPath = makeTempOutPath({
+      name: 'Gecko Extension',
+      version: '1.0.0',
+      browser_specific_settings: {gecko: {id: 'fixture@extension.js'}}
+    })
+
+    expect(expectedGeckoExtensionId(outPath)).toBe('fixture@extension.js')
+  })
+
+  it('returns empty for a manifest without a declared gecko id', () => {
+    const outPath = makeTempOutPath({name: 'Anonymous', version: '1.0.0'})
+
+    expect(expectedGeckoExtensionId(outPath)).toBe('')
+    expect(expectedGeckoExtensionId(path.join(outPath, 'missing'))).toBe('')
   })
 })

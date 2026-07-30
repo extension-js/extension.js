@@ -59,6 +59,12 @@ export class RemoteFirefox {
     return this.addonInstallRefusalReason || null
   }
 
+  // The id Firefox reported for the installed user add-on, the same one the
+  // boot card prints. Read by the launcher to stamp the ready contract.
+  public getDerivedExtensionId(): string | undefined {
+    return this.derivedExtensionId
+  }
+
   private selectPrimaryAddonPath(
     compilation: CompilationLike,
     candidateAddonPaths: string[]

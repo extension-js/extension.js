@@ -20,6 +20,7 @@ import {
   humanWarn,
   isDebug
 } from '../../../helpers/messaging'
+import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
@@ -35,6 +36,7 @@ import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort
 } from '../../browsers-lib/ready-stamp'
@@ -474,7 +476,10 @@ export class FirefoxLaunchPlugin {
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
       stampReadyBrowserLaunch(this.extensionOutputPath, {
         profilePath,
-        browserPid: this.child?.pid
+        browserPid: this.child?.pid,
+        extensionId: this.extensionOutputPath
+          ? expectedGeckoExtensionId(this.extensionOutputPath)
+          : undefined
       })
       // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
       // a persistent ('dev') or user-provided profile is never removed
@@ -514,6 +519,7 @@ export class FirefoxLaunchPlugin {
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       stampReadyRdpPort(this.extensionOutputPath, debugPort)
+      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
       this.scheduleWatchTimeout()
 
       try {
@@ -546,7 +552,10 @@ export class FirefoxLaunchPlugin {
         wslFallbackBinary
       )
       stampReadyBrowserLaunch(this.extensionOutputPath, {
-        browserPid: this.child?.pid
+        browserPid: this.child?.pid,
+        extensionId: this.extensionOutputPath
+          ? expectedGeckoExtensionId(this.extensionOutputPath)
+          : undefined
       })
       this.wireChildLifecycle()
       if (debugPort > 0) {
@@ -660,6 +669,7 @@ export class FirefoxLaunchPlugin {
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
+      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
       return {status: 'loaded'}
     } catch (error) {
       const reason = (error as {extensionLoadRefusedReason?: string})
