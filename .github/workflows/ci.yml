@@ -74,6 +74,16 @@ jobs:
       - name: Test release-notes generator
         run: pnpm test:scripts
 
+      # The bundled javascript template is synced from extension-js/examples,
+      # and publish-release.yml gates every release on it being in sync. That
+      # gate lived ONLY at release time and nightly, so a push to the examples
+      # repo could redden a release hours later with no warning, which is what
+      # killed the 4.0.24 attempt on 2026-07-30 twenty one seconds in. Running
+      # it here surfaces the drift on the push that causes it instead of at the
+      # moment somebody is trying to ship. The release gate stays as a backstop.
+      - name: Check bundled create template drift
+        run: bash scripts/check-bundled-template-drift.sh
+
   tests:
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest

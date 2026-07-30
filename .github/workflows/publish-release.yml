@@ -219,18 +219,30 @@ jobs:
             });
             core.setOutput('url', release.data.html_url);
 
-      - name: Verify Discord webhook secret for stable release
+      # An announcement channel may not stop a release. This step used to exit 1
+      # on an empty CHANGELOG_WEBHOOK_URL, and it runs long before the publish
+      # steps, so a deleted or rotated Discord webhook would have killed the run
+      # AFTER the tag and the GitHub Release existed and BEFORE anything reached
+      # npm, leaving a version that looks shipped and is not. It also read as a
+      # release bug rather than a Discord bug. Ruled 2026-07-30: degrade to a
+      # warning that is visible in the run summary, never a failure, and let the
+      # notify step below skip itself rather than explode.
+      - name: Check Discord webhook secret for stable release
+        id: discord_secret
         if: ${{ inputs.channel == 'stable' }}
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "CHANGELOG_WEBHOOK_URL secret is required for stable Discord notifications." >&2
-            exit 1
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Discord announcement skipped::CHANGELOG_WEBHOOK_URL is empty, so this stable release ships without a Discord announcement. The release itself is unaffected."
+            echo "- Discord announcement SKIPPED, CHANGELOG_WEBHOOK_URL is empty" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Notify Discord for stable release
-        if: ${{ inputs.channel == 'stable' }}
+        if: ${{ inputs.channel == 'stable' && steps.discord_secret.outputs.configured == 'true' }}
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
           RELEASE_TITLE: ${{ steps.validate.outputs.version }}
