@@ -48,14 +48,44 @@ function getArg(flag) {
   return process.argv[index + 1]
 }
 
+/* @invariant `--prefer-online` AND THE RETRY ARE BOTH LOAD BEARING, BECAUSE
+ * THIS GUARD FAILED A RELEASE THAT WAS PERFECTLY GOOD.
+ *
+ * On 2026-07-31 the 4.0.26 release published correctly, `npm view` already
+ * answered for the new version, and this step still exited 1 with `ETARGET`.
+ * The registry had the version; the runner's cached packument did not. The
+ * guard reported a wrong-bytes release when the bytes were right, which is the
+ * most expensive kind of false alarm: it teaches the next person to ignore the
+ * one check that exists to be believed.
+ *
+ * `--prefer-online` revalidates the packument instead of trusting the cache,
+ * and the retry covers the seconds a CDN can still be propagating. Failing
+ * after that is a real failure and should stop the release.
+ */
 function fetchPublishedPackage(name, version, destination) {
-  execFileSync(
-    'npm',
-    ['pack', `${name}@${version}`, '--pack-destination', destination],
-    {
-      stdio: ['ignore', 'pipe', 'inherit']
+  const attempts = 3
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      execFileSync(
+        'npm',
+        [
+          'pack',
+          `${name}@${version}`,
+          '--prefer-online',
+          '--pack-destination',
+          destination
+        ],
+        {stdio: ['ignore', 'pipe', 'inherit']}
+      )
+      break
+    } catch (error) {
+      if (attempt === attempts) throw error
+      console.log(
+        `npm pack could not see ${name}@${version} yet, retrying (${attempt}/${attempts})`
+      )
+      execFileSync('sleep', [String(attempt * 5)], {stdio: 'ignore'})
     }
-  )
+  }
 
   const tarball = readdirSync(destination).find((entry) =>
     entry.endsWith('.tgz')
