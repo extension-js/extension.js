@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 4.0.26 (July 31, 2026)
+
+### Fixes
+
+- Stop a missing Discord webhook from blocking a release ([e4bdd73e](https://github.com/extension-js/extension.js/commit/e4bdd73e052dd9f1a118132e3a1d02395de527f3))
+
+<details>
+<summary>Other changes (1)</summary>
+
+- Make init scaffold the init template instead of a different one ([be5ad414](https://github.com/extension-js/extension.js/commit/be5ad41401d5588c2a9d689f5e498fee6ca4da91))
+</details>
+
 ## 4.0.25 (July 30, 2026)
 
 ### Fixes
