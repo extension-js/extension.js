@@ -15,6 +15,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
   DEFAULT_TEMPLATE,
   renderCreateTemplateHelp
@@ -125,6 +126,10 @@ export function registerCreateCommand(program: Command) {
             cliVersion: getCliPackageJson().version
           })
         } catch (error) {
+          // The non-json path throws and index.ts marks the failure there. The
+          // json path returns instead of throwing, so it has to mark its own,
+          // and without this create could not report a failure at all.
+          markCommandFailure()
           if (!asJson) throw error
 
           // eslint-disable-next-line no-console
