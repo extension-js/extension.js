@@ -280,7 +280,8 @@ if (process.argv.includes('--ai-help')) {
         if (asJson) {
           writeStdoutFrame(commanderErrorEnvelope(err, commandName))
         }
-        process.exit(exitCode)
+        await exitAfterDrain(exitCode)
+        return
       }
 
       markCommandFailure()
@@ -289,7 +290,7 @@ if (process.argv.includes('--ai-help')) {
       if (asJson && !isErrorFramed(err)) {
         writeStdoutFrame(internalErrorEnvelope(err, commandName))
       }
-      process.exit(1)
+      await exitAfterDrain(1)
     }
   })()
 }
