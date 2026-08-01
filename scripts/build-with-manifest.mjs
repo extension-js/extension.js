@@ -56,6 +56,29 @@ function main() {
     env.EXTENSION_SKIP_INSTALL = process.env.EXTENSION_SKIP_INSTALL
   }
 
+  /* @invariant The e2e templates must build with the CLI this checkout just
+     compiled, never with whatever `extension` happens to be on PATH. The root
+     package.json carries no dependency on the `extension` workspace package,
+     so pnpm writes no node_modules/.bin/extension: a bare spawn is ENOENT on a
+     CI runner and silently picks up a stale global install on a developer
+     machine. Spawn the workspace bin directly and keep the PATH lookup only as
+     a fallback for a checkout where programs/ is absent. */
+  const workspaceBin = path.join(
+    REPO_ROOT,
+    'programs',
+    'extension',
+    'bin',
+    'extension.cjs'
+  )
+
+  if (fs.existsSync(workspaceBin)) {
+    run(process.execPath, [workspaceBin, mode, ...extraArgs], {
+      cwd: CWD,
+      env
+    })
+    return
+  }
+
   run('extension', [mode, ...extraArgs], {
     cwd: CWD,
     env

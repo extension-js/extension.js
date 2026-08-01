@@ -47,10 +47,47 @@ jobs:
           sudo apt-mark hold firefox
           npx playwright install --with-deps
 
+      # The job budget is 60 minutes and this step used to have no budget of
+      # its own, so a suite that never finished was killed by the JOB and
+      # GitHub recorded `cancelled`. Nothing counts a cancellation as red, so
+      # this workflow reported "no evidence" instead of "broken" every night
+      # from 2026-05-03 to 2026-08-01. The inner 45m budget is what makes the
+      # light able to turn red: 45m + the ~3m setup above leaves ~12m of the
+      # job budget for the report upload and the post steps, and a slow night
+      # now ends as a FAILING step that names the spec it was on.
+      #
+      # SIGINT, not the default SIGTERM: Playwright treats an interrupt as a
+      # graceful stop and flushes its reporters. Verified against a deliberately
+      # hanging spec: the list reporter prints the running test and a
+      # `1 interrupted` summary naming it, and the html/json report is still
+      # written for the upload step below. --kill-after is the backstop for a
+      # run so wedged it cannot even shut down.
+      #
+      # `timeout` sits INSIDE xvfb-run on purpose. Without --foreground it puts
+      # the command in its own process group and signals the whole group, so
+      # pnpm, the playwright runner and every browser it spawned all get the
+      # interrupt; the other nesting would only signal the xvfb-run wrapper and
+      # leave the runner alive under a dead parent.
       - name: Run E2E Tests (headed under Xvfb)
-        run: xvfb-run -a pnpm test:e2e
+        run: |
+          xvfb-run -a timeout --signal=INT --kill-after=2m 45m pnpm test:e2e || {
+            code=$?
+            if [ "$code" = "124" ] || [ "$code" = "137" ]; then
+              echo "::error::the e2e suite hit the 45m inner timeout; the last test named by the list reporter above is where it wedged. Live processes:"
+              ps auxww | grep -E "chrome|chromium|firefox|Xvfb|playwright|node" | grep -v grep || true
+            fi
+            exit "$code"
+          }
         env:
           PLAYWRIGHT_HEADLESS: '0'
+          # The eight cross-template specs (dev, reload, create, multi-browser,
+          # the four content-reload variants) resolve the CLI through this
+          # variable and fall back to `pnpm extension dev` with cwd set to the
+          # template directory, where no such script exists. Nothing in this
+          # repo ever set it, so every one of those specs died in beforeAll
+          # after waiting the full 90s for a CDP port that was never going to
+          # be printed. Point them at the CLI this job just compiled.
+          EXTENSION_LOCAL_CLI_CJS: ${{ github.workspace }}/programs/extension/bin/extension.cjs
 
       - name: Upload Test Report
         if: ${{ !cancelled() }}
