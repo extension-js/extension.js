@@ -8,8 +8,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-// The pure-JS build parses synchronously with no wasm init step
-import {parse as parseModuleSyntax} from 'es-module-lexer/js'
+import {initSync, parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
@@ -22,6 +21,11 @@ import {
   getCanonicalContentScriptEntryName
 } from '../../contracts'
 import * as messages from '../../messages'
+
+/* @invariant The lexer must come from the wasm entry, synchronously
+   initialized here: the `es-module-lexer/js` asm.js build prints a V8
+   "Invalid asm.js" warning on every run of any node this package supports. */
+initSync()
 
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}

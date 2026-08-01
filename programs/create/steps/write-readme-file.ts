@@ -41,10 +41,19 @@ export async function writeReadmeFile(
   const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
   const description = String(manifestJson.description || '').trim()
 
-  const screenshotPath = path.join(projectPath, 'public', 'screenshot.png')
-  const hasScreenshot = await pathExists(screenshotPath)
-  const screenshotEmbed = hasScreenshot
-    ? `\n![screenshot](./public/screenshot.png)\n`
+  const hasPublicScreenshot = await pathExists(
+    path.join(projectPath, 'public', 'screenshot.png')
+  )
+  const hasRootScreenshot = await pathExists(
+    path.join(projectPath, 'screenshot.png')
+  )
+  const screenshotHref = hasPublicScreenshot
+    ? './public/screenshot.png'
+    : hasRootScreenshot
+      ? './screenshot.png'
+      : null
+  const screenshotEmbed = screenshotHref
+    ? `\n![screenshot](${screenshotHref})\n`
     : ''
 
   const blockquote = description ? `> ${description}\n\n` : ''
@@ -73,7 +82,7 @@ export async function writeReadmeFile(
     `Build for production. Convenience scripts target each browser:\n` +
     `\n` +
     `\`\`\`bash\n` +
-    `${runPrefix} build           # Chrome (default)\n` +
+    `${runPrefix} build           # Chromium (default)\n` +
     `${runPrefix} build:firefox\n` +
     `${runPrefix} build:edge\n` +
     `\`\`\`\n` +
