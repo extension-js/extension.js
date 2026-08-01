@@ -87,6 +87,14 @@ jobs:
           pnpm --filter extension compile
           node scripts/build-extensions.cjs
 
+      # Greps the BUILT extension-develop dist (not the extension meta-package)
+      # against a held-until-DATE string list and fails the release if a held
+      # string ships before its date. The current ?utm_source=cli-build hint is
+      # grandfathered because it already published from 4.0.23; the gate exists
+      # to protect FUTURE held strings. See scripts/check-held-strings.mjs.
+      - name: Gate held share-hint strings in extension-develop dist
+        run: node scripts/check-held-strings.mjs
+
       - name: Run tests (CLI + Develop)
         run: pnpm -w test
 
