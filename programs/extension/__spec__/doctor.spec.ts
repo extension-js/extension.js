@@ -1,5 +1,12 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {type DoctorCheckResult, runDoctor} from '../commands/doctor'
+import {
+  type DoctorCheckResult,
+  resolveDoctorBrowser,
+  runDoctor
+} from '../commands/doctor'
 
 const state = vi.hoisted(() => ({mod: {} as any}))
 
@@ -274,6 +281,83 @@ describe('extension doctor', () => {
     expect(r.browser.status).toBe('skip')
     expect(r.browser.detail).toContain('unknown')
     expect(r.browser.remediation).toBeTruthy()
+  })
+})
+
+describe('extension doctor (browser resolution)', () => {
+  function makeProject(browsers: string[]): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
+    for (const browser of browsers) {
+      const dir = path.join(root, 'dist', 'extension-js', browser)
+      fs.mkdirSync(dir, {recursive: true})
+      fs.writeFileSync(path.join(dir, 'ready.json'), '{"status":"ready"}')
+    }
+    return root
+  }
+
+  it('prefers the single live session over the chromium default', () => {
+    const root = makeProject(['chrome'])
+    try {
+      expect(resolveDoctorBrowser(root, undefined).browser).toBe('chrome')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('keeps chromium when no session contract exists', () => {
+    const root = makeProject([])
+    try {
+      expect(resolveDoctorBrowser(root, undefined).browser).toBe('chromium')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('honors an explicit --browser without scanning contracts', () => {
+    const root = makeProject(['chrome'])
+    try {
+      expect(resolveDoctorBrowser(root, 'firefox').browser).toBe('firefox')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('diagnoses the resolved session and never warns for a single one', async () => {
+    const root = makeProject(['chrome'])
+    let asked: string | undefined
+    state.mod = healthyModule({
+      readReadyContract: (_p: string, browser: string) => {
+        asked = browser
+        return {
+          controlPort: 4001,
+          instanceId: 'inst-1',
+          runId: 'run-A',
+          status: 'ready',
+          pid: process.pid,
+          cdpPort: 9222
+        }
+      }
+    })
+    try {
+      const results = await runDoctor(root, {})
+      expect(asked).toBe('chrome')
+      expect(results.map((r) => r.check)).toEqual(ALL_CHECKS)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names every live session and the diagnosed pick when several exist', async () => {
+    const root = makeProject(['chrome', 'firefox'])
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+      expect(r['session-resolution'].status).toBe('warn')
+      expect(r['session-resolution'].detail).toContain('chrome, firefox')
+      expect(r['session-resolution'].detail).toContain('diagnosing chrome')
+      expect(r['session-resolution'].remediation).toContain('--browser')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 })
 

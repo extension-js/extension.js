@@ -6,6 +6,7 @@
 // ╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
@@ -58,6 +59,45 @@ function isExecutorAttachGrace(
   return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
 }
 
+function listSessionBrowsers(projectPath: string): string[] {
+  const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
+  try {
+    return fs
+      .readdirSync(sessionsRoot, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((name) =>
+        fs.existsSync(path.join(sessionsRoot, name, 'ready.json'))
+      )
+      .sort()
+  } catch {
+    return []
+  }
+}
+
+/* @invariant A bare `doctor` diagnoses the session that exists, not a
+   hardcoded default: the ready contracts under dist/extension-js/ name the
+   live browsers, a single contract wins outright, and chromium is only the
+   fallback when nothing (or an ambiguous set) is found. */
+export function resolveDoctorBrowser(
+  projectPathArg: string | undefined,
+  optsBrowser: string | undefined
+): {browser: string; sessionBrowsers: string[]} {
+  if (optsBrowser) return {browser: optsBrowser, sessionBrowsers: []}
+  const projectPath = path.resolve(projectPathArg || process.cwd())
+  const sessionBrowsers = listSessionBrowsers(projectPath)
+  if (sessionBrowsers.length === 1) {
+    return {browser: sessionBrowsers[0], sessionBrowsers}
+  }
+  if (sessionBrowsers.includes('chromium')) {
+    return {browser: 'chromium', sessionBrowsers}
+  }
+  if (sessionBrowsers.length > 1) {
+    return {browser: sessionBrowsers[0], sessionBrowsers}
+  }
+  return {browser: 'chromium', sessionBrowsers}
+}
+
 /**
  * Walks the control-channel legs in dependency order and reports the first
  * failing one with a remediation, instead of the dead-end errors each verb
@@ -70,8 +110,19 @@ export async function runDoctor(
   opts: DoctorOptions
 ): Promise<DoctorCheckResult[]> {
   const projectPath = path.resolve(projectPathArg || process.cwd())
-  const browser = opts.browser || 'chromium'
+  const {browser, sessionBrowsers} = resolveDoctorBrowser(
+    projectPathArg,
+    opts.browser
+  )
   const results: DoctorCheckResult[] = []
+  if (sessionBrowsers.length > 1) {
+    results.push({
+      check: 'session-resolution',
+      status: 'warn',
+      detail: `multiple live sessions found (${sessionBrowsers.join(', ')}), diagnosing ${browser}`,
+      remediation: 'Pass --browser=<name> to diagnose a specific session'
+    })
+  }
   const skip = (check: string, blockedBy: string) => {
     results.push({
       check,
@@ -417,7 +468,7 @@ export function registerDoctorCommand(program: Command): void {
     .argument('[project-path]', 'path to the extension project root')
     .option(
       '--browser <chrome | chromium | edge | firefox>',
-      'which session to diagnose (default chromium)'
+      'which session to diagnose (defaults to the single live session, else chromium)'
     )
     .option(
       '--output <pretty|json>',
@@ -470,7 +521,10 @@ export function registerDoctorCommand(program: Command): void {
         // eslint-disable-next-line no-console
         console.log(JSON.stringify(frame))
       } else {
-        printPretty(results, opts.browser || 'chromium')
+        printPretty(
+          results,
+          resolveDoctorBrowser(projectPathArg, opts.browser).browser
+        )
       }
 
       await exitAfterDrain(failed.length ? 1 : 0)

@@ -30,7 +30,7 @@ dist/
 .DS_Store
 
 # macOS screenshots
-Screenshot*.png
+/Screenshot*.png
 
 # editor scratch / agent state
 Untitled-*

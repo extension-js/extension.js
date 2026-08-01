@@ -114,6 +114,27 @@ describe('writeReadmeFile', () => {
     )
   })
 
+  it('embeds a project-root screenshot.png so the store zip never carries it', async () => {
+    await withTempProject(
+      async (projectPath) => {
+        await fsp.writeFile(
+          path.join(projectPath, 'manifest.json'),
+          JSON.stringify({manifest_version: 3, description: 'root screenshot'})
+        )
+        await fsp.writeFile(path.join(projectPath, 'screenshot.png'), '')
+      },
+      async (projectPath) => {
+        await writeReadmeFile(projectPath, 'root-shot-ext', noopLogger)
+        const contents = await fsp.readFile(
+          path.join(projectPath, 'README.md'),
+          'utf8'
+        )
+        expect(contents).toContain('![screenshot](./screenshot.png)')
+        expect(contents).not.toContain('./public/screenshot.png')
+      }
+    )
+  })
+
   it('omits the description blockquote when manifest has no description', async () => {
     await withTempProject(
       async (projectPath) => {
