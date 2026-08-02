@@ -10,7 +10,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
@@ -125,6 +125,12 @@ function isFirefox(browser?: string) {
   return !!browser && isGeckoBasedBrowser(browser.toLowerCase())
 }
 
+function isWebkit(browser?: string) {
+  // The pattern contract below is verified against Chrome's loader only, and
+  // Safari's loader is the converter plus WebKit, so webkit targets skip it.
+  return !!browser && isWebkitBasedBrowser(browser.toLowerCase())
+}
+
 function isValidChromeMatchPattern(pattern: string): boolean {
   // Special token is allowed by Chrome for WAR
   if (pattern === '<all_urls>') return true
@@ -152,7 +158,7 @@ function validateMatchesOrReport(
   matches: string[] | undefined,
   browser?: string
 ) {
-  if (!matches || isFirefox(browser)) return
+  if (!matches || isFirefox(browser) || isWebkit(browser)) return
   compilation.errors ||= []
 
   for (const m of matches) {
