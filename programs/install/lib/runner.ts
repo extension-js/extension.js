@@ -164,7 +164,7 @@ export function detectSystemEdgeBinary(): string | null {
       stdio: 'pipe',
       encoding: 'utf8'
     })
-    if ((result.status || 1) === 0) {
+    if (result.status === 0) {
       const first = String(result.stdout || '')
         .split(/\r?\n/)
         .map((line) => line.trim())
@@ -180,8 +180,12 @@ export function detectSystemEdgeBinary(): string | null {
       stdio: 'pipe',
       encoding: 'utf8'
     })
-    if ((result.status || 1) === 0) {
-      const found = String(result.stdout || '').trim()
+    if (result.status === 0) {
+      // Some `which` builds print extra lines; the binary path is the first.
+      const found = String(result.stdout || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean)
       if (found) return found
     }
   }
