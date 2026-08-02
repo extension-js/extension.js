@@ -6,6 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
@@ -15,6 +18,45 @@ import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
 // The canonical publish implementation lives in the extension.dev platform MCP.
 const DEFAULT_API = 'https://www.extension.dev'
 const PUBLISH_DOCS_URL = 'https://docs.extension.dev/tools/publish'
+const NO_TOKEN_REMEDY =
+  'Pass --token, set EXTENSION_DEV_TOKEN, or run npx @extension.dev/mcp login.'
+
+// Where `npx @extension.dev/mcp login` stores the device login. This mirrors
+// the MCP's credentialsPath so both surfaces read the same file.
+function storedLoginPath(): string {
+  if (process.platform === 'win32') {
+    const base =
+      process.env.APPDATA ||
+      process.env.LOCALAPPDATA ||
+      path.join(os.homedir(), 'AppData', 'Roaming')
+    return path.join(base, 'extension-dev', 'auth.json')
+  }
+  const xdg = String(process.env.XDG_CONFIG_HOME || '').trim()
+  const base = xdg || path.join(os.homedir(), '.config')
+  return path.join(base, 'extension-dev', 'auth.json')
+}
+
+// Read the stored device login, matching the MCP's readValidCredentials. A
+// missing, malformed, or expired file yields '' and the no-token refusal.
+export function readStoredLoginToken(): string {
+  try {
+    const raw = fs.readFileSync(storedLoginPath(), 'utf8')
+    const data = JSON.parse(raw) as {
+      version?: unknown
+      token?: unknown
+      expiresAt?: unknown
+    } | null
+    if (!data || typeof data !== 'object') return ''
+    if (data.version !== 1) return ''
+    const token = String(data.token || '').trim()
+    if (!token) return ''
+    const expiresAt = Number(data.expiresAt || 0)
+    if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000)) return ''
+    return token
+  } catch {
+    return ''
+  }
+}
 
 export interface PublishRequest {
   url: string
@@ -31,15 +73,17 @@ export interface PublishInput {
 
 /** Build the HTTP request (pure, unit-testable, no network). */
 export function buildPublishRequest(opts: PublishInput): PublishRequest {
+  // Precedence matches the MCP's resolveToken: the flag wins, then the env
+  // var, then the stored device login written by npx @extension.dev/mcp login.
   const token = String(
-    opts.token || process.env.EXTENSION_DEV_TOKEN || ''
+    opts.token || process.env.EXTENSION_DEV_TOKEN || readStoredLoginToken()
   ).trim()
 
   if (!token) {
     throw new Error(
       'No token. Publishing needs an extension.dev access token.\n' +
         `Get one: ${PUBLISH_DOCS_URL}\n` +
-        'Then set EXTENSION_DEV_TOKEN, or pass --token.'
+        NO_TOKEN_REMEDY
     )
   }
 
@@ -71,7 +115,7 @@ export function registerPublishCommand(program: Command) {
     .description(commandDescriptions.publish)
     .option(
       '--token <token>',
-      'extension.dev access token (or EXTENSION_DEV_TOKEN)'
+      'extension.dev access token (or EXTENSION_DEV_TOKEN, or the stored login)'
     )
     .option('--api <url>', 'platform base URL (or EXTENSION_DEV_API_URL)')
     .option('--ttl <hours>', 'share-link lifetime in hours (1–168, default 24)')
@@ -112,7 +156,7 @@ export function registerPublishCommand(program: Command) {
           'denied',
           {code: CODES.E_AUTH_REQUIRED, message},
           message,
-          `Get a token at ${PUBLISH_DOCS_URL}, then set EXTENSION_DEV_TOKEN or pass --token.`
+          `Get a token at ${PUBLISH_DOCS_URL}. ${NO_TOKEN_REMEDY}`
         )
         return
       }
