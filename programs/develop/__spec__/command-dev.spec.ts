@@ -169,6 +169,141 @@ describe('webpack/command-dev', () => {
     expect(browserOptions.profile).toBe('/from/cli')
   })
 
+  describe('option precedence (CLI > commands.dev > browser > defaults)', () => {
+    function pluginBrowserOptions() {
+      const devServerCall = (devServerMod as any).devServer.mock.calls[0]
+      const plugin = devServerCall?.[1]?.browsersPlugin
+      return (plugin as any).options?.browserOptions
+    }
+
+    function devServerOptions() {
+      return (devServerMod as any).devServer.mock.calls[0]?.[1]
+    }
+
+    beforeEach(() => {
+      ;(fs.existsSync as any).mockReturnValue(false)
+      ;(fs.readdirSync as any).mockReturnValue([])
+    })
+
+    it('applies stock defaults when neither config nor CLI sets a value', async () => {
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions()).toMatchObject({
+        noOpen: false,
+        logFormat: 'pretty',
+        logTimestamps: true,
+        logColor: true,
+        logLevel: 'off'
+      })
+      // Bundler-facing options ride the same merge into devServer.
+      expect(devServerOptions().polyfill).toBe(true)
+    })
+
+    it('lets commands.dev beat browser config and stock defaults (config-only)', async () => {
+      ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
+        browser: 'chrome',
+        startingUrl: 'https://from-browser.example',
+        noOpen: false
+      })
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        startingUrl: 'https://from-commands-dev.example',
+        noOpen: true,
+        logFormat: 'json',
+        polyfill: false
+      })
+
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions()).toMatchObject({
+        startingUrl: 'https://from-commands-dev.example',
+        noOpen: true,
+        logFormat: 'json'
+      })
+      expect(devServerOptions().polyfill).toBe(false)
+    })
+
+    it('lets explicit CLI values beat commands.dev in both directions (both)', async () => {
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        startingUrl: 'https://from-commands-dev.example',
+        noOpen: true,
+        logFormat: 'json',
+        polyfill: false,
+        logColor: false
+      })
+
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        startingUrl: 'https://from-cli.example',
+        noOpen: false,
+        logFormat: 'pretty',
+        polyfill: true,
+        logColor: true,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions()).toMatchObject({
+        startingUrl: 'https://from-cli.example',
+        noOpen: false,
+        logFormat: 'pretty',
+        logColor: true
+      })
+      expect(devServerOptions().polyfill).toBe(true)
+    })
+
+    it('applies flag-only values over stock defaults (flag-only)', async () => {
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        polyfill: false,
+        logFormat: 'ndjson',
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions()).toMatchObject({
+        logFormat: 'ndjson',
+        logTimestamps: true
+      })
+      expect(devServerOptions().polyfill).toBe(false)
+    })
+
+    it('concatenates browserFlags and deep-merges preferences across layers', async () => {
+      ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
+        browser: 'chrome',
+        browserFlags: ['--from-browser'],
+        excludeBrowserFlags: ['--exclude-browser'],
+        preferences: {a: 1, nested: {x: 1}}
+      })
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        browserFlags: ['--from-command'],
+        excludeBrowserFlags: ['--exclude-command'],
+        preferences: {b: 2, nested: {y: 2}}
+      })
+
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        browserFlags: ['--from-cli'],
+        preferences: {a: 99, nested: {x: 3}},
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions()).toMatchObject({
+        browserFlags: ['--from-browser', '--from-command', '--from-cli'],
+        excludeBrowserFlags: ['--exclude-browser', '--exclude-command'],
+        preferences: {a: 99, b: 2, nested: {x: 3, y: 2}}
+      })
+    })
+  })
+
   it('prints contract errors once, clean, without a stack trace (bug 28)', async () => {
     const localErrorSpy = vi
       .spyOn(console, 'error')

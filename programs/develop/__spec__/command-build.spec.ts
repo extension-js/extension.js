@@ -380,6 +380,150 @@ describe('webpack/command-build', () => {
     expect(output).not.toContain('Largest assets')
   })
 
+  describe('option precedence (CLI > commands.build > defaults)', () => {
+    function webpackOpts() {
+      return (webpackConfig as any).mock.calls.at(-1)?.[1]
+    }
+
+    function makeGreenStats() {
+      return {
+        hasErrors: () => false,
+        toJson: () => ({
+          assets: [{name: 'background/service_worker.js', size: 1000}],
+          warnings: [],
+          errors: []
+        })
+      }
+    }
+
+    beforeEach(() => {
+      ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+        return String(p).endsWith('node_modules')
+      })
+      ;(fs.readdirSync as any).mockReturnValue(['something'])
+      rspackMock.mockReturnValue(makeCompiler(makeGreenStats()))
+    })
+
+    it('honors commands.build silent, zip, and polyfill (config-only)', async () => {
+      const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        silent: true,
+        zip: true,
+        polyfill: true
+      })
+
+      await extensionBuild('/proj', {browser: 'chrome'})
+
+      expect(webpackOpts()).toMatchObject({
+        silent: true,
+        zip: true,
+        polyfill: true
+      })
+      const printed = localLogSpy.mock.calls.map((call) =>
+        String(call[0] || '')
+      )
+      // Asset names only appear in the summary tree, which silent suppresses.
+      expect(printed.some((line) => line.includes('service_worker.js'))).toBe(
+        false
+      )
+      expect(
+        printed.some((line) => line.includes('built for production in'))
+      ).toBe(true)
+    })
+
+    it('lets explicit CLI flags beat config in both directions (both)', async () => {
+      const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        silent: true,
+        zip: true,
+        polyfill: true
+      })
+
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: false,
+        zip: false,
+        polyfill: false
+      })
+
+      expect(webpackOpts()).toMatchObject({
+        silent: false,
+        zip: false,
+        polyfill: false
+      })
+      const printed = localLogSpy.mock.calls
+        .map((call) => String(call[0] || ''))
+        .join('\n')
+      // Asset tree is back: file names only appear there.
+      expect(printed).toContain('service_worker.js')
+    })
+
+    it('ignores undefined CLI keys so config is not clobbered', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        zip: true,
+        silent: true,
+        polyfill: false
+      })
+
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        zip: undefined,
+        silent: undefined,
+        polyfill: undefined
+      } as any)
+
+      expect(webpackOpts()).toMatchObject({
+        zip: true,
+        silent: true,
+        polyfill: false
+      })
+    })
+
+    it('applies stock build defaults when neither config nor CLI sets a value', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
+
+      await extensionBuild('/proj', {browser: 'chrome'})
+
+      expect(webpackOpts()).toMatchObject({
+        polyfill: false,
+        zip: false,
+        zipSource: false,
+        silent: false
+      })
+    })
+
+    it('builds with commands.start values when start delegates the build', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        polyfill: false
+      })
+
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        metadataCommand: 'start'
+      })
+
+      expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
+        '/proj',
+        'start'
+      )
+      expect(webpackOpts()).toMatchObject({polyfill: false})
+    })
+
+    it('defaults the start-phase build to polyfill on and silent', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
+
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        metadataCommand: 'start'
+      })
+
+      expect(webpackOpts()).toMatchObject({
+        polyfill: true,
+        silent: true
+      })
+    })
+  })
+
   it('ensures dependencies before running the build', async () => {
     const nodeModules = path.join('/proj', 'node_modules')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {

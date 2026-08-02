@@ -23,6 +23,8 @@ export interface SafariPackagerOverrides {
   macOsOnly?: boolean
   forceRegenerate?: boolean
   safariBinary?: string
+  /** When set, overrides the factory `noOpen` for this packaging call. */
+  noOpen?: boolean
 }
 
 export interface SafariPackagerOptions extends SafariPackagerOverrides {

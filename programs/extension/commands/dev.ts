@@ -8,9 +8,14 @@
 
 import {type Command, Option} from 'commander'
 import {launchBrowser} from '../browsers'
+import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {safariPreflightError} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {
+  explicitCliValue,
+  explicitOptionalBoolean
+} from '../helpers/cli-explicit'
 import {markErrorFramed} from '../helpers/cli-failure'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -234,8 +239,10 @@ export function registerDevCommand(program: Command) {
     .action(
       async (
         pathOrRemoteUrl: string,
-        {browser = 'chromium', ...devOptions}: DevOptions
+        options: DevOptions,
+        command: Command
       ) => {
+        const {browser = 'chromium', ...devOptions} = options
         if (devOptions.debug || devOptions.author || devOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
@@ -413,27 +420,37 @@ export function registerDevCommand(program: Command) {
           ).logContext
 
           const logContexts = parseLogContexts(logContextOption)
-          const logLevel = (logsOption ||
-            devOptions.logLevel ||
-            'off') as string
+          // Only forward logLevel when the user typed --logs. The stock `off`
+          // and commands.dev.logLevel live in develop's merge layers.
+          const logLevel = (logsOption || devOptions.logLevel || undefined) as
+            | string
+            | undefined
+
+          // Pass only values the user typed. Stock defaults and
+          // extension.config.js are applied inside extensionDev (defaults,
+          // then browser.*, then commands.dev, then CLI), so forcing
+          // polyfill/noOpen/log* here would make the shared config decorative.
+          const explicitNoOpen = explicitCliValue(
+            command,
+            'open',
+            devOptions.open === false
+          )
 
           const devArgs: Record<string, unknown> = {
             ...devOptions,
             // Under --output json the wrapper catches and frames the failure;
             // extensionDev must reject instead of exiting for that to happen.
             exitOnError: !asJson,
-            profile:
-              devOptions.profile === false || devOptions.profile === 'false'
-                ? false
-                : typeof devOptions.profile === 'string'
-                  ? devOptions.profile
-                  : undefined,
+            profile: normalizeProfileOption(devOptions.profile),
             browser: vendor as DevOptions['browser'],
             chromiumBinary: devOptions.chromiumBinary,
             geckoBinary: devOptions.geckoBinary,
-            polyfill:
-              devOptions.polyfill?.toString() === 'false' ? false : true,
-            noOpen: devOptions.open === false,
+            polyfill: explicitCliValue(
+              command,
+              'polyfill',
+              explicitOptionalBoolean(devOptions.polyfill)
+            ),
+            noOpen: explicitNoOpen,
             macOsOnly: opts.macosOnly,
             startingUrl: devOptions.startingUrl,
             install: devOptions.install,
@@ -441,19 +458,29 @@ export function registerDevCommand(program: Command) {
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,
-            logFormat: devOptions.logFormat || 'pretty',
-            logTimestamps: devOptions.logTimestamps !== false,
-            logColor: devOptions.logColor !== false,
+            logFormat: devOptions.logFormat,
+            logTimestamps: explicitCliValue(
+              command,
+              'logTimestamps',
+              devOptions.logTimestamps
+            ),
+            logColor: explicitCliValue(
+              command,
+              'logColor',
+              devOptions.logColor
+            ),
             logUrl: devOptions.logUrl,
             logTab: devOptions.logTab,
             // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
             launcher: noBrowser ? undefined : launchBrowser,
-            // Inject the Safari packager; SafariDevPlugin calls it on each rebuild (full
-            // first, then incremental resync), CLI flags already win over config.
+            // Inject the Safari packager. SafariDevPlugin calls it on each
+            // rebuild (full first, then incremental resync). The merged noOpen
+            // from develop arrives via packager overrides per call.
             safariPackager: createSafariPackager({
               browser: vendor as 'safari' | 'webkit-based',
-              noOpen: devOptions.open === false
+              // Open by default in dev when neither flag nor config sets it.
+              noOpen: explicitNoOpen ?? false
             })
           }
 

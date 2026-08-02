@@ -28,6 +28,11 @@ import {
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
+import {
+  BUILD_COMMAND_DEFAULTS,
+  mergeOptionLayers,
+  START_BUILD_DEFAULTS
+} from './lib/merge-options'
 import * as messages from './lib/messages'
 import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
 import {parseJsonSafe} from './lib/parse-json-safe'
@@ -171,9 +176,22 @@ export async function extensionBuild(
       assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
 
-    const commandConfig = await loadCommandConfig(packageJsonDir, 'build')
+    // `extension start` builds with commands.start values, polyfill on by
+    // default and a silent build. Plain `extension build` uses commands.build.
+    const commandKey =
+      buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
+    const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
     const specialFoldersData =
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
+
+    // stock defaults, then command config, then CLI. Unset CLI keys are
+    // stripped so config wins. An explicit flag (including false) beats it.
+    const mergedBuildOptions = mergeOptionLayers<BuildOptions>(
+      commandKey === 'start' ? START_BUILD_DEFAULTS : BUILD_COMMAND_DEFAULTS,
+      commandConfig,
+      buildOptions
+    )
+    const silent = Boolean(mergedBuildOptions.silent)
 
     // Vite-style `emptyOutDir` determinism now comes from the staging swap:
     // the fresh staging dir replaces dist/<browser> wholesale on success, so
@@ -213,8 +231,7 @@ export async function extensionBuild(
     }
 
     const baseConfig: Configuration = webpackConfig(projectStructure, {
-      ...commandConfig,
-      ...buildOptions,
+      ...mergedBuildOptions,
       extensions: resolvedExtensionsConfig,
       browser,
       mode: resolvedMode,
@@ -291,7 +308,7 @@ export async function extensionBuild(
         try {
           printBuildCard(projectStructure.manifestPath, browser, distPath)
 
-          if (!buildOptions?.silent) {
+          if (!silent) {
             const assetsTree = messages.buildAssetsTree(stats)
             if (assetsTree) humanLine(assetsTree)
           }

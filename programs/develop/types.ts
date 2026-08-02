@@ -165,6 +165,8 @@ export interface SafariPackagerOverrides {
   macOsOnly?: boolean
   forceRegenerate?: boolean
   safariBinary?: string
+  /** When set, overrides the factory `noOpen` for this packaging call. */
+  noOpen?: boolean
 }
 
 /**
@@ -443,6 +445,15 @@ export type OutputConfig = {
   finalPath?: string
 }
 
+/**
+ * Per-category asset size budgets (bytes) for the perf-budgets plugin.
+ * Set at the top level of extension.config.js, or per command via
+ * `commands.dev.perfBudgets` / `commands.build.perfBudgets`.
+ */
+export type PerfBudgetsConfig = Partial<
+  Record<import('./plugin-perf-budgets').AssetCategory, number>
+>
+
 export interface CommonWebpackOptions {
   output: OutputConfig
   preferences?: Record<string, unknown>
@@ -453,9 +464,7 @@ export interface CommonWebpackOptions {
    * Useful for monorepos where package exports point to TS/TSX files.
    */
   transpilePackages?: string[]
-  perfBudgets?: Partial<
-    Record<import('./plugin-perf-budgets').AssetCategory, number>
-  >
+  perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
    * containing a manifest.json. These are loaded alongside the user extension in
@@ -534,6 +543,7 @@ export interface FileConfig {
         persistProfile?: boolean
         extensions?: CompanionExtensionsConfig
         transpilePackages?: string[]
+        perfBudgets?: PerfBudgetsConfig
       }
 
     start?: Pick<
@@ -596,6 +606,7 @@ export interface FileConfig {
       | 'zip'
       | 'zipSource'
       | 'polyfill'
+      | 'silent'
       | 'safariBinary'
       | 'appName'
       | 'bundleId'
@@ -603,6 +614,7 @@ export interface FileConfig {
     > & {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
+      perfBudgets?: PerfBudgetsConfig
     }
   }
   /**
@@ -615,5 +627,10 @@ export interface FileConfig {
    * Per-command `commands.<name>.transpilePackages` overrides this value.
    */
   transpilePackages?: string[]
+  /**
+   * Default per-category asset budgets for all commands.
+   * Per-command `commands.dev|build.perfBudgets` overrides this value.
+   */
+  perfBudgets?: PerfBudgetsConfig
   config?: (config: Configuration) => Configuration
 }

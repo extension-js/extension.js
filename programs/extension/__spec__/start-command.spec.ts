@@ -58,17 +58,23 @@ describe('extension start', () => {
       browser: 'chromium',
       exitOnError: true,
       metadataCommand: 'start',
-      silent: true,
-      polyfill: true
+      silent: true
     })
+    // Unset polyfill stays undefined so commands.start.polyfill can apply.
+    // The start-phase build still defaults it on inside extensionBuild.
+    expect(buildOpts.polyfill).toBeUndefined()
 
     expect(extensionPreview).toHaveBeenCalledTimes(1)
     const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
     expect(previewOpts).toMatchObject({
       mode: 'production',
-      metadataCommand: 'start',
-      logLevel: 'off'
+      metadataCommand: 'start'
     })
+    // Logger defaults live in extensionPreview, not forced at the CLI layer.
+    expect(previewOpts.logLevel).toBeUndefined()
+    expect(previewOpts.logFormat).toBeUndefined()
+    expect(previewOpts.logTimestamps).toBeUndefined()
+    expect(previewOpts.logColor).toBeUndefined()
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
   })
 
@@ -76,6 +82,24 @@ describe('extension start', () => {
     expect(await run(['start', '.', '--polyfill', 'false'])).toBe(0)
     const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
     expect(buildOpts.polyfill).toBe(false)
+  })
+
+  it('enables the polyfill explicitly with --polyfill', async () => {
+    expect(await run(['start', '.', '--polyfill'])).toBe(0)
+    const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
+    expect(buildOpts.polyfill).toBe(true)
+  })
+
+  it('normalizes --profile false to the system-profile sentinel', async () => {
+    expect(await run(['start', '.', '--profile', 'false'])).toBe(0)
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts.profile).toBe(false)
+  })
+
+  it('keeps an explicit --profile path as a string', async () => {
+    expect(await run(['start', '.', '--profile', '/tmp/my-profile'])).toBe(0)
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts.profile).toBe('/tmp/my-profile')
   })
 
   it('skips the browser phase when EXTENSION_CLI_NO_BROWSER is set', async () => {

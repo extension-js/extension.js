@@ -7,7 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {type Command, Option} from 'commander'
+import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {
+  explicitCliValue,
+  explicitOptionalBoolean
+} from '../helpers/cli-explicit'
 import {markErrorFramed} from '../helpers/cli-failure'
 import {
   loadExtensionDevelopModule,
@@ -193,8 +198,10 @@ export function registerStartCommand(program: Command) {
     .action(
       async (
         pathOrRemoteUrl: string,
-        {browser = 'chromium', ...startOptions}: StartOptions
+        options: StartOptions,
+        command: Command
       ) => {
+        const {browser = 'chromium', ...startOptions} = options
         if (
           startOptions.debug ||
           startOptions.author ||
@@ -310,7 +317,9 @@ export function registerStartCommand(program: Command) {
           ).logContext
 
           const logContexts = parseLogContexts(logContextOption)
-          const logLevel = logsOption || startOptions.logLevel || 'off'
+          // Unset stays undefined so commands.start.* and stock defaults
+          // apply inside develop instead of a forced value here.
+          const logLevel = logsOption || startOptions.logLevel || undefined
 
           try {
             await extensionBuild(pathOrRemoteUrl, {
@@ -322,7 +331,13 @@ export function registerStartCommand(program: Command) {
               exitOnError: !asJson,
               // The build-phase receipt should name the command the user ran.
               metadataCommand: 'start',
-              polyfill: startOptions.polyfill?.toString() !== 'false',
+              // Pass polyfill only when typed so commands.start.polyfill can
+              // apply. The start build phase still defaults it on downstream.
+              polyfill: explicitCliValue(
+                command,
+                'polyfill',
+                explicitOptionalBoolean(startOptions.polyfill)
+              ),
               install: startOptions.install,
               extensions: parseExtensionsList(startOptions.extensions),
               silent: true
@@ -361,7 +376,7 @@ export function registerStartCommand(program: Command) {
             pathOrRemoteUrl,
             {
               mode: 'production',
-              profile: startOptions.profile,
+              profile: normalizeProfileOption(startOptions.profile),
               browser: vendor as StartOptions['browser'],
               chromiumBinary: startOptions.chromiumBinary,
               geckoBinary: startOptions.geckoBinary,
@@ -373,9 +388,19 @@ export function registerStartCommand(program: Command) {
               metadataCommand: 'start',
               logLevel,
               logContexts,
-              logFormat: startOptions.logFormat || 'pretty',
-              logTimestamps: startOptions.logTimestamps !== false,
-              logColor: startOptions.logColor !== false,
+              // Only pass logger values the user typed. Stock defaults and
+              // commands.start.* are applied inside extensionPreview.
+              logFormat: startOptions.logFormat,
+              logTimestamps: explicitCliValue(
+                command,
+                'logTimestamps',
+                startOptions.logTimestamps
+              ),
+              logColor: explicitCliValue(
+                command,
+                'logColor',
+                startOptions.logColor
+              ),
               logUrl: startOptions.logUrl,
               logTab: startOptions.logTab
             },
