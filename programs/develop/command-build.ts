@@ -264,6 +264,10 @@ export async function extensionBuild(
         : ''
     const useStagingSwap =
       mergedOutputPath === nodePath.resolve(stagingDistPath)
+    // The receipt must name the directory artifacts actually land in, which
+    // under a re-pointed output.path is not dist/<browser>.
+    const displayDistPath =
+      useStagingSwap || !mergedOutputPath ? distPath : mergedOutputPath
     if (!useStagingSwap && mergedOutputPath) {
       try {
         fs.rmSync(mergedOutputPath, {recursive: true, force: true})
@@ -306,7 +310,11 @@ export async function extensionBuild(
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
         try {
-          printBuildCard(projectStructure.manifestPath, browser, distPath)
+          printBuildCard(
+            projectStructure.manifestPath,
+            browser,
+            displayDistPath
+          )
 
           if (!silent) {
             const assetsTree = messages.buildAssetsTree(stats)
@@ -366,7 +374,7 @@ export async function extensionBuild(
           }
 
           const distDisplay =
-            relativeToCwd(distPath) || collapseHomeDir(distPath)
+            relativeToCwd(displayDistPath) || collapseHomeDir(displayDistPath)
           humanLine(
             messages.buildComplete(browser, distDisplay, summary.total_bytes)
           )
