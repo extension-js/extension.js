@@ -6,6 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+// Shipped inside the unpacked extension so a producer whose baked port went
+// stale (dev-server restart) can re-resolve the live control port from disk.
+export const CONTROL_PORT_ASSET_NAME = 'extension-js-control.json'
+
 export const BRIDGE_PRODUCER_SOURCE = `;(function () {
   try {
     var g = (typeof globalThis === "object" && globalThis) ? globalThis : this;
@@ -73,6 +77,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var queue = [];
     var backoff = 250;
     var MAX_BACKOFF = 5000;
+    var connectFailures = 0;
     var MAX_QUEUE = 1000;
     var MAX_RESULT_BYTES = 256 * 1024;
 
@@ -841,10 +846,36 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (queue.length < MAX_QUEUE) queue.push(frame);
     }
 
+    // The baked PORT is a snapshot of an ephemeral port. After a dev-server
+    // restart, the port file shipped in the unpacked extension names the
+    // live one, and unpacked resources are read from disk on every fetch.
+    function refreshControlPort(done) {
+      try {
+        var runtime = (g.chrome && g.chrome.runtime) || (g.browser && g.browser.runtime);
+        if (!runtime || typeof runtime.getURL !== "function" || typeof g.fetch !== "function") { done(); return; }
+        g.fetch(runtime.getURL("extension-js-control.json"), {cache: "no-store"})
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            var next = data && parseInt(data.port, 10);
+            if (next && next > 0 && next < 65536 && next !== PORT) PORT = next;
+            done();
+          })
+          .catch(function () { done(); });
+      } catch (e) { done(); }
+    }
+
     function schedule() {
       var delay = backoff;
       backoff = Math.min(backoff * 2, MAX_BACKOFF);
-      try { setTimeout(connect, delay); } catch (e) {
+      connectFailures++;
+      try {
+        setTimeout(function () {
+          // Two straight failures make the baked port suspect (a restarted
+          // server dials out on a new port): re-resolve before re-dialing.
+          if (connectFailures >= 2) refreshControlPort(connect);
+          else connect();
+        }, delay);
+      } catch (e) {
         // Ignore
       }
     }
@@ -859,6 +890,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       socket.onopen = function () {
         open = true;
         backoff = 250;
+        connectFailures = 0;
         try {
           socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID}));
         } catch (e) {

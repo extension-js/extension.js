@@ -283,6 +283,61 @@ describe('bridge producer runtime', () => {
     expect(BRIDGE_PRODUCER_SOURCE).toContain('__EXTJS_CONTROL_PORT__')
   })
 
+  it('re-reads the shipped port file after repeated connect failures and dials the new port', async () => {
+    FakeWebSocket.instances = []
+    const {fakeGlobal} = makeGlobal()
+    const fetched: string[] = []
+    fakeGlobal.fetch = (url: string) => {
+      fetched.push(String(url))
+      return Promise.resolve({json: () => Promise.resolve({port: 9200})})
+    }
+    fakeGlobal.chrome = {
+      runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`}
+    }
+    run(
+      buildBridgeProducerSource({controlPort: 9100, instanceId: 'i'}),
+      fakeGlobal
+    )
+    expect(FakeWebSocket.instances[0].url).toBe(
+      'ws://127.0.0.1:9100/extjs-control'
+    )
+
+    // Failure 1: the baked port is retried as-is (no disk read yet).
+    FakeWebSocket.instances[0].close()
+    await new Promise((r) => setTimeout(r, 350))
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    expect(FakeWebSocket.instances[1].url).toContain(':9100')
+    expect(fetched).toHaveLength(0)
+
+    // Failure 2: the port file is re-read and the NEW port dialed.
+    FakeWebSocket.instances[1].close()
+    await new Promise((r) => setTimeout(r, 700))
+    expect(fetched).toContain(
+      'chrome-extension://abc/extension-js-control.json'
+    )
+    const last = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
+    expect(last.url).toBe('ws://127.0.0.1:9200/extjs-control')
+  })
+
+  it('keeps retrying the baked port when the port file cannot be read', async () => {
+    FakeWebSocket.instances = []
+    const {fakeGlobal} = makeGlobal()
+    fakeGlobal.fetch = () => Promise.reject(new Error('no such file'))
+    fakeGlobal.chrome = {
+      runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`}
+    }
+    run(
+      buildBridgeProducerSource({controlPort: 9100, instanceId: 'i'}),
+      fakeGlobal
+    )
+    FakeWebSocket.instances[0].close()
+    await new Promise((r) => setTimeout(r, 350))
+    FakeWebSocket.instances[1].close()
+    await new Promise((r) => setTimeout(r, 700))
+    const last = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
+    expect(FakeWebSocket.instances.length).toBeGreaterThanOrEqual(3)
+    expect(last.url).toBe('ws://127.0.0.1:9100/extjs-control')
+  })
 })
 
 describe('bridge producer runtime, executor (Slice 2)', () => {
