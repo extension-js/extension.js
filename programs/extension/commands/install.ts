@@ -165,7 +165,9 @@ export function registerInstallCommand(program: Command) {
           let paths: string[]
 
           if (all) {
-            paths = ['chrome', 'chromium', 'edge', 'firefox'].map((name) =>
+            // Mirror install --all's managed set (vendors('all') plus
+            // chromium), so install and uninstall cover the same binaries.
+            paths = installTargets('all').map((name) =>
               getManagedBrowserInstallDir(name)
             )
           } else if (target) {
