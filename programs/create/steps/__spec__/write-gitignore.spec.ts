@@ -27,6 +27,32 @@ describe('writeGitignore', () => {
     }
   })
 
+  it('ignores the env files the framework loads, keeping .env.example', async () => {
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-create-test-')
+    )
+    const projectPath = path.join(tmpRoot, 'my-ext')
+    const gitIgnorePath = path.join(projectPath, '.gitignore')
+
+    try {
+      await fsp.mkdir(projectPath, {recursive: true})
+
+      await writeGitignore(projectPath, console)
+
+      const contents = await fsp.readFile(gitIgnorePath, 'utf8')
+      const lines = contents.split('\n')
+      expect(lines).toContain('.env')
+      expect(lines).toContain('.env*')
+      expect(lines).toContain('!.env.example')
+      // The negation must come after the patterns it re-allows.
+      expect(lines.indexOf('!.env.example')).toBeGreaterThan(
+        lines.indexOf('.env*')
+      )
+    } finally {
+      await fsp.rm(tmpRoot, {recursive: true, force: true})
+    }
+  })
+
   it('is idempotent when run multiple times', async () => {
     const tmpRoot = await fsp.mkdtemp(
       path.join(os.tmpdir(), 'ext-create-test-')
