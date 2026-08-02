@@ -85,8 +85,10 @@ export async function extensionCreate(
   // through the injected logger so programmatic hosts keep capturing it.
   const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
-  const requestedTemplate =
-    path.basename(String(template)) === 'init' ? 'javascript' : String(template)
+  // The card names exactly what the user asked for. The alias that once
+  // rewrote `init` to `javascript` here is gone, a swapped name in the header
+  // is the same lie as a swapped scaffold (section 126).
+  const requestedTemplate = String(template)
   logger.log(' ')
   logger.log(
     card({
