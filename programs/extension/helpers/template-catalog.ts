@@ -178,10 +178,20 @@ export function renderTemplateList({
     lines.push('')
   }
 
-  lines.push(`  ${title('Aliases')}`)
-  for (const alias of TEMPLATE_ALIASES) {
-    lines.push(`    ${slug(alias.name)} ${dim(alias.note)}`)
-    lines.push(dim('      pass its URL to scaffold the catalog folder instead'))
+  // The group loop leaves a trailing blank line for the next section to sit
+  // under. Drop it when the alias list is empty, a heading over nothing
+  // teaches a redirection mechanism that no longer redirects anything.
+  lines.pop()
+
+  if (TEMPLATE_ALIASES.length > 0) {
+    lines.push('')
+    lines.push(`  ${title('Aliases')}`)
+    for (const alias of TEMPLATE_ALIASES) {
+      lines.push(`    ${slug(alias.name)} ${dim(alias.note)}`)
+      lines.push(
+        dim('      pass its URL to scaffold the catalog folder instead')
+      )
+    }
   }
 
   return lines.join('\n')

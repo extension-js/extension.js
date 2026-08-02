@@ -135,7 +135,9 @@ export function installingFromTemplate(
   projectName: string,
   templateName: string
 ) {
-  if (templateName === 'init' || templateName === 'javascript') {
+  // Only the bundled default hides its name here. `init` used to share this
+  // branch as an alias for `javascript`, that alias is gone (section 126).
+  if (templateName === 'javascript') {
     return `${prefix('info')} Copying the template files…`
   }
 

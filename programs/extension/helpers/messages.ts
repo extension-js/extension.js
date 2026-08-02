@@ -507,8 +507,9 @@ ${TEMPLATE_GROUPS.map(
     `- ${colors.green(group.title)} ${arg(`(${group.summary})`)}: ${group.templates
       .map((template) => code(template))
       .join(', ')}`
-).join('\n')}
-- ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}
+).join(
+  '\n'
+)}${TEMPLATE_ALIASES.length > 0 ? `\n- ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}` : ''}
 - ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted. It ships inside the CLI and needs no network.
 - Every other name is downloaded from ${code(TEMPLATE_CATALOG_URL)} at create time. A GitHub or ZIP URL works in place of a name.
 - A name that is not on this list fails with ${code('TemplateNotFoundError')}. Run ${code('extension create --help')} for the same list.

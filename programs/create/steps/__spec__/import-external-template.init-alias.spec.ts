@@ -13,8 +13,28 @@ vi.mock('axios', () => ({
   }
 }))
 
+import AdmZip from 'adm-zip'
 import axios from 'axios'
+import {extensionCreate} from '../../module'
 import {importExternalTemplate} from '../import-external-template'
+
+// A miniature examples archive with the two folders the old alias confused,
+// plus one more, each carrying a manifest that names its own folder so a
+// substitution anywhere in the pipeline shows up as the wrong bytes.
+function catalogZipWith(names: string[]): Buffer {
+  const zip = new AdmZip()
+  for (const name of names) {
+    zip.addFile(
+      `examples-main/examples/${name}/src/manifest.json`,
+      Buffer.from(JSON.stringify({name: `${name} marker`}))
+    )
+    zip.addFile(
+      `examples-main/examples/${name}/src/index.js`,
+      Buffer.from(`// ${name}\n`)
+    )
+  }
+  return zip.toBuffer()
+}
 
 describe('importExternalTemplate', () => {
   const prevEnv = process.env.EXTENSION_ENV
@@ -41,6 +61,9 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
+    vi.mocked(axios.get).mockRejectedValue(
+      new Error('network is disabled in this test')
+    )
 
     try {
       await expect(
@@ -56,6 +79,119 @@ describe('importExternalTemplate', () => {
       expect(
         fs.existsSync(path.join(projectPath, 'src', 'manifest.json'))
       ).toBe(false)
+    } finally {
+      try {
+        await fsp.rm(tmpRoot, {recursive: true, force: true})
+      } catch {
+        // Ignore
+      }
+    }
+  })
+
+  it('scaffolds the init folder bytes and records init in provenance', async () => {
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-create-test-')
+    )
+    const projectPath = path.join(tmpRoot, 'my-ext')
+    vi.mocked(axios.get).mockResolvedValue({
+      data: catalogZipWith(['init', 'javascript'])
+    } as never)
+
+    try {
+      const provenance = await importExternalTemplate(
+        projectPath,
+        'my-ext',
+        'init',
+        {log: () => {}, error: () => {}}
+      )
+
+      expect(provenance.template).toBe('init')
+      expect(provenance.source).toContain('codeload.github.com')
+
+      const manifest = JSON.parse(
+        await fsp.readFile(
+          path.join(projectPath, 'src', 'manifest.json'),
+          'utf-8'
+        )
+      )
+      expect(manifest.name).toBe('init marker')
+    } finally {
+      try {
+        await fsp.rm(tmpRoot, {recursive: true, force: true})
+      } catch {
+        // Ignore
+      }
+    }
+  })
+
+  // The session header used to be the last place the old alias survived: it
+  // printed `Template javascript` for a `--template init` run even after the
+  // scaffold itself became truthful. The card must name what the user typed.
+  it('prints the requested name in the session header, not a substitute', async () => {
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-create-test-')
+    )
+    const projectPath = path.join(tmpRoot, 'my-ext')
+    vi.mocked(axios.get).mockResolvedValue({
+      data: catalogZipWith(['init', 'javascript'])
+    } as never)
+
+    const captured: string[] = []
+    const logger = {
+      log: (...args: unknown[]) => {
+        captured.push(args.map(String).join(' '))
+      },
+      error: () => {}
+    }
+
+    try {
+      await extensionCreate(projectPath, {template: 'init', logger})
+
+      const all = captured.join('\n')
+      expect(all).toContain('init')
+      expect(all).not.toContain('javascript')
+    } finally {
+      try {
+        await fsp.rm(tmpRoot, {recursive: true, force: true})
+      } catch {
+        // Ignore
+      }
+    }
+  })
+
+  // The class guarantee behind section 126: whatever catalog name the user
+  // types, the provenance names it and the scaffold is that folder's bytes.
+  // No code path may swap one name for another without saying so, and today
+  // none does, so there is nothing to say.
+  it.each([
+    'content',
+    'new-react'
+  ])('delivers %s itself, never a substitute', async (requested) => {
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-create-test-')
+    )
+    const projectPath = path.join(tmpRoot, 'my-ext')
+    vi.mocked(axios.get).mockResolvedValue({
+      data: catalogZipWith(['init', 'javascript', 'content', 'new-react'])
+    } as never)
+
+    try {
+      const provenance = await importExternalTemplate(
+        projectPath,
+        'my-ext',
+        requested,
+        {log: () => {}, error: () => {}}
+      )
+
+      expect(provenance.template).toBe(requested)
+
+      const manifest = JSON.parse(
+        await fsp.readFile(
+          path.join(projectPath, 'src', 'manifest.json'),
+          'utf-8'
+        )
+      )
+      expect(manifest.name).toBe(`${requested} marker`)
     } finally {
       try {
         await fsp.rm(tmpRoot, {recursive: true, force: true})

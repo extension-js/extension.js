@@ -65,6 +65,13 @@ describe('template catalog', () => {
       expect(rendered).toContain(name)
     }
   })
+
+  it('renders no alias section while the alias list is empty', () => {
+    if (TEMPLATE_ALIASES.length > 0) return
+    const rendered = renderTemplateList({color: false})
+    expect(rendered).not.toContain('Aliases')
+    expect(rendered.endsWith('\n')).toBe(false)
+  })
 })
 
 describe('extension create --help', () => {
