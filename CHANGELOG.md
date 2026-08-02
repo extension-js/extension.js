@@ -2,6 +2,60 @@
 
 ## Unreleased
 
+## 4.0.27 (August 2, 2026)
+
+### Fixes
+
+- Fix boring line dist classification, name fallback and warn arming ([1255365a](https://github.com/extension-js/extension.js/commit/1255365a52486d9607c5eef670a1fa2987a735ea))
+- Gate held share-hint strings in the extension-develop publish ([26b37bc3](https://github.com/extension-js/extension.js/commit/26b37bc3e39d47b2d1b5145c5fcda502a0a864b3))
+
+<details>
+<summary>Other changes (42)</summary>
+
+- Let a stale producer re-resolve the live control port from disk ([e98c1fc2](https://github.com/extension-js/extension.js/commit/e98c1fc22d661d9fccd421810031b9fe088796f2))
+- Capture listener events on both the chrome and browser namespaces ([ef8425a0](https://github.com/extension-js/extension.js/commit/ef8425a0725186965b30eb8f541c3993491f00e7))
+- Derive uninstall --all paths from installTargets instead of a literal ([59065eba](https://github.com/extension-js/extension.js/commit/59065eba05076ccd68d41256463acb6ba6598a63))
+- Keep the user extension last when a companion names the same path ([3ac4b071](https://github.com/extension-js/extension.js/commit/3ac4b0712f07cc5898057522b1eb076471f5d115))
+- Type the perfBudgets config read and add it to the public config ([833e499b](https://github.com/extension-js/extension.js/commit/833e499b2d9c3e2351568f1d6adc2258e1546613))
+- Let unset CLI flags fall through to extension.config.js commands ([47313165](https://github.com/extension-js/extension.js/commit/47313165db1aaecda816207bd4e182a8d1f1bffc))
+- Treat a profile of false or the string false as the system profile ([e074d85d](https://github.com/extension-js/extension.js/commit/e074d85df9be5e816ca79adccbc855fcaaa4b417))
+- Validate DNR rules per rule and fail builds with index and reason ([d59a7118](https://github.com/extension-js/extension.js/commit/d59a7118c4c2c16a5c0269c3663a4fd1c04f051e))
+- Capture nested assets paths in the web resources fallback scans ([93af863a](https://github.com/extension-js/extension.js/commit/93af863a6f8d1bb1dc2590d299131c02f9baffcc))
+- Trim the HTML asset cache key, add eviction, throw on deleted HTML ([344e9a26](https://github.com/extension-js/extension.js/commit/344e9a266fe1f50b64257ae58425895f5acb65cc))
+- Emit the ?url rule after typed asset rules and fix custom rule checks ([0bd2f578](https://github.com/extension-js/extension.js/commit/0bd2f5786dcfdef9f515b667604e5f2d4632faec))
+- Accept safari identity options in commands.dev and commands.build ([9438d6ec](https://github.com/extension-js/extension.js/commit/9438d6ecc52b715bfbf5bfb26a6aeab1fef8205d))
+- Map safari to its own devtools engine and wire the safari binary ([68288701](https://github.com/extension-js/extension.js/commit/68288701a43cce798fed621bab03ec6b39f34549))
+- Exempt webkit targets from the chrome WAR match-pattern contract ([a26077c8](https://github.com/extension-js/extension.js/commit/a26077c8e84e683a54aa35e3868f5c83b739642c))
+- Warn when a themed manifest targets safari instead of skipping silently ([9dff5c29](https://github.com/extension-js/extension.js/commit/9dff5c29b274d8bc927b4bd072a1339297612cae))
+- Give safari ready.json the appex id instead of a chromium hash ([bc86bfc3](https://github.com/extension-js/extension.js/commit/bc86bfc39fab45537272cca456e728b3ca72e426))
+- Run pnpm optional-dep installs silent to match project installs ([5c3c0c04](https://github.com/extension-js/extension.js/commit/5c3c0c04cdd3678d00d3a242f9d6d46fc7f64a59))
+- Warn when a malformed package.json blanks integration detection ([3f1d7369](https://github.com/extension-js/extension.js/commit/3f1d73690638d438bf68a5d44b22a306dcaec5af))
+- Align Deno scaffolds: deno.lock strip, primary merge, deno.json wins ([0f48a6ab](https://github.com/extension-js/extension.js/commit/0f48a6ab79330b08cacc4bf91b3887ff95d598bb))
+- Rewrite store metadata names in one pass so extending names never double ([f96580e8](https://github.com/extension-js/extension.js/commit/f96580e877f1642df739ff39c4bd99e0a79818de))
+- Keep create failure cleanup away from pre-existing user content ([65e7aa85](https://github.com/extension-js/extension.js/commit/65e7aa85c44132ba2e5edee92df9338beff31e7f))
+- Clean the compiler output path instead of the context dist folder ([927dac37](https://github.com/extension-js/extension.js/commit/927dac378689eeb8b930ebc1d6d203a1e0eb5def))
+- Detect the system Edge binary when the lookup exits zero ([672a1be0](https://github.com/extension-js/extension.js/commit/672a1be0f2f9ca97d772183d96d02cacc46a6723))
+- Emit one-shot builds into a staging dir and rename into dist on success ([2a9b4a66](https://github.com/extension-js/extension.js/commit/2a9b4a6649c5cb477991066bac95d9445ec3d9c1))
+- Merge the .extension-js ignore line into adopted project gitignores ([04f6864a](https://github.com/extension-js/extension.js/commit/04f6864a2db2db2bcb3fa4dc01132d02ab69a228))
+- Gitignore the env files the framework loads in new scaffolds ([f352f758](https://github.com/extension-js/extension.js/commit/f352f75800de5ce2feda564b7334f2f0e540b6b1))
+- Deny secrets in the source zip independent of any gitignore ([cacff012](https://github.com/extension-js/extension.js/commit/cacff0129953f9270a0275a5a26f334a3360d6de))
+- Read the stored device login as the publish token fallback ([facc3db2](https://github.com/extension-js/extension.js/commit/facc3db2afdaee595123743f1271c92feec83ee1))
+- Cover per-script reinject identity for multi-script content entries ([fa944653](https://github.com/extension-js/extension.js/commit/fa9446532e49bf4df7aef1d25d87ab5f96ffbcf0))
+- Disable deno minimum dependency age in the optional deps smoke ([4ce8bcf0](https://github.com/extension-js/extension.js/commit/4ce8bcf09abd0f530c7d687a82185adb3f239802))
+- Resync the bundled javascript template to the public screenshot ([3a832c9b](https://github.com/extension-js/extension.js/commit/3a832c9b6445ae29a1767254745262f95522ff5b))
+- Pin waterfox-location 2.1.1 to finish the which 6 rollout ([c9c4fe96](https://github.com/extension-js/extension.js/commit/c9c4fe96ee9686b6679d17d5cd1296c8f96c311b))
+- Bump nine location package pins to the which 6 releases ([19d512d5](https://github.com/extension-js/extension.js/commit/19d512d5042346cfd96a06220d5e39d435698335))
+- Name the requested template truthfully in the create banner and help ([372cccdd](https://github.com/extension-js/extension.js/commit/372cccdda38be48a1a91d5db23f8c0f4b5fb39b5))
+- Drop copied template lockfiles so npm ci works in a fresh scaffold ([8de42f34](https://github.com/extension-js/extension.js/commit/8de42f34a4a119c18b80af6ca4d4271766d11150))
+- Size the nightly e2e to a verdict and assert the CLI boots first ([0fe46b4b](https://github.com/extension-js/extension.js/commit/0fe46b4bdb430af68831b54469bc646eb95f63c0))
+- Scope the firefox e2e project to the real Firefox specs ([5c476e68](https://github.com/extension-js/extension.js/commit/5c476e6893376577dd3963269facf7ddc11e1d74))
+- Let the nightly e2e fail red and find the CLI it builds with ([762cefc7](https://github.com/extension-js/extension.js/commit/762cefc769f0d951967ee7a3295699aa31a646d9))
+- Name the browser doctor ran on and keep screenshots out of the zip ([8b6d2c9b](https://github.com/extension-js/extension.js/commit/8b6d2c9bb8e8bfd70c18f3d585f56ce1e4822f53))
+- Report a failed create to telemetry before the process exits ([767ea493](https://github.com/extension-js/extension.js/commit/767ea4933d277f489c75a52193598c4a544c8665))
+- Revalidate the packument so a good release stops failing ([33ceb567](https://github.com/extension-js/extension.js/commit/33ceb56752c24f4a385fa175a043c5d07630d99f))
+- Flush telemetry before exiting so a failure is actually reported ([d4ca1d63](https://github.com/extension-js/extension.js/commit/d4ca1d6323e2077301b99c9f06285189fd134400))
+</details>
+
 ## 4.0.26 (July 31, 2026)
 
 ### Fixes
