@@ -162,6 +162,62 @@ describe('ValidateThemeValues step', () => {
     expect(compilation.errors).toHaveLength(0)
   })
 
+  // Safari has no theme surface. The skip must be spoken, not silent, and it
+  // must never fail the build the way malformed chromium values do.
+  it('warns once for a themed manifest on safari instead of skipping silently', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      theme: {colors: {toolbar: [40.5, 48, 72]}}
+    })
+    const {compiler, compilation} = makeCompiler()
+
+    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+      compiler
+    )
+
+    expect(compilation.errors).toHaveLength(0)
+    expect(compilation.warnings).toHaveLength(1)
+    const message = String(compilation.warnings[0])
+    expect(message).toContain('theme')
+    expect(message).toContain('safari')
+  })
+
+  it('stays silent on safari when the manifest has no theme', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0'
+    })
+    const {compiler, compilation} = makeCompiler()
+
+    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+      compiler
+    )
+
+    expect(compilation.errors).toHaveLength(0)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('warns for webkit-based targets too', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      theme: {colors: {toolbar: [0, 0, 0]}}
+    })
+    const {compiler, compilation} = makeCompiler()
+
+    new ValidateThemeValues({
+      manifestPath,
+      browser: 'webkit-based'
+    } as any).apply(compiler)
+
+    expect(compilation.errors).toHaveLength(0)
+    expect(compilation.warnings).toHaveLength(1)
+  })
+
   it('honors browser-prefixed theme keys', () => {
     const manifestPath = writeManifest({
       manifest_version: 3,

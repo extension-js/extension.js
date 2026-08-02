@@ -8,7 +8,10 @@
 
 import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
-import {isChromiumBasedBrowser} from '../../../lib/constants'
+import {
+  isChromiumBasedBrowser,
+  isWebkitBasedBrowser
+} from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
@@ -28,9 +31,13 @@ export class ValidateThemeValues {
   }
 
   apply(compiler: Compiler) {
+    const browserName = String(this.browser)
+    const webkitTarget = isWebkitBasedBrowser(browserName)
+
     // Firefox parses theme colors with its own schema (CSS strings included),
     // so only the Chromium family gets Chrome's integer-array contract.
-    if (!isChromiumBasedBrowser(String(this.browser))) return
+    // Safari has no theme surface at all, which deserves a warning, not silence.
+    if (!isChromiumBasedBrowser(browserName) && !webkitTarget) return
 
     compiler.hooks.thisCompilation.tap(
       ValidateThemeValues.name,
@@ -49,6 +56,19 @@ export class ValidateThemeValues {
                 this.browser
               )
             } catch {
+              return
+            }
+
+            if (webkitTarget) {
+              if ((manifest as Record<string, unknown>).theme) {
+                reportToCompilation(
+                  compilation,
+                  compiler,
+                  messages.themeNotSupportedByBrowser(browserName),
+                  'warning',
+                  'manifest.json'
+                )
+              }
               return
             }
 
