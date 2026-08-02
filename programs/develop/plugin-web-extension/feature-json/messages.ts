@@ -77,6 +77,36 @@ export function invalidRulesetStructure(manifestField: string, file: string) {
   ].join('\n')
 }
 
+export function invalidRulesetRule(
+  manifestField: string,
+  file: string,
+  ruleIndex: number,
+  reason: string
+) {
+  return [
+    `The Declarative Net Request ruleset listed in ${colors.blue(manifestField)} has a rule Chrome rejects at load.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('RULE')} ${colors.underline(`index ${ruleIndex}`)}`,
+    `${colors.gray('REASON')} ${colors.underline(reason)}`,
+    `Give every rule an integer id of 1 or more, an action with a type, and a condition object.`
+  ].join('\n')
+}
+
+export function rulesetRuleShapeIssue(
+  manifestField: string,
+  file: string,
+  ruleIndex: number,
+  reason: string
+) {
+  return [
+    `A rule in the Declarative Net Request ruleset listed in ${colors.blue(manifestField)} may not behave as intended.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('RULE')} ${colors.underline(`index ${ruleIndex}`)}`,
+    `${colors.gray('REASON')} ${colors.underline(reason)}`,
+    `Check the rule against the Declarative Net Request rule schema.\nThe build continues.`
+  ].join('\n')
+}
+
 export function invalidManagedSchemaStructure(
   manifestField: string,
   file: string
