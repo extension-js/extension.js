@@ -159,4 +159,80 @@ describe('StaticAssetsPlugin', () => {
       )
     ).toBeTruthy()
   })
+
+  it('respects a type-only custom SVG rule, matching the fonts detector', async () => {
+    const compiler = createCompiler()
+    compiler.options.module.rules.push({
+      test: /\.svg$/i,
+      type: 'asset/inline'
+    })
+
+    const plugin = new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+    await plugin.apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const svgRules = rules.filter(
+      (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
+    )
+    expect(svgRules.length).toBe(1)
+    expect(svgRules[0].type).toBe('asset/inline')
+  })
+
+  it('keeps the default SVG rule when the custom rule is resourceQuery-scoped (SVGR split)', async () => {
+    const compiler = createCompiler()
+    compiler.options.module.rules.push({
+      test: /\.svg$/i,
+      resourceQuery: /react/,
+      use: ['@svgr/webpack']
+    })
+
+    const plugin = new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+    await plugin.apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const svgRules = rules.filter(
+      (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
+    )
+    // The scoped SVGR rule only claims ?react imports, so plain imports still
+    // need the default rule.
+    expect(svgRules.length).toBe(2)
+
+    const defaultRule = svgRules.find((r) => r.type === 'asset')
+    expect(defaultRule).toBeTruthy()
+    // The default excludes the SVGR query so it cannot clobber ?react imports.
+    expect(defaultRule.resourceQuery?.not).toEqual([/react/])
+  })
+
+  it('keeps the default fonts rule when the custom rule is resourceQuery-scoped', async () => {
+    const compiler = createCompiler()
+    compiler.options.module.rules.push({
+      test: /\.(woff|woff2|eot|ttf|otf)$/i,
+      resourceQuery: /inline/,
+      type: 'asset/inline'
+    })
+
+    const plugin = new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+    await plugin.apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const fontRules = rules.filter(
+      (r) =>
+        r?.test instanceof RegExp &&
+        String(r.test) === String(/\.(woff|woff2|eot|ttf|otf)$/i)
+    )
+    expect(fontRules.length).toBe(2)
+
+    const defaultRule = fontRules.find((r) => r.type === 'asset')
+    expect(defaultRule).toBeTruthy()
+    expect(defaultRule.resourceQuery?.not).toEqual([/inline/])
+  })
 })

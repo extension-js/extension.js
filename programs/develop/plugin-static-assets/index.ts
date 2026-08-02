@@ -39,15 +39,45 @@ export class StaticAssetsPlugin {
       }
     }
 
-    const hasCustomSvgRule = compiler.options.module.rules.some((thisRule) => {
-      const rule = thisRule as {test?: unknown; use?: unknown} | null
+    type InspectableRule = {
+      test?: unknown
+      use?: unknown
+      type?: unknown
+      resourceQuery?: unknown
+    } | null
+
+    // A resourceQuery-scoped rule (SVGR's ?react split) only claims that query
+    // slice, so it must not suppress the default rule for plain imports.
+    const isFullCustomRuleFor = (thisRule: unknown, sample: string) => {
+      const rule = thisRule as InspectableRule
       return Boolean(
         rule &&
           rule.test instanceof RegExp &&
-          rule.test.test('.svg') &&
-          rule.use !== undefined
+          rule.test.test(sample) &&
+          (rule.type !== undefined || rule.use !== undefined) &&
+          rule.resourceQuery === undefined
       )
-    })
+    }
+
+    // Query slices claimed by scoped custom rules: the default rule excludes
+    // them so a later default cannot clobber the scoped rule's module type.
+    const scopedQueriesFor = (sample: string): RegExp[] =>
+      compiler.options.module.rules
+        .map((thisRule) => thisRule as InspectableRule)
+        .filter((rule) =>
+          Boolean(
+            rule &&
+              rule.test instanceof RegExp &&
+              rule.test.test(sample) &&
+              (rule.type !== undefined || rule.use !== undefined) &&
+              rule.resourceQuery instanceof RegExp
+          )
+        )
+        .map((rule) => rule?.resourceQuery as RegExp)
+
+    const hasCustomSvgRule = compiler.options.module.rules.some((thisRule) =>
+      isFullCustomRuleFor(thisRule, '.svg')
+    )
 
     const hasUrlResourceQueryRule = compiler.options.module.rules.some(
       (thisRule) => {
@@ -60,30 +90,21 @@ export class StaticAssetsPlugin {
 
     // Skip when an existing rule handles fonts, letting users opt into
     // asset/inline for strict CSP pages.
-    const hasCustomFontsRule = compiler.options.module.rules.some(
-      (thisRule) => {
-        const rule = thisRule as RuleSetRule
-
-        if (!rule || !(rule.test instanceof RegExp)) return false
-        if (!rule.test.test('.woff')) return false
-
-        // Consider both `type`-based rules and loader-based rules as custom.
-        return rule.type !== undefined || rule.use !== undefined
-      }
+    const hasCustomFontsRule = compiler.options.module.rules.some((thisRule) =>
+      isFullCustomRuleFor(thisRule, '.woff')
     )
 
+    const svgScopedQueries = scopedQueriesFor('.svg')
+    const fontsScopedQueries = scopedQueriesFor('.woff')
+
     const loaders: RuleSetRule[] = [
-      ...(hasUrlResourceQueryRule
+      ...(hasCustomSvgRule
         ? []
         : [
-            {
-              // Match only the standalone ?url import query: an unanchored /url/ also hit
-              // "url" inside classic-concat payloads and hijacked whole entries.
-              resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
-              type: 'asset/resource'
-            }
+            svgScopedQueries.length
+              ? {...defaultSvgRule, resourceQuery: {not: svgScopedQueries}}
+              : defaultSvgRule
           ]),
-      ...(hasCustomSvgRule ? [] : [defaultSvgRule]),
       {
         test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset',
@@ -104,7 +125,10 @@ export class StaticAssetsPlugin {
               type: 'asset',
               generator: {
                 filename: filenamePattern
-              }
+              },
+              ...(fontsScopedQueries.length
+                ? {resourceQuery: {not: fontsScopedQueries}}
+                : {})
             }
           ]),
       {
@@ -118,7 +142,22 @@ export class StaticAssetsPlugin {
             maxSize: 2 * 1024
           }
         }
-      }
+      },
+      // Last on purpose: rspack resolves overlapping rules last-wins, so the
+      // ?url contract (always a file URL) must outrank the inlining rules.
+      ...(hasUrlResourceQueryRule
+        ? []
+        : [
+            {
+              // Match only the standalone ?url import query: an unanchored /url/ also hit
+              // "url" inside classic-concat payloads and hijacked whole entries.
+              resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
+              type: 'asset/resource',
+              generator: {
+                filename: filenamePattern
+              }
+            }
+          ])
     ]
 
     compiler.options.module.rules = [
