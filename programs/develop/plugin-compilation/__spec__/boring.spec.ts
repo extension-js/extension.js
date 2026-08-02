@@ -86,4 +86,28 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
     expect(() => getDoneTap()(makeStats({hasErrors: true}))).not.toThrow()
     expect(String(logSpy.mock.calls[1][0])).toContain('My App')
   })
+
+  it('keeps the last name when a mid-save manifest parses to empty', () => {
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({manifest_version: 3, name: 'My App', version: '1.0.0'})
+    )
+    const {compiler, getDoneTap} = makeCompiler()
+    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
+      compiler as never
+    )
+
+    getDoneTap()(makeStats())
+    expect(String(logSpy.mock.calls[0][0])).toContain('My App')
+
+    // parse-json-safe maps empty input to {} without throwing, so the
+    // fallback must not depend on the parse failing.
+    fs.writeFileSync(manifestPath, '')
+    getDoneTap()(makeStats())
+    expect(String(logSpy.mock.calls[1][0])).toContain('My App')
+
+    fs.writeFileSync(manifestPath, '{}')
+    getDoneTap()(makeStats())
+    expect(String(logSpy.mock.calls[2][0])).toContain('My App')
+  })
 })

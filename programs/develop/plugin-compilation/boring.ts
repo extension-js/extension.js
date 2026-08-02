@@ -20,6 +20,7 @@ export class BoringPlugin {
   public readonly browser: PluginInterface['browser']
   private sawUserInvalidation = false
   private printedStartupSuccess = false
+  private printedStartupWarning = false
   private lastKnownManifestName?: string
 
   constructor(options: PluginInterface) {
@@ -31,6 +32,7 @@ export class BoringPlugin {
     compiler.hooks.watchClose.tap('develop:brand:watch-close', () => {
       this.sawUserInvalidation = false
       this.printedStartupSuccess = false
+      this.printedStartupWarning = false
     })
 
     compiler.hooks.done.tap('develop:brand', (stats) => {
@@ -50,8 +52,12 @@ export class BoringPlugin {
         ).name
         if (typeof parsedName === 'string' && parsedName) {
           this.lastKnownManifestName = parsedName
+          manifestName = parsedName
+        } else {
+          // parse-json-safe maps an empty mid-save manifest to {} without
+          // throwing; keep the last-known name instead of the generic one.
+          manifestName = this.lastKnownManifestName
         }
-        manifestName = parsedName
       } catch {
         manifestName = this.lastKnownManifestName
       }
@@ -73,25 +79,37 @@ export class BoringPlugin {
             /\\/g,
             '/'
           )
+          // Generated roots are matched by whole path segment against the
+          // compiler's own output dir and <context>/dist, mirroring the
+          // watchOptions contract: a source path merely containing "dist"
+          // must still count as a user change.
+          const outputPath = String(
+            compiler?.options?.output?.path || ''
+          ).replace(/\\/g, '/')
+          const distRoot = context ? `${context}/dist` : ''
+          const isUnderRoot = (file: string, root: string) =>
+            root !== '' && (file === root || file.startsWith(`${root}/`))
           const hasUserFileChange = modifiedFiles.some((file) => {
             const inProject = !context || file.startsWith(`${context}/`)
             const isGenerated =
-              file.includes('/dist/') ||
+              isUnderRoot(file, outputPath) ||
+              isUnderRoot(file, distRoot) ||
               file.includes('/extension-js/profiles/')
             return inProject && !isGenerated
           })
           if (hasUserFileChange) this.sawUserInvalidation = true
         }
 
-        // Runner startup can produce extra successful passes; keep one startup
-        // success line and suppress duplicates until the first real invalidation.
-        if (browserLaunchEnabled && !hasErrors && !hasWarnings) {
-          if (!this.sawUserInvalidation) {
-            if (!this.printedStartupSuccess) {
-              this.printedStartupSuccess = true
-            } else {
-              return
-            }
+        // Runner startup can produce extra passes; keep one startup line per
+        // severity and suppress duplicates until the first real invalidation.
+        // A warning-bearing first pass must not swallow the later success line.
+        if (browserLaunchEnabled && !hasErrors && !this.sawUserInvalidation) {
+          if (hasWarnings) {
+            if (this.printedStartupWarning) return
+            this.printedStartupWarning = true
+          } else {
+            if (this.printedStartupSuccess) return
+            this.printedStartupSuccess = true
           }
         }
 
