@@ -11,7 +11,11 @@ permissions:
 jobs:
   e2e:
     name: Run E2E Tests
-    timeout-minutes: 60
+    # 120, not the old 60: a fully green suite measures roughly 75 minutes
+    # (55m chromium, 10m firefox, 8m setup), so the old budget guaranteed the
+    # nightly could never pass regardless of product health. The inner 105m
+    # test budget below is what keeps a wedged night red instead of cancelled.
+    timeout-minutes: 120
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -35,6 +39,15 @@ jobs:
       - name: Compile Extension.js
         run: pnpm compile
 
+      # Fail fast if the CLI the suite builds with is missing or cannot boot.
+      # Every template build spawns this exact bin (scripts/
+      # build-with-manifest.mjs), and the cross-template specs receive it via
+      # EXTENSION_LOCAL_CLI_CJS below. When it was silently absent, the suite
+      # burned the whole job budget on ENOENT timeouts, so prove it answers
+      # here, in seconds, before any test spends minutes waiting on it.
+      - name: Assert the compiled CLI answers
+        run: node programs/extension/bin/extension.cjs --version
+
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
 
@@ -47,13 +60,13 @@ jobs:
           sudo apt-mark hold firefox
           npx playwright install --with-deps
 
-      # The job budget is 60 minutes and this step used to have no budget of
-      # its own, so a suite that never finished was killed by the JOB and
-      # GitHub recorded `cancelled`. Nothing counts a cancellation as red, so
-      # this workflow reported "no evidence" instead of "broken" every night
-      # from 2026-05-03 to 2026-08-01. The inner 45m budget is what makes the
-      # light able to turn red: 45m + the ~3m setup above leaves ~12m of the
-      # job budget for the report upload and the post steps, and a slow night
+      # This step used to have no budget of its own, so a suite that never
+      # finished was killed by the JOB and GitHub recorded `cancelled`.
+      # Nothing counts a cancellation as red, so this workflow reported
+      # "no evidence" instead of "broken" every night from 2026-05-03 to
+      # 2026-08-01. The inner 105m budget is what makes the light able to
+      # turn red: 105m + the ~8m setup above leaves time inside the 120m job
+      # budget for the report upload and the post steps, and a slow night
       # now ends as a FAILING step that names the spec it was on.
       #
       # SIGINT, not the default SIGTERM: Playwright treats an interrupt as a
@@ -70,10 +83,10 @@ jobs:
       # leave the runner alive under a dead parent.
       - name: Run E2E Tests (headed under Xvfb)
         run: |
-          xvfb-run -a timeout --signal=INT --kill-after=2m 45m pnpm test:e2e || {
+          xvfb-run -a timeout --signal=INT --kill-after=2m 105m pnpm test:e2e || {
             code=$?
             if [ "$code" = "124" ] || [ "$code" = "137" ]; then
-              echo "::error::the e2e suite hit the 45m inner timeout; the last test named by the list reporter above is where it wedged. Live processes:"
+              echo "::error::the e2e suite hit the 105m inner timeout. The last test named by the list reporter above is where it wedged. Live processes:"
               ps auxww | grep -E "chrome|chromium|firefox|Xvfb|playwright|node" | grep -v grep || true
             fi
             exit "$code"

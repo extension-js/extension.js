@@ -18,7 +18,16 @@ export default defineConfig({
 
   forbidOnly: !!process.env.CI,
 
-  retries: process.env.CI ? 3 : 2,
+  // One retry in CI, DELIBERATE: with a 90s testTimeout on one worker,
+  // every genuine failure at three retries costs six minutes of wall clock,
+  // which is what turned a broken suite into a cancel instead of a verdict.
+  retries: process.env.CI ? 1 : 2,
+
+  // Stop the CI run once ten tests have truly failed. A healthy night is
+  // unaffected, and a night where a whole spec family breaks ends as a
+  // complete red run with ten named failures and an uploaded report,
+  // instead of grinding retried 90s timeouts past the job budget.
+  maxFailures: process.env.CI ? 10 : 0,
 
   // Single worker, DELIBERATE: the content-reload spec edits template sources
   // mid-run and leaks into other workers' dist reads; single-worker is race-free.
@@ -51,6 +60,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // A project-level testIgnore replaces the top-level one, so the shared
+      // ignores are repeated here. The firefox specs are excluded because the
+      // firefox project below already runs them, and they spawn their own
+      // Firefox regardless of the project device, so running them here again
+      // was pure duplication.
+      testIgnore: [
+        'dist/**',
+        '**/dist/**',
+        'extensions/**',
+        'e2e/**',
+        /templates\/template\.firefox.*\.spec\.ts$/
+      ],
       use: {...devices['Desktop Chrome']}
     },
 
