@@ -124,28 +124,34 @@ export function readDenoConfigDependencies(
 ): Record<string, string> {
   const dependencies: Record<string, string> = {}
 
-  for (const filename of ['deno.jsonc', 'deno.json']) {
-    const configPath = path.join(projectPath, filename)
-    let config: ParsedJsonc
-    try {
-      config = parseJsoncSafe(fs.readFileSync(configPath, 'utf8'))
-    } catch {
-      continue
-    }
+  // Deno discovers exactly one config file and prefers deno.json over
+  // deno.jsonc; read the same file Deno would instead of merging both.
+  const filename = ['deno.json', 'deno.jsonc'].find((candidate) =>
+    fs.existsSync(path.join(projectPath, candidate))
+  )
+  if (!filename) return dependencies
 
-    const imports = config?.imports
-    if (!imports || typeof imports !== 'object') continue
+  let config: ParsedJsonc
+  try {
+    config = parseJsoncSafe(
+      fs.readFileSync(path.join(projectPath, filename), 'utf8')
+    )
+  } catch {
+    return dependencies
+  }
 
-    for (const [rawAlias, specifier] of Object.entries(imports)) {
-      const parsed = parseNpmSpecifier(specifier)
-      if (!parsed) continue
+  const imports = config?.imports
+  if (!imports || typeof imports !== 'object') return dependencies
 
-      dependencies[parsed.name] = dependencies[parsed.name] || parsed.version
+  for (const [rawAlias, specifier] of Object.entries(imports)) {
+    const parsed = parseNpmSpecifier(specifier)
+    if (!parsed) continue
 
-      const alias = rawAlias.endsWith('/') ? rawAlias.slice(0, -1) : rawAlias
-      if (alias && alias !== parsed.name) {
-        dependencies[alias] = dependencies[alias] || parsed.version
-      }
+    dependencies[parsed.name] = dependencies[parsed.name] || parsed.version
+
+    const alias = rawAlias.endsWith('/') ? rawAlias.slice(0, -1) : rawAlias
+    if (alias && alias !== parsed.name) {
+      dependencies[alias] = dependencies[alias] || parsed.version
     }
   }
 

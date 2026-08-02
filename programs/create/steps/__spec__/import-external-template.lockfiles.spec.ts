@@ -36,6 +36,10 @@ function makeCatalogZipWithLockfiles(): Buffer {
     Buffer.from('lockfileVersion: 9')
   )
   zip.addFile(
+    'examples-main/examples/sidebar-monorepo-turbopack/deno.lock',
+    Buffer.from('{"version":"4"}')
+  )
+  zip.addFile(
     'examples-main/examples/sidebar-monorepo-turbopack/packages/extension/src/manifest.json',
     Buffer.from('{"manifest_version":3}')
   )
@@ -87,11 +91,13 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
       false
     )
     expect(fs.existsSync(path.join(projectPath, 'pnpm-lock.yaml'))).toBe(false)
+    expect(fs.existsSync(path.join(projectPath, 'deno.lock'))).toBe(false)
 
     // One notice names what was dropped, so the removal is never silent.
     const notice = logs.find((line) => line.includes('package-lock.json'))
     expect(notice).toBeDefined()
     expect(notice).toContain('pnpm-lock.yaml')
+    expect(notice).toContain('deno.lock')
   })
 
   it('prints no lockfile notice when the template ships none', async () => {
