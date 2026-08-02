@@ -226,7 +226,7 @@ export function ensureDirSync(dir: AbsolutePath) {
 
 export function devtoolsEngineFor(
   browser: unknown
-): 'chrome' | 'edge' | 'chromium' | 'firefox' {
+): 'chrome' | 'edge' | 'chromium' | 'firefox' | 'safari' {
   switch (browser) {
     case 'chrome':
       return 'chrome'
@@ -244,6 +244,11 @@ export function devtoolsEngineFor(
     case 'waterfox':
     case 'librewolf':
       return 'firefox'
+    // Safari is not a chromium fork: no safari companion build ships today,
+    // so callers probing dist/<package>/safari correctly find nothing.
+    case 'safari':
+    case 'webkit-based':
+      return 'safari'
     default:
       return 'chrome'
   }

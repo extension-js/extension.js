@@ -71,7 +71,8 @@ export async function extensionDev(
     const browser = normalizeBrowser(
       devOptions.browser || 'chrome',
       devOptions.chromiumBinary,
-      devOptions.geckoBinary || devOptions.firefoxBinary
+      devOptions.geckoBinary || devOptions.firefoxBinary,
+      devOptions.safariBinary
     )
     const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
 
