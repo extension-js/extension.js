@@ -37,7 +37,7 @@ import {markManagedEphemeralProfile} from './shared-utils'
 export type ProfileKind = 'system' | 'explicit' | 'managed'
 
 export interface ResolveProfileInput {
-  rawProfile?: string | false
+  rawProfile?: string | boolean
   /** Managed-profile base directory: `<distRoot>/extension-js/profiles/<browser>-profile`. */
   managedBaseDir: string
   /** EXTENSION_USE_SYSTEM_PROFILE / EXTJS_USE_SYSTEM_PROFILE resolved to a boolean. */
@@ -68,6 +68,30 @@ function hasExplicit(
   rawProfile: string | false | undefined
 ): rawProfile is string {
   return typeof rawProfile === 'string' && rawProfile.trim().length > 0
+}
+
+/**
+ * The one interpretation of the `--profile` / `profile` option value.
+ * Commander delivers flag values as strings, so `--profile false` arrives as
+ * the string `'false'`. Without this normalization that string reads as an
+ * explicit path and a literal profile directory named `false` gets created.
+ *
+ * - `false` / `'false'`: the browser's own default profile (system).
+ * - `true` / `'true'`: the managed default (same as leaving the option unset).
+ * - any other string: an explicit profile path.
+ */
+export function normalizeProfileOption(
+  value: string | boolean | undefined
+): string | false | undefined {
+  if (value === false) return false
+  if (value === true) return undefined
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'false') return false
+    if (normalized === 'true') return undefined
+    return value
+  }
+  return undefined
 }
 
 function hasCopyFrom(
@@ -114,7 +138,6 @@ export function resolveProfileConfig(
   input: ResolveProfileInput
 ): ResolvedProfile {
   const {
-    rawProfile,
     managedBaseDir,
     useSystemProfile,
     persistProfile,
@@ -122,6 +145,7 @@ export function resolveProfileConfig(
     copyFromProfile,
     resolveExplicit
   } = input
+  const rawProfile = normalizeProfileOption(input.rawProfile)
 
   // profile: false and the env switch both mean the browser's own default
   // profile; an empty string is NOT false and falls through to the managed default.
