@@ -834,6 +834,52 @@ describe('webpack/command-build', () => {
     }
   })
 
+  it('prints the receipt against a re-pointed output.path, not dist/<browser>', async () => {
+    // A user config that re-points output.path emits there, so a receipt
+    // naming dist/<browser> reads as a failed build to whoever looks there.
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-custom-out-'))
+    const customOut = path.join(tmp, 'artifacts', 'web')
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    ;(configLoaderMod as any).userConfigSpy.mockImplementationOnce(
+      (cfg: any) => ({...cfg, output: {...cfg.output, path: customOut}})
+    )
+
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    // The file-level logSpy is unhooked by restoreAllMocks after each test,
+    // so the receipt lines need their own capture here.
+    const receiptLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await extensionBuild(tmp, {browser: 'chrome', silent: true})
+
+      const printed = receiptLog.mock.calls
+        .map((call) => call.join(' '))
+        .join('\n')
+      const receipt = printed
+        .split('\n')
+        .find((line) => line.includes('built for production in'))
+      expect(receipt).toBeDefined()
+      expect(receipt).toContain(customOut)
+      expect(receipt).not.toContain(path.join(tmp, 'dist', 'chrome'))
+      expect(printed).toContain(customOut)
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
   it('folds the safari packager identity into the summary it returns', async () => {
     // The generated dev.extensionjs.* bundle id was a log line and nothing
     // else, so a machine caller could not learn that its app is undistributable.
