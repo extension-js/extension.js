@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {parseJsoncSafe} from '../lib/deno-manifest'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
@@ -131,11 +132,18 @@ export async function writeDenoJsonc(
     return
   }
 
-  // Respect a Deno config the template itself ships.
-  for (const existing of ['deno.jsonc', 'deno.json']) {
-    if (await pathExists(path.join(projectPath, existing))) {
-      return
+  // Respect a Deno config the template itself ships. Deno's own discovery
+  // prefers deno.json over deno.jsonc, so target the file Deno will read.
+  let existingConfig: string | undefined
+  for (const candidate of ['deno.json', 'deno.jsonc']) {
+    if (await pathExists(path.join(projectPath, candidate))) {
+      existingConfig = candidate
+      break
     }
+  }
+
+  if (existingConfig && !primary) {
+    return
   }
 
   const extensionBinary = await resolveExtensionBinary()
@@ -146,13 +154,25 @@ export async function writeDenoJsonc(
 
   try {
     if (isDebug()) logger.log(messages.writingDenoJsonc())
-    await fs.writeFile(
-      path.join(projectPath, 'deno.jsonc'),
-      renderDenoJsonc(tasks, imports)
-    )
+    if (existingConfig) {
+      // Primary mode with a template-shipped config: the config still has to
+      // become the only manifest, with the `extension` import folded in and
+      // package.json retired, or `deno task dev` never finds the CLI (#482).
+      const configPath = path.join(projectPath, existingConfig)
+      const config = parseJsoncSafe(await fs.readFile(configPath, 'utf8'))
+      config.imports = {...(imports || {}), ...(config.imports || {})}
+      if (config.nodeModulesDir === undefined) config.nodeModulesDir = 'auto'
+      if (!config.tasks) config.tasks = tasks
+      await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
+    } else {
+      await fs.writeFile(
+        path.join(projectPath, 'deno.jsonc'),
+        renderDenoJsonc(tasks, imports)
+      )
+    }
 
     if (primary) {
-      // deno.jsonc replaces package.json as the manifest.
+      // The Deno config replaces package.json as the manifest.
       await fs.rm(path.join(projectPath, 'package.json'), {force: true})
     }
   } catch (error) {

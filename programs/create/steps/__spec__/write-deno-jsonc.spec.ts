@@ -172,4 +172,65 @@ describe('writeDenoJsonc', () => {
       await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
     ).toBe(templateConfig)
   })
+
+  it('primary mode folds the extension import into a template deno.json', async () => {
+    await fsp.writeFile(
+      path.join(projectPath, 'deno.json'),
+      '{"tasks": {"dev": "custom"}, "imports": {"preact": "npm:preact@10.0.0"}}\n'
+    )
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'template', dependencies: {react: '^18.3.1'}})
+    )
+
+    await withDenoGlobal(async () => {
+      await writeDenoJsonc(
+        projectPath,
+        {cliVersion: '4.0.5', primary: true},
+        noopLogger
+      )
+    })
+
+    const config = parseJsonc(
+      await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
+    )
+    // The template config stays authoritative where it speaks, but the
+    // scaffold contract still lands: extension import, deps, no package.json.
+    expect(config.tasks.dev).toBe('custom')
+    expect(config.imports.preact).toBe('npm:preact@10.0.0')
+    expect(config.imports.react).toBe('npm:react@^18.3.1')
+    expect(config.imports.extension).toBe('npm:extension@^4.0.5')
+    expect(config.nodeModulesDir).toBe('auto')
+
+    await expect(
+      fsp.access(path.join(projectPath, 'package.json'))
+    ).rejects.toThrow()
+    await expect(
+      fsp.access(path.join(projectPath, 'deno.jsonc'))
+    ).rejects.toThrow()
+  })
+
+  it('primary mode updates deno.json when deno.jsonc also exists', async () => {
+    const jsoncContents = '{\n  // untouched\n  "tasks": {"dev": "jsonc"}\n}\n'
+    await fsp.writeFile(
+      path.join(projectPath, 'deno.json'),
+      '{"tasks": {"dev": "json"}}\n'
+    )
+    await fsp.writeFile(path.join(projectPath, 'deno.jsonc'), jsoncContents)
+
+    await withDenoGlobal(async () => {
+      await writeDenoJsonc(projectPath, {primary: true}, noopLogger)
+    })
+
+    // Deno itself prefers deno.json over deno.jsonc, so that file gains the
+    // extension import while the jsonc file stays byte-identical.
+    const config = parseJsonc(
+      await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
+    )
+    expect(config.tasks.dev).toBe('json')
+    expect(config.imports.extension).toMatch(/^npm:extension@/)
+    expect(
+      await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
+    ).toBe(jsoncContents)
+  })
 })

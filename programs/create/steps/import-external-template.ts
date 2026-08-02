@@ -251,7 +251,8 @@ export const TEMPLATE_LOCKFILE_NAMES = [
   'yarn.lock',
   'pnpm-lock.yaml',
   'bun.lockb',
-  'bun.lock'
+  'bun.lock',
+  'deno.lock'
 ]
 
 // Strip root-level lockfiles from the copied template and report which ones
