@@ -15,6 +15,7 @@ import {
   getManifestContent,
   setCurrentManifestContent
 } from '../../feature-manifest/manifest-lib/manifest'
+import {EMITTED_ASSET_REF_PATTERN} from '../collect-entry-imports'
 import {cleanMatches} from './clean-matches'
 import {warPatchedSummary} from './messages'
 import {resolveUserDeclaredWAR} from './resolve-war'
@@ -209,8 +210,7 @@ export function generateManifestPatches(
 
           if (!source) continue
 
-          const re = /assets\/[A-Za-z0-9._-]+/g
-          const found = source.match(re) || []
+          const found = source.match(EMITTED_ASSET_REF_PATTERN) || []
           filtered = Array.from(
             new Set(
               found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))

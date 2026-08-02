@@ -15,6 +15,11 @@ type ChunkLike = {
   auxiliaryFiles?: string[]
 }
 
+// Slash-joined segments so nested emits like assets/fonts/x.woff2 match whole,
+// while quotes, parens, and whitespace still terminate the reference.
+export const EMITTED_ASSET_REF_PATTERN =
+  /assets\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*/g
+
 type ModuleWithBuildInfo = {
   buildInfo?: {
     assets?: Map<string, unknown> | Record<string, unknown>
@@ -189,8 +194,8 @@ export function collectContentScriptEntryImports(
           continue
         }
 
-        const assetPattern = /assets\/[A-Za-z0-9._-]+/g
-        const matchedStrings: string[] = jsSource.match(assetPattern) || []
+        const matchedStrings: string[] =
+          jsSource.match(EMITTED_ASSET_REF_PATTERN) || []
 
         for (let m = 0; m < matchedStrings.length; m++) {
           addFileIfRelevant(matchedStrings[m])
@@ -203,9 +208,8 @@ export function collectContentScriptEntryImports(
     const logicalJsAssetSource = getAssetSource(compilation, logicalJsAssetName)
 
     if (logicalJsAssetSource) {
-      const assetPattern = /assets\/[A-Za-z0-9._-]+/g
       const matchedStrings: string[] =
-        logicalJsAssetSource.match(assetPattern) || []
+        logicalJsAssetSource.match(EMITTED_ASSET_REF_PATTERN) || []
 
       for (let n = 0; n < matchedStrings.length; n++) {
         addFileIfRelevant(matchedStrings[n])
