@@ -157,6 +157,9 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.15
         version: 0.5.19(tailwindcss@4.1.18)
+      '@types/chrome':
+        specifier: ^0.1.37
+        version: 0.1.37
       '@types/react':
         specifier: ^19.2.8
         version: 19.2.8
@@ -169,6 +172,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      extension:
+        specifier: workspace:*
+        version: link:../../programs/extension
       postcss:
         specifier: ^8.5.18
         version: 8.5.18
