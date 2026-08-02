@@ -41,10 +41,12 @@ export class AddToFileDependencies {
               const [, resource] = field
 
               if (resource) {
-                const resourceData = getAssetsFromHtml(resource as string)
                 const fileDependencies = new Set(compilation.fileDependencies)
 
+                // Parse only files that exist: getAssetsFromHtml throws on a
+                // deleted HTML entry instead of reporting an empty page.
                 if (fs.existsSync(resource as string)) {
+                  const resourceData = getAssetsFromHtml(resource as string)
                   const fileResources = [
                     resource as string,
                     ...(resourceData?.static || [])
