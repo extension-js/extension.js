@@ -45,6 +45,17 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
         }
         side_panel?: {default_path?: unknown}
         content_scripts?: unknown
+        action?: {default_popup?: unknown}
+        browser_action?: {default_popup?: unknown}
+        page_action?: {default_popup?: unknown}
+        options_ui?: {page?: unknown}
+        options_page?: unknown
+        devtools_page?: unknown
+        chrome_url_overrides?: {
+          newtab?: unknown
+          history?: unknown
+          bookmarks?: unknown
+        }
       }
     | undefined
   const background = manifestObj?.background
@@ -58,6 +69,19 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
   }
 
   addFile(manifestObj?.side_panel?.default_path)
+
+  // Load-checked HTML entry points, mirroring emit-html-file's field set.
+  // sandbox.pages stays out: that tier is warn-only by design, and a guard
+  // entry would turn its deliberate green-with-warning into a hard failure.
+  addFile(manifestObj?.action?.default_popup)
+  addFile(manifestObj?.browser_action?.default_popup)
+  addFile(manifestObj?.page_action?.default_popup)
+  addFile(manifestObj?.options_ui?.page)
+  addFile(manifestObj?.options_page)
+  addFile(manifestObj?.devtools_page)
+  addFile(manifestObj?.chrome_url_overrides?.newtab)
+  addFile(manifestObj?.chrome_url_overrides?.history)
+  addFile(manifestObj?.chrome_url_overrides?.bookmarks)
 
   const contentScripts = manifestObj?.content_scripts
   if (Array.isArray(contentScripts)) {
