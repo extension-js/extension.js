@@ -7,7 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {buildBridgeProducerSource} from '../../dev-server/control-bridge/producer-runtime'
+import {
+  buildBridgeProducerSource,
+  CONTROL_PORT_ASSET_NAME
+} from '../../dev-server/control-bridge/producer-runtime'
 
 // Matches the compiled background entry across engines: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js; scripts? covers both.
@@ -45,6 +48,18 @@ export class InjectBridgeProducer {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 101
           },
           () => {
+            // A profile-cached SW keeps running the OLD bundle after a server
+            // restart; this file is its only path to the live port (fetched
+            // from disk, so it is always the current session's value).
+            if (!compilation.getAsset(CONTROL_PORT_ASSET_NAME)) {
+              compilation.emitAsset(
+                CONTROL_PORT_ASSET_NAME,
+                new sources.RawSource(
+                  JSON.stringify({port: controlPort, instanceId})
+                )
+              )
+            }
+
             for (const asset of compilation.getAssets()) {
               if (!BACKGROUND_ASSET.test(asset.name)) continue
 

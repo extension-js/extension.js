@@ -12,6 +12,10 @@ function makeCompiler() {
         tap: (_name: string, cb: (c: any) => void) => {
           compilation = {
             getAssets: vi.fn(() => Object.values(compilation.__assets)),
+            getAsset: vi.fn((name: string) => compilation.__assets[name]),
+            emitAsset: vi.fn((name: string, src: any) => {
+              compilation.__assets[name] = {name, source: src}
+            }),
             updateAsset: vi.fn((name: string, src: any) => {
               compilation.__assets[name] = {name, source: src}
             }),
@@ -133,6 +137,25 @@ describe('InjectBridgeProducer', () => {
       new InjectBridgeProducer().apply(compiler)
       expect(taps).toHaveLength(0)
     }
+  })
+
+  it('emits the control-port file so a stale producer can re-resolve the live port', () => {
+    process.env.EXTENSION_CONTROL_PORT = '8123'
+    process.env.EXTENSION_INSTANCE_ID = 'abc123'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset('background/service_worker.js', '/* sw */')
+    runProcessAssets()
+    const raw = getAssetSource('extension-js-control.json')
+    expect(raw).toBeTruthy()
+    expect(JSON.parse(raw)).toEqual({port: 8123, instanceId: 'abc123'})
+  })
+
+  it('does not emit the control-port file when the bridge is off', () => {
+    const {compiler, taps} = makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    expect(taps).toHaveLength(0)
   })
 
   it('bakes the connectable host, falling back to loopback when blank', () => {
