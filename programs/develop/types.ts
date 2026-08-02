@@ -509,6 +509,10 @@ export interface FileConfig {
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
+      | 'safariBinary'
+      | 'appName'
+      | 'bundleId'
+      | 'macOsOnly'
       | 'noOpen'
       | 'noBrowser'
       | 'polyfill'
@@ -587,7 +591,15 @@ export interface FileConfig {
 
     build?: Pick<
       BuildOptions,
-      'browser' | 'zipFilename' | 'zip' | 'zipSource' | 'polyfill'
+      | 'browser'
+      | 'zipFilename'
+      | 'zip'
+      | 'zipSource'
+      | 'polyfill'
+      | 'safariBinary'
+      | 'appName'
+      | 'bundleId'
+      | 'macOsOnly'
     > & {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
