@@ -173,7 +173,10 @@ describe('JsonPlugin', () => {
     const mockedFs = fs as any
     mockedFs.existsSync.mockImplementation((x: any) => x === p)
     mockedFs.readFileSync.mockImplementation(() =>
-      Buffer.from('\uFEFF[{"id":1}]', 'utf8')
+      Buffer.from(
+        '\uFEFF[{"id":1,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"ads"}}]',
+        'utf8'
+      )
     )
 
     const plugin = new JsonPlugin({

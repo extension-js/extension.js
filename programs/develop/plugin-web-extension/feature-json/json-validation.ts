@@ -17,6 +17,54 @@ export function isCriticalJsonFeature(feature: string): boolean {
   )
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// Only shapes Chrome itself refuses at load fail the build: a wider net here
+// has produced false-positive refusals before, so softer issues only warn.
+function getDnrRuleRejection(rule: unknown): string | undefined {
+  if (!isPlainObject(rule)) {
+    return 'the rule is not an object'
+  }
+
+  const id = rule.id
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) {
+    return 'the rule id is not a positive integer'
+  }
+
+  const action = rule.action
+  if (!isPlainObject(action)) {
+    return 'the rule has no action object'
+  }
+
+  if (typeof action.type !== 'string' || action.type.length === 0) {
+    return 'the rule action has no type'
+  }
+
+  if (!isPlainObject(rule.condition)) {
+    return 'the rule has no condition object'
+  }
+
+  return undefined
+}
+
+function getDnrRuleSoftIssue(
+  rule: Record<string, unknown>
+): string | undefined {
+  const priority = rule.priority
+  if (
+    priority !== undefined &&
+    (typeof priority !== 'number' ||
+      !Number.isInteger(priority) ||
+      priority < 1)
+  ) {
+    return 'the rule priority is not a positive integer'
+  }
+
+  return undefined
+}
+
 export function validateJsonAsset(
   compilation: Compilation,
   feature: string,
@@ -51,6 +99,36 @@ export function validateJsonAsset(
       compilation.errors.push(err)
 
       return false
+    }
+
+    for (let index = 0; index < parsed.length; index++) {
+      const rejection = getDnrRuleRejection(parsed[index])
+
+      if (rejection) {
+        const err = new WebpackError(
+          messages.invalidRulesetRule(feature, filePath, index, rejection)
+        )
+        ;(err as Error & {file?: string}).file = filePath
+        err.name = 'DNRInvalidRule'
+
+        compilation.errors.push(err)
+
+        return false
+      }
+
+      const softIssue = getDnrRuleSoftIssue(
+        parsed[index] as Record<string, unknown>
+      )
+
+      if (softIssue) {
+        const warn = new WebpackError(
+          messages.rulesetRuleShapeIssue(feature, filePath, index, softIssue)
+        )
+        ;(warn as Error & {file?: string}).file = filePath
+        warn.name = 'DNRRuleShapeIssue'
+
+        compilation.warnings.push(warn)
+      }
     }
   } else if (feature === 'storage.managed_schema') {
     if (

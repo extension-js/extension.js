@@ -150,11 +150,13 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "entryNotFoundMessageOnly: function(2)",
     "invalidJsonSyntax: function(3)",
     "invalidManagedSchemaStructure: function(2)",
+    "invalidRulesetRule: function(4)",
     "invalidRulesetStructure: function(2)",
     "jsonDepsTracked: function(1)",
     "jsonEmitSummary: function(2)",
     "jsonIncludeSummary: function(2)",
     "jsonMissingFile: function(3)",
+    "rulesetRuleShapeIssue: function(4)",
   ],
   "plugin-web-extension/feature-locales/messages.ts": [
     "defaultLocaleFolderMissing: function(1)",
