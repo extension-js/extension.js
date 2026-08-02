@@ -312,6 +312,80 @@ describe('ManifestFieldsChangeDetector', () => {
     expect(message).not.toMatch(/PATH BEFORE\b[^\n]*,[^\n]*/)
   })
 
+  it('does not misfire on theme_icons, whose entries are fresh objects per read', async () => {
+    // browser-extension-manifest-fields rebuilds {light, dark} objects on
+    // every call, so identity comparison flagged a change on each re-read.
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    const themeIconsFields = () => ({
+      scripts: {},
+      html: {},
+      icons: {
+        'browser_action/theme_icons': [
+          {light: '/icons/light-16.png', dark: '/icons/dark-16.png'},
+          {light: '/icons/light-32.png', dark: '/icons/dark-32.png'}
+        ]
+      },
+      json: {}
+    })
+    mockFields = themeIconsFields()
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'firefox'
+    } as any)
+
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = themeIconsFields()
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+
+    expect(errors.length).toBe(0)
+  })
+
+  it('still reports a genuine theme_icons change', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {
+        'browser_action/theme_icons': [
+          {light: '/icons/light-16.png', dark: '/icons/dark-16.png'}
+        ]
+      },
+      json: {}
+    }
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'firefox'
+    } as any)
+
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {
+        'browser_action/theme_icons': [
+          {light: '/icons/other-16.png', dark: '/icons/dark-16.png'}
+        ]
+      },
+      json: {}
+    }
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+
+    expect(errors.length).toBe(1)
+    expect(String(errors[0].message || errors[0])).toContain(
+      'Entrypoint references changed'
+    )
+  })
+
   it('emits multiple category errors when multiple fields change', async () => {
     const errors: any[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
