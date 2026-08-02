@@ -26,6 +26,7 @@ import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateInProjectGitignore,
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
@@ -419,6 +420,9 @@ export async function devServer(
   // The session root self-ignores so a project with no .gitignore can't
   // commit the managed profile (cookies/logins) or session logs.
   ensureSessionArtifactsIgnoreFile(packageJsonDir)
+  // Adopted projects also get .extension-js (live control token) merged
+  // into their root .gitignore, which create-path scaffolds already have.
+  ensureSessionStateInProjectGitignore(packageJsonDir)
   // The ready contract publishes it project-relative.
   const bridgeLogsRelPath = path.relative(packageJsonDir, bridgeLogsAbsPath)
   // logs.ndjson/events.ndjson rows must stamp the SAME runId ready.json

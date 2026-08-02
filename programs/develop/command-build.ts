@@ -29,7 +29,8 @@ import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {
   buildSummaryPath,
-  ensureSessionArtifactsIgnoreFile
+  ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateInProjectGitignore
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {getZipArtifacts} from './plugin-compilation/zip-artifacts'
@@ -284,6 +285,7 @@ export async function extensionBuild(
             const summaryFile = buildSummaryPath(packageJsonDir, browser)
             fs.mkdirSync(nodePath.dirname(summaryFile), {recursive: true})
             ensureSessionArtifactsIgnoreFile(packageJsonDir)
+            ensureSessionStateInProjectGitignore(packageJsonDir)
             fs.writeFileSync(summaryFile, JSON.stringify(summary))
           } catch {
             // Never fail a green build over the informational contract.

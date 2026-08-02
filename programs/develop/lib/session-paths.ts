@@ -85,6 +85,30 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
   }
 }
 
+// Adopted projects never ran create's writeGitignore, so without this the
+// live control token in .extension-js/ lands in commits. Appends the line
+// only when a root .gitignore already exists, and never rewrites content.
+export function ensureSessionStateInProjectGitignore(
+  projectPath: string
+): void {
+  try {
+    const gitignorePath = path.resolve(projectPath, '.gitignore')
+    if (!fs.existsSync(gitignorePath)) return
+    const content = fs.readFileSync(gitignorePath, 'utf8')
+    const lines = content.split(/\r?\n/).map((line) => line.trim())
+    if (lines.includes('.extension-js') || lines.includes('.extension-js/')) {
+      return
+    }
+    const prefix = content.length > 0 && !content.endsWith('\n') ? '\n' : ''
+    fs.appendFileSync(
+      gitignorePath,
+      `${prefix}\n# extension.js local session state\n.extension-js\n`
+    )
+  } catch {
+    // A hygiene guard must never break a dev session or build.
+  }
+}
+
 export function browserArtifactsDir(
   projectPath: string,
   browser: string
