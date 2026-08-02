@@ -31,3 +31,6 @@ yarn-error.log*
 extension-env.d.ts
 
 pages/centralized-logger/*
+
+# extension.js local session state
+.extension-js
