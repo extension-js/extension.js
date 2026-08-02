@@ -113,7 +113,8 @@ export async function handleFirstRun() {
   const storageKey = devExtension?.id || `__first_run__:${browserStr}`
 
   chrome.storage.local.get(storageKey, async (result) => {
-    if (result?.[storageKey]?.didRun) {
+    const stored = result?.[storageKey] as {didRun?: boolean} | undefined
+    if (stored?.didRun) {
       return
     }
 
@@ -122,6 +123,7 @@ export async function handleFirstRun() {
     const createTab = (createProperties: chrome.tabs.CreateProperties) =>
       new Promise<chrome.tabs.Tab | undefined>((resolve) => {
         try {
+          // Chrome's callback form returns void; Firefox returns a Promise.
           const ret = chrome.tabs.create(createProperties, (tab) => {
             if (chrome.runtime.lastError) {
               console.error(
@@ -132,12 +134,9 @@ export async function handleFirstRun() {
               return
             }
             resolve(tab)
-          })
-          // Firefox returns a Promise from `chrome.tabs.create`. Bridge it.
-          if (ret && typeof (ret as Promise<chrome.tabs.Tab>).then === 'function') {
-            ;(ret as Promise<chrome.tabs.Tab>).then(resolve, () =>
-              resolve(undefined)
-            )
+          }) as unknown as Promise<chrome.tabs.Tab> | undefined
+          if (ret && typeof ret.then === 'function') {
+            ret.then(resolve, () => resolve(undefined))
           }
         } catch (error) {
           console.error('Error creating tab:', error)

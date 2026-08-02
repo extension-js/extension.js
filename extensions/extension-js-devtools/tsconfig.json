@@ -17,9 +17,8 @@
     "verbatimModuleSyntax": true,
     "useDefineForClassFields": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["./", "extension-env.d.ts"],
