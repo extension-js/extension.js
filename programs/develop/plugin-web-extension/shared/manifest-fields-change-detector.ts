@@ -40,13 +40,20 @@ interface Snapshot {
   json: string[]
 }
 
+// theme_icons entries are objects ({light, dark}) allocated fresh on every
+// manifest read, so identity comparison always differs; stringify them.
+function toComparablePath(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
 function flattenValues(
   map: Record<string, string | string[]> | undefined
 ): string[] {
   const paths: string[] = []
   for (const val of Object.values(map || {})) {
-    if (Array.isArray(val)) paths.push(...(val.filter(Boolean) as string[]))
-    else if (val) paths.push(val as string)
+    if (Array.isArray(val))
+      paths.push(...val.filter(Boolean).map(toComparablePath))
+    else if (val) paths.push(toComparablePath(val))
   }
   return paths
 }
@@ -137,7 +144,7 @@ export class ManifestFieldsChangeDetector {
     const icons = !iconsRaw
       ? []
       : Array.isArray(iconsRaw)
-        ? iconsRaw
+        ? iconsRaw.filter(Boolean).map(toComparablePath)
         : flattenValues(iconsRaw)
 
     const jsonMap = (fields.json || {}) as Record<string, string | string[]>
