@@ -20,6 +20,7 @@ import {
   loadCustomConfig
 } from '../lib/config-loader'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {isDebug} from '../lib/messaging'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -567,11 +568,18 @@ export async function devServer(
     }
   })
 
-  // Get the user defined args and merge with the Extension.js base webpack config
-  // Avoid overriding file-config values with undefined from CLI args
+  // stock defaults, then browser.*, then commands.dev, then CLI/caller.
+  // Undefined values are stripped per layer so unset CLI flags never clobber
+  // extension.config.js values.
   const safeBrowserConfig = sanitize(browserConfig)
   const safeCommandConfig = sanitize(commandConfig)
   const safeDevOptions = sanitize(devOptions)
+  const mergedDevOptions = mergeOptionLayers<DevOptions>(
+    DEV_COMMAND_DEFAULTS,
+    safeBrowserConfig,
+    safeCommandConfig,
+    safeDevOptions
+  )
   const specialFoldersData = getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
   const mergedExtensionsConfig =
@@ -586,9 +594,7 @@ export async function devServer(
   })
 
   const baseConfig = webpackConfig(projectStructure, {
-    ...safeBrowserConfig,
-    ...safeCommandConfig,
-    ...safeDevOptions,
+    ...mergedDevOptions,
     extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,
     mode: 'development',

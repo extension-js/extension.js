@@ -44,7 +44,7 @@ function run(argv: string[]) {
 }
 
 describe('extension preview', () => {
-  it('previews with production mode and quiet logger defaults', async () => {
+  it('previews with production mode without inventing logger values', async () => {
     expect(await run(['preview', './my-extension'])).toBe(0)
     expect(extensionPreview).toHaveBeenCalledTimes(1)
     const [projectPath, opts] = extensionPreview.mock.calls[0]
@@ -52,13 +52,45 @@ describe('extension preview', () => {
     expect(opts).toMatchObject({
       mode: 'production',
       browser: 'chromium',
-      logLevel: 'off',
-      logFormat: 'pretty',
-      logTimestamps: true,
-      logColor: true,
       noBrowser: false
     })
+    // Stock logger defaults and commands.preview.* are applied inside
+    // extensionPreview so shared config is not clobbered by unset flags.
+    expect((opts as any).logLevel).toBeUndefined()
+    expect((opts as any).logFormat).toBeUndefined()
+    expect((opts as any).logTimestamps).toBeUndefined()
+    expect((opts as any).logColor).toBeUndefined()
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
+  })
+
+  it('normalizes --profile false to the system-profile sentinel', async () => {
+    expect(await run(['preview', '.', '--profile', 'false'])).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0]
+    expect((opts as any).profile).toBe(false)
+  })
+
+  it('keeps an explicit --profile path as a string', async () => {
+    expect(await run(['preview', '.', '--profile', '/tmp/my-profile'])).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0]
+    expect((opts as any).profile).toBe('/tmp/my-profile')
+  })
+
+  it('forwards explicit logger flags', async () => {
+    expect(
+      await run([
+        'preview',
+        '.',
+        '--log-format',
+        'ndjson',
+        '--no-log-color',
+        '--logs',
+        'info'
+      ])
+    ).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0]
+    expect((opts as any).logFormat).toBe('ndjson')
+    expect((opts as any).logColor).toBe(false)
+    expect((opts as any).logLevel).toBe('info')
   })
 
   it('rejects safari with a clear error', async () => {

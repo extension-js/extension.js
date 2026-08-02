@@ -7,7 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {type Command, Option} from 'commander'
+import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {explicitCliValue} from '../helpers/cli-explicit'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -128,8 +130,10 @@ export function registerPreviewCommand(program: Command) {
     .action(
       async (
         pathOrRemoteUrl: string,
-        {browser = 'chromium', ...previewOptions}: PreviewOptions
+        options: PreviewOptions,
+        command: Command
       ) => {
+        const {browser = 'chromium', ...previewOptions} = options
         if (
           previewOptions.debug ||
           previewOptions.author ||
@@ -214,7 +218,7 @@ export function registerPreviewCommand(program: Command) {
               pathOrRemoteUrl,
               {
                 mode: 'production',
-                profile: previewOptions.profile,
+                profile: normalizeProfileOption(previewOptions.profile),
                 browser: vendor as PreviewOptions['browser'],
                 chromiumBinary: previewOptions.chromiumBinary,
                 geckoBinary: previewOptions.geckoBinary,
@@ -225,11 +229,21 @@ export function registerPreviewCommand(program: Command) {
                   'preview'
                 ),
                 extensions: parseExtensionsList(previewOptions.extensions),
-                logLevel: logsOption || previewOptions.logLevel || 'off',
+                // Only pass logger values the user typed. Stock defaults and
+                // commands.preview.* are applied inside extensionPreview.
+                logLevel: logsOption || previewOptions.logLevel || undefined,
                 logContexts,
-                logFormat: previewOptions.logFormat || 'pretty',
-                logTimestamps: previewOptions.logTimestamps !== false,
-                logColor: previewOptions.logColor !== false,
+                logFormat: previewOptions.logFormat,
+                logTimestamps: explicitCliValue(
+                  command,
+                  'logTimestamps',
+                  previewOptions.logTimestamps
+                ),
+                logColor: explicitCliValue(
+                  command,
+                  'logColor',
+                  previewOptions.logColor
+                ),
                 logUrl: previewOptions.logUrl,
                 logTab: previewOptions.logTab
               },

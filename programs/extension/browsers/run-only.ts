@@ -50,6 +50,13 @@ type PreviewRunOptions = {
   port?: number | string
   dryRun?: boolean
   readyPath?: string
+  logLevel?: string
+  logContexts?: string[]
+  logFormat?: 'pretty' | 'json' | 'ndjson'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
 }
 
 function createPreviewCompilationLike(
@@ -80,6 +87,13 @@ function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
   | 'instanceId'
   | 'port'
   | 'dryRun'
+  | 'logLevel'
+  | 'logContexts'
+  | 'logFormat'
+  | 'logTimestamps'
+  | 'logColor'
+  | 'logUrl'
+  | 'logTab'
 > & {
   persistProfile?: boolean
 } {
@@ -97,7 +111,14 @@ function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
     geckoBinary: opts.geckoBinary,
     instanceId: opts.instanceId,
     port: opts.port,
-    dryRun: opts.dryRun
+    dryRun: opts.dryRun,
+    logLevel: opts.logLevel as PluginInterface['logLevel'],
+    logContexts: opts.logContexts as PluginInterface['logContexts'],
+    logFormat: opts.logFormat,
+    logTimestamps: opts.logTimestamps,
+    logColor: opts.logColor,
+    logUrl: opts.logUrl,
+    logTab: opts.logTab
   }
 }
 
@@ -118,7 +139,14 @@ function buildPreviewChromiumOptions(
     chromiumBinary: pluginOptions.chromiumBinary,
     instanceId: pluginOptions.instanceId,
     port: pluginOptions.port,
-    dryRun: pluginOptions.dryRun
+    dryRun: pluginOptions.dryRun,
+    logLevel: pluginOptions.logLevel,
+    logContexts: pluginOptions.logContexts,
+    logFormat: pluginOptions.logFormat,
+    logTimestamps: pluginOptions.logTimestamps,
+    logColor: pluginOptions.logColor,
+    logUrl: pluginOptions.logUrl,
+    logTab: pluginOptions.logTab
   }
 }
 
@@ -137,7 +165,14 @@ function buildPreviewFirefoxOptions(
     geckoBinary: pluginOptions.geckoBinary,
     instanceId: pluginOptions.instanceId,
     port: pluginOptions.port,
-    dryRun: pluginOptions.dryRun
+    dryRun: pluginOptions.dryRun,
+    logLevel: pluginOptions.logLevel,
+    logContexts: pluginOptions.logContexts,
+    logFormat: pluginOptions.logFormat,
+    logTimestamps: pluginOptions.logTimestamps,
+    logColor: pluginOptions.logColor,
+    logUrl: pluginOptions.logUrl,
+    logTab: pluginOptions.logTab
   }
 }
 

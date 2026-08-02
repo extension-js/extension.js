@@ -12,6 +12,7 @@ import * as devServerMessages from './dev-server/messages'
 import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import {mergeOptionLayers, SERVE_COMMAND_DEFAULTS} from './lib/merge-options'
 import * as messages from './lib/messages'
 import {isDebug} from './lib/messaging'
 import {
@@ -52,6 +53,13 @@ export interface ResolvedPreviewOptions {
   instanceId?: string
   port?: number | string
   dryRun?: boolean
+  logLevel?: string
+  logContexts?: string[]
+  logFormat?: 'pretty' | 'json' | 'ndjson'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
 }
 
 /**
@@ -193,15 +201,20 @@ export async function extensionPreview(
     safeCommandConfig.chromiumBinary ||
     safeBrowserConfig.chromiumBinary
 
+  // stock defaults, then browser.*, then commands.start|preview, then CLI.
+  // Unset CLI keys fall through so shared extension.config.js values apply.
   const merged: PreviewOptions &
     BrowserConfig & {
       extensions?: CompanionExtensionsConfig
       instanceId?: string
       dryRun?: boolean
     } = {
-    ...safeBrowserConfig,
-    ...safeCommandConfig,
-    ...safePreviewOptions,
+    ...mergeOptionLayers<PreviewOptions & BrowserConfig>(
+      SERVE_COMMAND_DEFAULTS,
+      safeBrowserConfig,
+      safeCommandConfig,
+      safePreviewOptions
+    ),
     extensions: resolvedExtensionsConfig,
     chromiumBinary: mergedChromiumBinary,
     geckoBinary: mergedGeckoBinary
@@ -253,7 +266,14 @@ export async function extensionPreview(
     geckoBinary: merged.geckoBinary,
     instanceId: merged.instanceId,
     port: merged.port,
-    dryRun: merged.dryRun
+    dryRun: merged.dryRun,
+    logLevel: merged.logLevel,
+    logContexts: merged.logContexts,
+    logFormat: merged.logFormat,
+    logTimestamps: merged.logTimestamps,
+    logColor: merged.logColor,
+    logUrl: merged.logUrl,
+    logTab: merged.logTab
   }
 
   if (!browserLauncher) {

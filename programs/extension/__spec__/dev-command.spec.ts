@@ -72,10 +72,16 @@ describe('extension dev', () => {
     expect(projectPath).toBe('./my-extension')
     expect(devArgs).toMatchObject({
       browser: 'chromium',
-      polyfill: true,
-      noBrowser: false,
-      logLevel: 'off'
+      noBrowser: false
     })
+    // Unset flags stay undefined so extension.config.js commands.dev values
+    // and stock defaults apply inside extensionDev, not forced here.
+    expect(devArgs.polyfill).toBeUndefined()
+    expect(devArgs.noOpen).toBeUndefined()
+    expect(devArgs.logLevel).toBeUndefined()
+    expect(devArgs.logFormat).toBeUndefined()
+    expect(devArgs.logTimestamps).toBeUndefined()
+    expect(devArgs.logColor).toBeUndefined()
     expect(devArgs.profile).toBeUndefined()
     expect(typeof devArgs.launcher).toBe('function')
   })
@@ -87,6 +93,28 @@ describe('extension dev', () => {
     const [, devArgs] = extensionDev.mock.calls[0] as any[]
     expect(devArgs.profile).toBe(false)
     expect(devArgs.polyfill).toBe(false)
+  })
+
+  it('forwards explicit logger and no-open flags without inventing values', async () => {
+    expect(
+      await run([
+        'dev',
+        '.',
+        '--no-open',
+        '--log-format',
+        'json',
+        '--no-log-color',
+        '--no-log-timestamps',
+        '--logs',
+        'debug'
+      ])
+    ).toBe(0)
+    const [, devArgs] = extensionDev.mock.calls[0] as any[]
+    expect(devArgs.noOpen).toBe(true)
+    expect(devArgs.logFormat).toBe('json')
+    expect(devArgs.logColor).toBe(false)
+    expect(devArgs.logTimestamps).toBe(false)
+    expect(devArgs.logLevel).toBe('debug')
   })
 
   it('drops the launcher when EXTENSION_CLI_NO_BROWSER is set', async () => {

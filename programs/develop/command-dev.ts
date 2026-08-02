@@ -12,11 +12,11 @@ import {
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
+import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from './lib/merge-options'
 import * as messages from './lib/messages'
 import {isDebug} from './lib/messaging'
 import {getDirs, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
-import {sanitize} from './lib/sanitize'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   type BrowserLauncherFn,
@@ -83,15 +83,16 @@ export async function extensionDev(
       )
     }
 
-    // Merge per-browser + per-command defaults from extension.config.js; CLI
-    // devOptions take precedence, sanitize strips undefined so unset falls through.
+    // stock defaults, then browser.*, then commands.dev, then CLI. Unset CLI
+    // keys fall through so shared extension.config.js values apply.
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
-    const merged = {
-      ...sanitize(browserConfig as object),
-      ...sanitize(commandConfig as object),
-      ...sanitize(devOptions as object)
-    } as DevOptions & BrowserConfig
+    const merged = mergeOptionLayers<DevOptions & BrowserConfig>(
+      DEV_COMMAND_DEFAULTS,
+      browserConfig,
+      commandConfig,
+      devOptions
+    )
 
     if (
       (browser === 'safari' || browser === 'webkit-based') &&
@@ -106,7 +107,8 @@ export async function extensionDev(
         bundleId: merged.bundleId,
         macOsOnly: merged.macOsOnly,
         forceRegenerate: merged.forceRegenerate,
-        safariBinary: merged.safariBinary
+        safariBinary: merged.safariBinary,
+        noOpen: merged.noOpen
       }
       browsersPlugin = new SafariDevPlugin((distPath, packagerMode) =>
         safariPackager(distPath, packagerMode, safariOverrides)
@@ -150,8 +152,11 @@ export async function extensionDev(
     // Heavy deps are imported lazily so preview can stay minimal.
     const {devServer} = await import('./dev-server')
 
+    // Pass the merged options so bundler-facing flags (polyfill, logger
+    // options) ride the same defaults-config-CLI precedence as the browser
+    // launcher above.
     await devServer(projectStructure, {
-      ...devOptions,
+      ...merged,
       mode: 'development',
       browser,
       geckoBinary,

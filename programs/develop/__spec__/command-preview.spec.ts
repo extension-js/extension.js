@@ -390,6 +390,148 @@ describe('webpack/command-preview (run-only)', () => {
     expect(call.browserFlags).toEqual(['--start-flag'])
   })
 
+  describe.each([
+    {label: 'preview', metadataCommand: undefined as 'start' | undefined},
+    {label: 'start', metadataCommand: 'start' as const}
+  ])('option precedence for $label (CLI > commands.$label > browser > defaults)', ({
+    label,
+    metadataCommand
+  }) => {
+    function setupDist() {
+      ;(fs.existsSync as any).mockImplementation((p: string) => {
+        if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+          return true
+        return false
+      })
+    }
+
+    function launched() {
+      return runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    }
+
+    it('applies stock logger defaults when neither config nor CLI sets them', async () => {
+      setupDist()
+      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({})
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
+
+      await extensionPreview(
+        '/proj',
+        {browser: 'chrome', metadataCommand} as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(launched()).toMatchObject({
+        logFormat: 'pretty',
+        logTimestamps: true,
+        logColor: true,
+        logLevel: 'off'
+      })
+    })
+
+    it(`lets commands.${label} beat browser config for logger options (config-only)`, async () => {
+      setupDist()
+      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
+        startingUrl: 'https://from-browser.example'
+      })
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        startingUrl: `https://from-commands-${label}.example`,
+        logFormat: 'json',
+        logColor: false,
+        logLevel: 'debug'
+      })
+
+      await extensionPreview(
+        '/proj',
+        {browser: 'chrome', metadataCommand} as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(launched()).toMatchObject({
+        startingUrl: `https://from-commands-${label}.example`,
+        logFormat: 'json',
+        logColor: false,
+        logLevel: 'debug'
+      })
+    })
+
+    it(`lets explicit CLI values beat commands.${label} in both directions (both)`, async () => {
+      setupDist()
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        startingUrl: `https://from-commands-${label}.example`,
+        logFormat: 'json',
+        logColor: false
+      })
+
+      await extensionPreview(
+        '/proj',
+        {
+          browser: 'chrome',
+          metadataCommand,
+          startingUrl: 'https://from-cli.example',
+          logFormat: 'pretty',
+          logColor: true
+        } as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(launched()).toMatchObject({
+        startingUrl: 'https://from-cli.example',
+        logFormat: 'pretty',
+        logColor: true
+      })
+    })
+
+    it('applies flag-only logger values over stock defaults (flag-only)', async () => {
+      setupDist()
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
+
+      await extensionPreview(
+        '/proj',
+        {
+          browser: 'chrome',
+          metadataCommand,
+          logFormat: 'ndjson',
+          logColor: false
+        } as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(launched()).toMatchObject({
+        logFormat: 'ndjson',
+        logColor: false,
+        logTimestamps: true
+      })
+    })
+
+    it('concatenates browserFlags and deep-merges preferences across layers', async () => {
+      setupDist()
+      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
+        browserFlags: ['--from-browser'],
+        preferences: {a: 1, nested: {x: 1}}
+      })
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        browserFlags: ['--from-command'],
+        preferences: {b: 2, nested: {y: 2}}
+      })
+
+      await extensionPreview(
+        '/proj',
+        {
+          browser: 'chrome',
+          metadataCommand,
+          browserFlags: ['--from-cli'],
+          preferences: {a: 99, nested: {x: 3}}
+        } as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(launched()).toMatchObject({
+        browserFlags: ['--from-browser', '--from-command', '--from-cli'],
+        preferences: {a: 99, b: 2, nested: {x: 3, y: 2}}
+      })
+    })
+  })
+
   it('checks managed dependency conflicts using package root when manifest is in src', async () => {
     ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
       manifestPath: '/proj/src/manifest.json',

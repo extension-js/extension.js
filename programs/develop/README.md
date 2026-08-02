@@ -175,7 +175,11 @@ Options accepted by each command. Values shown are typical types or enumerations
 - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: start flags, excluded flags, preferences, binaries, profile reuse (persistProfile), and per-browser `extensions`.
   - extensions: load-only companion extensions (unpacked dirs) loaded alongside your extension in dev/preview/start.
     - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
-- Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.
+- Precedence when composing options (one contract for every command): stock defaults → browser._ → commands._ → CLI flags.
+  - Scalars: an unset flag never clobbers config, and an explicit flag (including `false`) always wins.
+    - Example: `commands.dev.polyfill: false` turns the polyfill off for the team, and `--polyfill` turns it back on for one run.
+  - Lists (`browserFlags`, `excludeBrowserFlags`): concatenate across layers in order (browser, then command, then CLI) and dedupe.
+  - Objects (`preferences`): deep-merge, later layers win on key conflict.
 - Browser key aliases when resolving `browser.*` from `extension.config.*`:
   - When the runtime asks for `chromium`, `loadBrowserConfig` prefers `browser.chromium` and then falls back to `browser['chromium-based']`.
   - When the runtime asks for `chromium-based`, it prefers `browser['chromium-based']` and then `browser.chromium`.
