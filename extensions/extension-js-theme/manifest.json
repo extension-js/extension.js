@@ -4,6 +4,14 @@
   "version": "1.0",
   "description": "A clean, minimal browser theme generated in the editor.",
   "author": "Anonymous",
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "id": "theme@extension.js",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "chromium:theme": {
     "colors": {
       "frame": [18, 18, 20],
