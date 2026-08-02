@@ -65,6 +65,15 @@ export function invalidThemeValue(
   return lines.join('\n')
 }
 
+export function themeNotSupportedByBrowser(browser: string) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.blue(browser)} does not support the ${colors.yellow('theme')} field.`
+  )
+  lines.push(`The field ships unchanged in the manifest and Safari ignores it.`)
+  return lines.join('\n')
+}
+
 export function missingGeckoDataCollectionPermissions() {
   const lines: string[] = []
   lines.push(
