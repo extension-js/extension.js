@@ -104,12 +104,16 @@ export async function extensionCreate(
   logger.log(' ')
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
-  await createDirectory(projectPath, projectName, logger)
+  const createResult = await createDirectory(projectPath, projectName, logger)
   const templateProvenance = await importExternalTemplate(
     projectPath,
     projectName,
     template,
-    logger
+    logger,
+    // createDirectory mkdirs the path before the import runs, so only its
+    // sentinel can tell failure cleanup whether the directory is ours.
+    // Unknown ownership (a mocked step) defaults to the safe side.
+    {ownsProjectDir: createResult?.directoryCreated ?? false}
   )
 
   if (templateProvenance?.template) {
