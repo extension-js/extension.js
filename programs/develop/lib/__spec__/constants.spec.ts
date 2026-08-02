@@ -8,7 +8,9 @@ import {
   GECKO_FAMILY_ALIASES,
   isChromiumBasedBrowser,
   isGeckoBasedBrowser,
-  SUPPORTED_BROWSERS
+  isWebkitBasedBrowser,
+  SUPPORTED_BROWSERS,
+  WEBKIT_BASED_BROWSERS
 } from '../constants'
 
 describe('constants', () => {
@@ -70,5 +72,16 @@ describe('constants', () => {
     }
     expect(isChromiumBasedBrowser('firefox')).toBe(false)
     expect(isGeckoBasedBrowser('chrome')).toBe(false)
+  })
+
+  it('classifies safari as webkit and nothing else', () => {
+    expect(WEBKIT_BASED_BROWSERS).toEqual(['safari'])
+    for (const b of ['safari', 'webkit-based']) {
+      expect(isWebkitBasedBrowser(b), b).toBe(true)
+      expect(isChromiumBasedBrowser(b), b).toBe(false)
+      expect(isGeckoBasedBrowser(b), b).toBe(false)
+    }
+    expect(isWebkitBasedBrowser('chrome')).toBe(false)
+    expect(isWebkitBasedBrowser('firefox')).toBe(false)
   })
 })

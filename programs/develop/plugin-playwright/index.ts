@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {isGeckoBasedBrowser} from '../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
 import {
   chromiumExtensionId,
   geckoExtensionId,
@@ -182,11 +182,14 @@ export function getSessionRunId(
 
 // The one identifier a consumer cannot read from the manifest alone: gecko
 // declares it, chromium hashes the manifest key or the loaded dist path.
+// Safari has no dist-derivable id at all: identity is the appex bundle id
+// the packager resolves, stamped later via stampReadyKnownExtensionId.
 function deriveDistExtensionId(
   browser: string,
   distPath: string
 ): string | undefined {
   try {
+    if (isWebkitBasedBrowser(browser)) return undefined
     if (!fs.existsSync(path.join(distPath, 'manifest.json'))) return undefined
     const id = isGeckoBasedBrowser(browser)
       ? geckoExtensionId(distPath)
@@ -194,6 +197,26 @@ function deriveDistExtensionId(
     return id || undefined
   } catch {
     return undefined
+  }
+}
+
+// Backfill only: a browser-confirmed or earlier stamp always outranks a
+// late derivation, so an existing id is never overwritten here.
+function stampReadyExtensionIdIfAbsent(
+  packageJsonDir: string,
+  browser: string,
+  extensionId: string
+): void {
+  try {
+    const readyPath = readyContractPath(packageJsonDir, browser)
+    if (!fs.existsSync(readyPath)) return
+    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (typeof prev.extensionId === 'string' && prev.extensionId) return
+    prev.extensionId = extensionId
+    prev.ts = nowISO()
+    writeJsonAtomic(readyPath, prev)
+  } catch {
+    // Ignore
   }
 }
 
@@ -205,19 +228,20 @@ export function stampReadyDistExtensionId(
   browser: string,
   distPath: string
 ): void {
-  try {
-    const readyPath = readyContractPath(packageJsonDir, browser)
-    if (!fs.existsSync(readyPath)) return
-    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (typeof prev.extensionId === 'string' && prev.extensionId) return
-    const derived = deriveDistExtensionId(browser, distPath)
-    if (!derived) return
-    prev.extensionId = derived
-    prev.ts = nowISO()
-    writeJsonAtomic(readyPath, prev)
-  } catch {
-    // Ignore
-  }
+  const derived = deriveDistExtensionId(browser, distPath)
+  if (!derived) return
+  stampReadyExtensionIdIfAbsent(packageJsonDir, browser, derived)
+}
+
+// Safari's identity cannot be derived from the dist: the packager resolves
+// the appex bundle id, and the build command backfills that known value here.
+export function stampReadyKnownExtensionId(
+  packageJsonDir: string,
+  browser: string,
+  extensionId: string
+): void {
+  if (!extensionId) return
+  stampReadyExtensionIdIfAbsent(packageJsonDir, browser, extensionId)
 }
 
 function readManifestProvenance(manifestPath: string): {

@@ -44,7 +44,10 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
-import {stampReadyDistExtensionId} from './plugin-playwright'
+import {
+  stampReadyDistExtensionId,
+  stampReadyKnownExtensionId
+} from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
@@ -125,7 +128,8 @@ export async function extensionBuild(
   const browser = normalizeBrowser(
     buildOptions?.browser || 'chrome',
     buildOptions?.chromiumBinary,
-    buildOptions?.geckoBinary || buildOptions?.firefoxBinary
+    buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
+    buildOptions?.safariBinary
   )
 
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
@@ -414,6 +418,15 @@ export async function extensionBuild(
           )
         } catch {
           // Never fail a green build over the informational contract.
+        }
+        // Safari registers the extension under the appex identity,
+        // `<bundleId>.Extension`, so that is the truthful ready.json id.
+        if (safari.bundleId) {
+          stampReadyKnownExtensionId(
+            packageJsonDir,
+            browser,
+            `${safari.bundleId}.Extension`
+          )
         }
       }
     }
