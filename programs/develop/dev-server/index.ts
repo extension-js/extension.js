@@ -112,14 +112,17 @@ function createDiscardWriteStream() {
   return stream as Writable & {path?: string}
 }
 
-const guardedManifestDiskWritePaths = new Set<string>()
+// Ref-counted per path: two servers can guard the same dist and the guard
+// only forgets a path when its last owner uninstalls.
+const guardedManifestDiskWritePaths = new Map<string, number>()
 let isManifestDiskWriteGuardInstalled = false
+let restoreManifestDiskWriteGuardPatches: (() => void) | null = null
 
 function hasGuardedManifestDiskPath(filePath: unknown) {
   if (typeof filePath !== 'string') return false
 
   const resolvedPath = path.resolve(filePath)
-  for (const guardedPath of guardedManifestDiskWritePaths) {
+  for (const guardedPath of guardedManifestDiskWritePaths.keys()) {
     if (isSamePath(guardedPath, resolvedPath)) return true
   }
 
@@ -127,26 +130,45 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
 }
 
 interface GuardableOutputFs {
-  __extensionjsManifestWriteGuard?: boolean
+  __extensionjsGuardedManifestPaths?: Set<string>
   writeFile?: (filePath: string, ...args: unknown[]) => unknown
   writeFileSync?: (filePath: string, ...args: unknown[]) => unknown
   createWriteStream?: (filePath: string, ...args: unknown[]) => unknown
   promises?: {writeFile?: (filePath: string, ...args: unknown[]) => unknown}
 }
 
-function suppressManifestOutputWrites(
+export function suppressManifestOutputWrites(
   compiler: unknown,
   manifestOutputPath: string
-) {
+): () => void {
   const outputFileSystem = (
     compiler as {outputFileSystem?: unknown} | undefined
   )?.outputFileSystem as GuardableOutputFs | undefined
-  if (!outputFileSystem || outputFileSystem.__extensionjsManifestWriteGuard) {
-    return
+  if (!outputFileSystem) return () => {}
+
+  const resolvedManifestPath = path.resolve(manifestOutputPath)
+
+  // rspack hands every compiler in the process the same node_fs singleton,
+  // so a second server must ADD its path to the already-patched fs instead
+  // of no-opping and inheriting only the first server's suppression.
+  const alreadyGuardedPaths = outputFileSystem.__extensionjsGuardedManifestPaths
+  if (alreadyGuardedPaths) {
+    alreadyGuardedPaths.add(resolvedManifestPath)
+    return () => {
+      alreadyGuardedPaths.delete(resolvedManifestPath)
+    }
   }
 
-  const isManifestPath = (filePath: unknown) =>
-    typeof filePath === 'string' && isSamePath(filePath, manifestOutputPath)
+  const guardedPaths = new Set<string>([resolvedManifestPath])
+  outputFileSystem.__extensionjsGuardedManifestPaths = guardedPaths
+
+  const isManifestPath = (filePath: unknown) => {
+    if (typeof filePath !== 'string') return false
+    for (const guardedPath of guardedPaths) {
+      if (isSamePath(guardedPath, filePath)) return true
+    }
+    return false
+  }
 
   if (typeof outputFileSystem.writeFile === 'function') {
     const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
@@ -205,13 +227,38 @@ function suppressManifestOutputWrites(
     }
   }
 
-  outputFileSystem.__extensionjsManifestWriteGuard = true
+  return () => {
+    guardedPaths.delete(resolvedManifestPath)
+  }
 }
 
-function installManifestDiskWriteGuard(manifestOutputPath: string) {
+export function installManifestDiskWriteGuard(
+  manifestOutputPath: string
+): () => void {
   const guardKey = path.resolve(manifestOutputPath)
-  guardedManifestDiskWritePaths.add(guardKey)
-  if (isManifestDiskWriteGuardInstalled) return
+  guardedManifestDiskWritePaths.set(
+    guardKey,
+    (guardedManifestDiskWritePaths.get(guardKey) || 0) + 1
+  )
+
+  let uninstalled = false
+  const uninstall = () => {
+    if (uninstalled) return
+    uninstalled = true
+    const count = guardedManifestDiskWritePaths.get(guardKey) || 0
+    if (count <= 1) guardedManifestDiskWritePaths.delete(guardKey)
+    else guardedManifestDiskWritePaths.set(guardKey, count - 1)
+    if (
+      guardedManifestDiskWritePaths.size === 0 &&
+      restoreManifestDiskWriteGuardPatches
+    ) {
+      restoreManifestDiskWriteGuardPatches()
+      restoreManifestDiskWriteGuardPatches = null
+      isManifestDiskWriteGuardInstalled = false
+    }
+  }
+
+  if (isManifestDiskWriteGuardInstalled) return uninstall
 
   const guardedFs = fs
 
@@ -270,13 +317,30 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     )
   }) as typeof fs.createWriteStream
 
+  // Read opens must pass through: redirecting them hands empty /dev/null
+  // content to any in-process reader of the guarded manifest.
+  const writeIntentFlagMask =
+    fs.constants.O_WRONLY |
+    fs.constants.O_RDWR |
+    fs.constants.O_APPEND |
+    fs.constants.O_CREAT |
+    fs.constants.O_TRUNC
+  const isWriteIntentOpen = (flags: unknown): boolean => {
+    if (typeof flags === 'string') return /[wa+]/.test(flags)
+    if (typeof flags === 'number') return (flags & writeIntentFlagMask) !== 0
+    return false
+  }
+
   const originalOpen = guardedFs.open.bind(guardedFs)
   guardedFs.open = ((
     pathLike: FsTypes.PathLike,
     flags: unknown,
     ...args: unknown[]
   ) => {
-    const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
+    const nextPath =
+      isManifestPath(pathLike) && isWriteIntentOpen(flags)
+        ? '/dev/null'
+        : pathLike
     return (originalOpen as (...a: unknown[]) => unknown)(
       nextPath,
       flags,
@@ -290,7 +354,10 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     flags: unknown,
     ...args: unknown[]
   ) => {
-    const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
+    const nextPath =
+      isManifestPath(pathLike) && isWriteIntentOpen(flags)
+        ? '/dev/null'
+        : pathLike
     return (originalOpenSync as (...a: unknown[]) => unknown)(
       nextPath,
       flags,
@@ -322,10 +389,11 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     return originalRenameSync(oldPath, newPath)
   }) as typeof fs.renameSync
 
+  let originalPromiseWriteFile: typeof fs.promises.writeFile | undefined
   if (guardedFs.promises?.writeFile) {
-    const originalPromiseWriteFile = guardedFs.promises.writeFile.bind(
+    originalPromiseWriteFile = guardedFs.promises.writeFile.bind(
       guardedFs.promises
-    )
+    ) as typeof fs.promises.writeFile
     guardedFs.promises.writeFile = (async (
       filePath: unknown,
       ...args: unknown[]
@@ -338,7 +406,24 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     }) as typeof fs.promises.writeFile
   }
 
+  // The last uninstall restores the pristine fs surface so a long-lived
+  // host process is not left with patched globals after every server stops.
+  restoreManifestDiskWriteGuardPatches = () => {
+    guardedFs.writeFile = originalWriteFile as typeof fs.writeFile
+    guardedFs.writeFileSync = originalWriteFileSync as typeof fs.writeFileSync
+    guardedFs.createWriteStream =
+      originalCreateWriteStream as typeof fs.createWriteStream
+    guardedFs.open = originalOpen as typeof fs.open
+    guardedFs.openSync = originalOpenSync as typeof fs.openSync
+    guardedFs.rename = originalRename as typeof fs.rename
+    guardedFs.renameSync = originalRenameSync as typeof fs.renameSync
+    if (originalPromiseWriteFile) {
+      guardedFs.promises.writeFile = originalPromiseWriteFile
+    }
+  }
+
   isManifestDiskWriteGuardInstalled = true
+  return uninstall
 }
 
 export async function devServer(
@@ -617,8 +702,12 @@ export async function devServer(
 
   const compiler = rspack(compilerConfig)
   const manifestOutputPath = path.join(primaryDistPath, 'manifest.json')
-  installManifestDiskWriteGuard(manifestOutputPath)
-  suppressManifestOutputWrites(compiler, manifestOutputPath)
+  const uninstallManifestGuard =
+    installManifestDiskWriteGuard(manifestOutputPath)
+  const releaseOutputFsGuard = suppressManifestOutputWrites(
+    compiler,
+    manifestOutputPath
+  )
 
   // Under --no-browser no CDP controller owns reload, so broadcast the same
   // classified reload decision over the control bridge; gated to avoid double-reload.
@@ -762,6 +851,20 @@ export async function devServer(
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler)
+
+  // The fs guard is process-global; a stopped server must release its path
+  // or later in-process writers to this dist are silently swallowed.
+  if (typeof devServer.stop === 'function') {
+    const originalDevServerStop = devServer.stop.bind(devServer)
+    devServer.stop = async () => {
+      try {
+        await originalDevServerStop()
+      } finally {
+        uninstallManifestGuard()
+        releaseOutputFsGuard()
+      }
+    }
+  }
 
   const START_TIMEOUT_MS = parseInt(
     String(process.env.EXTENSION_START_TIMEOUT_MS || '30000'),
