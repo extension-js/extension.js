@@ -100,6 +100,19 @@ export interface BrowserConfig extends BrowserLaunchConfig {
   firefoxBinary?: string
 }
 
+/** Asset categories the perf-budgets plugin recognizes. */
+export type PerfBudgetCategory =
+  | 'content-script'
+  | 'service-worker'
+  | 'page'
+  | 'ignored'
+
+/**
+ * Per-category asset size budgets (bytes) for compiling commands.
+ * Set at the top level, or per command via `commands.dev|build.perfBudgets`.
+ */
+export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>>
+
 /** `commands.dev` overrides. */
 export interface DevCommandConfig
   extends BrowserLaunchConfig,
@@ -112,6 +125,7 @@ export interface DevCommandConfig
   noBrowser?: boolean
   polyfill?: boolean
   hashContentScripts?: boolean
+  perfBudgets?: PerfBudgetsConfig
 }
 
 /** Shared `commands.start` / `commands.preview` overrides. */
@@ -136,8 +150,10 @@ export interface BuildCommandConfig {
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
+  silent?: boolean
   extensions?: CompanionExtensionsConfig
   transpilePackages?: string[]
+  perfBudgets?: PerfBudgetsConfig
 }
 
 /**
@@ -176,6 +192,11 @@ export interface FileConfig {
    * `commands.<name>.transpilePackages` overrides this value.
    */
   transpilePackages?: string[]
+  /**
+   * Default per-category asset budgets for all commands. Per-command
+   * `commands.dev|build.perfBudgets` overrides this value.
+   */
+  perfBudgets?: PerfBudgetsConfig
   /**
    * Escape hatch to customize the underlying Rspack/webpack-compatible
    * configuration. Receives and returns a bundler `Configuration` object.
