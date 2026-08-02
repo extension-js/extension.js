@@ -17,30 +17,39 @@ function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// A token no template prose can contain (NUL delimited), so renaming happens
+// in one logical pass: a name written by one step is never re-matched later.
+const NAME_PLACEHOLDER = '\u0000extension-create-name\u0000'
+
 export function rewriteStoreMetadata(
   content: string,
   projectName: string,
   templateName: string,
   today: string
 ): string {
-  let next = content.replace(
-    /^(\s*-\s*Name:).*$/m,
-    (_match, label: string) => `${label} ${projectName}`
-  )
+  let next = content
 
+  // Retire the template name everywhere BEFORE the project name is inserted
+  // anywhere, so a project name extending the template name ("New Tab" ->
+  // "New Tab Pro") is written once and never doubled.
   if (templateName && templateName !== projectName) {
     next = next.replace(
       new RegExp(escapeForRegExp(templateName), 'g'),
-      projectName
+      NAME_PLACEHOLDER
     )
   }
+
+  next = next.replace(
+    /^(\s*-\s*Name:).*$/m,
+    (_match, label: string) => `${label} ${NAME_PLACEHOLDER}`
+  )
 
   next = next.replace(
     /^(Last updated:).*$/m,
     (_match, label: string) => `${label} ${today}`
   )
 
-  return next
+  return next.split(NAME_PLACEHOLDER).join(projectName)
 }
 
 /* @invariant STORE.md is the copy a person pastes into a store listing, so it
