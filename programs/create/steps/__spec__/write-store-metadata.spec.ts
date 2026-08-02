@@ -64,6 +64,41 @@ describe('rewriteStoreMetadata', () => {
     expect(output).toContain('Built by my-extension.')
   })
 
+  it('renames once when the project name extends the template name', () => {
+    const content = [
+      '- Name: New Tab',
+      'A better New Tab for your browser.',
+      'Last updated: 2026-07-20',
+      '- 1.0.0 (unreleased): initial version of New Tab.',
+      ''
+    ].join('\n')
+
+    const output = rewriteStoreMetadata(
+      content,
+      'New Tab Pro',
+      'New Tab',
+      '2026-07-30'
+    )
+
+    expect(output).toMatch(/^- Name: New Tab Pro$/m)
+    expect(output).toContain('A better New Tab Pro for your browser.')
+    expect(output).toContain('initial version of New Tab Pro.')
+    expect(output).not.toContain('New Tab Pro Pro')
+  })
+
+  it('renames normally when the names do not overlap', () => {
+    const output = rewriteStoreMetadata(
+      TEMPLATE_STORE_MD,
+      'totally-unrelated',
+      'JavaScript Sidebar Example',
+      '2026-07-30'
+    )
+
+    expect(output).toMatch(/^- Name: totally-unrelated$/m)
+    expect(output).not.toContain('JavaScript Sidebar Example')
+    expect(output).toContain('initial version of totally-unrelated.')
+  })
+
   it('leaves the file alone when the template already carries the name', () => {
     const same = '- Name: my-extension\nLast updated: 2026-07-30\n'
     expect(
