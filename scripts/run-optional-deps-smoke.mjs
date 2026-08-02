@@ -862,8 +862,11 @@ function installAndBuild(workdir, pm) {
       .filter((dirent) => dirent.isDirectory())
       .map((dirent) => `./${DENO_LINKS_DIR}/${dirent.name}`)
       .sort()
+    // Deno blocks npm versions younger than 24h by default (supply-chain
+    // age policy), so same-day location pin bumps failed resolution here.
     const denoManifest = {
       nodeModulesDir: 'auto',
+      minimumDependencyAge: '0',
       links,
       tasks: {
         build: 'extension build',
