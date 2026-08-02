@@ -90,7 +90,38 @@ function isCompanionExtension(file: string): boolean {
   return first === COMPANION_DIR
 }
 
-async function getFilesToZip(projectDir: string): Promise<string[]> {
+// The source zip is the artifact the share feature hands to strangers, so
+// exclusion cannot depend on the user having written a correct .gitignore.
+// This deny list is the security boundary; the root .gitignore is only a
+// courtesy supplement on top of it. `.git` also matches the worktree case
+// where `.git` is a file, and matching any path segment covers nested
+// repositories and nested node_modules too.
+const DENIED_SEGMENTS = new Set(['.git', '.extension-js', 'node_modules'])
+
+// dist/extension-js holds managed browser profiles (cookies, logins) and
+// session logs. Its '*' self-ignore is invisible to a root-only scan.
+const SESSION_ARTIFACTS_PREFIX = 'dist/extension-js'
+
+// Env files hold the secrets the framework itself tells users to put there
+// (config-loader and EnvPlugin load .env, .env.development, .env.local).
+// Only the shareable *.example variants may ship.
+function isDeniedEnvFile(basename: string): boolean {
+  if (!basename.startsWith('.env')) return false
+  return !basename.endsWith('.example')
+}
+
+export function isDeniedFromSourceZip(file: string): boolean {
+  const posix = toPosix(file)
+  const segments = posix.split('/')
+  if (segments.some((segment) => DENIED_SEGMENTS.has(segment))) return true
+  if (isDeniedEnvFile(segments[segments.length - 1])) return true
+  return (
+    posix === SESSION_ARTIFACTS_PREFIX ||
+    posix.startsWith(`${SESSION_ARTIFACTS_PREFIX}/`)
+  )
+}
+
+export async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
 
@@ -98,12 +129,24 @@ async function getFilesToZip(projectDir: string): Promise<string[]> {
     const content = fs.readFileSync(gitignorePath, 'utf8')
     if (content) ig.add(content)
   } catch {
-    // Ignore
+    // Ignore: the deny list stays the boundary, a project without a
+    // readable .gitignore only loses its own extra exclusions.
   }
 
-  const files = await glob('**/*', {cwd: projectDir, dot: true})
+  // filesOnly drops directory entries (adm-zip tolerated them but the zip
+  // carried noise) and flush bypasses tiny-glob's module-global cache,
+  // which would go stale in a long-lived watch process.
+  const files = await glob('**/*', {
+    cwd: projectDir,
+    dot: true,
+    filesOnly: true,
+    flush: true
+  })
   return files.filter(
-    (file) => !ig.ignores(file) && !isCompanionExtension(file)
+    (file) =>
+      !isDeniedFromSourceZip(file) &&
+      !ig.ignores(file) &&
+      !isCompanionExtension(file)
   )
 }
 
