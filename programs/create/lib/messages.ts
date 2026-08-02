@@ -201,6 +201,17 @@ export function templateDownloadFailed(templateName: string, error: unknown) {
   )
 }
 
+// A lockfile copied from a template can never match the scaffold, because
+// create pins the `extension` devDependency after the copy, so it is dropped
+// instead of leaving an `npm ci` that fails on the first run.
+export function removedStaleTemplateLockfiles(fileNames: string[]) {
+  return (
+    `${prefix('info')} Removed the template ` +
+    `${fileNames.map((name) => fmt.val(name)).join(', ')}. ` +
+    `The first install writes a fresh one.`
+  )
+}
+
 export function initializingGitForRepository(projectName: string) {
   return `${prefix('debug')} create git init name=${projectName}`
 }

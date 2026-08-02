@@ -20,6 +20,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "installingProjectIntegrations: function(1)",
     "noProjectName: function(0)",
     "noUrlAllowed: function(0)",
+    "removedStaleTemplateLockfiles: function(1)",
     "scaffoldReady: function(3)",
     "startingNewExtension: function(1)",
     "templateDownloadFailed: function(2)",
