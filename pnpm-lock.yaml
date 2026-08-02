@@ -468,8 +468,8 @@ importers:
         specifier: 2.1.1
         version: 2.1.1
       waterfox-location:
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.1.1
+        version: 2.1.1
       ws:
         specifier: ^8.20.1
         version: 8.21.0
@@ -4966,8 +4966,8 @@ packages:
     resolution: {integrity: sha512-Zn5uXdcFNIA1+1Ei5McRd+iRzfhENPCe7LeABkJtNulSxjma+l7ltNx55BWZkRlwRnpOgHqxnjyaDgJnNXnqzg==}
     engines: {node: '>=10.13.0'}
 
-  waterfox-location@2.1.0:
-    resolution: {integrity: sha512-m27hg93+33vB7WxnVBV2yVQ/i55Q3hgUgFakZJwdjrU/KcBVOpbomk1nNP2HETWeXrV8au5g65N4av8YF7WWLg==}
+  waterfox-location@2.1.1:
+    resolution: {integrity: sha512-mOrk8czcg5XlWYT5iUIhGScanR0k1T1uiznMBME9RWiinTYjm4oIX/5yi1IQqJGHfpmt8iKycE/5huUufYqUAQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -9193,7 +9193,7 @@ snapshots:
       glob-to-regexp: 0.4.1
       graceful-fs: 4.2.11
 
-  waterfox-location@2.1.0:
+  waterfox-location@2.1.1:
     dependencies:
       which: 4.0.0
 

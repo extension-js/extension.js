@@ -104,7 +104,7 @@
     "librewolf-location": "1.2.1",
     "opera-location2": "2.1.1",
     "vivaldi-location2": "2.1.1",
-    "waterfox-location": "2.1.0",
+    "waterfox-location": "2.1.1",
     "yandex-location": "2.1.1",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
