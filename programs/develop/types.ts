@@ -435,6 +435,12 @@ export interface BrowserConfig extends BrowserOptionsBase {
 export type OutputConfig = {
   clean: boolean
   path: string
+  /**
+   * Internal: the final dist path when `path` points at the staging
+   * directory a one-shot build is later promoted from. Metadata surfaces
+   * (ready.json) advertise this path, never the staging directory.
+   */
+  finalPath?: string
 }
 
 export interface CommonWebpackOptions {

@@ -197,6 +197,29 @@ function deriveDistExtensionId(
   }
 }
 
+// One-shot builds stamp ready.json at compile done, before the staging dist
+// is promoted, so a first build finds no manifest at distPath yet. The build
+// command calls this after the promote to backfill the derived id only.
+export function stampReadyDistExtensionId(
+  packageJsonDir: string,
+  browser: string,
+  distPath: string
+): void {
+  try {
+    const readyPath = readyContractPath(packageJsonDir, browser)
+    if (!fs.existsSync(readyPath)) return
+    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (typeof prev.extensionId === 'string' && prev.extensionId) return
+    const derived = deriveDistExtensionId(browser, distPath)
+    if (!derived) return
+    prev.extensionId = derived
+    prev.ts = nowISO()
+    writeJsonAtomic(readyPath, prev)
+  } catch {
+    // Ignore
+  }
+}
+
 function readManifestProvenance(manifestPath: string): {
   extensionName?: string
   extensionVersion?: string
