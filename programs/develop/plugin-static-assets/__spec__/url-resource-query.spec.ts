@@ -44,4 +44,39 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
     expect(re.test('?raw')).toBe(false)
     expect(re.test('')).toBe(false)
   })
+
+  it('emits the ?url rule AFTER every typed rule so last-wins keeps asset/resource', () => {
+    const rules = applyPlugin()
+    const urlRuleIndex = rules.findIndex(
+      (r) => r?.type === 'asset/resource' && r?.resourceQuery instanceof RegExp
+    )
+    expect(urlRuleIndex).toBeGreaterThan(-1)
+
+    const typedRuleIndexes = rules
+      .map((r, i) => (r?.type === 'asset' ? i : -1))
+      .filter((i) => i !== -1)
+    expect(typedRuleIndexes.length).toBeGreaterThan(0)
+
+    for (const typedIndex of typedRuleIndexes) {
+      expect(urlRuleIndex).toBeGreaterThan(typedIndex)
+    }
+  })
+
+  it('resolves a small svg?url to asset/resource under last-wins rule merging', () => {
+    const rules = applyPlugin()
+
+    // Mirror rspack's effective-type resolution: every matching rule applies
+    // in order and the last matching rule's type wins.
+    const matching = rules.filter((r) => {
+      const testOk = r?.test instanceof RegExp ? r.test.test('icon.svg') : true
+      const queryOk =
+        r?.resourceQuery instanceof RegExp ? r.resourceQuery.test('?url') : true
+      return Boolean(r) && testOk && queryOk
+    })
+    const effectiveType = matching.reduce(
+      (acc: string | undefined, r) => r?.type ?? acc,
+      undefined
+    )
+    expect(effectiveType).toBe('asset/resource')
+  })
 })
