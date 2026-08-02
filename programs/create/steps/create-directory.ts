@@ -6,6 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
@@ -13,12 +14,24 @@ import * as utils from '../lib/utils'
 
 const allowlist = ['LICENSE', 'node_modules']
 
+export interface CreateDirectoryResult {
+  // True when this run created projectPath itself. The conflict check below
+  // tolerates dotfiles (`.git`), LICENSE, and node_modules, so a pre-existing
+  // directory can pass as scaffold-ready while still holding user data that a
+  // failure cleanup must never delete.
+  directoryCreated: boolean
+}
+
 export async function createDirectory(
   projectPath: string,
   projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-) {
+): Promise<CreateDirectoryResult> {
   logger.log(messages.startingNewExtension(projectName))
+
+  // Recorded before isDirectoryWriteable mkdirs the path, this is the only
+  // place that still knows whether the directory pre-existed.
+  const directoryPreExisted = existsSync(projectPath)
 
   try {
     const isCurrentDirWriteable = await utils.isDirectoryWriteable(
@@ -55,4 +68,6 @@ export async function createDirectory(
     // Re-throw a single formatted error so callers log it once
     throw new Error(messages.createDirectoryError(projectName, error))
   }
+
+  return {directoryCreated: !directoryPreExisted}
 }

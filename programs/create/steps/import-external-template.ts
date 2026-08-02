@@ -301,11 +301,50 @@ async function getZipSourcePath(
   return tempPath
 }
 
+export interface ImportExternalTemplateOptions {
+  // True when the scaffolder created projectPath in this run (the caller's
+  // createDirectory step knows). Failure cleanup may then remove the whole
+  // directory; otherwise it removes only the entries this import added.
+  ownsProjectDir?: boolean
+}
+
+// Failure cleanup must never delete a directory the scaffolder did not create
+// and never pre-existing user content (`extension create .` in a real repo
+// once lost .git to a transient download failure).
+export async function cleanupFailedImport(
+  projectPath: string,
+  ownsProjectDir: boolean,
+  preExistingEntries: string[]
+): Promise<void> {
+  if (ownsProjectDir) {
+    await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})
+    return
+  }
+
+  const keep = new Set(preExistingEntries)
+  let entries: string[] = []
+  try {
+    entries = await fs.readdir(projectPath)
+  } catch {
+    return
+  }
+  await Promise.all(
+    entries
+      .filter((entry) => !keep.has(entry))
+      .map((entry) =>
+        fs
+          .rm(path.join(projectPath, entry), {recursive: true, force: true})
+          .catch(() => {})
+      )
+  )
+}
+
 export async function importExternalTemplate(
   projectPath: string,
   projectName: string,
   template: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  options?: ImportExternalTemplateOptions
 ): Promise<TemplateProvenance> {
   const templateName = path.basename(template)
   const resolvedTemplate = template
@@ -313,6 +352,19 @@ export async function importExternalTemplate(
 
   const isHttp = /^https?:\/\//i.test(template)
   const isGithub = /^https?:\/\/github\.com\//i.test(template)
+
+  // The caller may have mkdir'd projectPath already, so a plain existsSync
+  // here cannot prove ownership; the explicit option wins when provided.
+  const dirExistedBeforeImport = existsSync(projectPath)
+  const ownsProjectDir = options?.ownsProjectDir ?? !dirExistedBeforeImport
+  let preExistingEntries: string[] = []
+  if (dirExistedBeforeImport) {
+    try {
+      preExistingEntries = await fs.readdir(projectPath)
+    } catch {
+      // Ignore
+    }
+  }
 
   try {
     await fs.mkdir(projectPath, {recursive: true})
@@ -442,8 +494,9 @@ export async function importExternalTemplate(
     } else {
       logger.error(messages.installingFromTemplateError(templateName, error))
     }
-    // Clean the partial target dir so a retry into the same name is not poisoned.
-    await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})
+    // Clean the partial scaffold so a retry into the same name is not
+    // poisoned, without ever touching content that pre-existed this run.
+    await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
     throw error
   }
 }
