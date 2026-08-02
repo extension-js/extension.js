@@ -3,7 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionId} from '../../lib/extension-id'
-import {createPlaywrightMetadataWriter, getSessionRunId} from '../index'
+import {
+  createPlaywrightMetadataWriter,
+  getSessionRunId,
+  stampReadyKnownExtensionId
+} from '../index'
 
 describe('ready.json writer preservation', () => {
   let tmp: string
@@ -142,6 +146,53 @@ describe('ready.json writer preservation', () => {
 
     const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(after.extensionId).toBe('fixture@extension.js')
+  })
+
+  // Safari has no dist-derivable id (identity is the appex bundle id the
+  // packager assigns), so ready.json must not carry a chromium hash for it.
+  it('never derives a chromium id for a safari session', () => {
+    const distPath = path.join(tmp, 'dist', 'safari')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0'})
+    )
+
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'safari',
+      command: 'build',
+      distPath,
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect('extensionId' in after).toBe(false)
+  })
+
+  it('backfills a packager-known extension id for safari, first stamp wins', () => {
+    const distPath = path.join(tmp, 'dist', 'safari')
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'safari',
+      command: 'build',
+      distPath,
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    writer.writeReady()
+
+    stampReadyKnownExtensionId(
+      tmp,
+      'safari',
+      'dev.extensionjs.Fixture.Extension'
+    )
+    const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(stamped.extensionId).toBe('dev.extensionjs.Fixture.Extension')
+
+    stampReadyKnownExtensionId(tmp, 'safari', 'com.example.other.Extension')
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe('dev.extensionjs.Fixture.Extension')
   })
 
   it('keeps a launcher-confirmed extension id over the derived one across recompiles', () => {

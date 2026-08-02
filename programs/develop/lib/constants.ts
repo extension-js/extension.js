@@ -22,6 +22,7 @@ export const CHROMIUM_BASED_BROWSERS = [
   'yandex'
 ]
 export const GECKO_BASED_BROWSERS = ['firefox', 'waterfox', 'librewolf']
+export const WEBKIT_BASED_BROWSERS = ['safari']
 
 // Family alias names accepted anywhere a browser NAME selects an engine family;
 // kept beside the fork lists so alignment specs derive both from one place.
@@ -79,5 +80,14 @@ export function isGeckoBasedBrowser(browser: string): boolean {
     String(browser).includes('gecko') ||
     // 'firefox-based' has no 'gecko' substring but is still a gecko target.
     String(browser).includes('firefox')
+  )
+}
+
+// Safari inherits chromium MANIFEST keys but is its own engine everywhere
+// else (ids, launch, devtools), so it needs its own predicate.
+export function isWebkitBasedBrowser(browser: string): boolean {
+  return (
+    WEBKIT_BASED_BROWSERS.includes(browser) ||
+    String(browser).includes('webkit')
   )
 }

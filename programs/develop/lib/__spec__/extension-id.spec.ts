@@ -137,4 +137,19 @@ describe('managedExtensionRecords', () => {
       {path: path.resolve(anonymous)}
     ])
   })
+
+  // Safari identity is the appex bundle id assigned at conversion, so a
+  // chromium path hash would mislabel the record for webkit targets.
+  it('omits ids for safari and webkit-based targets', () => {
+    fs.writeFileSync(
+      path.join(tmp, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '1'})
+    )
+    expect(managedExtensionRecords('safari', [tmp])).toEqual([
+      {path: path.resolve(tmp)}
+    ])
+    expect(managedExtensionRecords('webkit-based', [tmp])).toEqual([
+      {path: path.resolve(tmp)}
+    ])
+  })
 })

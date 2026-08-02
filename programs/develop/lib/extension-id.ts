@@ -9,7 +9,7 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {isGeckoBasedBrowser} from './constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from './constants'
 import {stripBom} from './parse-json-safe'
 
 export interface ManagedExtensionRecord {
@@ -86,8 +86,12 @@ export function managedExtensionRecords(
   extensionDirs: string[]
 ): ManagedExtensionRecord[] {
   const gecko = isGeckoBasedBrowser(browser)
+  // Safari assigns identity at conversion time (the appex bundle id), so no
+  // id is derivable from the directory and a chromium hash would be a lie.
+  const webkit = isWebkitBasedBrowser(browser)
   return extensionDirs.map((dir) => {
     const absolute = path.resolve(dir)
+    if (webkit) return {path: absolute}
     const id = gecko
       ? geckoExtensionId(absolute)
       : chromiumExtensionId(absolute)
