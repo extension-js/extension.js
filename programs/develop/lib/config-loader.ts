@@ -306,14 +306,11 @@ export async function loadCommandConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        // Allow a top-level `extensions` key to apply to all commands, with
-        // per-command overrides via `commands.<cmd>.extensions`.
+        // Allow top-level `extensions`/`transpilePackages`/`perfBudgets` keys
+        // to apply to all commands, with per-command overrides via
+        // `commands.<cmd>.*`.
         const configExtras = userConfig as
-          | {
-              extensions?: unknown
-              transpilePackages?: unknown
-              perfBudgets?: unknown
-            }
+          | Pick<FileConfig, 'extensions' | 'transpilePackages' | 'perfBudgets'>
           | undefined
         const baseExtensions =
           configExtras && configExtras.extensions
