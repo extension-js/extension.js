@@ -57,6 +57,16 @@ export default function webpackConfig(
       : path.resolve(packageJsonDir, devOptions.output.path)
   )
 
+  // One-shot builds emit into a staging sibling that is renamed into place;
+  // ready.json must advertise the promoted dist path, not the staging dir.
+  const publishedExtensionOutputDir = devOptions.output.finalPath
+    ? asAbsolute(
+        path.isAbsolute(devOptions.output.finalPath)
+          ? devOptions.output.finalPath
+          : path.resolve(packageJsonDir, devOptions.output.finalPath)
+      )
+    : primaryExtensionOutputDir
+
   const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
     projectRoot: packageJsonDir,
     config: devOptions.extensions
@@ -274,7 +284,7 @@ export default function webpackConfig(
       // Real command provenance: without it a one-shot `extension build`
       // receipt claims "start" (derived from mode: production).
       command: devOptions.metadataCommand,
-      outputPath: primaryExtensionOutputDir,
+      outputPath: publishedExtensionOutputDir,
       manifestPath,
       port: devOptions.port,
       // Connectable host clients dial (HMR + control bridge). Resolved once by

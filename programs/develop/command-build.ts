@@ -11,6 +11,12 @@ import * as os from 'node:os'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {humanLine} from './dev-server/lifecycle-stream'
+import {
+  promoteStagingDist,
+  removeStagingDir,
+  removeStaleStagingDirs,
+  stagingDistPathFor
+} from './lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {
   loadBrowserConfig,
@@ -38,6 +44,7 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import {stampReadyDistExtensionId} from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
@@ -123,6 +130,9 @@ export async function extensionBuild(
 
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
   const distPath = getDistPath(packageJsonDir, browser)
+  // Assets are emitted into this staging sibling and a rename publishes it,
+  // so an interrupted build can never leave a manifest without its pages.
+  const stagingDistPath = stagingDistPathFor(distPath)
   const isAuthor = isDebug()
 
   try {
@@ -161,13 +171,10 @@ export async function extensionBuild(
     const specialFoldersData =
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
-    // Vite-style `emptyOutDir`: wipe the per-browser dist before the build so
-    // output is deterministic despite stale hashed bundles from prior dev runs.
-    try {
-      fs.rmSync(distPath, {recursive: true, force: true})
-    } catch {
-      // Best-effort; rspack will still emit into the directory.
-    }
+    // Vite-style `emptyOutDir` determinism now comes from the staging swap:
+    // the fresh staging dir replaces dist/<browser> wholesale on success, so
+    // stale hashed bundles vanish while last-good survives a failed build.
+    removeStaleStagingDirs(distPath)
 
     if (debug) {
       console.log(messages.debugDirs(manifestDir, packageJsonDir))
@@ -209,8 +216,9 @@ export async function extensionBuild(
       mode: resolvedMode,
       metadataCommand: buildOptions?.metadataCommand || 'build',
       output: {
-        clean: true,
-        path: distPath
+        clean: false,
+        path: stagingDistPath,
+        finalPath: distPath
       }
     })
 
@@ -226,6 +234,23 @@ export async function extensionBuild(
 
     const compilerConfig = merge(userConfig)
     compilerConfig.stats = false
+
+    // A user config that re-points output.path opts out of the staging swap
+    // and keeps the legacy direct-emit contract, including the upfront wipe.
+    const mergedOutputPath =
+      typeof compilerConfig.output?.path === 'string'
+        ? nodePath.resolve(compilerConfig.output.path)
+        : ''
+    const useStagingSwap =
+      mergedOutputPath === nodePath.resolve(stagingDistPath)
+    if (!useStagingSwap && mergedOutputPath) {
+      try {
+        fs.rmSync(mergedOutputPath, {recursive: true, force: true})
+      } catch {
+        // Ignore
+      }
+    }
+
     const compiler = rspack(compilerConfig)
 
     let summary: BuildSummary = {
@@ -242,12 +267,14 @@ export async function extensionBuild(
       compiler.run(async (err, stats) => {
         if (err) {
           console.error(err.stack || err)
+          removeStagingDir(stagingDistPath)
           return reject(err)
         }
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
         if (!stats || typeof stats.hasErrors !== 'function') {
+          removeStagingDir(stagingDistPath)
           return reject(
             new Error(
               'Build failed: bundler returned invalid stats output (no reliable compilation result).'
@@ -269,6 +296,18 @@ export async function extensionBuild(
         }
 
         if (!stats.hasErrors()) {
+          // Publish the finished staging dir before any success receipt so a
+          // green line is never printed over a half-populated dist.
+          if (useStagingSwap && fs.existsSync(stagingDistPath)) {
+            try {
+              promoteStagingDist(stagingDistPath, distPath)
+            } catch (promoteError) {
+              removeStagingDir(stagingDistPath)
+              return reject(promoteError)
+            }
+            stampReadyDistExtensionId(packageJsonDir, browser, distPath)
+          }
+
           // Anonymized aggregates (no filenames or paths)
           const info = stats?.toJson({
             all: false,
@@ -312,12 +351,20 @@ export async function extensionBuild(
           )
 
           for (const artifact of getZipArtifacts(stats.compilation)) {
-            const zipDisplay = relativeToCwd(artifact.path) || artifact.path
+            // Zips created inside the staging dir moved with the promote.
+            const artifactPath =
+              useStagingSwap && artifact.path.startsWith(stagingDistPath)
+                ? distPath + artifact.path.slice(stagingDistPath.length)
+                : artifact.path
+            const zipDisplay = relativeToCwd(artifactPath) || artifactPath
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
           humanLine(messages.buildShareHint())
           resolve()
         } else {
+          // A failed compile keeps the last-good dist: nothing was written to
+          // dist/<browser>, only the staging dir, which is discarded here.
+          removeStagingDir(stagingDistPath)
           handleStatsErrors(stats)
 
           let errorCount = 1
@@ -373,6 +420,7 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
+    removeStagingDir(stagingDistPath)
     const alreadyReported =
       error instanceof Error && reportedBuildFailures.has(error)
     if (!alreadyReported) {
