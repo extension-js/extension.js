@@ -21,9 +21,14 @@ const localSessionState = [
   '# extension.js local session state',
   '.extension-js'
 ]
+// The framework loads plain .env and .env.development (config-loader and
+// EnvPlugin), so those must be ignored too, not only the *.local variants.
 const envFiles = [
   '',
   '# local env files',
+  '.env',
+  '.env*',
+  '!.env.example',
   '.env.local',
   '.env.development.local',
   '.env.test.local',
