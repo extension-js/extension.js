@@ -257,6 +257,75 @@ describe('content-script-wrapper loader', () => {
     )
   })
 
+  it('gives each script of a multi-script entry its own reinject identity', () => {
+    // Regression guard for the content-multi templates: several js files in
+    // ONE content_scripts block share a bundle key but must carry DISTINCT
+    // reinject keys. The reinject ownership token derives from the reinject
+    // key, so a shared key would make one script's reinject cleanup dispose
+    // its siblings' shadow hosts instead of only its own.
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content/top-left.ts', 'content/top-right.ts']
+          },
+          {
+            matches: ['<all_urls>'],
+            js: ['content/bottom-left.ts']
+          }
+        ]
+      }),
+      'utf8'
+    )
+
+    const source = 'export default function mount(){ return () => {} }'
+    const wrapAt = (relPath: string) =>
+      String(
+        contentScriptWrapper.call(
+          createLoaderContext(
+            path.join(manifestDir, relPath),
+            manifestPath
+          ) as any,
+          source
+        )
+      )
+
+    const topLeft = wrapAt('content/top-left.ts')
+    const topRight = wrapAt('content/top-right.ts')
+    const bottomLeft = wrapAt('content/bottom-left.ts')
+
+    // Same entry: shared bundle key, per-script reinject keys.
+    expect(topLeft).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+    expect(topRight).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+    expect(topLeft).toContain(
+      'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-0";'
+    )
+    expect(topRight).toContain(
+      'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-1";'
+    )
+
+    // Separate entry: its own bundle key, index restarts per entry.
+    expect(bottomLeft).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-1";'
+    )
+    expect(bottomLeft).toContain(
+      'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-1::script-0";'
+    )
+  })
+
   it('keeps non-default-export files in executed mode', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
