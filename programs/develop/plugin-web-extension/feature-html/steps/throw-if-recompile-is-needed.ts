@@ -90,12 +90,17 @@ export class ThrowIfRecompileIsNeeded {
           const looksLikePublicRootUrl = (p: string) =>
             p.startsWith('/') && !fs.existsSync(p)
 
-          const updatedJsEntries = (
-            getAssetsFromHtml(changedFile)?.js || []
-          ).filter((p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p))
-          const updatedCssEntries = (
-            getAssetsFromHtml(changedFile)?.css || []
-          ).filter((p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p))
+          // A deleted HTML entry parses as no assets at all, which keeps the
+          // restart warning below firing; getAssetsFromHtml throws on ENOENT.
+          const updatedAssets = fs.existsSync(changedFile)
+            ? getAssetsFromHtml(changedFile)
+            : undefined
+          const updatedJsEntries = (updatedAssets?.js || []).filter(
+            (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+          )
+          const updatedCssEntries = (updatedAssets?.css || []).filter(
+            (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+          )
 
           const {js, css} = this.initialHtmlAssets[changedFile]
 

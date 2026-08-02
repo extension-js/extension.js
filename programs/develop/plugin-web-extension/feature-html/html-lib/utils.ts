@@ -33,10 +33,19 @@ const assetsFromHtmlCache = new Map<
   {key: string; assets: ParsedHtmlAsset}
 >()
 
+// Watch integrations drop entries here when an HTML file is removed or
+// renamed; without a hook the stale parse survives for the process lifetime.
+export function evictAssetsFromHtmlCache(htmlFilePath?: string): void {
+  if (htmlFilePath === undefined) {
+    assetsFromHtmlCache.clear()
+    return
+  }
+  assetsFromHtmlCache.delete(htmlFilePath)
+}
+
 export function getAssetsFromHtml(
   htmlFilePath: string | undefined,
-  htmlContent?: string,
-  publicPath: string = 'public'
+  htmlContent?: string
 ) {
   const assets: ParsedHtmlAsset = {
     css: [],
@@ -54,7 +63,7 @@ export function getAssetsFromHtml(
   if (htmlContent === undefined) {
     try {
       const stat = fs.statSync(htmlFilePath)
-      cacheKey = `${stat.mtimeMs}:${stat.size}:${publicPath}`
+      cacheKey = `${stat.mtimeMs}:${stat.size}`
 
       const cached = assetsFromHtmlCache.get(htmlFilePath)
       if (cached && cached.key === cacheKey) {
@@ -131,6 +140,13 @@ export function getAssetsFromHtml(
       }
     )
   } catch (error) {
+    // A deleted HTML file must error, not report an empty page: callers gate
+    // on existsSync when a missing file is a state they expect and handle.
+    const code = (error as NodeJS.ErrnoException | undefined)?.code
+    if (htmlContent === undefined && code === 'ENOENT') {
+      assetsFromHtmlCache.delete(htmlFilePath)
+      throw error
+    }
     return assets
   }
 
@@ -154,6 +170,7 @@ export function getHtmlPageDeclaredAssetPath(
       const includePath = filepathList[key] as string
       if (includePath === filePath) return true
 
+      if (!includePath || !fs.existsSync(includePath)) return false
       const assets = getAssetsFromHtml(includePath)
       return Boolean(
         assets?.js?.includes(filePath) || assets?.css?.includes(filePath)

@@ -1,15 +1,67 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {getAssetsFromHtml} from '../../html-lib/utils'
+import {evictAssetsFromHtmlCache, getAssetsFromHtml} from '../../html-lib/utils'
 
 describe('getAssetsFromHtml', () => {
   const tmp = path.join(__dirname, '.tmp-utils')
   fs.mkdirSync(tmp, {recursive: true})
 
-  it('returns empty when file missing', () => {
-    const res = getAssetsFromHtml(path.join(tmp, 'missing.html'))
-    expect(res).toEqual({css: [], js: [], moduleJs: [], static: []})
+  it('throws when the HTML file is missing instead of reporting an empty page', () => {
+    expect(() => getAssetsFromHtml(path.join(tmp, 'missing.html'))).toThrow()
+  })
+
+  it('does not throw for missing files when inline content is provided', () => {
+    const res = getAssetsFromHtml(
+      path.join(tmp, 'missing-inline.html'),
+      '<html><body><script src="a.js"></script></body></html>'
+    )
+    expect(res.js).toEqual([path.join(tmp, 'a.js')])
+  })
+
+  it('serves the cached parse for an unchanged mtime and size, and eviction drops it', () => {
+    const dir = path.join(tmp, 'cache-evict')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+
+    // Same byte length and a pinned whole-second mtime on both writes so the
+    // mtimeMs:size cache key collides on purpose
+    const pinned = new Date(Math.floor(Date.now() / 1000) * 1000 - 5000)
+    fs.writeFileSync(htmlPath, '<script src="a.js"></script>', 'utf8')
+    fs.utimesSync(htmlPath, pinned, pinned)
+
+    const first = getAssetsFromHtml(htmlPath)
+    expect(first.js).toEqual([path.join(dir, 'a.js')])
+
+    fs.writeFileSync(htmlPath, '<script src="b.js"></script>', 'utf8')
+    fs.utimesSync(htmlPath, pinned, pinned)
+
+    const cached = getAssetsFromHtml(htmlPath)
+    expect(cached.js).toEqual([path.join(dir, 'a.js')])
+
+    evictAssetsFromHtmlCache(htmlPath)
+
+    const fresh = getAssetsFromHtml(htmlPath)
+    expect(fresh.js).toEqual([path.join(dir, 'b.js')])
+  })
+
+  it('evicts every entry when called without a path', () => {
+    const dir = path.join(tmp, 'cache-clear')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+
+    const pinned = new Date(Math.floor(Date.now() / 1000) * 1000 - 5000)
+    fs.writeFileSync(htmlPath, '<script src="a.js"></script>', 'utf8')
+    fs.utimesSync(htmlPath, pinned, pinned)
+    getAssetsFromHtml(htmlPath)
+
+    fs.writeFileSync(htmlPath, '<script src="b.js"></script>', 'utf8')
+    fs.utimesSync(htmlPath, pinned, pinned)
+
+    evictAssetsFromHtmlCache()
+
+    const fresh = getAssetsFromHtml(htmlPath)
+    expect(fresh.js).toEqual([path.join(dir, 'b.js')])
   })
 
   it('reports <script type="module"> sources in moduleJs (case-insensitive)', () => {
