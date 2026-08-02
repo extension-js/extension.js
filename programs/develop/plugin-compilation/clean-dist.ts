@@ -16,11 +16,15 @@ export class CleanDistFolderPlugin {
   constructor(private options: {browser: string}) {}
   apply(compiler: Compiler): void {
     const logger = compiler.getInfrastructureLogger('plugin-compilation:clean')
-    const distPath = path.join(
-      compiler.options.context!,
-      'dist',
-      this.options.browser
-    )
+    // Clean exactly where this compiler emits. Deriving the target from the
+    // context would delete an unrelated dir under a custom output.path, and
+    // in the staged one-shot flow it would destroy the live last-good dist
+    // while the compiler only ever writes into the staging sibling.
+    const configuredOutputPath = compiler.options.output?.path
+    const distPath =
+      typeof configuredOutputPath === 'string' && configuredOutputPath
+        ? configuredOutputPath
+        : path.join(compiler.options.context!, 'dist', this.options.browser)
 
     if (fs.existsSync(distPath)) {
       const removedCount = countFilesRecursively(distPath)

@@ -30,7 +30,8 @@ describe('CleanDistFolderPlugin', () => {
       info: (...a: any[]) => void
       warn: (...a: any[]) => void
       error: (...a: any[]) => void
-    }
+    },
+    outputPath?: string
   ) {
     const l =
       logger ||
@@ -40,7 +41,7 @@ describe('CleanDistFolderPlugin', () => {
         error: () => {}
       } as any)
     return {
-      options: {context},
+      options: {context, output: outputPath ? {path: outputPath} : {}},
       getInfrastructureLogger: () => l
     } as any
   }
@@ -92,6 +93,47 @@ describe('CleanDistFolderPlugin', () => {
       compilerWithContext('/x', {info: vi.fn(), warn: vi.fn(), error: err})
     )
     expect(err).toHaveBeenCalled()
+  })
+
+  it('cleans the configured output.path, not <context>/dist/<browser>', () => {
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      true
+    )
+    const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
+    rm.mockImplementation(() => {})
+    const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
+    plugin.apply(
+      compilerWithContext('/proj', undefined, '/custom/out/chrome-build')
+    )
+
+    expect(rm).toHaveBeenCalledWith('/custom/out/chrome-build', {
+      recursive: true,
+      force: true
+    })
+    expect(rm).not.toHaveBeenCalledWith(
+      path.join('/proj', 'dist', 'chrome'),
+      expect.anything()
+    )
+  })
+
+  it('never touches the live dist when emitting into a staging sibling', () => {
+    const liveDist = path.join('/proj', 'dist', 'chrome')
+    const stagingDist = path.join(
+      '/proj',
+      'dist',
+      '.extension-build-chrome-abc123'
+    )
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (target: string) => target === liveDist
+    )
+    const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
+    rm.mockImplementation(() => {})
+    const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
+    plugin.apply(compilerWithContext('/proj', undefined, stagingDist))
+
+    // The staging dir does not exist yet and the live last-good dist must
+    // survive until the successful build is promoted over it.
+    expect(rm).not.toHaveBeenCalled()
   })
 
   it('does nothing when folder does not exist', () => {
