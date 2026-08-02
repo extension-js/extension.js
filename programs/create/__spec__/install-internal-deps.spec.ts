@@ -166,6 +166,43 @@ describe('install-internal-deps', () => {
   })
 
   itCleanEnv(
+    'pnpm optional installs run silent like project installs',
+    async () => {
+      const developRoot = makeTempDir('extjs-develop-')
+      const projectRoot = makeTempDir('extjs-project-')
+
+      writeJson(path.join(developRoot, 'package.json'), {
+        name: 'extension-develop'
+      })
+      writeJson(path.join(projectRoot, 'package.json'), {
+        name: 'demo',
+        dependencies: {react: '^18.0.0'}
+      })
+
+      process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
+      process.env.npm_config_user_agent = 'pnpm/9.0.0'
+      process.env.EXTENSION_ENV = 'development'
+
+      const cwd = process.cwd()
+      process.chdir(projectRoot)
+
+      const mod = await import('../steps/install-internal-deps')
+      await mod.installInternalDependencies(projectRoot, console)
+
+      process.chdir(cwd)
+
+      const optionalCall = spawnCalls.find((call) =>
+        call.args.join(' ').includes('react-refresh')
+      )
+      expect(optionalCall).toBeTruthy()
+      expect(optionalCall?.args[0]).toBe('add')
+      expect(optionalCall?.args).toContain('--dir')
+      expect(optionalCall?.args).toContain('--save-optional')
+      expect(optionalCall?.args).toContain('--silent')
+    }
+  )
+
+  itCleanEnv(
     'prefers the project local extension-develop over the CLI override',
     async () => {
       const overrideDevelopRoot = makeTempDir('extjs-develop-override-')

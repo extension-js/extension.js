@@ -232,7 +232,15 @@ function buildOptionalInstallArgs(
   }
 
   if (pm === 'pnpm') {
-    return ['add', ...dependencies, '--dir', installDir, '--save-optional']
+    // Same convention as the project-deps installer: pnpm runs silent.
+    return [
+      'add',
+      ...dependencies,
+      '--dir',
+      installDir,
+      '--save-optional',
+      '--silent'
+    ]
   }
 
   if (pm === 'bun') {
