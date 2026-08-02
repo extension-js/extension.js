@@ -134,8 +134,12 @@ export function computeExtensionsToLoad(
 
   // Add companions (load-only) before the user extension; skip paths that
   // shadow a reserved built-in to avoid a second devtools/theme load.
+  const resolvedUserOutputPath = path.resolve(userExtensionOutputPath)
   for (const p of extraExtensionDirs) {
     if (isReservedBuiltInPath(p)) continue
+    // The final dedupe keeps the FIRST hit, so a companion naming the user
+    // extension would freeze it in this earlier slot: drop it to keep it last.
+    if (path.resolve(p) === resolvedUserOutputPath) continue
     list.push(p)
   }
 
