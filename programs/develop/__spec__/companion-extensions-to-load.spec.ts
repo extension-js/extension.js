@@ -398,6 +398,46 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     expect(list).toEqual([devtoolsBuiltIn, themeBuiltIn, userOut])
   })
 
+  it('keeps the user extension LAST when a companion names the same path', () => {
+    const root = tmpDir('extjs-user-last-precedence-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const companion = path.join(root, 'extensions', 'other')
+    fs.mkdirSync(companion, {recursive: true})
+    fs.writeFileSync(
+      path.join(companion, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'other', version: '0.0.0'}),
+      'utf-8'
+    )
+
+    // The user path appears FIRST among companions (plus an aliased spelling):
+    // it must still land last, or last-loaded precedence silently flips.
+    const aliasedUserOut = path.join(userOut, '.', '..', 'chrome')
+    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
+      userOut,
+      aliasedUserOut,
+      companion
+    ])
+
+    expect(
+      list.filter((p) => path.resolve(p) === path.resolve(userOut))
+    ).toHaveLength(1)
+    expect(path.resolve(list[list.length - 1])).toBe(path.resolve(userOut))
+    expect(list.indexOf(companion)).toBeLessThan(
+      list.findIndex((p) => path.resolve(p) === path.resolve(userOut))
+    )
+  })
+
   it('dedupes the final load list by absolute path', () => {
     const root = tmpDir('extjs-load-dedupe-')
     const userOut = path.join(root, 'dist', 'chrome')
