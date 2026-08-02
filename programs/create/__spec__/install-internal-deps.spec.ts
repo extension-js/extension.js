@@ -61,6 +61,57 @@ describe('install-internal-deps', () => {
     vi.restoreAllMocks()
   })
 
+  it('warns loudly when package.json exists but cannot be parsed', async () => {
+    const developRoot = makeTempDir('extjs-develop-')
+    const projectRoot = makeTempDir('extjs-project-')
+
+    writeJson(path.join(developRoot, 'package.json'), {
+      name: 'extension-develop'
+    })
+    fs.writeFileSync(path.join(projectRoot, 'package.json'), '{"name": broken')
+
+    process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
+    process.env.EXTENSION_ENV = 'development'
+
+    const logs: string[] = []
+    const logger = {
+      log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
+      error: (...args: unknown[]) => logs.push(args.map(String).join(' '))
+    }
+
+    const mod = await import('../steps/install-internal-deps')
+    await mod.installInternalDependencies(projectRoot, logger)
+
+    // The malformed manifest is named, and nothing is installed silently.
+    const warning = logs.find((line) => line.includes('package.json'))
+    expect(warning).toBeDefined()
+    expect(warning).toContain(path.join(projectRoot, 'package.json'))
+    expect(spawnCalls.length).toBe(0)
+  })
+
+  it('stays silent when package.json is simply absent', async () => {
+    const developRoot = makeTempDir('extjs-develop-')
+    const projectRoot = makeTempDir('extjs-project-')
+
+    writeJson(path.join(developRoot, 'package.json'), {
+      name: 'extension-develop'
+    })
+
+    process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
+    process.env.EXTENSION_ENV = 'development'
+
+    const logs: string[] = []
+    const logger = {
+      log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
+      error: (...args: unknown[]) => logs.push(args.map(String).join(' '))
+    }
+
+    const mod = await import('../steps/install-internal-deps')
+    await mod.installInternalDependencies(projectRoot, logger)
+
+    expect(logs.find((line) => line.includes('package.json'))).toBeUndefined()
+  })
+
   itCleanEnv('installs missing optional deps into develop root', async () => {
     const developRoot = makeTempDir('extjs-develop-')
     const projectRoot = makeTempDir('extjs-project-')

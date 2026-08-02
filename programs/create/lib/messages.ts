@@ -295,6 +295,16 @@ export function cantInstallDependencies(projectName: string, error: unknown) {
   )
 }
 
+// A present-but-unreadable manifest is a user problem to surface, never a
+// silent zero-integrations detection; only a truly absent file stays quiet.
+export function malformedPackageJson(packageJsonPath: string, error: unknown) {
+  return (
+    `${prefix('warn')} Couldn't parse ${colors.blue('package.json')}, so no integrations were detected.\n` +
+    `${fmt.label('PATH')} ${fmt.val(packageJsonPath)}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}`
+  )
+}
+
 export function writingPackageJsonMetadata() {
   return `${prefix('debug')} create write file=package.json`
 }
