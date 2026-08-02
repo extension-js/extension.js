@@ -72,11 +72,9 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Ensure the side panel is visible. This is used for testing the side panel feature.
   '--enable-features=SidePanelUpdates',
   // Disable the load extension command line switch
-  // @ts-expect-error - this is a valid flag
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
   // Chromium 152+ disables unpacked developer extensions on the first
   // runtime.reload(), permanently killing the extension mid dev session.
-  // @ts-expect-error - this is a valid flag
   '--disable-features=ExtensionDisableUnsupportedDeveloper',
   // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
   // Required since Chrome 126+ for reliable CDP extension operations

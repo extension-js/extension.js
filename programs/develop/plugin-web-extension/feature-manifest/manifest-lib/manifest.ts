@@ -16,9 +16,21 @@ import {getManifestOverrides} from '../manifest-overrides'
 
 const cjsRequire = createRequire(import.meta.url)
 
-const INTERNAL_MANIFEST_SOURCE = '__extensionjs_manifest_source__'
-const INTERNAL_MANIFEST_CURRENT_SOURCE =
-  '__extensionjs_manifest_current_source__'
+// Manifest source strings ride per compilation; a WeakMap keeps them typed
+// instead of stashing untyped string properties on the compilation object.
+const manifestSourceStore = new WeakMap<
+  Compilation,
+  {original?: string; current?: string}
+>()
+
+function manifestSourceEntry(compilation: Compilation) {
+  let entry = manifestSourceStore.get(compilation)
+  if (!entry) {
+    entry = {}
+    manifestSourceStore.set(compilation, entry)
+  }
+  return entry
+}
 
 function readAssetSource(asset: {source?: unknown} | null | undefined): string {
   if (!asset) return ''
@@ -46,34 +58,26 @@ export function setOriginalManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  ;(compilation as unknown as Record<string, string | undefined>)[
-    INTERNAL_MANIFEST_SOURCE
-  ] = source
+  manifestSourceEntry(compilation).original = source
 }
 
 export function getOriginalManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return (compilation as unknown as Record<string, string | undefined>)[
-    INTERNAL_MANIFEST_SOURCE
-  ]
+  return manifestSourceStore.get(compilation)?.original
 }
 
 export function setCurrentManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  ;(compilation as unknown as Record<string, string | undefined>)[
-    INTERNAL_MANIFEST_CURRENT_SOURCE
-  ] = source
+  manifestSourceEntry(compilation).current = source
 }
 
 export function getCurrentManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return (compilation as unknown as Record<string, string | undefined>)[
-    INTERNAL_MANIFEST_CURRENT_SOURCE
-  ]
+  return manifestSourceStore.get(compilation)?.current
 }
 
 export function getManifestContent(

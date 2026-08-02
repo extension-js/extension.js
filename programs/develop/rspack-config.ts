@@ -8,7 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compilation, Compiler, Configuration} from '@rspack/core'
+import type {
+  Compilation,
+  Compiler,
+  Configuration,
+  RspackPluginInstance
+} from '@rspack/core'
 import {makeSanitizedConsole} from './lib/branding'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
@@ -198,7 +203,7 @@ export default function webpackConfig(
           }
         )
       }
-    } as unknown as NonNullable<Configuration['plugins']>[number],
+    } satisfies RspackPluginInstance,
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
     // require stays verbatim in the bundle, matching how Chrome loads the script.
     {
@@ -224,7 +229,7 @@ export default function webpackConfig(
           }
         )
       }
-    } as unknown as NonNullable<Configuration['plugins']>[number],
+    } satisfies RspackPluginInstance,
     // Warn (don't fail) when an MV2 source is built for a Chromium target:
     // Chrome and Edge no longer load MV2, so the bundle would fail to install.
     {
@@ -271,7 +276,7 @@ export default function webpackConfig(
           }
         )
       }
-    } as unknown as NonNullable<Configuration['plugins']>[number]
+    } satisfies RspackPluginInstance
   ]
 
   // The readiness contract (ready.json + events.ndjson) is written in ALL dev

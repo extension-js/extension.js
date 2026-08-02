@@ -85,6 +85,8 @@ export type DefaultBrowserFlags =
   | '--disable-features=DialMediaRouteProvider'
   | '--no-pings' // Don't send hyperlink auditing pings
   | '--enable-features=SidePanelUpdates' // Ensure the side panel is visible for testing
+  | '--disable-features=DisableLoadExtensionCommandLineSwitch' // Keep --load-extension working
+  | '--disable-features=ExtensionDisableUnsupportedDeveloper' // Chromium 152+ kills unpacked extensions on runtime.reload()
   | '--enable-unsafe-extension-debugging' // Allow CDP-based extension management (Chrome 126+)
   | '--silent-debugger-extension-api' // Suppress the "X is debugging this browser" infobar
 
