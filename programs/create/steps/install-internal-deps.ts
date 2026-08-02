@@ -60,13 +60,22 @@ function resolveDevelopRoot(projectPath: string): string | null {
   }
 }
 
-function readPackageJson(projectPath: string): PackageJson {
+function readPackageJson(
+  projectPath: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+): PackageJson {
   let pkg: PackageJson = {}
+  const packageJsonPath = path.join(projectPath, 'package.json')
   try {
-    const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
+    const raw = fs.readFileSync(packageJsonPath, 'utf8')
     pkg = JSON.parse(raw)
-  } catch {
-    // Deno-created scaffolds carry no package.json at all.
+  } catch (error) {
+    // Deno-created scaffolds carry no package.json at all, which stays quiet.
+    // A manifest that exists but cannot be parsed must say so, or the run
+    // silently detects zero integrations and installs nothing.
+    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+      logger.log(messages.malformedPackageJson(packageJsonPath, error))
+    }
   }
 
   // Deno projects declare npm dependencies in deno.json(c) `imports`;
@@ -99,8 +108,11 @@ function findConfigFile(projectPath: string, candidates: string[]): boolean {
   return candidates.some((file) => fs.existsSync(path.join(projectPath, file)))
 }
 
-function detectOptionalDependencies(projectPath: string): OptionalDepsPlan {
-  const pkg = readPackageJson(projectPath)
+function detectOptionalDependencies(
+  projectPath: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+): OptionalDepsPlan {
+  const pkg = readPackageJson(projectPath, logger)
 
   const usesReact =
     hasDependency(pkg, 'react') || hasDependency(pkg, 'react-dom')
@@ -234,9 +246,10 @@ function buildOptionalInstallArgs(
 
 function resolveMissingOptionalDeps(
   developRoot: string,
-  projectPath: string
+  projectPath: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): OptionalDepsPlan {
-  const plan = detectOptionalDependencies(projectPath)
+  const plan = detectOptionalDependencies(projectPath, logger)
   const dependenciesByIntegration: Record<string, string[]> = {}
   const integrations: string[] = []
   const missing = new Set<string>()
@@ -323,7 +336,11 @@ export async function installInternalDependencies(
   const developRoot = resolveDevelopRoot(projectPath)
   if (!developRoot) return
 
-  const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
+  const optionalPlan = resolveMissingOptionalDeps(
+    developRoot,
+    projectPath,
+    logger
+  )
   if (optionalPlan.dependencies.length > 0) {
     await installOptionalDependencies(
       developRoot,

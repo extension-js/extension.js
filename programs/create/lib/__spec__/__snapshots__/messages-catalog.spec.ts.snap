@@ -18,6 +18,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "installingFromTemplate: function(2)",
     "installingFromTemplateError: function(2)",
     "installingProjectIntegrations: function(1)",
+    "malformedPackageJson: function(2)",
     "noProjectName: function(0)",
     "noUrlAllowed: function(0)",
     "removedStaleTemplateLockfiles: function(1)",
