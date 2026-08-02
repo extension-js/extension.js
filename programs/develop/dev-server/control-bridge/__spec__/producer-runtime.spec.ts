@@ -282,6 +282,7 @@ describe('bridge producer runtime', () => {
   it('source has no unresolved placeholders by construction', () => {
     expect(BRIDGE_PRODUCER_SOURCE).toContain('__EXTJS_CONTROL_PORT__')
   })
+
 })
 
 describe('bridge producer runtime, executor (Slice 2)', () => {
@@ -839,6 +840,149 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(r).toMatchObject({ok: true, value: {gesture: false}})
     expect(typeof r.value.warning).toBe('string')
     expect(r.value.warning).toMatch(/activeTab/)
+  })
+
+  it('open action: fires onClicked listeners registered via a distinct browser.* namespace (Gecko)', async () => {
+    const fired: unknown[] = []
+    // Real Firefox: browser.* events are DISTINCT wrapper objects, user code
+    // registers through them, and chrome.* stays untouched.
+    const browserApi: Record<string, any> = {
+      action: {onClicked: {addListener() {}}},
+      commands: {onCommand: {addListener() {}}}
+    }
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 3, active: true}])
+      }
+    }
+    const ws = setup(chromeApi, {browser: browserApi})
+    browserApi.action.onClicked.addListener((tab: unknown) => fired.push(tab))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-gecko',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fired).toEqual([{id: 3, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-gecko')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1}
+    })
+  })
+
+  it('open command: replays an onCommand listener registered via browser.* only', async () => {
+    const got: Array<[unknown, unknown]> = []
+    const browserApi: Record<string, any> = {
+      commands: {onCommand: {addListener() {}}}
+    }
+    const chromeApi: Record<string, any> = {
+      commands: {onCommand: {addListener() {}}},
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 9, active: true}])
+      }
+    }
+    const ws = setup(chromeApi, {browser: browserApi})
+    browserApi.commands.onCommand.addListener((name: unknown, tab: unknown) =>
+      got.push([name, tab])
+    )
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'cmd-gecko',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'command', name: 'do-thing'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(got).toEqual([['do-thing', {id: 9, active: true}]])
+    expect(results(ws).find((f) => f.cmdId === 'cmd-gecko')).toMatchObject({
+      ok: true,
+      value: {triggered: 'command', listeners: 1}
+    })
+  })
+
+  it('open action: a polyfill-shared event object registers each listener once', async () => {
+    const fired: unknown[] = []
+    // Polyfill case: chrome.* and browser.* expose the SAME event object, so
+    // wrapping both namespaces must not double-capture (or double-fire).
+    const sharedOnClicked = {addListener() {}}
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: sharedOnClicked
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 5, active: true}])
+      }
+    }
+    const ws = setup(chromeApi, {
+      browser: {action: {onClicked: sharedOnClicked}}
+    })
+    chromeApi.action.onClicked.addListener((tab: unknown) => fired.push(tab))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-shared',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fired).toEqual([{id: 5, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-shared')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1}
+    })
+  })
+
+  it('open action: one callback registered via both namespaces fires once', async () => {
+    const fired: unknown[] = []
+    const browserApi: Record<string, any> = {
+      action: {onClicked: {addListener() {}}}
+    }
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 6, active: true}])
+      }
+    }
+    const ws = setup(chromeApi, {browser: browserApi})
+    // Gecko shares ONE underlying registration across namespaces, so the
+    // replay sink must dedupe the callback identity too.
+    const listener = (tab: unknown) => fired.push(tab)
+    chromeApi.action.onClicked.addListener(listener)
+    browserApi.action.onClicked.addListener(listener)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-dual',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fired).toEqual([{id: 6, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-dual')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1}
+    })
   })
 
   it('open command: replays a captured chrome.commands.onCommand listener', async () => {

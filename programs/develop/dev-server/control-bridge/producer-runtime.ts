@@ -47,12 +47,24 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e) { /* non-fatal: trigger falls back to its no-listener reply */ }
     }
 
-    // Use g.chrome (not the hoisted chrome var below). This runs first.
+    // Use the raw globals (not the hoisted chrome var below). This runs first.
+    // On Gecko browser.* is a DISTINCT wrapper object: hook BOTH namespaces.
     var actionClickedListeners = [];
     var commandListeners = [];
-    if (g.chrome) {
-      captureEvent(g.chrome.action && g.chrome.action.onClicked, actionClickedListeners);
-      captureEvent(g.chrome.commands && g.chrome.commands.onCommand, commandListeners);
+    var capturedEvents = [];
+    function captureEventOnce(event, sink) {
+      // Polyfilled extensions expose ONE event object on both namespaces:
+      // wrap it once, and the sink dedupes callbacks shared across wrappers.
+      if (!event || capturedEvents.indexOf(event) !== -1) return;
+      capturedEvents.push(event);
+      captureEvent(event, sink);
+    }
+    var captureNamespaces = [g.chrome, g.browser];
+    for (var cn = 0; cn < captureNamespaces.length; cn++) {
+      var capNS = captureNamespaces[cn];
+      if (!capNS) continue;
+      captureEventOnce(capNS.action && capNS.action.onClicked, actionClickedListeners);
+      captureEventOnce(capNS.commands && capNS.commands.onCommand, commandListeners);
     }
 
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
