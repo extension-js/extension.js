@@ -242,6 +242,34 @@ export async function removeTemplateScaffoldingFiles(
   )
 }
 
+// Every lockfile flavor a template could commit upstream. The scaffolder
+// injects `extension` into devDependencies AFTER the copy, so a copied
+// lockfile is stale by design and turns `npm ci` from working into failing.
+export const TEMPLATE_LOCKFILE_NAMES = [
+  'package-lock.json',
+  'npm-shrinkwrap.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  'bun.lock'
+]
+
+// Strip root-level lockfiles from the copied template and report which ones
+// were removed, so the caller can print one notice only when it applies.
+export async function removeStaleTemplateLockfiles(
+  projectPath: string
+): Promise<string[]> {
+  const removed: string[] = []
+  for (const name of TEMPLATE_LOCKFILE_NAMES) {
+    const target = path.join(projectPath, name)
+    if (existsSync(target)) {
+      await fs.rm(target, {force: true})
+      removed.push(name)
+    }
+  }
+  return removed
+}
+
 function getArchiveBaseName(url: string): string {
   const withoutQuery = url.split('?')[0]
   const fileName = path.basename(withoutQuery)
@@ -295,6 +323,10 @@ export async function importExternalTemplate(
       if (existsSync(localTemplate)) {
         await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
         await removeTemplateScaffoldingFiles(projectPath)
+        const dropped = await removeStaleTemplateLockfiles(projectPath)
+        if (dropped.length) {
+          logger.log(messages.removedStaleTemplateLockfiles(dropped))
+        }
         return {template: resolvedTemplateName, source: 'bundled'}
       }
       // Bundled copy missing (unexpected): fall through to the network fetch
@@ -387,6 +419,10 @@ export async function importExternalTemplate(
     }
 
     await removeTemplateScaffoldingFiles(projectPath)
+    const droppedLockfiles = await removeStaleTemplateLockfiles(projectPath)
+    if (droppedLockfiles.length) {
+      logger.log(messages.removedStaleTemplateLockfiles(droppedLockfiles))
+    }
 
     await fs.rm(tempRoot, {recursive: true, force: true})
 
