@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {registerPublishCommand} from '../commands/publish'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
@@ -7,16 +10,22 @@ const ORIG_ENV = {...process.env}
 
 let logSpy: ReturnType<typeof vi.spyOn>
 let errorSpy: ReturnType<typeof vi.spyOn>
+let configDir = ''
 
 beforeEach(() => {
   stubProcessExit()
   vi.stubGlobal('fetch', fetchMock)
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  // Keep the developer's real stored login out of the no-token tests.
+  configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-cmd-'))
+  process.env.XDG_CONFIG_HOME = configDir
+  process.env.APPDATA = configDir
 })
 
 afterEach(() => {
   process.env = {...ORIG_ENV}
+  fs.rmSync(configDir, {recursive: true, force: true})
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   vi.clearAllMocks()
@@ -43,6 +52,30 @@ describe('extension publish', () => {
       'https://docs.extension.dev/tools/publish'
     )
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('names the login command in the no-token refusal', async () => {
+    delete process.env.EXTENSION_DEV_TOKEN
+    expect(await run(['publish'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain(
+      'npx @extension.dev/mcp login'
+    )
+  })
+
+  it('publishes with the stored device login when no flag or env is set', async () => {
+    delete process.env.EXTENSION_DEV_TOKEN
+    const dir = path.join(configDir, 'extension-dev')
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(
+      path.join(dir, 'auth.json'),
+      JSON.stringify({version: 1, token: 'tok_stored'})
+    )
+    respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
+    expect(await run(['publish'])).toBe(0)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect((init.headers as Record<string, string>).authorization).toBe(
+      'Bearer tok_stored'
+    )
   })
 
   it('prints the share URL and exits 0 on success', async () => {
