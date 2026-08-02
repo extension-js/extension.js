@@ -586,6 +586,53 @@ describe('generateManifestPatches', () => {
       expect(compilation.errors.length).toBe(0)
     })
 
+    // The pattern contract encodes Chrome's loader rules. Safari's loader is
+    // the converter plus WebKit, so webkit targets are exempt like gecko is.
+    it('does not apply the chrome match-pattern contract to webkit targets', () => {
+      const manifest: any = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['https://example.com/path'], resources: ['assets/*.png']}
+        ]
+      }
+
+      const makeCompilation = (): any => ({
+        options: {
+          mode: 'development',
+          context: tmpRoot,
+          output: {path: tmpRoot}
+        },
+        outputOptions: {path: tmpRoot},
+        errors: [],
+        warnings: [],
+        assets: {},
+        getAsset: () => undefined,
+        emitAsset: vi.fn(),
+        fileDependencies: new Set<string>()
+      })
+
+      for (const browser of ['safari', 'webkit-based']) {
+        const compilation = makeCompilation()
+        resolveUserDeclaredWAR(
+          compilation as Compilation,
+          manifestPath,
+          manifest,
+          browser
+        )
+        expect(compilation.errors, browser).toHaveLength(0)
+      }
+
+      const chromeCompilation = makeCompilation()
+      resolveUserDeclaredWAR(
+        chromeCompilation as Compilation,
+        manifestPath,
+        manifest,
+        'chrome'
+      )
+      expect(chromeCompilation.errors).toHaveLength(1)
+      expect(chromeCompilation.errors[0].name).toBe('WARInvalidMatchPattern')
+    })
+
     it('resolves relative file to its manifest-relative emitted path (mv3)', () => {
       const rel = 'images/logo.png'
       const abs = path.join(tmpRoot, rel)
