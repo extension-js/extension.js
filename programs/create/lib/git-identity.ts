@@ -28,10 +28,8 @@ function readGitConfig(key: string, cwd: string): string | undefined {
   }
 }
 
-/* @invariant The only identity a scaffold may carry is one the machine can
- * prove, which is the identity git will sign the first commit with. When git
- * cannot answer, the field is omitted; a placeholder author reaches a store
- * listing without anyone reading it again. */
+// Scaffold metadata carries no author at all. Git identity is read only to
+// decide whether the first commit can be made, never to fill in package fields.
 export function readGitIdentity(cwd: string = process.cwd()): GitIdentity {
   return {
     name: readGitConfig('user.name', cwd),
