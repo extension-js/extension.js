@@ -44,6 +44,12 @@ export const SUPPORTED_BROWSER_TARGETS = [
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
 
+// start/preview refuse the webkit family on purpose, so their help lists
+// every accepted target except safari and webkit-based.
+export const NO_SAFARI_BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.filter(
+  (target) => !isSafariVendor(target)
+).join(' | ')
+
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
   const normalized = String(value).trim().toLowerCase()
