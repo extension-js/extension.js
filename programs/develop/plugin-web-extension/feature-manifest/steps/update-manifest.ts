@@ -31,6 +31,7 @@ import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 import {patchChromiumBackground} from './patch-chromium-background'
+import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
 
@@ -93,6 +94,13 @@ export class UpdateManifest {
             // And the mirror: Chromium can't load MV3 background.scripts,
             // translate it to a classic service worker on the same bundle.
             patchedManifest = patchChromiumBackground(
+              patchedManifest,
+              this.browser
+            )
+
+            // Firefox reads theme.colors as CSS strings, Chrome as integer
+            // arrays. Convert hex for chromium so one manifest serves both.
+            patchedManifest = patchChromiumThemeColors(
               patchedManifest,
               this.browser
             )

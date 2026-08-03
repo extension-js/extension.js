@@ -44,9 +44,23 @@ describe('collectThemeValueIssues', () => {
   })
 
   it('rejects non-array and non-numeric values', () => {
-    expect(themed({colors: {frame: '#ff0000'}})).toHaveLength(1)
+    expect(themed({colors: {frame: 'red'}})).toHaveLength(1)
+    expect(themed({colors: {frame: 'rgb(0, 0, 0)'}})).toHaveLength(1)
     expect(themed({colors: {frame: ['a', 0, 0]}})).toHaveLength(1)
     expect(themed({colors: {frame: [0, 0, 0, 'x']}})).toHaveLength(1)
+  })
+
+  it('accepts hex strings, which the chromium writer converts to arrays', () => {
+    expect(themed({colors: {frame: '#ff0000'}})).toEqual([])
+    expect(themed({colors: {tab_text: '#000'}})).toEqual([])
+    expect(themed({colors: {frame: '#00000080'}})).toEqual([])
+    expect(themed({colors: {frame: '#0008'}})).toEqual([])
+  })
+
+  it('still rejects malformed hex-like strings', () => {
+    expect(themed({colors: {frame: '#00'}})).toHaveLength(1)
+    expect(themed({colors: {frame: '#ggg'}})).toHaveLength(1)
+    expect(themed({colors: {frame: '000000'}})).toHaveLength(1)
   })
 
   it('accepts tints of 3 numbers and rejects other tint shapes', () => {

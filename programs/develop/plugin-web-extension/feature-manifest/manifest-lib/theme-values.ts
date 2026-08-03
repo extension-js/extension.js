@@ -23,9 +23,31 @@ const isChannel = (entry: unknown): boolean =>
 const isFiniteNumber = (entry: unknown): boolean =>
   typeof entry === 'number' && Number.isFinite(entry)
 
+// Firefox accepts CSS hex strings in theme.colors while Chrome wants integer
+// arrays; hex is unambiguous, so the chromium build converts it instead of
+// refusing. Returns [R, G, B] or [R, G, B, A] with a 0-1 alpha, or undefined.
+export function parseHexThemeColor(value: unknown): number[] | undefined {
+  if (typeof value !== 'string') return undefined
+  const match = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value.trim())
+  if (!match) return undefined
+
+  const hex = match[1]
+  const digits =
+    hex.length >= 6
+      ? (hex.match(/../g) as string[])
+      : hex.split('').map((digit) => digit + digit)
+  const bytes = digits.map((pair) => parseInt(pair, 16))
+
+  if (bytes.length === 3) return bytes
+  return [...bytes.slice(0, 3), Math.round((bytes[3] / 255) * 1000) / 1000]
+}
+
 // Chrome's theme_handler.cc: colors are [R, G, B] or [R, G, B, A] with integer
 // channels and a numeric alpha, anything else refuses the whole extension.
+// Hex strings pass because the chromium manifest writer converts them.
 function colorValueDetail(value: unknown): string | undefined {
+  if (parseHexThemeColor(value)) return undefined
+
   if (!Array.isArray(value) || (value.length !== 3 && value.length !== 4)) {
     return 'Chrome only accepts an [R, G, B] or [R, G, B, A] array here.'
   }
