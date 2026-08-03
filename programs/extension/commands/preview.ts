@@ -23,6 +23,7 @@ import {
 import {
   type Browser,
   isSafariVendor,
+  NO_SAFARI_BROWSER_TARGETS_HELP,
   validateVendors,
   vendors
 } from '../helpers/vendors'
@@ -69,7 +70,7 @@ export function registerPreviewCommand(program: Command) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
+      `--browser <${NO_SAFARI_BROWSER_TARGETS_HELP}>`,
       'specify a browser/engine to run. Defaults to `chromium`'
     )
     .option(
