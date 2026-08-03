@@ -18,6 +18,7 @@ import {
   type EnvelopeError,
   type ErrorCode
 } from '../helpers/messaging'
+import {formatPrettyLogLine, type LogEventLike} from './logs'
 
 export function readRecentConsole(
   projectPath: string,
@@ -288,6 +289,20 @@ function printResult(
       typeof value === 'string' ? value : JSON.stringify(value, null, 2)
     )
 
+    // Augmentations merge extra keys onto the result; `--with-console` was
+    // json-only until these lines, so pretty mode looked like a no-op flag.
+    const consoleRecords = (result as {console?: unknown}).console
+    if (Array.isArray(consoleRecords)) {
+      if (consoleRecords.length === 0) {
+        // eslint-disable-next-line no-console
+        console.log('(no console lines captured)')
+      }
+      for (const record of consoleRecords) {
+        // eslint-disable-next-line no-console
+        console.log(formatPrettyLogLine(record as LogEventLike))
+      }
+    }
+
     if (result.truncated) {
       // eslint-disable-next-line no-console
       console.error('… result truncated (byte cap)')
@@ -551,7 +566,10 @@ export function registerActCommands(program: Command): void {
         '--tab <id>',
         'for content/page: a specific tab (default: the --url match, else the active tab)'
       )
-      .option('--list-tabs', 'list open tabs as {tabId,url,title} and exit')
+      .option(
+        '--list-tabs',
+        'list open tabs as {id,url,title,active,windowId} and exit (pass id to --tab)'
+      )
       .option(
         '--include <list>',
         'comma-separated: html,summary (default summary)'

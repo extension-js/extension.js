@@ -28,7 +28,7 @@ type LogsOptions = {
 
 // Bridge log events are dynamic ndjson lines; this loose view names every
 // field the filters and printers probe.
-interface LogEventLike {
+export interface LogEventLike {
   type?: unknown
   eventType?: unknown
   context?: unknown
@@ -136,6 +136,13 @@ function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
     return
   }
 
+  // eslint-disable-next-line no-console
+  console.log(formatPrettyLogLine(event))
+}
+
+// Shared with `inspect --with-console` so console lines read the same in
+// both commands.
+export function formatPrettyLogLine(event: LogEventLike): string {
   const parts = Array.isArray(event.messageParts)
     ? event.messageParts
         .map((p: unknown) => (typeof p === 'string' ? p : JSON.stringify(p)))
@@ -143,10 +150,9 @@ function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
     : ''
   const code = event.code ? ` ${event.code}` : ''
   const remediation = event.remediation ? `\n    ↳ ${event.remediation}` : ''
-  // eslint-disable-next-line no-console
-  console.log(
+  return (
     `[${event.seq ?? '-'}] ${String(event.level || 'log').toUpperCase()} ` +
-      `(${event.context})${code} ${parts}${remediation}`
+    `(${event.context})${code} ${parts}${remediation}`
   )
 }
 
