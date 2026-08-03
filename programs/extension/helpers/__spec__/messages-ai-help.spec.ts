@@ -63,7 +63,12 @@ describe('programAIHelp', () => {
     expect(readyContract.eventsPath).toBe(
       'dist/extension-js/<browser>/events.ndjson'
     )
-    expect(readyContract.statuses).toEqual(['starting', 'ready', 'error'])
+    expect(readyContract.statuses).toEqual([
+      'starting',
+      'ready',
+      'error',
+      'stopped'
+    ])
     expect(readyContract.readyFields).toContain('pid')
     expect(readyContract.readyFields).toContain('compiledAt')
     expect(readyContract.eventTypes).toEqual([

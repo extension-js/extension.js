@@ -20,7 +20,7 @@
 
 `ready.json` fields (stable for automation):
 
-- `status`: `starting` | `ready` | `error`
+- `status`: `starting` | `ready` | `error` | `stopped`
 - `command`: `dev` | `start` | `preview`
 - `browser`
 - `runId`
@@ -34,7 +34,8 @@
 - `errors`
 - optional `code` and `message` on failures
 
-`events.ndjson` events:
+`events.ndjson` events (the file is reset at every run start and holds the
+current run only, join on `runId` to correlate across runs):
 
 - `compile_start`
 - `compile_success`
