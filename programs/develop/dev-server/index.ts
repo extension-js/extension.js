@@ -9,6 +9,7 @@
 import {randomUUID} from 'node:crypto'
 import type * as FsTypes from 'node:fs'
 import fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
 import {rspack, type Stats} from '@rspack/core'
@@ -339,7 +340,7 @@ export function installManifestDiskWriteGuard(
   ) => {
     const nextPath =
       isManifestPath(pathLike) && isWriteIntentOpen(flags)
-        ? '/dev/null'
+        ? os.devNull
         : pathLike
     return (originalOpen as (...a: unknown[]) => unknown)(
       nextPath,
@@ -356,7 +357,7 @@ export function installManifestDiskWriteGuard(
   ) => {
     const nextPath =
       isManifestPath(pathLike) && isWriteIntentOpen(flags)
-        ? '/dev/null'
+        ? os.devNull
         : pathLike
     return (originalOpenSync as (...a: unknown[]) => unknown)(
       nextPath,
