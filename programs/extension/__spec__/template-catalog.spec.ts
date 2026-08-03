@@ -110,7 +110,10 @@ describe('--ai-help', () => {
 
   it('declares no substitution, because every name delivers itself', () => {
     const json = programAIHelpJSON('0.0.0')
-    expect(json.templates.aliases).toEqual([])
+    // The aliases key is omitted while the alias list is empty, matching the
+    // pretty listing's suppressed heading. It returns as an array when a real
+    // alias exists again.
+    expect(json.templates.aliases).toBeUndefined()
     expect(json.templates.names).toContain('init')
   })
 })

@@ -489,12 +489,6 @@ ${'Public & special folders (output behavior)'}
 - ${colors.underline(code('pages/'))} files emit as ${code('pages/<name>.html')}. Relative assets referenced inside page HTML are emitted under ${code('assets/')} preserving relative structure, public-root URLs are preserved.
 - ${colors.underline(code('scripts/'))} files emit as ${code('scripts/<name>.js')} with extracted CSS when applicable.
 
-${'Shadow DOM for content scripts'}
-- Add ${code('use shadow-dom')} directive to content scripts for style isolation
-- Automatically creates ${code('#extension-root')} element with shadow DOM
-- All CSS imports are automatically injected into shadow DOM
-- Prevents style conflicts with host page
-
 ${'Environment variables'}
 - Use ${code(arg('EXTENSION_PUBLIC_*'))} prefix for variables accessible in extension code
 - Supported in both ${code('process.env')} and ${code('import.meta.env')}
@@ -608,7 +602,7 @@ export type ProgramAIHelpJSON = {
     catalogUrl: string
     names: string[]
     groups: Array<{title: string; summary: string; templates: string[]}>
-    aliases: Array<{name: string; resolvesTo: string; note: string}>
+    aliases?: Array<{name: string; resolvesTo: string; note: string}>
     notes: string[]
   }
   capabilities: {
@@ -710,7 +704,12 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         summary: group.summary,
         templates: [...group.templates]
       })),
-      aliases: TEMPLATE_ALIASES.map((alias) => ({...alias})),
+      // Omitted while empty, the same reason the pretty listing drops the
+      // Aliases heading: advertising a redirection mechanism with no entries
+      // teaches agents to rely on something that resolves nothing.
+      ...(TEMPLATE_ALIASES.length > 0 && {
+        aliases: TEMPLATE_ALIASES.map((alias) => ({...alias}))
+      }),
       notes: [
         `extension create <name> with no --template scaffolds ${DEFAULT_TEMPLATE}`,
         `${DEFAULT_TEMPLATE} is bundled with the CLI and scaffolds offline. Every other name downloads the examples archive at create time`,
@@ -739,7 +738,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         eventsPath: 'dist/extension-js/<browser>/events.ndjson',
         waitFlag:
           '--wait blocks until ready.json reports ready (or error) then exits, pair with --output json for machine output (--wait-format is a deprecated alias)',
-        statuses: ['starting', 'ready', 'error'],
+        statuses: ['starting', 'ready', 'error', 'stopped'],
         readyFields: [
           'status',
           'command',
@@ -762,7 +761,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         ],
         notes: [
           'ready.json is written atomically by the build (dev/start) on each compile',
-          'events.ndjson is an append-only build timeline with durationMs and errorCount per entry',
+          'events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs',
           '--wait requires a local project path (remote URLs are not supported)',
           'consumers should verify pid liveness and recency before trusting a contract'
         ]

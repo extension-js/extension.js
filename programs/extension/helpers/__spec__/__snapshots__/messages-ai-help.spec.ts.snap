@@ -53,7 +53,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "eventsPath": "dist/extension-js/<browser>/events.ndjson",
       "notes": [
         "ready.json is written atomically by the build (dev/start) on each compile",
-        "events.ndjson is an append-only build timeline with durationMs and errorCount per entry",
+        "events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs",
         "--wait requires a local project path (remote URLs are not supported)",
         "consumers should verify pid liveness and recency before trusting a contract",
       ],
@@ -76,6 +76,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         "starting",
         "ready",
         "error",
+        "stopped",
       ],
       "waitFlag": "--wait blocks until ready.json reports ready (or error) then exits, pair with --output json for machine output (--wait-format is a deprecated alias)",
     },
@@ -229,7 +230,6 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
   ],
   "templates": {
-    "aliases": [],
     "bundled": [
       "javascript",
     ],
