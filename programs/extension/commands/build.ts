@@ -16,6 +16,7 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {
+  BROWSER_TARGETS_HELP,
   type Browser,
   isSafariVendor,
   parseOptionalBoolean,
@@ -51,7 +52,7 @@ export function registerBuildCommand(program: Command) {
     .usage('[path-to-remote-extension] [options]')
     .description(commandDescriptions.build)
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | safari | webkit-based>',
+      `--browser <${BROWSER_TARGETS_HELP}>`,
       'specify a browser/engine to run. Defaults to `chromium`. `safari` builds a Safari app via Xcode (macOS only)'
     )
     .option(
