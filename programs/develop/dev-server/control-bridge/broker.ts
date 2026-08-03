@@ -207,8 +207,10 @@ export class BridgeBroker {
     this.engine = options.engine
     this.ring = options.ring ?? new LogRingBuffer()
     this.file = options.file
-    this.allowControl = options.allowControl ?? false
+    // allowEval implies allowControl: the eval denial names --allow-eval as
+    // the whole remedy, so eval-only sessions must still admit controllers.
     this.allowEval = options.allowEval ?? false
+    this.allowControl = (options.allowControl ?? false) || this.allowEval
     this.controlToken = options.controlToken
     this.actions = options.actions
     this.authorMode = options.authorMode ?? false

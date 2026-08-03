@@ -246,8 +246,8 @@ export interface DevOptions extends BrowserOptionsBase {
   allowControl?: boolean
   /**
    * Additionally allow the `eval` verb, which runs arbitrary code inside a
-   * context and writes a 0600 session token. Only honored together with
-   * `allowControl`. The CLI sets this from `--allow-eval`.
+   * context and writes a 0600 session token. Implies `allowControl`, since
+   * eval is strictly stronger. The CLI sets this from `--allow-eval`.
    */
   allowEval?: boolean
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes

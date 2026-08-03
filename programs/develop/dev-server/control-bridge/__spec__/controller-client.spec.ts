@@ -226,4 +226,25 @@ describe('BridgeController (integration)', () => {
     })
     await expect(controller.connect()).rejects.toThrow(/refused the controller/)
   })
+
+  it('the default connect refusal names --allow-control', async () => {
+    const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
+    server = await startControlServer({broker})
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1'
+    })
+    await expect(controller.connect()).rejects.toThrow(/--allow-control/)
+  })
+
+  it('a threaded unlockFlag replaces the flag the refusal names', async () => {
+    const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
+    server = await startControlServer({broker})
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1',
+      unlockFlag: '--allow-eval'
+    })
+    await expect(controller.connect()).rejects.toThrow(/--allow-eval/)
+  })
 })

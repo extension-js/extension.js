@@ -519,8 +519,10 @@ export async function devServer(
     runId: sessionRunId
   })
 
-  const allowControl = Boolean(extendedOptions.allowControl)
+  // --allow-eval implies --allow-control: eval is strictly stronger, and the
+  // eval refusals name --allow-eval alone as the remedy, so it must suffice.
   const allowEval = Boolean(extendedOptions.allowEval)
+  const allowControl = Boolean(extendedOptions.allowControl) || allowEval
   const authorMode = Boolean(extendedOptions.authorMode) || isDebug()
   const bridgeActionsFile = allowControl
     ? new ActionsFileWriter({

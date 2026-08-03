@@ -312,11 +312,15 @@ async function runCommand(input: RunInput): Promise<void> {
 
   const outputFrame = {command: input.command, output: input.opts.output}
 
+  // eval is unlocked by --allow-eval, not --allow-control; a refusal naming
+  // the wrong flag sends the user through a wasted dev-server restart.
+  const unlockFlag = input.op === 'eval' ? '--allow-eval' : '--allow-control'
+
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     fail(
       `No active control channel found for ${browser}. ` +
-        `Run \`extension dev --browser=${browser} --allow-control\` first.`,
+        `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.`,
       {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )
   }
@@ -327,7 +331,8 @@ async function runCommand(input: RunInput): Promise<void> {
   const controller = new BridgeController({
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,
-    token: token ?? undefined
+    token: token ?? undefined,
+    unlockFlag
   })
 
   try {
