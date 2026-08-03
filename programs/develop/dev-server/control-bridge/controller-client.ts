@@ -23,6 +23,9 @@ export interface ControllerOptions {
   host?: string
   path?: string
   connectTimeoutMs?: number
+  // Flag named in a connect refusal. Eval callers pass --allow-eval so the
+  // 4003 hint matches the verb the user attempted, not the generic gate.
+  unlockFlag?: string
 }
 
 export interface CommandInput {
@@ -136,7 +139,9 @@ export class BridgeController {
             new Error(
               `control channel refused the controller (code ${code}${
                 reason ? `: ${reason}` : ''
-              }). Is the session started with --allow-control?`
+              }). Is the session started with ${
+                this.opts.unlockFlag || '--allow-control'
+              }?`
             )
           )
         }

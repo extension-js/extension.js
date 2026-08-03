@@ -133,6 +133,20 @@ describe('extension eval', () => {
     )
   })
 
+  it('the no-session remedy for eval names --allow-eval', async () => {
+    bridge.ready = null
+    expect(await run(['eval', '1+1'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('--allow-eval')
+    expect(String(errorSpy.mock.calls[0][0])).not.toContain('--allow-control')
+  })
+
+  it('threads --allow-eval into the controller for the connect refusal', async () => {
+    expect(await run(['eval', '1+1'])).toBe(0)
+    expect(bridge.controllers[0].opts).toMatchObject({
+      unlockFlag: '--allow-eval'
+    })
+  })
+
   it('exits 1 when the connect handshake fails', async () => {
     bridge.connectError = new Error('token required')
     expect(await run(['eval', '1+1'])).toBe(1)
@@ -172,6 +186,17 @@ describe('extension storage', () => {
       op: 'storage.get',
       args: {area: 'local'}
     })
+  })
+
+  it('bounded act verbs keep --allow-control in the remedy and controller', async () => {
+    expect(await run(['storage', 'get'])).toBe(0)
+    expect(bridge.controllers[0].opts).toMatchObject({
+      unlockFlag: '--allow-control'
+    })
+
+    bridge.ready = null
+    expect(await run(['storage', 'get'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('--allow-control')
   })
 
   it('gets a single key from a chosen area', async () => {

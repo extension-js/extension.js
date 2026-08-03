@@ -116,6 +116,19 @@ describe('BridgeBroker (Slice 2: act)', () => {
     expect(b.controllerCount).toBe(0)
   })
 
+  it('admits a controller on an eval-only session, allowEval implies control', () => {
+    const b = new BridgeBroker({
+      ...base(),
+      allowControl: false,
+      allowEval: true
+    })
+    const c = new FakeConn('ctl')
+    helloController(b, c)
+    expect(b.controllerCount).toBe(1)
+    const ready = c.sent[0] as any
+    expect(ready.capabilities).toMatchObject({eval: true, storage: true})
+  })
+
   it('routes a command to the executor and the result back to the controller', () => {
     const actions = new FakeActions()
     const b = new BridgeBroker(base({actions, now: () => 1000}))

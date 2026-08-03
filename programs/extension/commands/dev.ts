@@ -230,7 +230,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--allow-eval',
-      'additionally enable `extension eval` (runs arbitrary code in a context; writes a 0600 session token)'
+      'additionally enable `extension eval` (implies --allow-control, runs arbitrary code in a context, writes a 0600 session token)'
     )
     .option(
       '--parent-pid <pid>',
