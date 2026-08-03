@@ -9,7 +9,6 @@
 import {readFileSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {readGitIdentity} from '../lib/git-identity'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {
@@ -216,14 +215,8 @@ export async function overridePackageJson(
     ...(onlyBuilt.length ? {onlyBuiltDependencies: onlyBuilt} : {})
   }
 
-  const identity = readGitIdentity(projectPath)
-  const author = identity.name
-    ? {
-        name: identity.name,
-        ...(identity.email ? {email: identity.email} : {})
-      }
-    : undefined
-
+  // The template author is the template's, never the scaffold's. A fresh
+  // scaffold has no author yet, so the field is dropped rather than guessed.
   const templateFields: Record<string, unknown> = {...packageJson}
   delete templateFields.author
 
@@ -239,8 +232,7 @@ export async function overridePackageJson(
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
     ...(Object.keys(pnpmSettings).length ? {pnpm: pnpmSettings} : {}),
-    ...(trustedDeps.length ? {trustedDependencies: trustedDeps} : {}),
-    ...(author ? {author} : {})
+    ...(trustedDeps.length ? {trustedDependencies: trustedDeps} : {})
   }
 
   try {

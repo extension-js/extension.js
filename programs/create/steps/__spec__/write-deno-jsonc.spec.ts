@@ -99,6 +99,11 @@ describe('writeDenoJsonc', () => {
       path.join(projectPath, 'package.json'),
       JSON.stringify({
         name: 'template',
+        author: {
+          name: 'Template Author',
+          email: 'template@example.com',
+          url: 'https://template.example.com'
+        },
         dependencies: {react: '^18.3.1', 'react-dom': '^18.3.1'},
         devDependencies: {typescript: '5.3.3'}
       })
@@ -112,9 +117,11 @@ describe('writeDenoJsonc', () => {
       )
     })
 
-    const config = parseJsonc(
-      await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
+    const contents = await fsp.readFile(
+      path.join(projectPath, 'deno.jsonc'),
+      'utf8'
     )
+    const config = parseJsonc(contents)
     expect(config.imports).toMatchObject({
       react: 'npm:react@^18.3.1',
       'react-dom': 'npm:react-dom@^18.3.1',
@@ -123,6 +130,8 @@ describe('writeDenoJsonc', () => {
     })
     expect(config.nodeModulesDir).toBe('auto')
     expect(config.tasks.dev).toBe('extension dev')
+    expect(contents).not.toContain('Template Author')
+    expect(contents).not.toContain('template@example.com')
 
     await expect(
       fsp.access(path.join(projectPath, 'package.json'))

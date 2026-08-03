@@ -282,11 +282,45 @@ describe('overridePackageJson author identity', () => {
     vi.unstubAllEnvs()
   })
 
-  it('writes the identity git will commit the scaffold with', async () => {
+  it('drops a template author block entirely, leaving no author key', async () => {
     await withTempDir(async (projectPath) => {
       await fs.writeFile(
         path.join(projectPath, 'package.json'),
-        JSON.stringify({name: 'seed', private: true})
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          author: {
+            name: 'Template Author',
+            email: 'template@example.com',
+            url: 'https://template.example.com'
+          }
+        })
+      )
+
+      await withGitIdentity(undefined, () =>
+        overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
+      )
+
+      const raw = await fs.readFile(
+        path.join(projectPath, 'package.json'),
+        'utf8'
+      )
+      expect(Object.keys(JSON.parse(raw))).not.toContain('author')
+      expect(raw).not.toContain('Template Author')
+      expect(raw).not.toContain('template@example.com')
+      expect(raw).not.toContain('https://template.example.com')
+    })
+  })
+
+  it('does not guess an author from git config either', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          author: {name: 'Template Author', email: 'template@example.com'}
+        })
       )
 
       await withGitIdentity(
@@ -294,18 +328,17 @@ describe('overridePackageJson author identity', () => {
         () => overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
       )
 
-      const pkg = JSON.parse(
-        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      const raw = await fs.readFile(
+        path.join(projectPath, 'package.json'),
+        'utf8'
       )
-
-      expect(pkg.author).toEqual({
-        name: 'Scaffold Tester',
-        email: 'scaffold@example.com'
-      })
+      expect(Object.keys(JSON.parse(raw))).not.toContain('author')
+      expect(raw).not.toContain('Scaffold Tester')
+      expect(raw).not.toContain('scaffold@example.com')
     })
   })
 
-  it('omits the author when git cannot name one', async () => {
+  it('writes no placeholder author when the template ships none', async () => {
     await withTempDir(async (projectPath) => {
       await fs.writeFile(
         path.join(projectPath, 'package.json'),
@@ -323,30 +356,6 @@ describe('overridePackageJson author identity', () => {
       expect(JSON.parse(raw).author).toBeUndefined()
       expect(raw).not.toContain('Your Name')
       expect(raw).not.toContain('your@email.com')
-    })
-  })
-
-  it("never carries the template author's identity forward", async () => {
-    await withTempDir(async (projectPath) => {
-      await fs.writeFile(
-        path.join(projectPath, 'package.json'),
-        JSON.stringify({
-          name: 'seed',
-          private: true,
-          author: {name: 'Template Author', email: 'template@example.com'}
-        })
-      )
-
-      await withGitIdentity(undefined, () =>
-        overridePackageJson(projectPath, {cliVersion: '4.0.1'}, console)
-      )
-
-      const raw = await fs.readFile(
-        path.join(projectPath, 'package.json'),
-        'utf8'
-      )
-      expect(raw).not.toContain('Template Author')
-      expect(raw).not.toContain('template@example.com')
     })
   })
 })

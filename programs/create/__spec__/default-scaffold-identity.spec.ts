@@ -1,7 +1,7 @@
-import {sync as spawnSync} from 'cross-spawn'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {sync as spawnSync} from 'cross-spawn'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {extensionCreate} from '../module'
 
@@ -87,9 +87,22 @@ describe('the default scaffold names itself', () => {
 })
 
 describe('the scaffold carries no placeholder identity', () => {
-  it('takes the author from the identity git will commit with', async () => {
+  it('ships package.json without any author key', async () => {
     const pkg = await readJson('package.json')
-    expect(pkg.author).toEqual({name: IDENTITY_NAME, email: IDENTITY_EMAIL})
+    expect(Object.keys(pkg)).not.toContain('author')
+  })
+
+  it("drops the bundled template's author block instead of inheriting it", async () => {
+    const pkg = await readProjectFile('package.json')
+    expect(pkg).not.toContain('Cezar Augusto')
+    expect(pkg).not.toContain('boss@cezaraugusto.net')
+    expect(pkg).not.toContain('cezaraugusto.com')
+  })
+
+  it('does not guess an author from the git identity either', async () => {
+    const pkg = await readProjectFile('package.json')
+    expect(pkg).not.toContain(IDENTITY_NAME)
+    expect(pkg).not.toContain(IDENTITY_EMAIL)
   })
 
   it('never writes Your Name anywhere in the project', async () => {
