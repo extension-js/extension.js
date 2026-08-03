@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 4.0.28 (August 3, 2026)
+
+### Fixes
+
+- Guard load-checked HTML entry points in the persist gate ([86feaad0](https://github.com/extension-js/extension.js/commit/86feaad07135219b534708a5b3753d993f751bd8))
+- Harden the built-in theme contrast and per-engine key parity ([05050c18](https://github.com/extension-js/extension.js/commit/05050c1899e946f0e263944859060cccf7415884))
+- Fix extension-js-devtools typecheck under TypeScript 7 ([56867d75](https://github.com/extension-js/extension.js/commit/56867d7502783dfe37483c48c71156cf523c4af8))
+
+<details>
+<summary>Other changes (13)</summary>
+
+- Drop the stale templates/wasm ignore rule ([550b2589](https://github.com/extension-js/extension.js/commit/550b2589e304998b35484907407717e49c1398e4))
+- Redirect guarded manifest writes to the platform null device ([cc370099](https://github.com/extension-js/extension.js/commit/cc370099ff9eb1e09f2e2fb6aef64fc5b494eb94))
+- Pin the default template corpus to a commit instead of tracking main ([9f578c68](https://github.com/extension-js/extension.js/commit/9f578c68270a5363e6c8ebc0cfd29f0204e3afe7))
+- Convert hex theme colors for chromium builds instead of refusing ([0d332d0c](https://github.com/extension-js/extension.js/commit/0d332d0cb4c6569690d8cb28eeebc18fdf3b2a2f))
+- Keep the catalog screenshot out of every scaffold and its store zip ([3ac6630e](https://github.com/extension-js/extension.js/commit/3ac6630e35b4ad5c7685d2190f7119c772fd2191))
+- Make --allow-eval self-sufficient and name it in eval refusals ([700c0247](https://github.com/extension-js/extension.js/commit/700c02479f287f150b4352d751bfae0d588316a8))
+- Refuse a publish that would share a project you are not in ([dc88e4df](https://github.com/extension-js/extension.js/commit/dc88e4dfd3888c5aac6ca4aa047595cd54b86d63))
+- Drop the template author from scaffolds instead of inheriting it ([f4bd8695](https://github.com/extension-js/extension.js/commit/f4bd86952267cc7d73e3f51e649451a93bf8bc45))
+- Remove type casts left by the manifest-shape and flags campaigns ([c18a55d7](https://github.com/extension-js/extension.js/commit/c18a55d76417a9834365b973c99ce4a80164b8ce))
+- Scope the manifest write guard per server and spare read opens ([e4b7c4da](https://github.com/extension-js/extension.js/commit/e4b7c4da8f591498ce7d5f8c533c4482b3de5da1))
+- Compare theme_icons by value so identical manifests never diff ([f4628db4](https://github.com/extension-js/extension.js/commit/f4628db48f8ef3860b2bc6365aa41d975d6dc73c))
+- Declare gecko data_collection_permissions in the built-in extensions ([0a7a718e](https://github.com/extension-js/extension.js/commit/0a7a718e71517da78a28ffa65c5514eca390e586))
+- Print the build receipt against the merged output.path ([bb9092d4](https://github.com/extension-js/extension.js/commit/bb9092d47af0a27d865099a43a439ec6dbf158bb))
+</details>
+
 ## 4.0.27 (August 2, 2026)
 
 ### Fixes
