@@ -4,10 +4,20 @@ import * as path from 'node:path'
 import AdmZip from 'adm-zip'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+  DEFAULT_TEMPLATES_REF,
   extractExamplesTemplateFromZip,
   resolveCatalogUrls,
   TemplateNotFoundError
 } from '../import-external-template'
+
+describe('DEFAULT_TEMPLATES_REF', () => {
+  it('pins the shipped corpus to an immutable commit, never a branch', () => {
+    expect(DEFAULT_TEMPLATES_REF).toMatch(/^[0-9a-f]{40}$/)
+    expect(resolveCatalogUrls(DEFAULT_TEMPLATES_REF)).toEqual([
+      `https://codeload.github.com/extension-js/examples/zip/${DEFAULT_TEMPLATES_REF}`
+    ])
+  })
+})
 
 const tempDirs: string[] = []
 afterEach(() => {

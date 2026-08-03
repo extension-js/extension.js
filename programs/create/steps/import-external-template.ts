@@ -29,6 +29,11 @@ const NETWORK_TIMEOUT_MS = (() => {
 // at /zip/refs/tags/<tag>, a branch at /zip/refs/heads/<branch>.
 const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
 
+// The default corpus is PINNED to an immutable commit, so two scaffolds of the
+// same template always match and the shipped CLI never tracks a moving branch.
+// Bump at release time; EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
+export const DEFAULT_TEMPLATES_REF = '52c0d871c433d9c54878767175ce8ffc9a951756'
+
 // Map EXTENSION_CREATE_TEMPLATE_REF to the codeload URL(s) that can resolve it, so
 // a commit SHA or tag pins the corpus reproducibly and not only a branch. A bare
 // name is branch-or-tag ambiguous, so try branch first (the historical default,
@@ -155,7 +160,7 @@ async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string
 ): Promise<{source: string; ref?: string}> {
-  const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || 'main'
+  const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
