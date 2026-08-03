@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {buildPublishRequest} from '../commands/publish'
+import {buildPublishPlan, buildPublishRequest} from '../commands/publish'
 
 const ORIG = {...process.env}
 let configDir = ''
@@ -126,5 +126,135 @@ describe('stored device login fallback', () => {
     expect(message).toContain('--token')
     expect(message).toContain('EXTENSION_DEV_TOKEN')
     expect(message).toContain('npx @extension.dev/mcp login')
+  })
+})
+
+describe('a stored login is scoped to one project', () => {
+  let projectDir = ''
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-proj-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(projectDir, {recursive: true, force: true})
+  })
+
+  function writeProject(name: string) {
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      JSON.stringify({name, version: '1.0.0'})
+    )
+  }
+
+  it('refuses when the stored login names a project this directory is not', () => {
+    writeStoredLogin('tok_stored', {
+      projectSlug: 'xvelte',
+      workspaceSlug: 'cezaraugusto'
+    })
+    writeProject('pubwalk')
+    expect(() => buildPublishRequest({projectPath: projectDir})).toThrow(
+      /scoped to the "xvelte" project/
+    )
+  })
+
+  it('the refusal names both projects, the workspace, and every way out', () => {
+    writeStoredLogin('tok_stored', {
+      projectSlug: 'xvelte',
+      workspaceSlug: 'cezaraugusto'
+    })
+    writeProject('pubwalk')
+    let message = ''
+    try {
+      buildPublishRequest({projectPath: projectDir})
+    } catch (err) {
+      message = (err as Error).message
+    }
+    expect(message).toContain('xvelte')
+    expect(message).toContain('pubwalk')
+    expect(message).toContain('cezaraugusto')
+    expect(message).toContain('--project xvelte')
+    expect(message).toContain('--token')
+  })
+
+  it('publishes when the directory is the project the login is scoped to', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('xvelte')
+    const plan = buildPublishPlan({projectPath: projectDir})
+    expect(plan.request.headers.authorization).toBe('Bearer tok_stored')
+    expect(plan.scope.actsFor).toBe('xvelte')
+    expect(plan.scope.source).toBe('stored-login')
+  })
+
+  it('matches a slug against a differently punctuated directory name', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'my-side-panel'})
+    writeProject('My Side Panel')
+    expect(() =>
+      buildPublishRequest({projectPath: projectDir})
+    ).not.toThrow()
+  })
+
+  it('--project names the scoped project on purpose and proceeds', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    const plan = buildPublishPlan({
+      projectPath: projectDir,
+      project: 'xvelte'
+    })
+    expect(plan.request.headers.authorization).toBe('Bearer tok_stored')
+    expect(plan.scope.actsFor).toBe('xvelte')
+  })
+
+  it('--project naming a third project is refused, not silently ignored', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    expect(() =>
+      buildPublishRequest({projectPath: projectDir, project: 'something-else'})
+    ).toThrow(/stored login is scoped to "xvelte"/)
+  })
+
+  it('--token carries its own scope, so the stored login never gates it', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    const plan = buildPublishPlan({projectPath: projectDir, token: 'tok_flag'})
+    expect(plan.request.headers.authorization).toBe('Bearer tok_flag')
+    expect(plan.scope.source).toBe('flag')
+    expect(plan.scope.actsFor).toBe('pubwalk')
+  })
+
+  it('EXTENSION_DEV_TOKEN carries its own scope too', () => {
+    process.env.EXTENSION_DEV_TOKEN = 'tok_env'
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    const plan = buildPublishPlan({projectPath: projectDir})
+    expect(plan.request.headers.authorization).toBe('Bearer tok_env')
+    expect(plan.scope.source).toBe('env')
+  })
+
+  it('a stored login with no projectSlug cannot gate anything', () => {
+    writeStoredLogin('tok_stored')
+    writeProject('pubwalk')
+    expect(() =>
+      buildPublishRequest({projectPath: projectDir})
+    ).not.toThrow()
+  })
+
+  it('falls back to the directory name when the project has no package.json', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    expect(() => buildPublishRequest({projectPath: projectDir})).toThrow(
+      new RegExp(path.basename(projectDir))
+    )
+  })
+
+  it('reads the extension manifest name when there is no package.json', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    fs.mkdirSync(path.join(projectDir, 'src'), {recursive: true})
+    fs.writeFileSync(
+      path.join(projectDir, 'src', 'manifest.json'),
+      JSON.stringify({name: 'xvelte', manifest_version: 3})
+    )
+    expect(() =>
+      buildPublishRequest({projectPath: projectDir})
+    ).not.toThrow()
   })
 })

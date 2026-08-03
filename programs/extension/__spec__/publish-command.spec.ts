@@ -92,10 +92,22 @@ describe('extension publish', () => {
       ok: true,
       command: 'publish',
       status: 'published',
-      value: {shareUrl: 'https://ext.dev/s/abc'},
+      value: {
+        shareUrl: 'https://ext.dev/s/abc',
+        project: path.basename(process.cwd()) && expect.any(String),
+        tokenSource: 'flag'
+      },
       error: null,
       warnings: []
     })
+  })
+
+  it('names the project the share is for, so no reader has to parse the URL', async () => {
+    respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
+    expect(await run(['publish', '--token', 'tok', '--output', 'json'])).toBe(0)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(String(frame.value.project).length).toBeGreaterThan(0)
+    expect(frame.value.tokenSource).toBe('flag')
   })
 
   it('emits E_AUTH_REQUIRED on stdout when no token is available', async () => {
