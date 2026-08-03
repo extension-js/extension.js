@@ -29,6 +29,7 @@ import {
 import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
 import {
+  BROWSER_TARGETS_HELP,
   type Browser,
   isSafariVendor,
   parseOptionalBoolean,
@@ -108,7 +109,7 @@ export function registerDevCommand(program: Command) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '-b, --browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | safari | webkit-based>',
+      `-b, --browser <${BROWSER_TARGETS_HELP}>`,
       'specify a browser/engine to run. Defaults to `chromium`. `safari` builds and opens a Safari app via Xcode (macOS only; no live reload)'
     )
     .option(

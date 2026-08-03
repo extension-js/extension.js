@@ -21,6 +21,29 @@ export function isSafariVendor(value: string): boolean {
   return value === 'safari' || value === 'webkit-based'
 }
 
+// Single source for every target the parser accepts, in display order.
+// Help strings and validateVendors both read this list, so a vendor added
+// here is discoverable from --help the same day it parses.
+export const SUPPORTED_BROWSER_TARGETS = [
+  'chrome',
+  'chromium',
+  'edge',
+  'firefox',
+  'brave',
+  'opera',
+  'vivaldi',
+  'yandex',
+  'waterfox',
+  'librewolf',
+  'chromium-based',
+  'gecko-based',
+  'firefox-based',
+  'safari',
+  'webkit-based'
+]
+
+export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
+
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
   const normalized = String(value).trim().toLowerCase()
@@ -48,23 +71,7 @@ export function validateVendors(
   vendorsList: string[],
   onInvalid: (invalid: string, supported: string[]) => void
 ): boolean {
-  const supported = [
-    'chrome',
-    'edge',
-    'firefox',
-    'chromium',
-    'brave',
-    'opera',
-    'vivaldi',
-    'yandex',
-    'waterfox',
-    'librewolf',
-    'chromium-based',
-    'gecko-based',
-    'firefox-based',
-    'safari',
-    'webkit-based'
-  ]
+  const supported = SUPPORTED_BROWSER_TARGETS
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
       onInvalid(v, supported)
