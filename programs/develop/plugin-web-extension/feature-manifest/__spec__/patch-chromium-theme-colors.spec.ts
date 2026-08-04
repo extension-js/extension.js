@@ -1,5 +1,8 @@
 import {describe, expect, it} from 'vitest'
-import {parseHexThemeColor} from '../manifest-lib/theme-values'
+import {
+  parseCssThemeColor,
+  parseHexThemeColor
+} from '../manifest-lib/theme-values'
 import {patchChromiumThemeColors} from '../steps/patch-chromium-theme-colors'
 
 describe('parseHexThemeColor', () => {
@@ -31,6 +34,39 @@ describe('parseHexThemeColor', () => {
   })
 })
 
+describe('parseCssThemeColor', () => {
+  it('parses named colors case-insensitively', () => {
+    expect(parseCssThemeColor('blue')).toEqual([0, 0, 255])
+    expect(parseCssThemeColor('BLACK')).toEqual([0, 0, 0])
+    expect(parseCssThemeColor(' rebeccapurple ')).toEqual([102, 51, 153])
+  })
+
+  it('parses transparent as a zero-alpha color', () => {
+    expect(parseCssThemeColor('transparent')).toEqual([0, 0, 0, 0])
+  })
+
+  it('parses numeric rgb() and rgba()', () => {
+    expect(parseCssThemeColor('rgb(0, 0, 0)')).toEqual([0, 0, 0])
+    expect(parseCssThemeColor('rgb(255,128,0)')).toEqual([255, 128, 0])
+    expect(parseCssThemeColor('rgba(255, 0, 0, 0.5)')).toEqual([255, 0, 0, 0.5])
+    expect(parseCssThemeColor('rgba(0, 0, 0, 1)')).toEqual([0, 0, 0, 1])
+  })
+
+  it('keeps hex parsing intact', () => {
+    expect(parseCssThemeColor('#e53')).toEqual([238, 85, 51])
+    expect(parseCssThemeColor('#00000080')).toEqual([0, 0, 0, 0.502])
+  })
+
+  it('refuses what the grammar does not cover', () => {
+    expect(parseCssThemeColor('notacolor')).toBeUndefined()
+    expect(parseCssThemeColor('hsl(0, 100%, 50%)')).toBeUndefined()
+    expect(parseCssThemeColor('rgb(300, 0, 0)')).toBeUndefined()
+    expect(parseCssThemeColor('rgb(0, 0)')).toBeUndefined()
+    expect(parseCssThemeColor([0, 0, 0])).toBeUndefined()
+    expect(parseCssThemeColor(undefined)).toBeUndefined()
+  })
+})
+
 describe('patchChromiumThemeColors', () => {
   const themedManifest = (colors: Record<string, unknown>) =>
     ({
@@ -52,14 +88,26 @@ describe('patchChromiumThemeColors', () => {
     })
   })
 
-  it('keeps sibling theme keys and non-hex values untouched', () => {
+  it('converts named colors and rgb() for chromium targets', () => {
     const patched: any = patchChromiumThemeColors(
-      themedManifest({frame: '#000', toolbar: [1, 2, 3], odd: 'red'}),
+      themedManifest({frame: 'blue', tab_text: 'BLACK', bg: 'rgb(255, 0, 0)'}),
+      'chrome'
+    )
+    expect(patched.theme.colors).toEqual({
+      frame: [0, 0, 255],
+      tab_text: [0, 0, 0],
+      bg: [255, 0, 0]
+    })
+  })
+
+  it('keeps sibling theme keys and unconvertible values untouched', () => {
+    const patched: any = patchChromiumThemeColors(
+      themedManifest({frame: '#000', toolbar: [1, 2, 3], odd: 'notacolor'}),
       'chromium'
     )
     expect(patched.theme.images).toEqual({theme_frame: 'frame.png'})
     expect(patched.theme.colors.toolbar).toEqual([1, 2, 3])
-    expect(patched.theme.colors.odd).toBe('red')
+    expect(patched.theme.colors.odd).toBe('notacolor')
   })
 
   it('returns the manifest unchanged for gecko targets', () => {
