@@ -44,10 +44,18 @@ describe('collectThemeValueIssues', () => {
   })
 
   it('rejects non-array and non-numeric values', () => {
-    expect(themed({colors: {frame: 'red'}})).toHaveLength(1)
-    expect(themed({colors: {frame: 'rgb(0, 0, 0)'}})).toHaveLength(1)
+    expect(themed({colors: {frame: 'notacolor'}})).toHaveLength(1)
+    expect(themed({colors: {frame: 'hsl(0, 100%, 50%)'}})).toHaveLength(1)
     expect(themed({colors: {frame: ['a', 0, 0]}})).toHaveLength(1)
     expect(themed({colors: {frame: [0, 0, 0, 'x']}})).toHaveLength(1)
+  })
+
+  it('accepts named colors and rgb(), which the chromium writer converts', () => {
+    expect(themed({colors: {frame: 'red'}})).toEqual([])
+    expect(themed({colors: {frame: 'BLUE'}})).toEqual([])
+    expect(themed({colors: {frame: 'transparent'}})).toEqual([])
+    expect(themed({colors: {frame: 'rgb(0, 0, 0)'}})).toEqual([])
+    expect(themed({colors: {frame: 'rgba(255, 0, 0, 0.5)'}})).toEqual([])
   })
 
   it('accepts hex strings, which the chromium writer converts to arrays', () => {
@@ -71,7 +79,7 @@ describe('collectThemeValueIssues', () => {
 
   it('reports every malformed key', () => {
     const issues = themed({
-      colors: {frame: [40.5, 48, 72], toolbar: 'red'},
+      colors: {frame: [40.5, 48, 72], toolbar: 'notacolor'},
       tints: {buttons: [1, 2]}
     })
     expect(issues.map((issue) => issue.field)).toEqual([

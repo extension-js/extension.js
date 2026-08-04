@@ -8,11 +8,12 @@
 
 import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
-import {parseHexThemeColor} from '../manifest-lib/theme-values'
+import {parseCssThemeColor} from '../manifest-lib/theme-values'
 
 // Firefox parses theme.colors as CSS strings, Chrome only as integer arrays.
-// Convert hex strings for chromium targets so one manifest serves both;
-// gecko keeps the string form and non-hex values pass through untouched.
+// Convert CSS color strings (hex, named, rgb()) for chromium targets so one
+// manifest serves both; gecko keeps the string form and values outside the
+// grammar pass through untouched for the validator to refuse.
 export function patchChromiumThemeColors(
   manifest: Manifest,
   browser: DevOptions['browser']
@@ -37,7 +38,7 @@ export function patchChromiumThemeColors(
   const patchedColors: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(colors)) {
-    const rgb = parseHexThemeColor(value)
+    const rgb = parseCssThemeColor(value)
     patchedColors[key] = rgb ?? value
     if (rgb) converted = true
   }

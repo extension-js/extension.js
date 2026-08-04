@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../../types'
+import {NAMED_CSS_COLORS} from './named-css-colors'
 
 export interface ThemeValueIssue {
   field: string
@@ -42,11 +43,38 @@ export function parseHexThemeColor(value: unknown): number[] | undefined {
   return [...bytes.slice(0, 3), Math.round((bytes[3] / 255) * 1000) / 1000]
 }
 
+// Firefox accepts the whole CSS <color> grammar in theme.colors. Everything
+// unambiguous converts for chromium the same way hex does: named keywords,
+// transparent, and numeric rgb()/rgba(). Values outside that grammar keep
+// refusing, so the guard on what Chrome genuinely rejects stays intact.
+export function parseCssThemeColor(value: unknown): number[] | undefined {
+  const hex = parseHexThemeColor(value)
+  if (hex) return hex
+  if (typeof value !== 'string') return undefined
+
+  const keyword = value.trim().toLowerCase()
+  if (keyword === 'transparent') return [0, 0, 0, 0]
+
+  const named = NAMED_CSS_COLORS[keyword]
+  if (named) return [...named]
+
+  const match =
+    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d+|1\.0+)\s*)?\)$/.exec(
+      keyword
+    )
+  if (!match) return undefined
+
+  const channels = match.slice(1, 4).map(Number)
+  if (channels.some((channel) => channel > 255)) return undefined
+  if (match[4] === undefined) return channels
+  return [...channels, Number(match[4])]
+}
+
 // Chrome's theme_handler.cc: colors are [R, G, B] or [R, G, B, A] with integer
 // channels and a numeric alpha, anything else refuses the whole extension.
-// Hex strings pass because the chromium manifest writer converts them.
+// CSS color strings pass because the chromium manifest writer converts them.
 function colorValueDetail(value: unknown): string | undefined {
-  if (parseHexThemeColor(value)) return undefined
+  if (parseCssThemeColor(value)) return undefined
 
   if (!Array.isArray(value) || (value.length !== 3 && value.length !== 4)) {
     return 'Chrome only accepts an [R, G, B] or [R, G, B, A] array here.'
