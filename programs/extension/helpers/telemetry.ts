@@ -223,9 +223,65 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
   return null
 }
 
-function loadOrCreateId(file: string): string {
+// Telemetry state inside a git worktree arrived with a checkout, not with a
+// person: a repo can commit its own XDG redirect target (a public repo
+// shipped consent, one identity and 6 MB of events this way). Files there
+// cannot speak for whoever cloned them. The walk stops at the home
+// directory, a dotfiles repo rooted at ~ is the owner's own machine state.
+export function isInsideGitWorkTree(startDir: string): boolean {
+  const home = (() => {
+    try {
+      return path.resolve(os.homedir())
+    } catch {
+      return ''
+    }
+  })()
+  let current = path.resolve(startDir)
+  for (let i = 0; i < 100; i++) {
+    if (home && current === home) return false
+    try {
+      if (fs.existsSync(path.join(current, '.git'))) return true
+    } catch {
+      // Ignore
+    }
+    const parent = path.dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+  return false
+}
+
+// A committed anonymous-id would aggregate every contributor into one
+// distinct_id, so an id read from a worktree is re-keyed with a machine salt:
+// stable per machine and checkout, distinct across machines, and never the
+// raw committed value.
+function machineScopedId(rawId: string): string {
+  let salt = ''
   try {
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
+    salt = `${os.hostname()}|${os.userInfo().username}`
+  } catch {
+    salt = String(os.hostname?.() || '')
+  }
+  const digest = crypto
+    .createHash('sha256')
+    .update(`${rawId}|${salt}`)
+    .digest('hex')
+  return [
+    digest.slice(0, 8),
+    digest.slice(8, 12),
+    digest.slice(12, 16),
+    digest.slice(16, 20),
+    digest.slice(20, 32)
+  ].join('-')
+}
+
+export function loadOrCreateId(file: string): string {
+  const inWorkTree = isInsideGitWorkTree(path.dirname(file))
+  try {
+    if (fs.existsSync(file)) {
+      const stored = fs.readFileSync(file, 'utf8').trim()
+      return inWorkTree ? machineScopedId(stored) : stored
+    }
   } catch {
     // Ignore
   }
@@ -238,7 +294,7 @@ function loadOrCreateId(file: string): string {
       // Ignore
     }
   }
-  return id
+  return inWorkTree ? machineScopedId(id) : id
 }
 
 function readConsentFile(file: string): 'enabled' | 'disabled' | null {
@@ -334,7 +390,17 @@ export function resolveTelemetryConsent(argv: string[] = process.argv): {
 
   if (isCI() && !process.stdout.isTTY) return {enabled: false, source: 'ci'}
 
-  if (stored === 'enabled') return {enabled: true, source: 'config'}
+  // A consent file that lives inside a git worktree came with the clone, so
+  // it cannot record this person's agreement and never yields `enabled`; it
+  // falls through to the default, which shows the first-run notice. A stored
+  // `disabled` above is a refusal and inheriting silence harms nobody.
+  if (
+    stored === 'enabled' &&
+    storage &&
+    !isInsideGitWorkTree(storage.telemetryDir)
+  ) {
+    return {enabled: true, source: 'config'}
+  }
 
   return {enabled: true, source: 'default'}
 }
