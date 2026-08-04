@@ -201,7 +201,10 @@ export function registerLogsCommand(program: Command) {
       '--level <off|error|warn|info|debug|trace|all>',
       'minimum severity to show. Defaults to `all`'
     )
-    .option('--signals-only', 'show only structured dx.signal diagnostics')
+    .option(
+      '--signals-only',
+      '[experimental] show only structured dx.signal diagnostics. No emitter ships yet, so this currently prints nothing'
+    )
     .option('--since <seq|iso>', 'only show events after this sequence number')
     .option(
       '--url <glob|substring>',
