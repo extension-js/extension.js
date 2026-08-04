@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 4.0.29 (August 4, 2026)
+
+- No changes listed.
+
 ## 4.0.28 (August 3, 2026)
 
 ### Fixes
