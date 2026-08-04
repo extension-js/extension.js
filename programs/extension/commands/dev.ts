@@ -481,7 +481,10 @@ export function registerDevCommand(program: Command) {
             safariPackager: createSafariPackager({
               browser: vendor as 'safari' | 'webkit-based',
               // Open by default in dev when neither flag nor config sets it.
-              noOpen: explicitNoOpen ?? false
+              noOpen: explicitNoOpen ?? false,
+              // Dev sessions get the identity card and ready line the other
+              // launchers print; build packaging stays quiet.
+              announceDevReady: true
             })
           }
 

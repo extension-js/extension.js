@@ -30,6 +30,8 @@ export interface SafariPackagerOverrides {
 export interface SafariPackagerOptions extends SafariPackagerOverrides {
   /** 'safari' or 'webkit-based'. Defaults to 'safari'. */
   browser?: 'safari' | 'webkit-based'
+  /** Print the dev identity card and ready line after the first full package. */
+  announceDevReady?: boolean
   /** Skip opening the packaged app. Defaults to true: packaging is not launching. */
   noOpen?: boolean
   /** Print the commands instead of running them. */

@@ -14,7 +14,9 @@ import {
   humanWarn,
   isDebug
 } from '../../../helpers/messaging'
+import {printDevBannerOnce} from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
+import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {logSafariDryRun} from './dry-run'
@@ -200,6 +202,31 @@ export function safariBuildPreflight(): SafariBuildPreflight {
   return {severity: 'ok'}
 }
 
+// Dev parity with the Chromium and Firefox launchers: the session has an
+// identity (the appex the converter produced) and a ready moment (the watch
+// loop resyncs per compile), so announce both. The appex id is the same
+// needle confirmRegisteredWithSafari polls pluginkit for.
+async function announceSafariDevSession(
+  host: SafariPluginLike,
+  config: SafariBuildConfig,
+  appPath?: string
+): Promise<void> {
+  try {
+    await printDevBannerOnce({
+      browser: host.browser,
+      outPath: config.extensionDir,
+      getInfo: async () => ({
+        extensionId: `${config.bundleIdentifier}.Extension`,
+        name: config.appName
+      }),
+      binaryPath: appPath
+    })
+    humanLine(devServerReady('development', String(host.browser)))
+  } catch {
+    // The announcement must never fail the packaging pipeline.
+  }
+}
+
 async function runSafariPipeline(
   compilation: CompilationLike,
   host: SafariPluginLike,
@@ -341,6 +368,9 @@ async function runSafariPipeline(
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
     logger.info?.(messages.safariOpenHint(appPath, config.appName))
+    if (host.announceDevReady) {
+      await announceSafariDevSession(host, config, appPath)
+    }
     return describePackage(config)
   }
 
@@ -360,6 +390,10 @@ async function runSafariPipeline(
     logger.info?.(messages.safariRegistered(config.appName))
   } else {
     logger.info?.(messages.safariNotYetRegistered(config.appName))
+  }
+
+  if (host.announceDevReady) {
+    await announceSafariDevSession(host, config, appPath)
   }
 
   return describePackage(config)

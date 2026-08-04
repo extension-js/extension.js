@@ -18,6 +18,9 @@ export type SafariPluginLike = Pick<
   bundleId?: string
   macOsOnly?: boolean
   forceRegenerate?: boolean
+  // Dev sessions announce the identity card and ready line after the first
+  // full package; build/preview packaging stays quiet.
+  announceDevReady?: boolean
 }
 
 export interface SafariBuildConfig {
