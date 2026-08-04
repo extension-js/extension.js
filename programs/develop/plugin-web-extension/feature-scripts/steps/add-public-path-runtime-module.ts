@@ -74,7 +74,11 @@ function PublicPathRuntimeModule(compiler: Compiler) {
           `try { __extjsRuntimePath = runtime.runtime.getURL(path); } catch (_) { __extjsRuntimePath = ""; }`
         ]),
         `}`,
-        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' || !(isBrowser || isChrome) ? path : (__extjsRuntimePath || (__extjsBase ? __extjsBase.replace(/\\/+$/, "/") + String(path).replace(/^\\/+/, "") : ""));`
+        // Precedence: worker keeps the configured path, a live runtime wins,
+        // then the isolated-world bridge base. The bridge exists FOR the
+        // MAIN world, where no runtime is available, so the base must be
+        // consulted exactly when the runtime path comes back empty.
+        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' ? path : (__extjsRuntimePath || (__extjsBase ? __extjsBase.replace(/\\/+$/, "/") + String(path).replace(/^\\/+/, "") : path));`
       ])
     }
   }
