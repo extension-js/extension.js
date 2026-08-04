@@ -41,6 +41,11 @@ export type FirefoxPluginLike = Pick<
 export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   rdpController?: FirefoxRDPController
   browserVersionLine?: string
+  // Resolved launch identity for the dev banner: the RDP layer prints the
+  // card, the launcher owns the profile and binary, these carry them across.
+  launchProfilePath?: string
+  launchBinaryPath?: string
+  launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   logSink?: BrowserLogSink
   // Gecko's reason for throwing the add-on out, set at launch. Withholds the
   // ready line, exactly as the Chromium runtime's twin field does.

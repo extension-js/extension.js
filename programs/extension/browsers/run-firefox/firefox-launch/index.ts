@@ -45,6 +45,7 @@ import {
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import {
+  classifyBinaryProvenance,
   deriveDebugPortWithInstance,
   findAvailablePortNear,
   removeManagedEphemeralProfile
@@ -396,6 +397,16 @@ export class FirefoxLaunchPlugin {
     const wslFallbackBinary =
       isWslEnv() && !engineBased ? resolveWslFallback() : null
 
+    // The identity card names the exact binary this session runs, the same
+    // contract the Chromium card keeps. The RDP layer prints the card, so the
+    // resolved identity rides the host runtime to it.
+    this.host.launchBinaryPath = binaryPath
+    this.host.launchBinaryProvenance = classifyBinaryProvenance({
+      binaryPath,
+      managedCacheRoot: String(computeBinariesBaseDir(compilation) || ''),
+      pinnedByFlag: Boolean(this.host.geckoBinary)
+    })
+
     // Flatpak binaries can't be validated or version-checked directly
     if (!isFlatpak) {
       try {
@@ -473,6 +484,7 @@ export class FirefoxLaunchPlugin {
         firefoxArgs,
         isFirefoxHeadlessRequested()
       )
+      this.host.launchProfilePath = profilePath
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
       stampReadyBrowserLaunch(this.extensionOutputPath, {
         profilePath,

@@ -28,7 +28,12 @@ export async function printRunningInDevelopmentSummary(
   candidateAddonPaths: string[],
   browser: 'firefox',
   extensionId?: string,
-  browserVersionLine?: string
+  browserVersionLine?: string,
+  launchIdentity?: {
+    profilePath?: string
+    binaryPath?: string
+    binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  }
 ): Promise<boolean> {
   try {
     // Prefer a path whose manifest name is not the manager name
@@ -81,7 +86,10 @@ export async function printRunningInDevelopmentSummary(
         name: manifest.name,
         version: manifest.version
       }),
-      browserVersionLine
+      browserVersionLine,
+      profilePath: launchIdentity?.profilePath,
+      binaryPath: launchIdentity?.binaryPath,
+      binaryProvenance: launchIdentity?.binaryProvenance
     })
     return printed
   } catch {

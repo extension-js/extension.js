@@ -22,6 +22,9 @@ type PluginLike = {
   watchSource?: boolean
   port?: number | string
   browserVersionLine?: string
+  launchProfilePath?: string
+  launchBinaryPath?: string
+  launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
 }
 
 export class FirefoxRDPController {
@@ -45,7 +48,10 @@ export class FirefoxRDPController {
       // The launcher hands us the concrete port Firefox started with; pin it so the
       // add-on install connects to THAT port instead of re-deriving it.
       resolvedRdpPort: normalizedDebugPort,
-      browserVersionLine: plugin.browserVersionLine
+      browserVersionLine: plugin.browserVersionLine,
+      launchProfilePath: plugin.launchProfilePath,
+      launchBinaryPath: plugin.launchBinaryPath,
+      launchBinaryProvenance: plugin.launchBinaryProvenance
     })
     this.debugPort = normalizedDebugPort
   }
