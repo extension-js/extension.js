@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.0.30 (August 4, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Refuse consent and identity that arrived with a git clone ([a9f764dd](https://github.com/extension-js/extension.js/commit/a9f764dd99011185bd009c659c8b04661554f7d8))
+- Let the MAIN world resolve assets through the bridge base ([461739d7](https://github.com/extension-js/extension.js/commit/461739d70ab36486213929ca5541f46721fab28b))
+- Follow the examples rename to sidebar-monorepo-turborepo in the catalog ([0f0f0769](https://github.com/extension-js/extension.js/commit/0f0f07699423d3fcd8ebadb5837c6c05e3bb2e79))
+</details>
+
 ## 4.0.29 (August 4, 2026)
 
 - No changes listed.
