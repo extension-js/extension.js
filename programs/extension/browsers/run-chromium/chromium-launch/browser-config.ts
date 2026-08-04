@@ -66,7 +66,6 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disables Domain Reliability Monitoring, which tracks whether the browser
   // has difficulty contacting Google-owned sites and uploads reports to Google.
   '--disable-domain-reliability',
-  '--disable-sync',
   // Don't send hyperlink auditing pings
   '--no-pings',
   // Ensure the side panel is visible. This is used for testing the side panel feature.

@@ -163,7 +163,7 @@ export function registerStartCommand(program: Command) {
     )
     .option(
       '--install [boolean]',
-      '[experimental] install project dependencies when missing',
+      '[internal] install project dependencies when missing',
       parseOptionalBoolean
     )
     .option(
