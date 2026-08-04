@@ -45,6 +45,9 @@ export class RemoteFirefox {
     // The already-resolved RDP port the browser launched on; used verbatim.
     // Deriving from it would double-apply the offset. See resolveRdpPort.
     resolvedRdpPort?: number
+    launchProfilePath?: string
+    launchBinaryPath?: string
+    launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   }
   private client: MessagingClient | null = null
   private loggingAttached = false
@@ -89,6 +92,9 @@ export class RemoteFirefox {
     configOptions: PluginInterface & {
       browserVersionLine?: string
       resolvedRdpPort?: number
+      launchProfilePath?: string
+      launchBinaryPath?: string
+      launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
     }
   ) {
     this.options = configOptions
@@ -304,7 +310,12 @@ export class RemoteFirefox {
       candidateAddonPaths,
       'firefox',
       this.derivedExtensionId,
-      this.options.browserVersionLine
+      this.options.browserVersionLine,
+      {
+        profilePath: this.options.launchProfilePath,
+        binaryPath: this.options.launchBinaryPath,
+        binaryProvenance: this.options.launchBinaryProvenance
+      }
     )
     if (!bannerPrinted) {
       throw new Error(
