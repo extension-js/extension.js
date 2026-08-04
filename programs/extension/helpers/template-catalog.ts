@@ -46,7 +46,7 @@ export const TEMPLATE_GROUPS: readonly TemplateGroup[] = [
       'sidebar',
       'sidebar-antd',
       'sidebar-shadcn',
-      'sidebar-monorepo-turbopack',
+      'sidebar-monorepo-turborepo',
       'ai-chatgpt',
       'ai-claude',
       'ai-gemini',

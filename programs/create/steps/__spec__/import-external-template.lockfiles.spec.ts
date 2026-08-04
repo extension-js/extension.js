@@ -17,30 +17,30 @@ vi.mock('axios', () => ({
 import axios from 'axios'
 import {importExternalTemplate} from '../import-external-template'
 
-// The sidebar-monorepo-turbopack shape from BUGS_TO_FIX 123: the one catalog
+// The sidebar-monorepo-turborepo shape from BUGS_TO_FIX 123: the one catalog
 // template that committed a package-lock.json upstream. create injects the
 // `extension` devDependency after the copy, so a copied lockfile can only be
 // stale and `npm ci` fails on Missing: extension@<version> from lock file.
 function makeCatalogZipWithLockfiles(): Buffer {
   const zip = new AdmZip()
   zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turbopack/package.json',
-    Buffer.from('{"name":"sidebar-monorepo-turbopack"}')
+    'examples-main/examples/sidebar-monorepo-turborepo/package.json',
+    Buffer.from('{"name":"sidebar-monorepo-turborepo"}')
   )
   zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turbopack/package-lock.json',
+    'examples-main/examples/sidebar-monorepo-turborepo/package-lock.json',
     Buffer.from('{"lockfileVersion":3,"packages":{}}')
   )
   zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turbopack/pnpm-lock.yaml',
+    'examples-main/examples/sidebar-monorepo-turborepo/pnpm-lock.yaml',
     Buffer.from('lockfileVersion: 9')
   )
   zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turbopack/deno.lock',
+    'examples-main/examples/sidebar-monorepo-turborepo/deno.lock',
     Buffer.from('{"version":"4"}')
   )
   zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turbopack/packages/extension/src/manifest.json',
+    'examples-main/examples/sidebar-monorepo-turborepo/packages/extension/src/manifest.json',
     Buffer.from('{"manifest_version":3}')
   )
   return zip.toBuffer()
@@ -76,7 +76,7 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
     await importExternalTemplate(
       projectPath,
       'my-ext',
-      'sidebar-monorepo-turbopack',
+      'sidebar-monorepo-turborepo',
       {log: (...args: unknown[]) => logs.push(args.join(' ')), error: () => {}}
     )
 
