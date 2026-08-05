@@ -32,6 +32,7 @@ export default defineConfig({
       '__spec__/contract/**/*.spec.ts',
       'browsers/__spec__/**/*.spec.ts'
     ],
+    setupFiles: ['__spec__/setup/env.ts'],
     sequence: {concurrent: false},
     allowOnly: !process.env.CI
   }
