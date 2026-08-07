@@ -7,11 +7,23 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {
+  TEMPLATE_CORPUS_REF,
+  TEMPLATE_CORPUS_REPO,
+  TEMPLATE_CORPUS_SLUGS
+} from './template-corpus.generated'
 
 export const DEFAULT_TEMPLATE = 'javascript'
 
-export const TEMPLATE_CATALOG_URL =
-  'https://github.com/extension-js/examples/tree/main/examples'
+// The one template that ships inside the npm package. Kept in step with
+// BUNDLED_TEMPLATES in extension-create by a spec; importing that module here
+// would pull the whole scaffolder graph (axios, adm-zip, go-git-it) into every
+// CLI startup for one array, a quarter of a second measured.
+export const BUNDLED_TEMPLATES: readonly string[] = ['javascript']
+
+// The listing links to the commit the CLI actually downloads. Linking to the
+// branch tip advertised templates that the pinned corpus does not carry.
+export const TEMPLATE_CATALOG_URL = `https://github.com/${TEMPLATE_CORPUS_REPO}/tree/${TEMPLATE_CORPUS_REF}/examples`
 
 export interface TemplateGroup {
   title: string
@@ -25,7 +37,14 @@ export interface TemplateAlias {
   note: string
 }
 
-export const TEMPLATE_GROUPS: readonly TemplateGroup[] = [
+// Curation, and only curation: which templates belong together, what to call
+// the group, and the order to read them in. Whether a name EXISTS is not a
+// judgement call, so it is not made here. Every name below is filtered against
+// the generated corpus before it reaches a human, and every corpus name that no
+// group claims is still listed, under `More templates`. A hand-maintained
+// listing is how the CLI came to advertise `sidebar-monorepo-turborepo` against
+// a corpus that published `sidebar-monorepo-turbopack`.
+export const CURATED_GROUPS: readonly TemplateGroup[] = [
   {
     title: 'Starters',
     summary: 'a bare manifest, or one language or framework with sidebar UI',
@@ -109,6 +128,36 @@ export const TEMPLATE_GROUPS: readonly TemplateGroup[] = [
     templates: ['special-folders-pages', 'special-folders-scripts']
   }
 ]
+
+export const UNCURATED_GROUP_TITLE = 'More templates'
+
+function buildTemplateGroups(): TemplateGroup[] {
+  const published = new Set(TEMPLATE_CORPUS_SLUGS)
+  const claimed = new Set<string>()
+  const groups: TemplateGroup[] = []
+
+  for (const group of CURATED_GROUPS) {
+    const templates = group.templates.filter((name) => {
+      if (!published.has(name) || claimed.has(name)) return false
+      claimed.add(name)
+      return true
+    })
+    if (templates.length) groups.push({...group, templates})
+  }
+
+  const uncurated = TEMPLATE_CORPUS_SLUGS.filter((name) => !claimed.has(name))
+  if (uncurated.length) {
+    groups.push({
+      title: UNCURATED_GROUP_TITLE,
+      summary: 'published in the catalog, not yet grouped',
+      templates: [...uncurated]
+    })
+  }
+
+  return groups
+}
+
+export const TEMPLATE_GROUPS: readonly TemplateGroup[] = buildTemplateGroups()
 
 /* @invariant A NAME IN THIS LIST DELIVERS SOMETHING OTHER THAN ITSELF, WHICH IS
  * WHY THE LIST IS EMPTY AND SHOULD STAY THAT WAY.
@@ -200,6 +249,7 @@ export function renderTemplateList({
 export function renderCreateTemplateHelp(): string {
   const total = listTemplates().length
   const dim = (text: string) => colors.gray(text)
+  const defaultIsBundled = BUNDLED_TEMPLATES.includes(DEFAULT_TEMPLATE)
 
   return [
     '',
@@ -207,8 +257,10 @@ export function renderCreateTemplateHelp(): string {
     renderTemplateList(),
     '',
     `  ${colors.green('Default')}`,
-    `    ${colors.blue(DEFAULT_TEMPLATE)} ${dim('is used when --template is omitted. It ships inside the CLI,')}`,
-    dim('    so it scaffolds with no network call.'),
+    `    ${colors.blue(DEFAULT_TEMPLATE)} ${dim('is used when --template is omitted.')}`,
+    ...(defaultIsBundled
+      ? [dim('    It ships inside the CLI, so it scaffolds with no network.')]
+      : [dim('    It downloads the catalog archive like every other name.')]),
     '',
     `  ${colors.green('Everything else')}`,
     dim('    downloads the catalog archive at create time, so it needs the'),

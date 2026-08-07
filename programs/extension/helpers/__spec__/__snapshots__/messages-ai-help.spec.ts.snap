@@ -233,7 +233,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     "bundled": [
       "javascript",
     ],
-    "catalogUrl": "https://github.com/extension-js/examples/tree/main/examples",
+    "catalogUrl": "https://github.com/extension-js/examples/tree/f7f4e6efb56a7e5ae08d58dbff3972d94af7d021/examples",
+    "corpus": {
+      "ref": "f7f4e6efb56a7e5ae08d58dbff3972d94af7d021",
+      "repo": "extension-js/examples",
+    },
     "default": "javascript",
     "groups": [
       {
@@ -381,10 +385,10 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     ],
     "notes": [
       "extension create <name> with no --template scaffolds javascript",
-      "javascript is bundled with the CLI and scaffolds offline. Every other name downloads the examples archive at create time",
+      "every name in bundled[] ships inside the CLI package and scaffolds offline. Every other name downloads the examples archive at create time",
       "a GitHub URL or a ZIP URL is accepted in place of a catalog name",
       "a name outside names[] fails with TemplateNotFoundError and creates nothing",
-      "this list ships with the CLI, so it is the list this CLI version can scaffold, not necessarily the current contents of the catalog repository",
+      "names[] is generated from extension-js/examples at corpus.ref, the exact commit this CLI version downloads, so it is what this version can scaffold and not the current contents of the catalog repository",
     ],
   },
   "version": "0.0.0-snapshot",

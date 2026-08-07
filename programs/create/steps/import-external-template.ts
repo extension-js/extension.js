@@ -31,8 +31,17 @@ const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
 
 // The default corpus is PINNED to an immutable commit, so two scaffolds of the
 // same template always match and the shipped CLI never tracks a moving branch.
-// Bump at release time; EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
-export const DEFAULT_TEMPLATES_REF = '52c0d871c433d9c54878767175ce8ffc9a951756'
+// The commit must be an ancestor of the corpus branch: 4.0.30 shipped pinned to
+// an unreachable bot commit that GitHub happened to still serve.
+// Move it with `node scripts/generate-template-corpus.mjs --ref <sha>`, which
+// regenerates the name list the CLI advertises from the same commit.
+// EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
+export const DEFAULT_TEMPLATES_REF = 'f7f4e6efb56a7e5ae08d58dbff3972d94af7d021'
+
+// The one template that ships inside the npm package, so it scaffolds with no
+// network call. The help text derives its "no network" promise from this list
+// rather than restating it, a default that is not bundled must not claim it.
+export const BUNDLED_TEMPLATES: readonly string[] = ['javascript']
 
 // Map EXTENSION_CREATE_TEMPLATE_REF to the codeload URL(s) that can resolve it, so
 // a commit SHA or tag pins the corpus reproducibly and not only a branch. A bare
@@ -375,8 +384,8 @@ export async function importExternalTemplate(
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
-    if (!isHttp && !isGithub && resolvedTemplate === 'javascript') {
-      const localTemplate = bundledTemplateDir('javascript')
+    if (!isHttp && !isGithub && BUNDLED_TEMPLATES.includes(resolvedTemplate)) {
+      const localTemplate = bundledTemplateDir(resolvedTemplate)
 
       if (existsSync(localTemplate)) {
         await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
