@@ -9,12 +9,17 @@
 import colors from 'pintor'
 import {type Channel, fmt, prefix} from './messaging'
 import {
+  BUNDLED_TEMPLATES,
   DEFAULT_TEMPLATE,
   listTemplates,
   TEMPLATE_ALIASES,
   TEMPLATE_CATALOG_URL,
   TEMPLATE_GROUPS
 } from './template-catalog'
+import {
+  TEMPLATE_CORPUS_REF,
+  TEMPLATE_CORPUS_REPO
+} from './template-corpus.generated'
 
 function getLoggingPrefix(type: Channel): string {
   return prefix(type)
@@ -504,7 +509,7 @@ ${TEMPLATE_GROUPS.map(
 ).join(
   '\n'
 )}${TEMPLATE_ALIASES.length > 0 ? `\n- ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}` : ''}
-- ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted. It ships inside the CLI and needs no network.
+- ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted.${BUNDLED_TEMPLATES.includes(DEFAULT_TEMPLATE) ? ' It ships inside the CLI and needs no network.' : ''}
 - Every other name is downloaded from ${code(TEMPLATE_CATALOG_URL)} at create time. A GitHub or ZIP URL works in place of a name.
 - A name that is not on this list fails with ${code('TemplateNotFoundError')}. Run ${code('extension create --help')} for the same list.
 
@@ -600,6 +605,7 @@ export type ProgramAIHelpJSON = {
     default: string
     bundled: string[]
     catalogUrl: string
+    corpus: {repo: string; ref: string}
     names: string[]
     groups: Array<{title: string; summary: string; templates: string[]}>
     aliases?: Array<{name: string; resolvesTo: string; note: string}>
@@ -696,8 +702,9 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
     ],
     templates: {
       default: DEFAULT_TEMPLATE,
-      bundled: [DEFAULT_TEMPLATE],
+      bundled: [...BUNDLED_TEMPLATES],
       catalogUrl: TEMPLATE_CATALOG_URL,
+      corpus: {repo: TEMPLATE_CORPUS_REPO, ref: TEMPLATE_CORPUS_REF},
       names: listTemplates(),
       groups: TEMPLATE_GROUPS.map((group) => ({
         title: group.title,
@@ -712,10 +719,10 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       }),
       notes: [
         `extension create <name> with no --template scaffolds ${DEFAULT_TEMPLATE}`,
-        `${DEFAULT_TEMPLATE} is bundled with the CLI and scaffolds offline. Every other name downloads the examples archive at create time`,
+        'every name in bundled[] ships inside the CLI package and scaffolds offline. Every other name downloads the examples archive at create time',
         'a GitHub URL or a ZIP URL is accepted in place of a catalog name',
         'a name outside names[] fails with TemplateNotFoundError and creates nothing',
-        'this list ships with the CLI, so it is the list this CLI version can scaffold, not necessarily the current contents of the catalog repository'
+        `names[] is generated from ${TEMPLATE_CORPUS_REPO} at corpus.ref, the exact commit this CLI version downloads, so it is what this version can scaffold and not the current contents of the catalog repository`
       ]
     },
     capabilities: {

@@ -11,7 +11,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUNDLED_DIR="$ROOT_DIR/programs/create/templates/javascript"
 REPO_URL="https://github.com/extension-js/examples"
-EXAMPLES_REF="${EXAMPLES_REF:-main}"
+PIN_FILE="$ROOT_DIR/programs/create/steps/import-external-template.ts"
+
+# Compare against the commit the scaffolder downloads, not the branch tip. The
+# bundled copy is the offline twin of a networked create, and a networked create
+# is pinned, so diffing it against main reported drift that no user could see
+# and hid drift that every user could.
+PINNED_REF="$(sed -n "s/^export const DEFAULT_TEMPLATES_REF = '\([0-9a-f]\{40\}\)'$/\1/p" "$PIN_FILE")"
+if [[ -z "$PINNED_REF" ]]; then
+  echo "error: could not read DEFAULT_TEMPLATES_REF from $PIN_FILE" >&2
+  exit 1
+fi
+EXAMPLES_REF="${EXAMPLES_REF:-$PINNED_REF}"
 
 if [[ "${EXTENSION_SKIP_TEMPLATE_DRIFT:-}" == "1" ]]; then
   echo "EXTENSION_SKIP_TEMPLATE_DRIFT=1 — skipping bundled template drift check."
