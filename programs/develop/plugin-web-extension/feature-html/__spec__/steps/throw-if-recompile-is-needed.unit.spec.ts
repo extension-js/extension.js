@@ -140,7 +140,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     fs.writeFileSync(other, 'body{}', 'utf8')
     writeHtml(html, 'a.js', 'a.css')
 
-    // Batch order: unrelated file first, page second — old code only inspected [0].
+    // Batch order: unrelated file first, page second (old code only inspected [0]).
     const compiler = makeCompiler([other, html])
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),

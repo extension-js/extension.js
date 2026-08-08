@@ -98,7 +98,7 @@ export class ThrowIfRecompileIsNeeded {
           // disk cache is keyed by mtime+size; backup restores can preserve
           // both while swapping <script>/<link> targets, which left the
           // browser on an uncompiled entry with no restart warning. Only
-          // pages in this rebuild's modified set are re-read — untouched
+          // pages in this rebuild's modified set are re-read, untouched
           // pages keep the cache.
           let updatedAssets: ReturnType<typeof getAssetsFromHtml> | undefined
           try {
