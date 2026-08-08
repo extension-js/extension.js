@@ -94,6 +94,132 @@ describe('extension.config object-merge and command/browser defaults', () => {
     expect(chromiumCfg).toMatchObject({browser: 'chromium'})
   })
 
+  it('adopts product browser blocks for engine-based families', async () => {
+    const dir = tmpDir('extjs-family-')
+    const cfg = `export default {
+      browser: {
+        chromium: {
+          browser: 'chromium',
+          browserFlags: ['--chromium-flag']
+        },
+        firefox: {
+          browser: 'firefox',
+          browserFlags: ['--firefox-flag']
+        },
+        safari: {
+          browser: 'safari',
+          appName: 'MySafariApp',
+          bundleId: 'com.example.mysafariapp',
+          safariBinary: '/Applications/Safari.app'
+        }
+      }
+    }`
+    fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
+
+    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based')
+    expect(chromiumBasedCfg).toMatchObject({
+      browser: 'chromium',
+      browserFlags: ['--chromium-flag']
+    })
+
+    const geckoBasedCfg = await loadBrowserConfig(dir, 'gecko-based')
+    expect(geckoBasedCfg).toMatchObject({
+      browser: 'firefox',
+      browserFlags: ['--firefox-flag']
+    })
+
+    // webkit-based must adopt browser.safari the same way the other families do
+    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based')
+    expect(webkitBasedCfg).toMatchObject({
+      browser: 'safari',
+      appName: 'MySafariApp',
+      bundleId: 'com.example.mysafariapp',
+      safariBinary: '/Applications/Safari.app'
+    })
+  })
+
+  it('prefers an explicit webkit-based block over browser.safari', async () => {
+    const dir = tmpDir('extjs-webkit-prefer-')
+    const cfg = `export default {
+      browser: {
+        safari: {
+          browser: 'safari',
+          appName: 'FromSafari'
+        },
+        'webkit-based': {
+          browser: 'webkit-based',
+          appName: 'FromWebkitBased'
+        }
+      }
+    }`
+    fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
+
+    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based')
+    expect(webkitBasedCfg).toMatchObject({
+      browser: 'webkit-based',
+      appName: 'FromWebkitBased'
+    })
+  })
+
+  it('adopts safari/webkit-based config for any webkit-flavored fork name', async () => {
+    const withExact = tmpDir('extjs-webkit-fork-exact-')
+    fs.writeFileSync(
+      path.join(withExact, 'extension.config.mjs'),
+      `export default {
+        browser: {
+          safari: { browser: 'safari', appName: 'FromSafari' },
+          'webkit-based': { browser: 'webkit-based', appName: 'FromWebkitBased' },
+          'acme-webkit': { browser: 'acme-webkit', appName: 'FromAcme' }
+        }
+      }`,
+      'utf-8'
+    )
+    // Exact fork block wins when present.
+    const exact = await loadBrowserConfig(withExact, 'acme-webkit' as any)
+    expect(exact).toMatchObject({browser: 'acme-webkit', appName: 'FromAcme'})
+
+    // Prefer webkit-based over safari when both exist and the fork has no block.
+    const withEngine = tmpDir('extjs-webkit-fork-engine-')
+    fs.writeFileSync(
+      path.join(withEngine, 'extension.config.mjs'),
+      `export default {
+        browser: {
+          safari: { browser: 'safari', appName: 'FromSafari' },
+          'webkit-based': { browser: 'webkit-based', appName: 'FromWebkitBased' }
+        }
+      }`,
+      'utf-8'
+    )
+    const engineCfg = await loadBrowserConfig(
+      withEngine,
+      'internal-webkit' as any
+    )
+    expect(engineCfg).toMatchObject({
+      browser: 'webkit-based',
+      appName: 'FromWebkitBased'
+    })
+
+    // Fall all the way back to browser.safari when only the product block exists.
+    const safariOnly = tmpDir('extjs-webkit-fork-safari-')
+    fs.writeFileSync(
+      path.join(safariOnly, 'extension.config.mjs'),
+      `export default {
+        browser: {
+          safari: { browser: 'safari', appName: 'FromSafariOnly' }
+        }
+      }`,
+      'utf-8'
+    )
+    const forkCfg = await loadBrowserConfig(
+      safariOnly,
+      'internal-webkit' as any
+    )
+    expect(forkCfg).toMatchObject({
+      browser: 'safari',
+      appName: 'FromSafariOnly'
+    })
+  })
+
   it('merges top-level extensions into command config and allows per-command overrides', async () => {
     const dir = tmpDir('extjs-exts-')
     const cfg = `export default {

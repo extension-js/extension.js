@@ -15,6 +15,7 @@ import * as vm from 'node:vm'
 import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
 import type {BrowserConfig, DevOptions, FileConfig} from '../types'
+import {isWebkitBasedBrowser} from './constants'
 import * as messages from './messages'
 import {isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
@@ -359,16 +360,29 @@ export async function loadBrowserConfig(
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
 
-          // 'chromium' = managed install, must not adopt engine-based configs expecting
-          // an explicit binary; '*-based' = engine config requiring one. Same for gecko.
+          const browserName = String(browser)
+
+          // 'chromium'/'firefox'/'safari' = managed or named product; must not adopt
+          // engine-based configs that expect an explicit binary. '*-based' and any
+          // webkit-flavored fork name may fall back to the product/engine block.
           if (browser === 'chromium-based') {
             if (browsers['chromium-based']) return browsers['chromium-based']
             if (browsers.chromium) return browsers.chromium
           } else if (browser === 'gecko-based') {
             if (browsers['gecko-based']) return browsers['gecko-based']
             if (browsers.firefox) return browsers.firefox
+          } else if (isWebkitBasedBrowser(browserName)) {
+            // Exact name first (safari, webkit-based, or a fork like acme-webkit),
+            // then the engine block, then the safari product block. Named product
+            // 'safari' stops at its own block and does not adopt webkit-based.
+            const direct = browsers[browserName]
+            if (direct) return direct
+            if (browserName !== 'safari') {
+              if (browsers['webkit-based']) return browsers['webkit-based']
+              if (browsers.safari) return browsers.safari
+            }
           } else {
-            const direct = browsers[browser]
+            const direct = browsers[browserName]
             if (direct) return direct
           }
         }
