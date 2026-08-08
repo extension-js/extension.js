@@ -153,6 +153,111 @@ describe('UpdateManifest', () => {
     logSpy.mockRestore()
   })
 
+  it('prints a repeated fatal-shape repair only once per development session', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    let thisCompilationFn: ((compilation: any) => void) | undefined
+    const compiler: any = {
+      options: {mode: 'development'},
+      hooks: {
+        thisCompilation: {
+          tap: (_n: string, fn: any) => {
+            thisCompilationFn = fn
+          }
+        }
+      }
+    }
+
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+
+    const runCompilation = () => {
+      const warnings: any[] = []
+      const updated: Record<string, string> = {}
+      const source = JSON.stringify({name: 'x', version: 1})
+      const assets: Record<string, any> = {
+        'manifest.json': {source: () => source}
+      }
+      const compilation: any = {
+        errors: [],
+        warnings,
+        options: {mode: 'development'},
+        assets,
+        getAsset: (n: string) =>
+          assets[n] ? {source: assets[n].source} : undefined,
+        getAssets: () =>
+          Object.entries(assets).map(([name, src]) => ({name, source: src})),
+        hooks: {
+          processAssets: {tap: (_opts: any, fn: any) => fn()}
+        },
+        updateAsset: (name: string, src: any) => {
+          updated[name] = src.source().toString()
+        }
+      }
+      thisCompilationFn?.(compilation)
+      return {warnings, updated}
+    }
+
+    const first = runCompilation()
+    expect(first.warnings.length).toBe(1)
+    expect(first.warnings[0].name).toBe('ManifestFatalShapeWarning')
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(first.updated['manifest.json']).version).toBe('1')
+
+    const second = runCompilation()
+    // Same repair still applied, but the human line and stats record stay quiet.
+    expect(second.warnings.length).toBe(0)
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(second.updated['manifest.json']).version).toBe('1')
+
+    logSpy.mockRestore()
+  })
+
+  it('still prints every fatal-shape repair on production builds', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    let thisCompilationFn: ((compilation: any) => void) | undefined
+    const compiler: any = {
+      options: {mode: 'production'},
+      hooks: {
+        thisCompilation: {
+          tap: (_n: string, fn: any) => {
+            thisCompilationFn = fn
+          }
+        }
+      }
+    }
+
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+
+    const runCompilation = () => {
+      const warnings: any[] = []
+      const source = JSON.stringify({name: 'x', version: 1})
+      const assets: Record<string, any> = {
+        'manifest.json': {source: () => source}
+      }
+      const compilation: any = {
+        errors: [],
+        warnings,
+        options: {mode: 'production'},
+        assets,
+        getAsset: (n: string) =>
+          assets[n] ? {source: assets[n].source} : undefined,
+        getAssets: () =>
+          Object.entries(assets).map(([name, src]) => ({name, source: src})),
+        hooks: {
+          processAssets: {tap: (_opts: any, fn: any) => fn()}
+        },
+        updateAsset: () => {}
+      }
+      thisCompilationFn?.(compilation)
+      return warnings
+    }
+
+    expect(runCompilation().length).toBe(1)
+    expect(runCompilation().length).toBe(1)
+    expect(logSpy).toHaveBeenCalledTimes(2)
+
+    logSpy.mockRestore()
+  })
+
   it('emits manifest.json when no public asset exists yet', () => {
     const emitted: Record<string, string> = {}
     const compilation: any = {
