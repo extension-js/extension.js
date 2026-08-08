@@ -100,6 +100,9 @@ describe('EnvPlugin', () => {
   afterEach(() => {
     delete process.env.EXTENSION_PUBLIC_FOO
     delete process.env.EXTENSION_QUX
+    delete process.env.EXTENSION_BROWSER
+    delete process.env.EXTENSION_PUBLIC_BROWSER
+    delete process.env.EXTENSION_PUBLIC_API_V2
     vi.restoreAllMocks()
   })
 
@@ -218,6 +221,79 @@ describe('EnvPlugin', () => {
     expect(getCurrentManifestContent(compilation as any)).toBe(
       updated['manifest.json']
     )
+  })
+
+  it('substitutes build-target synthetics so manifest/html match runtime', async () => {
+    const {compiler, triggerCompilation} = createCompiler('production')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'firefox'
+    })
+    plugin.apply(compiler as any)
+
+    // Runtime always sees the build target, even if .env or the shell set something else.
+    process.env.EXTENSION_BROWSER = 'chrome'
+    process.env.EXTENSION_PUBLIC_BROWSER = 'chrome'
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'manifest.json':
+          '{"name":"My Ext ($EXTENSION_BROWSER)","browser":"$EXTENSION_PUBLIC_BROWSER","mode":"$EXTENSION_MODE"}',
+        'index.html':
+          '<title>$EXTENSION_PUBLIC_BROWSER</title><p>$EXTENSION_PUBLIC_MODE</p>'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    expect(updated['manifest.json']).toBe(
+      '{"name":"My Ext (firefox)","browser":"firefox","mode":"production"}'
+    )
+    expect(updated['index.html']).toBe(
+      '<title>firefox</title><p>production</p>'
+    )
+    // Same values DefinePlugin injects into background/content code.
+    expect(lastDefineArgs['process.env.EXTENSION_BROWSER']).toBe(
+      JSON.stringify('firefox')
+    )
+    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_BROWSER']).toBe(
+      JSON.stringify('firefox')
+    )
+
+    delete process.env.EXTENSION_BROWSER
+    delete process.env.EXTENSION_PUBLIC_BROWSER
+  })
+
+  it('substitutes env names that contain digits (e.g. API_V2)', async () => {
+    process.env.EXTENSION_PUBLIC_API_V2 = 'https://api.example/v2'
+
+    const {compiler, triggerCompilation} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'index.html': '<script>window.API="$EXTENSION_PUBLIC_API_V2"</script>',
+        'manifest.json': '{"homepage_url":"$EXTENSION_PUBLIC_API_V2"}'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    expect(updated['index.html']).toBe(
+      '<script>window.API="https://api.example/v2"</script>'
+    )
+    expect(updated['manifest.json']).toBe(
+      '{"homepage_url":"https://api.example/v2"}'
+    )
+    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_API_V2']).toBe(
+      JSON.stringify('https://api.example/v2')
+    )
+
+    delete process.env.EXTENSION_PUBLIC_API_V2
   })
 
   it('falls back to the nearest workspace root env file', async () => {
