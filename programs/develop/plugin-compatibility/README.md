@@ -12,7 +12,7 @@
 This plugin bundles two features that make an extension project portable across browsers:
 
 - Browser‑specific manifest fields are normalized so you can author once and target Chrome/Edge/Firefox/Safari via namespaced keys.
-- Optionally provides the `browser` global using `webextension-polyfill` for Chromium‑based browsers when `polyfill: true`.
+- Optionally provides the `browser` global using `webextension-polyfill` for Chromium‑based browsers when `polyfill: true`. Firefox and Safari already ship a native promise-based `browser` namespace, so the polyfill is never injected for those families.
 
 ### Feature overview
 
@@ -59,7 +59,7 @@ export class CompatibilityPlugin {
 ### Notes
 
 - The polyfill is resolved from the bundler context. Ensure `webextension-polyfill` is installed next to the bundler config if you enable it.
-- Firefox natively supports the `browser` global; we avoid injecting a polyfill for it.
+- Firefox and Safari natively support the promise-based `browser` global; we avoid injecting a polyfill for gecko and webkit targets (including `firefox`, `gecko-based`, `safari`, and `webkit-based`).
 
 ### License
 
