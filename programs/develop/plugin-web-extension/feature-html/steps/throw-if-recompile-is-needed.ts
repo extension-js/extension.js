@@ -83,18 +83,34 @@ export class ThrowIfRecompileIsNeeded {
       'html:throw-if-recompile-is-needed',
       (compilation, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
-        const changedFile = Array.from(files)[0]
+        // Watch batches often land many paths at once (backup restore,
+        // multi-save). Every page in the set must be inspected, not just the
+        // first entry, or a changed page later in the batch never triggers
+        // the restart warning.
+        const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
+        const looksLikePublicRootUrl = (p: string) =>
+          p.startsWith('/') && !fs.existsSync(p)
 
-        if (changedFile && this.initialHtmlAssets[changedFile]) {
-          const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
-          const looksLikePublicRootUrl = (p: string) =>
-            p.startsWith('/') && !fs.existsSync(p)
+        for (const changedFile of files) {
+          if (!this.initialHtmlAssets[changedFile]) continue
 
-          // A deleted HTML entry parses as no assets at all, which keeps the
-          // restart warning below firing; getAssetsFromHtml throws on ENOENT.
-          const updatedAssets = fs.existsSync(changedFile)
-            ? getAssetsFromHtml(changedFile)
-            : undefined
+          // Re-read this page's bytes for the comparison. getAssetsFromHtml's
+          // disk cache is keyed by mtime+size; backup restores can preserve
+          // both while swapping <script>/<link> targets, which left the
+          // browser on an uncompiled entry with no restart warning. Only
+          // pages in this rebuild's modified set are re-read — untouched
+          // pages keep the cache.
+          let updatedAssets: ReturnType<typeof getAssetsFromHtml> | undefined
+          try {
+            updatedAssets = getAssetsFromHtml(
+              changedFile,
+              fs.readFileSync(changedFile, 'utf8')
+            )
+          } catch {
+            // A deleted HTML entry compares as no assets at all, which keeps
+            // the restart warning below firing.
+            updatedAssets = undefined
+          }
           const updatedJsEntries = (updatedAssets?.js || []).filter(
             (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
           )
