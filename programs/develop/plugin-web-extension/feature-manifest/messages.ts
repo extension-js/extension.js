@@ -38,7 +38,7 @@ export function legacyManifestPathWarning(
   )
   lines.push(`${colors.gray('PATH')} ${colors.underline(legacyPath)}`)
   lines.push(
-    `Point it at ${colors.underline(modernPath)}; Extension.js already emits the page there.`
+    `Point it at ${colors.underline(modernPath)}, Extension.js already emits the page there.`
   )
   return lines.join('\n')
 }
