@@ -90,8 +90,12 @@ describe('RemoteFirefox connect retry observability', () => {
   })
 
   it('keeps the retry counter off the default verbosity tier', async () => {
+    // isDebug() falls back to the legacy EXTENSION_AUTHOR_MODE alias, which
+    // nightly CI exports; scrub both so this test really runs the default tier.
     const previousDebug = process.env.EXTENSION_DEBUG
+    const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
     delete process.env.EXTENSION_DEBUG
+    delete process.env.EXTENSION_AUTHOR_MODE
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
       const rf: any = new RemoteFirefox({
@@ -108,6 +112,11 @@ describe('RemoteFirefox connect retry observability', () => {
     } finally {
       if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
       else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousAuthorMode === undefined) {
+        delete process.env.EXTENSION_AUTHOR_MODE
+      } else {
+        process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
+      }
     }
   })
 
