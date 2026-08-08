@@ -33,7 +33,7 @@
     "@radix-ui/react-toast": "1.2.15",
     "@radix-ui/react-toggle": "^1.0.3",
     "@radix-ui/react-toggle-group": "^1.0.4",
-    "@tanstack/react-table": "^8.20.5",
+    "@tanstack/react-table": "^9.0.0",
     "cmdk": "1.1.1",
     "input-otp": "1.4.2",
     "lucide-react": "^1.0.1",
