@@ -38,6 +38,11 @@ import {patchGeckoBackground} from './patch-gecko-background'
 export class UpdateManifest {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
+  // Dev recompiles re-run the same repairs on every save. One human line per
+  // distinct fix for the life of this plugin (one `extension dev` process) is
+  // enough; a restarted session gets a fresh instance and prints again.
+  // Production builds never consult this set so build output stays complete.
+  private reportedFatalFixes = new Set<string>()
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -161,7 +166,15 @@ export class UpdateManifest {
               path.dirname(this.manifestPath)
             )
             patchedManifest = sanitized.manifest
+            const isDev = compiler.options.mode === 'development'
             for (const fix of sanitized.fixes) {
+              // Always repair; only the notice is session-deduped in development.
+              if (isDev) {
+                const signature = `${fix.field}\0${fix.detail}`
+                if (this.reportedFatalFixes.has(signature)) continue
+                this.reportedFatalFixes.add(signature)
+              }
+
               const message = messages.fatalManifestShapeFixed(
                 fix.field,
                 fix.detail
