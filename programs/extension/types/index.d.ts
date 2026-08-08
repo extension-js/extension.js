@@ -5,7 +5,7 @@
 
 declare global {
   // Align types with Extension.js runtime: we provide the browser global via
-  // webextension-polyfill in Chromium, and it's natively available in Firefox.
+  // webextension-polyfill in Chromium; Firefox and Safari ship it natively.
   const browser: typeof import('webextension-polyfill')
 
   type ExtensionBrowser =
