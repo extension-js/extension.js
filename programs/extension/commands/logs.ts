@@ -221,6 +221,20 @@ export function registerLogsCommand(program: Command) {
       const format = resolveFormat(options)
       const matches = makeFilter(options)
 
+      // An advertised filter that silently matches nothing teaches the wrong
+      // lesson (ledger 181, same class as 179): the user reads the silence as
+      // "my extension has no signals" when the truth is that nothing produces
+      // them. The warning goes to stderr so json/ndjson stdout stays clean,
+      // and it covers both the one-shot and --follow paths.
+      if (options.signalsOnly) {
+        // eslint-disable-next-line no-console
+        console.error(
+          'extension logs --signals-only: no signals emitter ships in this ' +
+            'build, so dev sessions record no dx.signal events and this ' +
+            'filter will print nothing.'
+        )
+      }
+
       if (options.follow) {
         await followLogs(projectPath, browser, format, matches)
         return
