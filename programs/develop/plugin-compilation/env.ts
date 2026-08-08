@@ -269,6 +269,10 @@ export class EnvPlugin {
       new ProvidePlugin({process: processShim}).apply(compiler)
     }
 
+    // JSON/HTML `$VAR` templating must resolve to the same values JS sees at
+    // runtime (DefinePlugin + env files). Build one lookup shared by every asset.
+    const templateVars = buildTemplateVars(combinedVars, this.browser, mode)
+
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
       (compilation) => {
@@ -288,51 +292,26 @@ export class EnvPlugin {
                 )
 
                 const resolveVar = (name: string): string => {
-                  // Prefer system > explicit env file > defaults; preserve when missing
-                  if (Object.prototype.hasOwnProperty.call(process.env, name)) {
-                    const systemValue = process.env[name]
-                    if (typeof systemValue === 'string') return systemValue
-                  }
-
-                  if (Object.prototype.hasOwnProperty.call(envVars, name)) {
-                    const explicitEnvValue = (
-                      envVars as Record<string, string | undefined>
-                    )[name]
-                    if (typeof explicitEnvValue === 'string')
-                      return explicitEnvValue
-                  }
-
                   if (
-                    Object.prototype.hasOwnProperty.call(defaultsVars, name)
+                    Object.prototype.hasOwnProperty.call(templateVars, name)
                   ) {
-                    const defaultsValue = (
-                      defaultsVars as Record<string, string | undefined>
-                    )[name]
-                    if (typeof defaultsValue === 'string') return defaultsValue
+                    return templateVars[name]
                   }
-                  const combinedValue = (
-                    combinedVars as Record<string, unknown>
-                  )[name]
-
-                  return typeof combinedValue === 'string'
-                    ? combinedValue
-                    : `$${name}`
+                  // Preserve the placeholder when the var is unknown, matching
+                  // the pre-substitution form so authors can spot typos.
+                  return `$${name}`
                 }
 
+                // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
+                // PUBLIC first so the broader $EXTENSION_* pass does not re-touch them.
                 fileContent = fileContent.replace(
-                  /\$EXTENSION_PUBLIC_[A-Z_]+/g,
-                  (match: string) => {
-                    const envVarName = match.slice(1)
-                    return resolveVar(envVarName)
-                  }
+                  /\$EXTENSION_PUBLIC_[A-Z0-9_]+/g,
+                  (match: string) => resolveVar(match.slice(1))
                 )
 
                 fileContent = fileContent.replace(
-                  /\$EXTENSION_[A-Z_]+/g,
-                  (match: string) => {
-                    const envVarName = match.slice(1)
-                    return resolveVar(envVarName)
-                  }
+                  /\$EXTENSION_[A-Z0-9_]+/g,
+                  (match: string) => resolveVar(match.slice(1))
                 )
 
                 compilation.updateAsset(
@@ -350,4 +329,33 @@ export class EnvPlugin {
       }
     )
   }
+}
+
+/**
+ * Env values available to `$EXTENSION_*` placeholders in emitted .json/.html.
+ * Mirrors DefinePlugin: dotenv/process values plus the per-build-target
+ * browser and mode synthetics JS already reads via import.meta.env.
+ */
+export function buildTemplateVars(
+  combinedVars: Record<string, unknown>,
+  browser: DevOptions['browser'],
+  mode: string
+): Record<string, string> {
+  const vars: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(combinedVars)) {
+    if (typeof value === 'string' && key.startsWith('EXTENSION_')) {
+      vars[key] = value
+    }
+  }
+
+  // Always win: same overrides DefinePlugin applies after reading .env files.
+  const browserValue = String(browser)
+  const modeValue = String(mode)
+  vars.EXTENSION_BROWSER = browserValue
+  vars.EXTENSION_PUBLIC_BROWSER = browserValue
+  vars.EXTENSION_MODE = modeValue
+  vars.EXTENSION_PUBLIC_MODE = modeValue
+
+  return vars
 }
