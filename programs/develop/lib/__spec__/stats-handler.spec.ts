@@ -110,7 +110,8 @@ describe('renderStatsBlocks', () => {
 
 describe('renderStatsBlocks with emit-time warnings', () => {
   const fatalBody = '  ⚠ Repaired the version field.\n  │ Fix it.'
-  const legacyBody = '  ⚠ The manifest uses a deprecated path.\n  │ PATH x'
+  const legacyBody =
+    '  ⚠ The options_ui.page field uses a deprecated scaffold path.\n  │ PATH options_ui/page.html'
   const perfBody = '  ⚠ asset size limit exceeded'
 
   it('drops a warning block already printed at emit time', () => {
