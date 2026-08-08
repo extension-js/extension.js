@@ -26,7 +26,13 @@ export function normalizeBrowserName(input: string): InstallBrowserTarget {
 
   if (resolved) return resolved
 
-  if (value === 'safari' || value === 'webkit-based') {
+  // Entire webkit family (safari, webkit-based, and webkit-flavored forks).
+  if (
+    value === 'safari' ||
+    value === 'webkit-based' ||
+    value.includes('webkit') ||
+    value.includes('safari')
+  ) {
     throw new Error(
       `There is no Safari binary to install. Safari ships with macOS. ` +
         `Safari builds need the full Xcode app instead (Mac App Store), then ` +

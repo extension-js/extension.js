@@ -172,7 +172,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 - Supported sections:
   - config(config: Configuration): mutate the assembled Rspack config. Supports a function or a plain object. When an object is provided, it is deep‑merged on top of the assembled config.
   - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
-- browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: start flags, excluded flags, preferences, binaries, profile reuse (persistProfile), and per-browser `extensions`.
+- browser.chrome | .firefox | .edge | .safari | .chromium-based | .gecko-based | .webkit-based: start flags, excluded flags, preferences, binaries, profile reuse (persistProfile), and per-browser `extensions`.
   - extensions: load-only companion extensions (unpacked dirs) loaded alongside your extension in dev/preview/start.
     - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
 - Precedence when composing options (one contract for every command): stock defaults → browser._ → commands._ → CLI flags.
@@ -180,11 +180,11 @@ Options accepted by each command. Values shown are typical types or enumerations
     - Example: `commands.dev.polyfill: false` turns the polyfill off for the team, and `--polyfill` turns it back on for one run.
   - Lists (`browserFlags`, `excludeBrowserFlags`): concatenate across layers in order (browser, then command, then CLI) and dedupe.
   - Objects (`preferences`): deep-merge, later layers win on key conflict.
-- Browser key aliases when resolving `browser.*` from `extension.config.*`:
-  - When the runtime asks for `chromium`, `loadBrowserConfig` prefers `browser.chromium` and then falls back to `browser['chromium-based']`.
+- Browser key aliases when resolving `browser.*` from `extension.config.*` (engine families adopt product blocks; named products do not adopt engine-based blocks):
   - When the runtime asks for `chromium-based`, it prefers `browser['chromium-based']` and then `browser.chromium`.
-  - When the runtime asks for `firefox`, it prefers `browser.firefox` and then `browser['gecko-based']`.
   - When the runtime asks for `gecko-based`, it prefers `browser['gecko-based']` and then `browser.firefox`.
+  - When the runtime asks for `webkit-based` **or any webkit-flavored fork name** (e.g. `acme-webkit`), it prefers the exact `browser.<name>` block, then `browser['webkit-based']`, then `browser.safari`.
+  - Named product `safari` only uses `browser.safari` (does not adopt `webkit-based`).
 - When detected, a one‑time notice is printed to indicate config is active.
 
 ### Companion extensions (load-only)
@@ -300,7 +300,7 @@ dist/
 | plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
 | plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
-| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium                                                                                   |
+| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
 
 ## Notes and compatibility

@@ -54,6 +54,26 @@ describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
       expect(patched.permissions).toEqual(['storage', 'nativeMessaging'])
     })
 
+    it('safari:/webkit: resolve identically for any webkit-flavored fork name', () => {
+      const patched = filterKeysForThisBrowser(
+        prefixed,
+        'acme-webkit' as any
+      ) as any
+      expect(patched.action).toEqual({default_title: 'Safari'})
+      expect(patched.permissions).toEqual(['storage', 'nativeMessaging'])
+      // Still inherits chromium-family keys when no safari/webkit override.
+      const chromiumOnly = {
+        name: 'x',
+        'chromium:manifest_version': 3,
+        'firefox:manifest_version': 2
+      } as any
+      const inherited = filterKeysForThisBrowser(
+        chromiumOnly,
+        'acme-webkit' as any
+      ) as any
+      expect(inherited.manifest_version).toBe(3)
+    })
+
     it('safari: wins regardless of key order in the source manifest', () => {
       const reversed = {
         'safari:action': {default_title: 'Safari'},
