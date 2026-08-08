@@ -76,8 +76,29 @@ const DEFAULT_MAX_EVENTS = Number(
 const DEFAULT_DEBOUNCE_MS = Number(
   process.env.EXTENSION_TELEMETRY_DEBOUNCE_MS || 60_000
 )
+/* @invariant THIS BUDGET COVERS A COLD TLS HANDSHAKE OR IT DROPS EVERY EVENT
+ * SENT FROM FAR AWAY, AND IT SILENTLY DROPS THEM IN ONE DIRECTION.
+ *
+ * The abort below races the whole POST, DNS and TCP and TLS included, and every
+ * CLI run is a fresh process so the connection is always cold. Measured from a
+ * machine outside the US on 2026-08-07, twenty cold round trips to
+ * us.i.posthog.com ran 440ms to 565ms, and the TLS handshake alone ran 292ms to
+ * 408ms, so the previous 300ms could not cover the handshake even once. Zero of
+ * twenty finished inside it.
+ *
+ * The AbortError is swallowed by the `.catch` on the fetch while the audit line
+ * is written before the send, so a dropped event looks identical to a delivered
+ * one from the machine that sent it. That makes every count a floor, and the
+ * missing rows are the slow round trips, which is distance from us-east. A
+ * count read this way cannot answer whether demand exists outside North America,
+ * because absence and distance produce the same row.
+ *
+ * Raise this rather than tighten it. The send is awaited on exit, so the cost of
+ * a larger budget is a slower exit on a broken network and the cost of a smaller
+ * one is a biased dataset.
+ */
 const DEFAULT_TIMEOUT_MS = Number(
-  process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 300
+  process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 2000
 )
 const DEFAULT_AUDIT_MAX_BYTES = 1024 * 1024
 
