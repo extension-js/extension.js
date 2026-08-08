@@ -148,6 +148,26 @@ describe('extension logs (one-shot)', () => {
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([4])
   })
 
+  it('warns on stderr that no signals emitter ships in this build', async () => {
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--signals-only'])
+    ).toBe(0)
+    const warnings = errorSpy.mock.calls.map((call) => String(call[0]))
+    expect(
+      warnings.filter((w) =>
+        w.includes('no signals emitter ships in this build')
+      )
+    ).toHaveLength(1)
+    // stdout stays machine-clean: the warning never lands in the ndjson stream.
+    expect(printedLines().every((l) => l.startsWith('{'))).toBe(true)
+  })
+
+  it('does not warn about the missing emitter without --signals-only', async () => {
+    expect(await run(['logs', dir, '--output', 'ndjson'])).toBe(0)
+    const warnings = errorSpy.mock.calls.map((call) => String(call[0]))
+    expect(warnings.some((w) => w.includes('no signals emitter'))).toBe(false)
+  })
+
   it('defaults to ndjson when stdout is not a TTY and no --output is set', async () => {
     const savedIsTTY = process.stdout.isTTY
     Object.defineProperty(process.stdout, 'isTTY', {
