@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## 4.0.32 (August 8, 2026)
+
+### Features
+
+- Expose forced env vars to template substitution too ([07b7bb19](https://github.com/extension-js/extension.js/commit/07b7bb1959a55ff59e1955420b58a012b1cb7821))
+- Inspect every modified page in the watch batch with fresh bytes ([796a29da](https://github.com/extension-js/extension.js/commit/796a29da902b441e4581350df314e717c760c0ed))
+
+### Fixes
+
+- Guard the DNR override against dynamic-only manifests ([380767da](https://github.com/extension-js/extension.js/commit/380767dac15b4c3b6ead1241ace8c6c4421dd415))
+
+<details>
+<summary>Other changes (15)</summary>
+
+- Raise the js-yaml floor past its advisories ([47ad1ea2](https://github.com/extension-js/extension.js/commit/47ad1ea228676a72728ad95076049a564340d021))
+- Hold react-table majors in dependabot until the v9 migration ([8017287e](https://github.com/extension-js/extension.js/commit/8017287ed92e99077c3b648de362d14fed1d9821))
+- Revert the react-table 9 bump until the log-table is migrated ([03601430](https://github.com/extension-js/extension.js/commit/03601430daea2c221741337f4c5032054cfa399f))
+- Use a comma in the legacy-path warning to pass the messaging gate ([07a94549](https://github.com/extension-js/extension.js/commit/07a94549510f7860295bcd0e72c7306269620e86))
+- Scrub the author-mode alias in the default-verbosity retry spec ([6254c869](https://github.com/extension-js/extension.js/commit/6254c869195af4749732540ebaa16113c79cad2b))
+- Drop em dashes from watch-batch comments to pass the prose gate ([4f99ce00](https://github.com/extension-js/extension.js/commit/4f99ce00027a7516fd79cfe4a509e56cf890e828))
+- Warn on stderr when logs --signals-only has no emitter to match ([b8e029dc](https://github.com/extension-js/extension.js/commit/b8e029dc0768f04f7205e61c4b93ba09efe61ad3))
+- True up browser-family docs and pin webkit-fork behavior ([a41e54fc](https://github.com/extension-js/extension.js/commit/a41e54fc62d1721424b9b4b9e472a1779a630a45))
+- Skip the polyfill for the webkit family ([33543a39](https://github.com/extension-js/extension.js/commit/33543a390d470bdba8928213c1bd600adc39a076))
+- Adopt the safari product block for webkit-based runs ([cc55feb6](https://github.com/extension-js/extension.js/commit/cc55feb6409b3cba8c9421d5a2c3611dcc1a43a7))
+- Print a repeated fatal-shape repair once per dev session ([11873869](https://github.com/extension-js/extension.js/commit/118738693f3a09b831c3fa430297779ab23b7298))
+- Warn on legacy manifest paths from the author source, per field ([602498f5](https://github.com/extension-js/extension.js/commit/602498f5e13487b94293cf22764eb068a06e9bd2))
+- Give telemetry a budget that covers a cold TLS handshake ([c11f8536](https://github.com/extension-js/extension.js/commit/c11f853629fe44300cf2a2619e8f2fa9009cefcd))
+- Derive the create template list from the corpus commit it downloads ([03b52829](https://github.com/extension-js/extension.js/commit/03b52829f9a45e9e67989cb87014dd0097034ad1))
+- Force color off in test suites, monochrome is the assertion contract ([32c910b9](https://github.com/extension-js/extension.js/commit/32c910b92b501085b2d7256ff9d1d91ba928dbdb))
+</details>
+
 ## 4.0.30 (August 4, 2026)
 
 <details>
