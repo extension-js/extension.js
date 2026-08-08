@@ -21,6 +21,13 @@ updates:
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
+      # TanStack Table 9 is a ground-up API rewrite (createCoreRowModel,
+      # tableFeatures) and the devtools log-table is written against the v8
+      # hook API, so the major must land together with that migration. The
+      # 9.0.0 bump (#502) broke the release build and was reverted.
+      - dependency-name: "@tanstack/react-table"
+        update-types:
+          - "version-update:semver-major"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
