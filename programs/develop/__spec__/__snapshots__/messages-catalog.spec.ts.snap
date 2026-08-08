@@ -176,7 +176,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-web-extension/feature-manifest/messages.ts": [
     "fatalManifestShapeFixed: function(2)",
     "invalidThemeValue: function(3)",
-    "legacyManifestPathWarning: function(1)",
+    "legacyManifestPathWarning: function(3)",
     "manifestDepsTracked: function(1)",
     "manifestEmitSuccess: function(0)",
     "manifestIncludeSummary: function(2)",

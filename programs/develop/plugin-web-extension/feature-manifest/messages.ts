@@ -27,12 +27,18 @@ export function serverRestartRequiredFromManifestError(
   return lines.join('\n')
 }
 
-export function legacyManifestPathWarning(legacyPath: string) {
+export function legacyManifestPathWarning(
+  field: string,
+  legacyPath: string,
+  modernPath: string
+) {
   const lines: string[] = []
-  lines.push(`${prefix('warn')} The manifest uses a deprecated path.`)
+  lines.push(
+    `${prefix('warn')} The ${colors.blue(field)} field uses a deprecated scaffold path.`
+  )
   lines.push(`${colors.gray('PATH')} ${colors.underline(legacyPath)}`)
   lines.push(
-    `Extension.js rewrites it to the standardized folders in the next major.`
+    `Point it at ${colors.underline(modernPath)}; Extension.js already emits the page there.`
   )
   return lines.join('\n')
 }
