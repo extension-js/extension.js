@@ -22,5 +22,8 @@ describe('browser target normalization', () => {
   it('explains that Safari needs Xcode, not a browser install', () => {
     expect(() => normalizeBrowserName('safari')).toThrow(/ships with macOS/)
     expect(() => normalizeBrowserName('webkit-based')).toThrow(/Xcode/)
+    expect(() => normalizeBrowserName('acme-webkit')).toThrow(
+      /ships with macOS/
+    )
   })
 })

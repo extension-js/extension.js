@@ -19,7 +19,9 @@ const CHROMIUM_TARGETS = [
   'yandex',
   'chromium-based',
   'safari',
-  'webkit-based'
+  'webkit-based',
+  // Webkit-flavored forks inherit chromium-scoped keys the same as safari.
+  'acme-webkit'
 ]
 
 const GECKO_TARGETS = [
