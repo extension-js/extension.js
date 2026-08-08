@@ -10,23 +10,26 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
 export function declarativeNetRequest(manifest: Manifest) {
+  // Dynamic-only DNR may omit rule_resources; avoid .map on undefined.
   return (
     manifest.declarative_net_request && {
       declarative_net_request: {
         ...manifest.declarative_net_request,
-        rule_resources: manifest.declarative_net_request.rule_resources.map(
-          (resourceObj: {path: string; id: string}) => {
-            return {
-              ...resourceObj,
-              path:
-                resourceObj.path &&
-                getFilename(
-                  `declarative_net_request/${resourceObj.id}.json`,
-                  resourceObj.path
-                )
+        ...(Array.isArray(manifest.declarative_net_request.rule_resources) && {
+          rule_resources: manifest.declarative_net_request.rule_resources.map(
+            (resourceObj: {path: string; id: string}) => {
+              return {
+                ...resourceObj,
+                path:
+                  resourceObj.path &&
+                  getFilename(
+                    `declarative_net_request/${resourceObj.id}.json`,
+                    resourceObj.path
+                  )
+              }
             }
-          }
-        )
+          )
+        })
       }
     }
   )
