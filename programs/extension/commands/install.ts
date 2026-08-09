@@ -13,9 +13,10 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {
   type Browser,
+  firstNonManagedInstallTarget,
   installTargets,
-  validateVendors,
-  vendors
+  MANAGED_INSTALL_TARGETS,
+  MANAGED_INSTALL_TARGETS_HELP
 } from '../helpers/vendors'
 
 type InstallOptions = {
@@ -36,6 +37,115 @@ function emit(frame: unknown): void {
   console.log(JSON.stringify(frame))
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+// Mirrors extension-install's isBrowserNotInstallableError without a static
+// import so unit tests can mock the package without shipping the type guard.
+function isNotInstallableRefusal(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === 'BrowserNotInstallableError' ||
+        (error as {code?: string}).code === 'BROWSER_NOT_INSTALLABLE')
+  )
+}
+
+// Belt-and-suspenders for direct package throws that slip past CLI validation.
+async function refuseNotInstallable(
+  command: 'install' | 'uninstall',
+  error: unknown,
+  asJson: boolean
+): Promise<void> {
+  const message = errorText(error)
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(command, 'usage', {
+        code: CODES.E_BROWSER_NOT_INSTALLABLE,
+        message
+      })
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(message)
+  }
+  await exitAfterDrain(1)
+}
+
+// Three-way gate shared by install and uninstall (including --where), pretty
+// and json. Scripts branch on the envelope code alone:
+//   unknown name        → E_UNSUPPORTED_BROWSER
+//   known, never fetch  → E_BROWSER_NOT_INSTALLABLE
+//   managed download    → proceeds (failures become E_BROWSER_DOWNLOAD)
+async function refuseIfNotManagedTarget(
+  command: 'install' | 'uninstall',
+  browserList: string[],
+  asJson: boolean
+): Promise<boolean> {
+  const bad = firstNonManagedInstallTarget(browserList)
+  if (!bad) return false
+
+  if (bad.kind === 'not-installable') {
+    const message = messages.browserNotInstallablePlain(bad.name)
+    if (asJson) {
+      emit(
+        ENVELOPE.fail(command, 'usage', {
+          code: CODES.E_BROWSER_NOT_INSTALLABLE,
+          message
+        })
+      )
+    } else {
+      // eslint-disable-next-line no-console
+      console.error(messages.browserNotInstallable(bad.name))
+    }
+    await exitAfterDrain(1)
+    return true
+  }
+
+  // unknown
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(command, 'usage', {
+        code: CODES.E_UNSUPPORTED_BROWSER,
+        message: `Unsupported browser: ${bad.name}.`
+      })
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(
+      messages.unsupportedBrowserFlag(bad.name, [...MANAGED_INSTALL_TARGETS])
+    )
+  }
+  await exitAfterDrain(1)
+  return true
+}
+
+async function refuseDownloadFailed(
+  browser: string,
+  error: unknown,
+  asJson: boolean
+): Promise<void> {
+  const detail = errorText(error)
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(
+        'install',
+        'failed',
+        {
+          code: CODES.E_BROWSER_DOWNLOAD,
+          message: detail
+        },
+        {hint: `Retry, or install ${browser} manually.`}
+      )
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(messages.browserDownloadFailed(browser, detail))
+  }
+  await exitAfterDrain(1)
+}
+
 export function registerInstallCommand(program: Command) {
   program
     .command('install')
@@ -43,7 +153,7 @@ export function registerInstallCommand(program: Command) {
     .usage('[browser-name] [options]')
     .description(commandDescriptions.install)
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | all>',
+      `--browser <${MANAGED_INSTALL_TARGETS_HELP}>`,
       'override the positional browser name. Supports comma-separated values and `all`.'
     )
     .option('--where', 'print the resolved managed browser cache root')
@@ -53,33 +163,17 @@ export function registerInstallCommand(program: Command) {
     )
     .action(async (browserArg: string | undefined, options: InstallOptions) => {
       const asJson = options.output === 'json'
+      const named = Boolean(options.browser || browserArg)
       const selectedBrowser = (options.browser || browserArg || 'chromium') as
         | Browser
         | 'all'
       const browserList = installTargets(selectedBrowser)
 
-      let unsupported = ''
-      const vendorsAreSupported = validateVendors(
-        browserList,
-        (invalid, supported) => {
-          unsupported = invalid
-          if (asJson) return
-          // eslint-disable-next-line no-console
-          console.error(messages.unsupportedBrowserFlag(invalid, supported))
+      // --where with no name prints the cache root; skip name validation.
+      if (!(options.where && !named)) {
+        if (await refuseIfNotManagedTarget('install', browserList, asJson)) {
+          return
         }
-      )
-
-      if (!vendorsAreSupported) {
-        if (asJson) {
-          emit(
-            ENVELOPE.fail('install', 'usage', {
-              code: CODES.E_UNSUPPORTED_BROWSER,
-              message: `Unsupported browser: ${unsupported}.`
-            })
-          )
-        }
-        await exitAfterDrain(1)
-        return
       }
 
       const {
@@ -89,10 +183,15 @@ export function registerInstallCommand(program: Command) {
       } = await import('extension-install')
 
       if (options.where) {
-        const named = Boolean(options.browser || browserArg)
-        const paths = named
-          ? browserList.map((browser) => getManagedBrowserInstallDir(browser))
-          : [getManagedBrowsersCacheRoot()]
+        let paths: string[]
+        try {
+          paths = named
+            ? browserList.map((browser) => getManagedBrowserInstallDir(browser))
+            : [getManagedBrowsersCacheRoot()]
+        } catch (error) {
+          await refuseNotInstallable('install', error, asJson)
+          return
+        }
 
         if (asJson) {
           emit(ENVELOPE.ok('install', 'located', {paths}))
@@ -112,20 +211,12 @@ export function registerInstallCommand(program: Command) {
           await extensionInstall({browser})
           installed.push(browser)
         } catch (error) {
-          if (!asJson) throw error
+          if (isNotInstallableRefusal(error)) {
+            await refuseNotInstallable('install', error, asJson)
+            return
+          }
 
-          emit(
-            ENVELOPE.fail(
-              'install',
-              'failed',
-              {
-                code: CODES.E_BROWSER_DOWNLOAD,
-                message: error instanceof Error ? error.message : String(error)
-              },
-              {hint: `Retry, or install ${browser} manually.`}
-            )
-          )
-          await exitAfterDrain(1)
+          await refuseDownloadFailed(browser, error, asJson)
           return
         }
       }
@@ -139,7 +230,10 @@ export function registerInstallCommand(program: Command) {
     .command('uninstall')
     .usage('<browser-name> | --all | --where')
     .description(commandDescriptions.uninstall)
-    .option('--browser <browser-name>', 'browser to uninstall')
+    .option(
+      `--browser <${MANAGED_INSTALL_TARGETS_HELP}>`,
+      'browser(s) to uninstall. Supports comma-separated values and `all`.'
+    )
     .option('--all', 'remove all managed browser binaries')
     .option('--where', 'print the resolved managed browser cache root')
     .option(
@@ -153,7 +247,13 @@ export function registerInstallCommand(program: Command) {
         {browser, all, where, output}: UninstallOptions
       ) => {
         const asJson = output === 'json'
-        const target = browserArg || browser
+        const named = Boolean(browserArg || browser)
+        // Same resolution path as install: positional/--browser, comma lists,
+        // and `all` (via --all or the name itself) expand through installTargets.
+        const selected =
+          all || browserArg === 'all' || browser === 'all'
+            ? 'all'
+            : ((browser || browserArg) as Browser | 'all' | undefined)
 
         const {
           extensionUninstall,
@@ -161,46 +261,51 @@ export function registerInstallCommand(program: Command) {
           getManagedBrowserInstallDir
         } = await import('extension-install')
 
+        // --where alone (no name, no --all): print the cache root, no name gate.
+        if (where && !named && !all) {
+          const paths = [getManagedBrowsersCacheRoot()]
+          if (asJson) {
+            emit(ENVELOPE.ok('uninstall', 'located', {paths}))
+          } else {
+            for (const location of paths) {
+              // eslint-disable-next-line no-console
+              console.log(location)
+            }
+          }
+          return
+        }
+
+        if (!selected) {
+          const message =
+            'A browser target is required. Pass a browser name, --browser <name>, or --all.'
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('uninstall', 'usage', {
+                code: CODES.E_ARGS,
+                message
+              })
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(message)
+          }
+          await exitAfterDrain(1)
+          return
+        }
+
+        const browserList = installTargets(selected)
+
+        if (await refuseIfNotManagedTarget('uninstall', browserList, asJson)) {
+          return
+        }
+
         if (where) {
           let paths: string[]
-
-          if (all) {
-            // Mirror install --all's managed set (vendors('all') plus
-            // chromium), so install and uninstall cover the same binaries.
-            paths = installTargets('all').map((name) =>
-              getManagedBrowserInstallDir(name)
-            )
-          } else if (target) {
-            const list = vendors(target as Browser)
-            let unsupported = ''
-            const vendorsAreSupported = validateVendors(
-              list,
-              (invalid, supported) => {
-                unsupported = invalid
-                if (asJson) return
-                // eslint-disable-next-line no-console
-                console.error(
-                  messages.unsupportedBrowserFlag(invalid, supported)
-                )
-              }
-            )
-
-            if (!vendorsAreSupported) {
-              if (asJson) {
-                emit(
-                  ENVELOPE.fail('uninstall', 'usage', {
-                    code: CODES.E_UNSUPPORTED_BROWSER,
-                    message: `Unsupported browser: ${unsupported}.`
-                  })
-                )
-              }
-              await exitAfterDrain(1)
-              return
-            }
-
-            paths = list.map((name) => getManagedBrowserInstallDir(name))
-          } else {
-            paths = [getManagedBrowsersCacheRoot()]
+          try {
+            paths = browserList.map((name) => getManagedBrowserInstallDir(name))
+          } catch (error) {
+            await refuseNotInstallable('uninstall', error, asJson)
+            return
           }
 
           if (asJson) {
@@ -214,26 +319,43 @@ export function registerInstallCommand(program: Command) {
           return
         }
 
+        const removeAll = Boolean(all || selected === 'all')
+
         try {
           await extensionUninstall({
-            browser: target,
-            all
-          } satisfies UninstallOptions)
+            // --all and the name `all` both mean the managed binary set; the
+            // package expands that set itself when all is true.
+            browser: removeAll ? undefined : browserList.join(','),
+            all: removeAll
+          })
         } catch (error) {
-          if (!asJson) throw error
+          if (isNotInstallableRefusal(error)) {
+            await refuseNotInstallable('uninstall', error, asJson)
+            return
+          }
 
-          emit(
-            ENVELOPE.fail('uninstall', 'failed', {
-              code: CODES.E_BROWSER_UNINSTALL,
-              message: error instanceof Error ? error.message : String(error)
-            })
-          )
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('uninstall', 'failed', {
+                code: CODES.E_BROWSER_UNINSTALL,
+                message: errorText(error)
+              })
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(errorText(error))
+          }
           await exitAfterDrain(1)
           return
         }
 
         if (asJson) {
-          emit(ENVELOPE.ok('uninstall', 'uninstalled', {browser: target, all}))
+          emit(
+            ENVELOPE.ok('uninstall', 'uninstalled', {
+              browsers: browserList,
+              all: removeAll
+            })
+          )
         }
       }
     )

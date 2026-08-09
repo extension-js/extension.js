@@ -7,9 +7,19 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
+  BrowserNotInstallableError,
   type InstallBrowserTarget,
+  isBrowserNotInstallableError,
   normalizeBrowserName
 } from './lib/browser-target'
+
+export {
+  BrowserNotInstallableError,
+  isBrowserNotInstallableError,
+  normalizeBrowserName
+}
+export type {InstallBrowserTarget}
+
 import {
   removeBrowserDir,
   resolveBrowserInstallDir,
@@ -91,9 +101,19 @@ export async function extensionUninstall({
     throw new Error(messages.uninstallRequiresTarget())
   }
 
+  // Same comma-list rules as install: "chrome,edge" and "all" expand here so
+  // the CLI and direct callers share one acceptance surface.
   const targets: InstallBrowserTarget[] = all
     ? ['chrome', 'chromium', 'edge', 'firefox']
-    : [normalizeBrowserName(String(browser || ''))]
+    : String(browser || '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((name) => normalizeBrowserName(name))
+
+  if (!all && targets.length === 0) {
+    throw new Error(messages.uninstallRequiresTarget())
+  }
 
   console.log(messages.uninstallingBrowsers(cacheRoot, targets))
 

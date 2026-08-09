@@ -40,7 +40,7 @@
     },
     "E_BROWSER_NOT_INSTALLABLE": {
       "area": "usage",
-      "summary": "The browser ships with the OS and cannot be installed by the CLI."
+      "summary": "The browser is a known target but has no managed download; the CLI cannot fetch it."
     },
     "E_PARENT_GONE": {
       "area": "usage",

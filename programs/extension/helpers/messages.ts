@@ -197,7 +197,8 @@ const COMMAND_TABLE = [
       {
         usage:
           '--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>',
-        description: 'Install multiple browsers, browser families, or all'
+        description:
+          'Install one or more managed browsers (comma-separated) or all'
       },
       {
         usage: '--where',
@@ -212,11 +213,17 @@ const COMMAND_TABLE = [
     description: 'Remove managed browser binaries from the Extension.js cache',
     supportsSourceInspection: false,
     notes: [
+      {
+        usage:
+          '--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>',
+        description:
+          'Remove one or more managed browsers (comma-separated), same names as install'
+      },
       {usage: '--all', description: 'Remove every managed browser binary'},
       {
         usage: '--where',
         description:
-          'Print the managed browser cache root (or browser install path(s) when --browser/--all is provided)'
+          'Print the managed browser cache root (or browser install path(s) when a browser name, --browser, or --all is provided)'
       }
     ]
   },
@@ -418,6 +425,68 @@ export function unsupportedBrowserFlag(value: string, supported: string[]) {
   return (
     `${getLoggingPrefix('error')} Unsupported --browser value: ${value}.\n` +
     `${colors.red('Choose one of:')} ${supported.join(', ')}${colors.red('.')}`
+  )
+}
+
+// Plain text for schema-1 envelopes (no ANSI). Scripts match the code; the
+// message only explains. Keep install and uninstall wording identical.
+export function browserNotInstallablePlain(value: string): string {
+  const name = String(value || '')
+    .trim()
+    .toLowerCase()
+  if (
+    name === 'safari' ||
+    name === 'webkit-based' ||
+    name.includes('safari') ||
+    name.includes('webkit')
+  ) {
+    return (
+      `There is no Safari binary to install. Safari ships with macOS. ` +
+      `Safari builds need the full Xcode app instead (Mac App Store), then ` +
+      `run \`extension build --browser safari\`.`
+    )
+  }
+  const display = name || String(value || 'browser')
+  return (
+    `${display} cannot be installed by Extension.js. ` +
+    `This CLI never downloads it. It is located from the system when present. ` +
+    `Install it yourself, then run with --browser=${display}. ` +
+    `Managed installs cover: chrome, chromium, edge, firefox.`
+  )
+}
+
+export function browserNotInstallable(value: string): string {
+  const name = String(value || '')
+    .trim()
+    .toLowerCase()
+  if (
+    name === 'safari' ||
+    name === 'webkit-based' ||
+    name.includes('safari') ||
+    name.includes('webkit')
+  ) {
+    return (
+      `${getLoggingPrefix('error')} There is no Safari binary to install.\n` +
+      `${colors.red('Safari ships with macOS. Safari builds need the full Xcode app')} ` +
+      `${colors.red('(Mac App Store), then run')} ${code('extension build --browser safari')}${colors.red('.')}`
+    )
+  }
+  const display = name || String(value || 'browser')
+  return (
+    `${getLoggingPrefix('error')} ${colors.blue(display)} cannot be installed by Extension.js.\n` +
+    `${colors.red('This CLI never downloads it. It is located from the system when present.')}\n` +
+    `${colors.red('Install it yourself, then run with')} ${code(`--browser=${display}`)}${colors.red('.')}\n` +
+    `${colors.red('Managed installs cover:')} chrome, chromium, edge, firefox${colors.red('.')}`
+  )
+}
+
+export function browserDownloadFailed(browser: string, detail: string): string {
+  const name = String(browser || 'browser').trim() || 'browser'
+  const body = String(detail || '').trim()
+  return (
+    `${getLoggingPrefix('error')} Couldn't download ${colors.blue(name)}.\n` +
+    (body ? `${colors.red(body)}\n` : '') +
+    `${colors.red('Retry, or install')} ${colors.blue(name)} ${colors.red('manually.')}`
   )
 }
 
