@@ -171,6 +171,40 @@ jobs:
       - name: Run packed-tarball smoke
         run: pnpm smoke:npx
 
+  bundled-extensions:
+    name: Bundled extensions build (chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile CLI and develop pipeline
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      # The bundled devtools/theme extensions are otherwise only built by
+      # publish-release.yml and the nightly, so a breaking dependency bump
+      # in extensions/ merges green here and reddens the next release
+      # (the react-table 9 bump did exactly that). One engine is enough to
+      # catch API breaks; the release gate still builds all four.
+      - name: Build bundled extensions for chromium
+        run: |
+          pnpm --filter extension-js-devtools run build:chromium
+          pnpm --filter @extension-js/theme run build:chromium
+
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
