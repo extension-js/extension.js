@@ -206,6 +206,9 @@ describe('writeDenoJsonc', () => {
     // The template config stays authoritative where it speaks, but the
     // scaffold contract still lands: extension import, deps, no package.json.
     expect(config.tasks.dev).toBe('custom')
+    // Tasks the template did not define still come from the scaffold defaults.
+    expect(config.tasks.build).toBe('extension build')
+    expect(config.tasks.start).toBe('extension start')
     expect(config.imports.preact).toBe('npm:preact@10.0.0')
     expect(config.imports.react).toBe('npm:react@^18.3.1')
     expect(config.imports.extension).toBe('npm:extension@^4.0.5')
@@ -217,6 +220,113 @@ describe('writeDenoJsonc', () => {
     await expect(
       fsp.access(path.join(projectPath, 'deno.jsonc'))
     ).rejects.toThrow()
+  })
+
+  it('primary mode forces nodeModulesDir auto even when the template turns it off', async () => {
+    // Scaffold tasks run the Extension.js CLI out of node_modules/.bin. A
+    // template that sets nodeModulesDir to "none" would leave those tasks
+    // unable to resolve their tooling.
+    await fsp.writeFile(
+      path.join(projectPath, 'deno.json'),
+      JSON.stringify({
+        nodeModulesDir: 'none',
+        imports: {preact: 'npm:preact@10.0.0'},
+        tasks: {fmt: 'deno fmt'}
+      }) + '\n'
+    )
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'template'})
+    )
+
+    await withDenoGlobal(async () => {
+      await writeDenoJsonc(
+        projectPath,
+        {cliVersion: '4.0.5', primary: true},
+        noopLogger
+      )
+    })
+
+    const config = parseJsonc(
+      await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
+    )
+    expect(config.nodeModulesDir).toBe('auto')
+    expect(config.imports.preact).toBe('npm:preact@10.0.0')
+    expect(config.tasks.fmt).toBe('deno fmt')
+    expect(config.tasks.dev).toBe('extension dev')
+  })
+
+  it('primary mode rewrites a template-pinned extension to the scaffolding CLI version', async () => {
+    // Templates pin extension to whatever they were written against. npm
+    // scaffolds rewrite that pin to the invoking CLI; Deno must do the same
+    // so the first `deno task dev` is not an old package against a new CLI.
+    await fsp.writeFile(
+      path.join(projectPath, 'deno.json'),
+      JSON.stringify({
+        imports: {
+          preact: 'npm:preact@10.0.0',
+          extension: 'npm:extension@^2.1.0'
+        }
+      }) + '\n'
+    )
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({
+        name: 'template',
+        dependencies: {react: '^18.3.1'},
+        devDependencies: {extension: '^2.1.0'}
+      })
+    )
+
+    await withDenoGlobal(async () => {
+      await writeDenoJsonc(
+        projectPath,
+        {cliVersion: '4.0.5', primary: true},
+        noopLogger
+      )
+    })
+
+    const config = parseJsonc(
+      await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
+    )
+    expect(config.imports.extension).toBe('npm:extension@^4.0.5')
+    // Everything else the template pinned stays the template's choice.
+    expect(config.imports.preact).toBe('npm:preact@10.0.0')
+    expect(config.imports.react).toBe('npm:react@^18.3.1')
+  })
+
+  it('primary mode merges scaffold tasks under a template that only adds its own', async () => {
+    // Templates often ship deno.json with just fmt (or similar); that must
+    // not wipe the scaffold contract that the banner and README advertise.
+    await fsp.writeFile(
+      path.join(projectPath, 'deno.json'),
+      '{"tasks": {"fmt": "deno fmt"}}\n'
+    )
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'template'})
+    )
+
+    await withDenoGlobal(async () => {
+      await writeDenoJsonc(
+        projectPath,
+        {cliVersion: '4.0.5', primary: true},
+        noopLogger
+      )
+    })
+
+    const config = parseJsonc(
+      await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
+    )
+    expect(config.tasks.fmt).toBe('deno fmt')
+    expect(config.tasks.dev).toBe('extension dev')
+    expect(config.tasks.build).toBe('extension build')
+    expect(config.tasks.start).toBe('extension start')
+    expect(config.tasks.preview).toBe('extension preview')
+    expect(config.tasks['build:firefox']).toBe(
+      'extension build --browser firefox'
+    )
+    expect(config.imports.extension).toBe('npm:extension@^4.0.5')
   })
 
   it('primary mode updates deno.json when deno.jsonc also exists', async () => {

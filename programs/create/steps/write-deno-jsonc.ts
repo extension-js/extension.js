@@ -160,9 +160,27 @@ export async function writeDenoJsonc(
       // package.json retired, or `deno task dev` never finds the CLI (#482).
       const configPath = path.join(projectPath, existingConfig)
       const config = parseJsoncSafe(await fs.readFile(configPath, 'utf8'))
+      // Template imports stay authoritative for everything they pin, except
+      // `extension`: that always matches the CLI doing the scaffold, same as
+      // overridePackageJson rewrites devDependencies.extension. An old
+      // template pin would otherwise install a CLI the rest of the scaffold
+      // no longer speaks to.
       config.imports = {...(imports || {}), ...(config.imports || {})}
-      if (config.nodeModulesDir === undefined) config.nodeModulesDir = 'auto'
-      if (!config.tasks) config.tasks = tasks
+      if (imports?.extension) {
+        config.imports.extension = imports.extension
+      }
+      // Always materialize a real node_modules: scaffold tasks invoke the
+      // Extension.js CLI from node_modules/.bin. A template that sets
+      // nodeModulesDir to "none"/"manual"/false would ship a config whose
+      // tasks cannot resolve their tooling.
+      config.nodeModulesDir = 'auto'
+      // Scaffold defaults first, template tasks on top, same order as
+      // overridePackageJson scripts. A template that only adds fmt keeps
+      // dev/build/…; a template that already defines dev keeps its version.
+      config.tasks = {
+        ...tasks,
+        ...((config.tasks as Record<string, string> | undefined) || {})
+      }
       await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
     } else {
       await fs.writeFile(
