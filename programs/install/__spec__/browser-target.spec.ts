@@ -1,5 +1,9 @@
 import {describe, expect, it} from 'vitest'
-import {normalizeBrowserName} from '../lib/browser-target'
+import {
+  BrowserNotInstallableError,
+  isBrowserNotInstallableError,
+  normalizeBrowserName
+} from '../lib/browser-target'
 
 describe('browser target normalization', () => {
   it('maps engine aliases to concrete targets', () => {
@@ -15,8 +19,15 @@ describe('browser target normalization', () => {
     expect(normalizeBrowserName('firefox')).toBe('firefox')
   })
 
-  it('throws for unsupported names', () => {
-    expect(() => normalizeBrowserName('brave')).toThrow(/Unsupported browser/)
+  it('throws BrowserNotInstallableError for system-located forks', () => {
+    expect(() => normalizeBrowserName('brave')).toThrow(/never downloads/)
+    expect(() => normalizeBrowserName('chrome,edge')).toThrow(/never downloads/)
+    try {
+      normalizeBrowserName('brave')
+    } catch (error) {
+      expect(isBrowserNotInstallableError(error)).toBe(true)
+      expect(error).toBeInstanceOf(BrowserNotInstallableError)
+    }
   })
 
   it('explains that Safari needs Xcode, not a browser install', () => {
@@ -25,5 +36,10 @@ describe('browser target normalization', () => {
     expect(() => normalizeBrowserName('acme-webkit')).toThrow(
       /ships with macOS/
     )
+    try {
+      normalizeBrowserName('safari')
+    } catch (error) {
+      expect(isBrowserNotInstallableError(error)).toBe(true)
+    }
   })
 })

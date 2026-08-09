@@ -67,6 +67,13 @@ declare module 'extension-install' {
     all?: boolean
   }
 
+  export class BrowserNotInstallableError extends Error {
+    readonly code: 'BROWSER_NOT_INSTALLABLE'
+  }
+
+  export function isBrowserNotInstallableError(
+    error: unknown
+  ): error is BrowserNotInstallableError
   export function getManagedBrowsersCacheRoot(): string
   export function getManagedBrowserInstallDir(browser: string): string
   export function extensionInstall(options: InstallOptions): Promise<void>

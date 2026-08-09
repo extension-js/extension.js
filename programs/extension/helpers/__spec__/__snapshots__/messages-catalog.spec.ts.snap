@@ -119,6 +119,9 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
   "messages.ts": [
     "COMMANDS: array",
     "availableCommandsBlock: function(0)",
+    "browserDownloadFailed: function(2)",
+    "browserNotInstallable: function(1)",
+    "browserNotInstallablePlain: function(1)",
     "checkUpdates: function(2)",
     "commandArgSignature: function(1)",
     "commandDescriptions: object",
