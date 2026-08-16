@@ -66,14 +66,15 @@ export function resolveCompanionExtensionDirs(opts: {
 
       scanOneLevel(absScan)
 
-      if (path.basename(absScan) === 'extensions') {
-        for (const ent of entries) {
-          if (!ent.isDirectory()) continue
-          if (ent.name.startsWith('.')) continue
+      // Browser-named subfolders (extensions/chrome/<ext>) get one more
+      // level for ANY configured dir, not only the default 'extensions'
+      // basename; isValidExtensionRoot keeps arbitrary nesting out.
+      for (const ent of entries) {
+        if (!ent.isDirectory()) continue
+        if (ent.name.startsWith('.')) continue
 
-          const browserDir = path.join(absScan, ent.name)
-          scanOneLevel(browserDir)
-        }
+        const browserDir = path.join(absScan, ent.name)
+        scanOneLevel(browserDir)
       }
     }
   }
