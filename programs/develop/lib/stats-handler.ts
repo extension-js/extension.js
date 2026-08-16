@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {scrubBrand} from './branding'
-import {prefix} from './messaging'
+import {isDebug, prefix} from './messaging'
 
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
@@ -95,6 +95,45 @@ function dropEmitTimeWarningBlocks(raw: string, excluded: Set<string>): string {
   return kept.join('\n')
 }
 
+const CASE_MISMATCH_PATTERN =
+  /\[CaseSensitivePathsPlugin\]\s*`([^`]+)`\s*does not match the corresponding path on disk\s*`?([^`\s]+?)`?\.?\s*$/
+
+// A casing mismatch is a user-facing refusal, not a plugin crash. Collapse
+// the plugin's stack to one clear line and keep the frames for author mode.
+export function humanizeCaseMismatchBlocks(
+  raw: string,
+  showStack: boolean = isDebug()
+): string {
+  const lines = String(raw || '').split('\n')
+  const out: string[] = []
+  let droppingStack = false
+
+  for (const line of lines) {
+    const plain = line.replace(ANSI_PATTERN, '')
+    const match = CASE_MISMATCH_PATTERN.exec(plain)
+
+    if (match) {
+      const reference = match[1]
+      const onDisk = match[2]
+      out.push(
+        `  × \`${reference}\` does not match its casing on disk: \`${onDisk}\`.`,
+        `    Case-sensitive filesystems fail this reference. Rename the file or the import so both agree.`
+      )
+      droppingStack = !showStack
+      continue
+    }
+
+    if (droppingStack) {
+      if (plain.trim().startsWith('│')) continue
+      droppingStack = false
+    }
+
+    out.push(line)
+  }
+
+  return out.join('\n')
+}
+
 // The bundler's ERROR/WARNING head lines become standard-anatomy headers; the
 // diagnostic body under them keeps its code frames and squiggles verbatim.
 export function wrapStatsBlocks(raw: string): string {
@@ -145,7 +184,7 @@ export function renderStatsBlocks(
     ? dropEmitTimeWarningBlocks(raw, collectEmitTimeWarningTexts(stats))
     : raw
   if (!filtered.trim()) return ''
-  return wrapStatsBlocks(scrubBrand(filtered))
+  return wrapStatsBlocks(scrubBrand(humanizeCaseMismatchBlocks(filtered)))
 }
 
 export function handleStatsErrors(stats: import('@rspack/core').Stats): void {
