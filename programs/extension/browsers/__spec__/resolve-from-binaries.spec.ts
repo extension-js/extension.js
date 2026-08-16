@@ -157,6 +157,30 @@ describe('resolveFromBinaries', () => {
     expect(fs.existsSync(String(binary))).toBe(true)
   })
 
+  it('finds the macOS Edge app-bundle binary named Microsoft Edge', () => {
+    if (process.platform !== 'darwin') return
+    const dir = path.join(
+      cacheRoot,
+      'edge',
+      'edge',
+      `${platformPrefix}-141.0.0.0`
+    )
+    writeExecutable(
+      path.join(
+        dir,
+        'Microsoft Edge.app',
+        'Contents',
+        'MacOS',
+        'Microsoft Edge'
+      )
+    )
+
+    const binary = resolveFromBinaries(compilation, 'edge')
+
+    expect(String(binary)).toContain('Microsoft Edge')
+    expect(fs.existsSync(String(binary))).toBe(true)
+  })
+
   it('picks the newest Chrome for Testing candidate path, not the first readdir hit', () => {
     installChromeCandidate('99.0.0.0')
     installChromeCandidate('140.0.7259.2')
