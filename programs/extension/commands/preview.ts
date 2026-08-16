@@ -153,6 +153,9 @@ export function registerPreviewCommand(program: Command) {
         }
 
         const asJson = previewOptions.output === 'json'
+        // Tells develop to route human lines to stderr, so stdout carries
+        // only the envelope and stays parseable as one JSON document.
+        if (asJson) process.env.EXTENSION_OUTPUT = 'json'
         const emit = (frame: unknown) => {
           // eslint-disable-next-line no-console
           console.log(JSON.stringify(frame))

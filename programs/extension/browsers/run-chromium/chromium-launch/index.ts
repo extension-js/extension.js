@@ -10,16 +10,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import locateBrave from 'brave-location'
 import locateChrome, {
-  getInstallGuidance as getChromeInstallGuidance,
-  getChromeVersion
+  getInstallGuidance as getChromeInstallGuidance
 } from 'chrome-location2'
 import locateChromium, {
-  getInstallGuidance as getChromiumInstallGuidance,
-  getChromiumVersion
+  getInstallGuidance as getChromiumInstallGuidance
 } from 'chromium-location'
 import locateEdge, {
-  getInstallGuidance as getEdgeInstallGuidance,
-  getEdgeVersion
+  getInstallGuidance as getEdgeInstallGuidance
 } from 'edge-location'
 import locateOpera from 'opera-location2'
 import locateVivaldi from 'vivaldi-location2'
@@ -291,12 +288,31 @@ export class ChromiumLaunchPlugin {
     compilation: CompilationLike,
     opts?: {enableCdpPostLaunch?: boolean}
   ) {
+    // A bad --chromium-binary is a pin error on every target. Check it
+    // before the VITEST dry-run shortcut so tests never see "not installed".
+    if (this.options?.chromiumBinary) {
+      const requested = String(this.options.chromiumBinary)
+      const normalizedEarly = normalizeBinaryPathForWsl(requested)
+      if (!normalizedEarly || !fs.existsSync(normalizedEarly)) {
+        humanError(messages.invalidChromiumBinaryPath(requested))
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error(`Invalid --chromium-binary path: ${requested}`)
+        }
+        process.exit(1)
+      }
+    }
+
     if (
       this.options?.dryRun ||
       process.env.VITEST ||
       process.env.VITEST_WORKER_ID
     ) {
-      logChromiumDryRun('chromium-mock-binary', [])
+      logChromiumDryRun(
+        this.options?.chromiumBinary
+          ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
+          : 'chromium-mock-binary',
+        []
+      )
       return
     }
 
@@ -383,11 +399,35 @@ export class ChromiumLaunchPlugin {
       printedGuidance = true
     }
 
-    browserBinaryLocation = resolveManagedBinary()
+    // --chromium-binary overrides --browser on every chromium-family target,
+    // matching --gecko-binary on every gecko target. An unusable pin is a
+    // pin error, not "nothing is installed".
+    const requestedPin =
+      this.options?.chromiumBinary != null
+        ? String(this.options.chromiumBinary)
+        : ''
+    if (requestedPin) {
+      const normalized = normalizePath(requestedPin)
+      if (!normalized || !isUsableBinary(normalized)) {
+        humanError(messages.invalidChromiumBinaryPath(requestedPin))
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
+        }
+        process.exit(1)
+      }
+      browserBinaryLocation = normalized
+      binaryPinnedByFlag = true
+    } else {
+      browserBinaryLocation = resolveManagedBinary()
+    }
 
     // Managed chromium installs are tip-of-tree snapshots (dev channel); swap to
     // the system stable binary when present unless the user opts into the snapshot.
-    if (browser === 'chromium' && browserBinaryLocation) {
+    if (
+      browser === 'chromium' &&
+      browserBinaryLocation &&
+      !binaryPinnedByFlag
+    ) {
       let systemBinary: string | null = null
       try {
         // System scan only: drop the managed-cache env so the cache can't
@@ -424,7 +464,7 @@ export class ChromiumLaunchPlugin {
     }
 
     let skipDetection = Boolean(browserBinaryLocation)
-    if (!browserBinaryLocation && isWslEnv()) {
+    if (!binaryPinnedByFlag && !browserBinaryLocation && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native browser so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c when none is available.
       const linuxFallback = resolveWslLinuxBinary(browser)
@@ -443,21 +483,13 @@ export class ChromiumLaunchPlugin {
     }
     // Swap any Chrome wrapper script for the real binary under WSL+GUI,
     // because the wrapper closes extra FDs on exec, breaking CDP pipe.
-    browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
-
-    const getBrowserVersionLine = (bin: string): string => {
-      try {
-        if (browser === 'edge') {
-          return getEdgeVersion(bin) || ''
-        }
-        if (browser === 'chromium' || browser === 'chromium-based') {
-          return getChromiumVersion(bin) || ''
-        }
-        return getChromeVersion(bin) || ''
-      } catch {
-        return ''
-      }
+    // A user pin is the binary they asked to run; do not rewrite it.
+    if (!binaryPinnedByFlag) {
+      browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
     }
+
+    const getBrowserVersionLine = (bin: string): string =>
+      utils.probeChromiumBinaryVersion(bin, String(browser || ''))
 
     const looksOfficialChromeBinaryPath = (bin: string): boolean => {
       const p = String(bin || '')
@@ -519,118 +551,125 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    switch (browser) {
-      case 'chrome': {
-        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
+    if (!binaryPinnedByFlag) {
+      switch (browser) {
+        case 'chrome': {
+          if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
-        if (!skipDetection) {
-          browserBinaryLocation = resolveChromeLikeBinary()
-        }
-        break
-      }
-
-      // Chromium forks located from the user's system, each via its dedicated
-      // *-location resolver; the shared not-found block prints install guidance.
-      case 'brave':
-      case 'opera':
-      case 'vivaldi':
-      case 'yandex': {
-        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
-
-        if (!skipDetection) {
-          try {
-            const locate =
-              browser === 'brave'
-                ? locateBrave
-                : browser === 'opera'
-                  ? locateOpera
-                  : browser === 'vivaldi'
-                    ? locateVivaldi
-                    : locateYandex
-            const located = locate(true, {env: process.env})
-            const normalized = normalizePath(located || null)
-            if (normalized && fs.existsSync(normalized)) {
-              browserBinaryLocation = normalized
-            }
-          } catch {
-            // ignore; the shared not-found block below handles guidance
+          if (!skipDetection) {
+            browserBinaryLocation = resolveChromeLikeBinary()
           }
+          break
         }
 
-        if (!browserBinaryLocation) {
-          browserBinaryLocation = resolveWslFallback()
-        }
-        break
-      }
+        // Chromium forks located from the user's system, each via its dedicated
+        // *-location resolver; the shared not-found block prints install guidance.
+        case 'brave':
+        case 'opera':
+        case 'vivaldi':
+        case 'yandex': {
+          if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
-      case 'chromium': {
-        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
-
-        // Prefer an explicit binary; otherwise KEEP the binary already resolved above,
-        // or the post-switch fallback would re-resolve the managed snapshot.
-        if (this.options?.chromiumBinary) {
-          const normalized = normalizePath(String(this.options.chromiumBinary))
-          if (!normalized || !fs.existsSync(normalized)) {
-            humanError(
-              messages.invalidChromiumBinaryPath(
-                String(this.options.chromiumBinary)
-              )
-            )
-            process.exit(1)
-          }
-          browserBinaryLocation = normalized
-          binaryPinnedByFlag = true
-        }
-
-        if (!browserBinaryLocation && !skipDetection) {
-          try {
-            const env = managedEnvFor('chromium')
-            const p = locateChromium({env})
-            const normalized = normalizePath(p || null)
-            if (normalized && typeof normalized === 'string') {
-              if (fs.existsSync(normalized)) browserBinaryLocation = normalized
-            }
-          } catch {
-            // Ignore
-          }
-        }
-        if (!browserBinaryLocation) {
-          browserBinaryLocation = resolveWslFallback()
-        }
-        break
-      }
-
-      case 'edge': {
-        if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
-
-        try {
-          const override = String(process.env.EDGE_BINARY || '').trim()
-          if (override) {
-            const normalized = normalizePath(override)
-            if (normalized && fs.existsSync(normalized)) {
-              browserBinaryLocation = normalized
-            } else {
-              throw new Error('EDGE_BINARY points to a non-existent path')
-            }
-          } else {
-            const env = managedEnvFor('edge')
-            const located = locateEdge({env})
-            const normalized = normalizePath(located || null)
-            browserBinaryLocation = normalized
-            if (
-              !browserBinaryLocation ||
-              !fs.existsSync(String(browserBinaryLocation))
-            ) {
-              const fallback = resolveWslWindowsBinary(browser)
-              if (fallback) {
-                browserBinaryLocation = fallback
-                break
+          if (!skipDetection) {
+            try {
+              const locate =
+                browser === 'brave'
+                  ? locateBrave
+                  : browser === 'opera'
+                    ? locateOpera
+                    : browser === 'vivaldi'
+                      ? locateVivaldi
+                      : locateYandex
+              const located = locate(true, {env: process.env})
+              const normalized = normalizePath(located || null)
+              if (normalized && fs.existsSync(normalized)) {
+                browserBinaryLocation = normalized
               }
-              const guidance = getInstallGuidanceText('edge')
+            } catch {
+              // ignore; the shared not-found block below handles guidance
+            }
+          }
 
+          if (!browserBinaryLocation) {
+            browserBinaryLocation = resolveWslFallback()
+          }
+          break
+        }
+
+        case 'chromium': {
+          if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
+
+          // KEEP the binary already resolved above, or the post-switch
+          // fallback would re-resolve the managed snapshot.
+          if (!browserBinaryLocation && !skipDetection) {
+            try {
+              const env = managedEnvFor('chromium')
+              const p = locateChromium({env})
+              const normalized = normalizePath(p || null)
+              if (normalized && typeof normalized === 'string') {
+                if (fs.existsSync(normalized))
+                  browserBinaryLocation = normalized
+              }
+            } catch {
+              // Ignore
+            }
+          }
+          if (!browserBinaryLocation) {
+            browserBinaryLocation = resolveWslFallback()
+          }
+          break
+        }
+
+        case 'edge': {
+          if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
+
+          try {
+            const override = String(process.env.EDGE_BINARY || '').trim()
+            if (override) {
+              const normalized = normalizePath(override)
+              if (normalized && fs.existsSync(normalized)) {
+                browserBinaryLocation = normalized
+              } else {
+                throw new Error('EDGE_BINARY points to a non-existent path')
+              }
+            } else {
+              const env = managedEnvFor('edge')
+              const located = locateEdge({env})
+              const normalized = normalizePath(located || null)
+              browserBinaryLocation = normalized
+              if (
+                !browserBinaryLocation ||
+                !fs.existsSync(String(browserBinaryLocation))
+              ) {
+                const fallback = resolveWslWindowsBinary(browser)
+                if (fallback) {
+                  browserBinaryLocation = fallback
+                  break
+                }
+                const guidance = getInstallGuidanceText('edge')
+
+                printInstallGuidance(guidance, 'edge')
+                browserBinaryLocation = null
+
+                if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+                  throw new Error('Chromium launch failed')
+                } else {
+                  process.exit(1)
+                }
+              }
+            }
+          } catch {
+            const guidance = getInstallGuidanceText('edge')
+
+            const fallback = resolveWslFallback()
+            if (fallback) {
+              browserBinaryLocation = fallback
+            } else {
               printInstallGuidance(guidance, 'edge')
               browserBinaryLocation = null
+            }
 
+            if (!browserBinaryLocation) {
               if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
                 throw new Error('Chromium launch failed')
               } else {
@@ -638,71 +677,34 @@ export class ChromiumLaunchPlugin {
               }
             }
           }
-        } catch {
-          const guidance = getInstallGuidanceText('edge')
-
-          const fallback = resolveWslFallback()
-          if (fallback) {
-            browserBinaryLocation = fallback
-          } else {
-            printInstallGuidance(guidance, 'edge')
-            browserBinaryLocation = null
-          }
-
-          if (!browserBinaryLocation) {
-            if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-              throw new Error('Chromium launch failed')
-            } else {
-              process.exit(1)
-            }
-          }
+          break
         }
-        break
-      }
 
-      case 'chromium-based': {
-        browserBinaryLocation = this.options?.chromiumBinary || null
-        if (this.options?.chromiumBinary) {
-          const normalized = normalizePath(String(this.options.chromiumBinary))
-          if (!normalized || !fs.existsSync(normalized)) {
-            humanError(
-              messages.invalidChromiumBinaryPath(
-                String(this.options.chromiumBinary)
-              )
-            )
-            process.exit(1)
-          }
-          browserBinaryLocation = normalized
-          binaryPinnedByFlag = true
-        } else {
+        case 'chromium-based': {
+          // A pin is handled above. This target has no managed/system default.
           humanError(messages.requireChromiumBinaryForChromiumBased())
-          process.exit(1)
-        }
-        if (!browserBinaryLocation && !skipDetection) {
-          try {
-            const env = managedEnvFor('chromium')
-            const p = locateChromium({env})
-            const normalized = normalizePath(p || null)
-            if (normalized && typeof normalized === 'string') {
-              if (fs.existsSync(normalized)) browserBinaryLocation = normalized
-            }
-          } catch {
-            // Ignore
+          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+            throw new Error('chromium-based requires --chromium-binary')
           }
+          process.exit(1)
+          break
         }
-        if (!browserBinaryLocation) {
-          browserBinaryLocation = resolveWslFallback()
-        }
-        break
-      }
 
-      default: {
-        browserBinaryLocation = resolveChromeLikeBinary()
-        break
+        default: {
+          browserBinaryLocation = resolveChromeLikeBinary()
+          break
+        }
       }
     }
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
+      if (binaryPinnedByFlag) {
+        humanError(messages.invalidChromiumBinaryPath(requestedPin))
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
+        }
+        process.exit(1)
+      }
       browserBinaryLocation = browserBinaryLocation || resolveManagedBinary()
 
       if (!browserBinaryLocation) {

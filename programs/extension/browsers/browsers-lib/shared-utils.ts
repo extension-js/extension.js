@@ -10,6 +10,9 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {getChromeVersion} from 'chrome-location2'
+import {getChromiumVersion} from 'chromium-location'
+import {getEdgeVersion} from 'edge-location'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
 
 const MANAGED_EPHEMERAL_PROFILE_MARKER = '.extension-js-managed-profile'
@@ -129,6 +132,38 @@ export function classifyBinaryProvenance(opts: {
     !relative.startsWith('..') &&
     !path.isAbsolute(relative)
   return underManagedRoot ? 'managed' : 'system'
+}
+
+// Probe the binary that will actually launch. Target-specific helpers can
+// miss a canary pinned onto --browser chrome; try the matching probe first,
+// then the rest, with allowExec so a user-named file still names itself.
+export function probeChromiumBinaryVersion(
+  bin: string,
+  browser?: string
+): string {
+  const target = String(browser || '')
+  const probes: Array<() => string | null | undefined> = []
+  if (target === 'edge') {
+    probes.push(() => getEdgeVersion(bin, {allowExec: true}))
+  }
+  if (target === 'chromium' || target === 'chromium-based') {
+    probes.push(() => getChromiumVersion(bin, {allowExec: true}))
+  }
+  probes.push(
+    () => getChromeVersion(bin, {allowExec: true}),
+    () => getChromiumVersion(bin, {allowExec: true}),
+    () => getEdgeVersion(bin, {allowExec: true})
+  )
+
+  for (const probe of probes) {
+    try {
+      const line = probe()
+      if (line && String(line).trim()) return String(line).trim()
+    } catch {
+      // Try the next helper; one miss must not hide the launched binary.
+    }
+  }
+  return ''
 }
 
 // EXTENSION_BROWSER_FLAGS: launcher-agnostic escape hatch to append flags per

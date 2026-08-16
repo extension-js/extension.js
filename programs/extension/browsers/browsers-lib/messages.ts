@@ -153,10 +153,15 @@ export function capitalizedBrowserName(browser: Browser) {
 // card names it even when the caller pinned no binary of its own.
 export function resolveBrowserVersionLine(
   browser: string,
-  pinnedLine?: string
+  pinnedLine?: string,
+  opts?: {pinned?: boolean}
 ): string {
   const pinned = String(pinnedLine || '').trim()
   if (pinned) return pinned
+
+  // A pinned binary that answers no parseable version stays unnamed:
+  // locating a browser here would print ANOTHER binary's version.
+  if (opts?.pinned) return ''
 
   try {
     if (browser === 'chromium' || browser === 'chromium-based') {
@@ -1043,7 +1048,9 @@ export function runningInDevelopment(
 
   const baseBrowserLabel = browserRowValue(
     String(browser || 'unknown'),
-    resolveBrowserVersionLine(browser, browserVersionLine)
+    resolveBrowserVersionLine(browser, browserVersionLine, {
+      pinned: opts?.binaryProvenance === 'pinned'
+    })
   )
   const provenanceNote = binaryProvenanceNote(opts?.binaryProvenance)
   const browserLabel = provenanceNote

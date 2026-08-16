@@ -58,6 +58,9 @@ function frames(): any[] {
 describe('extension start --output json', () => {
   it('emits one startup frame and still builds and launches', async () => {
     expect(await run(['start', '.', '--output', 'json'])).toBe(0)
+    // Same contract as build/preview: develop's previewing banner is a
+    // humanLine, and this env is what keeps it off the envelope stream.
+    expect(process.env.EXTENSION_OUTPUT).toBe('json')
     const emitted = frames()
     expect(emitted).toHaveLength(1)
     expect(emitted[0]).toMatchObject({

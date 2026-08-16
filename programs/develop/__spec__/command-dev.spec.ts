@@ -141,7 +141,11 @@ describe('webpack/command-dev', () => {
     const browserOptions = (plugin as any).options?.browserOptions
     expect(browserOptions).toMatchObject({
       profile: '/explicit/profile',
-      browserFlags: ['--my-flag'],
+      browserFlags: [
+        '--my-flag',
+        '--force-dark-mode',
+        '--enable-features=WebUIDarkMode'
+      ],
       persistProfile: true
     })
   })
@@ -297,10 +301,45 @@ describe('webpack/command-dev', () => {
       } as any)
 
       expect(pluginBrowserOptions()).toMatchObject({
-        browserFlags: ['--from-browser', '--from-command', '--from-cli'],
+        browserFlags: [
+          '--from-browser',
+          '--from-command',
+          '--from-cli',
+          '--force-dark-mode',
+          '--enable-features=WebUIDarkMode'
+        ],
         excludeBrowserFlags: ['--exclude-browser', '--exclude-command'],
         preferences: {a: 99, b: 2, nested: {x: 3, y: 2}}
       })
+    })
+
+    it('applies the same dark appearance defaults as preview and start', async () => {
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions().browserFlags).toEqual([
+        '--force-dark-mode',
+        '--enable-features=WebUIDarkMode'
+      ])
+    })
+
+    it('lets excludeBrowserFlags drop the stock dark flags', async () => {
+      await extensionDev('/proj', {
+        browser: 'chrome',
+        port: 0,
+        excludeBrowserFlags: ['--force-dark-mode'],
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions().browserFlags || []).not.toContain(
+        '--force-dark-mode'
+      )
+      expect(pluginBrowserOptions().browserFlags || []).not.toContain(
+        '--enable-features=WebUIDarkMode'
+      )
     })
   })
 

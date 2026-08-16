@@ -321,7 +321,8 @@ export async function printProdBannerOnce(opts: {
     String(opts.browser || 'unknown'),
     messages.resolveBrowserVersionLine(
       String(opts.browser || ''),
-      opts.browserVersionLine
+      opts.browserVersionLine,
+      {pinned: opts.binaryProvenance === 'pinned'}
     )
   )
 

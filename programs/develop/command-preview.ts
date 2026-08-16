@@ -14,7 +14,7 @@ import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {mergeOptionLayers, SERVE_COMMAND_DEFAULTS} from './lib/merge-options'
 import * as messages from './lib/messages'
-import {isDebug} from './lib/messaging'
+import {humanLine, isDebug} from './lib/messaging'
 import {
   computePreviewOutputPath,
   getDirs,
@@ -137,15 +137,15 @@ export async function extensionPreview(
   }
 
   if (debug) {
-    console.log(messages.debugDirs(manifestDir, packageJsonDir))
-    console.log(
+    humanLine(messages.debugDirs(manifestDir, packageJsonDir))
+    humanLine(
       messages.debugBrowser(
         browser,
         previewOptions.chromiumBinary,
         previewOptions.geckoBinary || previewOptions.firefoxBinary
       )
     )
-    console.log(messages.debugPreviewOutput(outputPath, distPath))
+    humanLine(messages.debugPreviewOutput(outputPath, distPath))
   }
 
   // Run-only preview requires an existing unpacked extension root at outputPath.
@@ -174,8 +174,8 @@ export async function extensionPreview(
     const browserLabel = String(browser || 'unknown')
     // Identity first, then the state lines: the card is the header for the
     // session, not a summary trailing the result it describes.
-    console.log(devServerMessages.spacerLine())
-    console.log(
+    humanLine(devServerMessages.spacerLine())
+    humanLine(
       devServerMessages.browserRunnerDisabled({
         browser: browserLabel,
         manifestPath: projectStructure.manifestPath,
@@ -183,13 +183,13 @@ export async function extensionPreview(
         distPath: outputPath
       })
     )
-    console.log(devServerMessages.spacerLine())
-    console.log(runningMessage(browser, true))
+    humanLine(devServerMessages.spacerLine())
+    humanLine(runningMessage(browser, true))
     metadata.writeReady()
     return
   }
 
-  console.log(runningMessage(browser))
+  humanLine(runningMessage(browser))
 
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(
@@ -246,7 +246,8 @@ export async function extensionPreview(
   const darkDefaults = withDarkMode({
     browser,
     browserFlags: merged.browserFlags,
-    preferences: merged.preferences
+    preferences: merged.preferences,
+    excludeBrowserFlags: merged.excludeBrowserFlags
   })
 
   const companionUnpackedExtensionDirs =
