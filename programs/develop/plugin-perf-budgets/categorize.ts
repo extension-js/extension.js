@@ -13,6 +13,7 @@ export type AssetCategory =
   | 'content-script'
   | 'service-worker'
   | 'page'
+  | 'runtime'
   | 'ignored'
 
 const PAGE_DIRS = [
@@ -55,6 +56,11 @@ export function categorizeAsset(rawName: string): AssetCategory {
     if (new RegExp(`(^|\\/)${dir}\\/`).test(name)) return 'page'
   }
 
+  // Hashed wasm cores and sibling runtime helpers (ffmpeg, tesseract, …)
+  // emit at the output root, not under a named surface folder. Count them
+  // so the size report is not fiction for the largest thing in the package.
+  if (!name.includes('/') || /\.wasm$/i.test(name)) return 'runtime'
+
   return 'ignored'
 }
 
@@ -62,5 +68,6 @@ export const BUDGET_BYTES: Record<AssetCategory, number> = {
   'content-script': 512 * 1024,
   'service-worker': 512 * 1024,
   page: 1024 * 1024,
+  runtime: 1024 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }

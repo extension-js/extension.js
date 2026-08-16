@@ -15,13 +15,17 @@ import {
   getManifestContent,
   setCurrentManifestContent
 } from '../../feature-manifest/manifest-lib/manifest'
-import {EMITTED_ASSET_REF_PATTERN} from '../collect-entry-imports'
+import {
+  collectReferencedRuntimePayloads,
+  listEmittedAssetNames
+} from '../collect-entry-imports'
 import {cleanMatches} from './clean-matches'
 import {warPatchedSummary} from './messages'
 import {resolveUserDeclaredWAR} from './resolve-war'
 
 type AssetSource =
   | string
+  | (() => string)
   | {source: () => string}
   | {source: string | {source: () => string}}
 
@@ -41,6 +45,11 @@ function getAssetSource(compilation: Compilation, filename: string) {
   if (!source) return ''
 
   if (typeof source === 'string') return source
+
+  if (typeof source === 'function') {
+    const out = source()
+    return typeof out === 'string' ? out : ''
+  }
 
   if (typeof source.source === 'function') {
     const out = source.source()
@@ -179,17 +188,19 @@ export function generateManifestPatches(
   const webAccessibleResourcesV2: string[] =
     canonicalManifest.manifest_version === 2 ? Array.from(resolved.v2) : []
 
-  // Fallback scan: inspect emitted JS for content_scripts to discover referenced assets (e.g., assets/*.png)
-  if (
-    canonicalManifest.manifest_version === 3 &&
-    Array.isArray(canonicalManifest.content_scripts)
-  ) {
+  // Fallback scan: inspect emitted content-script JS for referenced payloads.
+  // assets/* plus root-level wasm cores / model weights the bundler emits
+  // at the output root. Only files this script's JS actually mentions, so
+  // a worker-only model sitting next to them stays off the open web.
+  if (Array.isArray(canonicalManifest.content_scripts)) {
+    const emittedAssetNames = listEmittedAssetNames(compilation)
+
     for (const contentScript of canonicalManifest.content_scripts) {
       const matches = contentScript.matches || []
-      const normalizedMatches = cleanMatches(matches)
       const jsFiles: string[] = Array.isArray(contentScript.js)
         ? contentScript.js
         : []
+      const referenced: string[] = []
 
       for (const jsFile of jsFiles) {
         // Watch-mode rebuilds reuse the same Source instance for unchanged assets, so
@@ -210,19 +221,30 @@ export function generateManifestPatches(
 
           if (!source) continue
 
-          const found = source.match(EMITTED_ASSET_REF_PATTERN) || []
-          filtered = Array.from(
-            new Set(
-              found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))
-            )
-          ).sort()
+          filtered = collectReferencedRuntimePayloads(source, emittedAssetNames)
 
           if (cacheKey) assetScanCache.set(cacheKey, filtered)
         }
 
-        if (filtered.length === 0) continue
+        for (const resource of filtered) {
+          referenced.push(resource)
+        }
+      }
 
-        mergeIntoV3Group(webAccessibleResourcesV3, normalizedMatches, filtered)
+      if (referenced.length === 0) continue
+
+      if (canonicalManifest.manifest_version === 3) {
+        mergeIntoV3Group(
+          webAccessibleResourcesV3,
+          cleanMatches(matches),
+          referenced
+        )
+      } else {
+        for (const resource of referenced) {
+          if (!webAccessibleResourcesV2.includes(resource)) {
+            webAccessibleResourcesV2.push(resource)
+          }
+        }
       }
     }
   }

@@ -52,17 +52,21 @@ describe('generateManifestPatches', () => {
     const emitAssetMock = vi.fn()
 
     const extraAssets = options?.extraAssets || {}
+    const extraAssetSources = Object.fromEntries(
+      Object.entries(extraAssets).map(([name, content]) => [
+        name,
+        {source: () => String(content)}
+      ])
+    )
     generateManifestPatches(
       {
-        getAsset: () => manifestAsset,
+        getAsset: (name?: string) => {
+          if (!name || name === 'manifest.json') return manifestAsset
+          return extraAssetSources[name]
+        },
         assets: {
           'manifest.json': manifestSource,
-          ...Object.fromEntries(
-            Object.entries(extraAssets).map(([name, content]) => [
-              name,
-              {source: () => String(content)}
-            ])
-          )
+          ...extraAssetSources
         },
         updateAsset: updateAssetMock,
         emitAsset: emitAssetMock,
@@ -298,6 +302,70 @@ describe('generateManifestPatches', () => {
       ?.resources as string[]
     expect(resources).toContain('ui/stats.js')
     expect(resources).toContain('storage/stats.js')
+  })
+
+  it('exposes root-level wasm and weights the content script pulls, not worker-only models', () => {
+    const result = runWith(
+      {},
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['https://ocr.example/*'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      },
+      {
+        extraAssets: {
+          'content_scripts/content-0.js': [
+            'fetch(chrome.runtime.getURL("ocr-core.wasm"))',
+            'fetch(chrome.runtime.getURL("ocr-weights.bin"))'
+          ].join('\n'),
+          'ocr-core.wasm': 'wasm',
+          'ocr-weights.bin': 'weights',
+          'worker-model.bin': 'secret'
+        }
+      }
+    )
+
+    expect((result as any).web_accessible_resources).toEqual([
+      {
+        matches: ['https://ocr.example/*'],
+        resources: ['ocr-core.wasm', 'ocr-weights.bin']
+      }
+    ])
+  })
+
+  it('exposes those same content-script payloads on MV2 without the worker model', () => {
+    const result = runWith(
+      {},
+      {
+        manifest_version: 2,
+        content_scripts: [
+          {
+            matches: ['https://ocr.example/*'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      },
+      {
+        extraAssets: {
+          'content_scripts/content-0.js': [
+            'fetch(chrome.runtime.getURL("ocr-core.wasm"))',
+            'fetch(chrome.runtime.getURL("ocr-weights.bin"))'
+          ].join('\n'),
+          'ocr-core.wasm': 'wasm',
+          'ocr-weights.bin': 'weights',
+          'worker-model.bin': 'secret'
+        }
+      }
+    )
+
+    expect((result as any).web_accessible_resources).toEqual([
+      'ocr-core.wasm',
+      'ocr-weights.bin'
+    ])
   })
 
   it('should not generate web_accessible_resources if content scripts have no imports', () => {

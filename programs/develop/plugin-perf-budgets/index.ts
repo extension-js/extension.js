@@ -29,6 +29,7 @@ interface PerfBudgetsPluginOptions {
  *   content_scripts/*    → 512 KiB  (injected on every navigation)
  *   background / SW      → 512 KiB  (wakes from cold each session)
  *   pages / sidebar / …  → 1 MiB    (opened on demand)
+ *   runtime / wasm cores → 1 MiB    (hashed payloads at the output root)
  *   images, fonts, etc.  → silenced (not a code-splitting concern)
  *
  * Numbers are sized to clear realistic framework templates (React/Vue/
