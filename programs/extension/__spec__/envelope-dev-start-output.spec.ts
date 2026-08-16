@@ -109,6 +109,7 @@ describe('extension start --output json', () => {
   })
 
   it('emits a failure frame for safari', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(
       await run(['start', '.', '--browser', 'safari', '--output', 'json'])
     ).toBe(1)
@@ -116,8 +117,13 @@ describe('extension start --output json', () => {
       ok: false,
       command: 'start',
       status: 'usage',
-      error: {code: CODES.E_UNSUPPORTED_BROWSER}
+      error: {
+        code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
+        message: 'Safari is not supported by start.'
+      }
     })
+    expect(frames()[0].error.code).not.toBe(CODES.E_UNSUPPORTED_BROWSER)
+    expect(errorSpy).not.toHaveBeenCalled()
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 

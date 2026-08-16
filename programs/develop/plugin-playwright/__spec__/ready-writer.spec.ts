@@ -343,6 +343,19 @@ describe('ready.json writer preservation', () => {
     expect(after.message).toContain('refused to load')
   })
 
+  it('preserves compiledAt when a later writer in the same run omits it', () => {
+    const writer = makeWriter()
+    writer.writeReady('2026-08-15T12:00:00.000Z')
+    const first = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+
+    const next = makeWriter()
+    next.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    expect(after.compiledAt).toBe('2026-08-15T12:00:00.000Z')
+    expect(after.startedAt).toBe(first.startedAt)
+  })
+
   // A new run re-asks the browser, so last run's verdict must not outlive it.
   it('drops the refusal when a new run starts', () => {
     const writer = makeWriter()

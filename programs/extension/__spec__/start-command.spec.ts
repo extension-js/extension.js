@@ -127,6 +127,34 @@ describe('extension start', () => {
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
+  it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(
+      await run(['start', '.', '--browser', 'netscape', '--output', 'json'])
+    ).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  // Safari is a supported browser that this command has no path for, which is
+  // a different failure from an unknown vendor. The two codes must not collapse.
+  it('separates safari-on-start from an unknown vendor', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(
+      await run(['start', '.', '--browser', 'safari', '--output', 'json'])
+    ).toBe(1)
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
+    expect(frame.error.code).not.toBe('E_UNSUPPORTED_BROWSER')
+    expect(frame.error.message).toContain('Safari')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
   it('delegates --wait to wait mode and prints the json envelope', async () => {
     expect(await run(['start', '.', '--wait', '--wait-format', 'json'])).toBe(0)
     expect(runWaitMode).toHaveBeenCalledWith(

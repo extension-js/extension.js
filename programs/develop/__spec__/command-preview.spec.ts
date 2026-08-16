@@ -59,7 +59,8 @@ const metadataWriter = vi.hoisted(() => ({
 const createAutomationMetadataWriter = vi.fn(() => metadataWriter)
 vi.mock('../plugin-playwright', () => ({
   createPlaywrightMetadataWriter: (...args: any[]) =>
-    createAutomationMetadataWriter(...args)
+    createAutomationMetadataWriter(...args),
+  getSessionRunId: vi.fn(() => 'preview-run')
 }))
 
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
@@ -195,6 +196,25 @@ describe('webpack/command-preview (run-only)', () => {
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
+  })
+
+  it('uses an explicit outputPath over dist/<browser>', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      if (p === path.join('/custom/unpacked', 'manifest.json')) return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', outputPath: '/custom/unpacked'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe(path.resolve('/custom/unpacked'))
   })
 
   it('throws when outputPath does not contain manifest.json', async () => {
