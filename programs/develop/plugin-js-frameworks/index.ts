@@ -187,10 +187,38 @@ export class JsFrameworksPlugin {
         ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
       ])
     )
+
+    // The bundler resolves symlinks, so loader resource paths arrive as
+    // realpaths while these dirs are the logical spellings (/tmp, /var,
+    // pnpm links). Match both or the swc rule silently skips every source.
+    const expandWithRealpaths = (dirs: string[]): string[] => {
+      const out = new Set<string>()
+      for (const dir of dirs) {
+        if (!dir) continue
+        out.add(dir)
+        try {
+          out.add(fs.realpathSync(dir))
+        } catch {
+          // Ignore
+        }
+      }
+      return Array.from(out)
+    }
+
+    const addBothPathForms = (set: Set<string>, absPath: string) => {
+      set.add(toResourceKey(absPath))
+      try {
+        set.add(toResourceKey(fs.realpathSync(absPath)))
+      } catch {
+        // Ignore
+      }
+    }
     // Every entry AND probe of these path sets goes through toResourceKey: mixing
     // path.resolve and path.normalize never matches on Windows (drive letter).
     const contentScriptLikePaths = new Set<string>()
-    const scriptsDir = toResourceKey(path.resolve(projectPath, 'scripts'))
+    const scriptsDirs = expandWithRealpaths([
+      path.resolve(projectPath, 'scripts')
+    ]).map(toResourceKey)
     const isfeatureScriptsContentLike = (resourcePath: string) => {
       const normalized = toResourceKey(resourcePath)
 
@@ -198,13 +226,15 @@ export class JsFrameworksPlugin {
         return true
       }
 
-      const relToScripts = path.relative(scriptsDir, normalized)
+      return scriptsDirs.some((scriptsDir) => {
+        const relToScripts = path.relative(scriptsDir, normalized)
 
-      return (
-        !!relToScripts &&
-        !relToScripts.startsWith('..') &&
-        !path.isAbsolute(relToScripts)
-      )
+        return (
+          !!relToScripts &&
+          !relToScripts.startsWith('..') &&
+          !path.isAbsolute(relToScripts)
+        )
+      })
     }
 
     // Enable SWC sourcemaps whenever the build emits sourcemaps: dev defaults on
@@ -228,8 +258,9 @@ export class JsFrameworksPlugin {
       const jsList = Array.isArray(contentScript?.js) ? contentScript.js : []
 
       for (const jsFile of jsList) {
-        contentScriptLikePaths.add(
-          toResourceKey(path.resolve(manifestDir, jsFile))
+        addBothPathForms(
+          contentScriptLikePaths,
+          path.resolve(manifestDir, jsFile)
         )
       }
     }
@@ -244,8 +275,9 @@ export class JsFrameworksPlugin {
         background?.type === 'module' &&
         typeof background?.service_worker === 'string'
       ) {
-        platformModulePaths.add(
-          toResourceKey(path.resolve(manifestDir, background.service_worker))
+        addBothPathForms(
+          platformModulePaths,
+          path.resolve(manifestDir, background.service_worker)
         )
       }
 
@@ -260,7 +292,7 @@ export class JsFrameworksPlugin {
         if (typeof htmlPage !== 'string') continue
         for (const moduleScript of getAssetsFromHtml(htmlPage)?.moduleJs ||
           []) {
-          platformModulePaths.add(toResourceKey(moduleScript))
+          addBothPathForms(platformModulePaths, moduleScript)
         }
       }
     } catch {
@@ -342,7 +374,9 @@ export class JsFrameworksPlugin {
       // Explicit javascript/auto so rspack detects script-vs-module from the file
       // itself; Chrome never reads package.json "type", unlike rspack's default inference.
       type: 'javascript/auto',
-      include: Array.from(new Set([tsRoot, ...swcIncludeDirs])),
+      include: expandWithRealpaths(
+        Array.from(new Set([tsRoot, ...swcIncludeDirs]))
+      ),
       exclude: [
         (resourcePath: string) => {
           const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
@@ -408,9 +442,10 @@ export class JsFrameworksPlugin {
         ...swcRuleBase,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         include: (resourcePath: string) =>
-          Array.from(new Set([tsRoot, ...swcIncludeDirs])).some((dir) =>
-            isSubPath(resourcePath, dir)
-          ) && isfeatureScriptsContentLike(resourcePath),
+          expandWithRealpaths(
+            Array.from(new Set([tsRoot, ...swcIncludeDirs]))
+          ).some((dir) => isSubPath(resourcePath, dir)) &&
+          isfeatureScriptsContentLike(resourcePath),
         use: {
           ...swcLoaderBase,
           options: {
