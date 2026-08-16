@@ -447,6 +447,28 @@ describe('Chromium feature-switch merging', () => {
     expect(disables).not.toContain('ExtensionDisableUnsupportedDeveloper')
     expect(disables).toContain('DisableLoadExtensionCommandLineSwitch')
   })
+
+  it('excludeBrowserFlags cancels user-layer browserFlags entries too', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      browserFlags: ['--start-maximized', '--kiosk'],
+      excludeBrowserFlags: ['--start-maximized']
+    } as any)
+    expect(flags).not.toContain('--start-maximized')
+    expect(flags).toContain('--kiosk')
+  })
+
+  it('an exclude never loose-prefix cancels a longer flag name', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      browserFlags: ['--foobar', '--foo=value'],
+      excludeBrowserFlags: ['--foo']
+    } as any)
+    expect(flags).toContain('--foobar')
+    expect(flags).not.toContain('--foo=value')
+  })
 })
 
 describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {

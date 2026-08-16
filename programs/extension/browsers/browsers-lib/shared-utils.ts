@@ -60,12 +60,24 @@ export function calculateDebugPort(
     : defaultPort
 }
 
+// One exclusion semantic for every launcher and every flag layer: exact
+// match, or the exclude naming a switch whose value continues with = or ,
+// (--enable-features excludes --enable-features=X). Loose prefixes do not
+// match, so --foo never cancels --foobar.
 export function filterBrowserFlags(
-  defaultFlags: string[],
+  flags: string[],
   excludeFlags: string[] = []
 ) {
-  return defaultFlags.filter(
-    (flag) => !excludeFlags.some((excludeFlag) => flag === excludeFlag)
+  return flags.filter(
+    (flag) =>
+      !excludeFlags.some((excludeFlag) => {
+        if (!excludeFlag) return false
+        if (flag === excludeFlag) return true
+        return (
+          flag.startsWith(`${excludeFlag}=`) ||
+          flag.startsWith(`${excludeFlag},`)
+        )
+      })
   )
 }
 

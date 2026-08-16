@@ -51,6 +51,18 @@ describe('Firefox profile args', () => {
     expect(args).toMatch(/--profile=".*firefox-profile[\\/]dev"/)
   })
 
+  it('excludeBrowserFlags uses switch semantics, not loose prefixes', async () => {
+    const args = await browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'firefox',
+      browserFlags: ['--foobar', '--foo=value', '--kiosk'],
+      excludeBrowserFlags: ['--foo']
+    } as any)
+    expect(args).toContain('--foobar')
+    expect(args).toContain('--kiosk')
+    expect(args).not.toContain('--foo=value')
+  })
+
   it('includes startingUrl in binary args when provided', async () => {
     const args = await browserConfig(makeCompilation(), {
       extension: '/ext',
