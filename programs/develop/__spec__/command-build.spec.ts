@@ -479,6 +479,25 @@ describe('webpack/command-build', () => {
       })
     })
 
+    it('honors the browser.* layer, with commands.build beating it', async () => {
+      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
+        transpilePackages: ['@workspace/from-browser-layer'],
+        zip: true,
+        silent: true
+      })
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        silent: false
+      })
+
+      await extensionBuild('/proj', {browser: 'chrome'})
+
+      expect(webpackOpts()).toMatchObject({
+        transpilePackages: ['@workspace/from-browser-layer'],
+        zip: true,
+        silent: false
+      })
+    })
+
     it('applies stock build defaults when neither config nor CLI sets a value', async () => {
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
 

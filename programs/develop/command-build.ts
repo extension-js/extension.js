@@ -181,13 +181,17 @@ export async function extensionBuild(
     const commandKey =
       buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
     const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
+    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const specialFoldersData =
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
-    // stock defaults, then command config, then CLI. Unset CLI keys are
-    // stripped so config wins. An explicit flag (including false) beats it.
+    // stock defaults, then browser.*, then command config, then CLI. Unset
+    // CLI keys are stripped so config wins. An explicit flag beats it. The
+    // browser layer matches dev: browser.<x>.transpilePackages and friends
+    // must not vanish between dev and build.
     const mergedBuildOptions = mergeOptionLayers<BuildOptions>(
       commandKey === 'start' ? START_BUILD_DEFAULTS : BUILD_COMMAND_DEFAULTS,
+      browserConfig,
       commandConfig,
       buildOptions
     )
@@ -213,6 +217,7 @@ export async function extensionBuild(
     const mergedExtensionsConfig =
       buildOptions?.extensions ??
       commandConfig.extensions ??
+      browserConfig.extensions ??
       specialFoldersData.extensions
     const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
       projectRoot: packageJsonDir,
