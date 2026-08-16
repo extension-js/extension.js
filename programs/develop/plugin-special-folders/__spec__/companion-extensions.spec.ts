@@ -75,6 +75,25 @@ describe('companion extensions resolver', () => {
     )
   })
 
+  it('scans <browser>/* subfolders for a custom extensions dir too', () => {
+    const root = tmpDir('extjs-companion-custom-')
+    writeManifest(path.join(root, 'companions', 'other'))
+    writeManifest(path.join(root, 'companions', 'chrome', 'c1'))
+
+    const dirs = resolveCompanionExtensionDirs({
+      projectRoot: root,
+      config: {dir: './companions'}
+    })
+
+    const normalized = dirs.map((value) => toPosix(value).toLowerCase())
+    expect(normalized).toContain(
+      toPosix(path.join(root, 'companions', 'other')).toLowerCase()
+    )
+    expect(normalized).toContain(
+      toPosix(path.join(root, 'companions', 'chrome', 'c1')).toLowerCase()
+    )
+  })
+
   it('rejects local paths outside ./extensions', async () => {
     const root = tmpDir('extjs-companion-outside-')
 
