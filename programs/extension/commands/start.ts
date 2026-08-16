@@ -216,6 +216,9 @@ export function registerStartCommand(program: Command) {
         }
 
         const asJson = resolveOutputFormat(startOptions) === 'json'
+        // Tells develop to route human lines to stderr, so stdout carries
+        // only the envelope and stays parseable as one JSON document.
+        if (asJson) process.env.EXTENSION_OUTPUT = 'json'
         const list = vendors(browser)
         let unsupportedBrowser = ''
 

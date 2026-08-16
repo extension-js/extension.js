@@ -133,6 +133,10 @@ describe('extension preview', () => {
   it('emits a schema-1 envelope with --output json', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(await run(['preview', '.', '--output', 'json'])).toBe(0)
+    // Develop prints the previewing banner through humanLine; this env is
+    // what keeps that prose off stdout so the envelope stays one document.
+    expect(process.env.EXTENSION_OUTPUT).toBe('json')
+    expect(logSpy).toHaveBeenCalledTimes(1)
     expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
       schema: 1,
       ok: true,

@@ -71,6 +71,39 @@ describe('runOnlyPreviewBrowser', () => {
     })
   })
 
+  it('describes a chrome-target pin on the card, not the system chrome', async () => {
+    const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+      'node:fs'
+    )
+    const {tmpdir} = await import('node:os')
+    const {join} = await import('node:path')
+    const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-pin-'))
+    const pin = join(dir, 'canary')
+    writeFileSync(pin, '#!/bin/sh\necho "Canary 999.0.1234.5"\n')
+    chmodSync(pin, 0o755)
+
+    try {
+      await runOnlyPreviewBrowser({
+        browser: 'chrome',
+        outPath: '/tmp/ext',
+        contextDir: '/tmp',
+        extensionsToLoad: ['/tmp/ext'],
+        chromiumBinary: pin
+      })
+
+      expect(printProdBannerOnce).toHaveBeenCalledWith(
+        expect.objectContaining({
+          browser: 'chrome',
+          binaryPath: pin,
+          binaryProvenance: 'pinned',
+          browserVersionLine: '999.0.1234.5'
+        })
+      )
+    } finally {
+      rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('prints the card before it launches chromium', async () => {
     await runOnlyPreviewBrowser({
       browser: 'chromium',

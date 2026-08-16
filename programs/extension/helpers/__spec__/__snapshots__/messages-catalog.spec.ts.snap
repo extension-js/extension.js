@@ -81,7 +81,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "rdpInvalidRequestPayload: function(0)",
     "requireChromiumBinaryForChromiumBased: function(0)",
     "requireGeckoBinaryForGeckoBased: function(0)",
-    "resolveBrowserVersionLine: function(2)",
+    "resolveBrowserVersionLine: function(3)",
     "runningInDevelopment: function(6)",
     "safariBuildCalled: function(0)",
     "safariBuilding: function(1)",

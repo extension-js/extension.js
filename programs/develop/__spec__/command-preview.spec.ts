@@ -69,6 +69,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 import {extensionPreview} from '../command-preview'
 import * as configLoaderMod from '../lib/config-loader'
+import {withDarkMode} from '../lib/dark-mode'
 import * as extensionsToLoadMod from '../lib/extensions-to-load'
 import * as projectMod from '../lib/project'
 import * as validateDepsMod from '../lib/validate-user-dependencies'
@@ -178,6 +179,30 @@ describe('webpack/command-preview (run-only)', () => {
       .join('\n')
     expect(printed).toContain('Starting on Chrome.')
     expect(printed).not.toContain('Previewing on')
+  })
+
+  it('keeps the previewing banner off stdout in machine mode', async () => {
+    const originalOutput = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'json'
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    try {
+      await extensionPreview(
+        '/proj',
+        {browser: 'chrome'} as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(localLog).not.toHaveBeenCalled()
+    } finally {
+      if (originalOutput === undefined) delete process.env.EXTENSION_OUTPUT
+      else process.env.EXTENSION_OUTPUT = originalOutput
+    }
   })
 
   it('uses dist/<browser> when dist manifest exists', async () => {
@@ -290,6 +315,35 @@ describe('webpack/command-preview (run-only)', () => {
     expect(output).toContain('preview-run')
     expect(output).toContain('Firefox (no-browser mode)')
     consoleSpy.mockRestore()
+  })
+
+  it('keeps the no-browser card off stdout in machine mode', async () => {
+    const originalOutput = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'json'
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    try {
+      await extensionPreview(
+        '/proj',
+        {
+          browser: 'chrome',
+          noBrowser: true
+        } as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+      expect(consoleSpy).not.toHaveBeenCalled()
+    } finally {
+      if (originalOutput === undefined) delete process.env.EXTENSION_OUTPUT
+      else process.env.EXTENSION_OUTPUT = originalOutput
+      consoleSpy.mockRestore()
+    }
   })
 
   it('resolves companion extensions before scanning', async () => {
@@ -549,6 +603,27 @@ describe('webpack/command-preview (run-only)', () => {
         browserFlags: ['--from-browser', '--from-command', '--from-cli'],
         preferences: {a: 99, b: 2, nested: {x: 3, y: 2}}
       })
+    })
+
+    it('hands excludeBrowserFlags to the shared appearance defaults', async () => {
+      setupDist()
+      ;(withDarkMode as any).mockClear()
+
+      await extensionPreview(
+        '/proj',
+        {
+          browser: 'chrome',
+          metadataCommand,
+          excludeBrowserFlags: ['--force-dark-mode']
+        } as any,
+        runOnlyPreviewBrowser
+      )
+
+      expect(withDarkMode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          excludeBrowserFlags: ['--force-dark-mode']
+        })
+      )
     })
   })
 

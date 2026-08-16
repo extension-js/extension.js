@@ -7,9 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {getChromeVersion} from 'chrome-location2'
-import {getChromiumVersion} from 'chromium-location'
-import {getEdgeVersion} from 'edge-location'
 import {getFirefoxVersion} from 'firefox-location2'
 import {printProdBannerOnce} from './browsers-lib/banner'
 import {
@@ -18,6 +15,7 @@ import {
 } from './browsers-lib/browser-family'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
+import {probeChromiumBinaryVersion} from './browsers-lib/shared-utils'
 import type {
   BrowserType,
   CompilationLike,
@@ -192,26 +190,33 @@ function resolvePinnedBinaryVersionLine(
     if (!opts.chromiumBinary || !fs.existsSync(opts.chromiumBinary)) {
       return undefined
     }
-    if (opts.browser === 'edge') {
-      return getEdgeVersion(opts.chromiumBinary) || undefined
-    }
-    if (opts.browser === 'chromium' || opts.browser === 'chromium-based') {
-      return getChromiumVersion(opts.chromiumBinary) || undefined
-    }
-    return getChromeVersion(opts.chromiumBinary) || undefined
+    return (
+      probeChromiumBinaryVersion(opts.chromiumBinary, String(opts.browser)) ||
+      undefined
+    )
   } catch {
     return undefined
   }
 }
 
 function buildPreviewBannerOptions(opts: PreviewRunOptions) {
+  const chromiumPinned =
+    !isFirefoxBrowser(opts.browser) &&
+    typeof opts.chromiumBinary === 'string' &&
+    fs.existsSync(opts.chromiumBinary)
   return {
     browser: opts.browser,
     outPath: opts.outPath,
     includeExtensionId: true,
     includeRunId: false,
     readyPath: opts.readyPath,
-    browserVersionLine: resolvePinnedBinaryVersionLine(opts)
+    browserVersionLine: resolvePinnedBinaryVersionLine(opts),
+    ...(chromiumPinned
+      ? {
+          binaryPath: opts.chromiumBinary,
+          binaryProvenance: 'pinned' as const
+        }
+      : {})
   }
 }
 

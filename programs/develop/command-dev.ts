@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
+import {withDarkMode} from './lib/dark-mode'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
@@ -87,12 +88,15 @@ export async function extensionDev(
     // keys fall through so shared extension.config.js values apply.
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
-    const merged = mergeOptionLayers<DevOptions & BrowserConfig>(
-      DEV_COMMAND_DEFAULTS,
-      browserConfig,
-      commandConfig,
-      devOptions
-    )
+    const merged = withDarkMode({
+      ...mergeOptionLayers<DevOptions & BrowserConfig>(
+        DEV_COMMAND_DEFAULTS,
+        browserConfig,
+        commandConfig,
+        devOptions
+      ),
+      browser
+    })
 
     if (
       (browser === 'safari' || browser === 'webkit-based') &&
