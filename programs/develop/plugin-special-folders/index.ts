@@ -92,8 +92,11 @@ export class SpecialFoldersPlugin {
       )
 
       // Only ignore the root public/manifest.json to avoid overwriting the generated
-      // manifest; nested public/**/manifest.json is copied through.
-      const copyIgnore = ['manifest.json']
+      // manifest; nested public/**/manifest.json is copied through. The glob
+      // matches full paths, so a bare filename here would never exclude it.
+      const copyIgnore = [
+        path.join(publicDir, 'manifest.json').replace(/\\/g, '/')
+      ]
 
       new rspack.CopyRspackPlugin({
         patterns: [

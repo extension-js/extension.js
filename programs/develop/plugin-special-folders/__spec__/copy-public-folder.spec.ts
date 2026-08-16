@@ -98,8 +98,10 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     )
 
     expect(copyApply).toHaveBeenCalledTimes(1)
+    // Full path, not a bare filename: the copy glob matches full paths, so
+    // only the root public/manifest.json is excluded and nested ones copy.
     expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
-      'manifest.json'
+      '/project/public/manifest.json'
     )
   })
 
