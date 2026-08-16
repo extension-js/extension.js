@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from 'vitest'
 import {
+  humanizeCaseMismatchBlocks,
   isEmitTimeWarning,
   renderStatsBlocks,
   wrapStatsBlocks
@@ -216,5 +217,39 @@ describe('isEmitTimeWarning', () => {
     expect(isEmitTimeWarning({message: 'no code'})).toBe(false)
     expect(isEmitTimeWarning('a warning')).toBe(false)
     expect(isEmitTimeWarning(null)).toBe(false)
+  })
+})
+
+describe('humanizeCaseMismatchBlocks', () => {
+  const raw = [
+    'ERROR in ./sw.js 1:1-22',
+    '  \u00d7 Error: [CaseSensitivePathsPlugin] `/proj/Helper.js` does not match the corresponding path on disk `helper.js`.',
+    '    \u2502     at /x/case-sensitive-paths-plugin/index.js:170:13',
+    '    \u2502     at CaseSensitivePathsPlugin.getFilenamesInDir (/x/index.js:52:5)',
+    '    \u2502 ',
+    ''
+  ].join('\n')
+
+  it('collapses the plugin stack to one clean refusal', () => {
+    const out = humanizeCaseMismatchBlocks(raw, false)
+    expect(out).toContain(
+      '`/proj/Helper.js` does not match its casing on disk: `helper.js`.'
+    )
+    expect(out).toContain('Case-sensitive filesystems fail this reference.')
+    expect(out).not.toContain('at CaseSensitivePathsPlugin')
+    expect(out).not.toContain('\u2502')
+  })
+
+  it('keeps the stack frames for author mode', () => {
+    const out = humanizeCaseMismatchBlocks(raw, true)
+    expect(out).toContain(
+      '`/proj/Helper.js` does not match its casing on disk: `helper.js`.'
+    )
+    expect(out).toContain('at CaseSensitivePathsPlugin.getFilenamesInDir')
+  })
+
+  it('leaves unrelated error blocks alone', () => {
+    const other = 'ERROR in ./a.ts\n  \u00d7 Unexpected token\n'
+    expect(humanizeCaseMismatchBlocks(other, false)).toBe(other)
   })
 })
