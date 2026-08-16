@@ -139,7 +139,9 @@ describe('ApplyDevDefaults patch helpers', () => {
         'existing.js',
         '/scripts/*.js',
         '/*.css',
-        '/hot/*'
+        '/hot/*',
+        '/*.wasm',
+        '/*.bin'
       ])
     )
 
@@ -161,7 +163,9 @@ describe('ApplyDevDefaults patch helpers', () => {
         resources: expect.arrayContaining([
           '/scripts/*.js',
           '/*.css',
-          '/hot/*'
+          '/hot/*',
+          '/*.wasm',
+          '/*.bin'
         ]),
         matches: ['<all_urls>']
       }

@@ -11,14 +11,69 @@ import type {FilepathList} from '../../types'
 import {unixify} from '../shared/paths'
 
 type ChunkLike = {
-  files?: string[]
-  auxiliaryFiles?: string[]
+  files?: Iterable<string>
+  auxiliaryFiles?: Iterable<string>
+}
+
+// Rspack exposes chunk.files/auxiliaryFiles as ReadonlySet, webpack as
+// arrays. Normalize both so the chunk walk runs against either bundler.
+function toFileArray(value: Iterable<string> | undefined): string[] {
+  if (!value) return []
+  return Array.isArray(value) ? value : Array.from(value)
 }
 
 // Slash-joined segments so nested emits like assets/fonts/x.woff2 match whole,
 // while quotes, parens, and whitespace still terminate the reference.
 export const EMITTED_ASSET_REF_PATTERN =
   /assets\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*/g
+
+function isExcludedFromWar(fileName: string) {
+  const name = String(fileName || '')
+  if (!name || name === 'manifest.json') return true
+  if (name.endsWith('.js') || name.endsWith('.map')) return true
+  if (/(^|\/)hot\//.test(name)) return true
+  return false
+}
+
+export function listEmittedAssetNames(compilation: Compilation): string[] {
+  if (typeof compilation.getAssets === 'function') {
+    try {
+      return compilation.getAssets().map((asset) => String(asset.name))
+    } catch {
+      // Fall through to compilation.assets
+    }
+  }
+  return Object.keys(compilation.assets || {})
+}
+
+// Content scripts load hashed wasm cores and model weights from the output
+// root via getURL / new URL / the bundler public path. Matching only
+// assets/ silently drops those payloads from web_accessible_resources.
+export function collectReferencedRuntimePayloads(
+  source: string,
+  emittedAssetNames: string[]
+): string[] {
+  if (!source) return []
+
+  const found = new Set<string>()
+
+  const patternHits: string[] = source.match(EMITTED_ASSET_REF_PATTERN) || []
+  for (const hit of patternHits) {
+    if (!isExcludedFromWar(hit)) found.add(hit)
+  }
+
+  const eligible = emittedAssetNames
+    .filter((name) => !isExcludedFromWar(name))
+    .sort((a, b) => b.length - a.length)
+
+  for (const asset of eligible) {
+    if (source.includes(asset)) {
+      found.add(unixify(asset))
+    }
+  }
+
+  return Array.from(found)
+}
 
 type ModuleWithBuildInfo = {
   buildInfo?: {
@@ -131,19 +186,15 @@ export function collectContentScriptEntryImports(
 
     entry.chunks.forEach((chunk) => {
       const currentChunk = chunk as unknown as ChunkLike
-      const chunkFilesArray: string[] = Array.isArray(currentChunk.files)
-        ? currentChunk.files
-        : []
+      const chunkFilesArray: string[] = toFileArray(currentChunk.files)
 
       for (let i = 0; i < chunkFilesArray.length; i++) {
         addFileIfRelevant(chunkFilesArray[i])
       }
 
-      let chunkAuxFilesArray: string[] = []
-
-      if (Array.isArray(currentChunk.auxiliaryFiles)) {
-        chunkAuxFilesArray = currentChunk.auxiliaryFiles
-      }
+      const chunkAuxFilesArray: string[] = toFileArray(
+        currentChunk.auxiliaryFiles
+      )
 
       for (let i = 0; i < chunkAuxFilesArray.length; i++) {
         addFileIfRelevant(chunkAuxFilesArray[i])
@@ -160,9 +211,7 @@ export function collectContentScriptEntryImports(
 
         for (let k = 0; k < moduleChunksArray.length; k++) {
           const mk = moduleChunksArray[k] as unknown as ChunkLike
-          const mkAuxFilesArr: string[] = Array.isArray(mk.auxiliaryFiles)
-            ? mk.auxiliaryFiles
-            : []
+          const mkAuxFilesArr: string[] = toFileArray(mk.auxiliaryFiles)
 
           for (let l = 0; l < mkAuxFilesArr.length; l++) {
             addFileIfRelevant(mkAuxFilesArr[l])
@@ -181,7 +230,10 @@ export function collectContentScriptEntryImports(
         })
       }
 
-      // Fallback heuristic: scan JS chunk contents for references to emitted assets (e.g., assets/*.png)
+      // Fallback heuristic: scan JS chunk contents for referenced emits
+      // (assets/* plus root-level wasm cores / model weights).
+      const emittedAssetNames = listEmittedAssetNames(compilation)
+
       for (let i = 0; i < chunkFilesArray.length; i++) {
         const chunkFileName = chunkFilesArray[i]
         if (!String(chunkFileName).endsWith('.js')) {
@@ -194,11 +246,13 @@ export function collectContentScriptEntryImports(
           continue
         }
 
-        const matchedStrings: string[] =
-          jsSource.match(EMITTED_ASSET_REF_PATTERN) || []
+        const referenced = collectReferencedRuntimePayloads(
+          jsSource,
+          emittedAssetNames
+        )
 
-        for (let m = 0; m < matchedStrings.length; m++) {
-          addFileIfRelevant(matchedStrings[m])
+        for (let m = 0; m < referenced.length; m++) {
+          addFileIfRelevant(referenced[m])
         }
       }
     })
@@ -208,11 +262,13 @@ export function collectContentScriptEntryImports(
     const logicalJsAssetSource = getAssetSource(compilation, logicalJsAssetName)
 
     if (logicalJsAssetSource) {
-      const matchedStrings: string[] =
-        logicalJsAssetSource.match(EMITTED_ASSET_REF_PATTERN) || []
+      const referenced = collectReferencedRuntimePayloads(
+        logicalJsAssetSource,
+        listEmittedAssetNames(compilation)
+      )
 
-      for (let n = 0; n < matchedStrings.length; n++) {
-        addFileIfRelevant(matchedStrings[n])
+      for (let n = 0; n < referenced.length; n++) {
+        addFileIfRelevant(referenced[n])
       }
     }
 

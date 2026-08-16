@@ -55,6 +55,8 @@ function categoryRole(c: AssetCategory): string {
       return 'service worker / background, wakes from cold each session'
     case 'page':
       return 'UI page, opened on demand'
+    case 'runtime':
+      return 'runtime payload, shipped at the output root'
     default:
       return 'asset'
   }

@@ -21,12 +21,34 @@ export class WasmPlugin {
     this.mode = options.mode
   }
 
+  // Walk ancestors so hoisted workspace deps resolve the same way rspack's
+  // `resolve.modules: ['node_modules']` does. Checking only the package dir
+  // and cwd misses packages pnpm/yarn/npm hoist to the workspace root.
+  private collectSearchRoots(projectRoot: string) {
+    const roots: string[] = []
+    const seen = new Set<string>()
+
+    const addAncestors = (startDir: string) => {
+      let current = path.resolve(startDir)
+      while (true) {
+        if (!seen.has(current)) {
+          seen.add(current)
+          roots.push(current)
+        }
+        const parent = path.dirname(current)
+        if (parent === current) break
+        current = parent
+      }
+    }
+
+    addAncestors(projectRoot)
+    addAncestors(process.cwd())
+    return roots
+  }
+
   private resolveAssetPath(projectRoot: string, relativePath: string) {
-    const candidates = [
-      path.join(projectRoot, 'node_modules', relativePath),
-      path.join(process.cwd(), 'node_modules', relativePath)
-    ]
-    for (const candidate of candidates) {
+    for (const root of this.collectSearchRoots(projectRoot)) {
+      const candidate = path.join(root, 'node_modules', relativePath)
       if (fs.existsSync(candidate)) {
         return candidate
       }

@@ -51,6 +51,29 @@ describe('collectContentScriptEntryImports', () => {
     expect(res.background).toBeUndefined()
   })
 
+  it('collects chunk files exposed as ReadonlySet, the real rspack shape', () => {
+    const chunk = {
+      files: new Set(['content_scripts/content-a.js']),
+      auxiliaryFiles: new Set(['core.wasm', 'weights.bin', 'skip.map'])
+    }
+    const entry = {chunks: new Set([chunk])}
+    const compilation = {
+      entrypoints: new Map([['content_scripts/content-a', entry]]),
+      chunkGraph: {
+        getChunkModulesIterable: () => [],
+        getModuleChunks: () => []
+      },
+      assets: {}
+    } as unknown as Compilation
+
+    const includeList = {'content_scripts/content-a': 'src/content-a.ts'}
+    const res = collectContentScriptEntryImports(compilation, includeList)
+    expect(res['content_scripts/content-a']).toEqual(
+      expect.arrayContaining(['core.wasm', 'weights.bin'])
+    )
+    expect(res['content_scripts/content-a']).not.toContain('skip.map')
+  })
+
   it('de-dupes auxiliary files', () => {
     const compilation = makeCompilationMock({
       'content_scripts/x': ['a.css', 'a.css', 'b.css']
@@ -60,7 +83,11 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['content_scripts/x']).toEqual(['a.css', 'b.css'])
   })
 
-  function makeJsScanCompilationMock(entryName: string, jsSource: string) {
+  function makeJsScanCompilationMock(
+    entryName: string,
+    jsSource: string,
+    extraAssets: string[] = []
+  ) {
     const chunk = {
       files: [`${entryName}.js`],
       auxiliaryFiles: [] as string[]
@@ -73,12 +100,22 @@ describe('collectContentScriptEntryImports', () => {
       getModuleChunks: () => []
     }
 
+    const assets: Record<string, {source: () => string}> = {
+      [`${entryName}.js`]: {source: () => jsSource}
+    }
+    for (const name of extraAssets) {
+      assets[name] = {source: () => 'payload'}
+    }
+
     return {
       entrypoints,
       chunkGraph,
+      assets,
       getAsset(name: string) {
-        if (name !== `${entryName}.js`) return undefined
-        return {source: () => jsSource}
+        return assets[name]
+      },
+      getAssets() {
+        return Object.keys(assets).map((name) => ({name}))
       }
     } as unknown as Compilation
   }
@@ -125,5 +162,24 @@ describe('collectContentScriptEntryImports', () => {
     for (const entry of res['content_scripts/y']) {
       expect(entry).toMatch(/^assets\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/)
     }
+  })
+
+  it('collects root-level wasm and weights the content script references', () => {
+    const jsSource = [
+      'fetch(chrome.runtime.getURL("ocr-core.wasm"));',
+      'fetch(chrome.runtime.getURL("ocr-weights.bin"));'
+    ].join('\n')
+    const compilation = makeJsScanCompilationMock(
+      'content_scripts/content-0',
+      jsSource,
+      ['ocr-core.wasm', 'ocr-weights.bin', 'worker-model.bin']
+    )
+    const includeList = {'content_scripts/content-0': 'src/content.ts'}
+
+    const res = collectContentScriptEntryImports(compilation, includeList)
+    expect(res['content_scripts/content-0']).toEqual(
+      expect.arrayContaining(['ocr-core.wasm', 'ocr-weights.bin'])
+    )
+    expect(res['content_scripts/content-0']).not.toContain('worker-model.bin')
   })
 })

@@ -45,12 +45,20 @@ describe('categorizeAsset', () => {
     expect(categorizeAsset('manifest.json')).toBe('ignored')
     expect(categorizeAsset('_locales/en/messages.json')).toBe('ignored')
   })
+
+  it('classifies top-level runtime payloads and leftover wasm cores', () => {
+    expect(categorizeAsset('03bc89f8e5771202.wasm')).toBe('runtime')
+    expect(categorizeAsset('ffmpeg-core.js')).toBe('runtime')
+    expect(categorizeAsset('ffmpeg-core.worker.js')).toBe('runtime')
+    expect(categorizeAsset('assets/ffmpeg-core.wasm')).toBe('runtime')
+  })
 })
 
 describe('BUDGET_BYTES', () => {
   it('applies tighter budgets to hot paths than to cold UI pages', () => {
     expect(BUDGET_BYTES['content-script']).toBeLessThan(BUDGET_BYTES.page)
     expect(BUDGET_BYTES['service-worker']).toBeLessThan(BUDGET_BYTES.page)
+    expect(BUDGET_BYTES.runtime).toBe(BUDGET_BYTES.page)
     expect(BUDGET_BYTES.ignored).toBe(Number.POSITIVE_INFINITY)
   })
 
@@ -58,6 +66,7 @@ describe('BUDGET_BYTES', () => {
     expect(BUDGET_BYTES['content-script']).toBe(512 * 1024)
     expect(BUDGET_BYTES['service-worker']).toBe(512 * 1024)
     expect(BUDGET_BYTES.page).toBe(1024 * 1024)
+    expect(BUDGET_BYTES.runtime).toBe(1024 * 1024)
   })
 })
 
@@ -122,6 +131,16 @@ describe('PerfBudgetsPlugin', () => {
       'assets/screenshot.png': 5 * 1024 * 1024
     })
     expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('warns when a top-level wasm core exceeds the runtime budget', () => {
+    const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
+      '03bc89f8e5771202.wasm': 20 * 1024 * 1024
+    })
+    expect(compilation.warnings).toHaveLength(1)
+    const msg = String(compilation.warnings[0].message)
+    expect(msg).toContain('03bc89f8e5771202.wasm')
+    expect(msg).toContain('runtime payload')
   })
 
   it('does not warn in development mode by default', () => {

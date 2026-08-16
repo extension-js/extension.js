@@ -27,7 +27,9 @@ function patchWebResourcesV2(manifest: Manifest) {
     '/*.gif',
     '/*.webp',
     '/*.ico',
-    '/*.avif'
+    '/*.avif',
+    '/*.wasm',
+    '/*.bin'
   ]
   const resources = manifest.web_accessible_resources as string[] | null
 
@@ -63,7 +65,9 @@ function patchWebResourcesV3(manifest: Manifest) {
     '/*.gif',
     '/*.webp',
     '/*.ico',
-    '/*.avif'
+    '/*.avif',
+    '/*.wasm',
+    '/*.bin'
   ]
   return [
     ...(manifest.web_accessible_resources || []),
