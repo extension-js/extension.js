@@ -418,9 +418,11 @@ function executableNamesFor(
       ? ['chromium.exe', 'chrome.exe']
       : ['Chromium', 'chromium', 'chrome']
   } else if (browser === 'edge') {
+    // macOS app bundles name the binary 'Microsoft Edge'
+    // (Microsoft Edge.app/Contents/MacOS/Microsoft Edge), not msedge.
     return process.platform === 'win32'
       ? ['msedge.exe']
-      : ['msedge', 'microsoft-edge']
+      : ['Microsoft Edge', 'msedge', 'microsoft-edge']
   }
   return process.platform === 'win32' ? ['firefox.exe'] : ['firefox']
 }
