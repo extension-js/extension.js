@@ -165,43 +165,93 @@ export function resolveFromBinaries(
   }
 
   const versionDirPattern = /^(mac|mac_arm|win32|win64|linux)/i
-  const candidateFiles: string[] = []
+  const versionDirs: string[] = []
 
   for (const root of scanRoots) {
     try {
       const entries = fs.readdirSync(root, {withFileTypes: true})
-      const versionDirs = entries
-        .filter(
-          (entry) => entry.isDirectory() && versionDirPattern.test(entry.name)
-        )
-        .map((entry) => path.join(root, entry.name))
-
-      for (const dir of versionDirs) {
-        candidateFiles.push(...buildCandidates(dir, browser))
+      for (const entry of entries) {
+        if (entry.isDirectory() && versionDirPattern.test(entry.name)) {
+          versionDirs.push(path.join(root, entry.name))
+        }
       }
     } catch {
       // Ignore
     }
   }
 
-  for (const candidate of candidateFiles) {
-    try {
-      if (candidate && fs.existsSync(candidate)) {
-        return candidate
-      }
-    } catch {
-      // Ignore
-    }
-  }
+  // @puppeteer/browsers keeps every previous install beside the new one.
+  // readdir order is not version order, so pick the newest build explicitly.
+  versionDirs.sort(compareManagedBuildDirsNewestFirst)
 
   const names = executableNamesFor(browser)
+
+  for (const dir of versionDirs) {
+    for (const candidate of buildCandidates(dir, browser)) {
+      if (isUsableBinaryPath(candidate)) return candidate
+    }
+
+    const found = findExecutableUnder(dir, names, 6)
+    if (found) return found
+  }
+
   for (const root of scanRoots) {
     const found = findExecutableUnder(root, names, 6)
-
     if (found) return found
   }
 
   return null
+}
+
+const MANAGED_BUILD_DIR_PREFIX =
+  /^(?:mac_arm|mac-arm|mac|win64|win32|linux64|linux)[-_]/i
+
+export function parseManagedBuildId(dirName: string): number[] {
+  const name = String(dirName || '')
+  const buildId = name.replace(MANAGED_BUILD_DIR_PREFIX, '')
+  return buildId
+    .split(/[^\d]+/)
+    .filter(Boolean)
+    .map((part) => Number(part))
+    .filter((part) => Number.isFinite(part))
+}
+
+export function compareManagedBuildDirNames(a: string, b: string): number {
+  const partsA = parseManagedBuildId(a)
+  const partsB = parseManagedBuildId(b)
+  const length = Math.max(partsA.length, partsB.length)
+
+  for (let i = 0; i < length; i++) {
+    const na = partsA[i] ?? 0
+    const nb = partsB[i] ?? 0
+    if (na !== nb) return na - nb
+  }
+
+  return String(a).localeCompare(String(b))
+}
+
+function compareManagedBuildDirsNewestFirst(a: string, b: string): number {
+  const byBuild = compareManagedBuildDirNames(
+    path.basename(b),
+    path.basename(a)
+  )
+  if (byBuild !== 0) return byBuild
+
+  let timeA = 0
+  let timeB = 0
+  try {
+    timeA = fs.statSync(a).mtimeMs
+  } catch {
+    // Ignore
+  }
+  try {
+    timeB = fs.statSync(b).mtimeMs
+  } catch {
+    // Ignore
+  }
+
+  if (timeA !== timeB) return timeB - timeA
+  return path.basename(b).localeCompare(path.basename(a))
 }
 
 // When the requested chromium-family browser has no managed install, another
@@ -346,6 +396,14 @@ function buildCandidates(
     }
   }
   return out
+}
+
+function isUsableBinaryPath(candidate: string): boolean {
+  try {
+    return Boolean(candidate) && fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
 }
 
 function executableNamesFor(
