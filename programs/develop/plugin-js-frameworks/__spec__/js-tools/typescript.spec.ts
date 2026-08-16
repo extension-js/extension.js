@@ -45,7 +45,7 @@ describe('typescript tools', () => {
     )
   })
 
-  it('ensureTypeScriptConfig throws when TS files present but no tsconfig next to package.json', async () => {
+  it('ensureTypeScriptConfig scaffolds the default tsconfig when TS files are present without one', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       toPosix(String(p)).endsWith('/project/package.json') ? true : false
     )
@@ -65,10 +65,11 @@ describe('typescript tools', () => {
 
     expect(isUsingTypeScript('/project')).toBe(false)
 
-    expect(() => ensureTypeScriptConfig('/project')).toThrowError(
-      /Missing tsconfig\.json next to package\.json/
-    )
-    expect(fs.writeFileSync).not.toHaveBeenCalled()
+    expect(() => ensureTypeScriptConfig('/project')).not.toThrow()
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+    const [writtenPath, written] = (fs.writeFileSync as any).mock.calls[0]
+    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
+    expect(JSON.parse(String(written)).compilerOptions).toBeTruthy()
   })
 
   it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {

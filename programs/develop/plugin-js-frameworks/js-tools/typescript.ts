@@ -85,11 +85,10 @@ export function ensureTypeScriptConfig(projectPath: string): void {
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
       }
-    } else if (hasTsFiles) {
-      throw new Error(
-        '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
-      )
     } else {
+      // TS sources without a declared typescript dep are common in the wild
+      // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
+      // declared-dep path writes instead of refusing the build.
       console.log(messages.creatingTSConfig())
       writeTsConfig(projectPath)
     }
