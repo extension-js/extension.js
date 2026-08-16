@@ -281,7 +281,10 @@ export class JsFrameworksPlugin {
     const transpilePackageDirs = swcIncludeDirs.filter(
       (dir) => dir !== projectPath && dir !== manifestDir
     )
-    const preferTypeScript = !!tsConfigPath || isUsingTypeScript(projectPath)
+    // isUsingTypeScript is gated on the config existing, so a second operand
+    // reading it here could never add anything: the config IS the signal
+    // (ensureTypeScriptConfig above scaffolds it for TS projects).
+    const preferTypeScript = !!tsConfigPath
 
     let targets: string[] = ['chrome >= 100']
 

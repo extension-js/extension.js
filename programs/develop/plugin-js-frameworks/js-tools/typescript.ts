@@ -27,7 +27,14 @@ function findNearestPackageJsonDirectory(
   return findNearestProjectManifestDirSync(startPath, 6)
 }
 
-function hasTypeScriptSourceFiles(projectPath: string): boolean {
+// Extensions keep sources in surface-named folders (newtab, action, pages,
+// devtools, ...), so a directory allowlist misses real projects. Walk every
+// non-generated folder instead, shallow enough to stay cheap.
+const NON_SOURCE_DIRS = new Set(['node_modules', 'dist', 'public'])
+const MAX_SOURCE_SCAN_DEPTH = 4
+
+function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
+  if (depth > MAX_SOURCE_SCAN_DEPTH) return false
   try {
     const entries = fs.readdirSync(projectPath, {withFileTypes: true})
 
@@ -43,10 +50,10 @@ function hasTypeScriptSourceFiles(projectPath: string): boolean {
       }
 
       if (entry.isDirectory()) {
-        if (!['src', 'content', 'sidebar', 'background'].includes(entry.name))
+        if (entry.name.startsWith('.') || NON_SOURCE_DIRS.has(entry.name))
           return false
         const sub = path.join(projectPath, entry.name)
-        return hasTypeScriptSourceFiles(sub)
+        return hasTypeScriptSourceFiles(sub, depth + 1)
       }
       return false
     })
@@ -72,15 +79,16 @@ export function isUsingTypeScript(projectPath: string): boolean {
 }
 
 export function ensureTypeScriptConfig(projectPath: string): void {
-  if (hasShownUserMessage) return
-
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
   const hasDep = hasTypeScriptDependency(projectPath)
   const hasTsFiles = hasTypeScriptSourceFiles(projectPath)
 
+  // The latch only dedupes console output: the setup work itself must run
+  // for every caller, or a call with one directory shape (manifest dir vs
+  // compiler context) silently blocks the other's scaffold.
   if (hasDep || hasTsFiles) {
     if (tsConfigFilePath) {
-      if (isDebug()) {
+      if (!hasShownUserMessage && isDebug()) {
         console.log(
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
@@ -89,12 +97,13 @@ export function ensureTypeScriptConfig(projectPath: string): void {
       // TS sources without a declared typescript dep are common in the wild
       // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
       // declared-dep path writes instead of refusing the build.
-      console.log(messages.creatingTSConfig())
+      if (!hasShownUserMessage) {
+        console.log(messages.creatingTSConfig())
+      }
       writeTsConfig(projectPath)
     }
+    hasShownUserMessage = true
   }
-
-  hasShownUserMessage = true
 }
 
 export function defaultTypeScriptConfig(projectPath: string, _opts?: unknown) {
@@ -146,8 +155,12 @@ export function getTypeScriptConfigOverrides(opts: {mode: DevOptions['mode']}) {
 }
 
 function writeTsConfig(projectPath: string) {
+  // getUserTypeScriptConfigFile reads beside the nearest package.json, so
+  // the scaffold must land there too: writing beside a nested manifest dir
+  // (src/ layouts) creates a config nothing ever reads.
+  const targetDir = findNearestPackageJsonDirectory(projectPath) || projectPath
   fs.writeFileSync(
-    path.join(projectPath, 'tsconfig.json'),
+    path.join(targetDir, 'tsconfig.json'),
     JSON.stringify(
       defaultTypeScriptConfig(projectPath, {mode: 'development'}),
       null,
