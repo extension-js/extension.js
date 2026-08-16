@@ -17,6 +17,7 @@ import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
+import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
 
 export class WebExtensionPlugin {
@@ -56,6 +57,9 @@ export class WebExtensionPlugin {
       browser: this.browser,
       includeList: {
         ...manifestFieldsData.html,
+        // Pages reachable only through chrome.devtools.panels.create never
+        // appear in the manifest; without this the panel 404s in the browser.
+        ...discoverDevtoolsPanelPages(manifestPath),
         ...specialFoldersData.pages
       }
     }).apply(compiler)
