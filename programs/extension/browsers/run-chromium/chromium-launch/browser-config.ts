@@ -277,7 +277,9 @@ export function browserConfig(
         ]
       : []),
     ...filteredFlags,
-    ...(configOptions.browserFlags || []),
+    // The exclusion knob covers config/user flags too, so a lower-layer
+    // browserFlags entry stays cancelable. Env flags are explicit and exempt.
+    ...filterBrowserFlags(configOptions.browserFlags || [], excludeFlags),
     ...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS)
   ]
 

@@ -13,6 +13,7 @@ import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
   cleanupOldTempProfiles,
+  filterBrowserFlags,
   parseEnvBrowserFlags
 } from '../../browsers-lib/shared-utils'
 import type {
@@ -44,9 +45,12 @@ export async function browserConfig(
 ) {
   const {browser, profile, browserFlags = []} = configOptions
   const binaryArgs: string[] = []
+  // Shared semantics with the chromium launcher: exact or switch-prefix
+  // (=/,) matching, applied to the user flag layer.
   const excludeFlags = configOptions.excludeBrowserFlags || []
-  const filteredFlags = (browserFlags || []).filter((flag) =>
-    excludeFlags.every((ex: string) => !String(flag).startsWith(ex))
+  const filteredFlags = filterBrowserFlags(
+    (browserFlags || []).map(String),
+    excludeFlags
   )
 
   if (filteredFlags.length > 0) {
