@@ -72,6 +72,74 @@ describe('typescript tools', () => {
     expect(JSON.parse(String(written)).compilerOptions).toBeTruthy()
   })
 
+  it('scaffolds beside the nearest package.json for src/-layout projects', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      toPosix(String(p)).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation(() => '')
+    ;(fs.readdirSync as any).mockImplementation((p: string) => {
+      if (toPosix(String(p)).endsWith('/project/src')) {
+        return [{isFile: () => true, isDirectory: () => false, name: 'app.ts'}]
+      }
+      return []
+    })
+
+    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
+    ensureTypeScriptConfig('/project/src')
+
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+    const [writtenPath] = (fs.writeFileSync as any).mock.calls[0]
+    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
+  })
+
+  it('detects TS sources in surface folders beyond the old allowlist', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      toPosix(String(p)).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation(() => '')
+    ;(fs.readdirSync as any).mockImplementation((p: string) => {
+      const s = toPosix(String(p))
+      if (s.endsWith('/project')) {
+        return [
+          {isFile: () => false, isDirectory: () => true, name: 'newtab'},
+          {isFile: () => false, isDirectory: () => true, name: 'node_modules'}
+        ]
+      }
+      if (s.endsWith('/project/newtab')) {
+        return [
+          {isFile: () => true, isDirectory: () => false, name: 'index.tsx'}
+        ]
+      }
+      return []
+    })
+
+    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
+    ensureTypeScriptConfig('/project')
+
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+  })
+
+  it('a no-op call does not latch away a later real setup call', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      toPosix(String(p)).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation(() => '')
+    ;(fs.readdirSync as any).mockImplementation((p: string) => {
+      if (toPosix(String(p)).endsWith('/project')) {
+        return [{isFile: () => true, isDirectory: () => false, name: 'a.ts'}]
+      }
+      return []
+    })
+
+    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
+    // First call sees no project shape at all and must not set the latch.
+    ensureTypeScriptConfig('/elsewhere')
+    expect(fs.writeFileSync).not.toHaveBeenCalled()
+
+    ensureTypeScriptConfig('/project')
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+  })
+
   it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
