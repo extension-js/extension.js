@@ -75,6 +75,14 @@ describe('extension preview', () => {
     expect((opts as any).profile).toBe('/tmp/my-profile')
   })
 
+  it('forwards --output-path to extensionPreview', async () => {
+    expect(await run(['preview', '.', '--output-path', '/tmp/unpacked'])).toBe(
+      0
+    )
+    const [, opts] = extensionPreview.mock.calls[0]
+    expect((opts as any).outputPath).toBe('/tmp/unpacked')
+  })
+
   it('forwards explicit logger flags', async () => {
     expect(
       await run([

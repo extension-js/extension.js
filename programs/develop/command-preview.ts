@@ -24,7 +24,10 @@ import {
 import {getProjectStructure} from './lib/project'
 import {sanitize} from './lib/sanitize'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
-import {createPlaywrightMetadataWriter} from './plugin-playwright'
+import {
+  createPlaywrightMetadataWriter,
+  getSessionRunId
+} from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
@@ -67,6 +70,15 @@ export interface ResolvedPreviewOptions {
  * instead of requiring plugin-browsers internally.
  */
 export type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<void>
+
+function readRunIdFromReadyFile(readyPath: string): string | undefined {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    return typeof parsed?.runId === 'string' ? parsed.runId : undefined
+  } catch {
+    return undefined
+  }
+}
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -111,7 +123,18 @@ export async function extensionPreview(
           : null
   })
 
-  metadata.writeStarting()
+  // `extension start` already opened this run in the build phase (timeline
+  // rows + compile stamp). A second writeStarting would wipe the rows and
+  // restamp compiledAt as "browser came up". Continue only when the ready
+  // file carries THIS process's runId: a stale file from an earlier run
+  // must not poison the new run's timeline or refusal status.
+  const continuingStartRun =
+    metadataCommand === 'start' &&
+    readRunIdFromReadyFile(metadata.readyPath) ===
+      getSessionRunId(packageJsonDir, String(browser))
+  if (!continuingStartRun) {
+    metadata.writeStarting()
+  }
 
   if (debug) {
     console.log(messages.debugDirs(manifestDir, packageJsonDir))

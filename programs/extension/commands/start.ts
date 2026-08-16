@@ -223,6 +223,7 @@ export function registerStartCommand(program: Command) {
           list,
           (invalid, supported) => {
             unsupportedBrowser = invalid
+            if (asJson) return
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -236,10 +237,14 @@ export function registerStartCommand(program: Command) {
         }
 
         if (list.some(isSafariVendor)) {
-          console.error(messages.safariCommandNotSupported('start'))
+          if (!asJson) {
+            console.error(messages.safariCommandNotSupported('start'))
+          }
+          // Not E_UNSUPPORTED_BROWSER: Safari is a supported browser, it is
+          // this command that has no Safari path.
           failAndExit(asJson, 'usage', {
-            code: CODES.E_UNSUPPORTED_BROWSER,
-            message: 'Safari targets are not supported by start.'
+            code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
+            message: 'Safari is not supported by start.'
           })
         }
 

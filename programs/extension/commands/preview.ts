@@ -42,6 +42,7 @@ type PreviewOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  outputPath?: string
   output?: 'pretty' | 'json'
   debug?: boolean
   author?: boolean
@@ -111,6 +112,10 @@ export function registerPreviewCommand(program: Command) {
     .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
+    )
+    .option(
+      '--output-path <dir>',
+      'path to an existing unpacked extension directory. Defaults to dist/<browser> when available'
     )
     .option(
       '--output <pretty|json>',
@@ -230,6 +235,7 @@ export function registerPreviewCommand(program: Command) {
                   'preview'
                 ),
                 extensions: parseExtensionsList(previewOptions.extensions),
+                outputPath: previewOptions.outputPath,
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
                 logLevel: logsOption || previewOptions.logLevel || undefined,

@@ -404,6 +404,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       ? managedExtensionRecords(options.browser, dirs)
       : undefined
 
+  // undefined = this writer never learned the list (preserve prev).
+  // [] = the run said "none" and must wipe leftover companions.
+  let managedExtensionsExplicit = options.managedExtensionDirs !== undefined
   let managedExtensions = toManagedRecords(options.managedExtensionDirs)
 
   const base = {
@@ -439,17 +442,57 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   ) {
     if (foreignLiveDevSession) return
     ensureDirSync(metadataDir)
+
+    let prev: Record<string, unknown> | undefined
+    try {
+      if (fs.existsSync(readyPath)) {
+        prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as Record<
+          string,
+          unknown
+        >
+      }
+    } catch {
+      prev = undefined
+    }
+
+    const compiledAtExplicit = Boolean(extra && 'compiledAt' in extra)
+    const compiledAt = compiledAtExplicit
+      ? (extra?.compiledAt ?? null)
+      : typeof prev?.compiledAt === 'string'
+        ? prev.compiledAt
+        : status === 'ready'
+          ? nowISO()
+          : null
+
     const payload: ReadyMetadata = {
       ...base,
       status,
       pid: process.pid,
       ts: nowISO(),
-      compiledAt: extra?.compiledAt ?? null,
+      compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
+    }
+    // A later writer in the same run (start's preview after the build) must
+    // keep the run's original clock, not the moment this writer was created.
+    if (
+      status !== 'starting' &&
+      prev &&
+      prev.runId === base.runId &&
+      typeof prev.startedAt === 'string'
+    ) {
+      payload.startedAt = prev.startedAt
     }
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
-    if (managedExtensions) payload.managedExtensions = managedExtensions
+    if (managedExtensionsExplicit) {
+      if (managedExtensions) payload.managedExtensions = managedExtensions
+    } else if (
+      Array.isArray(prev?.managedExtensions) &&
+      (prev.managedExtensions as unknown[]).length > 0
+    ) {
+      payload.managedExtensions =
+        prev.managedExtensions as ManagedExtensionRecord[]
+    }
     const derivedExtensionId = deriveDistExtensionId(
       options.browser,
       options.distPath
@@ -457,64 +500,53 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (derivedExtensionId) payload.extensionId = derivedExtensionId
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
-    try {
-      if (fs.existsSync(readyPath)) {
-        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
-        if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
-        if (
-          !payload.managedExtensions &&
-          Array.isArray(prev.managedExtensions)
-        ) {
-          payload.managedExtensions = prev.managedExtensions
+    if (prev) {
+      if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
+      if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+      if (typeof prev.profilePath === 'string') {
+        payload.profilePath = prev.profilePath
+      }
+      if (typeof prev.browserPid === 'number') {
+        payload.browserPid = prev.browserPid
+      }
+      // The launcher's stamp may carry the browser-confirmed id, which
+      // outranks the derived one, so the previous value wins on recompile.
+      if (typeof prev.extensionId === 'string' && prev.extensionId) {
+        payload.extensionId = prev.extensionId
+      }
+      if (typeof prev.browserExitedAt === 'string') {
+        ;(payload as Record<string, unknown>).browserExitedAt =
+          prev.browserExitedAt
+        ;(payload as Record<string, unknown>).browserExitCode =
+          prev.browserExitCode ?? null
+      }
+      // The SW attaches once per session but the compile can re-run many
+      // times; a recompile must not erase the runtime-attached signal.
+      if (typeof prev.executorAttachedAt === 'string') {
+        ;(payload as Record<string, unknown>).executorAttachedAt =
+          prev.executorAttachedAt
+        ;(payload as Record<string, unknown>).runtime = 'attached'
+      }
+      // A browser-side load refusal outlives the compile that follows it: the
+      // rebuild succeeding says nothing about the guest the browser threw out.
+      // 'starting' is a new run, which re-asks the browser, so it resets.
+      if (
+        status !== 'starting' &&
+        typeof prev.extensionLoadRefusedAt === 'string'
+      ) {
+        const target = payload as Record<string, unknown>
+        target.extensionLoadRefusedAt = prev.extensionLoadRefusedAt
+        if (typeof prev.extensionLoadRefusedReason === 'string') {
+          target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
         }
-        if (typeof prev.profilePath === 'string') {
-          payload.profilePath = prev.profilePath
-        }
-        if (typeof prev.browserPid === 'number') {
-          payload.browserPid = prev.browserPid
-        }
-        // The launcher's stamp may carry the browser-confirmed id, which
-        // outranks the derived one, so the previous value wins on recompile.
-        if (typeof prev.extensionId === 'string' && prev.extensionId) {
-          payload.extensionId = prev.extensionId
-        }
-        if (typeof prev.browserExitedAt === 'string') {
-          ;(payload as Record<string, unknown>).browserExitedAt =
-            prev.browserExitedAt
-          ;(payload as Record<string, unknown>).browserExitCode =
-            prev.browserExitCode ?? null
-        }
-        // The SW attaches once per session but the compile can re-run many
-        // times; a recompile must not erase the runtime-attached signal.
-        if (typeof prev.executorAttachedAt === 'string') {
-          ;(payload as Record<string, unknown>).executorAttachedAt =
-            prev.executorAttachedAt
-          ;(payload as Record<string, unknown>).runtime = 'attached'
-        }
-        // A browser-side load refusal outlives the compile that follows it: the
-        // rebuild succeeding says nothing about the guest the browser threw out.
-        // 'starting' is a new run, which re-asks the browser, so it resets.
-        if (
-          status !== 'starting' &&
-          typeof prev.extensionLoadRefusedAt === 'string'
-        ) {
-          const target = payload as Record<string, unknown>
-          target.extensionLoadRefusedAt = prev.extensionLoadRefusedAt
-          if (typeof prev.extensionLoadRefusedReason === 'string') {
-            target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
-          }
-          if (status === 'ready') {
-            payload.status = 'error' as ReadyStatus
-            payload.code = 'extension_load_refused'
-            payload.message = String(
-              prev.message || 'the browser refused to load the extension'
-            )
-          }
+        if (status === 'ready') {
+          payload.status = 'error' as ReadyStatus
+          payload.code = 'extension_load_refused'
+          payload.message = String(
+            prev.message || 'the browser refused to load the extension'
+          )
         }
       }
-    } catch {
-      // Ignore
     }
     writeJsonAtomic(readyPath, payload)
   }
@@ -538,6 +570,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     readyPath,
     eventsPath,
     setManagedExtensionDirs(dirs: string[]) {
+      managedExtensionsExplicit = true
       managedExtensions = toManagedRecords(dirs)
     },
     writeStarting() {
@@ -550,10 +583,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       } catch {
         // Ignore
       }
-      writeReady('starting')
+      writeReady('starting', {compiledAt: null})
     },
     writeReady(compiledAt?: string | null) {
-      writeReady('ready', {compiledAt: compiledAt || nowISO()})
+      if (compiledAt === undefined) {
+        writeReady('ready')
+      } else {
+        writeReady('ready', {compiledAt: compiledAt || nowISO()})
+      }
     },
     writeError(code: string, message: string, errors?: string[]) {
       writeReady('error', {

@@ -91,4 +91,35 @@ describe('ready.json records the extensions the engine loads on its own behalf',
     const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(ready.managedExtensions).toBeUndefined()
   })
+
+  it('an explicit empty list clears companions another writer left behind', () => {
+    const writer = makeWriter([companionDir])
+    writer.writeReady()
+    expect(
+      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).managedExtensions
+    ).toHaveLength(1)
+
+    const clearer = makeWriter([])
+    clearer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(clearer.readyPath, 'utf-8'))
+    expect(ready.managedExtensions).toBeUndefined()
+  })
+
+  it('setManagedExtensionDirs([]) clears and a later unaware write stays clear', () => {
+    const writer = makeWriter([companionDir])
+    writer.writeReady()
+    writer.setManagedExtensionDirs([])
+    writer.writeReady()
+
+    expect(
+      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).managedExtensions
+    ).toBeUndefined()
+
+    const unaware = makeWriter()
+    unaware.writeReady()
+    expect(
+      JSON.parse(fs.readFileSync(unaware.readyPath, 'utf-8')).managedExtensions
+    ).toBeUndefined()
+  })
 })
