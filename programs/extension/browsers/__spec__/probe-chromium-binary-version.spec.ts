@@ -14,17 +14,21 @@ describe('probeChromiumBinaryVersion', () => {
     }
   })
 
-  it('reads --version from the file named, even when the target is chrome', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'extjs-probe-'))
-    dirs.push(dir)
-    const bin = join(dir, 'canary')
-    writeFileSync(bin, '#!/bin/sh\necho "Canary 999.0.1234.5"\n')
-    chmodSync(bin, 0o755)
+  // Shell-script fixture: not executable on Windows, posix-only case.
+  it.skipIf(process.platform === 'win32')(
+    'reads --version from the file named, even when the target is chrome',
+    () => {
+      const dir = mkdtempSync(join(tmpdir(), 'extjs-probe-'))
+      dirs.push(dir)
+      const bin = join(dir, 'canary')
+      writeFileSync(bin, '#!/bin/sh\necho "Canary 999.0.1234.5"\n')
+      chmodSync(bin, 0o755)
 
-    expect(probeChromiumBinaryVersion(bin, 'chrome')).toBe('999.0.1234.5')
-    expect(probeChromiumBinaryVersion(bin, 'chromium')).toBe('999.0.1234.5')
-    expect(probeChromiumBinaryVersion(bin, 'edge')).toBe('999.0.1234.5')
-  })
+      expect(probeChromiumBinaryVersion(bin, 'chrome')).toBe('999.0.1234.5')
+      expect(probeChromiumBinaryVersion(bin, 'chromium')).toBe('999.0.1234.5')
+      expect(probeChromiumBinaryVersion(bin, 'edge')).toBe('999.0.1234.5')
+    }
+  )
 })
 
 describe('resolveBrowserVersionLine', () => {

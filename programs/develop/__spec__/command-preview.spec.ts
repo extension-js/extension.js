@@ -239,7 +239,9 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.resolve('/custom/unpacked'))
+    // asAbsolute keeps already-absolute input verbatim on every platform;
+    // path.resolve would rewrite this to D:\... on Windows and diverge.
+    expect(call.outPath).toBe('/custom/unpacked')
   })
 
   it('throws when outputPath does not contain manifest.json', async () => {
