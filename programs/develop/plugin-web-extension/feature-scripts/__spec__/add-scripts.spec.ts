@@ -42,6 +42,52 @@ function createCompiler(context: string) {
 }
 
 describe('AddScripts', () => {
+  function buildBackgroundScriptsEntry(
+    manifestVersion: 2 | 3,
+    browser: string
+  ) {
+    const projectDir = createTempProject()
+    const bgPath = path.join(projectDir, 'background.js')
+    fs.writeFileSync(bgPath, 'console.log(1)\n', 'utf8')
+    fs.writeFileSync(
+      path.join(projectDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: manifestVersion,
+        background: {scripts: ['background.js']}
+      }),
+      'utf8'
+    )
+    const compiler = createCompiler(projectDir)
+    new AddScripts({
+      manifestPath: path.join(projectDir, 'manifest.json'),
+      browser,
+      includeList: {'background/scripts': [bgPath]}
+    } as any).apply(compiler as any)
+    return (compiler.options.entry as any)['background/scripts']
+  }
+
+  it('gives an MV3 background.scripts bundle the worker chunk loader on chromium', () => {
+    // patch-chromium-background repoints this bundle to service_worker, so
+    // a DOM script-injection chunk loader would kill it at boot.
+    expect(buildBackgroundScriptsEntry(3, 'chrome').chunkLoading).toBe(
+      'import-scripts'
+    )
+    expect(buildBackgroundScriptsEntry(3, 'edge').chunkLoading).toBe(
+      'import-scripts'
+    )
+  })
+
+  it('keeps the page chunk loader for background.scripts where it runs as a page', () => {
+    // Firefox MV3 background.scripts is an event page, MV2 everywhere is a
+    // background page: both have a document, neither has importScripts.
+    expect(
+      buildBackgroundScriptsEntry(3, 'firefox').chunkLoading
+    ).toBeUndefined()
+    expect(
+      buildBackgroundScriptsEntry(2, 'chrome').chunkLoading
+    ).toBeUndefined()
+  })
+
   it('uses a sequential entry module for multi-file content script groups', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')

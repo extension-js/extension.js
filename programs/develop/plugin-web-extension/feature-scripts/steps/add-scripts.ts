@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, EntryObject} from '@rspack/core'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
@@ -142,7 +143,10 @@ export class AddScripts {
     const newEntries: Record<string, EntryObject> = {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
-    let manifestJson: {background?: {type?: unknown}} = {}
+    let manifestJson: {
+      manifest_version?: unknown
+      background?: {type?: unknown}
+    } = {}
     try {
       manifestJson = JSON.parse(
         stripBom(fs.readFileSync(this.manifestPath, 'utf8'))
@@ -200,21 +204,30 @@ export class AddScripts {
 
       if (!finalEntryImports.length) continue
 
-      newEntries[feature] =
-        feature === 'background/service_worker'
-          ? {
-              import: finalEntryImports,
-              ...(manifestJson.background?.type === 'module'
-                ? {}
-                : {chunkLoading: 'import-scripts'})
-            }
-          : {
-              import: finalEntryImports,
-              ...(isContentScriptFeature(feature) ||
-              isScriptsFolderFeature(feature)
-                ? {layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
-                : {})
-            }
+      // On Chromium an MV3 background.scripts bundle is repointed to
+      // service_worker (patch-chromium-background), so it boots as a worker
+      // with no `document`: it needs the same worker chunk loader as a
+      // declared service_worker or a split chunk kills the background.
+      const runsAsWorker =
+        feature === 'background/service_worker' ||
+        (isBackgroundScriptsFeature(feature) &&
+          Number(manifestJson.manifest_version) === 3 &&
+          !isGeckoBasedBrowser(String(this.browser)))
+
+      newEntries[feature] = runsAsWorker
+        ? {
+            import: finalEntryImports,
+            ...(manifestJson.background?.type === 'module'
+              ? {}
+              : {chunkLoading: 'import-scripts'})
+          }
+        : {
+            import: finalEntryImports,
+            ...(isContentScriptFeature(feature) ||
+            isScriptsFolderFeature(feature)
+              ? {layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
+              : {})
+          }
     }
 
     compiler.options.entry = {
