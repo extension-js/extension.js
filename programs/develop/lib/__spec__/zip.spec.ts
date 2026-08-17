@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {extractLocalZip} from '../zip'
 
@@ -32,10 +32,11 @@ afterEach(() => {
 describe('extractLocalZip', () => {
   it('extracts a real local .zip into <target>/<basename>', async () => {
     const root = makeTempDir('extjs-zip-ok-')
-    const zip = new AdmZip()
-    zip.addFile('manifest.json', Buffer.from('{"name":"x"}'))
     const zipPath = path.join(root, 'my-extension.zip')
-    zip.writeZip(zipPath)
+    fs.writeFileSync(
+      zipPath,
+      Buffer.from(zipSync({'manifest.json': strToU8('{"name":"x"}')}))
+    )
 
     const target = makeTempDir('extjs-zip-out-')
     const dest = await extractLocalZip(zipPath, target)

@@ -193,15 +193,15 @@ importers:
 
   programs/create:
     dependencies:
-      adm-zip:
-        specifier: ^0.6.0
-        version: 0.6.0
       axios:
         specifier: ^1.18.0
         version: 1.18.1
       cross-spawn:
         specifier: ^7.0.6
         version: 7.0.6
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       go-git-it:
         specifier: ^5.1.5
         version: 5.1.5
@@ -221,9 +221,6 @@ importers:
       '@rslib/core':
         specifier: ^0.23.1
         version: 0.23.1(core-js@3.47.0)(typescript@7.0.2)
-      '@types/adm-zip':
-        specifier: ^0.5.7
-        version: 0.5.7
       '@types/chrome':
         specifier: ^0.1.33
         version: 0.1.33
@@ -278,9 +275,6 @@ importers:
       acorn:
         specifier: ^8.16.0
         version: 8.16.0
-      adm-zip:
-        specifier: ^0.6.0
-        version: 0.6.0
       browser-extension-manifest-fields:
         specifier: ^2.2.9
         version: 2.2.9
@@ -299,6 +293,9 @@ importers:
       extension-from-store:
         specifier: ^0.2.5
         version: 0.2.5
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       go-git-it:
         specifier: ^5.1.5
         version: 5.1.5
@@ -375,9 +372,6 @@ importers:
       '@rslib/core':
         specifier: ^0.23.1
         version: 0.23.1(core-js@3.47.0)(typescript@7.0.2)
-      '@types/adm-zip':
-        specifier: ^0.5.7
-        version: 0.5.7
       '@types/case-sensitive-paths-webpack-plugin':
         specifier: ^2.1.9
         version: 2.1.9
@@ -2568,9 +2562,6 @@ packages:
   '@tybys/wasm-util@0.10.3':
     resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
 
-  '@types/adm-zip@0.5.7':
-    resolution: {integrity: sha512-DNEs/QvmyRLurdQPChqq0Md4zGvPwHerAJYWk9l2jCbD1VPpnzRJorOdiq4zsw09NFbYnhfsoEhWtxIzXpn2yw==}
-
   '@types/case-sensitive-paths-webpack-plugin@2.1.9':
     resolution: {integrity: sha512-PgzPEjX7lmqJh4m717reml5Lkabnxxu4k7EQc78h0zmgoZINbFtM3lPyR6HKr8j+bbWbhZ29ZezH2ICLSHPVzw==}
 
@@ -2920,10 +2911,6 @@ packages:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
-
-  adm-zip@0.6.0:
-    resolution: {integrity: sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==}
-    engines: {node: '>=14.0'}
 
   agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
@@ -6844,10 +6831,6 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@types/adm-zip@0.5.7':
-    dependencies:
-      '@types/node': 26.0.1
-
   '@types/case-sensitive-paths-webpack-plugin@2.1.9':
     dependencies:
       '@types/webpack': 4.41.40
@@ -7225,8 +7208,6 @@ snapshots:
       acorn: 8.16.0
 
   acorn@8.16.0: {}
-
-  adm-zip@0.6.0: {}
 
   agent-base@6.0.2:
     dependencies:

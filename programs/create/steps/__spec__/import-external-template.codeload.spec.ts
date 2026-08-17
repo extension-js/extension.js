@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   DEFAULT_TEMPLATES_REF,
@@ -33,25 +33,18 @@ function makeProject(): string {
 }
 
 function makeExamplesZip(): Buffer {
-  const zip = new AdmZip()
-  zip.addFile('examples-main/README.md', Buffer.from('# examples'))
-  zip.addFile(
-    'examples-main/examples/react/package.json',
-    Buffer.from('{"name":"react"}')
+  return Buffer.from(
+    zipSync({
+      'examples-main/README.md': strToU8('# examples'),
+      'examples-main/examples/react/package.json': strToU8('{"name":"react"}'),
+      'examples-main/examples/react/src/index.tsx': strToU8(
+        'export const App = () => null'
+      ),
+      'examples-main/examples/react/template.meta.json':
+        strToU8('{"featured":true}'),
+      'examples-main/examples/vue/package.json': strToU8('{"name":"vue"}')
+    })
   )
-  zip.addFile(
-    'examples-main/examples/react/src/index.tsx',
-    Buffer.from('export const App = () => null')
-  )
-  zip.addFile(
-    'examples-main/examples/react/template.meta.json',
-    Buffer.from('{"featured":true}')
-  )
-  zip.addFile(
-    'examples-main/examples/vue/package.json',
-    Buffer.from('{"name":"vue"}')
-  )
-  return zip.toBuffer()
 }
 
 describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)', () => {
@@ -83,7 +76,7 @@ describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)'
 
   it('throws TemplateNotFoundError (not a crash) on an empty archive', async () => {
     const project = makeProject()
-    const empty = new AdmZip().toBuffer()
+    const empty = Buffer.from(zipSync({}))
     await expect(
       extractExamplesTemplateFromZip(empty, 'react', project)
     ).rejects.toBeInstanceOf(TemplateNotFoundError)

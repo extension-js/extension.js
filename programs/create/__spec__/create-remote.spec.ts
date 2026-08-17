@@ -3,15 +3,15 @@ import * as fs from 'node:fs'
 import {createServer, type Server} from 'node:http'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, describe, expect, it} from 'vitest'
 
 function makeZip(structure: Record<string, string>): Buffer {
-  const zip = new AdmZip()
+  const entries: Record<string, Uint8Array> = {}
   for (const [name, content] of Object.entries(structure)) {
-    zip.addFile(name, Buffer.from(content))
+    entries[name] = strToU8(content)
   }
-  return zip.toBuffer()
+  return Buffer.from(zipSync(entries))
 }
 
 describe('extension create from remote', () => {

@@ -63,11 +63,12 @@ describe('get-project-path', () => {
 
   it('auto-extracts a local .zip and resolves its manifest', async () => {
     const root = makeTempDir('extjs-local-zip-')
-    const AdmZip = (await import('adm-zip')).default
-    const zip = new AdmZip()
-    zip.addFile('manifest.json', Buffer.from('{"name":"local-zip"}'))
+    const {strToU8, zipSync} = await import('fflate')
     const zipPath = path.join(root, 'packed-extension.zip')
-    zip.writeZip(zipPath)
+    fs.writeFileSync(
+      zipPath,
+      Buffer.from(zipSync({'manifest.json': strToU8('{"name":"local-zip"}')}))
+    )
 
     const cwd = process.cwd()
     try {

@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
@@ -22,28 +22,22 @@ import {importExternalTemplate} from '../import-external-template'
 // `extension` devDependency after the copy, so a copied lockfile can only be
 // stale and `npm ci` fails on Missing: extension@<version> from lock file.
 function makeCatalogZipWithLockfiles(): Buffer {
-  const zip = new AdmZip()
-  zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turborepo/package.json',
-    Buffer.from('{"name":"sidebar-monorepo-turborepo"}')
+  const root = 'examples-main/examples/sidebar-monorepo-turborepo'
+  return Buffer.from(
+    zipSync({
+      [`${root}/package.json`]: strToU8(
+        '{"name":"sidebar-monorepo-turborepo"}'
+      ),
+      [`${root}/package-lock.json`]: strToU8(
+        '{"lockfileVersion":3,"packages":{}}'
+      ),
+      [`${root}/pnpm-lock.yaml`]: strToU8('lockfileVersion: 9'),
+      [`${root}/deno.lock`]: strToU8('{"version":"4"}'),
+      [`${root}/packages/extension/src/manifest.json`]: strToU8(
+        '{"manifest_version":3}'
+      )
+    })
   )
-  zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turborepo/package-lock.json',
-    Buffer.from('{"lockfileVersion":3,"packages":{}}')
-  )
-  zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turborepo/pnpm-lock.yaml',
-    Buffer.from('lockfileVersion: 9')
-  )
-  zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turborepo/deno.lock',
-    Buffer.from('{"version":"4"}')
-  )
-  zip.addFile(
-    'examples-main/examples/sidebar-monorepo-turborepo/packages/extension/src/manifest.json',
-    Buffer.from('{"manifest_version":3}')
-  )
-  return zip.toBuffer()
 }
 
 describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', () => {
@@ -105,13 +99,13 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
     tempDirs.push(tmpRoot)
     const projectPath = path.join(tmpRoot, 'my-ext')
 
-    const zip = new AdmZip()
-    zip.addFile(
-      'examples-main/examples/react/package.json',
-      Buffer.from('{"name":"react"}')
-    )
     vi.mocked(axios.get).mockResolvedValue({
-      data: zip.toBuffer(),
+      data: Buffer.from(
+        zipSync({
+          'examples-main/examples/react/package.json':
+            strToU8('{"name":"react"}')
+        })
+      ),
       headers: {'content-type': 'application/zip'}
     } as never)
 
