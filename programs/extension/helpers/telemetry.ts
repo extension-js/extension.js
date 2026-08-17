@@ -58,6 +58,7 @@ type TelemetryInit = {
   sampleRate?: number
   maxEventsPerRun?: number
   debounceMs?: number
+  timeoutMs?: number
 }
 
 type TelemetryStorage = {
@@ -449,6 +450,7 @@ export class Telemetry {
   private readonly sampleRate: number
   private readonly maxEventsPerRun: number
   private readonly debounceMs: number
+  private readonly timeoutMs: number
   private readonly debug: boolean
   private readonly common: {
     os: NodeJS.Platform
@@ -477,6 +479,7 @@ export class Telemetry {
       init.maxEventsPerRun ?? DEFAULT_MAX_EVENTS
     )
     this.debounceMs = Math.max(0, init.debounceMs ?? DEFAULT_DEBOUNCE_MS)
+    this.timeoutMs = Math.max(1, init.timeoutMs ?? DEFAULT_TIMEOUT_MS)
     this.common = {
       os: process.platform,
       arch: process.arch,
@@ -556,7 +559,7 @@ export class Telemetry {
 
       const batch = this.buffer.splice(0, this.buffer.length)
       const ac = new AbortController()
-      const t = setTimeout(() => ac.abort(), DEFAULT_TIMEOUT_MS)
+      const t = setTimeout(() => ac.abort(), this.timeoutMs)
 
       const url = new URL('/capture/', this.host)
       await fetch(url.toString(), {
