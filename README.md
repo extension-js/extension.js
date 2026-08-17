@@ -184,6 +184,34 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 - Open issues and feature requests on [GitHub](https://github.com/extension-js/extension.js/issues)
 - Browse production-ready [examples](https://github.com/extension-js/examples)
 
+## Sponsors
+
+Sponsors help the project ship faster releases, better developer experience, and long-term reliability for extension teams.
+
+<div align="center">
+  <p>
+    <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://extension.js.org/images/sponsors/testmuai_dark.svg" />
+        <source media="(prefers-color-scheme: light)" srcset="https://extension.js.org/images/sponsors/testmuai.svg" />
+        <img src="https://extension.js.org/images/sponsors/testmuai.svg" width="220" alt="TestMu AI" />
+      </picture>
+    </a>
+  </p>
+  <p>
+    <a href="https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://extension.js.org/images/sponsors/extensiondev_dark.svg" />
+        <source media="(prefers-color-scheme: light)" srcset="https://extension.js.org/images/sponsors/extensiondev.svg" />
+        <img src="https://extension.js.org/images/sponsors/extensiondev.svg" width="220" alt="extension.dev" />
+      </picture>
+    </a>
+  </p>
+  <p>
+    <a href="https://github.com/sponsors/extension-js">Become a sponsor</a>
+  </p>
+</div>
+
 ## License
 
 MIT (c) Cezar Augusto and the Extension.js authors.
