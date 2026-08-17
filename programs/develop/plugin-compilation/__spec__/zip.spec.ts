@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {unzipSync} from 'fflate'
 import {afterEach, describe, expect, it} from 'vitest'
 import {getFilesToZip, isDeniedFromSourceZip, ZipPlugin} from '../zip'
 import {getZipArtifacts} from '../zip-artifacts'
@@ -159,6 +159,9 @@ describe('getFilesToZip', () => {
 describe('isDeniedFromSourceZip', () => {
   it('denies nested repositories and nested node_modules', () => {
     expect(isDeniedFromSourceZip('vendor/lib/.git/config')).toBe(true)
+    expect(
+      isDeniedFromSourceZip('dist/.extension-build-chrome-abc/manifest.json')
+    ).toBe(true)
     expect(isDeniedFromSourceZip('packages/a/node_modules/x/index.js')).toBe(
       true
     )
@@ -219,15 +222,21 @@ describe('ZipPlugin', () => {
     const sourcePath = path.join(root, 'dist', 'my-app-1.2.3-source.zip')
     expect(fs.existsSync(sourcePath)).toBe(true)
 
-    const entries = new AdmZip(sourcePath)
-      .getEntries()
-      .filter((entry) => !entry.isDirectory)
-      .map((entry) => toPosix(entry.entryName))
+    const entries = Object.keys(
+      unzipSync(new Uint8Array(fs.readFileSync(sourcePath)))
+    )
+      .filter((name) => !name.endsWith('/'))
+      .map(toPosix)
     expect(entries).toContain('src/a.ts')
     expect(entries).toContain('manifest.json')
     expect(entries).toContain('.env.example')
     expect(entries).not.toContain('.env')
     expect(entries).not.toContain('.env.development')
+    expect(
+      entries.some((e) =>
+        e.split('/').some((seg) => seg.startsWith('.extension-build-'))
+      )
+    ).toBe(false)
     expect(entries.some((e) => e.split('/').includes('.git'))).toBe(false)
     expect(entries.some((e) => e.split('/').includes('.extension-js'))).toBe(
       false

@@ -1,27 +1,13 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {unzipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-vi.mock('adm-zip', () => {
-  class ZipMock {
-    static added: string[] = []
-    static written: string[] = []
-    addLocalFile(file: string, root?: string) {
-      ZipMock.added.push(
-        root ? `${root}/${path.basename(file)}` : path.basename(file)
-      )
-    }
-    addLocalFolder(_folder: string) {}
-    writeZip(zipPath?: string) {
-      if (zipPath) ZipMock.written.push(zipPath)
-    }
-  }
-  return {default: ZipMock}
-})
-
-import AdmZip from 'adm-zip'
 import {ZipPlugin} from '../zip'
+
+function readZipEntries(zipPath: string): string[] {
+  return Object.keys(unzipSync(new Uint8Array(fs.readFileSync(zipPath))))
+}
 
 function makeCompiler(ctx: string, outPath: string) {
   let doneCb: any
@@ -54,8 +40,6 @@ describe('a source zip never carries a companion extension', () => {
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-companions-'))
-    ;(AdmZip as any).added = []
-    ;(AdmZip as any).written = []
   })
 
   afterEach(() => {
@@ -92,7 +76,9 @@ describe('a source zip never carries a companion extension', () => {
     }).apply(compiler)
     await emitDone()
 
-    const added = (AdmZip as any).added as string[]
+    const added = readZipEntries(
+      path.join(tmp, 'dist', 'mine-1.0.0-source.zip')
+    )
     expect(added).toContain('manifest.json')
     expect(added).toContain('src/popup.js')
     expect(added.some((entry) => entry.includes('a-companion'))).toBe(false)
@@ -116,7 +102,9 @@ describe('a source zip never carries a companion extension', () => {
     }).apply(compiler)
     await emitDone()
 
-    const added = (AdmZip as any).added as string[]
+    const added = readZipEntries(
+      path.join(tmp, 'dist', 'mine-1.0.0-source.zip')
+    )
     expect(added).toContain('extensions-helper.js')
     expect(added).toContain('src/extensions/util.js')
   })

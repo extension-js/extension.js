@@ -13,8 +13,8 @@ vi.mock('axios', () => ({
   }
 }))
 
-import AdmZip from 'adm-zip'
 import axios from 'axios'
+import {strToU8, zipSync} from 'fflate'
 import {extensionCreate} from '../../module'
 import {importExternalTemplate} from '../import-external-template'
 
@@ -22,18 +22,16 @@ import {importExternalTemplate} from '../import-external-template'
 // plus one more, each carrying a manifest that names its own folder so a
 // substitution anywhere in the pipeline shows up as the wrong bytes.
 function catalogZipWith(names: string[]): Buffer {
-  const zip = new AdmZip()
+  const entries: Record<string, Uint8Array> = {}
   for (const name of names) {
-    zip.addFile(
-      `examples-main/examples/${name}/src/manifest.json`,
-      Buffer.from(JSON.stringify({name: `${name} marker`}))
+    entries[`examples-main/examples/${name}/src/manifest.json`] = strToU8(
+      JSON.stringify({name: `${name} marker`})
     )
-    zip.addFile(
-      `examples-main/examples/${name}/src/index.js`,
-      Buffer.from(`// ${name}\n`)
+    entries[`examples-main/examples/${name}/src/index.js`] = strToU8(
+      `// ${name}\n`
     )
   }
-  return zip.toBuffer()
+  return Buffer.from(zipSync(entries))
 }
 
 describe('importExternalTemplate', () => {

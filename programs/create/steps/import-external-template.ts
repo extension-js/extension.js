@@ -10,12 +10,45 @@ import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
 import axios from 'axios'
+import {unzipSync} from 'fflate'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
+
+// In-process unzip with a zip-slip guard: entries naming absolute paths or
+// escaping the destination throw, and symlink entries are never materialized
+// as symlinks, so a hostile template archive cannot write outside its dir.
+async function extractZipBufferTo(
+  zipBuffer: Buffer,
+  destinationDir: string
+): Promise<void> {
+  const root = path.resolve(destinationDir)
+  const entries = unzipSync(new Uint8Array(zipBuffer))
+
+  await fs.mkdir(root, {recursive: true})
+
+  for (const [name, data] of Object.entries(entries)) {
+    const normalized = name.replace(/\\/g, '/')
+    const target = path.resolve(root, normalized)
+    const relative = path.relative(root, target)
+
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(
+        `Refusing to extract zip entry outside the destination: ${name}`
+      )
+    }
+
+    if (normalized.endsWith('/')) {
+      await fs.mkdir(target, {recursive: true})
+      continue
+    }
+
+    await fs.mkdir(path.dirname(target), {recursive: true})
+    await fs.writeFile(target, data)
+  }
+}
 
 const NETWORK_TIMEOUT_MS = (() => {
   const raw = parseInt(
@@ -138,26 +171,33 @@ export async function extractExamplesTemplateFromZip(
   templateName: string,
   projectPath: string
 ): Promise<number> {
-  const zip = new AdmZip(zipBuffer)
-  const entries = zip.getEntries()
+  const entries = Object.entries(unzipSync(new Uint8Array(zipBuffer)))
   if (!entries.length) {
     throw new TemplateNotFoundError(templateName, new Error('empty archive'))
   }
   // GitHub archives wrap everything in a single top dir (e.g. `examples-main/`).
-  const archiveRoot = entries[0].entryName.split('/')[0]
+  const archiveRoot = entries[0][0].split('/')[0]
   const wanted = `${archiveRoot}/examples/${templateName}/`
   const files = entries.filter(
-    (e) => !e.isDirectory && e.entryName.startsWith(wanted)
+    ([name]) => !name.endsWith('/') && name.startsWith(wanted)
   )
   if (!files.length) throw new TemplateNotFoundError(templateName)
 
+  const root = path.resolve(projectPath)
   let written = 0
-  for (const entry of files) {
-    const rel = entry.entryName.slice(wanted.length)
+  for (const [name, data] of files) {
+    const rel = name.slice(wanted.length)
     if (!rel) continue
-    const dest = path.join(projectPath, rel)
+    const dest = path.resolve(root, rel)
+    const relative = path.relative(root, dest)
+    // Zip-slip guard: a hostile archive must not write outside the project.
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(
+        `Refusing to extract zip entry outside the destination: ${name}`
+      )
+    }
     await fs.mkdir(path.dirname(dest), {recursive: true})
-    await fs.writeFile(dest, entry.getData())
+    await fs.writeFile(dest, data)
     written++
   }
   return written
@@ -466,8 +506,7 @@ export async function importExternalTemplate(
           `Remote template does not appear to be a ZIP archive: ${template}`
         )
       }
-      const zip = new AdmZip(Buffer.from(data))
-      zip.extractAllTo(tempPath, true)
+      await extractZipBufferTo(Buffer.from(data), tempPath)
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
       provenance = {template: resolvedTemplateName, source: template}

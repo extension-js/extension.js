@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import AdmZip from 'adm-zip'
+import {unzipSync} from 'fflate'
 import * as messages from './messages'
 
 function isZipBuffer(buffer: Buffer): boolean {
@@ -25,11 +25,36 @@ function isZipBuffer(buffer: Buffer): boolean {
   )
 }
 
+// In-process unzip with a zip-slip guard: entries naming absolute paths or
+// escaping the destination throw, and symlink entries are never materialized
+// as symlinks, so a hostile archive cannot touch files outside the target.
 function extractBuffer(zipBuffer: Buffer, destinationPath: string): void {
   console.log(messages.unpackagingExtension(destinationPath))
 
-  const zip = new AdmZip(zipBuffer)
-  zip.extractAllTo(destinationPath, true)
+  const root = path.resolve(destinationPath)
+  const entries = unzipSync(new Uint8Array(zipBuffer))
+
+  fs.mkdirSync(root, {recursive: true})
+
+  for (const [name, data] of Object.entries(entries)) {
+    const normalized = name.replace(/\\/g, '/')
+    const target = path.resolve(root, normalized)
+    const relative = path.relative(root, target)
+
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(
+        `Refusing to extract zip entry outside the destination: ${name}`
+      )
+    }
+
+    if (normalized.endsWith('/')) {
+      fs.mkdirSync(target, {recursive: true})
+      continue
+    }
+
+    fs.mkdirSync(path.dirname(target), {recursive: true})
+    fs.writeFileSync(target, data)
+  }
 
   console.log(messages.unpackagedSuccessfully())
 }

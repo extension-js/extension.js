@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import AdmZip from 'adm-zip'
+import {type Zippable, zipSync} from 'fflate'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
@@ -76,6 +76,57 @@ function resolveManifestName(
 
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
 
+// One zip entry per real file, unix mode and mtime carried over so store
+// uploads and reproducible diffs see the same bits adm-zip used to record.
+function zipEntryFor(absPath: string): Zippable[string] {
+  const stat = fs.statSync(absPath)
+  return [
+    new Uint8Array(fs.readFileSync(absPath)),
+    {
+      mtime: stat.mtime,
+      os: 3,
+      attrs: (((stat.mode & 0o7777) | 0o100000) << 16) >>> 0
+    }
+  ]
+}
+
+function writeZipFile(
+  zipPath: string,
+  entries: Array<{name: string; absPath: string}>
+): void {
+  const zippable: Zippable = {}
+  for (const entry of entries) {
+    zippable[toPosix(entry.name)] = zipEntryFor(entry.absPath)
+  }
+  fs.writeFileSync(zipPath, zipSync(zippable))
+}
+
+function listFilesUnder(root: string, skipNames: Set<string>): string[] {
+  const out: string[] = []
+  const stack: string[] = ['']
+
+  while (stack.length) {
+    const relDir = stack.pop() as string
+    const absDir = path.join(root, relDir)
+    let entries: fs.Dirent[] = []
+    try {
+      entries = fs.readdirSync(absDir, {withFileTypes: true})
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      const rel = relDir ? path.join(relDir, entry.name) : entry.name
+      if (entry.isDirectory()) {
+        stack.push(rel)
+      } else if (entry.isFile() && !skipNames.has(toPosix(rel))) {
+        out.push(rel)
+      }
+    }
+  }
+
+  return out.sort()
+}
+
 // Companion extensions under ./extensions are loaded beside yours for local
 // debugging and are somebody else's code, so they are never part of your
 // source. Relying on .gitignore to keep them out is not enough: the ignore
@@ -110,10 +161,16 @@ function isDeniedEnvFile(basename: string): boolean {
   return !basename.endsWith('.example')
 }
 
+// Staging dirs exist while the zip hook runs (the promote happens after the
+// done hooks), so they must be denied by name or they leak into the zip.
+const STAGING_DIR_PREFIX = '.extension-build-'
+
 export function isDeniedFromSourceZip(file: string): boolean {
   const posix = toPosix(file)
   const segments = posix.split('/')
   if (segments.some((segment) => DENIED_SEGMENTS.has(segment))) return true
+  if (segments.some((segment) => segment.startsWith(STAGING_DIR_PREFIX)))
+    return true
   if (isDeniedEnvFile(segments[segments.length - 1])) return true
   return (
     posix === SESSION_ARTIFACTS_PREFIX ||
@@ -133,8 +190,8 @@ export async function getFilesToZip(projectDir: string): Promise<string[]> {
     // readable .gitignore only loses its own extra exclusions.
   }
 
-  // filesOnly drops directory entries (adm-zip tolerated them but the zip
-  // carried noise) and flush bypasses tiny-glob's module-global cache,
+  // filesOnly drops directory entries (they only added noise to the zip)
+  // and flush bypasses tiny-glob's module-global cache,
   // which would go stale in a long-lived watch process.
   const files = await glob('**/*', {
     cwd: projectDir,
@@ -183,8 +240,8 @@ export class ZipPlugin {
 
         const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
 
-        // A missing default-locale folder makes the zip store-rejectable, and
-        // the ADM-ZIP failure that follows hides the root cause; warn up front.
+        // A missing default-locale folder makes the zip store-rejectable;
+        // warn up front so the root cause is visible before upload.
         if (manifest.default_locale) {
           const localeRoot = this.zipData.zipSource ? packageJsonDir : outPath
           const messagesPath = path.join(
@@ -217,15 +274,7 @@ export class ZipPlugin {
         const name = `${base}-${manifest.version || '0.0.0'}`
 
         if (this.zipData.zipSource) {
-          const sourceZip = new AdmZip()
           const files = await getFilesToZip(packageJsonDir)
-          files.forEach((file) => {
-            const root = path.dirname(file)
-            sourceZip.addLocalFile(
-              path.join(packageJsonDir, file),
-              root === '.' ? '' : toPosix(root)
-            )
-          })
 
           const sourcePath = path.join(
             path.dirname(outPath),
@@ -235,13 +284,17 @@ export class ZipPlugin {
             console.log(messages.packagingSourceFiles(sourcePath))
           }
 
-          sourceZip.writeZip(sourcePath)
+          writeZipFile(
+            sourcePath,
+            files.map((file) => ({
+              name: file,
+              absPath: path.join(packageJsonDir, file)
+            }))
+          )
           created.push({kind: 'source', path: sourcePath})
         }
 
         if (this.zipData.zip) {
-          const distZip = new AdmZip()
-          distZip.addLocalFolder(outPath)
           const zipName = this.zipData.zipFilename
             ? explicitZipFilename(this.zipData.zipFilename)
             : `${name}.zip`
@@ -250,7 +303,14 @@ export class ZipPlugin {
           if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }
-          distZip.writeZip(distPath)
+          // The zip lands inside outPath, so a stale artifact from a prior
+          // run is skipped by name or the new zip would swallow it.
+          writeZipFile(
+            distPath,
+            listFilesUnder(outPath, new Set([toPosix(zipName)])).map(
+              (file) => ({name: file, absPath: path.join(outPath, file)})
+            )
+          )
           created.push({kind: 'dist', path: distPath})
         }
         for (const artifact of created) {

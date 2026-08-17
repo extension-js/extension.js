@@ -3,19 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('adm-zip', () => {
-  class ZipMock {
-    static written: string[] = []
-    addLocalFile(_file: string, _root?: string) {}
-    addLocalFolder(_folder: string) {}
-    writeZip(zipPath?: string) {
-      if (zipPath) ZipMock.written.push(zipPath)
-    }
-  }
-  return {default: ZipMock}
-})
-
-import AdmZip from 'adm-zip'
 import {ZipPlugin} from '../zip'
 
 function makeCompiler(ctx: string, outPath: string) {
@@ -44,7 +31,6 @@ describe('ZipPlugin locale honesty', () => {
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-locale-'))
-    ;(AdmZip as any).written = []
   })
 
   afterEach(() => {
@@ -72,9 +58,7 @@ describe('ZipPlugin locale honesty', () => {
     const stats = await emitDone()
 
     expect(stats.compilation.warnings).toHaveLength(0)
-    const written = (AdmZip as any).written as string[]
-    expect(written).toHaveLength(1)
-    expect(path.basename(written[0])).toBe('cool-app-2.0.0.zip')
+    expect(fs.existsSync(path.join(outPath, 'cool-app-2.0.0.zip'))).toBe(true)
   })
 
   it('warns with the missing default-locale root cause instead of an opaque zip failure', async () => {

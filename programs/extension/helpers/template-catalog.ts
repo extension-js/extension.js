@@ -17,7 +17,7 @@ export const DEFAULT_TEMPLATE = 'javascript'
 
 // The one template that ships inside the npm package. Kept in step with
 // BUNDLED_TEMPLATES in extension-create by a spec; importing that module here
-// would pull the whole scaffolder graph (axios, adm-zip, go-git-it) into every
+// would pull the whole scaffolder graph (axios, fflate, go-git-it) into every
 // CLI startup for one array, a quarter of a second measured.
 export const BUNDLED_TEMPLATES: readonly string[] = ['javascript']
 
