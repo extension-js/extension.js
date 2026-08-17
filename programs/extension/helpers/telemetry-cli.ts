@@ -67,12 +67,26 @@ function readArgValue(argv: string[], names: string[]): string | undefined {
   return undefined
 }
 
-function commandContext(command: string): {template?: string; source?: string} {
+/* @invariant ATTRIBUTION IS READ FROM ARGV, NEVER FROM THE PARSED OPTIONS.
+ *
+ * `--source` is declared on the create command and its action destructures
+ * only {template, install}, so commander's parsed value is thrown away and
+ * this re-parse is the ONLY thing carrying the tag to the wire. That reads
+ * like a bug and is the design: the flag's whole contract is "recorded in
+ * anonymous telemetry only", and telemetry runs from a process hook that
+ * never sees an action's arguments. Rewriting this to consume the parsed
+ * options would silently retire the tag with every spec still green, so
+ * create-source-attribution.spec.ts pins both halves together.
+ */
+export function telemetryCommandContext(
+  command: string,
+  argv: string[] = process.argv
+): {template?: string; source?: string} {
   if (command !== 'create') return {}
 
   return {
-    template: readArgValue(process.argv, ['--template', '-t']),
-    source: readArgValue(process.argv, ['--source']) || 'cli'
+    template: readArgValue(argv, ['--template', '-t']),
+    source: readArgValue(argv, ['--source']) || 'cli'
   }
 }
 
@@ -116,7 +130,7 @@ export function markCommandSuccess(command = invoked): void {
     command,
     success: true,
     version,
-    ...commandContext(command)
+    ...telemetryCommandContext(command)
   })
 }
 
@@ -126,7 +140,7 @@ export function markCommandFailure(command = invoked): void {
     command,
     success: false,
     version,
-    ...commandContext(command)
+    ...telemetryCommandContext(command)
   })
 }
 
