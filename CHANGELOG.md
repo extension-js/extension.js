@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## 4.0.33 (August 17, 2026)
+
+<details>
+<summary>Other changes (22)</summary>
+
+- Consolidate all zip create and extract paths on fflate ([d315d641](https://github.com/extension-js/extension.js/commit/d315d641b013a8d664e3bb56afa4ac010f028c4d))
+- Bump extension-from-store to 0.2.5, drops vulnerable extract-zip ([e8c6f062](https://github.com/extension-js/extension.js/commit/e8c6f06208f6284ed4038570f0fe48eeaf54cf6c))
+- Skip script-binary pin specs on Windows, fix outputPath assert ([a1a3ee0a](https://github.com/extension-js/extension.js/commit/a1a3ee0a8742ef09f2a897e964107117f4672171))
+- Merge the browser config layer into build like dev already does ([a5f57b6b](https://github.com/extension-js/extension.js/commit/a5f57b6b5234c9497fc02434607a7b1696166f20))
+- Scan browser subfolders for any companion extensions dir ([ce44e425](https://github.com/extension-js/extension.js/commit/ce44e425c8f1d7773c43ec1dab1323294da868d0))
+- Match the macOS Edge app-bundle binary name in the deep scan ([55e3b333](https://github.com/extension-js/extension.js/commit/55e3b333641fd460638601e4b5d57333789f7ad7))
+- Unify excludeBrowserFlags semantics and cover the user flag layer ([b771c930](https://github.com/extension-js/extension.js/commit/b771c9305b5a0669e2fc84a7c098e96e5b2c4d7c))
+- Match swc rule paths through symlinked roots, realpath both forms ([39ba5cc2](https://github.com/extension-js/extension.js/commit/39ba5cc297977ead73b515c2e964c608409e7dc6))
+- Anchor the tsconfig scaffold at the package root and widen detection ([969bcfe3](https://github.com/extension-js/extension.js/commit/969bcfe3a96b29ec5b31b1ca22de977646b17fa8))
+- Ship HTML pages referenced via chrome.devtools.panels.create ([6b277b17](https://github.com/extension-js/extension.js/commit/6b277b17b8b4895d7ecbdcde9e94eebb57c3711a))
+- Scaffold the default tsconfig for TS sources instead of refusing ([d017c931](https://github.com/extension-js/extension.js/commit/d017c9318b6051d512f9a7a99bcfcc5e7e561942))
+- Collapse casing-mismatch refusals to one line, stack in author mode ([e0551715](https://github.com/extension-js/extension.js/commit/e05517155f119c582d35afb68366acf1f029c91c))
+- Refuse public/manifest.json alone, without the copy conflict noise ([23bb645e](https://github.com/extension-js/extension.js/commit/23bb645e39124b37fcf73c8e78e5c6414a5eb97c))
+- Order managed browser builds numerically so reinstalls win ([5134373f](https://github.com/extension-js/extension.js/commit/5134373f134bb1a978bd3e733a94187da8144763))
+- Honor --chromium-binary on every chromium target with honest identity ([5f890092](https://github.com/extension-js/extension.js/commit/5f89009249e58fe45205bffb8866ce12af534713))
+- Preserve the start run receipt across build and preview phases ([7741279b](https://github.com/extension-js/extension.js/commit/7741279be34b260f6ea50dde0c8c8631aeb5f6f1))
+- Make content-script runtime assets reach web_accessible_resources ([e3110ef7](https://github.com/extension-js/extension.js/commit/e3110ef7a33ebe91c32917580f98cdc1657574cb))
+- Use Reflect.deleteProperty for the env scrub to satisfy dts build ([76c6e469](https://github.com/extension-js/extension.js/commit/76c6e4692b3f87cf5d1330e0ab5a45fdbe4e3fcc))
+- Scrub author-mode envs in both vitest setups for exact output ([775859f7](https://github.com/extension-js/extension.js/commit/775859f7b015928c88c079275e24605638b81842))
+- Build the bundled extensions for chromium in push CI ([4f3a26c8](https://github.com/extension-js/extension.js/commit/4f3a26c8aa855ed05de20a52e8f626c405fff61a))
+- Unify the install vendor taxonomy across CLI and installer ([ed7decff](https://github.com/extension-js/extension.js/commit/ed7decff5599145f2f558241de83f26b1d4e0f76))
+- Merge deno.jsonc per key and restore install recovery for deno-primary ([ef46df99](https://github.com/extension-js/extension.js/commit/ef46df99acf7d33b83e20cb47411c553ebc701f3))
+</details>
+
 ## 4.0.32 (August 8, 2026)
 
 ### Features
