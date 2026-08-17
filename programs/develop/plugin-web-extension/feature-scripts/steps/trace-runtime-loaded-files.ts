@@ -297,8 +297,9 @@ export class TraceRuntimeLoadedFiles {
           if (!distRel || seen.has(distRel)) continue
           seen.add(distRel)
 
-          // Manifest-declared surfaces are compiled and relocated by the
-          // main pipeline, copying their raw sources would ship duplicates.
+          // Manifest-declared page and background surfaces are compiled and
+          // relocated by the main pipeline, copying their raw sources would
+          // ship duplicates.
           if (declaredSurfaces.has(distRel)) continue
           if (compilation.getAsset(distRel)) continue
           // public/ files land at the output root via the special-folders
@@ -625,11 +626,10 @@ function manifestDeclaredSourcePaths(
   for (const page of Object.values(manifest.chrome_url_overrides ?? {})) {
     add(page)
   }
-  for (const contentScript of manifest.content_scripts ?? []) {
-    for (const js of contentScript?.js ?? []) add(js)
-    for (const css of contentScript?.css ?? []) add(css)
-  }
-
+  // Content-script sources are deliberately NOT here: they bundle into
+  // content_scripts/content-N.js, so nothing ever emits them at their source
+  // path. A page that <script src>s a shared lib the content scripts also
+  // declare (a common classic-scripts layout) still needs the raw file.
   return declared
 }
 

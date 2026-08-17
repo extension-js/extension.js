@@ -25,6 +25,9 @@ const WEBPACK_CHUNKS_ROOT = fs.mkdtempSync(
 const RUNTIME_SURFACE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-runtime-surface-')
 )
+const SHARED_LIB_PAGE_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-shared-lib-page-')
+)
 
 function writePackageJson(root: string, name: string) {
   fs.writeFileSync(
@@ -476,6 +479,64 @@ async function buildFixture(root: string) {
   }
 }
 
+// A getURL-opened page that <script src>s the same classic libs the
+// content_scripts declare (BUGS_TO_FIX 205 shape): the libs bundle into the
+// content-script entry, so they still have to copy through raw for the page.
+function writeSharedLibPageFixture() {
+  writePackageJson(SHARED_LIB_PAGE_ROOT, 'extjs-build-shared-lib-page-spec')
+  fs.mkdirSync(path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome'), {
+    recursive: true
+  })
+  fs.mkdirSync(path.join(SHARED_LIB_PAGE_ROOT, 'src', 'lib'), {
+    recursive: true
+  })
+
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'manifest.json'),
+    JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'Shared Lib Page Fixture',
+        version: '1.0.0',
+        background: {service_worker: 'sw.js'},
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['src/lib/normalizers.js', 'src/content.js']
+          }
+        ]
+      },
+      null,
+      2
+    )
+  )
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'sw.js'),
+    'chrome.runtime.onInstalled.addListener(() => {\n' +
+      '  chrome.tabs.create({url: chrome.runtime.getURL("src/ui/welcome/welcome.html")})\n' +
+      '})\n'
+  )
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'src', 'lib', 'normalizers.js'),
+    'function agLoad() { return 1 }\n'
+  )
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'src', 'content.js'),
+    'console.log(agLoad())\n'
+  )
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome', 'welcome.html'),
+    '<html><body>\n' +
+      '<script src="../../lib/normalizers.js"></script>\n' +
+      '<script src="welcome.js"></script>\n' +
+      '</body></html>\n'
+  )
+  fs.writeFileSync(
+    path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome', 'welcome.js'),
+    'console.log(agLoad())\n'
+  )
+}
+
 beforeAll(() => {
   writeImportScriptsFixture()
   writeExecuteScriptFixture()
@@ -485,12 +546,14 @@ beforeAll(() => {
   writeGetURLFixture()
   writeWebpackChunksFixture()
   writeRuntimeSurfaceFixture()
+  writeSharedLibPageFixture()
 }, 30_000)
 
 afterAll(() => {
   fs.rmSync(GETURL_ROOT, {recursive: true, force: true})
   fs.rmSync(WEBPACK_CHUNKS_ROOT, {recursive: true, force: true})
   fs.rmSync(RUNTIME_SURFACE_ROOT, {recursive: true, force: true})
+  fs.rmSync(SHARED_LIB_PAGE_ROOT, {recursive: true, force: true})
   fs.rmSync(IMPORTSCRIPTS_ROOT, {recursive: true, force: true})
   fs.rmSync(EXECUTESCRIPT_ROOT, {recursive: true, force: true})
   fs.rmSync(MISSING_DEP_ROOT, {recursive: true, force: true})
@@ -593,6 +656,25 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
 
     expect(summary.warnings_count).toBeGreaterThan(0)
     expect(fs.existsSync(path.join(distDir, 'nope.js'))).toBe(false)
+  }, 120_000)
+
+  it('copies a page-referenced lib even when content_scripts also declare it (bug 205)', async () => {
+    const summary = await buildFixture(SHARED_LIB_PAGE_ROOT)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(SHARED_LIB_PAGE_ROOT, 'dist', 'chrome')
+    for (const rel of [
+      'src/ui/welcome/welcome.html',
+      'src/ui/welcome/welcome.js',
+      'src/lib/normalizers.js'
+    ]) {
+      const abs = path.join(distDir, rel)
+      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+    }
+    // The content-script bundle still carries the lib on its own.
+    expect(
+      fs.existsSync(path.join(distDir, 'content_scripts', 'content-0.js'))
+    ).toBe(true)
   }, 120_000)
 
   it('copies numeric lazy chunks of a prebuilt webpack bundle, no literal exists to trace (bug 40)', async () => {
