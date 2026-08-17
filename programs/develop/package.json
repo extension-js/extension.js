@@ -105,7 +105,7 @@
     "content-security-policy-parser": "^0.6.0",
     "dotenv": "^17.2.3",
     "es-module-lexer": "^2.1.0",
-    "extension-from-store": "^0.1.1",
+    "extension-from-store": "^0.2.5",
     "go-git-it": "^5.1.5",
     "ignore": "^7.0.5",
     "less": "4.6.7",
