@@ -191,6 +191,13 @@ export async function extensionPreview(
 
   humanLine(runningMessage(browser))
 
+  if (
+    !previewOptions.outputPath &&
+    path.resolve(outputPath) !== path.resolve(distPath)
+  ) {
+    humanLine(messages.previewingSourceFallback(browser, distPath))
+  }
+
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(
     commandConfig
