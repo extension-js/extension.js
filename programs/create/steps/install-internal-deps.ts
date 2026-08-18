@@ -228,7 +228,10 @@ function buildOptionalInstallArgs(
   installDir: string
 ) {
   if (pm === 'yarn') {
-    return ['add', ...dependencies, '--cwd', installDir, '--optional']
+    // The install already runs with cwd=installDir. Yarn Berry rejects
+    // `--cwd` after the subcommand ("Unsupported option name"), so the flag
+    // is dropped for both Yarn lines: `--optional` is valid on each.
+    return ['add', ...dependencies, '--optional']
   }
 
   if (pm === 'pnpm') {
