@@ -75,9 +75,83 @@ export class StaticAssetsPlugin {
         )
         .map((rule) => rule?.resourceQuery as RegExp)
 
-    const hasCustomSvgRule = compiler.options.module.rules.some((thisRule) =>
-      isFullCustomRuleFor(thisRule, '.svg')
-    )
+    const IMAGE_EXTENSIONS = [
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'webp',
+      'avif',
+      'ico',
+      'bmp'
+    ]
+    const FONT_EXTENSIONS = ['woff', 'woff2', 'eot', 'ttf', 'otf']
+    const FILE_EXTENSIONS = [
+      'txt',
+      'md',
+      'csv',
+      'tsv',
+      'xml',
+      'pdf',
+      'docx',
+      'doc',
+      'xls',
+      'xlsx',
+      'ppt',
+      'pptx',
+      'zip',
+      'gz',
+      'gzip',
+      'tgz'
+    ]
+
+    // A user rule for one extension must win for that extension only: the
+    // default rule keeps claiming the siblings (a .png rule leaves .jpg to us)
+    // and steps aside for the extensions the user handles, so last-wins on
+    // module type never clobbers extension.config.js.
+    const unclaimedExtensions = (extensions: string[]) =>
+      extensions.filter(
+        (ext) =>
+          !compiler.options.module.rules.some((thisRule) =>
+            isFullCustomRuleFor(thisRule, `.${ext}`)
+          )
+      )
+
+    const scopedQueriesForAll = (extensions: string[]): RegExp[] => {
+      const seen = new Set<RegExp>()
+      for (const ext of extensions) {
+        for (const query of scopedQueriesFor(`.${ext}`)) seen.add(query)
+      }
+      return Array.from(seen)
+    }
+
+    const inlineKB = 2
+    const defaultRuleFor = (
+      extensions: string[],
+      inline: boolean
+    ): RuleSetRule | null => {
+      const remaining = unclaimedExtensions(extensions)
+      if (!remaining.length) return null
+      const scoped = scopedQueriesForAll(remaining)
+      return {
+        test: new RegExp(`\\.(${remaining.join('|')})$`, 'i'),
+        type: 'asset',
+        generator: {
+          filename: filenamePattern
+        },
+        ...(inline
+          ? {parser: {dataUrlCondition: {maxSize: inlineKB * 1024}}}
+          : {}),
+        ...(scoped.length ? {resourceQuery: {not: scoped}} : {})
+      }
+    }
+
+    const hasCustomSvgRule = unclaimedExtensions(['svg']).length === 0
+    const imagesRule = defaultRuleFor(IMAGE_EXTENSIONS, true)
+    // Fonts inline under the same explicit threshold the debug reporter
+    // prints; without a parser block rspack's own 8 KB default silently applied.
+    const fontsRule = defaultRuleFor(FONT_EXTENSIONS, true)
+    const filesRule = defaultRuleFor(FILE_EXTENSIONS, true)
 
     const hasUrlResourceQueryRule = compiler.options.module.rules.some(
       (thisRule) => {
@@ -88,14 +162,7 @@ export class StaticAssetsPlugin {
       }
     )
 
-    // Skip when an existing rule handles fonts, letting users opt into
-    // asset/inline for strict CSP pages.
-    const hasCustomFontsRule = compiler.options.module.rules.some((thisRule) =>
-      isFullCustomRuleFor(thisRule, '.woff')
-    )
-
     const svgScopedQueries = scopedQueriesFor('.svg')
-    const fontsScopedQueries = scopedQueriesFor('.woff')
 
     const loaders: RuleSetRule[] = [
       ...(hasCustomSvgRule
@@ -105,44 +172,9 @@ export class StaticAssetsPlugin {
               ? {...defaultSvgRule, resourceQuery: {not: svgScopedQueries}}
               : defaultSvgRule
           ]),
-      {
-        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
-        type: 'asset',
-        generator: {
-          filename: filenamePattern
-        },
-        parser: {
-          dataUrlCondition: {
-            maxSize: 2 * 1024
-          }
-        }
-      },
-      ...(hasCustomFontsRule
-        ? []
-        : [
-            {
-              test: /\.(woff|woff2|eot|ttf|otf)$/i,
-              type: 'asset',
-              generator: {
-                filename: filenamePattern
-              },
-              ...(fontsScopedQueries.length
-                ? {resourceQuery: {not: fontsScopedQueries}}
-                : {})
-            }
-          ]),
-      {
-        test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
-        type: 'asset',
-        generator: {
-          filename: filenamePattern
-        },
-        parser: {
-          dataUrlCondition: {
-            maxSize: 2 * 1024
-          }
-        }
-      },
+      ...(imagesRule ? [imagesRule] : []),
+      ...(fontsRule ? [fontsRule] : []),
+      ...(filesRule ? [filesRule] : []),
       // Last on purpose: rspack resolves overlapping rules last-wins, so the
       // ?url contract (always a file URL) must outrank the inlining rules.
       ...(hasUrlResourceQueryRule
@@ -168,13 +200,12 @@ export class StaticAssetsPlugin {
     if (isDebug()) {
       const rulesEnabled: string[] = []
       rulesEnabled.push(hasCustomSvgRule ? 'SVG(custom)' : 'SVG(default)')
-      rulesEnabled.push('Images')
-      rulesEnabled.push('Fonts')
-      rulesEnabled.push('Files')
+      rulesEnabled.push(imagesRule ? 'Images' : 'Images(custom)')
+      rulesEnabled.push(fontsRule ? 'Fonts' : 'Fonts(custom)')
+      rulesEnabled.push(filesRule ? 'Files' : 'Files(custom)')
 
       console.log(messages.assetsRulesEnabled(rulesEnabled))
 
-      const inlineKB = 2
       console.log(
         messages.assetsConfigsDetected(
           filenamePattern,
