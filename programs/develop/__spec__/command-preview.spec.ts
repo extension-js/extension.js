@@ -139,6 +139,48 @@ describe('webpack/command-preview (run-only)', () => {
     expect(call.outPath).toBe('/proj')
   })
 
+  it('says so when it falls back to the source manifest dir', async () => {
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return false
+      if (p === path.join('/proj', 'manifest.json')) return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const printed = localLog.mock.calls
+      .map((c: any[]) => String(c[0]))
+      .join('\n')
+    expect(printed).toContain('previewing the source manifest directory')
+    expect(printed).toContain('extension build --browser chrome')
+  })
+
+  it('stays quiet about the fallback when dist/<browser> is served', async () => {
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const printed = localLog.mock.calls
+      .map((c: any[]) => String(c[0]))
+      .join('\n')
+    expect(printed).not.toContain('previewing the source manifest directory')
+  })
+
   it('describes itself as preview by default', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {

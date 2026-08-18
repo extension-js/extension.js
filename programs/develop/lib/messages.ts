@@ -102,6 +102,20 @@ export function manifestNotFoundError(
   return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
 }
 
+// The run-only preview quietly serves the SOURCE manifest dir when
+// dist/<browser> is absent (typical after `build --browser all`, which
+// writes chrome/edge/firefox but not the default chromium target). Say so,
+// or the user previews unbuilt files and blames the build.
+export function previewingSourceFallback(
+  browser: DevOptions['browser'],
+  distDir: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} No production build found at ${distDir}, previewing the source manifest directory instead.\n` +
+    `Run \`extension build --browser ${String(browser)}\` first to preview the built output.`
+  )
+}
+
 export function previewing(
   browser: DevOptions['browser'],
   noBrowser?: boolean
