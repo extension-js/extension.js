@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 4.0.34 (August 18, 2026)
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Pin the create source tag to both the flag and the argv it rides ([a25614aa](https://github.com/extension-js/extension.js/commit/a25614aa6c31890518bf4463d3b46401d6f6f9ea))
+- Make the telemetry flush timeout injectable and pin it under test ([4ad12875](https://github.com/extension-js/extension.js/commit/4ad12875f0593a13aa2a224397965f39938b5f54))
+- Copy page-referenced libs through even when content scripts declare them ([4a126c3c](https://github.com/extension-js/extension.js/commit/4a126c3cf46c3023821ee310cd558d744fd7ee99))
+- Give MV3 background.scripts the worker chunk loader on chromium ([21dd2fe4](https://github.com/extension-js/extension.js/commit/21dd2fe480d3fb45035d6ddcf1850a1004799fc0))
+</details>
+
 ## 4.0.33 (August 17, 2026)
 
 <details>
