@@ -160,6 +160,79 @@ describe('StaticAssetsPlugin', () => {
     ).toBeTruthy()
   })
 
+  it('lets a user image rule win for its extension and keeps the default for the siblings', async () => {
+    const compiler = createCompiler()
+    compiler.options.module.rules.push({
+      test: /\.png$/i,
+      type: 'asset/resource'
+    })
+
+    await new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    }).apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const defaultImages = rules.filter(
+      (r) =>
+        r?.test instanceof RegExp &&
+        r.generator?.filename === 'assets/[name].[contenthash:8][ext]' &&
+        r.test.test('.jpg')
+    )
+    expect(defaultImages).toHaveLength(1)
+    // The default image rule no longer claims .png at all, so last-wins can
+    // never flip the user's asset/resource back to inline.
+    expect(defaultImages[0].test.test('.png')).toBe(false)
+    expect(defaultImages[0].test.test('.webp')).toBe(true)
+    const pngRules = rules.filter(
+      (r) => r?.test instanceof RegExp && r.test.test('.png')
+    )
+    expect(pngRules).toHaveLength(1)
+    expect(pngRules[0].type).toBe('asset/resource')
+  })
+
+  it('lets a user documents rule win for its extension too', async () => {
+    const compiler = createCompiler()
+    compiler.options.module.rules.push({
+      test: /\.pdf$/i,
+      type: 'asset/resource'
+    })
+
+    await new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    }).apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const pdfRules = rules.filter(
+      (r) => r?.test instanceof RegExp && r.test.test('.pdf')
+    )
+    expect(pdfRules).toHaveLength(1)
+    expect(pdfRules[0].type).toBe('asset/resource')
+    const defaultFiles = rules.find(
+      (r) =>
+        r?.test instanceof RegExp &&
+        r.generator?.filename === 'assets/[name].[contenthash:8][ext]' &&
+        r.test.test('.csv')
+    )
+    expect(defaultFiles).toBeTruthy()
+    expect(defaultFiles.test.test('.pdf')).toBe(false)
+  })
+
+  it('gives fonts the same explicit inline threshold the reporter prints', async () => {
+    const compiler = createCompiler()
+    await new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    }).apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const fonts = rules.find(
+      (r) => r?.test instanceof RegExp && r.test.test('.woff2')
+    )
+    expect(fonts.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
+  })
+
   it('respects a type-only custom SVG rule, matching the fonts detector', async () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
