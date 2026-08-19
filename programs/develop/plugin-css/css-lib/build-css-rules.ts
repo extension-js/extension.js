@@ -136,6 +136,14 @@ export async function buildCssRules(
         })
       }
 
+      // Runs last, right before rspack's native CSS parser, which fails the
+      // module on an @import after other rules that browsers simply skip.
+      if (type === 'css' || type === 'css/module') {
+        ;(use as Array<Record<string, unknown>>).unshift({
+          loader: resolveDevelopDistFile('late-css-import-loader')
+        })
+      }
+
       return {test, exclude, type, issuer, use} as RuleSetRule
     })
   )

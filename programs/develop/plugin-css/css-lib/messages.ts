@@ -106,3 +106,13 @@ export function deadCssUrlRef(issuerPath: string, request: string) {
     `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
   ].join('\n')
 }
+
+export function lateCssImportIgnored(issuerPath: string, line?: number) {
+  const where = line ? `${issuerPath}:${line}` : issuerPath
+  return [
+    `An ${colors.blue('@import')} rule comes after other rules, so browsers skip it.`,
+    `${colors.gray('PATH')} ${colors.underline(where)}`,
+    `Chrome applies the rest of the stylesheet and ignores this import, so the build kept going.`,
+    `Move the ${colors.blue('@import')} above every other rule to make it load.`
+  ].join('\n')
+}

@@ -259,9 +259,17 @@ type LooseBuildWarning =
       chunkName?: unknown
     }
 
+// rspack wraps loader warnings in "Module Warning (from <loader path>):",
+// which only repeats what the Source line already says.
+function stripModuleWarningWrapper(message: string): string {
+  return message.replace(/^Module (?:Warning|Error) \(from [^)]*\):\s*/, '')
+}
+
 function getWarningMessage(warning: LooseBuildWarning): string {
   if (!warning) return ''
-  if (typeof warning === 'string') return warning.trim()
+  if (typeof warning === 'string') {
+    return stripModuleWarningWrapper(warning.trim())
+  }
 
   const candidates = [
     warning.message,
@@ -271,7 +279,7 @@ function getWarningMessage(warning: LooseBuildWarning): string {
   ]
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim()
+      return stripModuleWarningWrapper(candidate.trim())
     }
   }
 
