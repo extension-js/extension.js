@@ -208,7 +208,7 @@ Sponsors help the project ship faster releases, better developer experience, and
     </a>
   </p>
   <p>
-    <a href="https://github.com/sponsors/extension-js">Become a sponsor</a>
+    <a href="https://github.com/sponsors/cezaraugusto">Become a sponsor</a>
   </p>
 </div>
 
