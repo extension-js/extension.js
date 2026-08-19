@@ -93,6 +93,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssParseErrorShippedVerbatim: function(2)",
     "deadCssUrlRef: function(2)",
     "isUsingIntegration: function(1)",
+    "lateCssImportIgnored: function(2)",
     "missingSassDependency: function(0)",
     "postCssPluginNotResolved: function(2)",
     "preprocessorShippedUncompiled: function(2)",
