@@ -80,9 +80,12 @@ export default function lateCssImportLoader(
     return
   }
 
-  const issuer = this.rootContext
+  const relative = this.rootContext
     ? path.relative(this.rootContext, this.resourcePath) || this.resourcePath
     : this.resourcePath
+  // Forward slashes on every platform, so the message (and its specs) never
+  // depend on the host separator.
+  const issuer = relative.split(path.sep).join('/')
   for (const entry of late) {
     this.emitWarning(
       new Error(messages.lateCssImportIgnored(issuer, entry.line || undefined))
