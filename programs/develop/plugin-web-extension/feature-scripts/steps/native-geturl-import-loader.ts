@@ -28,7 +28,7 @@ const BARE_IDENTIFIER = /^[A-Za-z_$][\w$]*$/
 // The most common shape hoists the URL one line up: `const u = getURL(...)`
 // then `import(u)`. A bare identifier the file binds that way is the same call.
 function identifierBoundToGetURL(source: string, name: string): boolean {
-  const id = name.replace(/\$/g, '\\$&')
+  const id = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const rhs = '[^;\\n]*\\bruntime\\s*\\.\\s*getURL\\s*\\('
   const declared = new RegExp('\\b(?:const|let|var)\\s+' + id + '\\s*=' + rhs)
   const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + rhs)
