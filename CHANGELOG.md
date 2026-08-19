@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 4.0.35 (August 19, 2026)
+
+### Features
+
+- Add BACKERS.md and point the sponsor link at the live listing ([3a919602](https://github.com/extension-js/extension.js/commit/3a9196029ef5832f6485f3a5b2cd315e44795e24))
+
+<details>
+<summary>Other changes (9)</summary>
+
+- Escape all regex metacharacters when matching a getURL identifier ([2c0c6906](https://github.com/extension-js/extension.js/commit/2c0c690698fa53f6a1fe3d5281c1d1b9e30e0fd5))
+- Print the late @import warning path with forward slashes on Windows ([28947a94](https://github.com/extension-js/extension.js/commit/28947a94d9beb771fd797804b65dd7f8557eafc4))
+- Keep import() native when its URL variable is bound from runtime.getURL ([4fab8d93](https://github.com/extension-js/extension.js/commit/4fab8d937eafc9f80f683e934c69535e99d04d5a))
+- Skip a late CSS @import with a warning instead of failing the build ([7e394717](https://github.com/extension-js/extension.js/commit/7e3947171acdd173baec810438b9c269785c981b))
+- Credit Mintlify for docs hosting in the README sponsors section ([025478ba](https://github.com/extension-js/extension.js/commit/025478bad862f0245a6754032a969758880f3e08))
+- Say when preview falls back to the source manifest directory ([eac209e5](https://github.com/extension-js/extension.js/commit/eac209e51101bde0d7de64c89fbb792343f686a2))
+- Drop the yarn --cwd flag Berry rejects from optional dep installs ([9e596eed](https://github.com/extension-js/extension.js/commit/9e596eedf6c6759b67048df784e0ea45c3a4ccde))
+- Let user static-asset rules win per extension, add the fonts threshold ([eec70c47](https://github.com/extension-js/extension.js/commit/eec70c4723589e68b4cbaf8cd77198d626f12bda))
+- Update sponsors ([b81860a2](https://github.com/extension-js/extension.js/commit/b81860a2e96615d180f2d36ebb2200c95311061f))
+</details>
+
 ## 4.0.34 (August 18, 2026)
 
 <details>
