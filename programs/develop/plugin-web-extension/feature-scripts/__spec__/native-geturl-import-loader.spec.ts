@@ -32,6 +32,27 @@ describe('native-geturl-import-loader', () => {
     expect(annotateGetURLDynamicImports(source)).toBe(source)
   })
 
+  it('annotates an import of an identifier bound to runtime.getURL', () => {
+    const out = annotateGetURLDynamicImports(
+      "const moduleUrl = chrome.runtime.getURL('content/injected-ui.js');\n" +
+        'const {mountUI} = await import(moduleUrl);\n'
+    )
+    expect(out).toContain('await import(/* webpackIgnore: true */ moduleUrl)')
+    expect(annotateGetURLDynamicImports(out)).toBe(out)
+  })
+
+  it('annotates an import of an identifier assigned runtime.getURL later', () => {
+    const out = annotateGetURLDynamicImports(
+      "let u\nu = browser.runtime.getURL('x.js')\nimport(u)\n"
+    )
+    expect(out.match(/webpackIgnore/g)).toHaveLength(1)
+  })
+
+  it('leaves an identifier bound to a non-getURL value alone', () => {
+    const source = 'const other = location.href\nimport(other)\n'
+    expect(annotateGetURLDynamicImports(source)).toBe(source)
+  })
+
   it('is idempotent and respects an existing webpackIgnore', () => {
     const once = annotateGetURLDynamicImports(
       "import(chrome.runtime.getURL('a.js'))\n"

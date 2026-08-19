@@ -23,6 +23,18 @@
 
 const GETURL_ARG = /\bruntime\s*\.\s*getURL\s*\(/
 
+const BARE_IDENTIFIER = /^[A-Za-z_$][\w$]*$/
+
+// The most common shape hoists the URL one line up: `const u = getURL(...)`
+// then `import(u)`. A bare identifier the file binds that way is the same call.
+function identifierBoundToGetURL(source: string, name: string): boolean {
+  const id = name.replace(/\$/g, '\\$&')
+  const rhs = '[^;\\n]*\\bruntime\\s*\\.\\s*getURL\\s*\\('
+  const declared = new RegExp('\\b(?:const|let|var)\\s+' + id + '\\s*=' + rhs)
+  const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + rhs)
+  return declared.test(source) || assigned.test(source)
+}
+
 export function annotateGetURLDynamicImports(source: string): string {
   const insertions: number[] = []
   const n = source.length
@@ -65,12 +77,16 @@ export function annotateGetURLDynamicImports(source: string): string {
       while (j < n && /\s/.test(source[j])) j++
       if (source[j] === '(') {
         const args = readBalancedArgs(source, j)
-        if (
-          args != null &&
-          GETURL_ARG.test(args) &&
-          !args.includes('webpackIgnore')
-        ) {
-          insertions.push(j + 1)
+        if (args != null && !args.includes('webpackIgnore')) {
+          const direct = GETURL_ARG.test(args)
+          const name = args.trim()
+          if (
+            direct ||
+            (BARE_IDENTIFIER.test(name) &&
+              identifierBoundToGetURL(source, name))
+          ) {
+            insertions.push(j + 1)
+          }
         }
         // Never step past the args: a nested import( inside them (or a
         // template interpolation holding one) still needs its own visit.
