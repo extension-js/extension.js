@@ -41,7 +41,7 @@ Browser extensions ship with the worst dev experience in modern web. Manifest V3
 
 ## Watch it work
 
-[60-second demo](https://github.com/cezaraugusto/extension/assets/4672033/7263d368-99c4-434f-a60a-72c489672586)
+[![Extension.js in 60 seconds: one command, a running extension](https://media.extension.land/video/extension-js/sixty-second-demo.gif)](https://extension.js.org/docs)
 
 Or skip the install and try a [live template](https://templates.extension.dev) in your browser.
 
@@ -155,7 +155,9 @@ npm install extension@latest --save-dev
 }
 ```
 
-Run `npm run dev` to develop, `npm run build` for production, and `npm run preview` to inspect the production output. [See it in action.](https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c)
+Run `npm run dev` to develop, `npm run build` for production, and `npm run preview` to inspect the production output.
+
+[![extension dev: the browser opens with the extension loaded](https://media.extension.land/video/extension-js/dev-build-preview.gif)](https://extension.js.org/docs/commands/dev)
 
 ## Start from a Chrome sample
 
@@ -165,7 +167,7 @@ Pull any sample from [Chrome Extension Samples](https://github.com/GoogleChrome/
 npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
 ```
 
-[Watch demo](https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1)
+[![Running a Chrome sample straight from its GitHub URL](https://media.extension.land/video/extension-js/run-chrome-sample.gif)](https://extension.js.org/docs/getting-started/immediately)
 
 ## Package managers
 
