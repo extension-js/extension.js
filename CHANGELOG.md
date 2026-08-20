@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.1.1 (August 20, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Name the browser binary and how it was chosen in doctor output ([317e5c4b](https://github.com/extension-js/extension.js/commit/317e5c4bb88eedde432c6dfe8b1b5e451586699b))
+- Drop binary provenance from the card and record it in ready.json ([94d96daa](https://github.com/extension-js/extension.js/commit/94d96daac886de9d63bbae365bbb92438b0d0ea8))
+- Show the binary row only for a pinned browser path ([8a773ab7](https://github.com/extension-js/extension.js/commit/8a773ab7d991aaf8c2b67967e68fc9cae8e2c33e))
+</details>
+
 ## 4.1.0 (August 20, 2026)
 
 <details>
