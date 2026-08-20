@@ -142,7 +142,7 @@ describe.skipIf(process.platform === 'win32')(
 
     it.each(
       CHROMIUM_FAMILY
-    )('launches the named pin on --browser %s, and the card names that binary', async (browser) => {
+    )('launches the named pin on --browser %s and says so on the card', async (browser) => {
       const projectDir = mkdtempSync(join(tmpdir(), `extjs-pin-${browser}-`))
       leftovers.push(projectDir)
       writeUnpackedExtension(projectDir)
@@ -163,9 +163,14 @@ describe.skipIf(process.platform === 'win32')(
       expect(combined).not.toMatch(
         /Can't find a Chromium binary at the given path/
       )
-      expect(combined).toContain(pin)
+      // The pin is honoured, and the card SAYS it was pinned rather than
+      // echoing the path back: the user typed that path, so repeating it costs
+      // the card's last row to tell them what they already know. The version
+      // read off the pinned binary is the evidence it actually ran, and the
+      // resolved path itself is published in ready.json for tooling.
       expect(combined).toMatch(/999\.0\.1234\.5/)
       expect(combined).toMatch(/pinned with --chromium-binary/)
+      expect(combined).not.toContain(`Binary         ${pin}`)
     })
   }
 )

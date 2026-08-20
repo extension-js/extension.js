@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
@@ -15,6 +16,28 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
+
+// Which browser binary this session launched, and how it was chosen. doctor is
+// the command whose job is answering "why did this behave unexpectedly", and
+// "a different browser than you assumed" is a common answer. The identity card
+// deliberately does not print this (it would differ machine to machine for
+// reasons the reader cannot act on), so the contract is the source and doctor
+// is where a human reads it back. Sessions started before these fields existed
+// simply have nothing to append.
+function binaryDetailSuffix(ready: {
+  binary?: unknown
+  binaryProvenance?: unknown
+}): string {
+  const binary = String(ready?.binary || '').trim()
+  if (!binary) return ''
+  const home = os.homedir()
+  const shown =
+    home && binary.startsWith(home + path.sep)
+      ? `~${binary.slice(home.length)}`
+      : binary
+  const provenance = String(ready?.binaryProvenance || '').trim()
+  return provenance ? `, ${shown} (${provenance})` : `, ${shown}`
+}
 
 export interface DoctorCheckResult {
   check: string
@@ -400,14 +423,14 @@ export async function runDoctor(
     results.push({
       check: 'browser',
       status: 'fail',
-      detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the dev server kept running`,
+      detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the dev server kept running${binaryDetailSuffix(ready)}`,
       remediation: 'Restart the dev session to relaunch the browser'
     })
   } else if (ready.cdpPort != null) {
     results.push({
       check: 'browser',
       status: 'pass',
-      detail: `browser running (cdpPort ${ready.cdpPort})`
+      detail: `browser running (cdpPort ${ready.cdpPort})${binaryDetailSuffix(ready)}`
     })
   } else {
     // Absence of exit evidence is not evidence of a live browser: with no cdpPort
@@ -415,8 +438,7 @@ export async function runDoctor(
     results.push({
       check: 'browser',
       status: 'skip',
-      detail:
-        'browser liveness unknown (no cdpPort stamped yet and no exit recorded)',
+      detail: `browser liveness unknown (no cdpPort stamped yet and no exit recorded)${binaryDetailSuffix(ready)}`,
       remediation:
         'If the browser should be up, wait for launch to finish or restart the dev session'
     })

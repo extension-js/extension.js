@@ -44,6 +44,8 @@ export interface ReadyContractInfo {
   runtime?: string
   /** Last contract write time (ISO). */
   ts?: string
+  binary?: string
+  binaryProvenance?: string
 }
 
 // The whole ready contract, exactly as the engine wrote it. Optional because a
@@ -101,6 +103,12 @@ export function readReadyContract(
           ? c.executorAttachedAt
           : undefined,
       runtime: typeof c.runtime === 'string' ? c.runtime : undefined,
+      // Which browser binary actually ran, and how it was chosen. Carried so
+      // `doctor` can answer "is this even the browser you think it is", which
+      // the identity card no longer prints.
+      binary: typeof c.binary === 'string' ? c.binary : undefined,
+      binaryProvenance:
+        typeof c.binaryProvenance === 'string' ? c.binaryProvenance : undefined,
       ts: typeof c.ts === 'string' ? c.ts : undefined
     }
   } catch {
