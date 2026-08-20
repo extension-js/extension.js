@@ -1,5 +1,11 @@
 import {spawn} from 'node:child_process'
-import {existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -28,9 +34,7 @@ function createFixture(): string {
       manifest_version: 3,
       name: 'Golden Boot',
       version: '1.0.0',
-      content_scripts: [
-        {matches: ['<all_urls>'], js: ['content/scripts.js']}
-      ]
+      content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
     })
   )
   writeFileSync(
@@ -114,12 +118,14 @@ describe('dev --no-browser boot transcript', () => {
       expect(lines[headIndex + 2]).toMatch(
         /^ {4}Extension {6}Golden Boot 1\.0\.0$/
       )
-      expect(lines[headIndex + 3]).toMatch(/^ {4}Output {9}\S/)
-      expect(lines[headIndex + 3]).toContain(join('dist', 'chromium'))
-      expect(lines[headIndex + 4]).toMatch(/^ {4}Run ID {9}\S/)
-
-      expect(lines[headIndex + 5]).toBe(' ')
-      expect(lines[headIndex + 6]).toBe(
+      // Three rows and no more: MAX_CARD_ROWS caps every card, so this one
+      // keeps Browser, Extension and Run ID. Output lost the slot on purpose,
+      // because the previewing/serving line above the card already names the
+      // directory, while the run id is this card's join key into ready.json
+      // and is asserted by the preview specs too.
+      expect(lines[headIndex + 3]).toMatch(/^ {4}Run ID {9}\S/)
+      expect(lines[headIndex + 4]).toBe(' ')
+      expect(lines[headIndex + 5]).toBe(
         '⏵⏵⏵ Extension ready for development. Watching for file changes.'
       )
     } finally {

@@ -423,12 +423,6 @@ export async function printProdBannerOnce(opts: {
               : browserLabel
           },
           {
-            label: 'Binary',
-            value: provenanceNote
-              ? messages.collapseHomeDirInCardValue(opts.binaryPath || '')
-              : ''
-          },
-          {
             label: 'Output',
             value: messages.collapseHomeDirInCardValue(opts.outPath)
           },

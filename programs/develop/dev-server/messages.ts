@@ -118,11 +118,14 @@ export function browserRunnerDisabled(args: {
         )
       },
       {label: 'Extension', value: extensionLabel},
+      // Run ID before Output: the run id is this card's contract (two preview
+      // specs assert it) and is the join key into ready.json, while the served
+      // directory is already named by the previewing line above the card.
+      {label: 'Run ID', value: runLabel},
       {
         label: 'Output',
         value: collapseHomeDirInCardValue(String(args.distPath || '').trim())
-      },
-      {label: 'Run ID', value: runLabel}
+      }
     ]
   })
 }
