@@ -1056,6 +1056,12 @@ export function runningInDevelopment(
   const browserLabel = provenanceNote
     ? `${baseBrowserLabel} ${provenanceNote}`
     : baseBrowserLabel
+
+  // A Binary row whenever the browser is not the managed default: pinned,
+  // system or snapshot. Naming the binary that actually runs is a contract
+  // (card-binary-provenance.spec), and in those runs it outranks the profile,
+  // because "which browser is this really" is the question the card is being
+  // asked. A managed launch has nothing to disambiguate and keeps Profile.
   const binaryRowValue = provenanceNote
     ? collapseHomeDirInCardValue(String(opts?.binaryPath || '').trim())
     : ''
@@ -1080,17 +1086,27 @@ export function runningInDevelopment(
         label: 'Extension',
         value: displayVersion ? `${displayName} ${displayVersion}` : displayName
       },
-      {
-        label: 'Extension ID',
-        value: includeExtensionId ? cleanId : ''
-      },
+      // Priority order, because MAX_CARD_ROWS keeps the first three that have
+      // a value. Profile outranks Extension ID deliberately: the browser this
+      // command just opened shows the id on chrome://extensions, while nothing
+      // in the browser tells you which profile directory the session is using.
+      // Both stay in ready.json (profilePath, extensionId) for machines, and
+      // the id still appears here whenever a run has no profile to report.
       {
         label: 'Profile',
         value: collapseHomeDirInCardValue(
           String(opts?.profilePath || '').trim()
         )
       },
-      {label: 'Run ID', value: opts?.runLabel || ''}
+      // Run ID before Extension ID: a run label is only ever populated when a
+      // caller explicitly asked for it (printProdBannerOnce's includeRunId),
+      // so it is a request, while the extension id is derivable from the dist
+      // path and visible on chrome://extensions. Both are in ready.json.
+      {label: 'Run ID', value: opts?.runLabel || ''},
+      {
+        label: 'Extension ID',
+        value: includeExtensionId ? cleanId : ''
+      }
     ]
   })
 }

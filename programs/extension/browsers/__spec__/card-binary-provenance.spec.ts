@@ -84,15 +84,25 @@ describe('card binary provenance', () => {
   it('collapses the home dir in Profile and Binary card values only', () => {
     const home = os.homedir()
     const profile = path.join(home, '.extension-js', 'profiles', 'chrome')
-    const card = renderCard({
+    // Two cards, because MAX_CARD_ROWS means Binary and Profile never share
+    // one: a non-managed launch spends the slot on the binary that actually
+    // runs, a managed one has nothing to disambiguate and shows the profile.
+    // The collapsing under test applies to both values either way.
+    const systemCard = renderCard({
       binaryPath: path.join(home, 'bin', 'chromium'),
       binaryProvenance: 'system',
       profilePath: profile
     })
-    expect(card).toContain(
+    expect(systemCard).toContain(
+      `Binary         ~${path.sep}bin${path.sep}chromium`
+    )
+    const managedCard = renderCard({
+      binaryProvenance: 'managed',
+      profilePath: profile
+    })
+    expect(managedCard).toContain(
       `Profile        ~${path.sep}.extension-js${path.sep}profiles${path.sep}chrome`
     )
-    expect(card).toContain(`Binary         ~${path.sep}bin${path.sep}chromium`)
     expect(collapseHomeDirInCardValue('/unrelated/path')).toBe(
       '/unrelated/path'
     )
@@ -101,7 +111,9 @@ describe('card binary provenance', () => {
   })
 
   it('renders one note per provenance and none for managed', () => {
-    expect(binaryProvenanceNote('pinned')).toBe('(pinned with --chromium-binary)')
+    expect(binaryProvenanceNote('pinned')).toBe(
+      '(pinned with --chromium-binary)'
+    )
     expect(binaryProvenanceNote('system')).toBe(
       '(system, not the managed default)'
     )

@@ -118,16 +118,31 @@ export interface CardInput {
 
 const CARD_LABEL_WIDTH = 15
 
+// The most any command may print under the head. Three is what `build` and
+// `create` already print, and they read as one glance: what browser, what
+// extension, where it lives. `dev` is held to the same shape. Rows are given
+// in priority order by their caller, so the cap keeps the three that matter
+// and drops the rest rather than truncating arbitrarily.
+export const MAX_CARD_ROWS = 3
+
 export function card(input: CardInput = {}): string {
   const version = String(input.version || '').trim()
   const suffix = String(input.suffix || '').trim()
   const head =
-    ` 🧩 ${colors.brightBlue('Extension.js')}` +
+    // Default terminal color: the product name is the one word a reader does
+    // not need help finding, and leaving it uncolored lets the palette the
+    // user chose carry the card instead of a brand blue fighting it.
+    ` 🧩 Extension.js` +
     (version ? ` ${colors.gray(version)}` : '') +
     (suffix ? ` ${suffix}` : '')
   // Rows are omitted when the caller has no value, never rendered as 'n/a'.
+  // The card is then capped: a banner that grows past MAX_CARD_ROWS stops
+  // being a glance and starts being output to read, so the cap is a hard
+  // invariant rather than a guideline. Callers that want to say more should
+  // say it in a line under the card, not by adding a row.
   const body = (input.rows || [])
     .filter((row) => String(row.value || '').trim().length > 0)
+    .slice(0, MAX_CARD_ROWS)
     .map((row) => {
       const label = row.label.padEnd(CARD_LABEL_WIDTH)
       return `    ${label}${colors.gray(String(row.value).trim())}`
