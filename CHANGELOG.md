@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 4.1.0 (August 20, 2026)
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Cap the CLI card at three rows and print the name uncolored ([b3497b15](https://github.com/extension-js/extension.js/commit/b3497b157e5dc8ef129a60805fef719c8309ad55))
+- Show the demo clips as CDN-hosted GIFs so npm renders them too ([0f254f04](https://github.com/extension-js/extension.js/commit/0f254f04f318824a2136369fc2e8d8b16a41944f))
+</details>
+
 ## 4.0.35 (August 19, 2026)
 
 ### Features
