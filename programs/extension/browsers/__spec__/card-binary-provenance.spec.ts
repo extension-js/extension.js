@@ -67,9 +67,9 @@ describe('card binary provenance', () => {
     expect(card).toContain(
       'Browser        Chromium 139.0.7259.2 (system, not the managed default)'
     )
-    expect(card).toContain(
-      'Binary         /Applications/Chromium.app/Contents/MacOS/Chromium'
-    )
+    // No Binary row: the note above already says this is not the managed
+    // default, and under MAX_CARD_ROWS that row would cost the Profile row.
+    expect(card).not.toContain('Binary')
   })
 
   it('marks a cached snapshot binary', () => {
@@ -78,7 +78,7 @@ describe('card binary provenance', () => {
       binaryProvenance: 'snapshot'
     })
     expect(card).toContain('(cached snapshot)')
-    expect(card).toContain('Binary')
+    expect(card).not.toContain('Binary')
   })
 
   it('collapses the home dir in Profile and Binary card values only', () => {
@@ -88,12 +88,12 @@ describe('card binary provenance', () => {
     // one: a non-managed launch spends the slot on the binary that actually
     // runs, a managed one has nothing to disambiguate and shows the profile.
     // The collapsing under test applies to both values either way.
-    const systemCard = renderCard({
+    const pinnedCard = renderCard({
       binaryPath: path.join(home, 'bin', 'chromium'),
-      binaryProvenance: 'system',
+      binaryProvenance: 'pinned',
       profilePath: profile
     })
-    expect(systemCard).toContain(
+    expect(pinnedCard).toContain(
       `Binary         ~${path.sep}bin${path.sep}chromium`
     )
     const managedCard = renderCard({

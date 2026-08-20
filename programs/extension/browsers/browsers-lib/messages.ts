@@ -1057,14 +1057,21 @@ export function runningInDevelopment(
     ? `${baseBrowserLabel} ${provenanceNote}`
     : baseBrowserLabel
 
-  // A Binary row whenever the browser is not the managed default: pinned,
-  // system or snapshot. Naming the binary that actually runs is a contract
-  // (card-binary-provenance.spec), and in those runs it outranks the profile,
-  // because "which browser is this really" is the question the card is being
-  // asked. A managed launch has nothing to disambiguate and keeps Profile.
-  const binaryRowValue = provenanceNote
-    ? collapseHomeDirInCardValue(String(opts?.binaryPath || '').trim())
-    : ''
+  // A Binary row only when the user pinned a path with --chromium-binary.
+  // Under the three-row cap a Binary row costs the Profile row, and for a
+  // system or snapshot browser that is a bad trade: the Browser row's own
+  // note already says the binary is not the managed default, so the path
+  // repeats what the line above it said and evicts the one value nothing
+  // else on screen carries. Edge is the case that proves it: on macOS there
+  // is no managed Edge to install, so an Edge run is ALWAYS 'system', and
+  // keeping Binary there made the same command render different rows than a
+  // Chromium run for reasons the reader cannot see. A pinned path is
+  // different: the user typed it and the card is the receipt. The exact path
+  // stays in ready.json (binary/profilePath) either way.
+  const binaryRowValue =
+    opts?.binaryProvenance === 'pinned'
+      ? collapseHomeDirInCardValue(String(opts?.binaryPath || '').trim())
+      : ''
 
   const cleanId = String(id || '').trim()
 
