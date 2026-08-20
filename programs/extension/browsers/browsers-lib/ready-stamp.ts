@@ -42,7 +42,18 @@ export function stampReadyRdpPort(
 // it, and the pid is the only supported handle for reaping the browser.
 export function stampReadyBrowserLaunch(
   extensionOutputPath: string | undefined,
-  details: {profilePath?: string; browserPid?: number; extensionId?: string}
+  details: {
+    profilePath?: string
+    browserPid?: number
+    extensionId?: string
+    // Which binary actually ran, and how it was chosen. This matters MOST for
+    // the runs that did not name one: someone who passed --chromium-binary
+    // already knows the path, while everyone else gets a browser the resolver
+    // picked and has no way to see which. The card stays uniform, so this
+    // contract is where that fact lives.
+    binary?: string
+    binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  }
 ) {
   try {
     if (!extensionOutputPath) return
@@ -59,6 +70,10 @@ export function stampReadyBrowserLaunch(
     }
     const extensionId = String(details?.extensionId || '').trim()
     if (extensionId) ready.extensionId = extensionId
+    const binary = String(details?.binary || '').trim()
+    if (binary) ready.binary = binary
+    const provenance = String(details?.binaryProvenance || '').trim()
+    if (provenance) ready.binaryProvenance = provenance
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never block launch on this

@@ -963,9 +963,15 @@ export function collapseHomeDirInCardValue(value: string): string {
 export function binaryProvenanceNote(
   provenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
 ): string {
+  // Only a pinned path is annotated. Every launch card then reads the same
+  // three rows with the same labels, and the one line that differs is the one
+  // the user caused by typing --chromium-binary. Whether a browser came from
+  // the managed cache, the system, or a cached snapshot is a fact about the
+  // machine rather than about this run, and printing it made the same command
+  // look different on two computers for reasons the reader cannot act on.
+  // classifyBinaryProvenance still returns all four values for callers that
+  // need them.
   if (provenance === 'pinned') return '(pinned with --chromium-binary)'
-  if (provenance === 'system') return '(system, not the managed default)'
-  if (provenance === 'snapshot') return '(cached snapshot)'
   return ''
 }
 
@@ -1057,22 +1063,6 @@ export function runningInDevelopment(
     ? `${baseBrowserLabel} ${provenanceNote}`
     : baseBrowserLabel
 
-  // A Binary row only when the user pinned a path with --chromium-binary.
-  // Under the three-row cap a Binary row costs the Profile row, and for a
-  // system or snapshot browser that is a bad trade: the Browser row's own
-  // note already says the binary is not the managed default, so the path
-  // repeats what the line above it said and evicts the one value nothing
-  // else on screen carries. Edge is the case that proves it: on macOS there
-  // is no managed Edge to install, so an Edge run is ALWAYS 'system', and
-  // keeping Binary there made the same command render different rows than a
-  // Chromium run for reasons the reader cannot see. A pinned path is
-  // different: the user typed it and the card is the receipt. The exact path
-  // stays in ready.json (binary/profilePath) either way.
-  const binaryRowValue =
-    opts?.binaryProvenance === 'pinned'
-      ? collapseHomeDirInCardValue(String(opts?.binaryPath || '').trim())
-      : ''
-
   const cleanId = String(id || '').trim()
 
   const lines: string[] = []
@@ -1088,7 +1078,10 @@ export function runningInDevelopment(
     suffix: updateNotice.trim(),
     rows: [
       {label: 'Browser', value: browserLabel},
-      {label: 'Binary', value: binaryRowValue},
+      // No Binary row in any case. A pinned run says so in the Browser row,
+      // and the path the user typed is the path they typed; spending the
+      // card's last row to echo it costs the Profile row, which is the only
+      // value on the card that nothing else on screen carries.
       {
         label: 'Extension',
         value: displayVersion ? `${displayName} ${displayVersion}` : displayName

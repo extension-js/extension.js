@@ -48,7 +48,7 @@ describe('card binary provenance', () => {
     expect(card).not.toContain('Binary')
   })
 
-  it('marks a pinned binary', () => {
+  it('marks a pinned binary in the Browser row and prints no Binary row', () => {
     const card = renderCard({
       binaryPath: '/opt/forks/thorium',
       binaryProvenance: 'pinned'
@@ -56,7 +56,8 @@ describe('card binary provenance', () => {
     expect(card).toContain(
       'Browser        Chromium 139.0.7259.2 (pinned with --chromium-binary)'
     )
-    expect(card).toContain('Binary         /opt/forks/thorium')
+    // The note is the whole signal; the path the user typed is not echoed.
+    expect(card).not.toContain('Binary')
   })
 
   it('marks a system fallback binary', () => {
@@ -64,11 +65,10 @@ describe('card binary provenance', () => {
       binaryPath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
       binaryProvenance: 'system'
     })
-    expect(card).toContain(
-      'Browser        Chromium 139.0.7259.2 (system, not the managed default)'
-    )
-    // No Binary row: the note above already says this is not the managed
-    // default, and under MAX_CARD_ROWS that row would cost the Profile row.
+    // A system browser is not annotated at all: every unpinned launch card
+    // reads the same, so the clip of a command looks the same on any machine.
+    expect(card).toContain('Browser        Chromium 139.0.7259.2')
+    expect(card).not.toContain('system, not the managed default')
     expect(card).not.toContain('Binary')
   })
 
@@ -77,7 +77,7 @@ describe('card binary provenance', () => {
       binaryPath: '/Users/dev/.extension-js/binaries/chromium/snap/chromium',
       binaryProvenance: 'snapshot'
     })
-    expect(card).toContain('(cached snapshot)')
+    expect(card).not.toContain('(cached snapshot)')
     expect(card).not.toContain('Binary')
   })
 
@@ -88,14 +88,8 @@ describe('card binary provenance', () => {
     // one: a non-managed launch spends the slot on the binary that actually
     // runs, a managed one has nothing to disambiguate and shows the profile.
     // The collapsing under test applies to both values either way.
-    const pinnedCard = renderCard({
-      binaryPath: path.join(home, 'bin', 'chromium'),
-      binaryProvenance: 'pinned',
-      profilePath: profile
-    })
-    expect(pinnedCard).toContain(
-      `Binary         ~${path.sep}bin${path.sep}chromium`
-    )
+    // Binary is never a row now, so the collapsing under test is exercised
+    // through Profile alone; the helper itself is asserted directly below.
     const managedCard = renderCard({
       binaryProvenance: 'managed',
       profilePath: profile
@@ -110,14 +104,14 @@ describe('card binary provenance', () => {
     expect(collapseHomeDirInCardValue(`${home}sibling`)).toBe(`${home}sibling`)
   })
 
-  it('renders one note per provenance and none for managed', () => {
+  it('annotates only a pinned binary', () => {
     expect(binaryProvenanceNote('pinned')).toBe(
       '(pinned with --chromium-binary)'
     )
-    expect(binaryProvenanceNote('system')).toBe(
-      '(system, not the managed default)'
-    )
-    expect(binaryProvenanceNote('snapshot')).toBe('(cached snapshot)')
+    // Only a pinned path is annotated; the rest are machine facts, not run
+    // facts, and classifyBinaryProvenance still reports them to callers.
+    expect(binaryProvenanceNote('system')).toBe('')
+    expect(binaryProvenanceNote('snapshot')).toBe('')
     expect(binaryProvenanceNote('managed')).toBe('')
     expect(binaryProvenanceNote(undefined)).toBe('')
   })

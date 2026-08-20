@@ -926,6 +926,8 @@ export class ChromiumLaunchPlugin {
         ?.slice('--user-data-dir='.length)
         .replace(/^"|"$/g, ''),
       browserPid: child?.pid,
+      binary: browserBinaryLocation ?? undefined,
+      binaryProvenance,
       extensionId: launchOutputPath
         ? expectedChromiumExtensionId(launchOutputPath)
         : undefined
