@@ -208,9 +208,8 @@ export function safariBuildPreflight(): SafariBuildPreflight {
 // only browser the toolchain launches that it does not spawn itself, which is
 // why every other launcher can pass `child.pid` and this one has to look it up.
 //
-// Without this the ready contract carries no `browserPid`, and anything that
-// waits on one — the screencast rig's browser.adopt(), any tool that wants to
-// attach to the session's browser — has nothing to attach to.
+// Without this the ready contract carries no `browserPid`, so anything that
+// waits on one to attach to the session's browser has nothing to attach to.
 async function resolvePidForBundle(bundleId: string): Promise<number | null> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const pid = await new Promise<number | null>((resolve) => {

@@ -520,7 +520,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       // Which binary actually launched, and how it was chosen. Stamped once at
       // launch and never recomputed, so without this a single recompile erased
       // it and `doctor` went back to being unable to say which browser is
-      // running — the exact question it exists to answer.
+      // running, the exact question it exists to answer.
       if (typeof prev.binary === 'string' && prev.binary) {
         ;(payload as Record<string, unknown>).binary = prev.binary
       }
