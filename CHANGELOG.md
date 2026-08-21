@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 4.1.3 (August 21, 2026)
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Show stars on npm only and repair the downloads strip ([d7d26d44](https://github.com/extension-js/extension.js/commit/d7d26d447248f6316c07ad7cf1b254a059f39b31))
+- Group the nx template and refresh the ai-help snapshot ([2dbc4d5f](https://github.com/extension-js/extension.js/commit/2dbc4d5fe47cea2cfc73d5f25080724650f703e2))
+- Shrink the browser support labels with sup ([5d05db25](https://github.com/extension-js/extension.js/commit/5d05db2521aac8d8592f7f7c6488a2877c46c8cc))
+- Move the template corpus past the frozen August pin ([adc0a9c0](https://github.com/extension-js/extension.js/commit/adc0a9c0075140b6adcd47c65872afceaa382115))
+</details>
+
 ## 4.1.2 (August 21, 2026)
 
 ### Fixes
