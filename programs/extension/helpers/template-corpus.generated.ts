@@ -13,7 +13,7 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/examples'
 
-export const TEMPLATE_CORPUS_REF = 'f7f4e6efb56a7e5ae08d58dbff3972d94af7d021'
+export const TEMPLATE_CORPUS_REF = '36cd41466038e3d1045e3eca368f44f40b0a024b'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
@@ -60,6 +60,7 @@ export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'react',
   'sidebar',
   'sidebar-antd',
+  'sidebar-monorepo-nx',
   'sidebar-monorepo-turborepo',
   'sidebar-shadcn',
   'special-folders-pages',
