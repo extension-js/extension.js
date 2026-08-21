@@ -500,7 +500,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (derivedExtensionId) payload.extensionId = derivedExtensionId
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
-    if (prev) {
+    //
+    // Only within the SAME run. Every field below describes the browser this
+    // run launched, and carrying them into the next run publishes a contract
+    // that names a browser which no longer exists: a fresh runId with the
+    // previous run's `browserPid`, its port, and its exit evidence. A consumer
+    // cannot tell that apart from a live session, so it dials a dead process.
+    // `startedAt` above already draws exactly this line.
+    const sameRun = Boolean(prev && prev.runId === base.runId)
+    if (prev && sameRun) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
       if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
       if (typeof prev.profilePath === 'string') {
