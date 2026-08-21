@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 4.1.2 (August 21, 2026)
+
+### Fixes
+
+- Stop the README clips promising more than they show ([4e234e8d](https://github.com/extension-js/extension.js/commit/4e234e8db5ca8adee9d7b5ff07e8270158b868d2))
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Drop em dashes CI rejects from two Safari comments ([feaf74a7](https://github.com/extension-js/extension.js/commit/feaf74a79f10be2f271486254c688fb67ffa32ff))
+- Scope launch facts to the run that produced them ([4ce391d6](https://github.com/extension-js/extension.js/commit/4ce391d6c1fc4afd0a616f7cb3db2af1b58858e8))
+- Sign Safari builds with --development-team and adapt the hints ([222ab28c](https://github.com/extension-js/extension.js/commit/222ab28cfd3e2f32f30c4bfd970e52ffd325c856))
+- Publish the Safari browser pid and keep binary facts on recompile ([9748acbf](https://github.com/extension-js/extension.js/commit/9748acbfdaf305b0cfc4745382ae5fb66edb7149))
+</details>
+
 ## 4.1.1 (August 20, 2026)
 
 <details>
