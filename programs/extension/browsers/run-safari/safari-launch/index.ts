@@ -430,7 +430,11 @@ async function runSafariPipeline(
     stampReadyBrowserLaunch(config.extensionDir, {
       browserPid,
       binary: config.safariBinary || appPath,
-      binaryProvenance: config.safariBinary ? 'pinned' : 'system'
+      binaryProvenance: config.safariBinary ? 'pinned' : 'system',
+      // `build` publishes this and `dev` did not, so the same project reported
+      // its identity under one command and stayed silent under the other. It
+      // is the only machine-readable name for the appex a tool has to address.
+      extensionId: `${config.bundleIdentifier}.Extension`
     })
   }
 

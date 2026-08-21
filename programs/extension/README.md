@@ -41,7 +41,7 @@ Browser extensions ship with the worst dev experience in modern web. Manifest V3
 
 ## Watch it work
 
-[![Extension.js in 60 seconds: one command, a running extension](https://media.extension.land/video/extension-js/sixty-second-demo.gif)](https://extension.js.org/docs)
+[![One command, and the extension is running in a real browser](https://media.extension.land/video/extension-js/sixty-second-demo.gif)](https://extension.js.org/docs)
 
 Or skip the install and try a [live template](https://templates.extension.dev) in your browser.
 
@@ -155,9 +155,11 @@ npm install extension@latest --save-dev
 }
 ```
 
-Run `npm run dev` to develop, `npm run build` for production, and `npm run preview` to inspect the production output.
+Run `npm run dev` to develop, and watch the browser open with your extension already loaded:
 
 [![extension dev: the browser opens with the extension loaded](https://media.extension.land/video/extension-js/dev-build-preview.gif)](https://extension.js.org/docs/commands/dev)
+
+Use `npm run build` for production, and `npm run preview` to inspect the production output.
 
 ## Start from a Chrome sample
 
