@@ -150,6 +150,7 @@ export interface SafariOptions extends BrowserOptionsBase {
   appName?: string
   /** User-owned bundle identifier (defaults to a dev.extensionjs.* id). */
   bundleId?: string
+  developmentTeam?: string
   /** Generate the macOS-only Xcode project (default true). */
   macOsOnly?: boolean
 }
@@ -162,6 +163,7 @@ export interface SafariOptions extends BrowserOptionsBase {
 export interface SafariPackagerOverrides {
   appName?: string
   bundleId?: string
+  developmentTeam?: string
   macOsOnly?: boolean
   forceRegenerate?: boolean
   safariBinary?: string
@@ -255,6 +257,7 @@ export interface DevOptions extends BrowserOptionsBase {
   exitOnError?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
+  developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
   forceRegenerate?: boolean
   safariPackager?: SafariPackagerFn
@@ -299,6 +302,7 @@ export interface BuildOptions {
   metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
+  developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
   forceRegenerate?: boolean
   safariPackager?: SafariPackagerFn
@@ -426,6 +430,7 @@ export interface BrowserConfig extends BrowserOptionsBase {
   safariBinary?: SafariOptions['safariBinary']
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
+  developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
   /**
    * Companion extensions (load-only) scoped to a browser config.

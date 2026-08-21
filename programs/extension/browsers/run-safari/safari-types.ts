@@ -14,6 +14,7 @@ export type SafariPluginLike = Pick<
 > & {
   browser: PluginInterface['browser']
   safariBinary?: string
+  developmentTeam?: string
   appName?: string
   bundleId?: string
   macOsOnly?: boolean
@@ -34,4 +35,5 @@ export interface SafariBuildConfig {
   language: 'swift' | 'objc'
   open: boolean
   safariBinary?: string
+  developmentTeam?: string
 }
