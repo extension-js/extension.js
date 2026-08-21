@@ -2,8 +2,6 @@
 [npm-version-url]: https://www.npmjs.com/package/extension
 [npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
 [npm-downloads-url]: https://www.npmjs.com/package/extension
-[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0971fe
-[stars-url]: https://github.com/extension-js/extension.js/stargazers
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
@@ -11,7 +9,7 @@
 [snyk-image]: https://snyk.io/test/github/extension-js/extension.js/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension.js
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![Stars][stars-image]][stars-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
