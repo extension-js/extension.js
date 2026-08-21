@@ -233,9 +233,9 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     "bundled": [
       "javascript",
     ],
-    "catalogUrl": "https://github.com/extension-js/examples/tree/f7f4e6efb56a7e5ae08d58dbff3972d94af7d021/examples",
+    "catalogUrl": "https://github.com/extension-js/examples/tree/36cd41466038e3d1045e3eca368f44f40b0a024b/examples",
     "corpus": {
-      "ref": "f7f4e6efb56a7e5ae08d58dbff3972d94af7d021",
+      "ref": "36cd41466038e3d1045e3eca368f44f40b0a024b",
       "repo": "extension-js/examples",
     },
     "default": "javascript",
@@ -260,6 +260,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
           "sidebar-antd",
           "sidebar-shadcn",
           "sidebar-monorepo-turborepo",
+          "sidebar-monorepo-nx",
           "ai-chatgpt",
           "ai-claude",
           "ai-gemini",
@@ -341,6 +342,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "sidebar-antd",
       "sidebar-shadcn",
       "sidebar-monorepo-turborepo",
+      "sidebar-monorepo-nx",
       "ai-chatgpt",
       "ai-claude",
       "ai-gemini",

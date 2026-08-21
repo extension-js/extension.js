@@ -66,6 +66,7 @@ export const CURATED_GROUPS: readonly TemplateGroup[] = [
       'sidebar-antd',
       'sidebar-shadcn',
       'sidebar-monorepo-turborepo',
+      'sidebar-monorepo-nx',
       'ai-chatgpt',
       'ai-claude',
       'ai-gemini',
