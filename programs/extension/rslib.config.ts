@@ -72,18 +72,37 @@ function transformReadme(content: string): string {
     '$114.1%$2'
   )
 
+  // npm prints its own download count above the readme, so the badge is noise
+  // there. The reference is `npm-downloads-image`, not `downloads-image`: this
+  // matched nothing for as long as it has existed, and npm shipped the badge
+  // the transform was written to remove.
   out = out.replace(
-    /\s*\[!\[Downloads\]\[downloads-image\]\]\[downloads-url\]/g,
+    /\s*\[!\[Downloads\]\[npm-downloads-image\]\]\[npm-downloads-url\]/g,
     ''
   )
   out = out
     .split('\n')
     .filter(
       (line) =>
-        !/^\[downloads-image\]:/i.test(line) &&
-        !/^\[downloads-url\]:/i.test(line)
+        !/^\[npm-downloads-image\]:/i.test(line) &&
+        !/^\[npm-downloads-url\]:/i.test(line)
     )
     .join('\n')
+
+  // npm has no star count of its own, so the badge earns its place here. It is
+  // injected rather than stripped, which is the opposite of Downloads above,
+  // because GitHub renders README.md straight from the repository: there is no
+  // transform on that side to remove it, so the source file cannot carry it.
+  out = out.replace(
+    /(# Extension\.js \[!\[Version\]\[npm-version-image\]\]\[npm-version-url\])/,
+    '$1 [![Stars][stars-image]][stars-url]'
+  )
+  // The reference definitions travel with it, for the same reason.
+  out = out.replace(
+    /(\[npm-version-url\]: [^\n]*\n)/,
+    '$1[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0971fe\n' +
+      '[stars-url]: https://github.com/extension-js/extension.js/stargazers\n'
+  )
 
   return out
 }
