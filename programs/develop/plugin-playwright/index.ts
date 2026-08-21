@@ -509,6 +509,17 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (typeof prev.browserPid === 'number') {
         payload.browserPid = prev.browserPid
       }
+      // Which binary actually launched, and how it was chosen. Stamped once at
+      // launch and never recomputed, so without this a single recompile erased
+      // it and `doctor` went back to being unable to say which browser is
+      // running — the exact question it exists to answer.
+      if (typeof prev.binary === 'string' && prev.binary) {
+        ;(payload as Record<string, unknown>).binary = prev.binary
+      }
+      if (typeof prev.binaryProvenance === 'string' && prev.binaryProvenance) {
+        ;(payload as Record<string, unknown>).binaryProvenance =
+          prev.binaryProvenance
+      }
       // The launcher's stamp may carry the browser-confirmed id, which
       // outranks the derived one, so the previous value wins on recompile.
       if (typeof prev.extensionId === 'string' && prev.extensionId) {
