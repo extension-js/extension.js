@@ -37,6 +37,7 @@ type BuildOptions = {
   open?: boolean
   appName?: string
   bundleId?: string
+  developmentTeam?: string
   macosOnly?: boolean
   forceRegenerate?: boolean
   debug?: boolean
@@ -105,6 +106,10 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--bundle-id <reverse.dns>',
       'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+    )
+    .option(
+      '--development-team <id>',
+      'sign the Safari app with an Apple Developer team id (safari targets only). Without it the build is ad-hoc signed, which Safari treats as unsigned: the extension then needs Develop \u25b8 Allow Unsigned Extensions re-ticked on every launch. A signed build is listed and stays enabled across restarts'
     )
     .option(
       '--macos-only [boolean]',
@@ -183,6 +188,7 @@ export function registerBuildCommand(program: Command) {
           ['--open', buildOptions.open],
           ['--app-name', buildOptions.appName],
           ['--bundle-id', buildOptions.bundleId],
+          ['--development-team', buildOptions.developmentTeam],
           ['--force-regenerate', buildOptions.forceRegenerate]
         ]
           .filter(([, value]) => value !== undefined && value !== false)
@@ -252,6 +258,7 @@ export function registerBuildCommand(program: Command) {
               mode,
               appName: buildOptions.appName,
               bundleId: buildOptions.bundleId,
+              developmentTeam: buildOptions.developmentTeam,
               macOsOnly: buildOptions.macosOnly,
               forceRegenerate: buildOptions.forceRegenerate,
               safariPackager: safariPackagingEnabled

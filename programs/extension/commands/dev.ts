@@ -133,6 +133,10 @@ export function registerDevCommand(program: Command) {
       'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
     )
     .option(
+      '--development-team <id>',
+      'sign the Safari app with an Apple Developer team id (safari targets only). Without it the build is ad-hoc signed, which Safari treats as unsigned: the extension then needs Develop \u25b8 Allow Unsigned Extensions re-ticked on every launch. A signed build is listed and stays enabled across restarts'
+    )
+    .option(
       '--macos-only [boolean]',
       'generate a macOS-only Safari Xcode project (safari targets only). Pass `false` for a universal macOS + iOS project. Defaults to `true`',
       parseOptionalBoolean
@@ -293,6 +297,7 @@ export function registerDevCommand(program: Command) {
           safariBinary?: string
           appName?: string
           bundleId?: string
+          developmentTeam?: string
           macosOnly?: boolean
           forceRegenerate?: boolean
         }
@@ -300,6 +305,7 @@ export function registerDevCommand(program: Command) {
           ['--safari-binary', opts.safariBinary],
           ['--app-name', opts.appName],
           ['--bundle-id', opts.bundleId],
+          ['--development-team', opts.developmentTeam],
           ['--force-regenerate', opts.forceRegenerate]
         ]
           .filter(([, value]) => value !== undefined && value !== false)

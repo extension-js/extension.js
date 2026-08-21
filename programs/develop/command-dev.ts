@@ -109,6 +109,7 @@ export async function extensionDev(
       const safariOverrides = {
         appName: merged.appName,
         bundleId: merged.bundleId,
+        developmentTeam: merged.developmentTeam,
         macOsOnly: merged.macOsOnly,
         forceRegenerate: merged.forceRegenerate,
         safariBinary: merged.safariBinary,

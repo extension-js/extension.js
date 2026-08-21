@@ -431,6 +431,8 @@ export async function extensionBuild(
       const safari = await buildOptions.safariPackager(distPath, 'full', {
         appName: buildOptions.appName ?? safariConfig.appName,
         bundleId: buildOptions.bundleId ?? safariConfig.bundleId,
+        developmentTeam:
+          buildOptions.developmentTeam ?? safariConfig.developmentTeam,
         macOsOnly: buildOptions.macOsOnly ?? safariConfig.macOsOnly,
         forceRegenerate: buildOptions.forceRegenerate,
         safariBinary: buildOptions.safariBinary ?? safariConfig.safariBinary

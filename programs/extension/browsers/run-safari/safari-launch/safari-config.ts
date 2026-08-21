@@ -77,7 +77,8 @@ export function resolveSafariBuildConfig(
     macOsOnly: host.macOsOnly !== false,
     language: 'swift',
     open: !host.noOpen,
-    safariBinary: host.safariBinary
+    safariBinary: host.safariBinary,
+    developmentTeam: String(host.developmentTeam || '').trim() || undefined
   }
 }
 
@@ -129,7 +130,7 @@ export function builtAppPath(config: SafariBuildConfig) {
 // xcodebuild args. Local builds use ad-hoc signing (identity '-') so the
 // embedded .appex still passes ValidateEmbeddedBinary; real signing is a deploy stage.
 export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
-  return [
+  const base = [
     '-project',
     xcodeProjectPath(config),
     '-scheme',
@@ -137,7 +138,32 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     '-configuration',
     'Release',
     '-derivedDataPath',
-    derivedDataPath(config),
+    derivedDataPath(config)
+  ]
+
+  // A team means a real signature, and a real signature is what makes the
+  // extension usable without ceremony: Safari lists an ad-hoc signed build as
+  // unsigned, so it only loads while Develop > Allow Unsigned Extensions is
+  // ticked, and that resets on every launch. Signed once, it stays enabled
+  // across restarts. Automatic signing lets Xcode mint the profile, and
+  // -allowProvisioningUpdates is what permits that without opening Xcode.
+  // Trimmed here as well as at config time: this function is exported and a
+  // caller that hands it a whitespace team would otherwise get
+  // `DEVELOPMENT_TEAM=   `, which xcodebuild accepts and then fails to sign
+  // with, hours later, for reasons that point nowhere near this line.
+  const team = String(config.developmentTeam || '').trim()
+  if (team) {
+    return [
+      ...base,
+      `DEVELOPMENT_TEAM=${team}`,
+      'CODE_SIGN_STYLE=Automatic',
+      '-allowProvisioningUpdates',
+      'build'
+    ]
+  }
+
+  return [
+    ...base,
     'CODE_SIGN_IDENTITY=-',
     'CODE_SIGNING_REQUIRED=NO',
     'CODE_SIGNING_ALLOWED=YES',

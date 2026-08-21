@@ -764,10 +764,27 @@ export function safariDefaultBundleIdNote(bundleId: string) {
   )
 }
 
-export function safariOpenHint(appPath: string, appName: string) {
-  return (
+export function safariOpenHint(
+  appPath: string,
+  appName: string,
+  signed?: boolean
+) {
+  const launch =
     `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +
-    `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n` +
+    `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n`
+
+  // A signed build is listed on its own, so telling the user to re-tick the
+  // unsigned toggle sends them to a menu item that is not the reason their
+  // extension is missing.
+  if (signed) {
+    return (
+      launch +
+      `Then turn on ${colors.yellow(appName)} in Safari ▸ Settings ▸ Extensions.`
+    )
+  }
+
+  return (
+    launch +
     `Then enable ${colors.yellow(appName)} via Safari ▸ Develop ▸ ` +
     `${colors.yellow('Allow Unsigned Extensions')} and Safari ▸ Settings ▸ Extensions.`
   )
@@ -785,7 +802,17 @@ export function safariDryRunXcodebuild(cmd: string) {
   return `${getLoggingPrefix('info')} xcodebuild: ${colors.gray(cmd)}.`
 }
 
-export function safariNextSteps(appName: string) {
+export function safariNextSteps(appName: string, signed?: boolean) {
+  // Signed builds skip the developer menu entirely: one toggle, and it holds
+  // across restarts.
+  if (signed) {
+    return (
+      `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
+      `  ${colors.gray('1.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n` +
+      `  ${colors.gray('→')} Signed with your team id, so this survives a restart.`
+    )
+  }
+
   return (
     `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
     `  ${colors.gray('1.')} Safari ▸ Settings ▸ Advanced ▸ check ${colors.yellow('“Show features for web developers”')}\n` +

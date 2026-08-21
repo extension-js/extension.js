@@ -267,6 +267,11 @@ async function runSafariPipeline(
   const converterArgs = composeConverterArgs(config)
   const xcodebuildArgs = composeXcodebuildArgs(config)
 
+  // Which set of enabling steps the user is about to be told to follow. Read
+  // from the resolved config rather than the raw flag so extension.config.js
+  // counts the same as --development-team.
+  const isSigned = Boolean(config.developmentTeam)
+
   // Warn while --bundle-id is still a free choice, before the converter and
   // xcodebuild bake the identity into the project.
   if (mode === 'full' && config.bundleIdDerived) {
@@ -397,7 +402,7 @@ async function runSafariPipeline(
   if (!config.open) {
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
-    logger.info?.(messages.safariOpenHint(appPath, config.appName))
+    logger.info?.(messages.safariOpenHint(appPath, config.appName, isSigned))
     if (host.announceDevReady) {
       await announceSafariDevSession(host, config, appPath)
     }
@@ -429,7 +434,7 @@ async function runSafariPipeline(
     })
   }
 
-  logger.info?.(messages.safariNextSteps(config.appName))
+  logger.info?.(messages.safariNextSteps(config.appName, isSigned))
 
   if (await confirmRegisteredWithSafari(config.bundleIdentifier)) {
     logger.info?.(messages.safariRegistered(config.appName))
