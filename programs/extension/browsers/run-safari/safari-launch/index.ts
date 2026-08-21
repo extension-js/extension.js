@@ -17,6 +17,7 @@ import {
 import {printDevBannerOnce} from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
+import {stampReadyBrowserLaunch} from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {logSafariDryRun} from './dry-run'
@@ -202,6 +203,35 @@ export function safariBuildPreflight(): SafariBuildPreflight {
   return {severity: 'ok'}
 }
 
+// The pid of the app `open` just raised, found by bundle id. `open` answers
+// nothing useful, so this asks the window server a moment later. Safari is the
+// only browser the toolchain launches that it does not spawn itself, which is
+// why every other launcher can pass `child.pid` and this one has to look it up.
+//
+// Without this the ready contract carries no `browserPid`, and anything that
+// waits on one — the screencast rig's browser.adopt(), any tool that wants to
+// attach to the session's browser — has nothing to attach to.
+async function resolvePidForBundle(bundleId: string): Promise<number | null> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const pid = await new Promise<number | null>((resolve) => {
+      const child = spawn('osascript', [
+        '-e',
+        `tell application "System Events" to get unix id of first process whose bundle identifier is "${bundleId}"`
+      ])
+      let out = ''
+      child.stdout.on('data', (d) => (out += String(d)))
+      child.on('error', () => resolve(null))
+      child.on('close', () => {
+        const n = Number(String(out).trim())
+        resolve(Number.isFinite(n) && n > 0 ? n : null)
+      })
+    })
+    if (pid) return pid
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return null
+}
+
 // Dev parity with the Chromium and Firefox launchers: the session has an
 // identity (the appex the converter produced) and a ready moment (the watch
 // loop resyncs per compile), so announce both. The appex id is the same
@@ -382,6 +412,21 @@ async function runSafariPipeline(
 
   if (config.safariBinary) {
     await runTool('open', ['-a', config.safariBinary])
+  }
+
+  // Which app is actually on screen decides what a tool should attach to:
+  // Safari itself when the caller pinned a Safari binary, otherwise the
+  // container app the converter built, which is what a plain run raises.
+  const raisedBundleId = config.safariBinary
+    ? 'com.apple.Safari'
+    : config.bundleIdentifier
+  const browserPid = await resolvePidForBundle(raisedBundleId)
+  if (browserPid) {
+    stampReadyBrowserLaunch(config.extensionDir, {
+      browserPid,
+      binary: config.safariBinary || appPath,
+      binaryProvenance: config.safariBinary ? 'pinned' : 'system'
+    })
   }
 
   logger.info?.(messages.safariNextSteps(config.appName))
