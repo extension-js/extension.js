@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 4.1.5 (August 22, 2026)
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Keep the alias listing out of the CLI startup path ([af00598c](https://github.com/extension-js/extension.js/commit/af00598c7d0a96557b66475c164f250f58d4d136))
+- Rename new templates to newtab and alias the old names ([2a064162](https://github.com/extension-js/extension.js/commit/2a0641620815c3fce86723ecd66ba58fb6be044d))
+</details>
+
 ## 4.1.4 (August 22, 2026)
 
 <details>
