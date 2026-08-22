@@ -45,3 +45,22 @@ export function specialFolderChangeDetected(
     `path=${relativePath}`
   )
 }
+
+export function unreferencedScriptDropped(relativePaths: string[]) {
+  // Warn, not error: the build is valid, the entry is simply not in it. Silence
+  // was the real defect, the file went missing and only production said so.
+  const list = relativePaths
+    .map((entry) => `  ${colors.yellow(entry)}`)
+    .join('\n')
+  return (
+    `${prefix('warn')} Dropped ${relativePaths.length} unreferenced ` +
+    `${relativePaths.length === 1 ? 'entry' : 'entries'} from ` +
+    `${colors.yellow('scripts/')}:\n${list}\n` +
+    `Nothing in this project mentions ` +
+    `${relativePaths.length === 1 ? 'that path' : 'those paths'}, so ` +
+    `${relativePaths.length === 1 ? 'it was' : 'they were'} treated as dead ` +
+    `code. Reference the path where you inject it (for example in the ` +
+    `${colors.yellow('chrome.scripting.executeScript')} call) to keep ` +
+    `${relativePaths.length === 1 ? 'it' : 'them'} in the build.`
+  )
+}

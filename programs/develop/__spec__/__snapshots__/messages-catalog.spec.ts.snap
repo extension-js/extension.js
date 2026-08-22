@@ -121,6 +121,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
     "specialFoldersSetupSummary: function(3)",
+    "unreferencedScriptDropped: function(1)",
   ],
   "plugin-static-assets/static-assets-lib/messages.ts": [
     "assetsConfigsDetected: function(5)",

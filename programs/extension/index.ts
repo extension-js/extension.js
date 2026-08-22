@@ -118,6 +118,29 @@ function failBeforeParse(
   process.exit(1)
 }
 
+// --format is a deprecated alias of --output. Only the root program declares
+// it (for --ai-help), so on a subcommand commander accepted it and nobody read
+// it: the run printed human output while the caller waited for an envelope.
+// Rewriting it here keeps one code path for every command instead of eleven.
+function applyOutputAliasArgvShim(argv: string[]): string[] {
+  const index = argv.findIndex(
+    (arg) => arg === '--format' || arg.startsWith('--format=')
+  )
+  if (index < 0) return argv
+  // --ai-help resolves the alias itself, and it never reaches a subcommand.
+  if (argv.includes('--ai-help')) return argv
+
+  const next = [...argv]
+  if (next[index].startsWith('--format=')) {
+    next[index] = `--output=${next[index].slice('--format='.length)}`
+  } else {
+    next[index] = '--output'
+  }
+
+  warnDeprecatedOutputAlias('--format')
+  return next
+}
+
 function applyNoBrowserArgvShim(argv: string[]): string[] {
   const hasNoRunner = argv.includes('--no-runner')
   if (hasNoRunner) {
@@ -261,7 +284,7 @@ if (process.argv.length <= 2) {
 if (process.argv.includes('--ai-help')) {
   runAIHelp()
 } else {
-  const argv = applyNoBrowserArgvShim(process.argv)
+  const argv = applyNoBrowserArgvShim(applyOutputAliasArgvShim(process.argv))
   const asJson = wantsJsonOutput(argv)
   const commandName = resolveCommandFromArgv(argv) || 'extension'
 
