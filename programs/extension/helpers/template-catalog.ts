@@ -6,7 +6,6 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {TEMPLATE_ALIASES as CREATE_TEMPLATE_ALIASES} from 'extension-create'
 import colors from 'pintor'
 import {
   TEMPLATE_CORPUS_REF,
@@ -178,13 +177,32 @@ export const TEMPLATE_GROUPS: readonly TemplateGroup[] = buildTemplateGroups()
  * bytes, because a listing that teaches the wrong contract is worse than no
  * listing at all.
  */
-export const TEMPLATE_ALIASES: readonly TemplateAlias[] = Object.entries(
-  CREATE_TEMPLATE_ALIASES
-).map(([name, resolvesTo]) => ({
-  name,
-  resolvesTo,
-  note: `renamed to ${resolvesTo}`
-}))
+// The listing half of the rename. The RESOLVER's copy lives in
+// extension-create, which is what actually downloads a template; importing it
+// here instead would make every `extension <anything>` require that package's
+// build output just to render help, and the bundled-extension build proved
+// that by failing on `build` where create is not built. The two lists are held
+// together by a spec rather than by a runtime edge.
+export const TEMPLATE_ALIASES: readonly TemplateAlias[] = [
+  'new',
+  'new-browser-flags',
+  'new-config-eslint',
+  'new-config-prettier',
+  'new-config-stylelint',
+  'new-crypto',
+  'new-env',
+  'new-less',
+  'new-preact',
+  'new-react',
+  'new-react-router',
+  'new-sass',
+  'new-svelte',
+  'new-typescript',
+  'new-vue'
+].map((name) => {
+  const resolvesTo = `newtab${name.slice('new'.length)}`
+  return {name, resolvesTo, note: `renamed to ${resolvesTo}`}
+})
 
 export function listTemplates(): string[] {
   return TEMPLATE_GROUPS.flatMap((group) => group.templates)
