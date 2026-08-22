@@ -25,6 +25,29 @@ type EnvPreloadResult = {
   envDir: string
 }
 
+// Keys this module introduced into process.env by loading a dotenv file, as
+// opposed to keys the shell or CI really set. dotenv.config mutates
+// process.env, and the compilation merge treats process.env as the highest
+// precedence layer, so without this record a preloaded .env.defaults value
+// would outrank the .env.<browser> file that is supposed to override it.
+const preloadedEnvKeys = new Set<string>()
+
+export function getPreloadedEnvKeys(): ReadonlySet<string> {
+  return preloadedEnvKeys
+}
+
+function recordPreloadedKeys(filePath: string): void {
+  try {
+    for (const key of Object.keys(dotenv.parse(fs.readFileSync(filePath)))) {
+      // Already present means the shell owns it: dotenv.config leaves those
+      // alone (override is off), so it stays a genuine environment value.
+      if (!(key in process.env)) preloadedEnvKeys.add(key)
+    }
+  } catch {
+    // Ignore
+  }
+}
+
 function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   const code = fs.readFileSync(absolutePath, 'utf-8')
   const dirname = path.dirname(absolutePath)
@@ -68,6 +91,7 @@ function preloadEnvFilesFromDir(
   try {
     const defaultsPath = path.join(envDir, '.env.defaults')
     if (fs.existsSync(defaultsPath)) {
+      recordPreloadedKeys(defaultsPath)
       dotenv.config({
         path: defaultsPath,
         override: Boolean(options?.override),
@@ -81,6 +105,7 @@ function preloadEnvFilesFromDir(
     for (const filename of envCandidates) {
       const filePath = path.join(envDir, filename)
       if (fs.existsSync(filePath)) {
+        recordPreloadedKeys(filePath)
         dotenv.config({
           path: filePath,
           override: Boolean(options?.override),

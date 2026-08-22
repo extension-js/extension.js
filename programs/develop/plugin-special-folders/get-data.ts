@@ -10,8 +10,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
+import {humanWarn} from '../lib/messaging'
 import type {FilepathList} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
+import * as messages from './messages'
 
 // scripts/ enrolls EVERY file as a content-script-like entry, but Node build
 // tooling (Node-builtin imports, node shebang) can never be one; exclude it.
@@ -228,6 +230,8 @@ function collectReferenceCorpus(projectRoot: string): string {
   return files === 0 ? '' : parts.join('\n')
 }
 
+const warnedDroppedScripts = new Set<string>()
+
 function filterUnreferencedScripts(
   list: FilepathList | undefined,
   projectRoot: string
@@ -249,11 +253,32 @@ function filterUnreferencedScripts(
   }
 
   const next: FilepathList = {}
+  const dropped: string[] = []
   for (const [key, value] of entries) {
     const paths = Array.isArray(value) ? value : value ? [value] : []
     const kept = paths.filter(isReferenced)
+    for (const entry of paths) {
+      if (kept.includes(entry)) continue
+      const abs = String(entry)
+      dropped.push(
+        path.isAbsolute(abs)
+          ? path.relative(projectRoot, abs).split(path.sep).join('/')
+          : abs
+      )
+    }
     if (kept.length === 0) continue
     next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
+  }
+
+  // Say it out loud: a dropped entry is invisible until production, and the
+  // whole point of scripts/ is files the manifest never names. Once per set,
+  // since the filter runs for every browser target in the same run.
+  if (dropped.length > 0) {
+    const signature = dropped.slice().sort().join('|')
+    if (!warnedDroppedScripts.has(signature)) {
+      warnedDroppedScripts.add(signature)
+      humanWarn(messages.unreferencedScriptDropped(dropped))
+    }
   }
 
   return next

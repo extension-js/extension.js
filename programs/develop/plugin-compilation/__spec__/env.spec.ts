@@ -72,6 +72,7 @@ vi.mock('dotenv', () => ({
   })
 }))
 
+import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {EnvPlugin} from '../env'
 
@@ -221,6 +222,64 @@ describe('EnvPlugin', () => {
     expect(getCurrentManifestContent(compilation as any)).toBe(
       updated['manifest.json']
     )
+  })
+
+  // Regression: dotenv.config in the config loader mutates process.env, and the
+  // merge treats process.env as the shell layer. Without the preloaded-key
+  // filter a .env.defaults value outranked the .env.<browser> that overrides it.
+  it('keeps a preloaded .env.defaults key from outranking the selected env file', async () => {
+    // Stand in for the config loader having preloaded .env.defaults.
+    process.env.EXTENSION_PUBLIC_FOO = 'defFoo'
+    ;(getPreloadedEnvKeys() as Set<string>).add('EXTENSION_PUBLIC_FOO')
+
+    try {
+      const {compiler, triggerCompilation} = createCompiler('development')
+      const plugin = new EnvPlugin({
+        manifestPath: '/proj/manifest.json',
+        browser: 'chrome'
+      })
+      plugin.apply(compiler as any)
+
+      const {compilation, runProcessAssets, updated} =
+        createCompilationWithAssets({
+          'manifest.json': '{"name":"$EXTENSION_PUBLIC_FOO"}'
+        })
+
+      triggerCompilation(compilation)
+      runProcessAssets()
+
+      // envFoo comes from the selected env file, defFoo from .env.defaults.
+      expect(updated['manifest.json']).toBe('{"name":"envFoo"}')
+    } finally {
+      ;(getPreloadedEnvKeys() as Set<string>).delete('EXTENSION_PUBLIC_FOO')
+      delete process.env.EXTENSION_PUBLIC_FOO
+    }
+  })
+
+  // A real shell or CI value must still win over every dotenv layer.
+  it('lets a genuine shell value outrank the selected env file', async () => {
+    process.env.EXTENSION_PUBLIC_FOO = 'shellFoo'
+
+    try {
+      const {compiler, triggerCompilation} = createCompiler('development')
+      const plugin = new EnvPlugin({
+        manifestPath: '/proj/manifest.json',
+        browser: 'chrome'
+      })
+      plugin.apply(compiler as any)
+
+      const {compilation, runProcessAssets, updated} =
+        createCompilationWithAssets({
+          'manifest.json': '{"name":"$EXTENSION_PUBLIC_FOO"}'
+        })
+
+      triggerCompilation(compilation)
+      runProcessAssets()
+
+      expect(updated['manifest.json']).toBe('{"name":"shellFoo"}')
+    } finally {
+      delete process.env.EXTENSION_PUBLIC_FOO
+    }
   })
 
   it('substitutes build-target synthetics so manifest/html match runtime', async () => {

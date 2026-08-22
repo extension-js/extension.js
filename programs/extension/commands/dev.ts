@@ -401,6 +401,10 @@ export function registerDevCommand(program: Command) {
           'dev'
         )
 
+        // Tells develop to route human lines to stderr, so stdout carries only
+        // envelopes and stays parseable one JSON object per line.
+        if (asJson) process.env.EXTENSION_OUTPUT = 'json'
+
         // dev never terminates, so json mode gets one startup frame now rather
         // than a result frame that would only arrive when the session dies.
         if (asJson) {

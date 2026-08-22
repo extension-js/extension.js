@@ -158,6 +158,40 @@ describe('getSpecialFoldersDataForCompiler', () => {
     expect(data.scripts?.['scripts/cell']).toBeUndefined()
   })
 
+  // Regression: dropping is correct, dropping in silence is not. The folder
+  // exists for files the manifest never names, so a user only found out in
+  // production that the entry never shipped.
+  it('warns, naming the file, when it drops an unreferenced scripts/ entry', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dropwarn-'))
+    tempDirs.push(dir)
+    const scriptsDir = path.join(dir, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const orphan = path.join(scriptsDir, 'never-mentioned.js')
+    fs.writeFileSync(orphan, "console.log('orphan')\n", 'utf8')
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    getSpecialFoldersDataMock.mockReturnValue({
+      pages: {},
+      scripts: {'scripts/never-mentioned': [orphan]},
+      public: {}
+    })
+
+    const compiler = {options: {context: dir}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.scripts?.['scripts/never-mentioned']).toBeUndefined()
+    const printed = warn.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).toContain('scripts/never-mentioned.js')
+    expect(printed.toLowerCase()).toContain('unreferenced')
+    warn.mockRestore()
+  })
+
   it('keeps all scripts/ entries when no reference assets are readable (fail open)', () => {
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},

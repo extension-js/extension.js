@@ -17,6 +17,7 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
+import {getPreloadedEnvKeys} from '../lib/config-loader'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
@@ -188,10 +189,19 @@ export class EnvPlugin {
       ? dotenv.parse(fs.readFileSync(defaultsPath))
       : {}
 
+    // process.env is the highest precedence layer because a shell or CI value
+    // must win. Keys the config loader itself put there by reading a dotenv
+    // file are not shell values, so they are dropped back to their file layer,
+    // otherwise .env.defaults would outrank the selected .env.<browser> file.
+    const preloadedKeys = getPreloadedEnvKeys()
+    const systemEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !preloadedKeys.has(key))
+    )
+
     const combinedVars = {
       ...defaultsVars,
       ...envVars,
-      ...process.env
+      ...systemEnv
     }
 
     const filteredEnvVars = Object.keys(combinedVars)
