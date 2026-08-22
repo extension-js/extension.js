@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 4.1.4 (August 22, 2026)
+
+<details>
+<summary>Other changes (1)</summary>
+
+- Honor the documented output contracts for dev, env files, and format ([08d18e46](https://github.com/extension-js/extension.js/commit/08d18e4692e13f04763ae80a24906c38d723fe18))
+</details>
+
 ## 4.1.3 (August 21, 2026)
 
 <details>
