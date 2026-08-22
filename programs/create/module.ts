@@ -33,6 +33,14 @@ import {writeReadmeFile} from './steps/write-readme-file'
 import {writeStoreMetadata} from './steps/write-store-metadata'
 import {writeTemplateProvenance} from './steps/write-template-provenance'
 
+// Re-exported so the CLI's template listing and the resolver that actually
+// downloads a template read the SAME table. Two copies would drift, and the
+// drift would show up as a name the help text offers and create cannot fetch.
+export {
+  resolveTemplateAlias,
+  TEMPLATE_ALIASES
+} from './steps/import-external-template'
+
 export interface CreateLogger {
   log: (...args: unknown[]) => void
   error: (...args: unknown[]) => void

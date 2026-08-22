@@ -141,12 +141,20 @@ describe('--ai-help', () => {
     })
   })
 
-  it('declares no substitution, because every name delivers itself', () => {
+  it('declares every alias, and each one resolves to a listed name', () => {
     const json = programAIHelpJSON('0.0.0')
-    // The aliases key is omitted while the alias list is empty, matching the
-    // pretty listing's suppressed heading. It returns as an array when a real
-    // alias exists again.
-    expect(json.templates.aliases).toBeUndefined()
+    // The key was omitted while no alias existed. The new-tab templates were
+    // renamed from `new*` to `newtab*`, so real aliases exist again and the
+    // machine-readable help has to carry them: a reader that only sees `names`
+    // would conclude `new-react` is gone rather than renamed.
+    expect(Array.isArray(json.templates.aliases)).toBe(true)
+    for (const alias of json.templates.aliases as {
+      name: string
+      resolvesTo: string
+    }[]) {
+      expect(json.templates.names).not.toContain(alias.name)
+      expect(json.templates.names).toContain(alias.resolvesTo)
+    }
     expect(json.templates.names).toContain('init')
   })
 })
