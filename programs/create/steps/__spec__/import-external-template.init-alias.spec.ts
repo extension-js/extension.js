@@ -159,18 +159,59 @@ describe('importExternalTemplate', () => {
 
   // The class guarantee behind section 126: whatever catalog name the user
   // types, the provenance names it and the scaffold is that folder's bytes.
-  // No code path may swap one name for another without saying so, and today
-  // none does, so there is nothing to say.
+  // No code path may swap one name for another without saying so. Exactly one
+  // says so now: a renamed template answers to its old name, and the test
+  // below pins what the user is told when that happens.
+  // A template that was renamed keeps answering to the name it shipped under.
+  // The bytes are the CANONICAL folder's, and provenance says so rather than
+  // echoing what was typed: a user who asked for `new-react` should learn that
+  // the template is now `newtab-react`, not be told a name that no longer
+  // exists in the catalog.
+  it('resolves a renamed template and reports the name it resolved to', async () => {
+    const tmpRoot = await fsp.mkdtemp(
+      path.join(os.tmpdir(), 'ext-create-test-')
+    )
+    const projectPath = path.join(tmpRoot, 'my-ext')
+    vi.mocked(axios.get).mockResolvedValue({
+      data: catalogZipWith(['init', 'javascript', 'newtab-react'])
+    } as never)
+
+    try {
+      const provenance = await importExternalTemplate(
+        projectPath,
+        'my-ext',
+        'new-react',
+        {log: () => {}, error: () => {}}
+      )
+
+      expect(provenance.template).toBe('newtab-react')
+
+      const manifest = JSON.parse(
+        await fsp.readFile(
+          path.join(projectPath, 'src', 'manifest.json'),
+          'utf-8'
+        )
+      )
+      expect(manifest.name).toBe('newtab-react marker')
+    } finally {
+      try {
+        await fsp.rm(tmpRoot, {recursive: true, force: true})
+      } catch {
+        // Ignore
+      }
+    }
+  })
+
   it.each([
     'content',
-    'new-react'
+    'newtab-react'
   ])('delivers %s itself, never a substitute', async (requested) => {
     const tmpRoot = await fsp.mkdtemp(
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
     vi.mocked(axios.get).mockResolvedValue({
-      data: catalogZipWith(['init', 'javascript', 'content', 'new-react'])
+      data: catalogZipWith(['init', 'javascript', 'content', 'newtab-react'])
     } as never)
 
     try {

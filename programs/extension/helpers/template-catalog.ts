@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {TEMPLATE_ALIASES as CREATE_TEMPLATE_ALIASES} from 'extension-create'
 import colors from 'pintor'
 import {
   TEMPLATE_CORPUS_REF,
@@ -101,21 +102,21 @@ export const CURATED_GROUPS: readonly TemplateGroup[] = [
     title: 'New tab',
     summary: 'replaces the browser new tab page',
     templates: [
-      'new',
-      'new-browser-flags',
-      'new-config-eslint',
-      'new-config-prettier',
-      'new-config-stylelint',
-      'new-crypto',
-      'new-env',
-      'new-less',
-      'new-preact',
-      'new-react',
-      'new-react-router',
-      'new-sass',
-      'new-svelte',
-      'new-typescript',
-      'new-vue'
+      'newtab',
+      'newtab-browser-flags',
+      'newtab-config-eslint',
+      'newtab-config-prettier',
+      'newtab-config-stylelint',
+      'newtab-crypto',
+      'newtab-env',
+      'newtab-less',
+      'newtab-preact',
+      'newtab-react',
+      'newtab-react-router',
+      'newtab-sass',
+      'newtab-svelte',
+      'newtab-typescript',
+      'newtab-vue'
     ]
   },
   {
@@ -177,7 +178,13 @@ export const TEMPLATE_GROUPS: readonly TemplateGroup[] = buildTemplateGroups()
  * bytes, because a listing that teaches the wrong contract is worse than no
  * listing at all.
  */
-export const TEMPLATE_ALIASES: readonly TemplateAlias[] = []
+export const TEMPLATE_ALIASES: readonly TemplateAlias[] = Object.entries(
+  CREATE_TEMPLATE_ALIASES
+).map(([name, resolvesTo]) => ({
+  name,
+  resolvesTo,
+  note: `renamed to ${resolvesTo}`
+}))
 
 export function listTemplates(): string[] {
   return TEMPLATE_GROUPS.flatMap((group) => group.templates)
@@ -237,10 +244,7 @@ export function renderTemplateList({
     lines.push('')
     lines.push(`  ${title('Aliases')}`)
     for (const alias of TEMPLATE_ALIASES) {
-      lines.push(`    ${slug(alias.name)} ${dim(alias.note)}`)
-      lines.push(
-        dim('      pass its URL to scaffold the catalog folder instead')
-      )
+      lines.push(`    ${slug(alias.name)} ${dim(`still works, ${alias.note}`)}`)
     }
   }
 

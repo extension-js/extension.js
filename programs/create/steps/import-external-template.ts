@@ -69,7 +69,7 @@ const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
 // Move it with `node scripts/generate-template-corpus.mjs --ref <sha>`, which
 // regenerates the name list the CLI advertises from the same commit.
 // EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
-export const DEFAULT_TEMPLATES_REF = '36cd41466038e3d1045e3eca368f44f40b0a024b'
+export const DEFAULT_TEMPLATES_REF = 'e6bee72ae08802f2f14048271fb93f76c10d6a37'
 
 // The one template that ships inside the npm package, so it scaffolds with no
 // network call. The help text derives its "no network" promise from this list
@@ -111,6 +111,41 @@ export interface TemplateProvenance {
 
 // Distinguish a genuinely-absent catalog slug from a download/timeout/rate-limit
 // failure; the old path surfaced BOTH as "choose a valid template name" (#56).
+// Names that used to be the template's own folder and now point at its
+// current one. The new-tab templates were called `new*` until 2026-08-22, which
+// read as the English word: `new-react` looked like a starter for new React
+// projects rather than a React new-tab page. They are `newtab*` now, and every
+// command, link and bookmark that still says `new-react` keeps working.
+//
+// This is the honest use of an alias: both names mean the SAME template. It
+// must never point a name at different bytes.
+export const TEMPLATE_ALIASES: Readonly<Record<string, string>> = {
+  new: 'newtab',
+  'new-browser-flags': 'newtab-browser-flags',
+  'new-config-eslint': 'newtab-config-eslint',
+  'new-config-prettier': 'newtab-config-prettier',
+  'new-config-stylelint': 'newtab-config-stylelint',
+  'new-crypto': 'newtab-crypto',
+  'new-env': 'newtab-env',
+  'new-less': 'newtab-less',
+  'new-preact': 'newtab-preact',
+  'new-react': 'newtab-react',
+  'new-react-router': 'newtab-react-router',
+  'new-sass': 'newtab-sass',
+  'new-svelte': 'newtab-svelte',
+  'new-typescript': 'newtab-typescript',
+  'new-vue': 'newtab-vue'
+}
+
+// Only a bare catalog name is aliased. A URL or a filesystem path names bytes
+// the caller chose, and rewriting either would be the redirection this
+// mechanism exists NOT to do.
+export function resolveTemplateAlias(name: string): string {
+  return Object.prototype.hasOwnProperty.call(TEMPLATE_ALIASES, name)
+    ? TEMPLATE_ALIASES[name]
+    : name
+}
+
 export class TemplateNotFoundError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause?: unknown) {
@@ -403,10 +438,18 @@ export async function importExternalTemplate(
 ): Promise<TemplateProvenance> {
   const templateName = path.basename(template)
   const resolvedTemplate = template
-  const resolvedTemplateName = templateName
 
   const isHttp = /^https?:\/\//i.test(template)
   const isGithub = /^https?:\/\/github\.com\//i.test(template)
+
+  // A renamed template keeps answering to the name it shipped under. Applied
+  // only to a bare catalog name: `template` is the raw input, so anything that
+  // looks like a URL or carries a path separator is left exactly as given.
+  const isBareName =
+    !isHttp && !template.includes('/') && !template.includes(path.sep)
+  const resolvedTemplateName = isBareName
+    ? resolveTemplateAlias(templateName)
+    : templateName
 
   // The caller may have mkdir'd projectPath already, so a plain existsSync
   // here cannot prove ownership; the explicit option wins when provided.

@@ -2,6 +2,12 @@
 // extension-create/extension-develop types. These are not published.
 
 declare module 'extension-create' {
+  // Renamed templates keep answering to their old names. Declared here only;
+  // the table itself lives in extension-create, so there is one list and this
+  // shim cannot drift from it in value, only in shape.
+  export const TEMPLATE_ALIASES: Readonly<Record<string, string>>
+  export function resolveTemplateAlias(name: string): string
+
   export interface CreateLogger {
     log: (...args: unknown[]) => void
     error: (...args: unknown[]) => void

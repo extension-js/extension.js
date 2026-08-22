@@ -13,7 +13,7 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/examples'
 
-export const TEMPLATE_CORPUS_REF = '36cd41466038e3d1045e3eca368f44f40b0a024b'
+export const TEMPLATE_CORPUS_REF = 'e6bee72ae08802f2f14048271fb93f76c10d6a37'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
@@ -40,21 +40,21 @@ export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'content-vue',
   'init',
   'javascript',
-  'new',
-  'new-browser-flags',
-  'new-config-eslint',
-  'new-config-prettier',
-  'new-config-stylelint',
-  'new-crypto',
-  'new-env',
-  'new-less',
-  'new-preact',
-  'new-react',
-  'new-react-router',
-  'new-sass',
-  'new-svelte',
-  'new-typescript',
-  'new-vue',
+  'newtab',
+  'newtab-browser-flags',
+  'newtab-config-eslint',
+  'newtab-config-prettier',
+  'newtab-config-stylelint',
+  'newtab-crypto',
+  'newtab-env',
+  'newtab-less',
+  'newtab-preact',
+  'newtab-react',
+  'newtab-react-router',
+  'newtab-sass',
+  'newtab-svelte',
+  'newtab-typescript',
+  'newtab-vue',
   'playwright',
   'preact',
   'react',
