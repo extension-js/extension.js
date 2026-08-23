@@ -9,6 +9,7 @@
 import {WebSocket} from 'ws'
 import {
   type BridgeTarget,
+  CLOSE_CONTROL_UNAVAILABLE,
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
   type CommandOp,
@@ -135,13 +136,23 @@ export class BridgeController {
           settled = true
           clearTimeout(connectTimer)
 
+          // 4003 is the broker saying the channel is not there at all, which
+          // is not the same as the session refusing an unlocked caller. Asking
+          // for a flag the caller already passed sends them to check something
+          // that was never wrong.
+          const flag = this.opts.unlockFlag || '--allow-control'
+          const detail =
+            code === CLOSE_CONTROL_UNAVAILABLE
+              ? 'the session has no control channel. It is opened by a running ' +
+                `\`dev\` session started with ${flag}; a session started ` +
+                'without it, or already stopped, has none to connect to.'
+              : `is the session started with ${flag}?`
+
           reject(
             new Error(
               `control channel refused the controller (code ${code}${
                 reason ? `: ${reason}` : ''
-              }). Is the session started with ${
-                this.opts.unlockFlag || '--allow-control'
-              }?`
+              }). ${detail}`
             )
           )
         }
