@@ -224,7 +224,16 @@ export function buildActEnvelope(
       ? raw.hint
       : code === CODES.E_EVAL
         ? 'The expression threw inside the page. Check the expression itself.'
-        : undefined
+        : code === CODES.E_USER_GESTURE_REQUIRED
+          ? // Chromium gates these surfaces on a real click and there is no way
+            // around it from here: the call runs in the extension's own service
+            // worker, and an extension cannot gesture at itself. Say what the
+            // rule is and what opens the surface, rather than passing the
+            // engine's sentence through and leaving the reader to guess.
+            'The browser opens this surface only in response to a click, and ' +
+            'refuses to open it any other way. Click the extension in the ' +
+            'browser toolbar to open it.'
+          : undefined
 
   return {
     ...extras,
