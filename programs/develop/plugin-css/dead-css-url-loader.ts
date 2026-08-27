@@ -13,7 +13,11 @@
 
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
-import {extractCssUrlRefs, isDeadCssUrlRef} from './css-lib/dead-url-refs'
+import {
+  extractCssUrlRefs,
+  isDeadCssUrlRef,
+  toPosixPath
+} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
 
 interface CompilationLike {
@@ -40,8 +44,9 @@ export default function deadCssUrlLoader(
     const manifestDir = path.dirname(manifestPath)
     const roots = [path.join(projectPath, 'public'), manifestDir]
     const issuerDir = path.dirname(this.resourcePath)
-    const issuerPath =
+    const issuerPath = toPosixPath(
       path.relative(manifestDir, this.resourcePath) || this.resourcePath
+    )
 
     const strict = process.env.EXTENSION_STRICT_REFS === 'true'
     const compilation = this._compilation
