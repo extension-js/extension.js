@@ -10,17 +10,7 @@ import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 import './styles.css'
 
-// Gate the entire overlay behind EXTENSION_PUBLIC_ERROR_OVERLAY: gating inside
-// React still injected a host div on every page with the flag off.
-const isErrorOverlayEnabled =
-  String((import.meta as any).env?.EXTENSION_PUBLIC_ERROR_OVERLAY || '')
-    .trim()
-    .toLowerCase() === 'true'
-
 export default function initial() {
-  if (!isErrorOverlayEnabled) {
-    return () => {}
-  }
   const existingRoot = document.querySelector(
     '[data-extension-root="extension-js-devtools"]'
   ) as HTMLElement | null

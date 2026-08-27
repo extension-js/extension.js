@@ -48,10 +48,6 @@ type DxSignalPayload = {
 }
 
 export default function ContentApp({portalContainer}: ContentAppProps) {
-  const isErrorOverlayEnabled =
-    String((import.meta as any).env?.EXTENSION_PUBLIC_ERROR_OVERLAY || '')
-      .trim()
-      .toLowerCase() === 'true'
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [userExtensionStatus, setUserExtensionStatus] =
@@ -90,7 +86,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     parts: unknown[],
     url?: string
   ) => {
-    if (!isErrorOverlayEnabled) return
     const next: LogEntry = {
       id: idRef.current++,
       level,
@@ -110,7 +105,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   }
 
   useEffect(() => {
-    if (!isErrorOverlayEnabled) return
     const onMessage = (event: MessageEvent) => {
       const data = event.data
 
@@ -193,10 +187,9 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
       console.error = originalError
     }
-  }, [isErrorOverlayEnabled])
+  }, [])
 
   useEffect(() => {
-    if (!isErrorOverlayEnabled) return
     const clearReloadTimers = () => {
       if (reloadDoneTimerRef.current !== undefined) {
         window.clearTimeout(reloadDoneTimerRef.current)
@@ -261,7 +254,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       chrome.runtime.onMessage.removeListener(onMessage)
       clearReloadTimers()
     }
-  }, [isErrorOverlayEnabled])
+  }, [])
 
   const diagnosticsIssueLabel =
     diagnosticsIssueCount === 1
@@ -275,7 +268,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
     : 'Reloading…'
 
   const emitDxSignal = (payload: DxSignalPayload) => {
-    if (!isErrorOverlayEnabled) return
     try {
       chrome.runtime.sendMessage({
         type: 'dx-signal',
@@ -295,7 +287,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   }
 
   useEffect(() => {
-    if (!isErrorOverlayEnabled) return
     let mounted = true
 
     const refreshUserExtensionStatus = async () => {
@@ -339,17 +330,16 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       window.removeEventListener('focus', onFocus)
       window.clearInterval(intervalId)
     }
-  }, [isErrorOverlayEnabled])
+  }, [])
 
   useEffect(() => {
-    if (!isErrorOverlayEnabled) return
     if (autoOpenedRef.current) return
     if (userExtensionStatus === 'checking') return
     if (userExtensionStatus === 'enabled') return
 
     setOpen(true)
     autoOpenedRef.current = true
-  }, [isErrorOverlayEnabled, userExtensionStatus])
+  }, [userExtensionStatus])
 
   const userExtensionDescription =
     userExtensionStatus === 'enabled'
@@ -393,7 +383,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   }
 
   const copyCurrentTabView = async () => {
-    if (!isErrorOverlayEnabled) return
     const payload = {
       source: 'extension.js',
       view: 'content-diagnostics-error-tab',
@@ -442,7 +431,6 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   }
 
   useEffect(() => {
-    if (!isErrorOverlayEnabled) return
     if (userExtensionStatus === 'checking') return
     const key = `${userExtensionStatus}:${userExtensionName}:${location.href}`
     if (lastExtensionSignalRef.current === key) return
@@ -499,11 +487,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       remediation: 'Reload Extension.js devtools and check browser extension state.',
       data: {extensionEnabled: null}
     })
-  }, [isErrorOverlayEnabled, userExtensionStatus, userExtensionName])
-
-  if (!isErrorOverlayEnabled) {
-    return null
-  }
+  }, [userExtensionStatus, userExtensionName])
 
   // Hardcoded surface colors: Tailwind v4 color variables inherit through open
   // shadow roots, so host-page overrides could bleed into the overlay.
