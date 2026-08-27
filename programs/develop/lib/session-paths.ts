@@ -6,6 +6,7 @@
 // ╚══════╝╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -85,6 +86,26 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
   }
 }
 
+// A monorepo ignores .extension-js/ once at its root, so appending per project
+// dirtied every example in the tree for a rule that already applied. Ask git,
+// which is the only thing that reads the whole ignore chain. Exit 0 means
+// ignored; anything else (not a repository, git missing) falls through to the
+// append that adopted projects need. Query the trailing-slash form: the
+// directory does not exist yet on a first run, so without it a directory-only
+// `.extension-js/` pattern reports not-ignored.
+function isAlreadyIgnoredByGit(projectPath: string): boolean {
+  try {
+    const result = spawnSync(
+      'git',
+      ['check-ignore', '-q', '--', '.extension-js/'],
+      {cwd: projectPath, stdio: 'ignore'}
+    )
+    return result.status === 0
+  } catch {
+    return false
+  }
+}
+
 // Adopted projects never ran create's writeGitignore, so without this the
 // live control token in .extension-js/ lands in commits. Appends the line
 // only when a root .gitignore already exists, and never rewrites content.
@@ -99,6 +120,7 @@ export function ensureSessionStateInProjectGitignore(
     if (lines.includes('.extension-js') || lines.includes('.extension-js/')) {
       return
     }
+    if (isAlreadyIgnoredByGit(projectPath)) return
     const prefix = content.length > 0 && !content.endsWith('\n') ? '\n' : ''
     fs.appendFileSync(
       gitignorePath,
