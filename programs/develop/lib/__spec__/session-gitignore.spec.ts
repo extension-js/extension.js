@@ -1,3 +1,4 @@
+import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -63,6 +64,26 @@ describe('ensureSessionStateInProjectGitignore', () => {
 
     expect(second).toBe(first)
     expect(first.match(/\.extension-js/g)?.length).toBe(1)
+  })
+
+  // Regression: a monorepo ignores the path once at its root, so appending per
+  // project turned every build in a 53-example repo into a dirty working tree.
+  it('skips the append when an outer .gitignore already covers the path', () => {
+    const repoRoot = makeTempDir()
+    const git = (...args: string[]) =>
+      spawnSync('git', args, {cwd: repoRoot, stdio: 'ignore'})
+
+    git('init')
+    fs.writeFileSync(path.join(repoRoot, '.gitignore'), '.extension-js/\n')
+
+    const projectPath = path.join(repoRoot, 'examples', 'content')
+    fs.mkdirSync(projectPath, {recursive: true})
+    const gitignorePath = path.join(projectPath, '.gitignore')
+    fs.writeFileSync(gitignorePath, 'dist\n')
+
+    ensureSessionStateInProjectGitignore(projectPath)
+
+    expect(fs.readFileSync(gitignorePath, 'utf8')).toBe('dist\n')
   })
 
   it('never creates a .gitignore where none exists', () => {
