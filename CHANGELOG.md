@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 4.1.6 (August 27, 2026)
+
+<details>
+<summary>Other changes (11)</summary>
+
+- Give the overlay launcher a concentric squircle badge ([94337d10](https://github.com/extension-js/extension.js/commit/94337d1066995b72a7592a42bfe06a2eeddcde12))
+- Always render the devtools overlay, dropping its env gate ([46ac893b](https://github.com/extension-js/extension.js/commit/46ac893bb9ede33e23bf9f4423cec65a67d5b70f))
+- Print stylesheet paths as web paths, not with the host separator ([ee75c3b6](https://github.com/extension-js/extension.js/commit/ee75c3b683bb7e478fe51aab88ea92792a0cf259))
+- Drop the create alias mocks the CLI no longer imports ([e2bc7fee](https://github.com/extension-js/extension.js/commit/e2bc7feeb43235f3c380a1cab38b83e481b61fe0))
+- Find the tsconfig we scaffolded in a project with no package.json ([f8faec3d](https://github.com/extension-js/extension.js/commit/f8faec3dc21231e01fd85cdfd7d58b1eefdde64a))
+- Parse-check every emitted script, and name a cross-file redeclaration ([c509d46e](https://github.com/extension-js/extension.js/commit/c509d46e84b90f89f30aa151c9237f47973e16a1))
+- Reference-check url() in content-script stylesheets too ([c46a8249](https://github.com/extension-js/extension.js/commit/c46a82491d58185e4dbfacaea7c0a60577ef4d1b))
+- Skip the gitignore append when git already ignores the path ([019bd9b7](https://github.com/extension-js/extension.js/commit/019bd9b799214e9e920c34b343f96fda8ae76738))
+- Keep compiled scripts/ entries referenced by their emitted .js path ([43683c38](https://github.com/extension-js/extension.js/commit/43683c383be6f2be6c7ad3ad67541d7fed938991))
+- Drop the confirm setup dialog and the icon dock from the welcome page ([a0cfa10e](https://github.com/extension-js/extension.js/commit/a0cfa10e0a737fb2cb90d3cd1fdc2f3ce6220fd0))
+- Say what opens a gesture-gated surface, and stop misblaming a flag ([a72588a5](https://github.com/extension-js/extension.js/commit/a72588a58892d4566b077ee1b3ed0db5b03241e6))
+</details>
+
 ## 4.1.5 (August 22, 2026)
 
 <details>
