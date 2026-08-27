@@ -11,7 +11,6 @@ import ReactDOM from 'react-dom/client'
 import logo from '@/images/logo.png'
 import {cn, applyTheme} from '@/lib/utils'
 import {getDevExtension} from '@/background/define-initial-tab'
-import {ConfirmSetupDialog} from './confirm-setup'
 
 import '@/styles.css'
 
@@ -24,11 +23,6 @@ const browser = String(
   import.meta.env.EXTENSION_BROWSER || 'chromium'
 ).toLowerCase()
 
-const isChromiumBased =
-  browser === 'chromium' ||
-  browser === 'chrome' ||
-  browser === 'edge' ||
-  browser === 'chromium-based'
 const isFirefox = browser === 'firefox'
 
 function AppFooter({className, ...props}: AppFooterProps) {
@@ -62,11 +56,6 @@ function AppFooter({className, ...props}: AppFooterProps) {
             Learn more about developing cross-browser extensions.
           </a>
         </div>
-        {isChromiumBased ? (
-          <div className="ml-auto">
-            <ConfirmSetupDialog />
-          </div>
-        ) : null}
       </div>
     </div>
   )
@@ -258,20 +247,18 @@ const Welcome: React.FC = () => {
         }
       `}</style>
       <header className="mb-4 flex w-full items-center justify-center">
-        <div className="border-border/50 bg-muted/40 relative inline-flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-sm">
-          <img
-            className="size-12 select-none object-contain"
-            alt={`${extension?.name || 'User extension'} icon`}
-            src={
-              iconFailed
-                ? logo
-                : needsResolvedIcon
-                  ? resolvedIconUrl || logo
-                  : resolvedIconUrl || userIconUrl || logo
-            }
-            onError={() => setIconFailed(true)}
-          />
-        </div>
+        <img
+          className="size-16 select-none object-contain"
+          alt={`${extension?.name || 'User extension'} icon`}
+          src={
+            iconFailed
+              ? logo
+              : needsResolvedIcon
+                ? resolvedIconUrl || logo
+                : resolvedIconUrl || userIconUrl || logo
+          }
+          onError={() => setIconFailed(true)}
+        />
       </header>
       <h1 className="text-foreground mx-auto text-center text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
         <span>{extension?.name || 'My Extension'}</span>
