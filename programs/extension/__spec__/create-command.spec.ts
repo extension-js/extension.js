@@ -1,11 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('extension-create', () => ({
-  extensionCreate: vi.fn(async () => {}),
-  // The catalog builds its alias listing from this table at import time, so a
-  // mock without it fails the whole file before a single test runs.
-  TEMPLATE_ALIASES: {},
-  resolveTemplateAlias: (name: string) => name
+  extensionCreate: vi.fn(async () => {})
 }))
 vi.mock('../helpers/extension-develop-runtime', () => ({
   resolveExtensionDevelopRoot: vi.fn(() => '/resolved/develop/root')
