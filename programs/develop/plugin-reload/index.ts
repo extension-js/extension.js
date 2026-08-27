@@ -13,6 +13,7 @@ import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
+import {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
@@ -26,7 +27,6 @@ export {
   readContentScriptCount,
   type SourceFeatureIndex
 } from './classify-reload'
-
 export {
   type ChangedSourcesSnapshot,
   type ChangedSourcesTracker,
@@ -35,6 +35,7 @@ export {
   type ReloadBroker,
   type ReloadExecutor
 } from './reload-dispatch'
+export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
