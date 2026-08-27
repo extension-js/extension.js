@@ -14,7 +14,7 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
 import {AddScripts} from './steps/add-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
-import {ValidateContentScriptSyntax} from './steps/validate-content-script-syntax'
+import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 
 /**
  * Feature-scripts is the official scripts pipeline:
@@ -78,6 +78,6 @@ export class ScriptsPlugin {
 
     // swc tolerates some early syntax errors and emits them into the bundle; the
     // browser then silently never injects the file. Fail loudly in every mode.
-    new ValidateContentScriptSyntax().apply(compiler)
+    new ValidateEmittedScriptSyntax().apply(compiler)
   }
 }

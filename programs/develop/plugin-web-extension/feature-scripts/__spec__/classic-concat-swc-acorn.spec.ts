@@ -3,7 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import classicConcatLoader, {
-  collectClassicGlobalNames
+  collectClassicGlobalNames,
+  collectClassicTopLevelBindings,
+  findClassicRedeclarations
 } from '../steps/add-content-script-wrapper/classic-concat-loader'
 
 const tempDirs: string[] = []
@@ -31,15 +33,17 @@ function runLoader(files: Array<{name: string; content: string}>) {
   const query = `?__extensionjs_classic_concat__=${encodeURIComponent(
     JSON.stringify({feature: 'content_scripts/content-0', js: paths, css: []})
   )}`
+  const errors: Error[] = []
   const ctx = {
     resourcePath: paths[0],
     resourceQuery: query,
     addDependency: vi.fn(),
-    callback: vi.fn()
+    callback: vi.fn(),
+    _compilation: {errors}
   }
   classicConcatLoader.call(ctx as any, '')
   const [err, output, sourceMap] = ctx.callback.mock.calls[0]
-  return {err, output: output as string, sourceMap, paths}
+  return {err, output: output as string, sourceMap, paths, errors}
 }
 
 function bridgedNames(output: string): string[] {
@@ -51,6 +55,89 @@ function bridgedNames(output: string): string[] {
 }
 
 const collect = (src: string) => collectClassicGlobalNames('f.js', src)
+
+// Regression: the concatenated files share one scope, exactly as the browser
+// evaluates them, so a name declared twice is a SyntaxError that kills the
+// whole bundle. Minification renames the binding before the emitted-artifact
+// check sees it, so only this pass can name the real binding and both files.
+describe('cross-file redeclaration in a classic concat group', () => {
+  const bindingsOf = (file: string, src: string) => ({
+    file,
+    bindings: collectClassicTopLevelBindings(file, src)
+  })
+
+  it('reports a let declared in two files, naming the binding and both', () => {
+    const {errors} = runLoader([
+      {name: 'a.js', content: 'let a = JSON.parse("{}");\nconsole.log(a);\n'},
+      {name: 'b.js', content: 'let a = JSON.parse("[]");\nconsole.log(a);\n'}
+    ])
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toContain('declare a at the top level')
+    expect(errors[0].message).toContain('a.js')
+    expect(errors[0].message).toContain('b.js')
+  })
+
+  it('leaves a legal var + var and function + function pair alone', () => {
+    expect(
+      findClassicRedeclarations([
+        bindingsOf('a.js', 'var shared = 1;\nfunction go() {}\n'),
+        bindingsOf('b.js', 'var shared = 2;\nfunction go() {}\n')
+      ])
+    ).toEqual([])
+  })
+
+  it('reports a lexical name clashing with a var of the same name', () => {
+    expect(
+      findClassicRedeclarations([
+        bindingsOf('a.js', 'var shared = 1;\n'),
+        bindingsOf('b.js', 'const shared = 2;\n')
+      ])
+    ).toEqual([{name: 'shared', files: ['a.js', 'b.js']}])
+  })
+
+  it('reports a class clashing with a later declaration', () => {
+    expect(
+      findClassicRedeclarations([
+        bindingsOf('a.js', 'class Widget {}\n'),
+        bindingsOf('b.js', 'function Widget() {}\n')
+      ])
+    ).toEqual([{name: 'Widget', files: ['a.js', 'b.js']}])
+  })
+
+  it('ignores names bound inside a function, which never collide', () => {
+    expect(
+      findClassicRedeclarations([
+        bindingsOf(
+          'a.js',
+          'function one() { let scoped = 1; return scoped }\n'
+        ),
+        bindingsOf('b.js', 'function two() { let scoped = 2; return scoped }\n')
+      ])
+    ).toEqual([])
+  })
+
+  it('reports each colliding name once across three files', () => {
+    const collisions = findClassicRedeclarations([
+      bindingsOf('a.js', 'let dup = 1;\n'),
+      bindingsOf('b.js', 'let dup = 2;\n'),
+      bindingsOf('c.js', 'let dup = 3;\n')
+    ])
+
+    expect(collisions).toHaveLength(1)
+    expect(collisions[0].name).toBe('dup')
+    expect(collisions[0].files).toEqual(['a.js', 'b.js', 'c.js'])
+  })
+
+  it('says nothing for a clean group', () => {
+    const {errors} = runLoader([
+      {name: 'a.js', content: 'let a = 1;\nconsole.log(a);\n'},
+      {name: 'b.js', content: 'let b = 2;\nconsole.log(b);\n'}
+    ])
+
+    expect(errors).toEqual([])
+  })
+})
 
 describe('type stripping via rspack swc', () => {
   it('erases annotations, interfaces and type aliases', () => {
