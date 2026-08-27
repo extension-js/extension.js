@@ -31,7 +31,7 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {PlaywrightPlugin} from './plugin-playwright'
-import {ReloadPlugin} from './plugin-reload'
+import {ReloadPlugin, SetupChunkLoadingTarget} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {StaticAssetsPlugin} from './plugin-static-assets'
@@ -171,6 +171,13 @@ export default function webpackConfig(
     // Dev-only reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops in production.
     new ReloadPlugin({
+      manifestPath,
+      browser: devOptions.browser
+    }),
+    // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
+    // Production needs it too: rspack's web-target loader appends a <script> to
+    // the host page, which never reaches a content script's isolated world.
+    new SetupChunkLoadingTarget({
       manifestPath,
       browser: devOptions.browser
     }),
