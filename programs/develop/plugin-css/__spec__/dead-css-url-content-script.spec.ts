@@ -57,6 +57,9 @@ describe('dead url() in a content-script stylesheet', () => {
     expect(warnings[0].message).toContain('/missing-probe.png')
     expect(warnings[0].message).toContain('content/styles.css')
     expect(warnings[0].message).toContain('EXTENSION_STRICT_REFS=true')
+    // A stylesheet path is a web path. path.relative hands back
+    // `content\\styles.css` on Windows, which printed the same defect two ways.
+    expect(warnings[0].message).not.toContain('\\')
   })
 
   it('escalates to a compilation error under EXTENSION_STRICT_REFS', () => {

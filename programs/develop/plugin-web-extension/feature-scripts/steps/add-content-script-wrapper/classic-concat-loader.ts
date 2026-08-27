@@ -248,10 +248,12 @@ export function findClassicRedeclarations(
   return collisions.map(({name, files}) => ({name, files: [...files]}))
 }
 
-// Absolute build paths read as noise next to the rest of the CLI output.
+// Absolute build paths read as noise next to the rest of the CLI output, and a
+// path.sep spelling would print the same defect two ways across platforms.
 function displayPath(file: string): string {
   const relative = path.relative(process.cwd(), file)
-  return relative && !relative.startsWith('..') ? relative : file
+  const shown = relative && !relative.startsWith('..') ? relative : file
+  return shown.split(path.sep).join('/')
 }
 
 function redeclarationMessage(

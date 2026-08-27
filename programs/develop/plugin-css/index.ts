@@ -14,6 +14,7 @@ import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
+import {toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
 import {maybeUseLess} from './css-tools/less'
 import {findPostCssConfig} from './css-tools/postcss'
@@ -177,16 +178,13 @@ export class CssPlugin {
             const key = `${issuer}|${req}`
             if (!warned.has(key) && compilation?.warnings) {
               warned.add(key)
+              const issuerPath = toPosixPath(
+                path.relative(manifestDir, issuer) || issuer
+              )
               const warning = new WebpackError(
-                messages.deadCssUrlRef(
-                  path.relative(manifestDir, issuer) || issuer,
-                  raw
-                )
+                messages.deadCssUrlRef(issuerPath, raw)
               )
-              ;(warning as Error & {file?: string}).file = path.relative(
-                manifestDir,
-                issuer
-              )
+              ;(warning as Error & {file?: string}).file = issuerPath
               compilation?.warnings.push(warning)
             }
             return false
