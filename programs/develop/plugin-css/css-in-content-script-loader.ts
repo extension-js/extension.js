@@ -19,6 +19,7 @@ export async function cssInContentScriptLoader(
 ): Promise<RuleSetRule[]> {
   return buildCssRules(projectPath, mode, usage, {
     nonModuleType: 'asset/inline',
-    issuer: (issuer) => isContentScriptEntry(issuer, manifestPath, projectPath)
+    issuer: (issuer) => isContentScriptEntry(issuer, manifestPath, projectPath),
+    manifestPath
   })
 }
