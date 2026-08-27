@@ -399,15 +399,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         "title": "Toolbar action",
       },
       {
-        "summary": "pages/ and scripts/ entrypoints",
-        "templates": [
-          "special-folders-pages",
-          "special-folders-scripts",
-        ],
-        "title": "Special folders",
-      },
-      {
-        "summary": "published in the catalog, not yet grouped",
+        "summary": "panel added to the browser developer tools",
         "templates": [
           "devtools",
           "devtools-preact",
@@ -416,7 +408,15 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
           "devtools-typescript",
           "devtools-vue",
         ],
-        "title": "More templates",
+        "title": "DevTools panel",
+      },
+      {
+        "summary": "pages/ and scripts/ entrypoints",
+        "templates": [
+          "special-folders-pages",
+          "special-folders-scripts",
+        ],
+        "title": "Special folders",
       },
     ],
     "names": [
@@ -471,14 +471,14 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "newtab-vue",
       "action",
       "action-locales",
-      "special-folders-pages",
-      "special-folders-scripts",
       "devtools",
       "devtools-preact",
       "devtools-react",
       "devtools-svelte",
       "devtools-typescript",
       "devtools-vue",
+      "special-folders-pages",
+      "special-folders-scripts",
     ],
     "notes": [
       "extension create <name> with no --template scaffolds javascript",

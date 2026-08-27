@@ -124,6 +124,18 @@ export const CURATED_GROUPS: readonly TemplateGroup[] = [
     templates: ['action', 'action-locales']
   },
   {
+    title: 'DevTools panel',
+    summary: 'panel added to the browser developer tools',
+    templates: [
+      'devtools',
+      'devtools-preact',
+      'devtools-react',
+      'devtools-svelte',
+      'devtools-typescript',
+      'devtools-vue'
+    ]
+  },
+  {
     title: 'Special folders',
     summary: 'pages/ and scripts/ entrypoints',
     templates: ['special-folders-pages', 'special-folders-scripts']
