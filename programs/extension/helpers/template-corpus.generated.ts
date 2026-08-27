@@ -13,7 +13,7 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/examples'
 
-export const TEMPLATE_CORPUS_REF = 'e6bee72ae08802f2f14048271fb93f76c10d6a37'
+export const TEMPLATE_CORPUS_REF = '787c974573f6ed70107e331e261924d20de64740'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
@@ -38,6 +38,12 @@ export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'content-svelte',
   'content-typescript',
   'content-vue',
+  'devtools',
+  'devtools-preact',
+  'devtools-react',
+  'devtools-svelte',
+  'devtools-typescript',
+  'devtools-vue',
   'init',
   'javascript',
   'newtab',

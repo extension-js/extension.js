@@ -310,9 +310,9 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     "bundled": [
       "javascript",
     ],
-    "catalogUrl": "https://github.com/extension-js/examples/tree/e6bee72ae08802f2f14048271fb93f76c10d6a37/examples",
+    "catalogUrl": "https://github.com/extension-js/examples/tree/787c974573f6ed70107e331e261924d20de64740/examples",
     "corpus": {
-      "ref": "e6bee72ae08802f2f14048271fb93f76c10d6a37",
+      "ref": "787c974573f6ed70107e331e261924d20de64740",
       "repo": "extension-js/examples",
     },
     "default": "javascript",
@@ -406,6 +406,18 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         ],
         "title": "Special folders",
       },
+      {
+        "summary": "published in the catalog, not yet grouped",
+        "templates": [
+          "devtools",
+          "devtools-preact",
+          "devtools-react",
+          "devtools-svelte",
+          "devtools-typescript",
+          "devtools-vue",
+        ],
+        "title": "More templates",
+      },
     ],
     "names": [
       "init",
@@ -461,6 +473,12 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "action-locales",
       "special-folders-pages",
       "special-folders-scripts",
+      "devtools",
+      "devtools-preact",
+      "devtools-react",
+      "devtools-svelte",
+      "devtools-typescript",
+      "devtools-vue",
     ],
     "notes": [
       "extension create <name> with no --template scaffolds javascript",
