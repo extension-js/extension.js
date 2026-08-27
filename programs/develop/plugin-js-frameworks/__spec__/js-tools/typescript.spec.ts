@@ -29,7 +29,7 @@ describe('typescript tools', () => {
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
 
-  it('getUserTypeScriptConfigFile finds tsconfig.json next to package.json only', async () => {
+  it('getUserTypeScriptConfigFile finds tsconfig.json next to package.json', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
       const s = toPosix(String(p))
       if (s.endsWith('/project/package.json')) return true
@@ -43,6 +43,49 @@ describe('typescript tools', () => {
     expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
       '/project/tsconfig.json'
     )
+  })
+
+  // Regression: a manifest-only project has no package.json to sit beside, so
+  // the lookup found nothing while writeTsConfig had already scaffolded at the
+  // project root. TypeScript detection stayed false and every .ts source hit
+  // the JS parser as 'const declarations must be initialized'.
+  it('getUserTypeScriptConfigFile finds a project-root tsconfig with no package.json', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      toPosix(String(p)).endsWith('/project/tsconfig.json')
+    )
+    const {getUserTypeScriptConfigFile} = await import(
+      '../../js-tools/typescript'
+    )
+
+    expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
+      '/project/tsconfig.json'
+    )
+  })
+
+  it('sees TypeScript in a manifest-only project once the scaffold is written', async () => {
+    const present = new Set<string>()
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      present.has(toPosix(String(p)))
+    )
+    ;(fs.readFileSync as any).mockImplementation(() => '')
+    ;(fs.readdirSync as any).mockImplementation(() => [
+      {isFile: () => true, isDirectory: () => false, name: 'scripts.ts'}
+    ])
+    ;(fs.writeFileSync as any).mockImplementation((p: string) => {
+      present.add(toPosix(String(p)))
+    })
+
+    const {ensureTypeScriptConfig, isUsingTypeScript} = await import(
+      '../../js-tools/typescript'
+    )
+
+    expect(isUsingTypeScript('/project')).toBe(false)
+
+    ensureTypeScriptConfig('/project')
+
+    const [writtenPath] = (fs.writeFileSync as any).mock.calls[0]
+    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
+    expect(isUsingTypeScript('/project')).toBe(true)
   })
 
   it('ensureTypeScriptConfig scaffolds the default tsconfig when TS files are present without one', async () => {
