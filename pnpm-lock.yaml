@@ -276,8 +276,8 @@ importers:
         specifier: ^8.16.0
         version: 8.16.0
       browser-extension-manifest-fields:
-        specifier: ^2.2.9
-        version: 2.2.9
+        specifier: ^2.3.0
+        version: 2.3.0
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -3022,8 +3022,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  browser-extension-manifest-fields@2.2.9:
-    resolution: {integrity: sha512-1s3ISUcO4A+Ml2842+xV5fNmRFqv4y7D6WktnoOdUu4b4VfmOrdcfrOftLI3WTkSaxLpUJX5ahA8Ic7YuFAdXw==}
+  browser-extension-manifest-fields@2.3.0:
+    resolution: {integrity: sha512-yFOqIiJzs+zYEYew16inbFhpR37Vl+YkqIbepVPRikXPLYPgfcgkoylpJ/tswBKwzd0diUhm9+SlI+iEX4smgg==}
     engines: {node: '>=18'}
 
   browserslist@4.28.1:
@@ -7311,7 +7311,7 @@ snapshots:
     dependencies:
       which: 4.0.0
 
-  browser-extension-manifest-fields@2.2.9: {}
+  browser-extension-manifest-fields@2.3.0: {}
 
   browserslist@4.28.1:
     dependencies:
