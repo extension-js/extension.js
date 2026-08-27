@@ -671,9 +671,17 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             backgroundColor: SURFACE_LAUNCHER,
             borderColor: BORDER_NEUTRAL,
             color: '#d4d4d4',
-            opacity: 1
+            opacity: 1,
+            borderRadius: '0.75rem'
           }}
-          className="pointer-events-auto relative rounded-full border shadow hover:opacity-90"
+          // The radius is inline for the same reason the colours above are:
+          // the utility class loses to the Button's own `rounded-md` base, and
+          // this surface renders inside whatever stylesheet the host page has.
+          // 0.75rem is the homepage hero's own radius (.ext-hero-cmd in
+          // extension.js.org/style.css), so the badge reads as one family with
+          // the site. Not overflow-hidden, which would clip the error count
+          // off the corner.
+          className="pointer-events-auto relative border shadow hover:opacity-90"
           size="icon"
           variant="secondary"
           aria-label={
@@ -699,8 +707,14 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             src={logo}
             alt=""
             aria-hidden="true"
+            // Covers the button's whole box rather than sitting inside it, so
+            // the dark launcher surface cannot show through at the corners
+            // once the bitmap is clipped. 11px, not 12: the 1px border is the
+            // inset, and inner = outer - inset is the same concentric rule the
+            // site applies to its own frames.
+            style={{borderRadius: '11px'}}
             className={
-              'max-h-full max-w-full select-none ' +
+              'absolute inset-0 h-full w-full select-none ' +
               (diagnosticsIssueCount > 0 || errorCount > 0
                 ? 'ring-1 ring-red-500/80'
                 : '')
