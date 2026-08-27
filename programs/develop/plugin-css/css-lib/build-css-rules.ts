@@ -22,6 +22,9 @@ interface BuildCssRulesOptions {
   // CSS (`asset/inline`); HTML entries emit a real stylesheet (`css`)
   nonModuleType: 'asset/inline' | 'css'
   issuer: (issuer: string) => boolean
+  // Set for inlined stylesheets, whose url() children never reach the module
+  // graph and so need the text-scan reference check instead.
+  manifestPath?: string
 }
 
 export async function buildCssRules(
@@ -31,7 +34,7 @@ export async function buildCssRules(
   opts: BuildCssRulesOptions
 ): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
-  const {nonModuleType, issuer} = opts
+  const {nonModuleType, issuer, manifestPath} = opts
 
   const fileTypes: Array<{
     test: RegExp
@@ -141,6 +144,15 @@ export async function buildCssRules(
       if (type === 'css' || type === 'css/module') {
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('late-css-import-loader')
+        })
+      }
+
+      // First in the list runs LAST, so the scan reads the final CSS a
+      // preprocessor produced, not the .scss or .less it was authored in.
+      if (type === 'asset/inline' && manifestPath) {
+        ;(use as Array<Record<string, unknown>>).unshift({
+          loader: resolveDevelopDistFile('dead-css-url-loader'),
+          options: {manifestPath, projectPath}
         })
       }
 
