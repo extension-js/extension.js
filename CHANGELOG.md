@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.1.8 (August 27, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Resync the bundled javascript template with the examples source of truth ([9e08f869](https://github.com/extension-js/extension.js/commit/9e08f86985f838e2f945a33662c3a05d0d0880be))
+- Take the manifest-fields release that keeps nested scripts paths apart ([52f958ab](https://github.com/extension-js/extension.js/commit/52f958abf624c7923181de45d240a83ca34a91e5))
+- Move the template corpus pin to the commit with the devtools templates ([02983e11](https://github.com/extension-js/extension.js/commit/02983e1179b8ff1c663df9ef1203c6028f319c8d))
+</details>
+
 ## 4.1.7 (August 27, 2026)
 
 <details>
