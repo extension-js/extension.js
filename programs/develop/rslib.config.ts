@@ -104,6 +104,10 @@ const nodeEntries = {
     __dirname,
     './plugin-css/css-parse-guard-loader.ts'
   ),
+  'dead-css-url-loader': path.resolve(
+    __dirname,
+    './plugin-css/dead-css-url-loader.ts'
+  ),
   'late-css-import-loader': path.resolve(
     __dirname,
     './plugin-css/late-css-import-loader.ts'

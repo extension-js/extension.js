@@ -20,6 +20,7 @@
 
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
+import * as path from 'node:path'
 
 const requireModule = createRequire(import.meta.url)
 
@@ -58,10 +59,25 @@ const OPAQUE_SCOPES = new Set([
 
 const NON_CHILD_KEYS = new Set(['type', 'start', 'end', 'loc', 'range'])
 
+export interface ClassicTopLevelBinding {
+  name: string
+  // let/const/class collide on redeclaration; var and function do not.
+  lexical: boolean
+}
+
 export function collectClassicGlobalNames(
-  _file: string,
+  file: string,
   content: string
 ): string[] {
+  return collectClassicTopLevelBindings(file, content).map(
+    (binding) => binding.name
+  )
+}
+
+export function collectClassicTopLevelBindings(
+  _file: string,
+  content: string
+): ClassicTopLevelBinding[] {
   // acorn parses JavaScript only, which is all this ever sees: TS members are
   // transpiled before they reach here. Loaded lazily to match the transpile path.
   const acorn = requireModule('acorn')
@@ -74,7 +90,7 @@ export function collectClassicGlobalNames(
     allowAwaitOutsideFunction: true,
     allowHashBang: true
   })
-  const names: string[] = []
+  const bindings: ClassicTopLevelBinding[] = []
 
   // Acorn AST nodes traversed dynamically; every field is runtime-checked, so
   // the walker sees a loose recursive shape instead of acorn's node union.
@@ -92,11 +108,14 @@ export function collectClassicGlobalNames(
     [key: string]: unknown
   }
 
-  const addBindingNames = (node: LooseAstNode | null | undefined): void => {
+  const addBindingNames = (
+    node: LooseAstNode | null | undefined,
+    lexical: boolean
+  ): void => {
     if (!node || typeof node.type !== 'string') return
     switch (node.type) {
       case 'Identifier':
-        names.push(String(node.name))
+        bindings.push({name: String(node.name), lexical})
         return
       case 'ObjectPattern':
         for (const prop of node.properties || []) {
@@ -104,19 +123,22 @@ export function collectClassicGlobalNames(
           // RestElement has `argument`; Property has `value` (the binding
           // target, since `key` is the source property name, not a binding).
           addBindingNames(
-            prop.type === 'RestElement' ? prop.argument : prop.value
+            prop.type === 'RestElement' ? prop.argument : prop.value,
+            lexical
           )
         }
         return
       case 'ArrayPattern':
-        for (const element of node.elements || []) addBindingNames(element)
+        for (const element of node.elements || []) {
+          addBindingNames(element, lexical)
+        }
         return
       case 'AssignmentPattern':
         // `var {a = 1} = o` / `var [b = 2] = arr`. The default is on the right.
-        addBindingNames(node.left)
+        addBindingNames(node.left, lexical)
         return
       case 'RestElement':
-        addBindingNames(node.argument)
+        addBindingNames(node.argument, lexical)
         return
       default:
         return
@@ -134,7 +156,7 @@ export function collectClassicGlobalNames(
       // scripts; a nested var hoists to the global like Chrome does.
       if (topLevel || node.kind === 'var') {
         for (const declarator of node.declarations || []) {
-          addBindingNames(declarator.id)
+          addBindingNames(declarator.id, node.kind !== 'var')
         }
       }
       return
@@ -144,7 +166,12 @@ export function collectClassicGlobalNames(
       node.type === 'FunctionDeclaration' ||
       node.type === 'ClassDeclaration'
     ) {
-      if (topLevel && node.id) names.push(String(node.id.name))
+      if (topLevel && node.id) {
+        bindings.push({
+          name: String(node.id.name),
+          lexical: node.type === 'ClassDeclaration'
+        })
+      }
       // Never descend into function/class bodies, their vars stay local.
       return
     }
@@ -166,7 +193,7 @@ export function collectClassicGlobalNames(
     visit(statement, true)
   }
 
-  return names
+  return bindings
 }
 
 interface ClassicConcatLoaderContext {
@@ -174,6 +201,71 @@ interface ClassicConcatLoaderContext {
   resourceQuery: string
   addDependency(dep: string): void
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
+  emitError?(error: Error): void
+  _compilation?: {errors?: Error[]}
+}
+
+// The concatenated files share one scope, exactly as the browser evaluates
+// them, so a name declared twice is a SyntaxError and the whole bundle dies.
+// Minification renames the binding before the emitted-artifact check sees it,
+// so this is the only place that can name the real binding and both files.
+export function findClassicRedeclarations(
+  perFile: Array<{file: string; bindings: ClassicTopLevelBinding[]}>
+): Array<{name: string; files: string[]}> {
+  const seen = new Map<string, {files: string[]; lexical: boolean}>()
+  const collisions: Array<{name: string; files: string[]}> = []
+
+  for (const {file, bindings} of perFile) {
+    // Within one file the parser already rejects a redeclaration, so only the
+    // first mention of a name per file can start or extend a cross-file clash.
+    const inThisFile = new Map<string, boolean>()
+    for (const binding of bindings) {
+      if (!inThisFile.has(binding.name)) {
+        inThisFile.set(binding.name, binding.lexical)
+      } else if (binding.lexical) {
+        inThisFile.set(binding.name, true)
+      }
+    }
+
+    for (const [name, lexical] of inThisFile) {
+      const previous = seen.get(name)
+      if (!previous) {
+        seen.set(name, {files: [file], lexical})
+        continue
+      }
+      previous.files.push(file)
+      // var + var and function + function redeclare legally. One let, const,
+      // or class on either side makes the pair fatal.
+      if (previous.lexical || lexical) {
+        previous.lexical = true
+        if (previous.files.length === 2) {
+          collisions.push({name, files: previous.files})
+        }
+      }
+    }
+  }
+
+  return collisions.map(({name, files}) => ({name, files: [...files]}))
+}
+
+// Absolute build paths read as noise next to the rest of the CLI output.
+function displayPath(file: string): string {
+  const relative = path.relative(process.cwd(), file)
+  return relative && !relative.startsWith('..') ? relative : file
+}
+
+function redeclarationMessage(
+  name: string,
+  files: string[],
+  feature: string
+): string {
+  const where = feature ? ` of ${feature}` : ''
+  return [
+    `Two files${where} declare ${name} at the top level, and at least one uses let, const, or class.`,
+    ...files.map((file) => `FILE ${displayPath(file)}`),
+    'The browser evaluates these files in one shared scope, so the second declaration is a SyntaxError and none of the bundle runs.',
+    'Rename one of them, or move the shared value into a single file.'
+  ].join('\n')
 }
 
 const BASE64 =
@@ -246,6 +338,10 @@ export default function classicConcatLoader(
   }
 
   const globalNames: string[] = []
+  const perFileBindings: Array<{
+    file: string
+    bindings: ClassicTopLevelBinding[]
+  }> = []
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
     const raw = fs.readFileSync(file, 'utf8')
@@ -253,7 +349,9 @@ export default function classicConcatLoader(
     // preserves line positions, but removed type-only blocks shift them).
     const content = /\.ts$/i.test(file) ? transpileClassicTs(file, raw) : raw
     try {
-      globalNames.push(...collectClassicGlobalNames(file, content))
+      const bindings = collectClassicTopLevelBindings(file, content)
+      perFileBindings.push({file, bindings})
+      globalNames.push(...bindings.map((binding) => binding.name))
     } catch {
       // A file the parser chokes on still concatenates; it just gets no
       // global bridge.
@@ -274,6 +372,18 @@ export default function classicConcatLoader(
     if (fileIdx < jsFiles.length - 1) {
       outputLines.push(';')
       lineMappings.push(null)
+    }
+  }
+
+  for (const {name, files} of findClassicRedeclarations(perFileBindings)) {
+    const report = new Error(
+      redeclarationMessage(name, files, feature)
+    ) as Error & {file?: string}
+    report.file = displayPath(files[0])
+    if (this._compilation?.errors) {
+      this._compilation.errors.push(report)
+    } else {
+      this.emitError?.(report)
     }
   }
 

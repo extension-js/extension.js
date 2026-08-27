@@ -44,7 +44,7 @@ The feature is wired from `index.ts`, in every mode:
 - `steps/add-public-path-runtime-module.ts`
   Injects the production public-path runtime module for content bundles.
 
-- `steps/validate-content-script-syntax.ts`
+- `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.
 
 - `scripts-lib/*`
