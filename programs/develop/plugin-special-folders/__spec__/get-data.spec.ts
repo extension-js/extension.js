@@ -192,6 +192,40 @@ describe('getSpecialFoldersDataForCompiler', () => {
     warn.mockRestore()
   })
 
+  // Regression: a TS entry is injected by its emitted `.js` name, never by the
+  // `.ts` source path, so matching the source spelling alone dropped every
+  // compiled scripts/ entry the project referenced correctly.
+  it('keeps a compiled scripts/ entry referenced by its emitted .js path', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emitref-'))
+    tempDirs.push(dir)
+    const scriptsDir = path.join(dir, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const source = path.join(scriptsDir, 'logger-client.ts')
+    fs.writeFileSync(source, 'export const client = 1\n', 'utf8')
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        web_accessible_resources: [
+          {resources: ['scripts/logger-client.js'], matches: ['<all_urls>']}
+        ]
+      }),
+      'utf8'
+    )
+
+    getSpecialFoldersDataMock.mockReturnValue({
+      pages: {},
+      scripts: {'scripts/logger-client': [source]},
+      public: {}
+    })
+
+    const compiler = {options: {context: dir}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.scripts?.['scripts/logger-client']).toEqual([source])
+  })
+
   it('keeps all scripts/ entries when no reference assets are readable (fail open)', () => {
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},

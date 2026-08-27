@@ -230,6 +230,24 @@ function collectReferenceCorpus(projectRoot: string): string {
   return files === 0 ? '' : parts.join('\n')
 }
 
+// Sources the compiler rewrites to .js: nobody injects `scripts/foo.ts`, they
+// inject the `scripts/foo.js` the build emits.
+const COMPILED_TO_JS_EXTS = new Set([
+  '.ts',
+  '.tsx',
+  '.jsx',
+  '.mts',
+  '.cts',
+  '.mjs',
+  '.cjs'
+])
+
+function referenceSpellings(relativePath: string): string[] {
+  const ext = path.extname(relativePath).toLowerCase()
+  if (!COMPILED_TO_JS_EXTS.has(ext)) return [relativePath]
+  return [relativePath, `${relativePath.slice(0, -ext.length)}.js`]
+}
+
 const warnedDroppedScripts = new Set<string>()
 
 function filterUnreferencedScripts(
@@ -248,8 +266,9 @@ function filterUnreferencedScripts(
     if (!path.isAbsolute(abs)) return true
     const rel = path.relative(projectRoot, abs).split(path.sep).join('/')
     // Match the project-relative path (`scripts/foo.js`) as a substring, which
-    // also covers `/scripts/foo.js` runtime-injection paths.
-    return corpus.includes(rel)
+    // also covers `/scripts/foo.js` runtime-injection paths. A compiled source
+    // is only ever injected by its emitted name, so accept that spelling too.
+    return referenceSpellings(rel).some((spelling) => corpus.includes(spelling))
   }
 
   const next: FilepathList = {}
