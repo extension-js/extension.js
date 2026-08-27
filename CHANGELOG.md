@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 4.1.7 (August 27, 2026)
+
+<details>
+<summary>Other changes (1)</summary>
+
+- Load content-script chunks the isolated world can reach in builds ([07c5b1d6](https://github.com/extension-js/extension.js/commit/07c5b1d6567b351c6f38f9a673ff8aec8412cec9))
+</details>
+
 ## 4.1.6 (August 27, 2026)
 
 <details>
