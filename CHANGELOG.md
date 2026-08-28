@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 4.1.9 (August 28, 2026)
+
+<details>
+<summary>Other changes (3)</summary>
+
+- Move the template corpus pin past the permission trims ([d3bee4f7](https://github.com/extension-js/extension.js/commit/d3bee4f73587b7a27072a329010895b690480f96))
+- Report pin age and refuse a pin that has left the corpus branch ([f04f2534](https://github.com/extension-js/extension.js/commit/f04f2534e3950127a25abb3a7d11ec6ea97a3f41))
+- Group the devtools templates under a DevTools panel heading ([a46c5a6d](https://github.com/extension-js/extension.js/commit/a46c5a6d3a236037dfbb1a756876d489ebee07c9))
+</details>
+
 ## 4.1.8 (August 27, 2026)
 
 <details>
