@@ -18,6 +18,10 @@ type GetDxStatusMessage = {
   type: 'get-dx-status'
 }
 
+type OpenOptionsPageMessage = {
+  type: 'open-options-page'
+}
+
 type DxSignalMessage = {
   type: 'dx-signal'
   level?: 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
@@ -40,7 +44,11 @@ type DxStatusResponse = {
   extensionId?: string
 }
 
-type KnownMessage = ResolveIconMessage | GetDxStatusMessage | DxSignalMessage
+type KnownMessage =
+  | ResolveIconMessage
+  | GetDxStatusMessage
+  | OpenOptionsPageMessage
+  | DxSignalMessage
 
 function isBuiltInExtension(extension: chrome.management.ExtensionInfo) {
   const name = String(extension.name || '').toLowerCase()
@@ -135,6 +143,25 @@ chrome.runtime.onMessage.addListener(
         .catch((error) =>
           sendResponse({ok: false, error: String(error || 'Unknown error')})
         )
+      return true
+    }
+
+    if (message.type === 'open-options-page') {
+      // Content scripts cannot call openOptionsPage, so the overlay asks here.
+      try {
+        chrome.runtime.openOptionsPage(() => {
+          if (chrome.runtime.lastError) {
+            sendResponse({
+              ok: false,
+              error: String(chrome.runtime.lastError.message || 'Unknown error')
+            })
+            return
+          }
+          sendResponse({ok: true})
+        })
+      } catch (error) {
+        sendResponse({ok: false, error: String(error || 'Unknown error')})
+      }
       return true
     }
 
