@@ -234,6 +234,40 @@ describe('webpack/command-dev', () => {
       expect(devServerOptions().polyfill).toBe(false)
     })
 
+    it('honors commands.dev.browser when no CLI browser is given', async () => {
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        browser: 'firefox'
+      })
+
+      await extensionDev('/proj', {
+        browser: undefined,
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions().browser).toBe('firefox')
+      expect(devServerOptions().browser).toBe('firefox')
+      expect((configLoaderMod as any).loadBrowserConfig).toHaveBeenCalledWith(
+        '/proj',
+        'firefox'
+      )
+    })
+
+    it('lets an explicit CLI browser beat commands.dev.browser', async () => {
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        browser: 'firefox'
+      })
+
+      await extensionDev('/proj', {
+        browser: 'edge',
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions().browser).toBe('edge')
+      expect(devServerOptions().browser).toBe('edge')
+    })
+
     it('lets explicit CLI values beat commands.dev in both directions (both)', async () => {
       ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
         startingUrl: 'https://from-commands-dev.example',

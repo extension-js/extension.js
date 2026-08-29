@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const extensionDev = vi.fn(async () => {})
+const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
 const packageSafariExtension = vi.fn(async () => {})
 const safariPreflightError = vi.fn((): string | null => null)
 const setupParentWatchdog = vi.fn()
@@ -14,7 +15,10 @@ vi.mock('../browsers', () => ({
   launchBrowser: vi.fn(async () => {})
 }))
 vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({extensionDev}))
+  loadExtensionDevelopModule: vi.fn(async () => ({
+    extensionDev,
+    loadCommandConfig
+  }))
 }))
 vi.mock('../browsers/run-safari/safari-launch', () => ({
   packageSafariExtension: (...args: unknown[]) =>
@@ -84,6 +88,26 @@ describe('extension dev', () => {
     expect(devArgs.logColor).toBeUndefined()
     expect(devArgs.profile).toBeUndefined()
     expect(typeof devArgs.launcher).toBe('function')
+  })
+
+  it('adopts extension.config.js commands.dev.browser when --browser is not typed', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+
+    expect(await run(['dev', './my-extension'])).toBe(0)
+    const [, devArgs] = extensionDev.mock.calls[0] as any[]
+    expect(devArgs.browser).toBe('firefox')
+
+    loadCommandConfig.mockResolvedValue({})
+  })
+
+  it('lets a typed --browser beat commands.dev.browser', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+
+    expect(await run(['dev', './my-extension', '--browser', 'edge'])).toBe(0)
+    const [, devArgs] = extensionDev.mock.calls[0] as any[]
+    expect(devArgs.browser).toBe('edge')
+
+    loadCommandConfig.mockResolvedValue({})
   })
 
   it('normalizes --profile false and --polyfill false', async () => {

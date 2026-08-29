@@ -17,6 +17,7 @@ import {
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
 import {markErrorFramed} from '../helpers/cli-failure'
+import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -247,7 +248,16 @@ export function registerDevCommand(program: Command) {
         options: DevOptions,
         command: Command
       ) => {
-        const {browser = 'chromium', ...devOptions} = options
+        const {browser: cliBrowser, ...devOptions} = options
+        // Only an untyped --browser falls through to extension.config.js
+        // commands.dev.browser, then the stock chromium default.
+        const browser =
+          cliBrowser ??
+          ((await resolveConfigBrowser(
+            pathOrRemoteUrl || process.cwd(),
+            'dev'
+          )) as DevOptions['browser']) ??
+          'chromium'
         if (devOptions.debug || devOptions.author || devOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
