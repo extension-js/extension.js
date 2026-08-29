@@ -6,7 +6,8 @@ const captured = vi.hoisted(() => ({
 }))
 
 vi.mock('fs', () => ({
-  readFileSync: vi.fn(() => JSON.stringify(currentManifest))
+  readFileSync: vi.fn(() => JSON.stringify(currentManifest)),
+  existsSync: vi.fn(() => currentFilesExist)
 }))
 
 vi.mock('../steps/setup-reload-strategy/setup-background-entry', () => ({
@@ -31,6 +32,7 @@ vi.mock(
 )
 
 let currentManifest: any = {}
+let currentFilesExist = true
 
 const {SetupReloadStrategy} = await import(
   '../steps/setup-reload-strategy/index'
@@ -43,13 +45,14 @@ function run(manifest: any, browser = 'chrome') {
   new SetupReloadStrategy({
     manifestPath: '/project/manifest.json',
     browser
-  } as any).apply({} as any)
+  } as any).apply({options: {}} as any)
   return captured.webExtension[0]
 }
 
 describe('SetupReloadStrategy background entry', () => {
   beforeEach(() => {
     currentManifest = {}
+    currentFilesExist = true
   })
 
   it('uses a service worker entry for MV3 on chromium', () => {
@@ -62,6 +65,29 @@ describe('SetupReloadStrategy background entry', () => {
       tryCatchWrapper: true,
       eagerChunkLoading: false
     })
+  })
+
+  // Chromium runs a Firefox-style MV3 background.scripts bundle as a worker
+  // under the background/scripts entry. Naming background/service_worker here
+  // crashed production builds, where no such entry is ever synthesized.
+  it('uses the background/scripts entry for MV3 background.scripts on chromium', () => {
+    const opts = run({
+      manifest_version: 3,
+      background: {scripts: ['b.js']}
+    })
+    expect(opts.background.serviceWorkerEntry).toBe('background/scripts')
+  })
+
+  // A missing file produces no entry at all, and naming one trips the fork's
+  // entryOption assert before the curated missing-file error can surface.
+  it('omits the worker entry when the declared background file is missing', () => {
+    currentFilesExist = false
+    const opts = run({
+      manifest_version: 3,
+      background: {service_worker: 'b.js'}
+    })
+    expect(opts.background.serviceWorkerEntry).toBeUndefined()
+    expect(opts.background.pageEntry).toBeUndefined()
   })
 
   it('uses a page entry for MV2 on chromium', () => {
@@ -169,7 +195,7 @@ describe('SetupReloadStrategy wiring', () => {
     captured.backgroundEntry.length = 0
     new SetupReloadStrategy({
       manifestPath: '/project/manifest.json'
-    } as any).apply({} as any)
+    } as any).apply({options: {}} as any)
     expect(captured.backgroundEntry[0].browser).toBe('chrome')
   })
 })

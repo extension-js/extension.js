@@ -7,22 +7,30 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {stripBom} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {getCanonicalContentScriptJsAssetName} from '../../../plugin-web-extension/feature-scripts/contracts'
+import {getBackgroundWorkerEntryName} from '../../../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import WebExtension from './webpack-target-webextension-fork'
 
 // The background entry name the chunk-loading target keys its runtime off.
-// Pure: it reads the manifest shape and nothing else, so both the dev reload
-// strategy and the production chunk-loading target can share it.
+// It resolves against the entries AddScripts will actually create, so both
+// the dev reload strategy and the production chunk-loading target can share it.
 export function getBackgroundEntryName(
   manifest: Manifest,
-  browser: DevOptions['browser']
-) {
+  browser: DevOptions['browser'],
+  context: {manifestDir: string; projectPath?: string}
+): {
+  pageEntry?: string
+  serviceWorkerEntry?: string
+  tryCatchWrapper: boolean
+  eagerChunkLoading: boolean
+} {
   if (manifest.background) {
     if (isGeckoBasedBrowser(String(browser))) {
       return {
@@ -33,8 +41,25 @@ export function getBackgroundEntryName(
     }
 
     if (manifest.manifest_version === 3) {
+      const serviceWorkerEntry = getBackgroundWorkerEntryName({
+        manifest,
+        browser,
+        manifestDir: context.manifestDir,
+        projectPath: context.projectPath
+      })
+
+      // Naming an entry that will not exist makes the fork assert at
+      // entryOption and kill the build before the scripts feature can report
+      // the real problem, such as a missing service worker file.
+      if (!serviceWorkerEntry) {
+        return {
+          tryCatchWrapper: true,
+          eagerChunkLoading: false
+        }
+      }
+
       return {
-        serviceWorkerEntry: 'background/service_worker',
+        serviceWorkerEntry,
         tryCatchWrapper: true,
         eagerChunkLoading: false
       }
@@ -125,7 +150,10 @@ export class SetupReloadStrategy {
     }).apply(compiler)
 
     new WebExtension({
-      background: getBackgroundEntryName(patchedManifest, this.browser),
+      background: getBackgroundEntryName(patchedManifest, this.browser, {
+        manifestDir: path.dirname(this.manifestPath),
+        projectPath: compiler.options.context as string | undefined
+      }),
       hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta

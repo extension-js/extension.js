@@ -25,11 +25,16 @@ afterEach(() => {
   }
 })
 
-function writeManifest(manifest: unknown) {
+function writeManifest(manifest: unknown, files: string[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-chunk-target-'))
   tempDirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8')
+  for (const file of files) {
+    const filePath = path.join(dir, file)
+    fs.mkdirSync(path.dirname(filePath), {recursive: true})
+    fs.writeFileSync(filePath, '// stub', 'utf8')
+  }
   return manifestPath
 }
 
@@ -54,7 +59,7 @@ describe('SetupChunkLoadingTarget', () => {
   }
 
   it('installs the web-extension target for a production build', () => {
-    const manifestPath = writeManifest(manifest)
+    const manifestPath = writeManifest(manifest, ['background/index.js'])
 
     new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
       makeCompiler('production')
@@ -137,5 +142,49 @@ describe('SetupChunkLoadingTarget', () => {
     expect(
       (webExtensionCtor.mock.calls[0][0] as any).background.serviceWorkerEntry
     ).toBeUndefined()
+  })
+
+  // Regression: a cross-browser MV3 manifest with Firefox-style
+  // background.scripts bundles as the background/scripts entry on Chromium.
+  // Naming background/service_worker here made the fork assert at entryOption
+  // and hard-crash every production build of such a manifest.
+  it('resolves a background.scripts manifest to the background/scripts entry', () => {
+    const manifestPath = writeManifest(
+      {
+        manifest_version: 3,
+        name: 'scripts background',
+        version: '1.0',
+        background: {scripts: ['background.js']},
+        content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
+      },
+      ['background.js']
+    )
+
+    new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
+      makeCompiler('production')
+    )
+
+    const options = webExtensionCtor.mock.calls[0][0] as any
+    expect(options.background.serviceWorkerEntry).toBe('background/scripts')
+  })
+
+  // Regression: a service_worker path that resolves to no file produces no
+  // entry, and naming one crashed the build with the fork's entryOption throw
+  // before the curated ScriptsMissingFile diagnostic could surface.
+  it('omits the service worker entry when its file does not exist', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 3,
+      name: 'missing worker',
+      version: '1.0',
+      background: {service_worker: 'background/missing.js'}
+    })
+
+    new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
+      makeCompiler('production')
+    )
+
+    const options = webExtensionCtor.mock.calls[0][0] as any
+    expect(options.background.serviceWorkerEntry).toBeUndefined()
+    expect(options.background.pageEntry).toBeUndefined()
   })
 })
