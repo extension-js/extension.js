@@ -6,8 +6,8 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Dev-only helper for HTML pages: sets the rspack/webpack dev-server hot=false
-// URL guards so UI pages fall back to full reload; content scripts stay hot-only.
+// Dev-only minimum script for HTML pages: HMR needs at least one JS file per
+// entry. Older sessions wrote hot=false URL guards; scrub them so HMR applies.
 const safeLocation =
   typeof globalThis !== 'undefined'
     ? (
@@ -34,12 +34,12 @@ try {
     String(safeLocation.protocol || '').includes('-extension:')
   ) {
     const q = String(safeLocation.search || '').toLowerCase()
-    const alreadySet =
-      q.includes('rspack-dev-server-hot=false') &&
+    const hasStaleGuards =
+      q.includes('rspack-dev-server-hot=false') ||
       q.includes('webpack-dev-server-hot=false')
 
     if (
-      !alreadySet &&
+      hasStaleGuards &&
       typeof URL === 'function' &&
       typeof safeHistory === 'object' &&
       safeHistory &&
@@ -47,8 +47,8 @@ try {
     ) {
       const u = new URL(String(safeLocation.href))
 
-      u.searchParams.set('rspack-dev-server-hot', 'false')
-      u.searchParams.set('webpack-dev-server-hot', 'false')
+      u.searchParams.delete('rspack-dev-server-hot')
+      u.searchParams.delete('webpack-dev-server-hot')
       safeHistory.replaceState(null, '', u.toString())
     }
   }
