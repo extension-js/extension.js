@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 4.1.10 (August 29, 2026)
+
+### Features
+
+- Enable HMR on extension HTML pages and scrub stale hot=false guards ([37cfdf31](https://github.com/extension-js/extension.js/commit/37cfdf31bd93be712a81947efd1238b95cd68fab))
+
+### Fixes
+
+- Resolve the background worker entry against entries that exist ([1ac00888](https://github.com/extension-js/extension.js/commit/1ac0088826cff2a858bf6ecb82b41ee710b858e8))
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Honor extension.config.js commands.dev.browser when no flag is given ([71f087aa](https://github.com/extension-js/extension.js/commit/71f087aabad00579650c096222af38c87e8c43eb))
+- Reopen the panel from the badge and add a settings gear button ([3a2ee4bc](https://github.com/extension-js/extension.js/commit/3a2ee4bc2308bcd57d7ad8ea676860f6db87ba6c))
+- Route the overlay badge to an options page with an on-off toggle ([b782948b](https://github.com/extension-js/extension.js/commit/b782948b08f44ec612053edafba935dc7987ddc9))
+- Probe only emitted stylesheets from the content script wrapper ([7223e818](https://github.com/extension-js/extension.js/commit/7223e818de07c4bc5a8c500dc59d3c042451747a))
+</details>
+
 ## 4.1.9 (August 28, 2026)
 
 <details>
