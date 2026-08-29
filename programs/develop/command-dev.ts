@@ -69,8 +69,14 @@ export async function extensionDev(
       assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
 
+    // commands.dev.browser must be read before the target is picked, or the
+    // config file can never choose the browser when no --browser flag arrived.
+    const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+    const configBrowser = (commandConfig as {browser?: DevOptions['browser']})
+      .browser
+
     const browser = normalizeBrowser(
-      devOptions.browser || 'chrome',
+      devOptions.browser || configBrowser || 'chrome',
       devOptions.chromiumBinary,
       devOptions.geckoBinary || devOptions.firefoxBinary,
       devOptions.safariBinary
@@ -87,7 +93,6 @@ export async function extensionDev(
     // stock defaults, then browser.*, then commands.dev, then CLI. Unset CLI
     // keys fall through so shared extension.config.js values apply.
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
-    const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
     const merged = withDarkMode({
       ...mergeOptionLayers<DevOptions & BrowserConfig>(
         DEV_COMMAND_DEFAULTS,
