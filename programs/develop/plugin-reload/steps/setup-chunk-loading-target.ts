@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {stripBom} from '../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
@@ -65,7 +66,10 @@ export class SetupChunkLoadingTarget {
 
     new WebExtension({
       background: {
-        ...getBackgroundEntryName(patchedManifest, this.browser),
+        ...getBackgroundEntryName(patchedManifest, this.browser, {
+          manifestDir: path.dirname(this.manifestPath),
+          projectPath: compiler.options.context as string | undefined
+        }),
         // The classic loader adds a background runtime module that asks the
         // service worker to inject chunks for a content script. A production
         // background usually optimizes down to a bundle with no webpack

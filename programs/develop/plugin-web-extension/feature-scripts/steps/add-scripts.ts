@@ -14,10 +14,14 @@ import {stripBom} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
-import {getCssEntries, getScriptEntries} from '../scripts-lib/utils'
+import {
+  getCssEntries,
+  getScriptEntries,
+  isRemoteUrl,
+  resolveScriptEntryPath
+} from '../scripts-lib/utils'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
 
-const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 const isContentScriptFeature = (feature: string) =>
   feature.startsWith('content_scripts/')
 const isScriptsFolderFeature = (feature: string) =>
@@ -154,14 +158,8 @@ export class AddScripts {
     } catch {
       manifestJson = {}
     }
-    const resolveEntryPath = (entry: string) => {
-      if (!entry || isRemoteUrl(entry)) return entry
-      if (entry.startsWith('/') && !path.isAbsolute(entry)) {
-        return path.join(projectPath, entry.slice(1))
-      }
-      if (path.isAbsolute(entry)) return entry
-      return path.join(manifestDir, entry)
-    }
+    const resolveEntryPath = (entry: string) =>
+      resolveScriptEntryPath(entry, manifestDir, projectPath)
 
     // A scripts/ file also claimed by a content_scripts group is already built
     // by that entry; a standalone duplicate trips rspack on vendored UMD libs.
