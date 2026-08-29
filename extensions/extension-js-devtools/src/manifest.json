@@ -32,6 +32,10 @@
     "default_title": "Open Extension.js"
   },
   "devtools_page": "devtools/index.html",
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

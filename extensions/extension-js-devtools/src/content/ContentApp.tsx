@@ -14,6 +14,10 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import logo from '@/images/logo.png'
 import type {LogLevel, LoggerContext} from '@/types/logger'
 import {formatMessageParts} from '@/lib/logger'
+import {
+  getOverlayEnabled,
+  onOverlayEnabledChanged
+} from '@/lib/overlay-settings'
 
 export interface ContentAppProps {
   portalContainer?: ShadowRoot
@@ -49,6 +53,9 @@ type DxSignalPayload = {
 
 export default function ContentApp({portalContainer}: ContentAppProps) {
   const [open, setOpen] = useState(false)
+  // Null until the stored preference loads so a disabled overlay never
+  // flashes on page load.
+  const [overlayEnabled, setOverlayEnabled] = useState<boolean | null>(null)
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [userExtensionStatus, setUserExtensionStatus] =
     useState<UserExtensionStatus>('checking')
@@ -103,6 +110,25 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
       setOpen(true)
     }
   }
+
+  useEffect(() => {
+    let mounted = true
+
+    getOverlayEnabled().then((enabled) => {
+      if (mounted) setOverlayEnabled(enabled)
+    })
+
+    const unsubscribe = onOverlayEnabledChanged((enabled) => {
+      setOverlayEnabled(enabled)
+      // Turning the overlay off also dismisses a panel left open on screen.
+      if (!enabled) setOpen(false)
+    })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -333,13 +359,14 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   }, [])
 
   useEffect(() => {
+    if (overlayEnabled !== true) return
     if (autoOpenedRef.current) return
     if (userExtensionStatus === 'checking') return
     if (userExtensionStatus === 'enabled') return
 
     setOpen(true)
     autoOpenedRef.current = true
-  }, [userExtensionStatus])
+  }, [userExtensionStatus, overlayEnabled])
 
   const userExtensionDescription =
     userExtensionStatus === 'enabled'
@@ -496,6 +523,21 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
   const SURFACE_LAUNCHER = '#0a0a0a'
   const BORDER_NEUTRAL = '#404040' // neutral-700 equivalent
   const BORDER_CARD = '#262626' // neutral-800 equivalent
+
+  const openSettingsPage = () => {
+    try {
+      // openOptionsPage is background-only, so route through the worker.
+      chrome.runtime.sendMessage({type: 'open-options-page'})
+    } catch {
+      // Ignore
+    }
+  }
+
+  // The user opted out in the extension settings page, render nothing at all.
+  // Hooks above keep running so a live toggle brings the overlay right back.
+  if (overlayEnabled !== true) {
+    return null
+  }
 
   return (
     <>
@@ -664,7 +706,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
       <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647] flex items-center gap-2">
         <Button
-          onClick={() => setOpen(true)}
+          onClick={openSettingsPage}
           // Background forced via inline RGB so it stays solid regardless of
           // host CSS variable overrides; max z-index so the pill always wins.
           style={{
@@ -685,22 +727,18 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
           size="icon"
           variant="secondary"
           aria-label={
-            isReloading
-              ? reloadingText
-              : diagnosticsIssueCount > 0
-              ? diagnosticsIssueLabel
-              : errorCount > 0
-              ? `Show errors (${errorCount})`
-              : 'Show diagnostics'
+            isReloading ? reloadingText : 'Open Extension.js settings'
           }
           title={
             isReloading
               ? reloadingText
               : diagnosticsIssueCount > 0
-              ? diagnosticsIssueLabel
+              ? `Open Extension.js settings (${diagnosticsIssueLabel})`
               : errorCount > 0
-              ? `Show errors (${errorCount})`
-              : 'Show diagnostics'
+              ? `Open Extension.js settings (${errorCount} error${
+                  errorCount === 1 ? '' : 's'
+                })`
+              : 'Open Extension.js settings'
           }
         >
           <img
