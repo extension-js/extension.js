@@ -8,6 +8,7 @@
 
 import {useEffect, useMemo, useRef, useState} from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import {Settings} from 'lucide-react'
 import {Button} from '@/components/ui/button'
 import {ScrollArea} from '@/components/ui/scroll-area'
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
@@ -562,6 +563,21 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
             <DialogPrimitive.Description className="text-sm text-neutral-300">
               Setup health + split errors from page and content script contexts.
             </DialogPrimitive.Description>
+            {/* Absolute so the header button adds no grid row of its own,
+                mirroring where shadcn dialogs place their corner action. */}
+            <button
+              type="button"
+              onClick={openSettingsPage}
+              aria-label="Open settings"
+              title="Open Extension.js settings"
+              style={{
+                backgroundColor: SURFACE_DIALOG,
+                borderColor: BORDER_NEUTRAL
+              }}
+              className="absolute right-4 top-4 rounded border p-1.5 text-neutral-300 hover:opacity-90"
+            >
+              <Settings className="h-4 w-4" aria-hidden="true" />
+            </button>
             <div className="grid grid-cols-1 gap-3">
               <div
                 style={{backgroundColor: SURFACE_CARD, borderColor: BORDER_CARD}}
@@ -706,7 +722,7 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
 
       <div className="pointer-events-none fixed left-4 bottom-4 z-[2147483647] flex items-center gap-2">
         <Button
-          onClick={openSettingsPage}
+          onClick={() => setOpen(true)}
           // Background forced via inline RGB so it stays solid regardless of
           // host CSS variable overrides; max z-index so the pill always wins.
           style={{
@@ -727,18 +743,22 @@ export default function ContentApp({portalContainer}: ContentAppProps) {
           size="icon"
           variant="secondary"
           aria-label={
-            isReloading ? reloadingText : 'Open Extension.js settings'
+            isReloading
+              ? reloadingText
+              : diagnosticsIssueCount > 0
+              ? diagnosticsIssueLabel
+              : errorCount > 0
+              ? `Show errors (${errorCount})`
+              : 'Show diagnostics'
           }
           title={
             isReloading
               ? reloadingText
               : diagnosticsIssueCount > 0
-              ? `Open Extension.js settings (${diagnosticsIssueLabel})`
+              ? diagnosticsIssueLabel
               : errorCount > 0
-              ? `Open Extension.js settings (${errorCount} error${
-                  errorCount === 1 ? '' : 's'
-                })`
-              : 'Open Extension.js settings'
+              ? `Show errors (${errorCount})`
+              : 'Show diagnostics'
           }
         >
           <img
