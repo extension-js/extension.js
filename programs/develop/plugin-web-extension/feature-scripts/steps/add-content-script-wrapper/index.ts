@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import {Compilation, type Compiler, sources} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -15,7 +15,37 @@ import {
   isResourceUnderDirs
 } from '../../../../lib/resource-path'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
+import {
+  CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
+  createContentScriptCssProbeMarkerPattern,
+  parseCanonicalContentScriptAsset
+} from '../../contracts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
+
+// The wrapper loader bakes a css-probe marker before any asset exists. Once
+// assets are final, each marker resolves to the sibling stylesheet the build
+// actually emitted, or to nothing, so the runtime never requests a phantom css.
+export function resolveBundleCssProbeMarker(
+  cssPath: string,
+  hasAsset: (name: string) => boolean,
+  assetNames: () => string[]
+): string {
+  if (hasAsset(cssPath)) return cssPath
+
+  // Dev cache-busts the stylesheet with a hash segment; match it back to the
+  // canonical index the runtime asked for.
+  const wanted = parseCanonicalContentScriptAsset(cssPath)
+  if (!wanted || wanted.extension !== 'css') return ''
+
+  for (const name of assetNames()) {
+    const parsed = parseCanonicalContentScriptAsset(name)
+    if (parsed && parsed.extension === 'css' && parsed.index === wanted.index) {
+      return name
+    }
+  }
+
+  return ''
+}
 
 export class AddContentScriptWrapper {
   public static getBridgeScripts(
@@ -89,5 +119,53 @@ export class AddContentScriptWrapper {
         }
       ]
     })
+
+    compiler.hooks.thisCompilation.tap(
+      'scripts:add-content-script-wrapper',
+      (compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'scripts:resolve-bundle-css-probe',
+            // SUMMARIZE runs after minification, so the marker literal the
+            // minifier preserved is rewritten in the final user bundle.
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          () => {
+            const assetNames = () =>
+              compilation.getAssets().map((asset) => asset.name)
+
+            for (const asset of compilation.getAssets()) {
+              if (!/\.(?:js|mjs)$/.test(asset.name)) continue
+
+              const text = asset.source.source().toString()
+              if (!text.includes(CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX)) {
+                continue
+              }
+
+              const pattern = createContentScriptCssProbeMarkerPattern()
+              const replaced = new sources.ReplaceSource(asset.source)
+              let match = pattern.exec(text)
+              let touched = false
+
+              while (match) {
+                replaced.replace(
+                  match.index,
+                  match.index + match[0].length - 1,
+                  resolveBundleCssProbeMarker(
+                    match[1],
+                    (name) => Boolean(compilation.getAsset(name)),
+                    assetNames
+                  )
+                )
+                touched = true
+                match = pattern.exec(text)
+              }
+
+              if (touched) compilation.updateAsset(asset.name, replaced)
+            }
+          }
+        )
+      }
+    )
   }
 }

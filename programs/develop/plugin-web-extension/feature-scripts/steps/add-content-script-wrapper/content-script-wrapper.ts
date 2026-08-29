@@ -18,7 +18,8 @@ import {
 } from '../../../../lib/resource-path'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
-  getCanonicalContentScriptEntryName
+  getCanonicalContentScriptEntryName,
+  getContentScriptCssProbeMarker
 } from '../../contracts'
 import * as messages from '../../messages'
 
@@ -318,6 +319,9 @@ export default function contentScriptWrapper(
     ? `${bundleKey}::script-${declaredEntry.scriptIndex}`
     : bundleKey
   const buildToken = createBuildToken(rewrittenSource)
+  // Whether a sibling stylesheet gets emitted is only known after assets
+  // exist; the plugin resolves this marker to the real path, or to nothing.
+  const cssProbeMarker = getContentScriptCssProbeMarker(bundleKey)
   const cssAssetSpecifiers = collectStyleAssetSpecifiers(rewrittenSource)
   const cssAssetUrlsInline = `var __EXTENSIONJS_BUNDLE_CSS_URLS=[${cssAssetSpecifiers
     .map(
@@ -342,11 +346,27 @@ export default function contentScriptWrapper(
     '  } catch (error) {}\n' +
     '  return "";\n' +
     '}\n' +
+    // A build with no emitted sibling stylesheet resolves the probe marker to
+    // an empty string, so no phantom `<bundle>.css` request ever leaves the
+    // page. The unresolved-marker and trailing-slash checks keep a pipeline
+    // that skipped the resolve pass from fetching garbage URLs.
+    `var __EXTENSIONJS_BUNDLE_CSS_PROBE=${JSON.stringify(cssProbeMarker)};\n` +
+    'function __EXTENSIONJS_bundleCssProbeUrls(){\n' +
+    '  try {\n' +
+    '    var probe = String(__EXTENSIONJS_BUNDLE_CSS_PROBE || "");\n' +
+    '    if (!probe.length) return [];\n' +
+    '    if (probe.lastIndexOf("__EXTENSIONJS_CSS_PROBE", 0) === 0) return [];\n' +
+    '    var url = __EXTENSIONJS_runtimeGetURL(probe);\n' +
+    '    if (typeof url !== "string" || !url.length) return [];\n' +
+    '    if (url.charAt(url.length - 1) === "/") return [];\n' +
+    '    return [url];\n' +
+    '  } catch (error) { return []; }\n' +
+    '}\n' +
     'function __EXTENSIONJS_scheduleBundleCssHydration(){\n' +
     '  try {\n' +
     `    if (String(__EXTENSIONJS_BUNDLE_KEY || "").indexOf(${JSON.stringify(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX)}) !== 0) return;\n` +
     '    if (typeof document === "undefined" || typeof fetch !== "function") return;\n' +
-    '    var cssUrls = Array.from(new Set((Array.isArray(__EXTENSIONJS_BUNDLE_CSS_URLS) ? __EXTENSIONJS_BUNDLE_CSS_URLS : []).concat([__EXTENSIONJS_runtimeGetURL(__EXTENSIONJS_BUNDLE_KEY + ".css")]).filter(function(value){ return typeof value === "string" && value.trim().length > 0; })));\n' +
+    '    var cssUrls = Array.from(new Set((Array.isArray(__EXTENSIONJS_BUNDLE_CSS_URLS) ? __EXTENSIONJS_BUNDLE_CSS_URLS : []).concat(__EXTENSIONJS_bundleCssProbeUrls()).filter(function(value){ return typeof value === "string" && value.trim().length > 0; })));\n' +
     '    if (!cssUrls.length) return;\n' +
     '    var cssText = "";\n' +
     '    var cssPromise = null;\n' +

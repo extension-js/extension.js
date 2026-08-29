@@ -59,3 +59,17 @@ export function parseCanonicalContentScriptAsset(
 export function isCanonicalContentScriptAsset(assetName: string): boolean {
   return parseCanonicalContentScriptAsset(assetName) !== undefined
 }
+
+// The wrapper loader runs before assets exist, so it cannot know whether the
+// bundle gets a sibling stylesheet; it bakes this marker and a processAssets
+// pass resolves it to the emitted path, or to nothing, once assets are final.
+export const CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX =
+  '__EXTENSIONJS_CSS_PROBE__'
+
+export function getContentScriptCssProbeMarker(entryName: string): string {
+  return `${CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX}${entryName}.css__`
+}
+
+export function createContentScriptCssProbeMarkerPattern(): RegExp {
+  return /__EXTENSIONJS_CSS_PROBE__([^"'`\s\\]+?\.css)__/g
+}
