@@ -442,12 +442,15 @@ export async function importExternalTemplate(
   const isHttp = /^https?:\/\//i.test(template)
   const isGithub = /^https?:\/\/github\.com\//i.test(template)
 
-  // A renamed template keeps answering to the name it shipped under. Applied
-  // only to a bare catalog name: `template` is the raw input, so anything that
-  // looks like a URL or carries a path separator is left exactly as given.
-  const isBareName =
-    !isHttp && !template.includes('/') && !template.includes(path.sep)
-  const resolvedTemplateName = isBareName
+  // A renamed template keeps answering to the name it shipped under. A URL
+  // names bytes the caller chose, so it is left exactly as given; anything
+  // else is resolved through the catalog, which takes only the BASENAME
+  // (`templateName` above) and discards the directory. A separator therefore
+  // changes nothing about which entry is fetched, and gating the alias on it
+  // made `examples/new-react` fail as unknown while `examples/newtab-react`
+  // and a bare `new-react` both worked.
+  const namesCatalogEntry = !isHttp
+  const resolvedTemplateName = namesCatalogEntry
     ? resolveTemplateAlias(templateName)
     : templateName
 

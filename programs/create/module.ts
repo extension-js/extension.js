@@ -187,7 +187,13 @@ export async function extensionCreate(
   return {
     projectPath,
     projectName,
-    template,
+    // The name the scaffold actually came from, which is what the provenance
+    // file records. Reporting the raw request here made one run answer with
+    // two names: `new-react` in the envelope, `newtab-react` in the project,
+    // and the envelope's value absent from the CLI's own names[]. The session
+    // header still echoes what was typed (section 126): that surface reports
+    // the request, this one reports the result.
+    template: templateProvenance?.template ?? template,
     depsInstalled: install,
     packageManager: resolveScaffoldPackageManager(),
     templateProvenance
