@@ -12,6 +12,7 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
+import {resolveJsonResource} from './resolve-json-resource'
 
 function getProjectPathFromCompilation(
   compilation: Compilation,
@@ -60,24 +61,17 @@ export function processJsonAssets(
     for (const thisResource of resourceArr) {
       // Resources from the manifest lib can come as undefined.
       if (thisResource) {
-        const abs = path.isAbsolute(thisResource)
-          ? thisResource
-          : path.join(manifestDir, thisResource)
-        const relToPublic = path.relative(publicDir, abs)
-        const isUnderPublic =
-          relToPublic &&
-          !relToPublic.startsWith('..') &&
-          !path.isAbsolute(relToPublic)
+        const {abs, isUnderPublic, isPublicRoot} = resolveJsonResource(
+          thisResource,
+          manifestDir,
+          projectPath
+        )
 
         if (!fs.existsSync(abs)) {
-          // Determine if the original authoring used an extension-root path ('/').
-          // includeList values may be absolute or relative; prefer the raw provided value.
-          const rawRef = String(thisResource)
-          const isPublicRoot =
-            rawRef.startsWith('/') && !path.isAbsolute(rawRef)
+          // Leading '/' is the public/ output root, not the OS filesystem root.
           const outputRoot = compilation?.options?.output?.path || ''
           const displayPath = isPublicRoot
-            ? path.join(outputRoot, rawRef.slice(1))
+            ? path.join(outputRoot || publicDir, String(thisResource).slice(1))
             : abs
           const isFatal = isCriticalJsonFeature(feature)
           const notFound = new WebpackError(

@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
 import * as messages from './messages'
+import {resolveJsonResource} from './resolve-json-resource'
 
 export function trackJsonDependencies(
   compilation: Compilation,
@@ -21,6 +22,10 @@ export function trackJsonDependencies(
 
   const jsonFields = includeList || {}
   const manifestDir = path.dirname(manifestPath)
+  const projectPath =
+    compilation.compiler.options.context ||
+    compilation.options.context ||
+    manifestDir
   let added = 0
 
   for (const field of Object.entries(jsonFields)) {
@@ -32,9 +37,11 @@ export function trackJsonDependencies(
 
     for (const thisResource of resourceArr) {
       if (thisResource) {
-        const abs = path.isAbsolute(thisResource)
-          ? thisResource
-          : path.join(manifestDir, thisResource)
+        const {abs} = resolveJsonResource(
+          thisResource,
+          manifestDir,
+          projectPath
+        )
 
         // Check the live set directly: copying compilation.fileDependencies per
         // resource iteration just to call .has was a real cost.

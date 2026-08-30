@@ -36,7 +36,7 @@ export function manifestCommon(manifest: Manifest, manifestPath?: string) {
     ...optionsPage(manifest, manifestPath),
     ...optionsUi(manifest, manifestPath),
     ...sandbox(manifest),
-    ...storage(manifest),
+    ...storage(manifest, manifestPath),
     ...theme(manifest),
     ...userScripts(manifest),
     ...webAccessibleResources(manifest),

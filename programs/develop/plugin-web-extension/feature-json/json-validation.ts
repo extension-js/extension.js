@@ -13,7 +13,8 @@ import * as messages from './messages'
 export function isCriticalJsonFeature(feature: string): boolean {
   return (
     feature.startsWith('declarative_net_request') ||
-    feature === 'storage.managed_schema'
+    feature === 'storage.managed_schema' ||
+    feature === 'storage/managed_schema'
   )
 }
 
