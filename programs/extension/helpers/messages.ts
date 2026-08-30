@@ -580,7 +580,7 @@ ${TEMPLATE_GROUPS.map(
 )}${TEMPLATE_ALIASES.length > 0 ? `\n- ${colors.green('Alias')}: ${TEMPLATE_ALIASES.map((alias) => `${code(alias.name)} ${arg(alias.note)}`).join(', ')}` : ''}
 - ${code(DEFAULT_TEMPLATE)} is the default when ${code('--template')} is omitted.${BUNDLED_TEMPLATES.includes(DEFAULT_TEMPLATE) ? ' It ships inside the CLI and needs no network.' : ''}
 - Every other name is downloaded from ${code(TEMPLATE_CATALOG_URL)} at create time. A GitHub or ZIP URL works in place of a name.
-- A name that is not on this list fails with ${code('TemplateNotFoundError')}. Run ${code('extension create --help')} for the same list.
+- A name that is neither on this list nor an ${colors.green('Alias')} above fails with ${code('TemplateNotFoundError')}. Run ${code('extension create --help')} for the same list.
 
 ${'Webpack/Rspack configuration'}
 - Create ${colors.underline(code(arg('extension.config.js')))} for custom webpack configuration
@@ -790,7 +790,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         `extension create <name> with no --template scaffolds ${DEFAULT_TEMPLATE}`,
         'every name in bundled[] ships inside the CLI package and scaffolds offline. Every other name downloads the examples archive at create time',
         'a GitHub URL or a ZIP URL is accepted in place of a catalog name',
-        'a name outside names[] fails with TemplateNotFoundError and creates nothing',
+        'a name outside names[] fails with TemplateNotFoundError and creates nothing, except a name listed in aliases[], which scaffolds its resolvesTo entry',
         `names[] is generated from ${TEMPLATE_CORPUS_REPO} at corpus.ref, the exact commit this CLI version downloads, so it is what this version can scaffold and not the current contents of the catalog repository`
       ]
     },

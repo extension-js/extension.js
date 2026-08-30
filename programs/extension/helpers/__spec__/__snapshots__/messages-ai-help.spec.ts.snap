@@ -484,7 +484,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "extension create <name> with no --template scaffolds javascript",
       "every name in bundled[] ships inside the CLI package and scaffolds offline. Every other name downloads the examples archive at create time",
       "a GitHub URL or a ZIP URL is accepted in place of a catalog name",
-      "a name outside names[] fails with TemplateNotFoundError and creates nothing",
+      "a name outside names[] fails with TemplateNotFoundError and creates nothing, except a name listed in aliases[], which scaffolds its resolvesTo entry",
       "names[] is generated from extension-js/examples at corpus.ref, the exact commit this CLI version downloads, so it is what this version can scaffold and not the current contents of the catalog repository",
     ],
   },
