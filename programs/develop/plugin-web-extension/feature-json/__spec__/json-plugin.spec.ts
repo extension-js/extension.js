@@ -124,6 +124,27 @@ describe('JsonPlugin', () => {
     expect(assets['storage.managed_schema.json']).toBe('{"v":2}')
   })
 
+  it('errors when a leading-slash critical JSON ref is missing from public/', () => {
+    const projectRoot = '/abs/project'
+    const manifestPath = path.join(projectRoot, 'manifest.json')
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockReturnValue(false)
+
+    const plugin = new JsonPlugin({
+      manifestPath,
+      includeList: {'declarative_net_request.ruleset': '/rules.json'}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('JSONMissingFile')
+    expect(compilation.errors[0]?.message).toContain(
+      "Paths starting with '/' are resolved from the extension output root"
+    )
+  })
+
   it('errors when file is missing for critical JSON features', () => {
     const missing = '/abs/path/missing.json'
     const mockedFs = fs as any
@@ -242,6 +263,55 @@ describe('JsonPlugin', () => {
     expect(calls.emit).toBe(0)
     expect(compilation.errors.length).toBe(1)
     expect((compilation.errors[0] as any)?.name).toBe('ManagedSchemaInvalid')
+  })
+
+  it('does not emit or fail for a leading-slash JSON ref that public/ owns', () => {
+    const projectRoot = '/abs/project'
+    const manifestPath = path.join(projectRoot, 'manifest.json')
+    const publicAbs = path.join(projectRoot, 'public', 'rules.json')
+
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((p: any) => p === publicAbs)
+    mockedFs.readFileSync.mockImplementation((p: any) =>
+      p === publicAbs ? Buffer.from('[]') : Buffer.from('')
+    )
+
+    const plugin = new JsonPlugin({
+      manifestPath,
+      includeList: {'declarative_net_request.ruleset': '/rules.json'}
+    } as any)
+    const harness = createCompilerHarness()
+    const {assets, compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(Object.keys(assets)).toHaveLength(0)
+    expect(compilation.fileDependencies.has(publicAbs)).toBe(true)
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('resolves includeList project-root paths to public/ when that is where the file lives', () => {
+    const projectRoot = '/abs/project'
+    const manifestPath = path.join(projectRoot, 'manifest.json')
+    const resolved = path.join(projectRoot, 'rules.json')
+    const publicAbs = path.join(projectRoot, 'public', 'rules.json')
+
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((p: any) => p === publicAbs)
+    mockedFs.readFileSync.mockImplementation((p: any) =>
+      p === publicAbs ? Buffer.from('[]') : Buffer.from('')
+    )
+
+    const plugin = new JsonPlugin({
+      manifestPath,
+      includeList: {'declarative_net_request.ruleset': resolved}
+    } as any)
+    const harness = createCompilerHarness()
+    const {assets, compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(Object.keys(assets)).toHaveLength(0)
+    expect(compilation.fileDependencies.has(publicAbs)).toBe(true)
+    expect(compilation.errors.length).toBe(0)
   })
 
   it('does not emit assets for public dir resources; watches and validates critical JSON', () => {

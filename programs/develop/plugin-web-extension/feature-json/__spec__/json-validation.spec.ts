@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {validateJsonAsset} from '../json-validation'
+import {isCriticalJsonFeature, validateJsonAsset} from '../json-validation'
 
 function makeCompilation() {
   return {
@@ -25,6 +25,15 @@ const validRule = {
   action: {type: 'block'},
   condition: {urlFilter: 'ads'}
 }
+
+describe('isCriticalJsonFeature', () => {
+  it('treats both storage schema key spellings as critical', () => {
+    expect(isCriticalJsonFeature('storage.managed_schema')).toBe(true)
+    expect(isCriticalJsonFeature('storage/managed_schema')).toBe(true)
+    expect(isCriticalJsonFeature('declarative_net_request/block')).toBe(true)
+    expect(isCriticalJsonFeature('side_panel.default_path')).toBe(false)
+  })
+})
 
 describe('validateJsonAsset DNR per-rule validation', () => {
   it('accepts a well-formed ruleset', () => {

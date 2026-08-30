@@ -29,8 +29,9 @@ export function normalizeManifestOutputPath(originalPath: string) {
   return unixPath
 }
 
-// Output path for a manifest HTML-page entry: public/-prefixed refs strip the
-// prefix; root-absolute refs compiled by the html pipeline point at compiledTarget.
+// Output path for a manifest page or JSON entry: public/-prefixed refs strip
+// the prefix; root-absolute refs owned by public/ stay at the output root;
+// in-project refs compiled by the pipeline point at compiledTarget.
 export function manifestPageOutputTarget(
   raw: string,
   compiledTarget: string,

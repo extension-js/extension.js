@@ -8,8 +8,12 @@
 
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function declarativeNetRequest(manifest: Manifest) {
+export function declarativeNetRequest(
+  manifest: Manifest,
+  manifestPath?: string
+) {
   // Dynamic-only DNR may omit rule_resources; avoid .map on undefined.
   return (
     manifest.declarative_net_request && {
@@ -23,7 +27,11 @@ export function declarativeNetRequest(manifest: Manifest) {
                 path:
                   resourceObj.path &&
                   getFilename(
-                    `declarative_net_request/${resourceObj.id}.json`,
+                    manifestPageOutputTarget(
+                      resourceObj.path,
+                      `declarative_net_request/${resourceObj.id}.json`,
+                      manifestPath
+                    ),
                     resourceObj.path
                   )
               }
