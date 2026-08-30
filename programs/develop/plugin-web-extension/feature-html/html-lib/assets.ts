@@ -8,13 +8,16 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import * as parse5utilities from 'parse5-utilities'
+import type * as parse5utilities from 'parse5-utilities'
 import type {FilepathList} from '../../../types'
 import {isFromFilepathList} from '../../shared/paths'
+import type {HtmlStaticAttribute} from './parse-html'
 import {
+  applyRewrittenStaticUrl,
   getFilePath,
   getHtmlPageDeclaredAssetPath,
-  joinEmittedAssetName
+  joinEmittedAssetName,
+  resolveStaticAttributeName
 } from './utils'
 
 export function handleStaticAsset(
@@ -29,11 +32,13 @@ export function handleStaticAsset(
   baseHref: string | undefined,
   includeList: FilepathList,
   extname: string,
-  childNode: parse5utilities.ParsedNode
+  childNode: parse5utilities.ParsedNode,
+  attributeName?: HtmlStaticAttribute
 ): parse5utilities.ParsedNode {
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
     path.posix.join('/', cleanPath) + (search || '') + (hash || '')
+  const attrName = resolveStaticAttributeName(assetType, attributeName)
 
   let node = childNode
 
@@ -43,9 +48,10 @@ export function handleStaticAsset(
       absolutePath,
       extname
     )
-    node = parse5utilities.setAttribute(
+    node = applyRewrittenStaticUrl(
       node,
-      assetType === 'staticSrc' ? 'src' : 'href',
+      attrName,
+      cleanPath,
       filepath + (search || '') + (hash || '')
     )
     return node
@@ -55,9 +61,10 @@ export function handleStaticAsset(
     const projectDir = path.dirname(path.dirname(htmlEntry))
     const publicCandidate = path.join(projectDir, 'public', cleanPath.slice(1))
 
-    node = parse5utilities.setAttribute(
+    node = applyRewrittenStaticUrl(
       node,
-      assetType === 'staticSrc' ? 'src' : 'href',
+      attrName,
+      cleanPath,
       cleanPath + (search || '') + (hash || '')
     )
     return node
@@ -78,9 +85,10 @@ export function handleStaticAsset(
   const posixRelative = relativeFromHtml.split(path.sep).join('/')
   const filepath = joinEmittedAssetName('assets', posixRelative)
   if (fs.existsSync(absolutePath)) {
-    node = parse5utilities.setAttribute(
+    node = applyRewrittenStaticUrl(
       node,
-      assetType === 'staticSrc' ? 'src' : 'href',
+      attrName,
+      cleanPath,
       getFilePath(filepath, '', true) + (search || '') + (hash || '')
     )
   }

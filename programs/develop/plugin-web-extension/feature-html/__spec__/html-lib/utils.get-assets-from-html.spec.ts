@@ -161,4 +161,86 @@ describe('getAssetsFromHtml', () => {
       path.join(dir, 'hero-2x.png')
     ])
   })
+
+  it('collects video src and poster as distinct static assets', () => {
+    const html = `
+		<html>
+		<body>
+		  <video src="intro.mp4" poster="poster.jpg"></video>
+		</body>
+		</html>
+		`
+    const dir = path.join(tmp, 'video-poster')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'intro.mp4'),
+      path.join(dir, 'poster.jpg')
+    ])
+  })
+
+  it('collects video poster when the movie is a child <source>', () => {
+    const html = `
+		<html>
+		<body>
+		  <video poster="poster.jpg">
+		    <source src="intro.mp4" type="video/mp4">
+		  </video>
+		</body>
+		</html>
+		`
+    const dir = path.join(tmp, 'video-source')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'poster.jpg'),
+      path.join(dir, 'intro.mp4')
+    ])
+  })
+
+  it('collects img src plus every srcset candidate', () => {
+    const html = `
+		<html>
+		<body>
+		  <img src="hero.png" srcset="hero.png 1x, hero-2x.png 2x">
+		</body>
+		</html>
+		`
+    const dir = path.join(tmp, 'srcset')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'hero.png'),
+      path.join(dir, 'hero.png'),
+      path.join(dir, 'hero-2x.png')
+    ])
+  })
+
+  it('collects <source srcset> inside <picture> when there is no src', () => {
+    const html = `
+		<html>
+		<body>
+		  <picture>
+		    <source type="image/webp" srcset="hero.webp">
+		    <img src="hero.jpg">
+		  </picture>
+		</body>
+		</html>
+		`
+    const dir = path.join(tmp, 'picture')
+    fs.mkdirSync(dir, {recursive: true})
+    const htmlPath = path.join(dir, 'index.html')
+    fs.writeFileSync(htmlPath, html, 'utf8')
+    const res = getAssetsFromHtml(htmlPath)
+    expect(res.static).toEqual([
+      path.join(dir, 'hero.webp'),
+      path.join(dir, 'hero.jpg')
+    ])
+  })
 })
