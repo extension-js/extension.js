@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
 import type {FilepathList} from '../../../types'
-import {parseHtml} from './parse-html'
+import {type HtmlStaticAttribute, parseHtml} from './parse-html'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -215,6 +215,58 @@ export function isUrl(src: string) {
   } catch (err) {
     return false
   }
+}
+
+export type {HtmlStaticAttribute}
+
+export function resolveStaticAttributeName(
+  assetType: 'staticSrc' | 'staticHref',
+  attributeName?: HtmlStaticAttribute
+): HtmlStaticAttribute {
+  if (attributeName) return attributeName
+  return assetType === 'staticSrc' ? 'src' : 'href'
+}
+
+// Replace one srcset/imagesrcset candidate URL, leaving descriptors and
+// sibling candidates intact so the browser still sees the author's list.
+export function rewriteSrcsetCandidate(
+  srcset: string,
+  fromCleanPath: string,
+  toUrl: string
+): string {
+  return srcset
+    .split(',')
+    .map((candidate) => {
+      const match = candidate.match(/^(\s*)(\S+)(.*)$/)
+      if (!match) return candidate
+
+      const [, lead, url, rest] = match
+      const {cleanPath} = cleanAssetUrl(url)
+      if (cleanPath !== fromCleanPath && url !== fromCleanPath) {
+        return candidate
+      }
+
+      return `${lead}${toUrl}${rest}`
+    })
+    .join(',')
+}
+
+export function applyRewrittenStaticUrl(
+  node: parse5utilities.ParsedNode,
+  attributeName: HtmlStaticAttribute,
+  cleanPath: string,
+  value: string
+): parse5utilities.ParsedNode {
+  if (attributeName === 'srcset' || attributeName === 'imagesrcset') {
+    const current = parse5utilities.getAttribute(node, attributeName) || ''
+    return parse5utilities.setAttribute(
+      node,
+      attributeName,
+      rewriteSrcsetCandidate(current, cleanPath, value)
+    )
+  }
+
+  return parse5utilities.setAttribute(node, attributeName, value)
 }
 
 export function cleanAssetUrl(url: string): {

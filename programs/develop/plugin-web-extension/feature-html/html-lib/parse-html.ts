@@ -32,10 +32,44 @@ function isUrl(src: string) {
   }
 }
 
+function emitSrcsetCandidates(
+  srcset: string,
+  node: ReturnType<typeof parse5utilities.createNode>,
+  assetType: 'staticSrc' | 'staticHref',
+  attributeName: 'srcset' | 'imagesrcset',
+  onResourceFound: (options: OnResourceFoundOptions) => void
+) {
+  for (const candidate of srcset.split(',')) {
+    const url = candidate.trim().split(/\s+/)[0]
+    if (!url) continue
+
+    const {cleanPath} = cleanAssetUrl(url)
+    if (cleanPath && !isUrl(cleanPath)) {
+      onResourceFound({
+        filePath: url,
+        childNode: node,
+        assetType,
+        attributeName
+      })
+    }
+  }
+}
+
+export type HtmlStaticAttribute =
+  | 'src'
+  | 'href'
+  | 'poster'
+  | 'srcset'
+  | 'imagesrcset'
+
 interface OnResourceFoundOptions {
   filePath: string
   childNode: ReturnType<typeof parse5utilities.createNode>
   assetType: 'script' | 'css' | 'staticSrc' | 'staticHref'
+  // Which attribute this path came from. Static rewrites must touch this
+  // attribute only: video poster must not overwrite src, and a srcset
+  // candidate must not replace the whole list or invent an href.
+  attributeName?: HtmlStaticAttribute
 }
 
 export function parseHtml(
@@ -65,20 +99,13 @@ export function parseHtml(
     )?.value
 
     if (imagesrcset) {
-      for (const candidate of imagesrcset.split(',')) {
-        const url = candidate.trim().split(/\s+/)[0]
-
-        if (!url) continue
-
-        const {cleanPath} = cleanAssetUrl(url)
-        if (cleanPath && !isUrl(cleanPath)) {
-          onResourceFound({
-            filePath: cleanPath,
-            childNode: node,
-            assetType: 'staticHref'
-          })
-        }
-      }
+      emitSrcsetCandidates(
+        imagesrcset,
+        node,
+        'staticHref',
+        'imagesrcset',
+        onResourceFound
+      )
     }
 
     if (!href) return
@@ -105,7 +132,8 @@ export function parseHtml(
       onResourceFound({
         filePath: href,
         childNode: node,
-        assetType: 'staticHref'
+        assetType: 'staticHref',
+        attributeName: 'href'
       })
     } else {
       onResourceFound({
@@ -126,44 +154,31 @@ export function parseHtml(
   ) {
     const src = node.attrs?.find((attr) => attr.name === 'src')?.value
 
-    if (!src) return
-    if (isUrl(src)) return
-
-    onResourceFound({
-      filePath: src,
-      childNode: node,
-      assetType: 'staticSrc'
-    })
+    // src is optional. <source srcset>, <img srcset>, and <video poster>
+    // must still be collected when src is missing or a remote URL.
+    if (src && !isUrl(src)) {
+      onResourceFound({
+        filePath: src,
+        childNode: node,
+        assetType: 'staticSrc',
+        attributeName: 'src'
+      })
+    }
 
     const srcset = node.attrs?.find((attr) => attr.name === 'srcset')?.value
     if (srcset) {
-      const candidates = srcset.split(',')
-      for (const candidate of candidates) {
-        const parts = candidate.trim().split(/\s+/)
-        const url = parts[0]
-        if (!url) continue
-        const {cleanPath} = cleanAssetUrl(url)
-        if (cleanPath && !isUrl(cleanPath)) {
-          onResourceFound({
-            filePath: cleanPath,
-            childNode: node,
-            assetType: 'staticSrc'
-          })
-        }
-      }
+      emitSrcsetCandidates(srcset, node, 'staticSrc', 'srcset', onResourceFound)
     }
 
     if (node.nodeName === 'video') {
       const poster = node.attrs?.find((attr) => attr.name === 'poster')?.value
       if (poster && !isUrl(poster)) {
-        const {cleanPath} = cleanAssetUrl(poster)
-        if (cleanPath) {
-          onResourceFound({
-            filePath: cleanPath,
-            childNode: node,
-            assetType: 'staticSrc'
-          })
-        }
+        onResourceFound({
+          filePath: poster,
+          childNode: node,
+          assetType: 'staticSrc',
+          attributeName: 'poster'
+        })
       }
     }
   }

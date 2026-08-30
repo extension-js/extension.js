@@ -1,6 +1,11 @@
-import {describe, it, expect} from 'vitest'
 import * as parse5utilities from 'parse5-utilities'
-import {cleanAssetUrl, isUrl, getBaseHref} from '../../html-lib/utils'
+import {describe, expect, it} from 'vitest'
+import {
+  cleanAssetUrl,
+  getBaseHref,
+  isUrl,
+  rewriteSrcsetCandidate
+} from '../../html-lib/utils'
 
 describe('html-lib utils', () => {
   it('cleanAssetUrl splits path, query and hash', () => {
@@ -21,6 +26,23 @@ describe('html-lib utils', () => {
     expect(isUrl('http://x.com')).toBe(true)
     expect(isUrl('/x.png')).toBe(false)
     expect(isUrl('x.png')).toBe(false)
+  })
+
+  it('rewriteSrcsetCandidate replaces one URL and keeps descriptors', () => {
+    expect(
+      rewriteSrcsetCandidate(
+        'hero.png 1x, hero-2x.png 2x',
+        'hero.png',
+        '/assets/hero.png'
+      )
+    ).toBe('/assets/hero.png 1x, hero-2x.png 2x')
+    expect(
+      rewriteSrcsetCandidate(
+        '/assets/hero.png 1x, hero-2x.png 2x',
+        'hero-2x.png',
+        '/assets/hero-2x.png'
+      )
+    ).toBe('/assets/hero.png 1x, /assets/hero-2x.png 2x')
   })
 
   it('getBaseHref returns <base href> when present', () => {

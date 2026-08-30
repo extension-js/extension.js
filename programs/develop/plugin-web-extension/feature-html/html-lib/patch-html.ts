@@ -18,11 +18,13 @@ import {injectJsScript} from './inject'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
 import {
+  applyRewrittenStaticUrl,
   cleanAssetUrl,
   getBaseHref,
   getExtname,
   getFilePath,
-  joinEmittedAssetName
+  joinEmittedAssetName,
+  resolveStaticAttributeName
 } from './utils'
 
 function warnIfPublicRootAssetMissing(
@@ -79,94 +81,100 @@ export function patchHtml(
         htmlChildNode.nodeName === 'head' ||
         htmlChildNode.nodeName === 'body'
       ) {
-        parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
-          const htmlDir = path.dirname(htmlEntry)
-          const {cleanPath, hash, search} = cleanAssetUrl(filePath)
-          const absolutePath = path.resolve(htmlDir, cleanPath)
-          const extname = getExtname(absolutePath)
+        parseHtml(
+          htmlChildNode,
+          ({filePath, childNode, assetType, attributeName}) => {
+            const htmlDir = path.dirname(htmlEntry)
+            const {cleanPath, hash, search} = cleanAssetUrl(filePath)
+            const absolutePath = path.resolve(htmlDir, cleanPath)
+            const extname = getExtname(absolutePath)
 
-          const excludedFilePath =
-            path.posix.join('/', cleanPath) + (search || '') + (hash || '')
+            const excludedFilePath =
+              path.posix.join('/', cleanPath) + (search || '') + (hash || '')
 
-          let thisChildNode: parse5utilities.ParsedNode = childNode
+            let thisChildNode: parse5utilities.ParsedNode = childNode
 
-          switch (assetType) {
-            case 'script': {
-              if (cleanPath.startsWith('/')) {
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'src',
-                  cleanPath + (search || '') + (hash || '')
-                )
-              } else {
-                if (!firstScriptAttrs) {
-                  firstScriptAttrs = Array.isArray(
-                    (thisChildNode as {attrs?: unknown}).attrs
+            switch (assetType) {
+              case 'script': {
+                if (cleanPath.startsWith('/')) {
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    'src',
+                    cleanPath + (search || '') + (hash || '')
                   )
-                    ? [
-                        ...(
-                          thisChildNode as {
-                            attrs: Array<{name: string; value: string}>
-                          }
-                        ).attrs
-                      ]
-                    : []
+                } else {
+                  if (!firstScriptAttrs) {
+                    firstScriptAttrs = Array.isArray(
+                      (thisChildNode as {attrs?: unknown}).attrs
+                    )
+                      ? [
+                          ...(
+                            thisChildNode as {
+                              attrs: Array<{name: string; value: string}>
+                            }
+                          ).attrs
+                        ]
+                      : []
+                  }
+                  bundledScriptNodes.push(thisChildNode)
+                  hasJsEntry = true
                 }
-                bundledScriptNodes.push(thisChildNode)
-                hasJsEntry = true
+                break
               }
-              break
-            }
-            case 'css': {
-              if (cleanPath.startsWith('/')) {
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'href',
-                  cleanPath + (search || '') + (hash || '')
-                )
-              } else {
-                if (!firstLinkAttrs) {
-                  firstLinkAttrs = Array.isArray(
-                    (thisChildNode as {attrs?: unknown}).attrs
+              case 'css': {
+                if (cleanPath.startsWith('/')) {
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    'href',
+                    cleanPath + (search || '') + (hash || '')
                   )
-                    ? [
-                        ...(
-                          thisChildNode as {
-                            attrs: Array<{name: string; value: string}>
-                          }
-                        ).attrs
-                      ]
-                    : []
+                } else {
+                  if (!firstLinkAttrs) {
+                    firstLinkAttrs = Array.isArray(
+                      (thisChildNode as {attrs?: unknown}).attrs
+                    )
+                      ? [
+                          ...(
+                            thisChildNode as {
+                              attrs: Array<{name: string; value: string}>
+                            }
+                          ).attrs
+                        ]
+                      : []
+                  }
+                  thisChildNode = parse5utilities.remove(
+                    thisChildNode as Parameters<
+                      typeof parse5utilities.remove
+                    >[0]
+                  )
+                  hasCssEntry = true
                 }
-                thisChildNode = parse5utilities.remove(
-                  thisChildNode as Parameters<typeof parse5utilities.remove>[0]
-                )
-                hasCssEntry = true
+                break
               }
-              break
+              case 'staticHref':
+              case 'staticSrc': {
+                thisChildNode = handleStaticAsset(
+                  compilation,
+                  htmlEntry,
+                  htmlDir,
+                  absolutePath,
+                  assetType,
+                  cleanPath,
+                  search,
+                  hash,
+                  baseHref,
+                  includeList,
+                  extname,
+                  thisChildNode,
+                  attributeName
+                )
+                break
+              }
+              default:
+                break
             }
-            case 'staticHref':
-            case 'staticSrc': {
-              thisChildNode = handleStaticAsset(
-                compilation,
-                htmlEntry,
-                htmlDir,
-                absolutePath,
-                assetType,
-                cleanPath,
-                search,
-                hash,
-                baseHref,
-                includeList,
-                extname,
-                thisChildNode
-              )
-              break
-            }
-            default:
-              break
           }
-        })
+        )
       }
 
       if (htmlChildNode.nodeName === 'head') {
@@ -229,74 +237,101 @@ export function patchHtmlNested(
         htmlChildNode.nodeName === 'head' ||
         htmlChildNode.nodeName === 'body'
       ) {
-        parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
-          const htmlDir = path.dirname(htmlEntry)
-          const {cleanPath, hash, search} = cleanAssetUrl(filePath)
-          const absolutePath = path.resolve(htmlDir, cleanPath)
+        parseHtml(
+          htmlChildNode,
+          ({filePath, childNode, assetType, attributeName}) => {
+            const htmlDir = path.dirname(htmlEntry)
+            const {cleanPath, hash, search} = cleanAssetUrl(filePath)
+            const absolutePath = path.resolve(htmlDir, cleanPath)
+            const attrName =
+              assetType === 'staticSrc' || assetType === 'staticHref'
+                ? resolveStaticAttributeName(assetType, attributeName)
+                : undefined
 
-          let thisChildNode: parse5utilities.ParsedNode = childNode
+            let thisChildNode: parse5utilities.ParsedNode = childNode
 
-          switch (assetType) {
-            case 'script': {
-              if (cleanPath.startsWith('/')) {
-                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
+            switch (assetType) {
+              case 'script': {
+                if (cleanPath.startsWith('/')) {
+                  warnIfPublicRootAssetMissing(
+                    compilation,
+                    htmlEntry,
+                    cleanPath
+                  )
 
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'src',
-                  cleanPath + (search || '') + (hash || '')
-                )
-              }
-
-              break
-            }
-
-            case 'css': {
-              if (cleanPath.startsWith('/')) {
-                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'href',
-                  cleanPath + (search || '') + (hash || '')
-                )
-              }
-              break
-            }
-            case 'staticHref':
-            case 'staticSrc': {
-              if (cleanPath.startsWith('/')) {
-                warnIfPublicRootAssetMissing(compilation, htmlEntry, cleanPath)
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  assetType === 'staticSrc' ? 'src' : 'href',
-                  cleanPath + (search || '') + (hash || '')
-                )
-              } else {
-                if (fs.existsSync(absolutePath)) {
-                  const relativeFromHtml = path.relative(htmlDir, absolutePath)
-                  const posixRelative = relativeFromHtml
-                    .split(path.sep)
-                    .join('/')
-                  const filepath = joinEmittedAssetName('assets', posixRelative)
                   thisChildNode = parse5utilities.setAttribute(
                     thisChildNode,
-                    assetType === 'staticSrc' ? 'src' : 'href',
-                    getFilePath(filepath, '', true) +
-                      (search || '') +
-                      (hash || '')
+                    'src',
+                    cleanPath + (search || '') + (hash || '')
                   )
                 }
-              }
-              break
-            }
-            default:
-              break
-          }
-        })
-      }
 
-      return parse5utilities.stringify(htmlDocument)
+                break
+              }
+
+              case 'css': {
+                if (cleanPath.startsWith('/')) {
+                  warnIfPublicRootAssetMissing(
+                    compilation,
+                    htmlEntry,
+                    cleanPath
+                  )
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    'href',
+                    cleanPath + (search || '') + (hash || '')
+                  )
+                }
+                break
+              }
+              case 'staticHref':
+              case 'staticSrc': {
+                if (cleanPath.startsWith('/')) {
+                  warnIfPublicRootAssetMissing(
+                    compilation,
+                    htmlEntry,
+                    cleanPath
+                  )
+                  thisChildNode = applyRewrittenStaticUrl(
+                    thisChildNode,
+                    attrName || resolveStaticAttributeName(assetType),
+                    cleanPath,
+                    cleanPath + (search || '') + (hash || '')
+                  )
+                } else {
+                  if (fs.existsSync(absolutePath)) {
+                    const relativeFromHtml = path.relative(
+                      htmlDir,
+                      absolutePath
+                    )
+                    const posixRelative = relativeFromHtml
+                      .split(path.sep)
+                      .join('/')
+                    const filepath = joinEmittedAssetName(
+                      'assets',
+                      posixRelative
+                    )
+                    thisChildNode = applyRewrittenStaticUrl(
+                      thisChildNode,
+                      attrName || resolveStaticAttributeName(assetType),
+                      cleanPath,
+                      getFilePath(filepath, '', true) +
+                        (search || '') +
+                        (hash || '')
+                    )
+                  }
+                }
+                break
+              }
+              default:
+                break
+            }
+          }
+        )
+      }
     }
+
+    return parse5utilities.stringify(htmlDocument)
   }
 
   return ''
