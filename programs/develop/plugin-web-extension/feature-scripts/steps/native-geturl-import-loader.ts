@@ -24,21 +24,108 @@
 const GETURL_ARG = /\bruntime\s*\.\s*getURL\s*\(/
 
 const BARE_IDENTIFIER = /^[A-Za-z_$][\w$]*$/
+// `urls.mod` and deeper: the URL is parked on an object rather than a variable.
+const MEMBER_PATH = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)+$/
 
-// The most common shape hoists the URL one line up: `const u = getURL(...)`
-// then `import(u)`. A bare identifier the file binds that way is the same call.
-function identifierBoundToGetURL(source: string, name: string): boolean {
-  const id = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const rhs = '[^;\\n]*\\bruntime\\s*\\.\\s*getURL\\s*\\('
-  const declared = new RegExp('\\b(?:const|let|var)\\s+' + id + '\\s*=' + rhs)
-  const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + rhs)
-  return declared.test(source) || assigned.test(source)
+const escapeId = (name: string) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// A binding search must read CODE ONLY. Scanning raw text lets a commented-out
+// `// const u = getURL(...)` above a real `const u = './local.js'` annotate a
+// genuinely local module, which unbundles it and is the inverse of this bug.
+function codeOnly(source: string): string {
+  let out = ''
+  const n = source.length
+  let i = 0
+  let prevSignificant = ''
+  while (i < n) {
+    const char = source[i]
+    const next = source[i + 1]
+    if (char === '/' && next === '/') {
+      while (i < n && source[i] !== '\n') i++
+      continue
+    }
+    if (char === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2)
+      i = end === -1 ? n : end + 2
+      continue
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      const close = skipString(source, i, n)
+      out += source.slice(i, close + 1)
+      i = close + 1
+      prevSignificant = char
+      continue
+    }
+    if (char === '/' && regexCanStart(prevSignificant)) {
+      i = skipRegex(source, i, n) + 1
+      prevSignificant = '/'
+      continue
+    }
+    out += char
+    if (!/\s/.test(char)) prevSignificant = char
+    i++
+  }
+  return out
+}
+
+// The RHS may sit on the next line (a formatter's wrap) and the declaration may
+// carry a TS type annotation, so neither a newline nor a `: string` between the
+// name and the `=` means the binding is a different one.
+const RHS = '[\\s\\S]{0,400}?\\bruntime\\s*\\.\\s*getURL\\s*\\('
+const TYPE_ANNOTATION = '(?:\\s*:[^=;\\n]{0,120})?'
+
+function identifierBoundToGetURL(code: string, name: string): boolean {
+  const id = escapeId(name)
+  const declared = new RegExp(
+    '\\b(?:const|let|var)\\s+' + id + TYPE_ANNOTATION + '\\s*=' + RHS
+  )
+  const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + RHS)
+  return declared.test(code) || assigned.test(code)
+}
+
+// `import(urls.mod)` where the object literal parks the URL on `mod`, or where
+// the property is assigned later. Either way the value is still a getURL call.
+function memberBoundToGetURL(code: string, path: string): boolean {
+  const parts = path.split('.').map((p) => p.trim())
+  const leaf = escapeId(parts[parts.length - 1])
+  const root = escapeId(parts[0])
+  const property = new RegExp(
+    '\\b(?:const|let|var)\\s+' +
+      root +
+      TYPE_ANNOTATION +
+      '\\s*=[\\s\\S]{0,400}?\\b' +
+      leaf +
+      '\\s*:[^,}]{0,200}?\\bruntime\\s*\\.\\s*getURL\\s*\\('
+  )
+  const assigned = new RegExp(
+    '(?:^|[^\\w$])' + escapeId(path.replace(/\s+/g, '')) + '\\s*=(?!=)' + RHS
+  )
+  return property.test(code) || assigned.test(code.replace(/\s*\.\s*/g, '.'))
+}
+
+// `import(u, {with: {type: 'json'}})`: only the first argument is the specifier.
+function firstArgument(args: string): string {
+  let depth = 0
+  for (let i = 0; i < args.length; i++) {
+    const char = args[i]
+    if (char === '"' || char === "'" || char === '`') {
+      i = skipString(args, i, args.length)
+      continue
+    }
+    if (char === '(' || char === '[' || char === '{') depth++
+    else if (char === ')' || char === ']' || char === '}') depth--
+    else if (char === ',' && depth === 0) return args.slice(0, i)
+  }
+  return args
 }
 
 export function annotateGetURLDynamicImports(source: string): string {
   const insertions: number[] = []
   const n = source.length
   let i = 0
+  // Built once, and only if an import actually needs a binding lookup.
+  let cachedCode: string | null = null
+  const bindingSource = () => (cachedCode ??= codeOnly(source))
   // Tracks the previous significant (non-space, non-comment) character so a
   // leading `/` can be classified as regex-start vs division.
   let prevSignificant = ''
@@ -78,12 +165,15 @@ export function annotateGetURLDynamicImports(source: string): string {
       if (source[j] === '(') {
         const args = readBalancedArgs(source, j)
         if (args != null && !args.includes('webpackIgnore')) {
-          const direct = GETURL_ARG.test(args)
-          const name = args.trim()
+          const specifier = firstArgument(args)
+          const direct = GETURL_ARG.test(specifier)
+          const name = specifier.trim()
+          const code = bindingSource()
           if (
             direct ||
             (BARE_IDENTIFIER.test(name) &&
-              identifierBoundToGetURL(source, name))
+              identifierBoundToGetURL(code, name)) ||
+            (MEMBER_PATH.test(name) && memberBoundToGetURL(code, name))
           ) {
             insertions.push(j + 1)
           }
