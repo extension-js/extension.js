@@ -76,7 +76,7 @@ export async function dispatchReload(
 export interface ChangedSourcesSnapshot {
   /** A manifest.json / _locales change, forces a full reload regardless of which other files changed. */
   forcedFull: boolean
-  /** Project-relative, forward-slashed paths of every file changed since the last compile. */
+  /** Project-relative, forward-slashed paths of every file changed since the last successful compile. */
   changedSources: string[]
 }
 
@@ -84,37 +84,142 @@ export interface ChangedSourcesTracker {
   snapshot(): ChangedSourcesSnapshot
 }
 
+function isForcedFullPath(normalized: string): boolean {
+  return (
+    normalized.includes('manifest.json') || normalized.includes('_locales/')
+  )
+}
+
+function isHotAsset(normalized: string): boolean {
+  return normalized.startsWith('hot/') || normalized.includes('.hot-update.')
+}
+
+function normalizeChangedPath(
+  file: string,
+  contextDir: string
+): string | undefined {
+  const raw = String(file || '')
+  if (!raw) return undefined
+  const normalized = path.isAbsolute(raw)
+    ? path.relative(contextDir, raw).replace(/\\/g, '/')
+    : raw.replace(/\\/g, '/')
+  // rspack sometimes reports the watch root itself as modified; it relativizes
+  // to '' and would leak a dangling comma into the reload label.
+  if (!normalized) return undefined
+  return normalized
+}
+
+function pushChanged(
+  into: string[],
+  file: string,
+  contextDir: string,
+  markForced: () => void
+): void {
+  const normalized = normalizeChangedPath(file, contextDir)
+  if (!normalized) return
+  if (!into.includes(normalized)) into.push(normalized)
+  if (isForcedFullPath(normalized)) markForced()
+}
+
 // Taps watchRun and records changed files for the next compile, shared by both
 // reload paths; read via snapshot() in done and feed classifyReloadFromSources.
+// A failed compile does not emit (emitOnErrors: false), so its files stay
+// pending until the next successful snapshot: a typo-fix must still reload
+// the permission change that rode along with it, and a recovery that reports
+// no modifiedFiles must still reload everything the success actually wrote.
 export function createChangedSourcesTracker(
   compiler: Compiler
 ): ChangedSourcesTracker {
   let forcedFull = false
   let changedSources: string[] = []
+  let heldForcedFull = false
+  let heldSources: string[] = []
+  let writtenAssets: string[] = []
+
+  const contextDir = () => compiler.options.context || ''
+
+  const ingest = (
+    files: Iterable<string> | undefined,
+    into: string[],
+    markForced: () => void
+  ) => {
+    if (!files) return
+    const ctx = contextDir()
+    for (const file of files) pushChanged(into, file, ctx, markForced)
+  }
+
+  const foldRecoveryIntoCurrent = () => {
+    const recovering = heldSources.length > 0 || heldForcedFull
+    if (!recovering) return
+    for (const file of heldSources) {
+      if (!changedSources.includes(file)) changedSources.push(file)
+    }
+    for (const file of writtenAssets) {
+      if (!changedSources.includes(file)) changedSources.push(file)
+    }
+    forcedFull =
+      forcedFull ||
+      heldForcedFull ||
+      writtenAssets.some((file) => isForcedFullPath(file))
+    heldSources = []
+    heldForcedFull = false
+  }
+
+  const markForced = () => {
+    forcedFull = true
+  }
 
   compiler.hooks.watchRun.tap('extjs-reload-changed-sources', () => {
     forcedFull = false
     changedSources = []
-    const modifiedFiles = compiler.modifiedFiles as Set<string> | undefined
-    if (!modifiedFiles || modifiedFiles.size === 0) return
-
-    const contextDir = compiler.options.context || ''
-    for (const file of modifiedFiles) {
-      const normalized = path.relative(contextDir, file).replace(/\\/g, '/')
-      // rspack sometimes reports the watch root itself as modified; it relativizes
-      // to '' and would leak a dangling comma into the reload label.
-      if (!normalized) continue
-      changedSources.push(normalized)
-      if (
-        normalized.includes('manifest.json') ||
-        normalized.includes('_locales/')
-      ) {
-        forcedFull = true
-      }
-    }
+    writtenAssets = []
+    ingest(
+      compiler.modifiedFiles as Set<string> | undefined,
+      changedSources,
+      markForced
+    )
   })
 
+  compiler.hooks.done?.tap?.(
+    'extjs-reload-changed-sources-done',
+    (stats: {
+      compilation?: {errors?: unknown[]; modifiedFiles?: Iterable<string>}
+    }) => {
+      const compilation = stats?.compilation
+      ingest(compilation?.modifiedFiles, changedSources, markForced)
+      ingest(
+        compiler.modifiedFiles as Set<string> | undefined,
+        changedSources,
+        markForced
+      )
+
+      if (compilation?.errors && compilation.errors.length > 0) {
+        heldForcedFull = heldForcedFull || forcedFull
+        for (const file of changedSources) {
+          if (!heldSources.includes(file)) heldSources.push(file)
+        }
+        return
+      }
+
+      // Success with no consumer snapshot (first compile) must not leak held
+      // files into the next unrelated edit.
+      foldRecoveryIntoCurrent()
+    }
+  )
+
+  compiler.hooks.assetEmitted?.tap?.(
+    'extjs-reload-changed-sources-emitted',
+    (file: string) => {
+      const normalized = normalizeChangedPath(file, contextDir())
+      if (!normalized || isHotAsset(normalized)) return
+      if (!writtenAssets.includes(normalized)) writtenAssets.push(normalized)
+    }
+  )
+
   return {
-    snapshot: () => ({forcedFull, changedSources})
+    snapshot: () => {
+      foldRecoveryIntoCurrent()
+      return {forcedFull, changedSources}
+    }
   }
 }

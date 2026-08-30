@@ -12,6 +12,7 @@ interface Harness {
   triggerDone(options?: {
     manifest?: Record<string, unknown>
     errors?: any[]
+    writtenAssets?: string[]
   }): Promise<void>
   lastReload(): ReloadInstruction | undefined
 }
@@ -39,7 +40,9 @@ function createHarness(manifestContentScripts: number = 1): Harness {
   )
 
   let watchRunCb: (() => void) | undefined
+  const doneSync: Array<(stats: any) => void> = []
   let doneCb: ((stats: any) => Promise<void>) | undefined
+  let assetEmittedCb: ((file: string) => void) | undefined
 
   const compiler: any = {
     options: {context: CONTEXT},
@@ -47,7 +50,15 @@ function createHarness(manifestContentScripts: number = 1): Harness {
     hooks: {
       watchRun: {tap: (_: string, fn: () => void) => (watchRunCb = fn)},
       done: {
+        tap: (_: string, fn: (s: any) => void) => {
+          doneSync.push(fn)
+        },
         tapPromise: (_: string, fn: (s: any) => Promise<void>) => (doneCb = fn)
+      },
+      assetEmitted: {
+        tap: (_: string, fn: (file: string) => void) => {
+          assetEmittedCb = fn
+        }
       }
     }
   }
@@ -77,7 +88,13 @@ function createHarness(manifestContentScripts: number = 1): Harness {
       if (!watchRunCb) throw new Error('watchRun not tapped')
       watchRunCb()
     },
-    async triggerDone(opts = {}) {
+    async triggerDone(
+      opts: {
+        manifest?: Record<string, unknown>
+        errors?: any[]
+        writtenAssets?: string[]
+      } = {}
+    ) {
       if (!doneCb) throw new Error('done not tapped')
       const manifestSource = buildManifest(
         opts.manifest
@@ -99,6 +116,8 @@ function createHarness(manifestContentScripts: number = 1): Harness {
               : undefined
         }
       }
+      for (const file of opts.writtenAssets || []) assetEmittedCb?.(file)
+      for (const fn of doneSync) fn(stats)
       await doneCb(stats)
     },
     lastReload() {
@@ -251,6 +270,62 @@ describe('BrowsersPlugin classifier', () => {
     await h.triggerDone({errors: [new Error('boom')]})
 
     expect(h.reload).not.toHaveBeenCalled()
+  })
+
+  it('after a failed compile, a later success reloads every held change', async () => {
+    const h = createHarness(1)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['src/manifest.json', 'src/background.ts'])
+    await h.triggerDone({errors: [new Error('typo in background')]})
+    expect(h.reload).not.toHaveBeenCalled()
+
+    h.triggerWatchRun(['src/background.ts'])
+    await h.triggerDone()
+
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual([
+      'src/background.ts',
+      'src/manifest.json'
+    ])
+  })
+
+  it('after a failed compile, a success with no new files still reloads held changes', async () => {
+    const h = createHarness(1)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['src/content/ContentApp.tsx'])
+    await h.triggerDone({errors: [new Error('boom')]})
+
+    h.triggerWatchRun([])
+    await h.triggerDone()
+
+    expect(h.lastReload()?.type).toBe('content-scripts')
+    expect(h.lastReload()?.changedAssets).toEqual([
+      'src/content/ContentApp.tsx'
+    ])
+  })
+
+  it('after a failed compile, reloads for assets the success actually wrote', async () => {
+    const h = createHarness(1)
+    await primeFirstCompile(h)
+
+    h.triggerWatchRun(['src/background.ts'])
+    await h.triggerDone({errors: [new Error('typo')]})
+
+    h.triggerWatchRun(['src/background.ts'])
+    await h.triggerDone({
+      writtenAssets: ['background/service_worker.js', 'manifest.json']
+    })
+
+    const instruction = h.lastReload()
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual([
+      'src/background.ts',
+      'background/service_worker.js',
+      'manifest.json'
+    ])
   })
 
   it('skips classification on the first compile (controller not yet live)', async () => {
