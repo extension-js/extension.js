@@ -99,7 +99,7 @@
     "@rspack/plugin-react-refresh": "2.0.2",
     "@vue/compiler-sfc": "3.5.26",
     "acorn": "^8.16.0",
-    "browser-extension-manifest-fields": "^2.3.0",
+    "browser-extension-manifest-fields": "^2.3.1",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "dotenv": "^17.2.3",
