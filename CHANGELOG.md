@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 4.1.11 (August 31, 2026)
+
+### Fixes
+
+- Resolve a renamed template's alias in every consumer, not just the fetch ([2c00c341](https://github.com/extension-js/extension.js/commit/2c00c341a2388201780e90500ee77c7492c735fe))
+
+<details>
+<summary>Other changes (5)</summary>
+
+- Take the manifest-fields release resolving prefixed keys by precedence ([07a5c947](https://github.com/extension-js/extension.js/commit/07a5c947c9298514c23faad5dd7895ff33284609))
+- Keep a getURL-bound dynamic import native in every binding shape ([e6323f3a](https://github.com/extension-js/extension.js/commit/e6323f3a1035847de2825c5b4096e49f2ecbe201))
+- Emit public-hosted JSON manifest resources at their manifest paths ([f27b7cce](https://github.com/extension-js/extension.js/commit/f27b7cce63a46e3439cc8c31307399a4c57a8166))
+- Rewrite a page reference into the attribute it came from ([ec2b1be5](https://github.com/extension-js/extension.js/commit/ec2b1be5896924e03b67ed4f1f26f508c1770a14))
+- Hold a failed compile's changed files until a build consumes them ([7f75d4bc](https://github.com/extension-js/extension.js/commit/7f75d4bc9baf71f3d300cf3267cdd1227b82ceb4))
+</details>
+
 ## 4.1.10 (August 29, 2026)
 
 ### Features
