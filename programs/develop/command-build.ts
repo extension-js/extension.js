@@ -393,7 +393,8 @@ export async function extensionBuild(
             const zipDisplay = relativeToCwd(artifactPath) || artifactPath
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
-          humanLine(messages.buildShareHint())
+          const shareHint = messages.buildShareHint()
+          if (shareHint) humanLine(shareHint)
           resolve()
         } else {
           // A failed compile keeps the last-good dist: nothing was written to

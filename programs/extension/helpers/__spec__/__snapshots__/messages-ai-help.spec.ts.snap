@@ -139,7 +139,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "publish",
-      "summary": "Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)",
+      "summary": "Publish a build to the configured platform and print a shareable URL (requires EXTENSION_DEV_TOKEN and EXTENSION_DEV_API_URL)",
       "supportsSourceInspection": false,
     },
     {

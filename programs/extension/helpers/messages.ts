@@ -184,7 +184,7 @@ const COMMAND_TABLE = [
     name: 'publish',
     positionals: [{name: 'project-path', required: false}],
     description:
-      'Publish to extension.dev and print a shareable URL (requires EXTENSION_DEV_TOKEN)',
+      'Publish a build to the configured platform and print a shareable URL (requires EXTENSION_DEV_TOKEN and EXTENSION_DEV_API_URL)',
     supportsSourceInspection: false
   },
   {
