@@ -84,7 +84,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
-    "@changesets/cli": "^2.29.8",
+    "@changesets/cli": "^3.0.1",
     "@rslib/core": "^0.23.1",
     "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
