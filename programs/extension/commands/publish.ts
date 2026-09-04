@@ -15,14 +15,28 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
-// The canonical publish implementation lives in the extension.dev platform MCP.
-const DEFAULT_API = 'https://www.extension.dev'
-const PUBLISH_DOCS_URL = 'https://docs.extension.dev/tools/publish'
+// The canonical publish implementation lives in the platform MCP. Every
+// address comes from the environment, and nothing is printed about it when
+// those values are unset.
 const NO_TOKEN_REMEDY =
-  'Pass --token, set EXTENSION_DEV_TOKEN, or run npx @extension.dev/mcp login.'
+  'Pass --token, set EXTENSION_DEV_TOKEN, or sign in with the platform MCP.'
+const NO_API_REMEDY =
+  'Publishing needs a platform URL. Pass --api or set EXTENSION_DEV_API_URL.'
 
-// Where `npx @extension.dev/mcp login` stores the device login. This mirrors
-// the MCP's credentialsPath so both surfaces read the same file.
+function platformDocsUrl(): string {
+  return String(process.env.EXTENSION_DEV_DOCS_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
+}
+
+// The token page on the platform docs, or nothing when no docs host is set.
+export function publishDocsHint(): string {
+  const docs = platformDocsUrl()
+  return docs ? `Get a token: ${docs}/tools/publish` : ''
+}
+
+// Where the platform MCP login stores the device login. This mirrors the
+// MCP's credentialsPath so both surfaces read the same file.
 function storedLoginPath(): string {
   if (process.platform === 'win32') {
     const base =
@@ -142,7 +156,7 @@ export function buildPublishPlan(opts: PublishInput): {
   scope: PublishScope
 } {
   // Precedence matches the MCP's resolveToken: the flag wins, then the env
-  // var, then the stored device login written by npx @extension.dev/mcp login.
+  // var, then the stored device login written by the platform MCP login.
   const stored = readStoredLogin()
   const flagToken = String(opts.token || '').trim()
   const envToken = String(process.env.EXTENSION_DEV_TOKEN || '').trim()
@@ -154,9 +168,10 @@ export function buildPublishPlan(opts: PublishInput): {
       : 'stored-login'
 
   if (!token) {
+    const docsHint = publishDocsHint()
     throw new Error(
-      'No token. Publishing needs an extension.dev access token.\n' +
-        `Get one: ${PUBLISH_DOCS_URL}\n` +
+      'No token. Publishing needs a platform access token.\n' +
+        (docsHint ? `${docsHint}\n` : '') +
         NO_TOKEN_REMEDY
     )
   }
@@ -172,7 +187,7 @@ export function buildPublishPlan(opts: PublishInput): {
   if (confirmed && scopedSlug && slugish(confirmed) !== slugish(scopedSlug)) {
     throw new Error(
       `You asked to publish "${confirmed}" but your stored login is scoped to "${scopedSlug}".\n` +
-        `Pass --token for ${confirmed}, or run npx @extension.dev/mcp login for it.`
+        `Pass --token for ${confirmed}, or sign in with the platform MCP for it.`
     )
   }
 
@@ -191,9 +206,10 @@ export function buildPublishPlan(opts: PublishInput): {
     )
   }
 
-  const base = String(
-    opts.api || process.env.EXTENSION_DEV_API_URL || DEFAULT_API
-  ).replace(/\/+$/, '')
+  const base = String(opts.api || process.env.EXTENSION_DEV_API_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
+  if (!base) throw new Error(NO_API_REMEDY)
   const body: Record<string, unknown> = {}
 
   if (opts.ttl != null && opts.ttl !== '') body.ttlHours = Number(opts.ttl)
@@ -227,7 +243,7 @@ export function registerPublishCommand(program: Command) {
     .description(commandDescriptions.publish)
     .option(
       '--token <token>',
-      'extension.dev access token (or EXTENSION_DEV_TOKEN, or the stored login)'
+      'platform access token (or EXTENSION_DEV_TOKEN, or the stored login)'
     )
     .option('--api <url>', 'platform base URL (or EXTENSION_DEV_API_URL)')
     .option('--ttl <hours>', 'share-link lifetime in hours (1–168, default 24)')
@@ -271,11 +287,12 @@ export function registerPublishCommand(program: Command) {
       } catch (err) {
         const message =
           (err as Error | undefined)?.message || 'publish failed: no token'
+        const docsHint = publishDocsHint()
         await failWith(
           'denied',
           {code: CODES.E_AUTH_REQUIRED, message},
           message,
-          `Get a token at ${PUBLISH_DOCS_URL}. ${NO_TOKEN_REMEDY}`
+          `${docsHint ? `${docsHint}. ` : ''}${NO_TOKEN_REMEDY} ${NO_API_REMEDY}`
         )
         return
       }

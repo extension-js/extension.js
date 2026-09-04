@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {buildPublishPlan, buildPublishRequest} from '../commands/publish'
 
 const ORIG = {...process.env}
+const API = 'https://platform.test'
 let configDir = ''
 
 // Point both the XDG and Windows lookups at a private temp dir so no test
@@ -14,6 +15,8 @@ beforeEach(() => {
   process.env.XDG_CONFIG_HOME = configDir
   process.env.APPDATA = configDir
   delete process.env.EXTENSION_DEV_TOKEN
+  delete process.env.EXTENSION_DEV_DOCS_URL
+  process.env.EXTENSION_DEV_API_URL = API
 })
 
 afterEach(() => {
@@ -37,19 +40,36 @@ describe('buildPublishRequest', () => {
     expect(() => buildPublishRequest({})).toThrow(/EXTENSION_DEV_TOKEN/)
   })
 
-  it('names an openable docs URL when no token is set', () => {
+  it('names the docs token page only when a docs host is configured', () => {
     delete process.env.EXTENSION_DEV_TOKEN
+    expect(() => buildPublishRequest({})).not.toThrow(/Get a token/)
+    process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test/'
     expect(() => buildPublishRequest({})).toThrow(
-      /https:\/\/docs\.extension\.dev\/tools\/publish/
+      /Get a token: https:\/\/docs\.platform\.test\/tools\/publish/
     )
   })
 
-  it('uses --token, default API base, and a Bearer header', () => {
+  it('refuses with the API remedy when no platform URL is configured', () => {
+    delete process.env.EXTENSION_DEV_API_URL
+    expect(() => buildPublishRequest({token: 'tok_abc'})).toThrow(
+      /EXTENSION_DEV_API_URL/
+    )
+  })
+
+  it('uses --token, the configured API base, and a Bearer header', () => {
     const req = buildPublishRequest({token: 'tok_abc'})
-    expect(req.url).toBe('https://www.extension.dev/api/cli/publish')
+    expect(req.url).toBe('https://platform.test/api/cli/publish')
     expect(req.headers.authorization).toBe('Bearer tok_abc')
     expect(req.headers['content-type']).toBe('application/json')
     expect(JSON.parse(req.body)).toEqual({})
+  })
+
+  it('--api wins over EXTENSION_DEV_API_URL', () => {
+    const req = buildPublishRequest({
+      token: 'tok_abc',
+      api: 'http://localhost:4000/'
+    })
+    expect(req.url).toBe('http://localhost:4000/api/cli/publish')
   })
 
   it('reads the token from EXTENSION_DEV_TOKEN and api from EXTENSION_DEV_API_URL', () => {
@@ -116,7 +136,7 @@ describe('stored device login fallback', () => {
     expect(() => buildPublishRequest({})).toThrow(/No token/)
   })
 
-  it('the refusal names the flag, the env var, and the login command', () => {
+  it('the refusal names the flag, the env var, and the platform login', () => {
     let message = ''
     try {
       buildPublishRequest({})
@@ -125,7 +145,7 @@ describe('stored device login fallback', () => {
     }
     expect(message).toContain('--token')
     expect(message).toContain('EXTENSION_DEV_TOKEN')
-    expect(message).toContain('npx @extension.dev/mcp login')
+    expect(message).toContain('platform MCP')
   })
 })
 
@@ -189,9 +209,7 @@ describe('a stored login is scoped to one project', () => {
   it('matches a slug against a differently punctuated directory name', () => {
     writeStoredLogin('tok_stored', {projectSlug: 'my-side-panel'})
     writeProject('My Side Panel')
-    expect(() =>
-      buildPublishRequest({projectPath: projectDir})
-    ).not.toThrow()
+    expect(() => buildPublishRequest({projectPath: projectDir})).not.toThrow()
   })
 
   it('--project names the scoped project on purpose and proceeds', () => {
@@ -234,9 +252,7 @@ describe('a stored login is scoped to one project', () => {
   it('a stored login with no projectSlug cannot gate anything', () => {
     writeStoredLogin('tok_stored')
     writeProject('pubwalk')
-    expect(() =>
-      buildPublishRequest({projectPath: projectDir})
-    ).not.toThrow()
+    expect(() => buildPublishRequest({projectPath: projectDir})).not.toThrow()
   })
 
   it('falls back to the directory name when the project has no package.json', () => {
@@ -253,8 +269,6 @@ describe('a stored login is scoped to one project', () => {
       path.join(projectDir, 'src', 'manifest.json'),
       JSON.stringify({name: 'xvelte', manifest_version: 3})
     )
-    expect(() =>
-      buildPublishRequest({projectPath: projectDir})
-    ).not.toThrow()
+    expect(() => buildPublishRequest({projectPath: projectDir})).not.toThrow()
   })
 })

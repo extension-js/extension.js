@@ -21,6 +21,8 @@ beforeEach(() => {
   configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-cmd-'))
   process.env.XDG_CONFIG_HOME = configDir
   process.env.APPDATA = configDir
+  delete process.env.EXTENSION_DEV_DOCS_URL
+  process.env.EXTENSION_DEV_API_URL = 'https://platform.test'
 })
 
 afterEach(() => {
@@ -44,22 +46,34 @@ function respondWith(status: number, body: string) {
 }
 
 describe('extension publish', () => {
-  it('exits 1 with the token hint when no token is available', async () => {
+  it('exits 1 with the token hint and no docs link when no token is available', async () => {
     delete process.env.EXTENSION_DEV_TOKEN
     expect(await run(['publish'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_TOKEN')
-    expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'https://docs.extension.dev/tools/publish'
-    )
+    expect(String(errorSpy.mock.calls[0][0])).not.toContain('Get a token')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('names the login command in the no-token refusal', async () => {
+  it('names the docs token page in the refusal when a docs host is configured', async () => {
     delete process.env.EXTENSION_DEV_TOKEN
+    process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test'
     expect(await run(['publish'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'npx @extension.dev/mcp login'
+      'https://docs.platform.test/tools/publish'
     )
+  })
+
+  it('names the platform login in the no-token refusal', async () => {
+    delete process.env.EXTENSION_DEV_TOKEN
+    expect(await run(['publish'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('platform MCP')
+  })
+
+  it('refuses before any request when no platform URL is configured', async () => {
+    delete process.env.EXTENSION_DEV_API_URL
+    expect(await run(['publish', '--token', 'tok'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_API_URL')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('publishes with the stored device login when no flag or env is set', async () => {
@@ -72,6 +86,9 @@ describe('extension publish', () => {
     )
     respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
     expect(await run(['publish'])).toBe(0)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://platform.test/api/cli/publish'
+    )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect((init.headers as Record<string, string>).authorization).toBe(
       'Bearer tok_stored'

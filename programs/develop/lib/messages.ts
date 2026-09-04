@@ -216,11 +216,21 @@ export function buildComplete(
   )
 }
 
+// The docs host for the share flow comes from the environment, so an unset
+// value prints nothing instead of a dead link.
+export function platformDocsUrl(): string {
+  return String(process.env.EXTENSION_DEV_DOCS_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
+}
+
 export function buildShareHint() {
+  const docs = platformDocsUrl()
+  if (!docs) return ''
   return (
     `${getLoggingPrefix('info')} Send this build to someone for review: ` +
     colors.underline(
-      'https://docs.extension.dev/share/unpublished-build-for-review?utm_source=cli-build'
+      `${docs}/share/unpublished-build-for-review?utm_source=cli-build`
     )
   )
 }

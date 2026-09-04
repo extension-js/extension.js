@@ -50,7 +50,7 @@ describe('writeReadmeFile', () => {
     )
   })
 
-  it('names the sponsor, because the scaffold is the only surface a stranger keeps', async () => {
+  it('writes no platform section by default, so a stranger keeps no dead link', async () => {
     await withTempProject(
       async (projectPath) => {
         await fsp.writeFile(
@@ -64,13 +64,41 @@ describe('writeReadmeFile', () => {
           path.join(projectPath, 'README.md'),
           'utf8'
         )
-        expect(contents).toContain('docs.extension.dev')
-        expect(contents).toContain('utm_source=create-readme')
-        expect(contents).toContain('sponsors Extension.js')
-        expect(contents).toContain('local and free')
+        expect(contents).not.toContain('## Ship it')
+        expect(contents).not.toContain('utm_source=create-readme')
         expect(contents).toContain('https://extension.js.org')
       }
     )
+  })
+
+  it('writes the Ship it section only when a platform docs host is configured', async () => {
+    const orig = process.env.EXTENSION_DEV_DOCS_URL
+    process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test/'
+    try {
+      await withTempProject(
+        async (projectPath) => {
+          await fsp.writeFile(
+            path.join(projectPath, 'manifest.json'),
+            JSON.stringify({manifest_version: 3})
+          )
+        },
+        async (projectPath) => {
+          await writeReadmeFile(projectPath, 'my-ext', noopLogger)
+          const contents = await fsp.readFile(
+            path.join(projectPath, 'README.md'),
+            'utf8'
+          )
+          expect(contents).toContain('## Ship it')
+          expect(contents).toContain(
+            'https://docs.platform.test/publish/overview?utm_source=create-readme'
+          )
+          expect(contents).toContain('local and free')
+        }
+      )
+    } finally {
+      if (orig === undefined) delete process.env.EXTENSION_DEV_DOCS_URL
+      else process.env.EXTENSION_DEV_DOCS_URL = orig
+    }
   })
 
   it('embeds public/screenshot.png when present and skips the embed otherwise', async () => {
