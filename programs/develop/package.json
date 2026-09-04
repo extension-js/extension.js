@@ -43,7 +43,7 @@
     "runtime"
   ],
   "name": "extension-develop",
-  "version": "4.1.11",
+  "version": "4.1.12",
   "description": "Develop, build, preview, and package Extension.js projects.",
   "author": {
     "name": "Cezar Augusto",
