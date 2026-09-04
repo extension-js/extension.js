@@ -14,20 +14,22 @@ const PLATFORM_HOST = ['extension', 'dev'].join('.')
 const SOURCE = /\.(ts|tsx|js|mjs|cjs|json|md|snap)$/
 
 function trackedProgramFiles(): string[] {
-  return execSync(
-    'git ls-files --cached --others --exclude-standard programs',
-    {
+  return (
+    execSync('git ls-files --cached --others --exclude-standard programs', {
       cwd: REPO,
       maxBuffer: 64 * 1024 * 1024
-    }
+    })
+      .toString()
+      .split('\n')
+      .filter(Boolean)
+      .filter((file) => SOURCE.test(file))
+      .filter((file) => !file.includes('/node_modules/'))
+      .filter((file) => !file.includes('/dist/'))
+      .filter((file) => !/(^|\/)README\.md$/.test(file))
+      // A verbatim mirror of the examples repo, checked for drift in CI, so
+      // its wording is that repo's to change.
+      .filter((file) => !file.startsWith('programs/create/templates/'))
   )
-    .toString()
-    .split('\n')
-    .filter(Boolean)
-    .filter((file) => SOURCE.test(file))
-    .filter((file) => !file.includes('/node_modules/'))
-    .filter((file) => !file.includes('/dist/'))
-    .filter((file) => !/(^|\/)README\.md$/.test(file))
 }
 
 describe('platform links', () => {

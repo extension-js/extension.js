@@ -6,7 +6,8 @@ changes instead of rewriting it at the end. Replace the placeholder
 lines marked TODO before you submit.
 
 Packaging your extension is local and free. Submitting the result to a
-store is a separate step each store documents on its own.
+store is what [extension.dev](https://docs.extension.dev/publish/overview?utm_source=store-md)
+does, and it sponsors Extension.js.
 
 Last updated: 2026-07-30
 

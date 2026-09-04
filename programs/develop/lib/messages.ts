@@ -218,7 +218,7 @@ export function buildComplete(
 
 // The docs host for the share flow comes from the environment, so an unset
 // value prints nothing instead of a dead link.
-export function platformDocsUrl(): string {
+function platformDocsUrl(): string {
   return String(process.env.EXTENSION_DEV_DOCS_URL || '')
     .trim()
     .replace(/\/+$/, '')
