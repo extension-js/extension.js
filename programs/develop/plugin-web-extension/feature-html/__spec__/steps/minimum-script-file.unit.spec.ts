@@ -92,3 +92,101 @@ describe('minimum-script-file (dev page) query-param shim', () => {
     expect(storedPath).not.toContain('dev-server-hot')
   })
 })
+
+describe('minimum-script-file (dev page) html-change reload', () => {
+  let listeners: Array<(event: {data?: unknown}) => void>
+  let served: string
+  let reloads: number
+  const saved: Record<string, unknown> = {}
+
+  function install(key: string, value: unknown) {
+    saved[key] = (globalThis as any)[key]
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      writable: true,
+      value
+    })
+  }
+
+  beforeEach(() => {
+    listeners = []
+    served = '<html><body>v1</body></html>'
+    reloads = 0
+    install('location', {
+      protocol: 'chrome-extension:',
+      href: 'chrome-extension://abc/action/index.html',
+      search: '',
+      reload: () => {
+        reloads += 1
+      }
+    })
+    install('history', {replaceState() {}})
+    install('addEventListener', (type: string, fn: any) => {
+      if (type === 'message') listeners.push(fn)
+    })
+    install('fetch', async () => ({ok: true, text: async () => served}))
+    vi.useFakeTimers()
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    for (const key of Object.keys(saved)) {
+      if (saved[key] === undefined) delete (globalThis as any)[key]
+      else
+        Object.defineProperty(globalThis, key, {
+          configurable: true,
+          writable: true,
+          value: saved[key]
+        })
+    }
+  })
+
+  async function settle() {
+    for (let i = 0; i < 6; i += 1) await Promise.resolve()
+  }
+
+  async function announceHash() {
+    for (const fn of listeners) fn({data: 'webpackHotUpdateabc123'})
+    await settle()
+  }
+
+  it('listens for the dev-server client hash message on an extension page', async () => {
+    await import('../../steps/minimum-script-file.ts')
+    await settle()
+    expect(listeners).toHaveLength(1)
+  })
+
+  it('reloads when the served markup changed since the page loaded', async () => {
+    await import('../../steps/minimum-script-file.ts')
+    await settle()
+    served = '<html><body>v2 DevLiveHtmlUpdate</body></html>'
+    await announceHash()
+    expect(reloads).toBe(1)
+  })
+
+  it('keeps the page (and its HMR state) when only scripts or styles changed', async () => {
+    await import('../../steps/minimum-script-file.ts')
+    await settle()
+    await announceHash()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(reloads).toBe(0)
+  })
+
+  it('takes a second look when the markup lands after the message', async () => {
+    await import('../../steps/minimum-script-file.ts')
+    await settle()
+    await announceHash()
+    served = '<html><body>v2</body></html>'
+    await vi.advanceTimersByTimeAsync(600)
+    expect(reloads).toBe(1)
+  })
+
+  it('does nothing on a plain web page', async () => {
+    ;(globalThis as any).location.protocol = 'https:'
+    ;(globalThis as any).location.href = 'https://example.com/'
+    await import('../../steps/minimum-script-file.ts')
+    await settle()
+    expect(listeners).toHaveLength(0)
+  })
+})
