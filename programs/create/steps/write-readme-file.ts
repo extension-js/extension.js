@@ -25,7 +25,7 @@ async function pathExists(target: string): Promise<boolean> {
 
 // The docs host for the share and store flow comes from the environment, so
 // an unset value writes no section at all.
-export function platformDocsUrl(): string {
+function platformDocsUrl(): string {
   return String(process.env.EXTENSION_DEV_DOCS_URL || '')
     .trim()
     .replace(/\/+$/, '')
