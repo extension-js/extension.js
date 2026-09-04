@@ -130,9 +130,24 @@ jobs:
           fi
 
           SHOULD_TAG=true
+          RESUME=false
           if [ "$CHANNEL" = "canary" ]; then SHOULD_TAG=false; fi
           if [ "$SHOULD_TAG" = "true" ]; then
-            if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then echo "tag v$VERSION already exists on origin" >&2; exit 1; fi
+            if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then
+              # The tag exists. When every package on this checkout already
+              # carries the version, the bump commit landed and a previous run
+              # died between the tag and npm (a publish that npm was still
+              # processing when the visibility check gave up, on 2026-09-04).
+              # Resume: skip the bump, the tag, the release, the announcements
+              # and the changelog, and publish whatever npm does not have.
+              ALL_BUMPED=$(node -p "['programs/extension','programs/develop','programs/create','programs/install'].every(d=>require('./'+d+'/package.json').version===process.argv[1])" "$VERSION")
+              if [ "$ALL_BUMPED" = "true" ]; then
+                RESUME=true
+                echo "tag v$VERSION exists and main is bumped to it: resuming the publish"
+              else
+                echo "tag v$VERSION already exists on origin" >&2; exit 1
+              fi
+            fi
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -144,6 +159,7 @@ jobs:
             echo "tag=latest" >> $GITHUB_OUTPUT
           fi
           echo "should_tag=$SHOULD_TAG" >> $GITHUB_OUTPUT
+          echo "resume=$RESUME" >> $GITHUB_OUTPUT
           echo "Resolved publish target: channel=$CHANNEL version=$VERSION npm_tag=$( [ \"$CHANNEL\" = \"next\" ] && echo next || ( [ \"$CHANNEL\" = \"canary\" ] && echo canary || echo latest ) )"
 
       # Notes are anchored on the on-branch release commit (not a git tag), so a
@@ -181,6 +197,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump versions (all packages) and tag
+        if: ${{ steps.validate.outputs.resume != 'true' }}
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
@@ -197,7 +214,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: ${{ inputs.channel != 'canary' }}
+        if: ${{ inputs.channel != 'canary' && steps.validate.outputs.resume != 'true' }}
         id: create_release
         uses: actions/github-script@v9
         env:
@@ -237,7 +254,7 @@ jobs:
       # notify step below skip itself rather than explode.
       - name: Check Discord webhook secret for stable release
         id: discord_secret
-        if: ${{ inputs.channel == 'stable' }}
+        if: ${{ inputs.channel == 'stable' && steps.validate.outputs.resume != 'true' }}
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
         run: |
@@ -250,7 +267,7 @@ jobs:
           fi
 
       - name: Notify Discord for stable release
-        if: ${{ inputs.channel == 'stable' && steps.discord_secret.outputs.configured == 'true' }}
+        if: ${{ inputs.channel == 'stable' && steps.discord_secret.outputs.configured == 'true' && steps.validate.outputs.resume != 'true' }}
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
           RELEASE_TITLE: ${{ steps.validate.outputs.version }}
@@ -306,7 +323,7 @@ jobs:
       # with the standard library). Dormant until the four X_* secrets are set;
       # if any is missing the step no-ops so releases never block on it.
       - name: Announce on X (Twitter)
-        if: ${{ inputs.channel == 'stable' }}
+        if: ${{ inputs.channel == 'stable' && steps.validate.outputs.resume != 'true' }}
         env:
           TWEET: ${{ steps.changelog.outputs.tweet }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
@@ -375,7 +392,7 @@ jobs:
           PY
 
       - name: Update changelog for stable release
-        if: ${{ inputs.channel == 'stable' }}
+        if: ${{ inputs.channel == 'stable' && steps.validate.outputs.resume != 'true' }}
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
@@ -447,13 +464,16 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           echo "Verifying $PKG@$VER is visible on npm..."
-          for i in {1..12}; do
+          # npm answers a publish with 202 and processes it afterwards; on
+          # 2026-09-04 that took longer than two minutes and the run died with
+          # the package published, so the wait is ten minutes now.
+          for i in {1..40}; do
             if npm view "$PKG@$VER" version >/dev/null 2>&1; then
               echo "Found $PKG@$VER on npm."
               exit 0
             fi
-            echo "Waiting for npm replication... ($i/12)"
-            sleep 10
+            echo "Waiting for npm replication... ($i/40)"
+            sleep 15
           done
           echo "Publish not visible on npm after waiting." >&2
           exit 1
@@ -485,13 +505,16 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           echo "Verifying $PKG@$VER is visible on npm..."
-          for i in {1..12}; do
+          # npm answers a publish with 202 and processes it afterwards; on
+          # 2026-09-04 that took longer than two minutes and the run died with
+          # the package published, so the wait is ten minutes now.
+          for i in {1..40}; do
             if npm view "$PKG@$VER" version >/dev/null 2>&1; then
               echo "Found $PKG@$VER on npm."
               exit 0
             fi
-            echo "Waiting for npm replication... ($i/12)"
-            sleep 10
+            echo "Waiting for npm replication... ($i/40)"
+            sleep 15
           done
           echo "Publish not visible on npm after waiting." >&2
           exit 1
@@ -522,13 +545,16 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           echo "Verifying $PKG@$VER is visible on npm..."
-          for i in {1..12}; do
+          # npm answers a publish with 202 and processes it afterwards; on
+          # 2026-09-04 that took longer than two minutes and the run died with
+          # the package published, so the wait is ten minutes now.
+          for i in {1..40}; do
             if npm view "$PKG@$VER" version >/dev/null 2>&1; then
               echo "Found $PKG@$VER on npm."
               exit 0
             fi
-            echo "Waiting for npm replication... ($i/12)"
-            sleep 10
+            echo "Waiting for npm replication... ($i/40)"
+            sleep 15
           done
           echo "Publish not visible on npm after waiting." >&2
           exit 1
@@ -560,13 +586,16 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           echo "Verifying $PKG@$VER is visible on npm..."
-          for i in {1..12}; do
+          # npm answers a publish with 202 and processes it afterwards; on
+          # 2026-09-04 that took longer than two minutes and the run died with
+          # the package published, so the wait is ten minutes now.
+          for i in {1..40}; do
             if npm view "$PKG@$VER" version >/dev/null 2>&1; then
               echo "Found $PKG@$VER on npm."
               exit 0
             fi
-            echo "Waiting for npm replication... ($i/12)"
-            sleep 10
+            echo "Waiting for npm replication... ($i/40)"
+            sleep 15
           done
           echo "Publish not visible on npm after waiting." >&2
           exit 1
