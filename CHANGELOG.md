@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 4.1.12 (September 4, 2026)
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Keep the develop message surface and the bundled template as pinned ([5a115140](https://github.com/extension-js/extension.js/commit/5a1151401e46d773ae62b65eeac2c1ed1a8f4106))
+- Bump browserslist to its patched release ([87081962](https://github.com/extension-js/extension.js/commit/87081962c2b6911e68681e9a248924ef7b175639))
+- Bump fast-uri and postcss-selector-parser to their patched releases ([efd3beb6](https://github.com/extension-js/extension.js/commit/efd3beb65e7c3b4f7abaabc8f80badb33e87b1f4))
+- Read publish and share doc links from the environment ([7b372771](https://github.com/extension-js/extension.js/commit/7b3727710f02cccf2bccf486db6cc235d93b4494))
+</details>
+
 ## 4.1.11 (August 31, 2026)
 
 ### Fixes
