@@ -29,6 +29,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "templateDownloadFailed: function(2)",
     "templateFetchTimedOut: function(2)",
     "templateNotFoundInCatalog: function(2)",
+    "templateOfflineFallback: function(3)",
     "usingTemplate: function(2)",
     "writingDenoJsonc: function(0)",
     "writingDenoJsoncError: function(1)",

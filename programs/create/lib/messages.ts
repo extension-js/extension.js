@@ -203,6 +203,24 @@ export function templateDownloadFailed(templateName: string, error: unknown) {
   )
 }
 
+// The default template downloads, so an offline machine can't fetch it. Rather
+// than fail the whole create, the scaffold falls back to the bundled template
+// and NAMES the network failure, so the swap is never silent and "javascript
+// ran" can only mean the network was down.
+export function templateOfflineFallback(
+  requestedTemplate: string,
+  fallbackTemplate: string,
+  error: unknown
+) {
+  return (
+    `${prefix('info')} Couldn't download the template ${colors.blue(requestedTemplate)} ` +
+    `from ${fmt.val('github.com/extension-js/examples')}, so this scaffold uses the ` +
+    `offline ${colors.blue(fallbackTemplate)} template instead.\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${colors.gray('- Reconnect and run')} ${colors.blue(`extension create --template ${requestedTemplate}`)} ${colors.gray('to scaffold it.')}`
+  )
+}
+
 // A lockfile copied from a template can never match the scaffold, because
 // create pins the `extension` devDependency after the copy, so it is dropped
 // instead of leaving an `npm ci` that fails on the first run.

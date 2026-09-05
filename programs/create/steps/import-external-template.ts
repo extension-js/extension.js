@@ -76,6 +76,17 @@ export const DEFAULT_TEMPLATES_REF = 'cb6a25377bd9516a1e55447a2010537019851ab2'
 // rather than restating it, a default that is not bundled must not claim it.
 export const BUNDLED_TEMPLATES: readonly string[] = ['javascript']
 
+// The template scaffolded when `--template` is omitted. TypeScript is the
+// default across the toolchain (CLI and MCP alike), so it downloads like every
+// other catalog name rather than shipping in the package.
+export const DEFAULT_TEMPLATE_NAME = 'typescript'
+
+// What a create falls back to when the default's download fails because the
+// machine is offline. It is a bundled template so the fallback needs no network,
+// and the swap is always named (never silent), so "javascript ran" can only ever
+// mean the network was down, which keeps the offline claim falsifiable.
+export const OFFLINE_FALLBACK_TEMPLATE = 'javascript'
+
 // Map EXTENSION_CREATE_TEMPLATE_REF to the codeload URL(s) that can resolve it, so
 // a commit SHA or tag pins the corpus reproducibly and not only a branch. A bare
 // name is branch-or-tag ambiguous, so try branch first (the historical default,
@@ -313,6 +324,27 @@ function bundledTemplateDir(templateName: string): string {
   return path.join(__dirname, '..', 'templates', templateName)
 }
 
+// Copy a bundled template into projectPath, returning its provenance, or
+// undefined when the template is not actually bundled on disk. Shared by the
+// primary bundled path and the offline fallback so the two cannot drift.
+async function copyBundledTemplate(
+  templateName: string,
+  projectPath: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  ownerGitignore: string | null = null
+): Promise<TemplateProvenance | undefined> {
+  const localTemplate = bundledTemplateDir(templateName)
+  if (!existsSync(localTemplate)) return undefined
+  await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
+  await restoreOwnerGitignore(projectPath, ownerGitignore)
+  await removeTemplateScaffoldingFiles(projectPath)
+  const dropped = await removeStaleTemplateLockfiles(projectPath)
+  if (dropped.length) {
+    logger.log(messages.removedStaleTemplateLockfiles(dropped))
+  }
+  return {template: templateName, source: 'bundled'}
+}
+
 // Gallery + E2E files the extension-js/examples repo carries; useless in a
 // scaffolded project (template.spec.ts even trips tsc --noEmit). Issue #476.
 export const TEMPLATE_SCAFFOLDING_FILES = [
@@ -396,6 +428,11 @@ export interface ImportExternalTemplateOptions {
   // createDirectory step knows). Failure cleanup may then remove the whole
   // directory; otherwise it removes only the entries this import added.
   ownsProjectDir?: boolean
+  // True only when the caller applied the default template (no explicit
+  // --template). A download failure then scaffolds the bundled offline
+  // fallback instead of failing, so an offline machine can still create. An
+  // explicit template that fails to download still fails loudly.
+  allowOfflineFallback?: boolean
 }
 
 // Failure cleanup must never delete a directory the scaffolder did not create
@@ -512,18 +549,13 @@ export async function importExternalTemplate(
     await fs.mkdir(projectPath, {recursive: true})
 
     if (!isHttp && !isGithub && BUNDLED_TEMPLATES.includes(resolvedTemplate)) {
-      const localTemplate = bundledTemplateDir(resolvedTemplate)
-
-      if (existsSync(localTemplate)) {
-        await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
-        await restoreOwnerGitignore(projectPath, ownerGitignore)
-        await removeTemplateScaffoldingFiles(projectPath)
-        const dropped = await removeStaleTemplateLockfiles(projectPath)
-        if (dropped.length) {
-          logger.log(messages.removedStaleTemplateLockfiles(dropped))
-        }
-        return {template: resolvedTemplateName, source: 'bundled'}
-      }
+      const provenance = await copyBundledTemplate(
+        resolvedTemplate,
+        projectPath,
+        logger,
+        ownerGitignore
+      )
+      if (provenance) return provenance
       // Bundled copy missing (unexpected): fall through to the network fetch
     }
 
@@ -623,6 +655,36 @@ export async function importExternalTemplate(
 
     return provenance
   } catch (error) {
+    // The default template downloads, so an offline machine cannot fetch it. A
+    // download failure on the default falls back to the bundled template rather
+    // than failing the whole create, and the swap is named below so it is never
+    // silent. A missing slug (TemplateNotFoundError) is a typo, not a network
+    // outage, and must not be answered with a different template.
+    if (
+      error instanceof TemplateDownloadError &&
+      options?.allowOfflineFallback &&
+      resolvedTemplate !== OFFLINE_FALLBACK_TEMPLATE &&
+      BUNDLED_TEMPLATES.includes(OFFLINE_FALLBACK_TEMPLATE)
+    ) {
+      await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+      await fs.mkdir(projectPath, {recursive: true})
+      const fallback = await copyBundledTemplate(
+        OFFLINE_FALLBACK_TEMPLATE,
+        projectPath,
+        logger,
+        ownerGitignore
+      )
+      if (fallback) {
+        logger.log(
+          messages.templateOfflineFallback(
+            resolvedTemplateName,
+            OFFLINE_FALLBACK_TEMPLATE,
+            error
+          )
+        )
+        return fallback
+      }
+    }
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).
     if (error instanceof TemplateNotFoundError) {

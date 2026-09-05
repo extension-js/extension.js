@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const callOrder: string[] = []
 
@@ -8,6 +8,7 @@ vi.mock('../steps/create-directory', () => ({
   }
 }))
 vi.mock('../steps/import-external-template', () => ({
+  DEFAULT_TEMPLATE_NAME: 'typescript',
   importExternalTemplate: async () => {
     callOrder.push('importExternalTemplate')
   }

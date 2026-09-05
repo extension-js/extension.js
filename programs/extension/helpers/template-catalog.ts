@@ -13,7 +13,7 @@ import {
   TEMPLATE_CORPUS_SLUGS
 } from './template-corpus.generated'
 
-export const DEFAULT_TEMPLATE = 'javascript'
+export const DEFAULT_TEMPLATE = 'typescript'
 
 // The one template that ships inside the npm package. Kept in step with
 // BUNDLED_TEMPLATES in extension-create by a spec; importing that module here

@@ -127,7 +127,7 @@ describe('extension create', () => {
     }
   }, 30000)
 
-  it('creates a default project when template is omitted (javascript)', async () => {
+  it('creates a default project when template is omitted', async () => {
     const templatePath = path.resolve(
       __dirname,
       'dist',
