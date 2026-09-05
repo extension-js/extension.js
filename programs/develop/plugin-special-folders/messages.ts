@@ -24,6 +24,29 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   )
 }
 
+export function publicMustBeAtProjectRoot(foundAt: string, expectedAt: string) {
+  return (
+    'The public folder sits in the legacy next-to-manifest location.\n' +
+    `GOT ${foundAt}\n` +
+    `EXPECTED ${expectedAt}\n` +
+    'Static files ship from the extension root, so public/ is ' +
+    'canonically placed at the project root.\n' +
+    'The build uses it either way.\n' +
+    'Move the folder to the project root to silence this warning.'
+  )
+}
+
+export function publicFolderShadowed(usedAt: string, ignoredAt: string) {
+  return (
+    'Two public folders were found and only one is copied into the build.\n' +
+    `USING ${usedAt}\n` +
+    `IGNORED ${ignoredAt}\n` +
+    'public/ is canonically placed at the project root, and that copy wins.\n' +
+    'Files that exist only in the ignored folder do not ship.\n' +
+    'Move or merge the ignored folder to silence this warning.'
+  )
+}
+
 export function specialFoldersSetupSummary(
   hasPublic: boolean,
   copyEnabled: boolean,

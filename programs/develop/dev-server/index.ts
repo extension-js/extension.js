@@ -46,6 +46,7 @@ import {
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from '../plugin-special-folders/get-data'
+import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
 import {setupCleanupHandlers} from './cleanup'
@@ -743,7 +744,7 @@ export async function devServer(
     host: devServerHost,
     allowedHosts: 'all',
     static: {
-      directory: path.join(packageJsonDir, 'public'),
+      directory: publicFolderOrDefault(manifestPath, packageJsonDir),
       watch: false
     },
     compress: false,
@@ -755,7 +756,7 @@ export async function devServer(
     },
     watchFiles: {
       paths: [
-        path.join(packageJsonDir, 'public', '**/*'),
+        path.join(publicFolderOrDefault(manifestPath, packageJsonDir), '**/*'),
         ...(isUsingJSFramework(packageJsonDir)
           ? []
           : [path.join(packageJsonDir, '**/*.html')])
