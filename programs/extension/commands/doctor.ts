@@ -319,7 +319,9 @@ export async function runDoctor(
           'A newer session overwrote the contract, or this dist belongs to ' +
           'another session, re-read ready.json or restart the dev session'
       } else if (code === '4003') {
-        detail = 'refused: session was not started with --allow-control'
+        // The instanceId matched, so this is the session itself with control
+        // off, not a stale server answering the port.
+        detail = 'refused: control is off in the session that answered'
         remediation = `Restart with control enabled: extension dev --browser=${browser} --allow-control`
       }
       results.push({

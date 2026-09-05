@@ -895,6 +895,59 @@ export function deprecatedOutputAlias(flag: string) {
   )
 }
 
+// The surface as a reader names it. The CLI word is the argument the user
+// typed, the noun is what the browser shows.
+const OPEN_SURFACE_NOUN: Record<string, string> = {
+  popup: 'popup',
+  sidebar: 'side panel',
+  action: 'action popup'
+}
+
+function openSurfaceNoun(surface: string): string {
+  return OPEN_SURFACE_NOUN[surface] || surface
+}
+
+export function openSurfaceGestureStep(surface: string): string {
+  return `Click the extension's toolbar entry, or its row in the extensions menu, to open the ${openSurfaceNoun(surface)}.`
+}
+
+export function openSurfaceNeedsGesturePlain(surface: string): string {
+  return `Chromium opens the ${openSurfaceNoun(surface)} only in response to a user gesture, so extension open ${surface} can't open it from the command line.`
+}
+
+export function openSurfaceNeedsGesture(surface: string) {
+  return (
+    `${getLoggingPrefix('error')} Chromium opens the ${openSurfaceNoun(surface)} only in response to a user gesture, so ${code(`extension open ${surface}`)} can't open it from the command line.\n` +
+    openSurfaceGestureStep(surface)
+  )
+}
+
+function sessionOnPort(browser: string, port?: number): string {
+  return port ? `for ${browser} on port ${port}` : `for ${browser}`
+}
+
+export function controlDisabledInSessionPlain(
+  browser: string,
+  port: number | undefined,
+  flag: string
+): string {
+  return (
+    `The dev session ${sessionOnPort(browser, port)} refused the controller because control is off in that session. ` +
+    `Restart the dev session with ${flag} to turn it on, or run extension doctor when a session started with ${flag} still answers this way.`
+  )
+}
+
+export function controlDisabledInSession(
+  browser: string,
+  port: number | undefined,
+  flag: string
+) {
+  return (
+    `${getLoggingPrefix('error')} The dev session ${sessionOnPort(browser, port)} refused the controller because control is off in that session.\n` +
+    `Restart the dev session with ${code(flag)} to turn it on, or run ${code('extension doctor')} when a session started with ${code(flag)} still answers this way.`
+  )
+}
+
 export function noBrowserNotSupportedForCommand(command?: string) {
   return (
     `${getLoggingPrefix('error')} ${code(

@@ -9,6 +9,8 @@
 import {WebSocket} from 'ws'
 import {
   type BridgeTarget,
+  CLOSE_BAD_HELLO,
+  CLOSE_BAD_INSTANCE,
   CLOSE_CONTROL_UNAVAILABLE,
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
@@ -136,23 +138,33 @@ export class BridgeController {
           settled = true
           clearTimeout(connectTimer)
 
-          // 4003 is the broker saying the channel is not there at all, which
-          // is not the same as the session refusing an unlocked caller. Asking
-          // for a flag the caller already passed sends them to check something
-          // that was never wrong.
+          // Each close code is one cause, and the copy states that cause. The
+          // instanceId matched before 4003 was sent, so the session itself has
+          // control off, and asking for a flag the caller may already have
+          // passed would send them to check something that was never wrong.
           const flag = this.opts.unlockFlag || '--allow-control'
           const detail =
             code === CLOSE_CONTROL_UNAVAILABLE
-              ? 'the session has no control channel. It is opened by a running ' +
-                `\`dev\` session started with ${flag}; a session started ` +
-                'without it, or already stopped, has none to connect to.'
-              : `is the session started with ${flag}?`
+              ? 'control is off in the session that answered, so it accepts ' +
+                `no controller. A session turns control on with ${flag}, and ` +
+                'one that had the flag and still answers this way needs ' +
+                '`extension doctor`.'
+              : code === CLOSE_BAD_INSTANCE
+                ? 'the session that wrote ready.json has been replaced. ' +
+                  'Re-read ready.json or restart the dev session.'
+                : code === CLOSE_BAD_HELLO
+                  ? 'the session did not understand the hello. Update the CLI ' +
+                    'and the dev session to the same Extension.js version.'
+                  : 'the session closed the socket during the handshake.'
 
           reject(
-            new Error(
-              `control channel refused the controller (code ${code}${
-                reason ? `: ${reason}` : ''
-              }). ${detail}`
+            Object.assign(
+              new Error(
+                `control channel refused the controller (code ${code}${
+                  reason ? `: ${reason}` : ''
+                }). ${detail}`
+              ),
+              {closeCode: code}
             )
           )
         }
