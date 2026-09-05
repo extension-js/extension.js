@@ -24,7 +24,7 @@ import {
   getBaseHref,
   getExtname,
   getFilePath,
-  joinEmittedAssetName,
+  htmlStaticAssetOutputName,
   resolveHtmlRefPath,
   resolveStaticAttributeName
 } from './utils'
@@ -57,7 +57,8 @@ export function patchHtml(
   compilation: Compilation,
   feature: string,
   htmlEntry: string,
-  includeList: FilepathList
+  includeList: FilepathList,
+  manifestDir?: string
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
@@ -171,7 +172,8 @@ export function patchHtml(
                   includeList,
                   extname,
                   thisChildNode,
-                  attributeName
+                  attributeName,
+                  manifestDir
                 )
                 break
               }
@@ -230,7 +232,8 @@ export function patchHtml(
 // static assets, and warn about missing public-root assets.
 export function patchHtmlNested(
   compilation: Compilation,
-  htmlEntry: string
+  htmlEntry: string,
+  manifestDir?: string
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
@@ -247,7 +250,6 @@ export function patchHtmlNested(
         parseHtml(
           htmlChildNode,
           ({filePath, childNode, assetType, attributeName}) => {
-            const htmlDir = path.dirname(htmlEntry)
             const {cleanPath, hash, search} = cleanAssetUrl(filePath)
             const absolutePath = resolveHtmlRefPath(
               htmlEntry,
@@ -311,16 +313,10 @@ export function patchHtmlNested(
                   )
                 } else {
                   if (fs.existsSync(absolutePath)) {
-                    const relativeFromHtml = path.relative(
-                      htmlDir,
+                    const filepath = htmlStaticAssetOutputName(
+                      manifestDir,
+                      htmlEntry,
                       absolutePath
-                    )
-                    const posixRelative = relativeFromHtml
-                      .split(path.sep)
-                      .join('/')
-                    const filepath = joinEmittedAssetName(
-                      'assets',
-                      posixRelative
                     )
                     thisChildNode = applyRewrittenStaticUrl(
                       thisChildNode,
