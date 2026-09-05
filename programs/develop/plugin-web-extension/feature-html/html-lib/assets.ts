@@ -16,7 +16,7 @@ import {
   applyRewrittenStaticUrl,
   getFilePath,
   getHtmlPageDeclaredAssetPath,
-  joinEmittedAssetName,
+  htmlStaticAssetOutputName,
   resolveStaticAttributeName
 } from './utils'
 
@@ -32,7 +32,8 @@ export function handleStaticAsset(
   includeList: FilepathList,
   extname: string,
   childNode: parse5utilities.ParsedNode,
-  attributeName?: HtmlStaticAttribute
+  attributeName?: HtmlStaticAttribute,
+  manifestDir?: string
 ): parse5utilities.ParsedNode {
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
@@ -69,19 +70,13 @@ export function handleStaticAsset(
     return node
   }
 
-  // The emitter names a static asset by its path from the page's folder, so
-  // the reference is written from the same folder (a <base href> plays no
-  // part here: the built page carries no base tag).
-  const fromRoot = path.parse(htmlDir).root
-  const toRoot = path.parse(absolutePath).root
-  const relativeFromHtml =
-    fromRoot &&
-    toRoot &&
-    String(fromRoot).toLowerCase() !== String(toRoot).toLowerCase()
-      ? path.basename(absolutePath)
-      : path.relative(htmlDir, absolutePath)
-  const posixRelative = relativeFromHtml.split(path.sep).join('/')
-  const filepath = joinEmittedAssetName('assets', posixRelative)
+  // The emitter and this rewrite name the asset from the same helper (a
+  // <base href> plays no part here: the built page carries no base tag).
+  const filepath = htmlStaticAssetOutputName(
+    manifestDir,
+    htmlEntry,
+    absolutePath
+  )
   if (fs.existsSync(absolutePath)) {
     node = applyRewrittenStaticUrl(
       node,

@@ -16,13 +16,12 @@ import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {
   cleanLeading,
-  computePosixRelative,
   getAssetsFromHtml,
   getFilePath,
+  htmlStaticAssetOutputName,
   isFromIncludeList,
   isHttpLike,
   isSpecialScheme,
-  joinEmittedAssetName,
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
 
@@ -191,10 +190,11 @@ function emitNestedHtmlAndReferencedAssets(params: {
   compilation: Compilation
   filepath: string
   absoluteFsPath: string
+  manifestDir: string
 }) {
-  const {compilation, filepath, absoluteFsPath} = params
+  const {compilation, filepath, absoluteFsPath, manifestDir} = params
   const source = fs.readFileSync(absoluteFsPath)
-  const updatedHtml = patchHtmlNested(compilation, absoluteFsPath)
+  const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, manifestDir)
   const htmlAssets = getAssetsFromHtml(absoluteFsPath)
   const assetsFromHtml = [
     ...(htmlAssets?.js || []),
@@ -215,9 +215,10 @@ function emitNestedHtmlAndReferencedAssets(params: {
     }
     const s = fs.readFileSync(assetFromHtml)
     const r = new sources.RawSource(s)
-    const assetFilepath = joinEmittedAssetName(
-      'assets',
-      computePosixRelative(absoluteFsPath, assetFromHtml)
+    const assetFilepath = htmlStaticAssetOutputName(
+      manifestDir,
+      absoluteFsPath,
+      assetFromHtml
     )
     if (!compilation.getAsset(assetFilepath)) {
       compilation.emitAsset(assetFilepath, r)
@@ -399,9 +400,10 @@ export class AddAssetsToCompilation {
                 continue
               }
 
-              const filepath = joinEmittedAssetName(
-                'assets',
-                computePosixRelative(resource as string, absoluteFsPath)
+              const filepath = htmlStaticAssetOutputName(
+                manifestDir,
+                resource as string,
+                absoluteFsPath
               )
 
               const isNestedHtml = asset.endsWith('.html')
@@ -428,7 +430,8 @@ export class AddAssetsToCompilation {
                   emitNestedHtmlAndReferencedAssets({
                     compilation,
                     filepath,
-                    absoluteFsPath
+                    absoluteFsPath,
+                    manifestDir
                   })
                 } else {
                   const source = fs.readFileSync(absoluteFsPath)

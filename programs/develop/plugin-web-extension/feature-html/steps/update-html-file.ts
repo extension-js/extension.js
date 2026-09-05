@@ -60,7 +60,8 @@ export class UpdateHtmlFile {
               compilation as unknown as Compilation,
               feature,
               resolved,
-              (this.includeList || {}) as FilepathList
+              (this.includeList || {}) as FilepathList,
+              projectDir
             )
 
             const updatedHtml =

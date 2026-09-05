@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
 import type {FilepathList} from '../../../types'
+import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
 
 export interface ParsedHtmlAsset {
@@ -302,6 +303,32 @@ export function joinEmittedAssetName(prefix: string, rel: string): string {
   return parts.slice(i).join('/') || path.posix.basename(rel)
 }
 
+// Output name of a static asset an html page references. A file inside the
+// extension root keeps its manifest-relative path under assets/, so two pages
+// that each name their own ./logo.png stay two files; a file outside the
+// root gets a stable slot under assets/ instead of climbing out of dist.
+// Without a manifest dir the name falls back to the page-relative path.
+export function htmlStaticAssetOutputName(
+  manifestDir: string | undefined,
+  htmlEntry: string,
+  absolutePath: string
+): string {
+  if (typeof manifestDir === 'string' && manifestDir) {
+    const rel = path.relative(manifestDir, absolutePath)
+    if (rel && !path.isAbsolute(rel)) {
+      const posix = rel.split(path.sep).join('/')
+      const escapes = posix.split('/').includes('..')
+      return escapes
+        ? externalAssetOutputPath(posix, 'assets')
+        : joinEmittedAssetName('assets', posix)
+    }
+  }
+  return joinEmittedAssetName(
+    'assets',
+    computePosixRelative(htmlEntry, absolutePath)
+  )
+}
+
 export function computePosixRelative(fromPath: string, toPath: string): string {
   const fromRoot = path.parse(fromPath).root
   const toRoot = path.parse(toPath).root
@@ -328,13 +355,28 @@ export function resolveAbsoluteFsPath(params: {
 }): {absoluteFsPath: string; isUnderPublicRoot: boolean; isRootUrl: boolean} {
   const {asset, projectRoot, publicRootForResource, outputRoot, manifestRoot} =
     params
-  const isRootUrl =
+  const looksLikeRootUrl =
     asset.startsWith('/') &&
     !(
       asset.startsWith(projectRoot) ||
       asset.startsWith(publicRootForResource) ||
       asset.startsWith(outputRoot)
     )
+  // A page ref that climbs out of the project root arrives as an absolute
+  // path that also starts with '/'. It is a root URL only when the
+  // extension root claims it or no such file exists on disk.
+  const rootUrlIsClaimed = (value: string) => {
+    const normalized = cleanLeading(value.slice(1))
+    const withoutPublicPrefix = normalized.replace(/^public\//, '')
+    if (fs.existsSync(path.join(publicRootForResource, withoutPublicPrefix))) {
+      return true
+    }
+    return Boolean(
+      manifestRoot && fs.existsSync(path.join(manifestRoot, normalized))
+    )
+  }
+  const isRootUrl =
+    looksLikeRootUrl && (rootUrlIsClaimed(asset) || !fs.existsSync(asset))
   const isDotPublic = asset.startsWith('./public/')
   const isPlainPublic = asset.startsWith('public/')
 
