@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
@@ -47,11 +47,11 @@ describe('cssInContentScriptLoader', () => {
         (r: any) =>
           String(r.test) === String(/\.css$/) &&
           String(r.exclude) === String(/\.module\.css$/) &&
-          r.type === 'asset/inline'
+          r.type === 'javascript/auto'
       )
     ).toBe(true)
     for (const rule of rules) {
-      expect(['asset/inline', 'css/module']).toContain((rule as any).type)
+      expect(['javascript/auto', 'css/module']).toContain((rule as any).type)
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

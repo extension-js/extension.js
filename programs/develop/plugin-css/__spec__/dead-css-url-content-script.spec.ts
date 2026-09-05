@@ -52,7 +52,8 @@ describe('dead url() in a content-script stylesheet', () => {
 
     const {output, warnings} = runLoader(dir, stylesheet, source)
 
-    expect(output).toBe(source)
+    // The sheet leaves as a runtime module; a dead ref rides through verbatim.
+    expect(output).toContain(JSON.stringify(source))
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('/missing-probe.png')
     expect(warnings[0].message).toContain('content/styles.css')
@@ -137,10 +138,10 @@ describe('dead url() in a content-script stylesheet', () => {
         JSON.stringify(rule.use || []).includes('dead-css-url-loader')
       )
 
-    // Every asset/inline rule carries it; the css/module siblings resolve their
-    // url() through the module graph and would double-report.
+    // Every inlined-sheet rule carries it; the css/module siblings resolve
+    // their url() through the module graph and would double-report.
     expect(carriesScan(inlined).length).toBe(
-      inlined.filter((rule) => rule.type === 'asset/inline').length
+      inlined.filter((rule) => rule.type === 'javascript/auto').length
     )
     expect(carriesScan(inlined).length).toBeGreaterThan(0)
     expect(carriesScan(emitted)).toHaveLength(0)

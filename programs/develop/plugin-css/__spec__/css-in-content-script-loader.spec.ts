@@ -36,12 +36,13 @@ describe('cssInContentScriptLoader', () => {
         (r: any) =>
           String(r.test) === String(/\.css$/) &&
           String(r.exclude) === String(/\.module\.css$/) &&
-          r.type === 'asset/inline'
+          r.type === 'javascript/auto'
       )
     ).toBe(true)
 
     for (const rule of rules as any[]) {
-      expect(['asset/inline', 'css/module']).toContain(rule.type)
+      // Inlined sheets leave the chain as a runtime stylesheet module.
+      expect(['javascript/auto', 'css/module']).toContain(rule.type)
       expect(rule.resourceQuery).toBeUndefined()
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
@@ -58,7 +59,8 @@ describe('cssInContentScriptLoader', () => {
 
     const scssRule: any = (rules as any[]).find(
       (r) =>
-        String(r.test) === String(/\.(sass|scss)$/) && r.type === 'asset/inline'
+        String(r.test) === String(/\.(sass|scss)$/) &&
+        r.type === 'javascript/auto'
     )
     expect(scssRule).toBeDefined()
     expect(
@@ -68,7 +70,8 @@ describe('cssInContentScriptLoader', () => {
     ).toBe(false)
 
     const lessRule: any = (rules as any[]).find(
-      (r) => String(r.test) === String(/\.less$/) && r.type === 'asset/inline'
+      (r) =>
+        String(r.test) === String(/\.less$/) && r.type === 'javascript/auto'
     )
     expect(lessRule).toBeDefined()
   })
