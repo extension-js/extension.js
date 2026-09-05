@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 
 let mockFields: any = {scripts: {}, html: {}, icons: {}, json: {}}
 
@@ -12,7 +12,16 @@ vi.mock('../../feature-scripts/steps/add-content-script-wrapper', () => ({
   }
 }))
 
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  unbindDevSessionRestart
+} from '../../../dev-server/session-restart'
 import {ManifestFieldsChangeDetector} from '../manifest-fields-change-detector'
+
+afterEach(() => {
+  unbindDevSessionRestart()
+})
 
 function makeCompiler(modified: string[], errorsArr: any[]) {
   let watchRunHandler: any
@@ -414,5 +423,73 @@ describe('ManifestFieldsChangeDetector', () => {
     compiler._triggerThisCompilation()
 
     expect(errors.length).toBe(3)
+  })
+
+  it('asks a live session to restart instead of failing on a new script entry', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {bg: '/a.js', extra: '/content-2.js'},
+      html: {},
+      icons: {},
+      json: {}
+    }
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(errors).toHaveLength(0)
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({reason: 'scripts', pathAfter: '/content-2.js'})
+    )
+  })
+
+  it('carries a new manifest icon through a restart instead of an error', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {scripts: {}, html: {}, icons: {}, json: {}}
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {},
+      html: {},
+      icons: {action: ['/icons/toolbar.png']},
+      json: {}
+    }
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(errors).toHaveLength(0)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'icons',
+        pathAfter: '/icons/toolbar.png'
+      })
+    )
   })
 })

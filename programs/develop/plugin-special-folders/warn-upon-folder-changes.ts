@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
+import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {isDebug} from '../lib/messaging'
 import * as messages from './messages'
 
@@ -92,6 +93,16 @@ export class WarnUponFolderChanges {
     // Adding a page or script doesn't make it loaded but at least don't break anything,
     // so we add a warning instead of an error and user can keep working.
     if (isAddition) {
+      // A live session picks the new entry up by restarting itself; only a
+      // removal, which breaks the current build, keeps refusing below.
+      if (
+        requestDevSessionRestart(compilation.compiler, {
+          reason: folder === 'pages' ? 'html' : 'scripts',
+          pathAfter: filePath
+        })
+      ) {
+        return
+      }
       const warn = new WebpackError(errorMessage) as Error & {
         name?: string
         file?: string

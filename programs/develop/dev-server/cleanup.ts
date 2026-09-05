@@ -12,17 +12,32 @@ import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 import type {PortManager} from './port-manager'
 
+// A self-restart swaps the live server, so shutdown asks for the current one.
+export type DevServerHandle =
+  | RspackDevServer
+  | (() => RspackDevServer | null | undefined)
+
+function resolveDevServer(
+  handle: DevServerHandle
+): RspackDevServer | null | undefined {
+  return typeof handle === 'function' ? handle() : handle
+}
+
 function closeAll(
-  devServer: RspackDevServer,
+  devServer: RspackDevServer | null | undefined,
   portManager: PortManager
 ): Promise<void> {
+  const afterStop = async () => {
+    await portManager.terminateCurrentInstance()
+    // Allow browser plugin signal handlers to complete cleanup
+    setTimeout(() => process.exit(), 500)
+  }
+
+  if (!devServer || typeof devServer.stop !== 'function') return afterStop()
+
   return devServer
     .stop()
-    .then(async () => {
-      await portManager.terminateCurrentInstance()
-      // Allow browser plugin signal handlers to complete cleanup
-      setTimeout(() => process.exit(), 500)
-    })
+    .then(afterStop)
     .catch(async (error) => {
       humanLine(messages.extensionJsRunnerError(error))
       await portManager.terminateCurrentInstance()
@@ -32,7 +47,7 @@ function closeAll(
 }
 
 export function setupCleanupHandlers(
-  devServer: RspackDevServer,
+  devServer: DevServerHandle,
   portManager: PortManager
 ): () => void {
   let isShuttingDown = false
@@ -42,7 +57,7 @@ export function setupCleanupHandlers(
     isShuttingDown = true
 
     try {
-      await closeAll(devServer, portManager)
+      await closeAll(resolveDevServer(devServer), portManager)
     } catch (error) {
       console.error('[Extension.js Runner] Error during cleanup.', error)
       process.exit(1)

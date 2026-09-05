@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import rspack, {Compilation, type Compiler} from '@rspack/core'
+import {isCompilerRestarting} from '../../../dev-server/session-restart'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
 
 function readJsonSafe(source: string) {
@@ -191,6 +192,9 @@ export class PersistManifestToDisk {
         const missingFiles = findMissingFilesOnDisk(outputPath, requiredFiles)
 
         if (missingFiles.length > 0) {
+          // The entries are missing because this compiler never included
+          // them; the restart already scheduled emits them, so stay quiet.
+          if (isCompilerRestarting(compiler)) return
           const sample = missingFiles.slice(0, 5).join('\n  - ')
           const more =
             missingFiles.length > 5
