@@ -154,10 +154,9 @@ describe('JsFrameworksPlugin', () => {
 
     const swcRule = compiler.options.module.rules[0]
     expect(String(swcRule.test)).toContain('js')
-    expect(swcRule.use?.options?.env?.targets).toEqual([
-      'chrome >= 120',
-      'firefox >= 118'
-    ])
+    // A chrome build follows only the chrome floor; the gecko floor stays
+    // out of the compiler (it belongs to the firefox build).
+    expect(swcRule.use?.options?.env?.targets).toEqual(['chrome >= 120'])
     expect(swcRule.use?.options?.jsc?.parser?.syntax).toBe('typescript')
     expect(swcRule.use?.options?.sourceMap).toBe(true)
 
