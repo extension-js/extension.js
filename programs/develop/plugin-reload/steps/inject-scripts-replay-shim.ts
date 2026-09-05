@@ -6,7 +6,8 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {Compilation, type Compiler, sources} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
+import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|script)\.js$/i
@@ -32,8 +33,11 @@ export class InjectScriptsReplayShim {
               if (original.indexOf('__extjsScriptsReplayInstalled') !== -1) {
                 continue
               }
-              const next = `${SCRIPTS_REPLAY_SHIM_SOURCE}\n${original}`
-              compilation.updateAsset(asset.name, new sources.RawSource(next))
+              prependToEmittedAsset(
+                compilation,
+                asset,
+                `${SCRIPTS_REPLAY_SHIM_SOURCE}\n`
+              )
             }
           }
         )

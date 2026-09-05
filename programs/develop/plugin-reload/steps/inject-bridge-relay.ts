@@ -6,8 +6,9 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {Compilation, type Compiler, sources} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
+import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
 // DELIBERATELY excluded: the SW runs the producer, relay-injecting would loop.
@@ -55,8 +56,11 @@ export class InjectBridgeRelay {
               if (original.indexOf('__extjsBridgeRelayInstalled') !== -1) {
                 continue
               }
-              const next = `${sourceFor.get(target.context)}\n${original}`
-              compilation.updateAsset(asset.name, new sources.RawSource(next))
+              prependToEmittedAsset(
+                compilation,
+                asset,
+                `${sourceFor.get(target.context)}\n`
+              )
             }
           }
         )
