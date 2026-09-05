@@ -8,7 +8,7 @@
 
 import EventEmitter from 'node:events'
 import net from 'node:net'
-import {humanLine, isDebug} from '../../../../helpers/messaging'
+import {humanError, humanLine, isDebug} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
 
@@ -22,6 +22,12 @@ type ActiveEntry = {
   timer?: ReturnType<typeof setTimeout>
 }
 
+type RdpMessage = {
+  from?: string
+  type?: string
+  error?: unknown
+}
+
 // Per-request safety timeout: Firefox occasionally never replies to an RDP
 // request, hanging that actor's queue forever; generous so only true hangs trip.
 function rdpRequestTimeoutMs(): number {
@@ -30,6 +36,19 @@ function rdpRequestTimeoutMs(): number {
     10
   )
   return Number.isFinite(raw) && raw > 0 ? raw : 30000
+}
+
+// An 'error' emitted with nobody listening throws out of the socket's data
+// handler and ends the dev process, so protocol garbage is logged instead.
+export function surfaceTransportError(
+  emitter: EventEmitter,
+  error: unknown
+): void {
+  if (emitter.listenerCount('error') > 0) {
+    emitter.emit('error', error)
+    return
+  }
+  humanError(error instanceof Error ? error.message : String(error))
 }
 
 export class RdpTransport extends EventEmitter {
@@ -41,20 +60,31 @@ export class RdpTransport extends EventEmitter {
     payload: Record<string, unknown>
     deferred: Deferred
   }> = []
+  private lost = false
 
   async connect(port: number, host: string = '127.0.0.1'): Promise<void> {
     await new Promise<void>((resolve, reject) => {
+      let connected = false
       try {
         const c = net.createConnection({host, port}, () => {
+          connected = true
           if (isDebug()) {
             humanLine(messages.firefoxRdpClientConnected(host, port))
           }
           resolve()
         })
         this.conn = c
+        this.lost = false
         c.on('data', this.onData.bind(this))
-        c.on('error', reject)
-        c.on('end', this.onEnd.bind(this))
+        c.on('error', (err) => {
+          if (connected) return
+          this.conn = undefined
+          reject(err)
+        })
+        c.on('end', this.onConnectionLost.bind(this))
+        // A reset fires 'error' then 'close' and never 'end'; only 'close' is
+        // guaranteed for every way the socket can die.
+        c.on('close', this.onConnectionLost.bind(this))
         c.on('timeout', this.onTimeout.bind(this))
       } catch (err) {
         reject(err)
@@ -63,11 +93,17 @@ export class RdpTransport extends EventEmitter {
   }
 
   disconnect(): void {
-    if (!this.conn) return
-    this.conn.removeAllListeners()
-    this.conn.end()
-    const err = new Error(messages.messagingClientClosedError('firefox'))
-    this.rejectAll(err)
+    const c = this.conn
+    if (!c) return
+    this.conn = undefined
+    this.lost = true
+    this.incoming = Buffer.alloc(0)
+    c.removeAllListeners()
+    c.on('error', () => {
+      // Ignore
+    })
+    c.end()
+    this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
   }
 
   private rejectAll(error: Error): void {
@@ -140,35 +176,32 @@ export class RdpTransport extends EventEmitter {
     this.incoming = remainingData
 
     if (error) {
-      this.emit(
-        'error',
+      surfaceTransportError(
+        this,
         new Error(messages.parsingPacketError('firefox', error))
       )
-      if (fatal) this.disconnect()
+      // A broken length prefix leaves no way to find the next frame boundary;
+      // the connection is unusable, so fail its requests instead of waiting.
+      if (fatal) this.onConnectionLost()
       return !fatal
     }
     if (!parsedMessage) return false
-    this.handleMessage(
-      parsedMessage as {from?: string; type?: string; error?: unknown}
-    )
+    this.handleMessage(parsedMessage as RdpMessage)
     return true
   }
 
-  private handleMessage(message: {
-    from?: string
-    type?: string
-    error?: unknown
-  }) {
-    if (!message.from) {
-      this.emit(
-        'error',
+  private handleMessage(message: RdpMessage) {
+    const from = message.from
+    if (!from) {
+      surfaceTransportError(
+        this,
         new Error(messages.messageWithoutSenderError('firefox', message))
       )
       return
     }
-    const entry = this.active.get(message.from)
+    const entry = this.active.get(from)
     if (entry) {
-      this.active.delete(message.from)
+      this.active.delete(from)
       if (entry.timer) clearTimeout(entry.timer)
       if (message.error) entry.deferred.reject(message)
       else entry.deferred.resolve(message)
@@ -178,9 +211,22 @@ export class RdpTransport extends EventEmitter {
     this.emit('message', message)
   }
 
-  private onEnd(): void {
-    // A closed socket can never deliver replies for in-flight/queued requests;
-    // reject them so callers stop hanging (only rejection point on peer close).
+  // Every way a connection dies lands here once (FIN, reset, fatal frame):
+  // in-flight and queued requests get the closed reason, the dead socket is
+  // dropped so later requests fail fast, and 'end' lets the owner reconnect.
+  private onConnectionLost(): void {
+    if (this.lost) return
+    this.lost = true
+    const c = this.conn
+    this.conn = undefined
+    this.incoming = Buffer.alloc(0)
+    if (c) {
+      c.removeAllListeners()
+      c.on('error', () => {
+        // Ignore
+      })
+      c.destroy()
+    }
     this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
     this.emit('end')
   }
