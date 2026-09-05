@@ -21,6 +21,7 @@ import * as messages from './lib/messages'
 import {humanLine, isDebug} from './lib/messaging'
 import {
   computePreviewOutputPath,
+  configBrowserOrThrow,
   getDirs,
   getDistPath,
   normalizeBrowser
@@ -99,8 +100,18 @@ export async function extensionPreview(
   if (userManifestPath) {
     assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
+  const metadataCommand =
+    previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
+  // A browser passed in wins; with none, commands.<cmd>.browser from the
+  // project config decides which build is previewed.
+  const configBrowser = previewOptions.browser
+    ? undefined
+    : configBrowserOrThrow(
+        (await loadCommandConfig(packageJsonDir, metadataCommand)).browser,
+        metadataCommand
+      )
   const browser = normalizeBrowser(
-    previewOptions.browser || 'chrome',
+    previewOptions.browser || configBrowser || 'chrome',
     previewOptions.chromiumBinary,
     previewOptions.geckoBinary || previewOptions.firefoxBinary
   )
@@ -110,8 +121,6 @@ export async function extensionPreview(
     previewOptions.outputPath
   )
   const distPath = getDistPath(packageJsonDir, browser)
-  const metadataCommand =
-    previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
   const runningMessage =
     metadataCommand === 'start' ? messages.starting : messages.previewing
   // The run record describes the directory the browser loads, so its path

@@ -121,6 +121,45 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
   }
 }
 
+// Every name normalizeBrowser maps on its own; anything else is refused
+// before it reaches a build, whether typed or read from extension.config.
+const KNOWN_BROWSER_NAMES = new Set([
+  'chrome',
+  'edge',
+  'chromium',
+  'brave',
+  'opera',
+  'vivaldi',
+  'yandex',
+  'chromium-based',
+  'firefox',
+  'waterfox',
+  'librewolf',
+  'gecko-based',
+  'firefox-based',
+  'safari',
+  'webkit-based'
+])
+
+export function isKnownBrowserName(name: unknown): boolean {
+  return typeof name === 'string' && KNOWN_BROWSER_NAMES.has(name)
+}
+
+// commands.<cmd>.browser from extension.config.js, only when no browser was
+// passed in; the name is checked like a typed one.
+export function configBrowserOrThrow(
+  configBrowser: unknown,
+  command: string
+): BrowserInput | undefined {
+  if (configBrowser === undefined || configBrowser === null) return undefined
+  if (!isKnownBrowserName(configBrowser)) {
+    throw new Error(
+      `Unsupported browser in extension.config commands.${command}.browser: ${String(configBrowser)}`
+    )
+  }
+  return configBrowser as BrowserInput
+}
+
 export function normalizeBrowser(
   browser: BrowserInput,
   chromiumBinary?: string,

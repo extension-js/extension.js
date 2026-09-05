@@ -3,11 +3,15 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const extensionBuild = vi.fn(async () => {})
+const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
 const safariBuildPreflight = vi.fn(() => ({severity: 'ok', message: ''}))
 const packageSafariExtension = vi.fn(async () => {})
 
 vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({extensionBuild}))
+  loadExtensionDevelopModule: vi.fn(async () => ({
+    extensionBuild,
+    loadCommandConfig
+  }))
 }))
 vi.mock('../browsers/run-safari/safari-launch', () => ({
   packageSafariExtension: (...args: unknown[]) =>
@@ -43,6 +47,31 @@ function run(argv: string[]) {
 }
 
 describe('extension build', () => {
+  it('adopts extension.config.js commands.build.browser when --browser is not typed', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+    expect(await run(['build', './my-extension'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.browser).toBe('firefox')
+    expect(loadCommandConfig).toHaveBeenCalledWith('./my-extension', 'build')
+    loadCommandConfig.mockResolvedValue({})
+  })
+
+  it('lets a typed --browser beat commands.build.browser', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+    expect(await run(['build', './my-extension', '--browser', 'edge'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.browser).toBe('edge')
+    loadCommandConfig.mockResolvedValue({})
+  })
+
+  it('refuses an unsupported browser name coming from the config', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'nope'})
+    expect(await run(['build', './my-extension'])).not.toBe(0)
+    expect(extensionBuild).not.toHaveBeenCalled()
+    expect(String(errorSpy.mock.calls.flat().join(' '))).toMatch(/nope/)
+    loadCommandConfig.mockResolvedValue({})
+  })
+
   it('builds with exitOnError and the validated mode', async () => {
     expect(await run(['build', '.', '--mode', 'development'])).toBe(0)
     expect(extensionBuild).toHaveBeenCalledTimes(1)

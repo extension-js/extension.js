@@ -19,6 +19,7 @@ import {
   firefoxBinaryAliasOption,
   geckoBinaryOption
 } from '../helpers/cli-options'
+import {resolveConfigBrowser} from '../helpers/config-browser'
 import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -206,7 +207,16 @@ export function registerStartCommand(program: Command) {
         options: StartOptions,
         command: Command
       ) => {
-        const {browser = 'chromium', ...startOptions} = options
+        const {browser: cliBrowser, ...startOptions} = options
+        // Only an untyped --browser falls through to extension.config.js
+        // commands.start.browser, then the stock chromium default.
+        const browser =
+          cliBrowser ??
+          ((await resolveConfigBrowser(
+            pathOrRemoteUrl || process.cwd(),
+            'start'
+          )) as StartOptions['browser']) ??
+          'chromium'
         if (
           startOptions.debug ||
           startOptions.author ||

@@ -6,8 +6,11 @@ const extensionPreview = vi.fn(
   }
 )
 
+const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview}))
+  loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview})),
+  loadExtensionDevelopModule: vi.fn(async () => ({loadCommandConfig}))
 }))
 vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
@@ -42,6 +45,27 @@ afterEach(() => {
 function run(argv: string[]) {
   return runCli(makeProgram(registerPreviewCommand), argv)
 }
+
+describe('extension preview browser from config', () => {
+  it('adopts commands.preview.browser when --browser is not typed', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+    expect(await run(['preview', './my-extension'])).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0] as any[]
+    expect(opts.browser).toBe('firefox')
+    expect(loadCommandConfig).toHaveBeenCalledWith('./my-extension', 'preview')
+    loadCommandConfig.mockResolvedValue({})
+  })
+
+  it('lets a typed --browser beat commands.preview.browser', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+    expect(await run(['preview', './my-extension', '--browser', 'edge'])).toBe(
+      0
+    )
+    const [, opts] = extensionPreview.mock.calls[0] as any[]
+    expect(opts.browser).toBe('edge')
+    loadCommandConfig.mockResolvedValue({})
+  })
+})
 
 describe('extension preview', () => {
   it('previews with production mode without inventing logger values', async () => {

@@ -12,8 +12,13 @@ const runWaitMode = vi.fn(async () => ({
   results: [{browser: 'chromium', ok: true}]
 }))
 
+const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({extensionBuild})),
+  loadExtensionDevelopModule: vi.fn(async () => ({
+    extensionBuild,
+    loadCommandConfig
+  })),
   loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview}))
 }))
 vi.mock('../browsers/run-only', () => ({
@@ -171,5 +176,16 @@ describe('extension start', () => {
       value: {mode: 'wait', command: 'start'}
     })
     expect(extensionBuild).not.toHaveBeenCalled()
+  })
+})
+
+describe('extension start browser from config', () => {
+  it('adopts commands.start.browser when --browser is not typed', async () => {
+    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+    expect(await run(['start', './my-extension'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.browser).toBe('firefox')
+    expect(loadCommandConfig).toHaveBeenCalledWith('./my-extension', 'start')
+    loadCommandConfig.mockResolvedValue({})
   })
 })
