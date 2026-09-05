@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../../../types'
+import {pageActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
 import {iconOutputPath} from '../../normalize-manifest-path'
 
@@ -17,7 +18,7 @@ export function pageAction(manifest: Manifest) {
         ...manifest.page_action,
         ...(manifest.page_action.default_popup && {
           default_popup: getFilename(
-            'action/index.html',
+            pageActionOutputTarget(manifest),
             manifest.page_action.default_popup as string
           )
         }),

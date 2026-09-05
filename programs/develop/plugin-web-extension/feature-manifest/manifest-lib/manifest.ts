@@ -12,6 +12,7 @@ import type {Compilation} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
+import {dropPageAction, shouldDropPageAction} from '../../shared/html-surfaces'
 import {getManifestOverrides} from '../manifest-overrides'
 
 const cjsRequire = createRequire(import.meta.url)
@@ -149,8 +150,14 @@ export function buildCanonicalManifest(
     browser
   ) as Manifest
 
+  // Chromium dropped page_action with Manifest V3; keeping the key would
+  // ship a page for a surface that never shows.
+  const forOverrides = shouldDropPageAction(filteredManifest, browser)
+    ? dropPageAction(filteredManifest)
+    : filteredManifest
+
   return {
-    ...filteredManifest,
-    ...JSON.parse(getManifestOverrides(manifestPath, filteredManifest))
+    ...forOverrides,
+    ...JSON.parse(getManifestOverrides(manifestPath, forOverrides))
   } as Manifest
 }

@@ -136,6 +136,8 @@ function manifestFieldForHtmlFeature(
       if (has('action')) return 'action.default_popup'
       if (has('browser_action')) return 'browser_action.default_popup'
       return 'page_action.default_popup'
+    case 'page_action/index':
+      return 'page_action.default_popup'
     case 'options/index':
       return has('options_page') ? 'options_page' : 'options_ui.page'
     case 'background/index':

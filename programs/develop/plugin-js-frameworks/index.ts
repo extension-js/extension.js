@@ -9,10 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {
-  filterKeysForThisBrowser,
-  getManifestFieldsData
-} from 'browser-extension-manifest-fields'
+import {filterKeysForThisBrowser} from 'browser-extension-manifest-fields'
 import {isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
@@ -20,6 +17,7 @@ import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './js-frameworks-lib/messages'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
@@ -282,7 +280,7 @@ export class JsFrameworksPlugin {
       }
 
       const htmlPages: Record<string, unknown> = {
-        ...getManifestFieldsData({
+        ...getResolvedManifestFieldsData({
           manifestPath: this.manifestPath,
           browser: this.browser
         }).html,
