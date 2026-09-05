@@ -3,7 +3,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {logsPath} from '../../../lib/session-paths'
-import {logLevelRank, matchesLogQuery, readLogEvents} from '../logs-query'
+import {
+  logLevelRank,
+  matchesLogQuery,
+  parseLogSince,
+  readLogEvents
+} from '../logs-query'
 
 const event = (over: Record<string, unknown> = {}) => ({
   seq: 1,
@@ -70,6 +75,25 @@ describe('matchesLogQuery', () => {
     ).toBe(true)
     // No url and no hostname cannot match a url filter.
     expect(matchesLogQuery(event(), {url: 'example'})).toBe(false)
+  })
+
+  it('reads an ISO since against the event clock, and refuses garbage', () => {
+    const at = Date.parse('2026-09-05T12:00:00.000Z')
+    expect(parseLogSince('2026-09-05T12:00:00Z')).toEqual({time: at})
+    expect(parseLogSince('12')).toEqual({seq: 12})
+    expect(parseLogSince('yesterday-ish')).toBeUndefined()
+    expect(parseLogSince('')).toBeNull()
+    const since = '2026-09-05T12:00:00Z'
+    expect(matchesLogQuery(event({seq: 1, timestamp: at - 1}), {since})).toBe(
+      false
+    )
+    expect(matchesLogQuery(event({seq: 2, timestamp: at}), {since})).toBe(false)
+    expect(matchesLogQuery(event({seq: 3, timestamp: at + 1}), {since})).toBe(
+      true
+    )
+    expect(
+      matchesLogQuery(event({seq: 4, ts: '2026-09-05T12:00:01.000Z'}), {since})
+    ).toBe(true)
   })
 
   it('takes since as exclusive and accepts it as a string', () => {

@@ -5,8 +5,9 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const readReadyContract = vi.fn((): unknown => null)
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
+vi.mock('../helpers/extension-develop-runtime', async () => ({
   loadExtensionDevelopBridgeModule: vi.fn(async () => ({
+    ...(await import('../../develop/dev-server/control-bridge/logs-query')),
     readReadyContract: (...args: unknown[]) =>
       readReadyContract(...(args as [])),
     BridgeConsumer: class {
@@ -21,9 +22,16 @@ import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const EVENTS = [
   {v: 1, type: 'header', runId: 'r'},
-  {seq: 1, level: 'info', context: 'background', messageParts: ['boot']},
+  {
+    seq: 1,
+    timestamp: 1788620401000,
+    level: 'info',
+    context: 'background',
+    messageParts: ['boot']
+  },
   {
     seq: 2,
+    timestamp: 1788620402000,
     level: 'warn',
     context: 'content',
     messageParts: ['careful'],
@@ -32,6 +40,7 @@ const EVENTS = [
   },
   {
     seq: 3,
+    timestamp: 1788620403000,
     level: 'error',
     context: 'content',
     messageParts: ['broken'],
@@ -42,6 +51,7 @@ const EVENTS = [
   },
   {
     seq: 4,
+    timestamp: 1788620404000,
     level: 'debug',
     context: 'popup',
     messageParts: [{k: 'v'}],
@@ -110,6 +120,23 @@ describe('extension logs (one-shot)', () => {
     ).toBe(0)
     const seqs = printedLines().map((l) => JSON.parse(l).seq)
     expect(seqs).toEqual([2, 3])
+  })
+
+  it('honors an ISO --since by the event clock and refuses a value that is neither', async () => {
+    // EVENTS[0] is the header line, so EVENTS[2] is seq 2.
+    const at = new Date(EVENTS[2].timestamp as number).toISOString()
+    expect(await run(['logs', dir, '--output', 'ndjson', '--since', at])).toBe(
+      0
+    )
+    expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([3, 4])
+
+    logSpy.mockClear()
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--since', 'yesterday-ish'])
+    ).not.toBe(0)
+    expect(String(errorSpy.mock.calls.flat().join(' '))).toContain(
+      'expects a sequence number or an ISO timestamp'
+    )
   })
 
   it('filters by context, tab, since, and url glob', async () => {

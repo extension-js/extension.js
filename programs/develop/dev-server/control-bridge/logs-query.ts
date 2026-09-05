@@ -36,7 +36,8 @@ export interface LogQuery {
   level?: LogLevelFilter
   /** Only structured dx.signal diagnostics. */
   signalsOnly?: boolean
-  /** Only events whose seq is strictly greater than this. */
+  /** Only events after this point: a sequence number, or an ISO timestamp
+   * compared against the event's own clock. */
   since?: number | string
   /** Glob (`*` = any run of chars) or plain substring over url then hostname. */
   url?: string
@@ -51,6 +52,8 @@ export interface LogEventLike {
   context?: unknown
   level?: unknown
   seq?: unknown
+  timestamp?: unknown
+  ts?: unknown
   url?: unknown
   hostname?: unknown
   tabId?: unknown
@@ -89,6 +92,39 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   }
 }
 
+/** How a `since` value is read: a sequence number, or a point in time. */
+export type LogSince = {seq: number} | {time: number}
+
+// A bare number is a sequence number; anything else must parse as a date, so
+// an ISO timestamp filters by the event clock instead of matching nothing.
+export function parseLogSince(value: unknown): LogSince | null | undefined {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? {seq: value} : undefined
+  }
+  const text = String(value).trim()
+  if (/^\d+(?:\.\d+)?$/.test(text)) return {seq: Number(text)}
+  const time = Date.parse(text)
+  return Number.isFinite(time) ? {time} : undefined
+}
+
+function eventTime(event: LogEventLike): number | null {
+  if (typeof event.timestamp === 'number') return event.timestamp
+  if (typeof event.ts === 'string') {
+    const parsed = Date.parse(event.ts)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+export function isAfterSince(event: LogEventLike, since: LogSince): boolean {
+  if ('seq' in since) {
+    return !(typeof event.seq === 'number' && event.seq <= since.seq)
+  }
+  const time = eventTime(event)
+  return time == null || time > since.time
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
   const parsed = typeof value === 'number' ? value : Number(value)
@@ -113,10 +149,8 @@ export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
     }
   }
 
-  const since = toFiniteNumber(query.since)
-  if (since != null && typeof event.seq === 'number' && event.seq <= since) {
-    return false
-  }
+  const since = parseLogSince(query.since)
+  if (since && !isAfterSince(event, since)) return false
 
   if (query.url && !makeUrlMatcher(query.url)(event)) return false
 

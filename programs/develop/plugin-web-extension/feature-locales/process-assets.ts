@@ -28,9 +28,15 @@ export function processLocaleAssets(
   let emittedCount = 0
   let missingCount = 0
 
-  for (const field of Object.entries(localesFields || [])) {
-    const [feature, resource] = field
-    const thisResource = resource
+  // The locale list is an array of file paths, so the field a message names
+  // is the file itself: an index like "0" sends nobody to the right place.
+  for (const thisResource of localesFields || []) {
+    const feature = resolvedLocalesRoot
+      ? path
+          .join('_locales', path.relative(resolvedLocalesRoot, thisResource))
+          .split(path.sep)
+          .join('/')
+      : thisResource
 
     // Resources from the manifest lib can come as undefined.
     if (thisResource) {
@@ -40,6 +46,8 @@ export function processLocaleAssets(
 
       if (!fs.existsSync(thisResource)) {
         const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+        // The message names the locale file; the absolute path rides on the
+        // warning's file metadata like every other emit-time warning.
         const warning = new ErrorConstructor(
           messages.entryNotFoundMessageOnly(feature)
         )

@@ -57,10 +57,13 @@ export {
 // is the separate question a consumer asks when it sorts, groups or picks the
 // worst level in a batch, and it carries the rule that 'log' ranks as 'info'.
 export {
+  isAfterSince,
   LOG_LEVEL_ORDER,
   type LogQuery,
+  type LogSince,
   logLevelRank,
   matchesLogQuery,
+  parseLogSince,
   readLogEvents
 } from './dev-server/control-bridge/logs-query'
 export {
