@@ -445,6 +445,28 @@ describe('findLocaleLoadBlockers', () => {
     ).toEqual([])
   })
 
+  it('closes a reference at the first __ like the build gate, so one spelling has one meaning', () => {
+    writeCatalog('en', JSON.stringify({a: {message: 'A'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_a__b__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+    expect(
+      findLocaleLoadBlockers(
+        {
+          ...valid,
+          description: 'Made by __MSG_Missing__ today',
+          default_locale: 'en'
+        },
+        dir
+      )
+    ).toEqual([
+      '__MSG_Missing__: used in the manifest but not defined in _locales/en/messages.json, Chrome refuses the whole extension.'
+    ])
+  })
+
   it('stays silent without _locales and without default_locale, and on malformed input', () => {
     expect(findLocaleLoadBlockers(valid, dir)).toEqual([])
     expect(findLocaleLoadBlockers(undefined, dir)).toEqual([])
