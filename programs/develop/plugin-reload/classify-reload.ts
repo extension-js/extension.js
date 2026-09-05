@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripBom} from '../lib/parse-json-safe'
+import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
@@ -66,6 +67,36 @@ export interface SourceFeatureIndex {
   pageSources: Set<string>
   /** Source → emitted scripts/ bundle names whose chunks contain it. */
   scriptFilesBySource?: Map<string, Set<string>>
+  /** Project-relative public/ roots the copier ships at the dist root. */
+  publicRoots?: string[]
+}
+
+// The dist-relative path a changed source gets when a public/ root ships it,
+// or undefined when no root contains it. The root itself is not a file.
+export function publicOutputPath(
+  rel: string,
+  publicRoots: string[] | undefined
+): string | undefined {
+  for (const root of publicRoots || []) {
+    const prefix = root.replace(/\/+$/, '')
+    if (!prefix) continue
+    if (rel.startsWith(`${prefix}/`)) return rel.slice(prefix.length + 1)
+  }
+  return undefined
+}
+
+// The public/ roots as project-relative, forward-slashed prefixes so they
+// compare with the changed-source paths the tracker records.
+function relativePublicRoots(
+  compilation: import('@rspack/core').Compilation,
+  contextDir: string
+): string[] {
+  const out: string[] = []
+  for (const root of publicRootsFor(compilation?.compiler)) {
+    const rel = path.relative(contextDir, root).replace(/\\/g, '/')
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) out.push(rel)
+  }
+  return out
 }
 
 // Loader-prefixed module identifier to project-relative resource path(s).
@@ -112,7 +143,8 @@ export function buildSourceFeatureIndex(
     swSources: new Set(),
     contentEntriesBySource: new Map(),
     pageSources: new Set(),
-    scriptFilesBySource
+    scriptFilesBySource,
+    publicRoots: relativePublicRoots(compilation, contextDir)
   }
   const chunkGraph = compilation.chunkGraph
   for (const chunk of compilation.chunks || []) {
@@ -252,16 +284,23 @@ export function classifyReloadFromSources(opts: {
   }
 
   // A changed emitted static asset (icon, web-accessible resource, DNR
-  // ruleset…) needs a full extension reload to be re-read from disk.
+  // ruleset…) needs a full extension reload to be re-read from disk. A file
+  // under public/ ships at the dist root, so it is one whether or not the
+  // manifest names it.
+  const publicRoots = index?.publicRoots
+  const publicAssetChanged = changedSources.some(
+    (rel) => publicOutputPath(rel, publicRoots) !== undefined
+  )
   const staticAssetChanged =
-    outputPath &&
-    unknown.some((rel) => {
-      try {
-        return fs.existsSync(path.join(outputPath, rel))
-      } catch {
-        return false
-      }
-    })
+    publicAssetChanged ||
+    (outputPath &&
+      unknown.some((rel) => {
+        try {
+          return fs.existsSync(path.join(outputPath, rel))
+        } catch {
+          return false
+        }
+      }))
 
   if (swChanged.length > 0) {
     // A shared module (SW chunk + content chunk) needs BOTH paths: the SW

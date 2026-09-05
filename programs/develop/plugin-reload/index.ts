@@ -22,6 +22,7 @@ export {
   classifyReloadFromSources,
   formatReloadContextLabel,
   pageContextFromSources,
+  publicOutputPath,
   type ReloadInstruction,
   type ReloadType,
   readContentScriptCount,

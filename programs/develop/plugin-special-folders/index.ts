@@ -12,7 +12,10 @@ import {isDebug} from '../lib/messaging'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'
-import {inspectPublicFolders} from './resolve-public-folder'
+import {
+  inspectPublicFolders,
+  rememberPublicRoots
+} from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 interface SpecialFoldersPluginOptions {
@@ -44,6 +47,8 @@ export class SpecialFoldersPlugin {
     // The folder in use, or the canonical root path when there is none, so
     // root-absolute refs keep resolving from the same place as before.
     const publicDir = inspection.publicDir || path.join(context, 'public')
+    // The reload classifier asks for this root later, from the compilation.
+    rememberPublicRoots(compiler, inspection.publicDir ? [publicDir] : [])
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
@@ -101,6 +106,9 @@ export class SpecialFoldersPlugin {
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
         (compilation: Compilation) => {
+          // A file only the copier ships (a DNR ruleset, a fetched data file)
+          // has no module or manifest reference to watch it, so watch the folder.
+          compilation.contextDependencies?.add(publicDir)
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,

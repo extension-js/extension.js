@@ -5,6 +5,7 @@ import {describe, expect, it} from 'vitest'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
+  publicOutputPath,
   type SourceFeatureIndex
 } from '../index'
 
@@ -391,5 +392,60 @@ describe('scripts/ bundle edits carry changedScriptFiles for the SW replay', () 
     )
     expect(idx.scriptFilesBySource?.has('popup/popup.js')).toBe(false)
     expect(idx.pageSources.has('scripts/widget.ts')).toBe(true)
+  })
+})
+
+describe('classifyReloadFromSources: public/ roots', () => {
+  const emptyIndex = (publicRoots: string[]): SourceFeatureIndex => ({
+    swSources: new Set(),
+    contentEntriesBySource: new Map(),
+    pageSources: new Set(),
+    publicRoots
+  })
+
+  it('maps a public/ source to the dist root path the copier gives it', () => {
+    expect(publicOutputPath('public/rules.json', ['public'])).toBe('rules.json')
+    expect(publicOutputPath('src/public/img/a.png', ['src/public'])).toBe(
+      'img/a.png'
+    )
+    expect(publicOutputPath('public', ['public'])).toBeUndefined()
+    expect(publicOutputPath('publicity/a.json', ['public'])).toBeUndefined()
+  })
+
+  it('a manifest-named file under public/ is a full reload, not a notify-only page', () => {
+    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-'))
+    fs.writeFileSync(path.join(outputPath, 'rules.json'), '[]')
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['public/rules.json'],
+        getContentScriptCount: count(0),
+        getSourceFeatureIndex: () => emptyIndex(['public']),
+        outputPath
+      })
+    ).toMatchObject({
+      type: 'full',
+      label: 'extension (public/rules.json)'
+    })
+    fs.rmSync(outputPath, {recursive: true, force: true})
+  })
+
+  it('a public/ root beside the manifest maps the same way', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/public/data.json'],
+        getContentScriptCount: count(2),
+        getSourceFeatureIndex: () => emptyIndex(['src/public'])
+      })
+    ).toMatchObject({type: 'full'})
+  })
+
+  it('without a known public/ root the source path alone is not a static asset', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['public/rules.json'],
+        getContentScriptCount: count(0),
+        getSourceFeatureIndex: () => emptyIndex([])
+      })
+    ).toMatchObject({type: 'page'})
   })
 })
