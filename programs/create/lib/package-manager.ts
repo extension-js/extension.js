@@ -114,10 +114,13 @@ export function resolvePackageManagerSpec(
   const fromEnv = getPackageManagerSpec()
   if (fromEnv && fromEnv.startsWith(`${manager}@`)) return fromEnv
   try {
+    // Windows installs the managers as .cmd shims, which only a shell can
+    // run; the name comes from the closed list above, never from input.
     const version = execFileSync(manager, ['--version'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000
+      timeout: 5000,
+      shell: process.platform === 'win32'
     })
       .trim()
       .replace(/^v/, '')
