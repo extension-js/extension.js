@@ -18,7 +18,7 @@ import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-da
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
-import type {DevOptions, PluginInterface} from '../types'
+import type {DevOptions, Manifest, PluginInterface} from '../types'
 import * as messages from './js-frameworks-lib/messages'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
@@ -29,6 +29,7 @@ import {
   isUsingTypeScript
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
+import {resolveSwcTargets} from './swc-targets'
 
 // User-authored and default webpack rules arrive in many shapes; this loose
 // view names only the fields the merge/patch helpers probe.
@@ -316,23 +317,7 @@ export class JsFrameworksPlugin {
     // (ensureTypeScriptConfig above scaffolds it for TS projects).
     const preferTypeScript = !!tsConfigPath
 
-    let targets: string[] = ['chrome >= 100']
-
-    if (manifest?.minimum_chrome_version) {
-      targets = [`chrome >= ${manifest.minimum_chrome_version}`]
-    }
-
-    const geckoMin =
-      manifest?.browser_specific_settings?.gecko?.strict_min_version ||
-      manifest?.applications?.gecko?.strict_min_version
-
-    if (geckoMin) {
-      const major = parseInt(String(geckoMin).split('.')[0], 10)
-
-      if (!Number.isNaN(major)) {
-        targets.push(`firefox >= ${major}`)
-      }
-    }
+    const targets = resolveSwcTargets(manifest as Manifest, this.browser)
 
     compiler.options.resolve.alias = {
       ...(maybeInstallReact?.alias || {}),
