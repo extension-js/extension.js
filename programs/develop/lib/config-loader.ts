@@ -19,6 +19,7 @@ import {isWebkitBasedBrowser} from './constants'
 import * as messages from './messages'
 import {isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
+import {resolveProjectStructureSync} from './project'
 
 type EnvPreloadResult = {
   loadedAny: boolean
@@ -121,13 +122,35 @@ function preloadEnvFilesFromDir(
   return {loadedAny, envDir}
 }
 
-function findConfigFile(projectPath: string): string | undefined {
+function findConfigFileIn(dir: string): string | undefined {
   const candidates = [
-    path.join(projectPath, 'extension.config.js'),
-    path.join(projectPath, 'extension.config.mjs'),
-    path.join(projectPath, 'extension.config.cjs')
+    path.join(dir, 'extension.config.js'),
+    path.join(dir, 'extension.config.mjs'),
+    path.join(dir, 'extension.config.cjs')
   ]
   return candidates.find((p) => fs.existsSync(p))
+}
+
+function resolveManifestDir(projectPath: string): string | undefined {
+  try {
+    const structure = resolveProjectStructureSync(projectPath, {quiet: true})
+    return path.dirname(structure.manifestPath)
+  } catch {
+    return undefined
+  }
+}
+
+// The package root is where the config belongs and is looked at first, but
+// dev also accepts the manifest folder as the project, and a config kept
+// beside the manifest used to be ignored without a word.
+function findConfigFile(projectPath: string): string | undefined {
+  const atRoot = findConfigFileIn(projectPath)
+  if (atRoot) return atRoot
+  const manifestDir = resolveManifestDir(projectPath)
+  if (!manifestDir || path.resolve(manifestDir) === path.resolve(projectPath)) {
+    return undefined
+  }
+  return findConfigFileIn(manifestDir)
 }
 
 function preloadEnvFiles(projectDir: string) {

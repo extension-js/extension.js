@@ -77,4 +77,41 @@ export default {
       process.env.EXTENSION_PUBLIC_START_URL = previous
     }
   })
+  it('finds a config kept beside the manifest when the package root has none', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-beside-'))
+    fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"demo"}')
+    fs.writeFileSync(
+      path.join(root, 'src', 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'demo', version: '1.0.0'})
+    )
+    fs.writeFileSync(
+      path.join(root, 'src', 'extension.config.mjs'),
+      "export default {browser: {firefox: {preferences: {'browser.newtabpage.enabled': true}}}}\n"
+    )
+
+    const cfg = await loadBrowserConfig(root, 'firefox')
+    expect(cfg.preferences).toEqual({'browser.newtabpage.enabled': true})
+  })
+
+  it('keeps the package-root config ahead of one beside the manifest', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-both-'))
+    fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"demo"}')
+    fs.writeFileSync(
+      path.join(root, 'src', 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'demo', version: '1.0.0'})
+    )
+    fs.writeFileSync(
+      path.join(root, 'extension.config.mjs'),
+      "export default {browser: {firefox: {preferences: {where: 'root'}}}}\n"
+    )
+    fs.writeFileSync(
+      path.join(root, 'src', 'extension.config.mjs'),
+      "export default {browser: {firefox: {preferences: {where: 'src'}}}}\n"
+    )
+
+    const cfg = await loadBrowserConfig(root, 'firefox')
+    expect(cfg.preferences).toEqual({where: 'root'})
+  })
 })
