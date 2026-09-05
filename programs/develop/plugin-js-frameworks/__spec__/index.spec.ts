@@ -196,6 +196,25 @@ describe('JsFrameworksPlugin', () => {
     )
   })
 
+  it('gates a one-shot development build on the same configure promise as watch', async () => {
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: path.join('/project', 'manifest.json'),
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    expect(compiler.hooks.beforeRun.tapPromise).toHaveBeenCalledTimes(1)
+    expect(compiler.hooks.watchRun.tapPromise).toHaveBeenCalledTimes(1)
+    const rulesBefore = compiler.options.module.rules.length
+    await (compiler.hooks.beforeRun as any)._cb()
+    await (compiler.hooks.watchRun as any)._cb()
+    // One configure pass: neither hook re-runs it.
+    expect(compiler.options.module.rules.length).toBe(rulesBefore)
+    expect(rulesBefore).toBeGreaterThan(0)
+  })
+
   it('defers configuration to beforeRun in production and keeps SWC minify off', async () => {
     const compiler = createCompiler('production')
     const plugin = new JsFrameworksPlugin({
