@@ -182,4 +182,19 @@ describe('collectContentScriptEntryImports', () => {
     )
     expect(res['content_scripts/content-0']).not.toContain('worker-model.bin')
   })
+
+  it('matches a public file the copier named with backslashes on Windows', () => {
+    const jsSource =
+      'var css = "background: url(__EXTENSIONJS_EXTENSION_ROOT__/img/bg.png)";'
+    const compilation = makeJsScanCompilationMock(
+      'content_scripts/content-0',
+      jsSource,
+      ['img\\bg.png', 'img\\other.png']
+    )
+    const includeList = {'content_scripts/content-0': 'src/content.ts'}
+
+    const res = collectContentScriptEntryImports(compilation, includeList)
+    expect(res['content_scripts/content-0']).toContain('img/bg.png')
+    expect(res['content_scripts/content-0']).not.toContain('img/other.png')
+  })
 })
