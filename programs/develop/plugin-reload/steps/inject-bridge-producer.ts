@@ -11,6 +11,7 @@ import {
   buildBridgeProducerSource,
   CONTROL_PORT_ASSET_NAME
 } from '../../dev-server/control-bridge/producer-runtime'
+import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 
 // Matches the compiled background entry across engines: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js; scripts? covers both.
@@ -68,8 +69,7 @@ export class InjectBridgeProducer {
                 continue
               }
 
-              const next = `${source}\n${original}`
-              compilation.updateAsset(asset.name, new sources.RawSource(next))
+              prependToEmittedAsset(compilation, asset, `${source}\n`)
             }
           }
         )

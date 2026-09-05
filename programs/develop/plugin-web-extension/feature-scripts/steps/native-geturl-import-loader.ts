@@ -6,6 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {inputOrIdentityMap} from '../../../lib/loader-source-maps'
+
 /**
  * Rspack loader that keeps `import(chrome.runtime.getURL(...))` NATIVE.
  *
@@ -201,17 +203,34 @@ export function annotateGetURLDynamicImports(source: string): string {
   return out + source.slice(last)
 }
 
-/** Loader entry: source-to-source, before the swc transform. */
+/** Loader entry: source-to-source, before the swc transform. The map that
+ * arrived travels on: the annotation adds a comment inside a line, never a
+ * line, so the line map of the loader before this one still holds. */
 export default function nativeGetURLImportLoader(
-  this: unknown,
-  source: string
-): string {
+  this: {
+    callback?: (error: Error | null, content: string, map?: unknown) => void
+    resourcePath?: string
+  },
+  source: string,
+  inputSourceMap?: unknown
+): string | undefined {
   // Fast path: the overwhelming majority of files have no dynamic import
   // or no getURL at all.
-  if (!source.includes('import') || !/runtime\s*\.\s*getURL/.test(source)) {
-    return source
+  const untouched =
+    !source.includes('import') || !/runtime\s*\.\s*getURL/.test(source)
+  const out = untouched ? source : annotateGetURLDynamicImports(source)
+  if (typeof this?.callback === 'function') {
+    const map = untouched
+      ? inputSourceMap
+      : inputOrIdentityMap(
+          inputSourceMap,
+          String(this.resourcePath || ''),
+          source
+        )
+    this.callback(null, out, map)
+    return undefined
   }
-  return annotateGetURLDynamicImports(source)
+  return out
 }
 
 function readBalancedArgs(code: string, openIndex: number): string | null {

@@ -14,6 +14,11 @@ import {
 } from 'es-module-lexer'
 import {validate} from 'schema-utils'
 import type {Schema} from 'schema-utils/declarations/validate'
+import {
+  adjustLoaderSourceMap,
+  inputOrIdentityMap,
+  returnWithMap
+} from '../../../lib/loader-source-maps'
 import {stripBom} from '../../../lib/parse-json-safe'
 import {toResourceKey} from '../../../lib/resource-path'
 import type {LoaderInterface} from '../../../types'
@@ -40,8 +45,20 @@ const schema: Schema = {
 
 export default function ensureHMRForScripts(
   this: LoaderInterface,
-  source: string
+  source: string,
+  inputSourceMap?: unknown
 ) {
+  // The prelude adds lines above the source, so the map that leaves here is
+  // the one that arrived (or an identity map) padded by the prelude.
+  const withPrelude = (prelude: string) => {
+    const resourcePath = String(
+      (this as {resourcePath?: unknown}).resourcePath || ''
+    )
+    return adjustLoaderSourceMap(
+      inputOrIdentityMap(inputSourceMap, resourcePath, source),
+      {prefix: prelude, before: source, after: source}
+    )
+  }
   const debugHtmlHmr = process.env.EXTENSION_DEBUG_HTML_HMR_SKIP === '1'
   const resourceQuery = String(this.resourceQuery || '')
   if (resourceQuery.includes('vue&type=')) {
@@ -156,10 +173,12 @@ export default function ensureHMRForScripts(
   )
 
   if (moduleType === 'javascript/dynamic') {
-    return `${buildReloadCode('module.hot')}${source}`
+    const prelude = buildReloadCode('module.hot')
+    return returnWithMap(this, `${prelude}${source}`, withPrelude(prelude))
   }
   if (moduleType === 'javascript/esm') {
-    return `${buildReloadCode('import.meta.webpackHot')}${source}`
+    const prelude = buildReloadCode('import.meta.webpackHot')
+    return returnWithMap(this, `${prelude}${source}`, withPrelude(prelude))
   }
 
   // `javascript/auto` infers module-vs-script FROM THE SOURCE SYNTAX, so the
@@ -174,13 +193,14 @@ export default function ensureHMRForScripts(
       } catch {
         // Not lexable as a module, the script parse keeps it alive.
       }
-      callback(
-        null,
-        `${buildReloadCode(hasModuleSyntax ? 'import.meta.webpackHot' : 'module.hot')}${source}`
+      const prelude = buildReloadCode(
+        hasModuleSyntax ? 'import.meta.webpackHot' : 'module.hot'
       )
+      callback(null, `${prelude}${source}`, withPrelude(prelude))
     })
     .catch(() => {
-      callback(null, `${buildReloadCode('module.hot')}${source}`)
+      const prelude = buildReloadCode('module.hot')
+      callback(null, `${prelude}${source}`, withPrelude(prelude))
     })
 }
 

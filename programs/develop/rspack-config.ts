@@ -412,12 +412,15 @@ export default function webpackConfig(
     ] as Configuration['externals'],
     context: packageJsonDir,
     cache: false,
+    // "module" keeps every loader map (swc, the content-script wrapper, the
+    // classic concat map) so the emitted maps describe the author's source,
+    // not the transpiled text; a cheap devtool discarded them all. No eval
+    // variant on either manifest version, so the bundle runs under the
+    // author's own CSP.
     devtool:
       (devOptions.mode || 'development') === 'production'
         ? false
-        : manifest.manifest_version === 3
-          ? 'cheap-source-map'
-          : 'eval-cheap-source-map',
+        : 'cheap-module-source-map',
     output: {
       clean: devOptions.output.clean,
       path: primaryExtensionOutputDir,

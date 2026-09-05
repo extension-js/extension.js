@@ -26,14 +26,65 @@ const requireModule = createRequire(import.meta.url)
 
 // Raw TS in a concat group is a JS parse error, so strip types with rspack's
 // bundled swc; isModule:false keeps classic non-strict (no directive prologue).
-function transpileClassicTs(file: string, content: string): string {
+// The transform's own map says which source line each output line came
+// from, so the concat map points at the author's line, not the stripped one.
+function transpileClassicTs(
+  file: string,
+  content: string
+): {code: string; lineTable: number[] | null} {
   const {experiments} = requireModule('@rspack/core')
-  return experiments.swc.transformSync(content, {
+  const result = experiments.swc.transformSync(content, {
     filename: file,
     jsc: {parser: {syntax: 'typescript'}, target: 'esnext'},
     isModule: false,
-    sourceMaps: false
-  }).code
+    sourceMaps: true
+  })
+  return {code: result.code, lineTable: originalLineTable(result.map)}
+}
+
+function vlqDecode(text: string): number[] {
+  const values: number[] = []
+  let value = 0
+  let shift = 0
+  for (const char of text) {
+    const digit = BASE64.indexOf(char)
+    if (digit < 0) return values
+    value += (digit & 0x1f) << shift
+    if (digit & 0x20) {
+      shift += 5
+      continue
+    }
+    values.push(value & 1 ? -(value >> 1) : value >> 1)
+    value = 0
+    shift = 0
+  }
+  return values
+}
+
+// generated line -> original line (first mapped segment), for a single-source map.
+function originalLineTable(mapJson: unknown): number[] | null {
+  if (typeof mapJson !== 'string') return null
+  let mappings = ''
+  try {
+    mappings = String(JSON.parse(mapJson)?.mappings || '')
+  } catch {
+    return null
+  }
+  const table: number[] = []
+  let sourceLine = 0
+  for (const group of mappings.split(';')) {
+    let first = -1
+    for (const segment of group.split(',')) {
+      if (!segment) continue
+      const fields = vlqDecode(segment)
+      if (fields.length >= 4) {
+        sourceLine += fields[2]
+        if (first < 0) first = sourceLine
+      }
+    }
+    table.push(first)
+  }
+  return table
 }
 
 // Names that must never be bridged onto the global: the four UMD-shadowing
@@ -349,7 +400,10 @@ export default function classicConcatLoader(
     const raw = fs.readFileSync(file, 'utf8')
     // Line mappings for transpiled TS are approximate (tsc's emitter mostly
     // preserves line positions, but removed type-only blocks shift them).
-    const content = /\.ts$/i.test(file) ? transpileClassicTs(file, raw) : raw
+    const transpiled = /\.ts$/i.test(file)
+      ? transpileClassicTs(file, raw)
+      : {code: raw, lineTable: null}
+    const content = transpiled.code
     try {
       const bindings = collectClassicTopLevelBindings(file, content)
       perFileBindings.push({file, bindings})
@@ -365,9 +419,15 @@ export default function classicConcatLoader(
     lineMappings.push(null)
 
     const fileLines = content.split('\n')
+    let lastKnown = 0
     for (let lineNo = 0; lineNo < fileLines.length; lineNo++) {
       outputLines.push(fileLines[lineNo])
-      lineMappings.push({sourceIndex: fileIdx, sourceLine: lineNo})
+      const mapped = transpiled.lineTable?.[lineNo]
+      if (typeof mapped === 'number' && mapped >= 0) lastKnown = mapped
+      lineMappings.push({
+        sourceIndex: fileIdx,
+        sourceLine: transpiled.lineTable ? lastKnown : lineNo
+      })
     }
 
     // Semicolon guard between files to prevent ASI issues

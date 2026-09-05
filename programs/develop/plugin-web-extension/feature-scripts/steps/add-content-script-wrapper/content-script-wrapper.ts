@@ -10,6 +10,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {initSync, parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
+import {
+  adjustLoaderSourceMap,
+  inputOrIdentityMap,
+  returnWithMap
+} from '../../../../lib/loader-source-maps'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -179,26 +184,6 @@ function readManifestCached(manifestPath: string): Record<string, unknown> {
     // stat/read/parse failures fall back to a direct read so callers keep
     // their existing error behavior.
     return JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
-  }
-}
-
-// Shift source map mappings down by the prefix line count so original
-// mappings align with the user source after the runtime prefix.
-function shiftSourceMap(map: unknown, prefix: string): unknown {
-  const mapObj = map as {mappings?: unknown} | null | undefined
-  if (
-    !mapObj ||
-    typeof mapObj !== 'object' ||
-    typeof mapObj.mappings !== 'string'
-  ) {
-    return map
-  }
-  const prefixLineCount = prefix.split('\n').length - 1
-  if (prefixLineCount <= 0) return map
-  const pad = new Array(prefixLineCount).fill('').join(';')
-  return {
-    ...(mapObj as Record<string, unknown>),
-    mappings: `${pad};${mapObj.mappings}`
   }
 }
 
@@ -940,11 +925,14 @@ export default function contentScriptWrapper(
         // Ignore
       }\n`
     const wrapped = `${prefix}${rewrittenSource}\n${suffix}`
-    if (inputSourceMap) {
-      this.callback(null, wrapped, shiftSourceMap(inputSourceMap, prefix))
-      return
-    }
-    return wrapped
+    return returnWithMap(
+      this,
+      wrapped,
+      adjustLoaderSourceMap(
+        inputOrIdentityMap(inputSourceMap, this.resourcePath, rewrittenSource),
+        {prefix, before: rewrittenSource, after: rewrittenSource}
+      )
+    )
   }
 
   const replaced = rewrittenSource.replace(
@@ -1004,13 +992,12 @@ export default function contentScriptWrapper(
     }\n` +
     `export default __EXTENSIONJS_default__\n`
   const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
-  if (inputSourceMap) {
-    this.callback(
-      null,
-      wrappedResult,
-      shiftSourceMap(inputSourceMap, wrapPrefix)
+  return returnWithMap(
+    this,
+    wrappedResult,
+    adjustLoaderSourceMap(
+      inputOrIdentityMap(inputSourceMap, this.resourcePath, rewrittenSource),
+      {prefix: wrapPrefix, before: replaced, after: cleaned}
     )
-    return
-  }
-  return wrappedResult
+  )
 }
