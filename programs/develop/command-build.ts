@@ -282,9 +282,17 @@ export async function extensionBuild(
 
     // A user config that re-points output.path opts out of the staging swap
     // and keeps the legacy direct-emit contract, including the upfront wipe.
+    // The bundler resolves a relative output.path against the compiler
+    // context, never the shell's cwd, so the wipe, the receipt and the zip
+    // remap must resolve it the same way or a build run from another folder
+    // deletes that folder's build/ and reports a directory nothing landed in.
+    const compileContext =
+      typeof compilerConfig.context === 'string' && compilerConfig.context
+        ? nodePath.resolve(compilerConfig.context)
+        : packageJsonDir
     const mergedOutputPath =
       typeof compilerConfig.output?.path === 'string'
-        ? nodePath.resolve(compilerConfig.output.path)
+        ? nodePath.resolve(compileContext, compilerConfig.output.path)
         : ''
     const useStagingSwap =
       mergedOutputPath === nodePath.resolve(stagingDistPath)
@@ -369,7 +377,9 @@ export async function extensionBuild(
             errors: true
           })
 
-          summary = getBuildSummary(browser, info, distPath)
+          // The summary names the folder the artifacts landed in, which under
+          // a re-pointed output.path is not dist/<browser>.
+          summary = getBuildSummary(browser, info, displayDistPath)
 
           // Hosts that shell out to `extension build` cannot see the returned
           // summary, so persist it next to ready.json. Best-effort only.
