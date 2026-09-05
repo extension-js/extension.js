@@ -288,3 +288,108 @@ describe('buildSourceFeatureIndex', () => {
     expect(idx.contentEntriesBySource.has('b.js')).toBe(true)
   })
 })
+
+describe('scripts/ bundle edits carry changedScriptFiles for the SW replay', () => {
+  const index = (
+    over: Partial<SourceFeatureIndex> = {}
+  ): SourceFeatureIndex => ({
+    swSources: new Set<string>(),
+    contentEntriesBySource: new Map<string, Set<string>>(),
+    pageSources: new Set<string>(),
+    ...over
+  })
+
+  it('a scripts/ source edit stays a notify-only page reload and names its emitted bundle', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['scripts/widget.ts'],
+      getContentScriptCount: count(1),
+      getSourceFeatureIndex: () =>
+        index({
+          pageSources: new Set(['scripts/widget.ts']),
+          scriptFilesBySource: new Map([
+            ['scripts/widget.ts', new Set(['scripts/widget.js'])]
+          ])
+        })
+    })
+    expect(result).toMatchObject({
+      type: 'page',
+      changedScriptFiles: ['scripts/widget.js']
+    })
+  })
+
+  it('a helper shared by the SW and a scripts/ bundle keeps the SW reload and still names the bundle', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/shared.ts'],
+      getContentScriptCount: count(0),
+      getSourceFeatureIndex: () =>
+        index({
+          swSources: new Set(['src/shared.ts']),
+          scriptFilesBySource: new Map([
+            [
+              'src/shared.ts',
+              new Set(['scripts/widget.js', 'scripts/panel.js'])
+            ]
+          ])
+        })
+    })
+    expect(result).toMatchObject({
+      type: 'service-worker',
+      changedScriptFiles: ['scripts/panel.js', 'scripts/widget.js']
+    })
+  })
+
+  it('a page edit outside scripts/ carries no changedScriptFiles', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['popup/popup.js'],
+      getContentScriptCount: count(1),
+      getSourceFeatureIndex: () =>
+        index({
+          pageSources: new Set(['popup/popup.js']),
+          scriptFilesBySource: new Map([
+            ['scripts/widget.ts', new Set(['scripts/widget.js'])]
+          ])
+        })
+    })
+    expect(result?.type).toBe('page')
+    expect(result?.changedScriptFiles).toBeUndefined()
+  })
+
+  it('buildSourceFeatureIndex maps a scripts/ chunk to its emitted js files', () => {
+    const chunks = [
+      {
+        name: 'scripts/widget',
+        files: new Set(['scripts/widget.js', 'scripts/widget.js.map']),
+        identifiers: ['/proj/scripts/widget.ts', '/proj/src/shared.ts']
+      },
+      {name: 'scripts/panel', identifiers: ['/proj/scripts/panel.js']},
+      {name: 'action/index', identifiers: ['/proj/popup/popup.js']}
+    ]
+    const byChunk = new Map<any, string[]>()
+    const chunkObjs = chunks.map(({identifiers, ...chunk}) => {
+      byChunk.set(chunk, identifiers)
+      return chunk
+    })
+    const compilation: any = {
+      chunks: chunkObjs,
+      chunkGraph: {
+        getChunkModulesIterable: (chunk: any) =>
+          (byChunk.get(chunk) || []).map((id) => ({identifier: () => id}))
+      }
+    }
+
+    const idx = buildSourceFeatureIndex(compilation, '/proj')
+
+    expect(idx.scriptFilesBySource?.get('scripts/widget.ts')).toEqual(
+      new Set(['scripts/widget.js'])
+    )
+    expect(idx.scriptFilesBySource?.get('src/shared.ts')).toEqual(
+      new Set(['scripts/widget.js'])
+    )
+    // No chunk file list (a unit fake): the unhashed [name].js form stands in.
+    expect(idx.scriptFilesBySource?.get('scripts/panel.js')).toEqual(
+      new Set(['scripts/panel.js'])
+    )
+    expect(idx.scriptFilesBySource?.has('popup/popup.js')).toBe(false)
+    expect(idx.pageSources.has('scripts/widget.ts')).toBe(true)
+  })
+})

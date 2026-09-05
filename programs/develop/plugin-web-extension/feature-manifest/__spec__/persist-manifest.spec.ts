@@ -98,6 +98,50 @@ describe('PersistManifestToDisk', () => {
     ).toEqual([])
   })
 
+  it('keeps the last working manifest through an errored compile and drops that cycle', () => {
+    const outputDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'persist-manifest-errored-')
+    )
+    const manifestOnDisk = () =>
+      fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf-8')
+    const lastGood = '{\n  "name": "last-good"\n}'
+    fs.writeFileSync(path.join(outputDir, 'manifest.json'), lastGood)
+
+    const compilationErrors: any[] = [new Error('Unexpected token')]
+    let manifestSource = '{\n  "name": "from-the-broken-pass"\n}'
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {processAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifestSource}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+    expect(manifestOnDisk()).toBe(lastGood)
+    expect(compilationErrors).toHaveLength(1)
+
+    // The errored capture is cleared inside the hook: a flush that follows
+    // with no fresh capture must not leak the broken pass onto disk.
+    compilationErrors.length = 0
+    runAfterEmit()
+    expect(manifestOnDisk()).toBe(lastGood)
+
+    // The next clean cycle writes its own manifest.
+    manifestSource = '{\n  "name": "next-good"\n}'
+    runProcessAssets()
+    runAfterEmit()
+    expect(manifestOnDisk()).toBe('{\n  "name": "next-good"\n}')
+    expect(compilationErrors).toEqual([])
+  })
+
   it('refuses to write a manifest whose chunks are missing from disk', () => {
     const outputDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'persist-manifest-missing-')

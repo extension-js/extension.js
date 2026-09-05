@@ -310,6 +310,27 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     })
   })
 
+  it('forwards changedScriptFiles on the frame and omits the key when absent', () => {
+    const b = new BridgeBroker(opts)
+    const prod = new FakeConn('p')
+    hello(b, prod, 'producer')
+
+    b.broadcastReload({
+      type: 'page',
+      label: 'page (scripts/widget.ts)',
+      changedFiles: ['scripts/widget.ts'],
+      changedScriptFiles: ['scripts/widget.js']
+    })
+    b.broadcastReload({type: 'page', changedFiles: ['popup/popup.js']})
+
+    expect(prod.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'page',
+      changedScriptFiles: ['scripts/widget.js']
+    })
+    expect(prod.sent[1]).not.toHaveProperty('changedScriptFiles')
+  })
+
   it('latches an undeliverable reload and hands it to the next producer hello', () => {
     const b = new BridgeBroker(opts)
     expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)

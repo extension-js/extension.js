@@ -784,6 +784,22 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // The scripts-replay shim (plugin-reload) keeps the SW's own
+    // executeScript registry; the replay is fire-and-forget by design.
+    function replayProgrammaticScripts(changedScriptFiles) {
+      if (!Array.isArray(changedScriptFiles) || changedScriptFiles.length === 0) return;
+      var replay = g.__extjsScriptsReplay;
+      if (typeof replay !== "function") return;
+      try {
+        var outcome = replay(changedScriptFiles);
+        if (outcome && typeof outcome.then === "function") {
+          outcome.then(null, function () {});
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
     function handleDevReloadFrame(frame) {
       var kind = frame.reloadType || "full";
       var label = typeof frame.label === "string" ? frame.label : "";
@@ -795,6 +811,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var announced = "[Extension.js] Reloading " + (label || fallback) + "…";
 
       notifyDevtoolsCompanion("reloading", label, kind);
+
+      // A scripts/ bundle edit: re-run the executeScript calls that named it
+      // on their recorded tabs, before any reload decision below.
+      replayProgrammaticScripts(frame.changedScriptFiles);
 
       if (kind === "page") {
         // Notify-only: rspack-dev-server's livereload refreshes the open
