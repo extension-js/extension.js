@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {webAccessibleResources} from '../common/web_accessible_resources'
 
 describe('webAccessibleResources override', () => {

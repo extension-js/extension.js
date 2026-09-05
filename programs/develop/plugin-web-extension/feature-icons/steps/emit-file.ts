@@ -169,7 +169,8 @@ export class EmitFile {
                   (group === 'action' ||
                     group === 'browser_action' ||
                     group === 'page_action' ||
-                    group === 'sidebar_action') &&
+                    group === 'sidebar_action' ||
+                    group === 'omnibox') &&
                   sub === 'default_icon'
                 // Chrome refuses the WHOLE extension over a theme image it cannot
                 // find ("Could not load 'theme/images/x.png' for theme"), and

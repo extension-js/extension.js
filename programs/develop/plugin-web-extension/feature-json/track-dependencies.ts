@@ -18,7 +18,8 @@ export function trackJsonDependencies(
   manifestPath: string,
   includeList: Record<string, string | string[] | undefined>
 ): void {
-  if (compilation.errors?.length) return
+  // Tracked even when this build errored: a malformed ruleset or schema is
+  // exactly the file whose fix must trigger the next rebuild.
 
   const jsonFields = includeList || {}
   const manifestDir = path.dirname(manifestPath)
@@ -45,7 +46,11 @@ export function trackJsonDependencies(
 
         // Check the live set directly: copying compilation.fileDependencies per
         // resource iteration just to call .has was a real cost.
-        if (fs.existsSync(abs) && !compilation.fileDependencies.has(abs)) {
+        if (!fs.existsSync(abs)) {
+          compilation.missingDependencies?.add(abs)
+          continue
+        }
+        if (!compilation.fileDependencies.has(abs)) {
           compilation.fileDependencies.add(abs)
           added++
         }

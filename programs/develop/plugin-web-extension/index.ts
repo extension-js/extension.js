@@ -12,6 +12,7 @@ import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-da
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
+import {omniboxIconFields} from './feature-icons/omnibox-fields'
 import {JsonPlugin} from './feature-json'
 import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
@@ -89,7 +90,8 @@ export class WebExtensionPlugin {
       manifestPath,
       includeList: {
         ...(manifestFieldsData.icons as FilepathList),
-        ...(manifestFieldsData.theme as FilepathList)
+        ...(manifestFieldsData.theme as FilepathList),
+        ...omniboxIconFields(manifestPath)
       },
       browser: this.browser
     }).apply(compiler)

@@ -1,12 +1,5 @@
-// ██╗ ██████╗ ██████╗ ███╗   ██╗███████╗
-// ██║██╔════╝██╔═══██╗████╗  ██║██╔════╝
-// ██║██║     ██║   ██║██╔██╗ ██║███████╗
-// ██║██║     ██║   ██║██║╚██╗██║╚════██║
-// ██║╚██████╗╚██████╔╝██║ ╚████║███████║
-// ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
@@ -32,28 +25,25 @@ export class AddToFileDependencies {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            if (compilation.errors?.length) return
-
+            // Tracked even when this build errored: a missing or broken icon
+            // is exactly the file whose fix must trigger the next rebuild.
             const iconFields = this.includeList || {}
             let added = 0
-
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
-
               const stringEntries = iconValuesToStrings(resource)
-
               for (const entry of stringEntries) {
-                if (
-                  entry &&
-                  fs.existsSync(entry) &&
-                  !compilation.fileDependencies.has(entry)
-                ) {
+                if (!entry || !path.isAbsolute(entry)) continue
+                if (!fs.existsSync(entry)) {
+                  compilation.missingDependencies?.add(entry)
+                  continue
+                }
+                if (!compilation.fileDependencies.has(entry)) {
                   compilation.fileDependencies.add(entry)
                   added++
                 }
               }
             }
-
             if (isDebug()) {
               console.log(messages.iconsDepsTracked(added))
             }
