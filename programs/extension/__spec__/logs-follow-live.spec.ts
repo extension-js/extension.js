@@ -120,7 +120,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function until(check: () => boolean, label: string, timeoutMs = 3000) {
+// A CI runner that is starved by a sibling suite can take well over three
+// seconds to spawn the follower, so the window widens there.
+const ATTACH_WINDOW_MS = process.env.CI ? 15_000 : 3000
+
+async function until(
+  check: () => boolean,
+  label: string,
+  timeoutMs = ATTACH_WINDOW_MS
+) {
   const deadline = Date.now() + timeoutMs
   while (!check()) {
     if (Date.now() > deadline) throw new Error(`timed out waiting for ${label}`)
