@@ -95,6 +95,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-css/css-lib/messages.ts": [
     "cssConfigsDetected: function(3)",
     "cssIntegrationsEnabled: function(1)",
+    "cssMinifierDroppedRules: function(2)",
     "cssParseErrorShippedVerbatim: function(2)",
     "deadCssUrlRef: function(2)",
     "isUsingIntegration: function(1)",

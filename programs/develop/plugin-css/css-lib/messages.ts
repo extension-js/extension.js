@@ -133,3 +133,13 @@ export function postCssConfigPluginsShape(configPath: string, found: string) {
     'PostCSS expects an array or an object keyed by plugin name. The build continues without this config.'
   )
 }
+
+// The production minimizer error-recovers differently from a browser and can
+// drop the rest of a sheet after a construct the browser skips; shipping the
+// unminified sheet keeps production and development on the same rules.
+export function cssMinifierDroppedRules(assetName: string, tokens: string[]) {
+  return (
+    `${prefix('warn')} The CSS minimizer dropped ${tokens.join(', ')} from ${colors.gray(assetName)}.\n` +
+    'Shipped that stylesheet unminified so production keeps every rule development keeps.'
+  )
+}

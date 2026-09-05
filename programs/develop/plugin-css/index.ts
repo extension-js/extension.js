@@ -8,7 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compiler, type RuleSetRule, WebpackError} from '@rspack/core'
+import {
+  Compilation,
+  type Compiler,
+  type RuleSetRule,
+  sources,
+  WebpackError
+} from '@rspack/core'
 import {hasDependency} from '../lib/has-dependency'
 import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
@@ -16,6 +22,10 @@ import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
+import {
+  minifierDroppedTokens,
+  restoreVerbatimCssAssets
+} from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
 import {findPostCssConfig} from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
@@ -108,6 +118,58 @@ export class CssPlugin {
     }
   }
 
+  // A sheet the parser rejected went through as a placeholder rule; once the
+  // minimizer is done, the emitted asset becomes the sheet as authored.
+  // Production keeps every rule development keeps: a sheet the parser
+  // rejected comes back as authored once the minimizer is done, and a sheet
+  // the minimizer error-recovered into fewer rules than the browser would
+  // keep ships unminified, with a warning naming what it dropped.
+  private keepCssParityInProduction(compiler: Compiler) {
+    if (!compiler.hooks?.thisCompilation?.tap) return
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:parity`, (c) => {
+      if (!c?.hooks?.processAssets?.tap) return
+      const beforeMinify = new Map<string, string>()
+      c.hooks.processAssets.tap(
+        {
+          name: `${CssPlugin.name}:parity-snapshot`,
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 1
+        },
+        () => {
+          for (const asset of c.getAssets()) {
+            if (!asset.name.endsWith('.css')) continue
+            beforeMinify.set(asset.name, asset.source.source().toString())
+          }
+        }
+      )
+      c.hooks.processAssets.tap(
+        {
+          name: `${CssPlugin.name}:parity-restore`,
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE + 1
+        },
+        () => {
+          const restored = new Set(restoreVerbatimCssAssets(c))
+          for (const asset of c.getAssets()) {
+            if (!asset.name.endsWith('.css') || restored.has(asset.name)) {
+              continue
+            }
+            const before = beforeMinify.get(asset.name)
+            if (before === undefined) continue
+            const after = asset.source.source().toString()
+            if (after === before) continue
+            const dropped = minifierDroppedTokens(before, after)
+            if (dropped.length === 0) continue
+            c.updateAsset(asset.name, new sources.RawSource(before))
+            const warning = new WebpackError(
+              messages.cssMinifierDroppedRules(asset.name, dropped)
+            )
+            ;(warning as Error & {file?: string}).file = asset.name
+            c.warnings.push(warning)
+          }
+        }
+      )
+    })
+  }
+
   // A url() to a nonexistent file is fatal to rspack but Chrome 404s it silently
   // and applies the rest; cancel and warn. EXTENSION_STRICT_REFS restores fatal.
   private tolerateDeadUrlRefs(compiler: Compiler) {
@@ -195,6 +257,9 @@ export class CssPlugin {
   }
 
   public async apply(compiler: Compiler) {
+    // Parity first: a minimal compiler in a spec keeps one thisCompilation
+    // tap, and the dead-url guard is the one those specs exercise.
+    this.keepCssParityInProduction(compiler)
     this.tolerateDeadUrlRefs(compiler)
     const mode = compiler.options.mode || 'development'
     if (mode === 'production') {
@@ -204,9 +269,13 @@ export class CssPlugin {
       )
       return
     }
-    // dev/watch: beforeRun never fires, so configure eagerly and gate the first
-    // compilation via watchRun, closing the race with async contract resolution.
+    // dev/watch: configure eagerly and gate the first compilation on the one
+    // promise from both hooks. watchRun covers the dev server; beforeRun covers
+    // a one-shot development build (compiler.run), which otherwise read the
+    // rules before the css rules existed and sent a manifest stylesheet entry
+    // to the JavaScript parser.
     const configuring = this.configureOptions(compiler)
+    compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
     await configuring
   }
