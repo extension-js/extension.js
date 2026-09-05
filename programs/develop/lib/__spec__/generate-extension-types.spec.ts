@@ -10,7 +10,7 @@ import {generateExtensionTypes} from '../generate-extension-types'
 
 const publishedTypesFile = path.resolve(
   __dirname,
-  '../../../extension/types/index.d.ts'
+  '../../../extension/types/assets.d.ts'
 )
 
 function wildcardPatternsIn(source: string) {
@@ -87,7 +87,7 @@ describe('generate-extension-types', () => {
     )
   })
 
-  it('keeps the emitted wildcard list in step with extension/types/index.d.ts', () => {
+  it('keeps the emitted wildcard list in step with extension/types/assets.d.ts', () => {
     const published = fs.readFileSync(publishedTypesFile, 'utf8')
     const publishedPatterns = wildcardPatternsIn(published)
     expect(publishedPatterns.length).toBeGreaterThan(0)
