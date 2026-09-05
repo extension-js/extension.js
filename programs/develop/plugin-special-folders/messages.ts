@@ -24,11 +24,17 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   )
 }
 
+// Paths print with forward slashes on every platform, the way the rest of
+// the CLI displays them, so the copy and its specs read the same on Windows.
+function displayPath(absolutePath: string) {
+  return absolutePath.replace(/\\/g, '/')
+}
+
 export function publicMustBeAtProjectRoot(foundAt: string, expectedAt: string) {
   return (
     'The public folder sits in the legacy next-to-manifest location.\n' +
-    `GOT ${foundAt}\n` +
-    `EXPECTED ${expectedAt}\n` +
+    `GOT ${displayPath(foundAt)}\n` +
+    `EXPECTED ${displayPath(expectedAt)}\n` +
     'Static files ship from the extension root, so public/ is ' +
     'canonically placed at the project root.\n' +
     'The build uses it either way.\n' +
@@ -39,8 +45,8 @@ export function publicMustBeAtProjectRoot(foundAt: string, expectedAt: string) {
 export function publicFolderShadowed(usedAt: string, ignoredAt: string) {
   return (
     'Two public folders were found and only one is copied into the build.\n' +
-    `USING ${usedAt}\n` +
-    `IGNORED ${ignoredAt}\n` +
+    `USING ${displayPath(usedAt)}\n` +
+    `IGNORED ${displayPath(ignoredAt)}\n` +
     'public/ is canonically placed at the project root, and that copy wins.\n' +
     'Files that exist only in the ignored folder do not ship.\n' +
     'Move or merge the ignored folder to silence this warning.'
