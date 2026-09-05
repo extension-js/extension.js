@@ -1,47 +1,53 @@
-// ███╗   ███╗ █████╗ ███╗   ██╗██╗███████╗███████╗███████╗████████╗
-// ████╗ ████║██╔══██╗████╗  ██║██║██╔════╝██╔════╝██╔════╝╚══██╔══╝
-// ██╔████╔██║███████║██╔██╗ ██║██║█████╗  █████╗  ███████╗   ██║
-// ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
-// ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
-// ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
+import * as path from 'node:path'
 import type {Manifest} from '../../../../types'
-import {getFilename} from '../../../shared/paths'
+import {getFilename, isManifestAddress} from '../../../shared/paths'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function chromeSettingsOverrides(manifest: Manifest) {
+export function chromeSettingsOverrides(
+  manifest: Manifest,
+  manifestPath?: string
+) {
+  const overrides = manifest.chrome_settings_overrides
   return (
-    manifest.chrome_settings_overrides && {
+    overrides && {
       chrome_settings_overrides: {
-        ...(manifest.chrome_settings_overrides.homepage && {
-          homepage: manifest.chrome_settings_overrides.homepage
-        }),
-        ...(manifest.chrome_settings_overrides.search_provider && {
+        ...(overrides.homepage && {homepage: overrides.homepage}),
+        ...(overrides.search_provider && {
           search_provider: {
-            ...manifest.chrome_settings_overrides.search_provider,
-            ...(manifest.chrome_settings_overrides.search_provider
-              .favicon_url && {
+            ...overrides.search_provider,
+            ...(overrides.search_provider.favicon_url && {
+              // A remote favicon is an address; a packaged one ships through
+              // the icons emitter at the path named here.
               favicon_url: (() => {
-                const fav = manifest.chrome_settings_overrides.search_provider
-                  .favicon_url as string
-                const isUrl = /^(?:[a-z]+:)?\/\//i.test(fav)
-                return isUrl
-                  ? fav
-                  : getFilename(
-                      `chrome_settings_overrides/${fav.split('/').pop()}`,
-                      fav
-                    )
+                const fav = String(overrides.search_provider.favicon_url)
+                if (isManifestAddress(fav)) return fav
+                return getFilename(
+                  manifestPageOutputTarget(
+                    fav,
+                    `chrome_settings_overrides/${path.basename(fav)}`,
+                    manifestPath
+                  ),
+                  fav
+                )
               })()
             })
           }
         }),
-        ...(manifest.chrome_settings_overrides.startup_pages && {
-          startup_pages: manifest.chrome_settings_overrides.startup_pages.map(
+        ...(overrides.startup_pages && {
+          // Startup pages are usually web addresses, which survive verbatim;
+          // a packaged html page compiles to the path named here.
+          startup_pages: overrides.startup_pages.map(
             (page: string, index: number) =>
-              getFilename(
-                `chrome_settings_overrides/startup-${index}.html`,
-                page
-              )
+              isManifestAddress(page)
+                ? page
+                : getFilename(
+                    manifestPageOutputTarget(
+                      page,
+                      `chrome_settings_overrides/startup-${index}.html`,
+                      manifestPath
+                    ),
+                    page
+                  )
           )
         })
       }

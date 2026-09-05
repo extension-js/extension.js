@@ -20,7 +20,7 @@ export function manifestV2(manifest: Manifest, manifestPath?: string) {
     ...browserAction(manifest),
     ...pageAction(manifest),
     ...sidebarAction(manifest),
-    ...chromeSettingsOverrides(manifest),
+    ...chromeSettingsOverrides(manifest, manifestPath),
     ...themeExperiment(manifest, manifestPath)
   }
 }

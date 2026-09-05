@@ -20,6 +20,11 @@ import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
+import {
+  settingsOverridesIconFields,
+  settingsOverridesStartupPages,
+  themeExperimentStylesheetEntries
+} from './shared/manifest-path-assets'
 
 export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -61,6 +66,7 @@ export class WebExtensionPlugin {
         // Pages reachable only through chrome.devtools.panels.create never
         // appear in the manifest; without this the panel 404s in the browser.
         ...discoverDevtoolsPanelPages(manifestPath),
+        ...settingsOverridesStartupPages(manifestPath),
         ...specialFoldersData.pages
       }
     }).apply(compiler)
@@ -70,7 +76,8 @@ export class WebExtensionPlugin {
       browser: this.browser,
       includeList: {
         ...manifestFieldsData.scripts,
-        ...specialFoldersData.scripts
+        ...specialFoldersData.scripts,
+        ...themeExperimentStylesheetEntries(manifestPath)
       }
     }).apply(compiler)
 
@@ -91,7 +98,8 @@ export class WebExtensionPlugin {
       includeList: {
         ...(manifestFieldsData.icons as FilepathList),
         ...(manifestFieldsData.theme as FilepathList),
-        ...omniboxIconFields(manifestPath)
+        ...omniboxIconFields(manifestPath),
+        ...settingsOverridesIconFields(manifestPath)
       },
       browser: this.browser
     }).apply(compiler)
