@@ -11,6 +11,10 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {
+  iconOutputPath,
+  themeIconOutputPath
+} from '../../feature-manifest/normalize-manifest-path'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
@@ -244,14 +248,17 @@ export class EmitFile {
 
                 const basename = path.basename(resolved)
 
+                const isThemeIcons =
+                  (group === 'browser_action' || group === 'action') &&
+                  sub === 'theme_icons'
+
                 let outputDir = group
                 if (isDefaultIconFamily) {
                   outputDir = 'icons'
-                } else if (
-                  group === 'browser_action' &&
-                  sub === 'theme_icons'
-                ) {
-                  outputDir = 'browser_action'
+                } else if (isThemeIcons) {
+                  // MV2 browser_action and Firefox MV3 action theme_icons both
+                  // land under their manifest key folder.
+                  outputDir = group
                 } else if (isThemeImage) {
                   // Theme image keys arrive as theme/images/<basename>, so the file must land
                   // there to match the path the theme manifest override writes.
@@ -259,20 +266,28 @@ export class EmitFile {
                 }
 
                 let filename = `${outputDir}/${basename}`
+                const relFromManifest = path
+                  .relative(manifestDir, resolved)
+                  .replace(/\\/g, '/')
 
-                // Icons keep their manifest-relative location so they can't collide with
-                // another emitted asset that owns icons/<basename>. Mirrors iconOutputPath().
+                // Lockstep with the manifest overrides: in-project icons keep
+                // their location, outside-root icons get a unique slot, and
+                // both sides compute it from the same helper.
                 if (outputDir === 'icons') {
-                  const relFromManifest = path
-                    .relative(manifestDir, resolved)
-                    .replace(/\\/g, '/')
+                  if (relFromManifest && !path.isAbsolute(relFromManifest)) {
+                    filename = iconOutputPath(relFromManifest)
+                  } else if (resolved) {
+                    filename = iconOutputPath(resolved)
+                  }
+                }
 
-                  if (
-                    relFromManifest &&
-                    !relFromManifest.startsWith('..') &&
-                    !path.isAbsolute(relFromManifest)
-                  ) {
-                    filename = relFromManifest
+                if (isThemeIcons) {
+                  const folder =
+                    group === 'action' ? 'action' : 'browser_action'
+                  if (relFromManifest && !path.isAbsolute(relFromManifest)) {
+                    filename = themeIconOutputPath(relFromManifest, folder)
+                  } else if (resolved) {
+                    filename = themeIconOutputPath(resolved, folder)
                   }
                 }
 
