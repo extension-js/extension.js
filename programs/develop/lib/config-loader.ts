@@ -119,6 +119,13 @@ function findConfigFileIn(dir: string): string | undefined {
 }
 
 function resolveManifestDir(projectPath: string): string | undefined {
+  // A remote URL or a folder that is not there yet has no manifest on disk,
+  // and the walk would otherwise read the working directory's ancestry.
+  try {
+    if (!fs.statSync(projectPath).isDirectory()) return undefined
+  } catch {
+    return undefined
+  }
   try {
     const structure = resolveProjectStructureSync(projectPath, {quiet: true})
     return path.dirname(structure.manifestPath)

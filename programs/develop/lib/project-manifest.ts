@@ -277,14 +277,20 @@ export function findNearestProjectManifestSync(
 // Walks up from the extension manifest to the nearest deno.json(c),
 // mirroring findNearestPackageJson's contract.
 export function findNearestDenoConfigSync(manifestPath: string): string | null {
-  const root = path.parse(manifestPath).root
-  let currentDir = path.dirname(manifestPath)
+  // A remote URL joined with a file name is a relative path with no
+  // manifest anywhere above it.
+  if (/^[a-z][a-z0-9+.-]+:\/+/i.test(manifestPath)) return null
+  const root = path.parse(path.resolve(manifestPath)).root
+  let currentDir = path.dirname(path.resolve(manifestPath))
 
   while (true) {
     const found = findDenoConfigPath(currentDir)
     if (found) return found
-    if (currentDir === root) return null
-    currentDir = path.dirname(currentDir)
+    // A relative start (a URL handed in as a path) never reaches the
+    // filesystem root, so stop as soon as the walk stops climbing.
+    const parentDir = path.dirname(currentDir)
+    if (currentDir === root || parentDir === currentDir) return null
+    currentDir = parentDir
   }
 }
 
