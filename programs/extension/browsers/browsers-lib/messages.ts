@@ -643,8 +643,8 @@ export function firefoxDryRunBinary(path: string) {
   return `${getLoggingPrefix('info')} ${colors.gray('PATH')} ${colors.underline(path)}`
 }
 
-export function firefoxDryRunConfig(cfg: string) {
-  return `${getLoggingPrefix('info')} ${colors.gray('CONFIG')} ${colors.gray(cfg)}`
+export function firefoxDryRunArgs(args: string) {
+  return `${getLoggingPrefix('info')} ${colors.gray('ARGS')} ${colors.gray(args)}`
 }
 
 export function safariBuildCalled() {

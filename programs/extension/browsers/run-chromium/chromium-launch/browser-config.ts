@@ -127,10 +127,32 @@ function seedChromiumPreferences(
   fs.writeFileSync(preferencesPath, JSON.stringify(mergedPreferences), 'utf8')
 }
 
+export interface BrowserConfigMode {
+  // false composes the launch flags without provisioning the profile, for a
+  // dry run that must print the plan and touch nothing.
+  provision?: boolean
+}
+
+// The argv a launch hands the binary: the composed flags, then the starting
+// URL as Chromium's positional argument. The dry run prints this; the spawn
+// runs it.
+export function chromiumLaunchPlan(
+  binary: string,
+  chromiumConfig: string[],
+  startingUrl?: string
+): {binary: string; args: string[]} {
+  return {
+    binary,
+    args: startingUrl ? [...chromiumConfig, startingUrl] : [...chromiumConfig]
+  }
+}
+
 export function browserConfig(
   compilation: CompilationLike,
-  configOptions: PluginInterface
+  configOptions: PluginInterface,
+  mode: BrowserConfigMode = {}
 ) {
+  const provision = mode.provision !== false
   const extensionsToLoad = toExtensionLoadList(configOptions.extension)
 
   const devWantsCDP = compilation?.options?.mode === 'development'
@@ -180,12 +202,13 @@ export function browserConfig(
     resolveExplicit: (trimmedProfile) =>
       path.isAbsolute(trimmedProfile)
         ? trimmedProfile
-        : path.resolve(contextDir, trimmedProfile)
+        : path.resolve(contextDir, trimmedProfile),
+    provision
   })
 
   const userProfilePath = resolved.profilePath
 
-  if (resolved.kind === 'managed') {
+  if (resolved.kind === 'managed' && provision) {
     // Profile provisioning is an internal step; surface it only under --debug.
     if (isDebug())
       humanLine(messages.creatingUserProfile(shownPath(userProfilePath)))
@@ -209,7 +232,7 @@ export function browserConfig(
 
   // Seed Chromium profile preferences once for managed/explicit profile paths.
   // This ensures extension developer mode defaults are present on fresh runs.
-  if (userProfilePath) {
+  if (userProfilePath && provision) {
     fs.mkdirSync(userProfilePath, {recursive: true})
     prepareChromiumProfileForLaunch(userProfilePath)
     try {

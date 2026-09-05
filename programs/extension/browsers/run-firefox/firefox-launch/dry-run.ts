@@ -11,10 +11,10 @@ import * as messages from '../../browsers-lib/messages'
 
 export function logFirefoxDryRun(
   browserBinaryLocation: string,
-  firefoxConfig: string
+  launchArgs: string[]
 ) {
   if (isDebug()) humanLine(messages.firefoxLaunchCalled())
   humanLine(messages.firefoxDryRunNotLaunching())
   humanLine(messages.firefoxDryRunBinary(browserBinaryLocation))
-  humanLine(messages.firefoxDryRunConfig(firefoxConfig))
+  humanLine(messages.firefoxDryRunArgs(launchArgs.join(' ')))
 }

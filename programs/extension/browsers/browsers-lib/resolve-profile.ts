@@ -51,6 +51,9 @@ export interface ResolveProfileInput {
   // Resolve a relative explicit profile path; each launcher passes its own
   // resolver so this module stays free of launcher-specific path logic.
   resolveExplicit: (trimmedProfile: string) => string
+  // false composes the same decision without creating, marking or seeding
+  // the directory, so a dry run can name the profile it would use.
+  provision?: boolean
 }
 
 export interface ResolvedProfile {
@@ -145,6 +148,7 @@ export function resolveProfileConfig(
     copyFromProfile,
     resolveExplicit
   } = input
+  const provision = input.provision !== false
   const rawProfile = normalizeProfileOption(input.rawProfile)
 
   // profile: false and the env switch both mean the browser's own default
@@ -178,6 +182,17 @@ export function resolveProfileConfig(
   // fresh target, so persisted profiles seed once and user changes survive.
   const isFreshTarget =
     !fs.existsSync(profilePath) || fs.readdirSync(profilePath).length === 0
+
+  if (!provision) {
+    return {
+      kind: 'managed',
+      profilePath,
+      persisted,
+      ...(hasCopyFrom(copyFromProfile) && isFreshTarget
+        ? {seededFrom: copyFromProfile.trim()}
+        : {})
+    }
+  }
 
   fs.mkdirSync(profilePath, {recursive: true})
   ensureProfileRootIgnoreFile(managedBaseDir)

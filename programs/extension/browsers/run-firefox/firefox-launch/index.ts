@@ -64,7 +64,7 @@ import {
   isFirefoxHeadlessRequested,
   parseFlatpakBinary
 } from './binary-detector'
-import {browserConfig} from './browser-config'
+import {resolveFirefoxLaunchConfig} from './browser-config'
 import {logFirefoxDryRun} from './dry-run'
 import {
   type FirefoxBrowserKind,
@@ -134,7 +134,7 @@ export class FirefoxLaunchPlugin {
 
     // A claim about the browser waits for the browser: printing this before
     // the install announced add-ons Firefox had thrown out.
-    if (options.mode === 'development' && !this.host.extensionLoadRefused) {
+    if (options?.mode === 'development' && !this.host.extensionLoadRefused) {
       this.ctx.logger?.info?.(devServerReady(options.mode, this.host.browser))
     }
     this.ctx.didLaunch = true
@@ -278,16 +278,20 @@ export class FirefoxLaunchPlugin {
       process.exit(1)
     }
 
-    if (
-      this.host.dryRun ||
-      process.env.VITEST ||
-      process.env.VITEST_WORKER_ID
-    ) {
-      try {
-        logFirefoxDryRun('firefox-mock-binary', '--binary-args=""')
-      } catch {
-        // Ignore
-      }
+    const inTestRunner = Boolean(
+      process.env.VITEST || process.env.VITEST_WORKER_ID
+    )
+    const dryRun = Boolean(this.host.dryRun)
+
+    // Specs never launch: without a dry run they get the bare placeholder,
+    // with one and no pin they get the real plan around a placeholder binary,
+    // since there is no browser to find inside the test runner.
+    if (inTestRunner && !dryRun) {
+      logFirefoxDryRun('firefox-mock-binary', [])
+      return
+    }
+    if (inTestRunner && dryRun && !this.host.geckoBinary) {
+      await this.printDryRunPlan(compilation, options, 'firefox-mock-binary')
       return
     }
 
@@ -441,49 +445,34 @@ export class FirefoxLaunchPlugin {
 
     const effectiveInstanceId: string | undefined = this.host.instanceId
 
-    let firefoxCfg: string
-    firefoxCfg = await browserConfig(compilation, {
-      ...options,
-      profile: this.host.profile,
-      preferences: this.host.preferences || {},
-      instanceId: effectiveInstanceId
+    const launchConfig = await resolveFirefoxLaunchConfig(
+      compilation,
+      {
+        ...options,
+        profile: this.host.profile,
+        preferences: this.host.preferences || {},
+        instanceId: effectiveInstanceId
+      },
+      {provision: !dryRun}
+    )
+    const {profilePath, binaryArgs: firefoxArgs} = launchConfig
+
+    // One argv for the printed plan and the spawn.
+    const plan = FirefoxBinaryDetector.launchPlan({
+      binaryPath,
+      profilePath,
+      debugPort,
+      binaryArgs: firefoxArgs,
+      headless: isFirefoxHeadlessRequested()
     })
 
-    if (this.host.dryRun) {
-      logFirefoxDryRun(binaryPath, firefoxCfg)
+    if (dryRun) {
+      logFirefoxDryRun(plan.binary, plan.args)
       return
     }
 
-    const firefoxArgs: string[] = []
-    const binaryArgsMatch = firefoxCfg.match(/--binary-args="([^"]*)"/)
-    if (binaryArgsMatch) {
-      const rawArgs = String(binaryArgsMatch[1] || '').trim()
-      if (rawArgs) {
-        firefoxArgs.push(
-          ...rawArgs.split(' ').filter((arg) => arg.trim().length > 0)
-        )
-      }
-      if (isDebug()) {
-        this.ctx.logger?.info?.(
-          messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1])
-        )
-      }
-    } else {
-      if (isDebug()) {
-        this.ctx.logger?.info?.(messages.firefoxNoBinaryArgsFound())
-      }
-    }
-
-    const profileMatch = firefoxCfg.match(/--profile="([^"]*)"/)
-    if (profileMatch) {
-      const profilePath = profileMatch[1]
-      const {binary, args} = FirefoxBinaryDetector.generateFirefoxArgs(
-        binaryPath,
-        profilePath,
-        debugPort,
-        firefoxArgs,
-        isFirefoxHeadlessRequested()
-      )
+    if (profilePath) {
+      const {binary, args} = plan
       this.host.launchProfilePath = profilePath
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
       stampReadyBrowserLaunch(this.extensionOutputPath, {
@@ -550,17 +539,9 @@ export class FirefoxLaunchPlugin {
           '[browser] Firefox profile not set; skipping RDP add-on install.'
         )
       }
-      const args: string[] = [
-        ...(isFirefoxHeadlessRequested() ? ['-headless'] : []),
-        ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
-        ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
-        ...(isFirefoxHeadlessRequested() ? [] : ['--foreground']),
-        ...firefoxArgs
-      ]
-
       this.child = await this.spawnFirefoxChild(
-        binaryPath,
-        args,
+        plan.binary,
+        plan.args,
         wslFallbackBinary
       )
       stampReadyBrowserLaunch(this.extensionOutputPath, {
@@ -575,6 +556,36 @@ export class FirefoxLaunchPlugin {
       }
       this.scheduleWatchTimeout()
     }
+  }
+
+  // What a launch would run, from the same config seam as the spawn, with
+  // nothing provisioned on disk.
+  private async printDryRunPlan(
+    compilation: CompilationLike,
+    options: LaunchOptions,
+    binaryPath: string
+  ) {
+    const launchConfig = await resolveFirefoxLaunchConfig(
+      compilation,
+      {
+        ...options,
+        profile: this.host.profile,
+        preferences: this.host.preferences || {},
+        instanceId: this.host.instanceId
+      },
+      {provision: false}
+    )
+    const plan = FirefoxBinaryDetector.launchPlan({
+      binaryPath,
+      profilePath: launchConfig.profilePath,
+      debugPort: deriveDebugPortWithInstance(
+        this.host.port,
+        this.host.instanceId
+      ),
+      binaryArgs: launchConfig.binaryArgs,
+      headless: isFirefoxHeadlessRequested()
+    })
+    logFirefoxDryRun(plan.binary, plan.args)
   }
 
   private resolveSpawnStdio() {
