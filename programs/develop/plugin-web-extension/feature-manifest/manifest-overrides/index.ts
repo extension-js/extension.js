@@ -13,7 +13,12 @@ import {manifestCommon} from './common'
 import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 
-export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
+// projectPath finds the root public/ folder when the manifest lives in src/.
+export function getManifestOverrides(
+  manifestPath: string,
+  manifest: Manifest,
+  projectPath?: string
+) {
   const manifestContent: Manifest =
     manifest || JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
 
@@ -34,9 +39,9 @@ export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
       : {}
   }
 
-  const common = manifestCommon(manifestContent, manifestPath)
+  const common = manifestCommon(manifestContent, manifestPath, projectPath)
   const mv2 = manifestV2(manifestContent, manifestPath)
-  const mv3 = manifestV3(manifestContent, manifestPath)
+  const mv3 = manifestV3(manifestContent, manifestPath, projectPath)
 
   // Deep-merge background so MV2 (scripts), MV3 (service_worker), and common (page)
   // contributions accumulate rather than overwrite each other.

@@ -8,9 +8,13 @@
 
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {manifestPageOutputTarget} from '../../normalize-manifest-path'
+import {manifestJsonOutputTarget} from '../../normalize-manifest-path'
 
-export function storage(manifest: Manifest, manifestPath?: string) {
+export function storage(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.storage && {
       storage: {
@@ -18,10 +22,11 @@ export function storage(manifest: Manifest, manifestPath?: string) {
           managed_schema: (() => {
             const raw = String(manifest.storage.managed_schema)
             return getFilename(
-              manifestPageOutputTarget(
+              manifestJsonOutputTarget(
                 raw,
                 'storage/managed_schema.json',
-                manifestPath
+                manifestPath,
+                projectPath
               ),
               raw
             )

@@ -70,6 +70,45 @@ describe('storage (managed_schema override)', () => {
     })
   })
 
+  it('keeps a plain-spelled schema that public/ owns at the output root', () => {
+    const manifestPath = createProject(['public/schema.json'])
+    const result = storage(
+      {storage: {managed_schema: 'schema.json'}} as any,
+      manifestPath
+    )
+
+    expect(result).toEqual({
+      storage: {managed_schema: 'schema.json'}
+    })
+  })
+
+  it('finds the root public/ for a plain-spelled schema when the manifest lives in src/', () => {
+    const manifestPath = createProject(['public/schema.json'])
+    const root = path.dirname(manifestPath)
+    fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+    const result = storage(
+      {storage: {managed_schema: 'schema.json'}} as any,
+      path.join(root, 'src', 'manifest.json'),
+      root
+    )
+
+    expect(result).toEqual({
+      storage: {managed_schema: 'schema.json'}
+    })
+  })
+
+  it('keeps a plain-spelled schema beside the manifest at the canonical path', () => {
+    const manifestPath = createProject(['schema.json', 'public/schema.json'])
+    const result = storage(
+      {storage: {managed_schema: 'schema.json'}} as any,
+      manifestPath
+    )
+
+    expect(result).toEqual({
+      storage: {managed_schema: 'storage/managed_schema.json'}
+    })
+  })
+
   it('returns undefined when manifest has no storage', () => {
     expect(storage({} as any)).toBeUndefined()
   })

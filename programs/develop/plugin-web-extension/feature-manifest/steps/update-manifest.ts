@@ -104,10 +104,15 @@ export class UpdateManifest {
                 'manifest.json'
               )
             }
+            // The overrides need the project root to find a root public/
+            // folder when the manifest lives in src/.
+            const projectPath =
+              compiler.options.context || path.dirname(this.manifestPath)
             let patchedManifest = buildCanonicalManifest(
               this.manifestPath,
               manifest,
-              this.browser
+              this.browser,
+              projectPath
             ) as Manifest
 
             // Firefox can't load background.service_worker, translate it to a
@@ -131,7 +136,11 @@ export class UpdateManifest {
               this.browser
             )
 
-            const overrides = getManifestOverrides(this.manifestPath, manifest)
+            const overrides = getManifestOverrides(
+              this.manifestPath,
+              manifest,
+              projectPath
+            )
 
             // Dev-only: content_scripts with only CSS get a JS file so styles can be
             // dynamically imported (HMR). Must run before patchDevContentScriptManifestPaths.
