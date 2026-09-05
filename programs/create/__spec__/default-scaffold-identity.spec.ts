@@ -55,6 +55,7 @@ beforeAll(async () => {
   await extensionCreate(projectPath, {
     install: false,
     cliVersion: '4.0.23',
+    template: 'javascript',
     logger
   })
 }, 60000)
@@ -63,7 +64,7 @@ afterAll(async () => {
   await fs.rm(workDir, {recursive: true, force: true})
 })
 
-describe('the default scaffold names itself', () => {
+describe('the javascript scaffold names itself', () => {
   it('names the template on the card', () => {
     const cardLine = logLines
       .join('\n')

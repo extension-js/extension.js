@@ -4,6 +4,7 @@ vi.mock('../steps/create-directory', () => ({
   createDirectory: async () => undefined
 }))
 vi.mock('../steps/import-external-template', () => ({
+  DEFAULT_TEMPLATE_NAME: 'typescript',
   importExternalTemplate: async () => undefined
 }))
 vi.mock('../steps/write-package-json', () => ({

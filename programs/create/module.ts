@@ -18,6 +18,7 @@ import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
 import {generateExtensionTypes} from './steps/generate-extension-types'
 import {
+  DEFAULT_TEMPLATE_NAME,
   importExternalTemplate,
   type TemplateProvenance
 } from './steps/import-external-template'
@@ -68,16 +69,22 @@ export interface CreateResult {
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {
-    cliVersion,
-    template = 'javascript',
-    install = false,
-    logger = console
-  }: CreateOptions
+  {cliVersion, template, install = false, logger = console}: CreateOptions
 ): Promise<CreateResult> {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
   }
+
+  // An omitted template takes the default, which downloads; only that case is
+  // allowed to fall back to the bundled offline template, because an explicit
+  // name that fails to download should fail loudly rather than swap silently.
+  const templateWasOmitted =
+    template === undefined ||
+    template === null ||
+    String(template).trim() === ''
+  const effectiveTemplate = templateWasOmitted
+    ? DEFAULT_TEMPLATE_NAME
+    : String(template)
 
   if (projectNameInput.startsWith('http')) {
     throw new Error(messages.noUrlAllowed())
@@ -96,7 +103,7 @@ export async function extensionCreate(
   // The card names exactly what the user asked for. The alias that once
   // rewrote `init` to `javascript` here is gone, a swapped name in the header
   // is the same lie as a swapped scaffold (section 126).
-  const requestedTemplate = String(template)
+  const requestedTemplate = effectiveTemplate
   logger.log(' ')
   logger.log(
     card({
@@ -116,12 +123,15 @@ export async function extensionCreate(
   const templateProvenance = await importExternalTemplate(
     projectPath,
     projectName,
-    template,
+    effectiveTemplate,
     logger,
     // createDirectory mkdirs the path before the import runs, so only its
     // sentinel can tell failure cleanup whether the directory is ours.
     // Unknown ownership (a mocked step) defaults to the safe side.
-    {ownsProjectDir: createResult?.directoryCreated ?? false}
+    {
+      ownsProjectDir: createResult?.directoryCreated ?? false,
+      allowOfflineFallback: templateWasOmitted
+    }
   )
 
   if (templateProvenance?.template) {
@@ -133,18 +143,29 @@ export async function extensionCreate(
     )
   }
 
+  // Downstream steps must reflect what actually landed on disk, not what was
+  // requested: an offline fallback scaffolds the bundled template, so its
+  // package.json flavor and type generation follow the real scaffold.
+  const scaffoldedTemplate = templateProvenance?.template ?? effectiveTemplate
+
   // Deno-created scaffolds get deno.jsonc instead of package.json (issue #482);
   // monorepo templates keep package.json with a tasks-only deno.jsonc beside it.
-  const isMonorepoTemplate = String(template).toLowerCase().includes('monorepo')
+  const isMonorepoTemplate = String(scaffoldedTemplate)
+    .toLowerCase()
+    .includes('monorepo')
   if (isDenoRuntime() && !isMonorepoTemplate) {
     await writeDenoJsonc(
       projectPath,
-      {template, cliVersion, primary: true},
+      {template: scaffoldedTemplate, cliVersion, primary: true},
       logger
     )
   } else {
-    await overridePackageJson(projectPath, {template, cliVersion}, logger)
-    await writeDenoJsonc(projectPath, {template}, logger)
+    await overridePackageJson(
+      projectPath,
+      {template: scaffoldedTemplate, cliVersion},
+      logger
+    )
+    await writeDenoJsonc(projectPath, {template: scaffoldedTemplate}, logger)
   }
 
   await writeTemplateProvenance(projectPath, templateProvenance, logger)
@@ -165,7 +186,7 @@ export async function extensionCreate(
   await writeGitignore(projectPath, logger)
   await setupBuiltInTests(projectPath, logger)
 
-  if (utils.isTypeScriptTemplate(template)) {
+  if (utils.isTypeScriptTemplate(scaffoldedTemplate)) {
     await generateExtensionTypes(projectPath, projectName, logger)
   }
 
@@ -192,8 +213,9 @@ export async function extensionCreate(
     // two names: `new-react` in the envelope, `newtab-react` in the project,
     // and the envelope's value absent from the CLI's own names[]. The session
     // header still echoes what was typed (section 126): that surface reports
-    // the request, this one reports the result.
-    template: templateProvenance?.template ?? template,
+    // the request, this one reports the result. With the offline fallback
+    // the scaffolded template is the result even when no provenance exists.
+    template: templateProvenance?.template ?? scaffoldedTemplate,
     depsInstalled: install,
     packageManager: resolveScaffoldPackageManager(),
     templateProvenance

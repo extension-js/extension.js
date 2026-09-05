@@ -315,7 +315,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "ref": "cb6a25377bd9516a1e55447a2010537019851ab2",
       "repo": "extension-js/examples",
     },
-    "default": "javascript",
+    "default": "typescript",
     "groups": [
       {
         "summary": "a bare manifest, or one language or framework with sidebar UI",
@@ -481,7 +481,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "special-folders-scripts",
     ],
     "notes": [
-      "extension create <name> with no --template scaffolds javascript",
+      "extension create <name> with no --template scaffolds typescript",
       "every name in bundled[] ships inside the CLI package and scaffolds offline. Every other name downloads the examples archive at create time",
       "a GitHub URL or a ZIP URL is accepted in place of a catalog name",
       "a name outside names[] fails with TemplateNotFoundError and creates nothing, except a name listed in aliases[], which scaffolds its resolvesTo entry",
