@@ -9,7 +9,10 @@
 import * as path from 'node:path'
 import colors from 'pintor'
 import {fmt, prefix} from './messaging'
-import {resolveScaffoldPackageManager} from './package-manager'
+import {
+  resolveScaffoldPackageManager,
+  type ScaffoldPackageManager
+} from './package-manager'
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
@@ -58,10 +61,11 @@ export function noUrlAllowed() {
 export async function scaffoldReady(
   projectPath: string,
   projectName: string,
-  depsInstalled: boolean
+  depsInstalled: boolean,
+  packageManager?: ScaffoldPackageManager
 ) {
   const relativePath = path.relative(process.cwd(), projectPath)
-  const pm = resolveScaffoldPackageManager()
+  const pm = packageManager ?? resolveScaffoldPackageManager()
 
   let command = 'npm run dev'
   let installCmd = 'npm install'

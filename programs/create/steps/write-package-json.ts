@@ -12,8 +12,9 @@ import * as path from 'node:path'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {
-  getPackageManagerSpecFromEnv,
-  resolveScaffoldPackageManager
+  resolvePackageManagerSpec,
+  resolveProjectPackageManager,
+  type ScaffoldPackageManager
 } from '../lib/package-manager'
 
 export async function resolveExtensionBinary(): Promise<string> {
@@ -81,6 +82,8 @@ interface OverridePackageJsonOptions {
   /** Defaults to `javascript` when omitted (same as `extensionCreate`). */
   template?: string
   cliVersion?: string
+  /** The one manager the project uses; resolved from the scaffold when omitted. */
+  packageManager?: ScaffoldPackageManager
 }
 
 /* @invariant less rides in transitively and its postinstall is a no-op outside
@@ -143,9 +146,10 @@ export function resolveExtensionDevDependencyVersion(
 
 export async function overridePackageJson(
   projectPath: string,
-  {template = 'javascript', cliVersion}: OverridePackageJsonOptions,
+  options: OverridePackageJsonOptions,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
+  const {template = 'javascript', cliVersion} = options
   const extensionBinary = await resolveExtensionBinary()
   const candidatePath = path.join(projectPath, 'package.json')
 
@@ -176,8 +180,12 @@ export async function overridePackageJson(
         : resolveExtensionDevDependencyVersion(cliVersion)
   }
 
-  const packageManagerSpec =
-    packageJson.packageManager || getPackageManagerSpecFromEnv()
+  const packageManager =
+    options.packageManager ?? resolveProjectPackageManager(projectPath)
+  const packageManagerSpec = resolvePackageManagerSpec(
+    projectPath,
+    packageManager
+  )
 
   // Pre-approve dependency build scripts so one install just works on pnpm/bun;
   // native ML builds only approved when the project pulls the transformers stack.
@@ -193,9 +201,7 @@ export async function overridePackageJson(
       ? packageJson.pnpm
       : {}
   ) as {ignoredBuiltDependencies?: string[]; onlyBuiltDependencies?: string[]}
-  const installsWithPnpm =
-    String(packageManagerSpec || '').startsWith('pnpm@') ||
-    resolveScaffoldPackageManager() === 'pnpm'
+  const installsWithPnpm = packageManager === 'pnpm'
   const ignoredBuilt = uniq([
     ...(existingPnpm.ignoredBuiltDependencies || []),
     ...(installsWithPnpm ? BUILD_NOOP_DEPENDENCIES : [])
