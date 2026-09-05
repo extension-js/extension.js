@@ -392,6 +392,33 @@ async function followLogs(
     process.exit(1)
   }
 
+  // A follow outlives its channel in two ways that no reconnect can mend: the
+  // dev session ends (the engine stamps ready.json 'stopped', or a new session
+  // rewrites it), or the server refuses the hello outright. Left to the
+  // consumer's retry loop, the command would sit silent forever and a machine
+  // reader could not tell that from a quiet extension. A close the contract no
+  // longer backs ends the follow with one terminating frame instead.
+  let settle: () => void = () => {}
+  const settled = new Promise<void>((resolve) => {
+    settle = resolve
+  })
+  const refusals = new Set<number>(
+    [
+      bridge.CLOSE_BAD_INSTANCE,
+      bridge.CLOSE_BAD_HELLO,
+      bridge.CLOSE_CONTROL_UNAVAILABLE
+    ].filter((code): code is number => typeof code === 'number')
+  )
+  const sessionStillNamed = (): boolean => {
+    const current = readReadyContract(projectPath, browser)
+    return (
+      Boolean(current) &&
+      current.status !== 'stopped' &&
+      current.instanceId === ready.instanceId &&
+      current.controlPort === ready.controlPort
+    )
+  }
+
   const consumer = new BridgeConsumer({
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,
@@ -404,6 +431,30 @@ async function followLogs(
       console.error(
         `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
       )
+    },
+    onClose: (close: {code: number; reason: string}) => {
+      if (!refusals.has(close.code) && sessionStillNamed()) return
+      consumer.close()
+      const why = close.reason ? `${close.code}, ${close.reason}` : close.code
+      // eslint-disable-next-line no-console
+      console.error(
+        `extension logs --follow: the control channel closed (${why}) and the dev session is over.`
+      )
+      if (format !== 'pretty') {
+        // console.log for the same reason as the interrupt frame below: it
+        // must land after every record already queued on stdout.
+        // eslint-disable-next-line no-console
+        console.log(
+          JSON.stringify(
+            ENVELOPE.ok('logs', 'closed', {
+              closeCode: close.code,
+              reason: close.reason,
+              follow: true
+            })
+          )
+        )
+      }
+      settle()
     }
   })
 
@@ -429,6 +480,8 @@ async function followLogs(
   process.on('SIGTERM', () => shutdown('SIGTERM'))
 
   consumer.start()
-  // Keep the process alive while following.
-  await new Promise<void>(() => {})
+  // The socket keeps the process alive while following. Returning once the
+  // channel is gone for good lets the process end on its own, so the
+  // beforeExit telemetry flush still runs and the exit code stays 0.
+  await settled
 }
