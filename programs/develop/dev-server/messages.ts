@@ -240,3 +240,23 @@ export function spacerLine() {
   // Turbo-prefixed logs can collapse truly empty lines; keep one space.
   return ' '
 }
+
+// Shutdown paths print through the shared prefix like every other line; a
+// bracketed runner tag was a retired prefix the rulebook forbids.
+export function runnerCleanupError(error: unknown) {
+  return `${prefix('error')} The dev server could not shut down cleanly: ${String(
+    (error as Error)?.message || error
+  )}`
+}
+
+export function runnerUncaughtException(error: unknown) {
+  return `${prefix('error')} Uncaught exception in the dev server: ${String(
+    (error as Error)?.message || error
+  )}`
+}
+
+export function runnerUnhandledRejection(reason: unknown) {
+  return `${prefix('error')} Unhandled rejection in the dev server: ${String(
+    (reason as Error)?.message || reason
+  )}`
+}

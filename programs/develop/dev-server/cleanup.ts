@@ -59,21 +59,21 @@ export function setupCleanupHandlers(
     try {
       await closeAll(resolveDevServer(devServer), portManager)
     } catch (error) {
-      console.error('[Extension.js Runner] Error during cleanup.', error)
+      console.error(messages.runnerCleanupError(error))
       process.exit(1)
     }
   }
 
   // An uncaught exception leaves the process in an undefined state, tear down
   process.on('uncaughtException', async (error) => {
-    console.error('[Extension.js Runner] Uncaught exception.', error)
+    console.error(messages.runnerUncaughtException(error))
     await cleanup()
   })
 
   // A stray rejection (common from browser plugins / CDP during long HMR
   // sessions) should NOT kill the dev server, log it and keep serving
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('[Extension.js Runner] Unhandled rejection.', promise, reason)
+    console.error(messages.runnerUnhandledRejection(reason))
   })
 
   // Optional auto-exit support for non-interactive (AI/CI) runs

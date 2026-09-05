@@ -499,7 +499,7 @@ async function restoreOwnerGitignore(
   const merged =
     added.length === 0
       ? ownerContents
-      : `${ownerContents.replace(/\n?$/, '\n')}\n# extension.js template rules\n${added.join('\n')}\n`
+      : `${ownerContents.replace(/\n?$/, '\n')}\n# Extension.js template rules\n${added.join('\n')}\n`
   await fs.writeFile(target, merged)
 }
 
