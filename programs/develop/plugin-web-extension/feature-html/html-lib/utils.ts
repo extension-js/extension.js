@@ -91,20 +91,7 @@ export function getAssetsFromHtml(
       filePathWithParts: string
     ) => {
       const {cleanPath} = cleanAssetUrl(filePathWithParts)
-
-      if (isUrl(cleanPath)) {
-        return cleanPath
-      }
-
-      if (cleanPath.startsWith('/')) {
-        return cleanPath
-      }
-      const isBaseUrl = isUrl(baseHref || '')
-      const baseJoin =
-        baseHref && !isBaseUrl
-          ? path.join(path.dirname(htmlFilePath), baseHref)
-          : path.dirname(htmlFilePath)
-      return path.join(baseJoin, cleanPath)
+      return resolveHtmlRefPath(htmlFilePath, baseHref, cleanPath)
     }
 
     parseHtml(
@@ -396,9 +383,38 @@ interface BaseHrefNode {
   childNodes?: BaseHrefNode[]
 }
 
+// One answer for every consumer to where a page ref points on disk: a
+// relative <base href> joins first (the collector spec pins this, /public
+// refs stay unbased), and a ref the base misses falls back to the page's
+// own folder so the build ships the file the author has.
+export function resolveHtmlRefPath(
+  htmlFilePath: string,
+  baseHref: string | undefined,
+  cleanPath: string
+): string {
+  if (isUrl(cleanPath)) return cleanPath
+  if (cleanPath.startsWith('/')) return cleanPath
+
+  const htmlDir = path.dirname(htmlFilePath)
+  const pageRelative = path.join(htmlDir, cleanPath)
+  if (!baseHref || isUrl(baseHref)) return pageRelative
+
+  const throughBase = path.join(htmlDir, baseHref, cleanPath)
+  if (fs.existsSync(throughBase) || !fs.existsSync(pageRelative)) {
+    return throughBase
+  }
+  return pageRelative
+}
+
 export function getBaseHref(htmlDocument: {
   childNodes?: unknown
 }): string | undefined {
+  return getBaseNode(htmlDocument)?.attrs?.find((a) => a.name === 'href')?.value
+}
+
+export function getBaseNode(htmlDocument: {
+  childNodes?: unknown
+}): BaseHrefNode | undefined {
   const htmlChildren = (htmlDocument.childNodes || []) as BaseHrefNode[]
   for (const node of htmlChildren) {
     if (node?.nodeName !== 'html') continue
@@ -407,7 +423,7 @@ export function getBaseHref(htmlDocument: {
       for (const headChild of child.childNodes || []) {
         if (headChild?.nodeName === 'base') {
           const href = headChild.attrs?.find((a) => a.name === 'href')?.value
-          if (href) return href
+          if (href) return headChild
         }
       }
     }
