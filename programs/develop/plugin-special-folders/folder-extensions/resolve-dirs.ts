@@ -10,6 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {CompanionExtensionsConfig} from './types'
 import {
+  companionFolderMatchesBrowser,
+  isBrowserNamedCompanionFolder,
   isDir,
   isValidExtensionRoot,
   normalizeCompanionConfig,
@@ -21,8 +23,9 @@ import {
 export function resolveCompanionExtensionDirs(opts: {
   projectRoot: string
   config?: CompanionExtensionsConfig
+  browser?: string
 }): string[] {
-  const {projectRoot, config} = opts
+  const {projectRoot, config, browser} = opts
 
   const normalized = normalizeCompanionConfig(config)
   const explicitPaths = normalized.paths
@@ -68,10 +71,18 @@ export function resolveCompanionExtensionDirs(opts: {
 
       // Browser-named subfolders (extensions/chrome/<ext>) get one more
       // level for ANY configured dir, not only the default 'extensions'
-      // basename; isValidExtensionRoot keeps arbitrary nesting out.
+      // basename; isValidExtensionRoot keeps arbitrary nesting out. A folder
+      // named for another browser is that browser's set, not this session's.
       for (const ent of entries) {
         if (!ent.isDirectory()) continue
         if (ent.name.startsWith('.')) continue
+        if (
+          browser &&
+          isBrowserNamedCompanionFolder(ent.name) &&
+          !companionFolderMatchesBrowser(ent.name, browser)
+        ) {
+          continue
+        }
 
         const browserDir = path.join(absScan, ent.name)
         scanOneLevel(browserDir)

@@ -271,7 +271,8 @@ export async function extensionPreview(
   const companionUnpackedExtensionDirs =
     resolveCompanionExtensionDirsFromSpecialFolders({
       projectRoot: packageJsonDir,
-      config: merged.extensions
+      config: merged.extensions,
+      browser
     })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
