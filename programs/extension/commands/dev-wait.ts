@@ -7,8 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import * as path from 'node:path'
+import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {CODES, type ErrorCode} from '../helpers/messaging'
+import {
+  resolveSessionProjectPath,
+  sessionReadyPath
+} from '../helpers/session-project-path'
 
 export type WaitFormat = 'pretty' | 'json'
 export type WaitCommand = 'dev' | 'start'
@@ -53,11 +57,22 @@ function isHttpUrl(value?: string): boolean {
   return /^https?:\/\//i.test(value)
 }
 
-function resolveProjectPath(pathOrRemoteUrl?: string): string {
-  if (!pathOrRemoteUrl) return process.cwd()
-  return path.isAbsolute(pathOrRemoteUrl)
-    ? pathOrRemoteUrl
-    : path.join(process.cwd(), pathOrRemoteUrl)
+// --wait polls for the contract dev writes at the package root, so the
+// argument has to resolve the way dev resolves it, not as given.
+async function resolveProjectPath(pathOrRemoteUrl?: string): Promise<{
+  projectPath: string
+  bridge: unknown
+}> {
+  let bridge: unknown
+  try {
+    bridge = await loadExtensionDevelopBridgeModule()
+  } catch {
+    bridge = undefined
+  }
+  return {
+    projectPath: resolveSessionProjectPath(bridge, pathOrRemoteUrl),
+    bridge
+  }
 }
 
 function parseWaitTimeoutMs(value?: string | number): number {
@@ -157,15 +172,14 @@ export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
 async function waitForReadyContract(options: {
   command: WaitCommand
   projectPath: string
+  bridge: unknown
   browser: string
   timeoutMs: number
 }): Promise<ReadyContractPayload> {
-  const readyPath = path.join(
+  const readyPath = sessionReadyPath(
+    options.bridge,
     options.projectPath,
-    'dist',
-    'extension-js',
-    options.browser,
-    'ready.json'
+    options.browser
   )
   const start = Date.now()
   while (Date.now() - start < options.timeoutMs) {
@@ -223,7 +237,9 @@ export async function runWaitMode(
     )
   }
 
-  const projectPath = resolveProjectPath(options.pathOrRemoteUrl)
+  const {projectPath, bridge} = await resolveProjectPath(
+    options.pathOrRemoteUrl
+  )
   const timeoutMs = parseWaitTimeoutMs(options.waitTimeout)
   const format = parseWaitFormat(options.waitFormat)
   const results: Array<ReadyContractPayload & {browser: string}> = []
@@ -232,6 +248,7 @@ export async function runWaitMode(
     const payload = await waitForReadyContract({
       command: options.command,
       projectPath,
+      bridge,
       browser,
       timeoutMs
     })

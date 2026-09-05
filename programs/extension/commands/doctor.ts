@@ -14,6 +14,10 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {
+  resolveSessionProjectPath,
+  sessionReadyPath
+} from '../helpers/session-project-path'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
@@ -103,12 +107,13 @@ function listSessionBrowsers(projectPath: string): string[] {
    live browsers, a single contract wins outright, and chromium is only the
    fallback when nothing (or an ambiguous set) is found. */
 export function resolveDoctorBrowser(
-  projectPathArg: string | undefined,
+  projectPath: string | undefined,
   optsBrowser: string | undefined
 ): {browser: string; sessionBrowsers: string[]} {
   if (optsBrowser) return {browser: optsBrowser, sessionBrowsers: []}
-  const projectPath = path.resolve(projectPathArg || process.cwd())
-  const sessionBrowsers = listSessionBrowsers(projectPath)
+  const sessionBrowsers = listSessionBrowsers(
+    path.resolve(projectPath || process.cwd())
+  )
   if (sessionBrowsers.length === 1) {
     return {browser: sessionBrowsers[0], sessionBrowsers}
   }
@@ -132,9 +137,10 @@ export async function runDoctor(
   projectPathArg: string | undefined,
   opts: DoctorOptions
 ): Promise<DoctorCheckResult[]> {
-  const projectPath = path.resolve(projectPathArg || process.cwd())
+  const bridge = await loadExtensionDevelopBridgeModule()
+  const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
   const {browser, sessionBrowsers} = resolveDoctorBrowser(
-    projectPathArg,
+    projectPath,
     opts.browser
   )
   const results: DoctorCheckResult[] = []
@@ -160,14 +166,14 @@ export async function runDoctor(
     readControlToken,
     readPersistedControlPort,
     controlPortFilePath
-  } = await loadExtensionDevelopBridgeModule()
+  } = bridge
 
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     results.push({
       check: 'ready-contract',
       status: 'fail',
-      detail: `no ready contract at dist/extension-js/${browser}/ready.json`,
+      detail: `no ready contract at ${sessionReadyPath(bridge, projectPath, browser)}`,
       remediation:
         `Start a dev session first: extension dev --browser=${browser} ` +
         `--allow-control (add --allow-eval for the eval verb)`
@@ -487,7 +493,10 @@ const CHECK_CODES: Record<string, ErrorCode> = {
 export function registerDoctorCommand(program: Command): void {
   program
     .command('doctor')
-    .argument('[project-path]', 'path to the extension project root')
+    .argument(
+      '[project-path]',
+      'path to the extension project root or the folder holding its manifest'
+    )
     .option(
       '--browser <chrome | chromium | edge | firefox>',
       'which session to diagnose (defaults to the single live session, else chromium)'

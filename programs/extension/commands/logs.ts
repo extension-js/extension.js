@@ -7,12 +7,16 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import fs from 'node:fs'
-import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {
+  resolveSessionProjectPath,
+  sessionLogsPath,
+  sessionReadyPath
+} from '../helpers/session-project-path'
 
 type LogsOptions = {
   browser?: string
@@ -169,16 +173,6 @@ function writeFrame(frame: unknown): void {
   }
 }
 
-function logsFilePath(projectPath: string, browser: string): string {
-  return path.resolve(
-    projectPath,
-    'dist',
-    'extension-js',
-    browser,
-    'logs.ndjson'
-  )
-}
-
 export function registerLogsCommand(program: Command) {
   program
     .command('logs')
@@ -216,7 +210,8 @@ export function registerLogsCommand(program: Command) {
       'output format. Defaults to pretty on a TTY, ndjson when piped'
     )
     .action(async (projectPathArg: string, options: LogsOptions) => {
-      const projectPath = path.resolve(projectPathArg || process.cwd())
+      const bridge = await loadExtensionDevelopBridgeModule()
+      const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
       const browser = options.browser || 'chromium'
       const format = resolveFormat(options)
       const matches = makeFilter(options)
@@ -241,7 +236,7 @@ export function registerLogsCommand(program: Command) {
       }
 
       // One-shot: read the logs.ndjson file directly (no control channel needed).
-      const file = logsFilePath(projectPath, browser)
+      const file = sessionLogsPath(bridge, projectPath, browser)
       if (!fs.existsSync(file)) {
         const message =
           `No logs found at ${file}. Start a dev session (extension dev) first, ` +
@@ -280,13 +275,14 @@ async function followLogs(
   format: 'pretty' | 'json' | 'ndjson',
   matches: (e: LogEventLike) => boolean
 ) {
-  const {BridgeConsumer, readReadyContract} =
-    await loadExtensionDevelopBridgeModule()
+  const bridge = await loadExtensionDevelopBridgeModule()
+  const {BridgeConsumer, readReadyContract} = bridge
 
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     const message =
       `No active dev session control channel found for ${browser}. ` +
+      `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
       `Run \`extension dev --browser=${browser}\` first.`
     // eslint-disable-next-line no-console
     console.error(message)
