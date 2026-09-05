@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {findUndefinedMsgReferences} from '../../helpers/msg-placeholders'
 
 // Manifest shapes Chromium refuses to load AT ALL surface only as a native
 // dialog, never a console error; diagnose before spawn and say why.
@@ -338,9 +339,7 @@ export function findLocaleLoadBlockers(
             .readFileSync(catalogPath, 'utf8')
             .replace(/^\uFEFF/, '')
           const catalog = JSON.parse(raw)
-          catalogKeys = new Set(
-            Object.keys(catalog || {}).map((key) => key.toLowerCase())
-          )
+          catalogKeys = new Set(Object.keys(catalog || {}))
         } catch {
           blockers.push(
             `default_locale: _locales/${defaultLocale}/messages.json is not valid JSON, Chrome refuses the whole extension.`
@@ -351,17 +350,14 @@ export function findLocaleLoadBlockers(
       return blockers
     }
 
-    // "Variable __MSG_x__ used but not defined": only whole-string references are
-    // flagged, @@predefined exempt, key match case-insensitive like Chrome's.
+    // "Variable __MSG_x__ used but not defined": the same reading the build
+    // gate applies (lazy scan, @@ exempt, case-insensitive lookup), so the two
+    // never disagree about what a reference names.
     if (catalogKeys) {
-      const refs = new Set<string>()
-      collectMsgRefs(m, refs)
-      for (const ref of refs) {
-        if (!catalogKeys.has(ref.toLowerCase())) {
-          blockers.push(
-            `__MSG_${ref}__: used in the manifest but not defined in _locales/${defaultLocale}/messages.json, Chrome refuses the whole extension.`
-          )
-        }
+      for (const ref of findUndefinedMsgReferences(m, catalogKeys)) {
+        blockers.push(
+          `__MSG_${ref}__: used in the manifest but not defined in _locales/${defaultLocale}/messages.json, Chrome refuses the whole extension.`
+        )
       }
     }
   } else {
@@ -408,17 +404,6 @@ export function findMissingManagedSchema(
     // unreadable. The browser will complain on its own
   }
   return []
-}
-
-function collectMsgRefs(value: unknown, out: Set<string>): void {
-  if (typeof value === 'string') {
-    const match = /^__MSG_(.+)__$/.exec(value.trim())
-    if (match && !match[1].startsWith('@@')) out.add(match[1])
-  } else if (Array.isArray(value)) {
-    for (const item of value) collectMsgRefs(item, out)
-  } else if (value && typeof value === 'object') {
-    for (const item of Object.values(value)) collectMsgRefs(item, out)
-  }
 }
 
 /** Chrome's version grammar: 1-4 dot-separated integers 0-65535. */

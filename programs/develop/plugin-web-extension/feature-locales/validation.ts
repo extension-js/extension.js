@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
+import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
 import {stripBom} from '../../lib/parse-json-safe'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
@@ -161,52 +162,32 @@ export function validateLocales(
       try {
         const dict = defaultLocaleMessages
 
-        const collectMsgKeys = (value: unknown, acc: Set<string>) => {
-          if (typeof value === 'string') {
-            // Chrome allows @ in message names and closes the placeholder at the
-            // first __, so the class carries @ and the run is lazy to match that.
-            const regex = /__MSG_([A-Za-z0-9_@]+?)__/g
-            let matches: RegExpExecArray | null
-
-            while ((matches = regex.exec(value)) !== null) {
-              const key = matches[1]
-              if (key && !key.startsWith('@@')) acc.add(key)
-            }
-          } else if (Array.isArray(value)) {
-            for (const item of value) {
-              collectMsgKeys(item, acc)
-            }
-          } else if (value && typeof value === 'object') {
-            for (const v of Object.values(value as Record<string, unknown>)) {
-              collectMsgKeys(v, acc)
-            }
-          }
-        }
-
-        const referenced = new Set<string>()
-        collectMsgKeys(manifest, referenced)
+        // Lazy scan, @@ exempt, case-insensitive lookup: the same reading
+        // the pre-launch check applies, and the one the browsers accept.
+        const referenced = findUndefinedMsgReferences(
+          manifest,
+          Object.keys(dict || {}).filter(
+            (key) => typeof dict?.[key]?.message === 'string'
+          )
+        )
 
         for (const key of referenced) {
-          const entry = dict?.[key]
-
-          if (!entry || typeof entry.message !== 'string') {
-            if (isDebug()) {
-              console.log(
-                messages.localesValidationDetected(
-                  `missing key "${key}" in default locale`
-                )
+          if (isDebug()) {
+            console.log(
+              messages.localesValidationDetected(
+                `missing key "${key}" in default locale`
               )
-            }
-
-            pushCompilationError(
-              compiler,
-              compilation,
-              'LocalesValidationError',
-              messages.missingManifestMessageKey(key, defaultLocale),
-              'manifest.json'
             )
-            return false
           }
+
+          pushCompilationError(
+            compiler,
+            compilation,
+            'LocalesValidationError',
+            messages.missingManifestMessageKey(key, defaultLocale),
+            'manifest.json'
+          )
+          return false
         }
       } catch (error) {
         if (isDebug()) {

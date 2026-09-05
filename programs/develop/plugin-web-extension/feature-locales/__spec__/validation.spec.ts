@@ -148,6 +148,36 @@ describe('validateLocales manifest placeholder scan', () => {
     expect(compilation.errors).toHaveLength(0)
   })
 
+  it('matches a catalog key regardless of letter case, like the browsers', () => {
+    writeProject(
+      {default_locale: 'en', name: '__MSG_APPNAME__'},
+      {appName: {message: 'App'}}
+    )
+    const compilation = makeCompilation()
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+    expect(result).toBe(true)
+    expect(compilation.errors).toHaveLength(0)
+  })
+
+  it('names a missing reference the way the author wrote it', () => {
+    writeProject(
+      {default_locale: 'en', name: '__MSG_AppTitle__'},
+      {appName: {message: 'App'}}
+    )
+    const compilation = makeCompilation()
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+    expect(result).toBe(false)
+    expect(String(compilation.errors[0])).toContain('AppTitle')
+  })
+
   it('closes the placeholder at the first __, matching Chrome', () => {
     writeProject(
       {default_locale: 'en', name: '__MSG_a__b__'},
