@@ -37,15 +37,22 @@ export function getPreloadedEnvKeys(): ReadonlySet<string> {
   return preloadedEnvKeys
 }
 
-function recordPreloadedKeys(filePath: string): void {
-  try {
-    for (const key of Object.keys(dotenv.parse(fs.readFileSync(filePath)))) {
-      // Already present means the shell owns it: dotenv.config leaves those
-      // alone (override is off), so it stays a genuine environment value.
-      if (!(key in process.env)) preloadedEnvKeys.add(key)
-    }
-  } catch {
-    // Ignore
+// Env files from weakest to strongest: defaults only fill gaps, the base
+// file applies, a local override file layers on top, and the mode file wins
+// among files. A key the shell already owns is never touched by any of them.
+const ENV_PRELOAD_ORDER = [
+  '.env.defaults',
+  '.env',
+  '.env.local',
+  '.env.development'
+]
+
+function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
+  const parsed = dotenv.parse(fs.readFileSync(filePath))
+  for (const [key, value] of Object.entries(parsed)) {
+    if (shellOwned.has(key)) continue
+    process.env[key] = value
+    preloadedEnvKeys.add(key)
   }
 }
 
@@ -82,42 +89,22 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function preloadEnvFilesFromDir(
-  envDir: string,
-  options?: {
-    override?: boolean
-  }
-): EnvPreloadResult {
+function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
   let loadedAny = false
-  try {
-    const defaultsPath = path.join(envDir, '.env.defaults')
-    if (fs.existsSync(defaultsPath)) {
-      recordPreloadedKeys(defaultsPath)
-      dotenv.config({
-        path: defaultsPath,
-        override: Boolean(options?.override),
-        quiet: true
-      })
+  // Snapshot before any file loads: a later, stronger file may override an
+  // earlier file's value but never a value the shell or CI exported.
+  const shellOwned = new Set(
+    Object.keys(process.env).filter((key) => !preloadedEnvKeys.has(key))
+  )
+  for (const filename of ENV_PRELOAD_ORDER) {
+    const filePath = path.join(envDir, filename)
+    if (!fs.existsSync(filePath)) continue
+    try {
+      applyEnvFile(filePath, shellOwned)
       loadedAny = true
+    } catch {
+      // Ignore
     }
-
-    const envCandidates = ['.env.development', '.env.local', '.env']
-
-    for (const filename of envCandidates) {
-      const filePath = path.join(envDir, filename)
-      if (fs.existsSync(filePath)) {
-        recordPreloadedKeys(filePath)
-        dotenv.config({
-          path: filePath,
-          override: Boolean(options?.override),
-          quiet: true
-        })
-        loadedAny = true
-        break
-      }
-    }
-  } catch {
-    // Ignore
   }
   return {loadedAny, envDir}
 }
