@@ -158,7 +158,7 @@ describe('session verbs given the manifest folder', () => {
 
   it('opens a surface through the root session', async () => {
     state.ready = {controlPort: 9123, instanceId: 'inst-1'}
-    expect(await run(['open', 'popup', src])).toBe(0)
+    expect(await run(['open', 'options', src])).toBe(0)
     expect(state.readyReads[0][0]).toBe(root)
     expect(state.commands).toHaveLength(1)
   })

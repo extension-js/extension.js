@@ -321,7 +321,16 @@ describe('extension inspect', () => {
 
 describe('extension open', () => {
   it('opens ui surfaces in their own context', async () => {
-    expect(await run(['open', 'popup'])).toBe(0)
+    expect(await run(['open', 'options'])).toBe(0)
+    expect(bridge.commands[0]).toMatchObject({
+      op: 'open',
+      target: {context: 'options'},
+      args: {surface: 'options'}
+    })
+
+    // Gecko has no gesture gate on the popup, so it still goes to the engine.
+    bridge.commands = []
+    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)
     expect(bridge.commands[0]).toMatchObject({
       op: 'open',
       target: {context: 'popup'},

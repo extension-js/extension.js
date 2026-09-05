@@ -142,7 +142,9 @@ describe('extension doctor', () => {
       'control channel refused the controller (code 4003: control channel not available)'
     )
     r = byCheck(await runDoctor('/proj', {}))
-    expect(r['control-channel'].detail).toContain('--allow-control')
+    expect(r['control-channel'].detail).toContain('control is off')
+    expect(r['control-channel'].detail).not.toContain('not started with')
+    expect(r['control-channel'].remediation).toContain('--allow-control')
   })
 
   it('requires a readable token only when eval is enabled', async () => {

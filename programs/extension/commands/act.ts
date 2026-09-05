@@ -10,8 +10,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
-import {commandDescriptions} from '../helpers/messages'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopBridgeModule
+} from '../helpers/extension-develop-runtime'
+import {
+  commandDescriptions,
+  controlDisabledInSession,
+  controlDisabledInSessionPlain,
+  openSurfaceGestureStep,
+  openSurfaceNeedsGesture,
+  openSurfaceNeedsGesturePlain
+} from '../helpers/messages'
 import {
   CODES,
   ENVELOPE,
@@ -120,6 +130,15 @@ interface CommonActOptions {
   output?: 'pretty' | 'json'
 }
 
+// A refusal the CLI can state from what it already knows, before any socket
+// is dialed. `message` is the pretty stderr line, `plain` is the envelope copy.
+interface Refusal {
+  message: string
+  plain: string
+  code: ErrorCode
+  hint?: string
+}
+
 interface RunInput {
   projectPathArg?: string
   command: string
@@ -128,6 +147,11 @@ interface RunInput {
   args?: Record<string, unknown>
   needsToken?: boolean
   opts: CommonActOptions
+  preflight?: (
+    bridge: AnyDevelopModule,
+    projectPath: string,
+    browser: string
+  ) => Refusal | undefined
   augment?: (
     projectPath: string,
     browser: string,
@@ -266,6 +290,9 @@ interface FailFrame {
   command: string
   code: ErrorCode
   output?: 'pretty' | 'json'
+  // Envelope copy without the glyph and colors of the stderr line.
+  plain?: string
+  hint?: string
 }
 
 function fail(message: string, frame?: FailFrame): never {
@@ -276,13 +303,101 @@ function fail(message: string, frame?: FailFrame): never {
     writeFrame(
       ENVELOPE.fail(frame.command, statusForCode(frame.code), {
         code: frame.code,
-        message,
-        name: 'CliError'
+        message: frame.plain ?? message,
+        name: 'CliError',
+        ...(frame.hint ? {hint: frame.hint} : {})
       })
     )
   }
 
   process.exit(1)
+}
+
+// Chromium alone gates popups and the side panel on a real click. Gecko and
+// WebKit answer for themselves, so the CLI refuses only where Chromium would.
+function isChromiumFamily(browser: string): boolean {
+  return !/firefox|gecko|safari|webkit/i.test(browser)
+}
+
+// The manifest as the session sees it: the emitted copy first, then the
+// source the session names, then the project root.
+function readSessionManifest(
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string
+): Record<string, unknown> | undefined {
+  const candidates: string[] = []
+  const readDocument = bridge?.readReadyContractDocument
+  if (typeof readDocument === 'function') {
+    try {
+      const doc = readDocument(projectPath, browser) as Record<
+        string,
+        unknown
+      > | null
+      if (doc && typeof doc.distPath === 'string') {
+        candidates.push(path.join(doc.distPath, 'manifest.json'))
+      }
+      if (doc && typeof doc.manifestPath === 'string') {
+        candidates.push(doc.manifestPath)
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  candidates.push(path.join(projectPath, 'manifest.json'))
+
+  for (const file of candidates) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  return undefined
+}
+
+// A popup under `action` or `browser_action`, with or without a browser
+// prefix, since the source manifest may still carry `chromium:action`.
+function manifestDeclaresPopup(manifest: Record<string, unknown>): boolean {
+  for (const [key, value] of Object.entries(manifest)) {
+    if (!/(?:^|:)(?:action|browser_action)$/.test(key)) continue
+    const popup = (value as {default_popup?: unknown} | null)?.default_popup
+    if (typeof popup === 'string' && popup.trim()) return true
+  }
+
+  return false
+}
+
+// `popup` and `sidebar` always need the click on Chromium. `action` needs it
+// only when a popup is declared, since without one the verb replays the
+// onClicked listeners, which no gesture rule guards.
+function gestureRefusal(
+  surface: string,
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string
+): Refusal | undefined {
+  if (!isChromiumFamily(browser)) return undefined
+
+  const gated =
+    surface === 'popup' ||
+    surface === 'sidebar' ||
+    (surface === 'action' &&
+      manifestDeclaresPopup(
+        readSessionManifest(bridge, projectPath, browser) ?? {}
+      ))
+  if (!gated) return undefined
+
+  return {
+    message: openSurfaceNeedsGesture(surface),
+    plain: openSurfaceNeedsGesturePlain(surface),
+    code: CODES.E_USER_GESTURE_REQUIRED,
+    hint: openSurfaceGestureStep(surface)
+  }
 }
 
 function printResult(
@@ -345,6 +460,19 @@ async function runCommand(input: RunInput): Promise<void> {
   // the wrong flag sends the user through a wasted dev-server restart.
   const unlockFlag = input.op === 'eval' ? '--allow-eval' : '--allow-control'
 
+  // A refusal the CLI already knows comes before any session lookup, so a
+  // surface Chromium never opens this way reads the same with or without a
+  // session behind it.
+  const refusal = input.preflight?.(bridge, projectPath, browser)
+  if (refusal) {
+    fail(refusal.message, {
+      ...outputFrame,
+      code: refusal.code,
+      plain: refusal.plain,
+      hint: refusal.hint
+    })
+  }
+
   const ready = readReadyContract(projectPath, browser)
   if (!ready) {
     fail(
@@ -372,6 +500,21 @@ async function runCommand(input: RunInput): Promise<void> {
     const message =
       (err as Error | undefined)?.message ||
       'could not connect to the control channel'
+    // 4003 is the session itself saying control is off. The instanceId
+    // matched, so no other process answered, and the copy states that fact
+    // instead of asking for a flag the caller may already have passed.
+    const closeCode = (err as {closeCode?: unknown} | undefined)?.closeCode
+    if (closeCode === 4003 || /code 4003\b/.test(message)) {
+      fail(controlDisabledInSession(browser, ready.controlPort, unlockFlag), {
+        ...outputFrame,
+        code: CODES.E_CONTROL_DENIED,
+        plain: controlDisabledInSessionPlain(
+          browser,
+          ready.controlPort,
+          unlockFlag
+        )
+      })
+    }
     // A 40xx close is the broker turning the controller away; anything else
     // (handshake timeout, 1006) means the channel never came up at all.
     fail(message, {
@@ -692,7 +835,9 @@ export function registerActCommands(program: Command): void {
         op: 'open',
         target: {context},
         args,
-        opts
+        opts,
+        preflight: (bridge, projectPath, browser) =>
+          gestureRefusal(surface, bridge, projectPath, browser)
       })
     }
   )
