@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import {execSync} from 'node:child_process'
+import fs from 'node:fs'
 import {test} from 'node:test'
 import {
+  EXTRA_PROSE_SOURCES,
   findAsciiEllipsis,
   findBrandInMarkdown,
   findBrandInSource,
@@ -17,6 +20,8 @@ import {
   functionAt,
   lineAt,
   lineHeads,
+  printSites,
+  proseSurface,
   readCommandTable,
   scanSource
 } from '../check-messaging.mjs'
@@ -395,4 +400,49 @@ test('the heuristic alone would reject legitimate imperatives', () => {
     ),
     []
   )
+})
+
+// The surface is derived: a file that imports a messaging helper prints, so
+// it is read; a spec, a dist file or a helper module itself is not a site.
+test('the prose surface is derived from messaging imports, never from a list', () => {
+  const sites = printSites([
+    'programs/develop/dev-server/cleanup.ts',
+    'programs/develop/dev-server/__spec__/cleanup.spec.ts',
+    'programs/develop/lib/messaging.ts',
+    'programs/develop/lib/resource-path.ts'
+  ])
+  assert.deepEqual(sites, ['programs/develop/dev-server/cleanup.ts'])
+  const surface = proseSurface()
+  for (const copy of execSync("git ls-files 'programs/**/messaging.ts'")
+    .toString()
+    .split('\n')
+    .filter(Boolean)) {
+    assert.ok(
+      surface.includes(copy),
+      `${copy} renders the card head and is read`
+    )
+  }
+  for (const extra of EXTRA_PROSE_SOURCES) {
+    assert.ok(surface.includes(extra))
+    assert.ok(fs.existsSync(extra), `${extra} is listed but missing`)
+  }
+})
+
+// docs/MESSAGING.md names the same surface the checker reads: the messaging
+// copies it lists are the tracked copies, and its one hand-listed extra is
+// the checker's one hand-listed extra.
+test('the rulebook page and the checker name the same surface', () => {
+  const page = fs.readFileSync('docs/MESSAGING.md', 'utf8')
+  const listed = [
+    ...page.matchAll(/^(programs\/[\w./-]+\/messaging\.ts)/gm)
+  ].map((m) => m[1])
+  const tracked = execSync("git ls-files 'programs/**/messaging.ts'")
+    .toString()
+    .split('\n')
+    .filter(Boolean)
+    .sort()
+  assert.deepEqual([...new Set(listed)].sort(), tracked)
+  for (const extra of EXTRA_PROSE_SOURCES) {
+    assert.ok(page.includes(extra), `${extra} is named on the page`)
+  }
 })

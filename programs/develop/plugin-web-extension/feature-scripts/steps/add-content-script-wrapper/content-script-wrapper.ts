@@ -912,7 +912,7 @@ export default function contentScriptWrapper(
     '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, __EXTENSIONJS_REINJECT_GENERATION, "mounted"); } catch (error) {}\n' +
     '      try { __EXTENSIONJS_scheduleBundleCssHydration(); } catch (error) {}\n' +
     '    } catch (error) {\n' +
-    '      try { console.warn("[extension.js] content script default export failed to run", error); } catch (ignored) {}\n' +
+    '      try { console.warn("Extension.js: the content script default export failed to run.", error); } catch (ignored) {}\n' +
     '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "mount-error"); } catch (ignored) {}\n' +
     '    }\n' +
     '  }\n' +

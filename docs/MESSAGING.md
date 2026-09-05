@@ -342,11 +342,31 @@ browser runner is deliberately extractable as a standalone bundle. A test assert
 copies are byte-identical and points at the canonical when they are not. Edit the canonical,
 then copy it over the others.
 
+## What the checker reads
+
+`pnpm check:messaging` reads one derived surface, so a new print site is covered the day
+it lands without anyone editing a list:
+
+- every `programs/**/messages.ts` catalog, for every copy rule;
+- every `programs/**/messaging.ts` copy, which is where the identity card head prints;
+- every `programs/**/*.ts` file that imports a `messages` or `messaging` module, since a
+  file that imports `prefix()` or `humanLine()` prints, for the retired-prefix and brand
+  rules;
+- one browser-side runtime that cannot import the Node helpers and is listed by hand:
+  `programs/develop/dev-server/control-bridge/producer-runtime.ts`.
+
+Specs, `dist/` and `node_modules/` are never read. Print `pnpm check:messaging --list` to see
+the surface as the checker resolves it today. The rest of `programs/**/*.ts` spells the brand
+lowercase as an identifier on purpose, for cache directories (`extension-js`), XDG directories,
+webpack tap names and resource queries, and stays outside the brand rule. The lines printed by
+`rslib.config.ts` are build tooling, not CLI output, and stay outside the standard.
+
 ## Checking your work
 
 ```sh
 pnpm check:messaging   # prefixes, brand, ellipsis, voice, forbidden words,
                        # emoji, semicolons, brightBlue, glued periods
+pnpm check:messaging --list   # the derived surface it reads
 pnpm check:prose       # no em dashes anywhere
 pnpm test:cli          # the command table, the help screen, and the JSON contract
 pnpm test:dev          # the boot transcripts, byte for byte

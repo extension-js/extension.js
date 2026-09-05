@@ -124,7 +124,7 @@ export function ensureSessionStateInProjectGitignore(
     const prefix = content.length > 0 && !content.endsWith('\n') ? '\n' : ''
     fs.appendFileSync(
       gitignorePath,
-      `${prefix}\n# extension.js local session state\n.extension-js\n`
+      `${prefix}\n# Extension.js local session state\n.extension-js\n`
     )
   } catch {
     // A hygiene guard must never break a dev session or build.
