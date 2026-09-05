@@ -11,7 +11,7 @@ import * as messages from './lib/messages'
 import {card} from './lib/messaging'
 import {
   isDenoRuntime,
-  resolveScaffoldPackageManager,
+  resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from './lib/package-manager'
 import * as utils from './lib/utils'
@@ -148,6 +148,11 @@ export async function extensionCreate(
   // package.json flavor and type generation follow the real scaffold.
   const scaffoldedTemplate = templateProvenance?.template ?? effectiveTemplate
 
+  // One manager for the whole scaffold: declared, installed with, printed
+  // in the next steps and handed back. Read once the template is on disk,
+  // since a starter's own pin (or its pnpm workspace file) decides it.
+  const packageManager = resolveProjectPackageManager(projectPath)
+
   // Deno-created scaffolds get deno.jsonc instead of package.json (issue #482);
   // monorepo templates keep package.json with a tasks-only deno.jsonc beside it.
   const isMonorepoTemplate = String(scaffoldedTemplate)
@@ -162,7 +167,7 @@ export async function extensionCreate(
   } else {
     await overridePackageJson(
       projectPath,
-      {template: scaffoldedTemplate, cliVersion},
+      {template: scaffoldedTemplate, cliVersion, packageManager},
       logger
     )
     await writeDenoJsonc(projectPath, {template: scaffoldedTemplate}, logger)
@@ -171,7 +176,7 @@ export async function extensionCreate(
   await writeTemplateProvenance(projectPath, templateProvenance, logger)
 
   if (install) {
-    await installDependencies(projectPath, projectName, logger)
+    await installDependencies(projectPath, projectName, logger, packageManager)
     await installInternalDependencies(projectPath, logger)
   }
 
@@ -200,7 +205,8 @@ export async function extensionCreate(
   const readyMessage = await messages.scaffoldReady(
     projectPath,
     projectName,
-    Boolean(install)
+    Boolean(install),
+    packageManager
   )
 
   logger.log(readyMessage)
@@ -217,7 +223,7 @@ export async function extensionCreate(
     // the scaffolded template is the result even when no provenance exists.
     template: templateProvenance?.template ?? scaffoldedTemplate,
     depsInstalled: install,
-    packageManager: resolveScaffoldPackageManager(),
+    packageManager,
     templateProvenance
   }
 }

@@ -15,7 +15,10 @@ import {
 } from '../lib/deno-manifest'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
 import * as messages from '../lib/messages'
-import {isDenoRuntime} from '../lib/package-manager'
+import {
+  isDenoRuntime,
+  type ScaffoldPackageManager
+} from '../lib/package-manager'
 import * as utils from '../lib/utils'
 
 function getInstallArgs(packageManager: string) {
@@ -230,7 +233,8 @@ async function hasDependenciesToInstall(projectPath: string) {
 export async function installDependencies(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  packageManager?: ScaffoldPackageManager
 ) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
@@ -240,9 +244,12 @@ export async function installDependencies(
     return
   }
 
-  // `prefers-yarn` can't see Deno (no npm_config_user_agent); under Deno,
-  // install with `deno install` so deps resolve from the scaffolded deno.jsonc.
-  const command = isDenoRuntime() ? 'deno' : await utils.getInstallCommand()
+  // The project's one manager installs it: the starter's pin when it has
+  // one, otherwise the manager that ran this process (`prefers-yarn` can't
+  // see Deno, so Deno is detected via its runtime globals).
+  const command =
+    packageManager ??
+    (isDenoRuntime() ? 'deno' : await utils.getInstallCommand())
   const dependenciesArgs =
     command === 'deno' ? ['install'] : getInstallArgs(command)
 

@@ -24,7 +24,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "noProjectName: function(0)",
     "noUrlAllowed: function(0)",
     "removedStaleTemplateLockfiles: function(1)",
-    "scaffoldReady: function(3)",
+    "scaffoldReady: function(4)",
     "startingNewExtension: function(1)",
     "templateDownloadFailed: function(2)",
     "templateFetchTimedOut: function(2)",

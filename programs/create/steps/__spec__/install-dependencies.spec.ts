@@ -43,6 +43,22 @@ describe('installDependencies', () => {
     await fsp.rm(projectPath, {recursive: true, force: true})
   })
 
+  it('installs with the manager the project resolved to, not the invoker', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'extjs-install-pm-'))
+    try {
+      await fsp.writeFile(
+        path.join(dir, 'package.json'),
+        JSON.stringify({name: 'seed', dependencies: {left: '1.0.0'}})
+      )
+      runInstallMock.mockResolvedValue({ok: true, code: 0})
+      await installDependencies(dir, 'seed', {log() {}, error() {}}, 'pnpm')
+      expect(runInstallMock).toHaveBeenCalled()
+      expect(runInstallMock.mock.calls[0][0]).toBe('pnpm')
+    } finally {
+      await fsp.rm(dir, {recursive: true, force: true})
+    }
+  })
+
   it('skips install when package.json declares no dependencies', async () => {
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
