@@ -96,7 +96,10 @@ async function build(root: string, mode: 'development' | 'production') {
     else process.env.VITEST = previous
   }
   const distDir = path.join(root, 'dist', 'chrome')
-  const files = fs.readdirSync(distDir, {recursive: true}).map(String)
+  // Windows lists nested entries with backslashes; the assertions join posix.
+  const files = fs
+    .readdirSync(distDir, {recursive: true})
+    .map((file) => String(file).split(path.sep).join('/'))
   const text = files
     .filter((file) => file.endsWith('.css') || file.endsWith('.js'))
     .map((file) => fs.readFileSync(path.join(distDir, file), 'utf8'))
