@@ -694,6 +694,8 @@ export async function devServer(
   })
 
   const webpackConfigOptions = {
+    // The dev server is the one dev session: instrumentation keys on this.
+    metadataCommand: 'dev' as const,
     ...mergedDevOptions,
     extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,

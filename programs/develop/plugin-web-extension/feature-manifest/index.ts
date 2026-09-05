@@ -33,11 +33,13 @@ export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
+  private readonly devSession?: boolean
 
   constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
+    this.devSession = options.devSession
   }
 
   public apply(compiler: Compiler) {
@@ -74,7 +76,8 @@ export class ManifestPlugin {
 
     new ApplyDevDefaults({
       manifestPath: this.manifestPath,
-      browser: this.browser
+      browser: this.browser,
+      devSession: this.devSession
     }).apply(compiler)
 
     // 5 - Persist the final manifest atomically so Chromium never

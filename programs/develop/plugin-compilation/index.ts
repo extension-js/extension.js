@@ -121,10 +121,10 @@ export class CompilationPlugin {
       // Ignore
     }
 
-    if (
-      (this.zip || this.zipSource) &&
-      compiler.options.mode === 'production'
-    ) {
+    // A zip is a shippable artifact: any build command may produce one,
+    // production or a development-mode staging build alike. Only the dev
+    // session, which serves from disk, never packages.
+    if ((this.zip || this.zipSource) && this.command !== 'dev') {
       new ZipPlugin({
         manifestPath: this.manifestPath,
         browser: this.browser || 'chrome',
@@ -137,8 +137,8 @@ export class CompilationPlugin {
     } else {
       if (isDebug()) {
         const reason =
-          compiler.options.mode !== 'production'
-            ? 'not production mode'
+          this.command === 'dev'
+            ? 'a dev session never packages'
             : 'zip disabled'
         console.log(messages.zipPackagingSkipped(reason))
       }

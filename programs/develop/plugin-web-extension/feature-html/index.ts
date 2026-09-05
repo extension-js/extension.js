@@ -56,10 +56,12 @@ export class HtmlPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   private readonly browser: DevOptions['browser']
+  private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.devSession = options.devSession
     this.browser = options.browser || 'chrome'
   }
 
@@ -92,7 +94,10 @@ export class HtmlPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    if ((compiler.options.mode || 'development') !== 'production') {
+    const devSession =
+      this.devSession ??
+      (compiler.options.mode || 'development') !== 'production'
+    if (devSession) {
       const contentScriptEntryPaths = new Set<string>()
       try {
         const manifest = parseJsonSafe(

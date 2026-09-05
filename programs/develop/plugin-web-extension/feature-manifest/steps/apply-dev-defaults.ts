@@ -68,14 +68,20 @@ export class ApplyDevDefaults {
   private readonly manifestPath?: string
   private readonly browser: DevOptions['browser']
 
+  private readonly devSession?: boolean
+
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.devSession = options.devSession
   }
 
   apply(compiler: Compiler) {
     if (!compiler?.hooks?.thisCompilation) return
     if (compiler.options.mode !== 'development') return
+    // Only a dev session takes the dev manifest: a build in development
+    // mode is shippable and keeps the author's CSP and permissions.
+    if (this.devSession === false) return
 
     compiler.hooks.thisCompilation.tap(
       'manifest:apply-dev-defaults',
