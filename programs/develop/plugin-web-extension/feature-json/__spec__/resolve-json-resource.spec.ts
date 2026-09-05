@@ -64,6 +64,46 @@ describe('resolveJsonResource', () => {
     expect(resolved.isUnderPublic).toBe(true)
   })
 
+  it('resolves a next-to-manifest public/ file for a src/ manifest', () => {
+    const root = createProject(['src/public/rules.json'])
+    const manifestDir = path.join(root, 'src')
+    // The fields package hands over the manifest-dir join of `/rules.json`.
+    const resolved = resolveJsonResource(
+      path.join(manifestDir, 'rules.json'),
+      manifestDir,
+      root
+    )
+
+    expect(resolved.abs).toBe(path.join(root, 'src', 'public', 'rules.json'))
+    expect(resolved.isUnderPublic).toBe(true)
+  })
+
+  it('lets the root public/ win over the next-to-manifest one', () => {
+    const root = createProject(['public/rules.json', 'src/public/rules.json'])
+    const manifestDir = path.join(root, 'src')
+    const resolved = resolveJsonResource(
+      path.join(manifestDir, 'rules.json'),
+      manifestDir,
+      root
+    )
+
+    expect(resolved.abs).toBe(path.join(root, 'public', 'rules.json'))
+    expect(resolved.isUnderPublic).toBe(true)
+  })
+
+  it('does not treat a shadowed next-to-manifest public/ file as shipped', () => {
+    const root = createProject(['public/other.json', 'src/public/rules.json'])
+    const manifestDir = path.join(root, 'src')
+    const resolved = resolveJsonResource(
+      path.join(manifestDir, 'rules.json'),
+      manifestDir,
+      root
+    )
+
+    expect(resolved.abs).toBe(path.join(root, 'src', 'public', 'rules.json'))
+    expect(resolved.isUnderPublic).toBe(false)
+  })
+
   it('keeps an in-project JSON file outside public/', () => {
     const root = createProject(['src/rules.json'])
     const resolved = resolveJsonResource('src/rules.json', root, root)
