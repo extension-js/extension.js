@@ -57,6 +57,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "packagingDistributionFiles: function(1)",
     "packagingSourceFiles: function(1)",
     "previewing: function(2)",
+    "previewingCustomOutput: function(3)",
     "previewingSourceFallback: function(2)",
     "projectInstallFallbackToNpm: function(1)",
     "projectInstallScriptsDisabled: function(1)",
