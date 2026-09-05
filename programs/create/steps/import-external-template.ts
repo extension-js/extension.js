@@ -429,6 +429,43 @@ export async function cleanupFailedImport(
   )
 }
 
+// A template copy replaces files by name. An owner's .gitignore keeps its
+// rules: the template's lines it lacks are appended after the copy.
+async function readOwnerGitignore(projectPath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(path.join(projectPath, '.gitignore'), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+async function restoreOwnerGitignore(
+  projectPath: string,
+  ownerContents: string | null
+): Promise<void> {
+  if (ownerContents === null) return
+  const target = path.join(projectPath, '.gitignore')
+  let templateContents = ''
+  try {
+    templateContents = await fs.readFile(target, 'utf8')
+  } catch {
+    // The template shipped no .gitignore, the owner's file is untouched.
+    await fs.writeFile(target, ownerContents)
+    return
+  }
+  const ownerLines = new Set(
+    ownerContents.split(/\r?\n/).map((line) => line.trim())
+  )
+  const added = templateContents
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0 && !ownerLines.has(line.trim()))
+  const merged =
+    added.length === 0
+      ? ownerContents
+      : `${ownerContents.replace(/\n?$/, '\n')}\n# extension.js template rules\n${added.join('\n')}\n`
+  await fs.writeFile(target, merged)
+}
+
 export async function importExternalTemplate(
   projectPath: string,
   projectName: string,
@@ -467,6 +504,10 @@ export async function importExternalTemplate(
     }
   }
 
+  const ownerGitignore = dirExistedBeforeImport
+    ? await readOwnerGitignore(projectPath)
+    : null
+
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
@@ -475,6 +516,7 @@ export async function importExternalTemplate(
 
       if (existsSync(localTemplate)) {
         await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
+        await restoreOwnerGitignore(projectPath, ownerGitignore)
         await removeTemplateScaffoldingFiles(projectPath)
         const dropped = await removeStaleTemplateLockfiles(projectPath)
         if (dropped.length) {
@@ -570,6 +612,7 @@ export async function importExternalTemplate(
       }
     }
 
+    await restoreOwnerGitignore(projectPath, ownerGitignore)
     await removeTemplateScaffoldingFiles(projectPath)
     const droppedLockfiles = await removeStaleTemplateLockfiles(projectPath)
     if (droppedLockfiles.length) {

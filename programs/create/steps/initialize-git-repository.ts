@@ -61,6 +61,16 @@ async function runGit(
   })
 }
 
+async function hasCommittedHistory(projectPath: string): Promise<boolean> {
+  const inside = await runGit(
+    ['rev-parse', '--is-inside-work-tree'],
+    projectPath
+  )
+  if (!inside.ok) return false
+  const head = await runGit(['rev-parse', '--verify', 'HEAD'], projectPath)
+  return head.ok
+}
+
 /* @invariant An initialized repository with nothing committed records nothing:
  * the provenance file, the manifest, and every generated file stay untracked,
  * so the first `git status` reads as if the person wrote the scaffold by hand.
@@ -73,6 +83,14 @@ export async function initializeGitRepository(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   if (isDebug()) logger.log(messages.initializingGitForRepository(projectName))
+
+  // A repository that already has history is someone's branch: git init
+  // succeeds inside it and a blanket add + commit would land a commit the
+  // owner never wrote. Leave the scaffold uncommitted for them to review.
+  if (await hasCommittedHistory(projectPath)) {
+    logger.log(messages.existingRepositoryKept(projectName))
+    return
+  }
 
   const init = await runGit(['init', '--quiet'], projectPath)
   if (!init.ok) {

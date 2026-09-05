@@ -396,3 +396,17 @@ export function cantSetupBuiltInTests(error: unknown) {
     `${colors.red('The extension itself is fine. Re-run')} ${colors.blue('extension create')}${colors.red(', or skip the tests.')}`
   )
 }
+
+export function keepingExistingGitignore(projectName: string) {
+  return (
+    `${prefix('info')} ${colors.blue(projectName)} already has a ${colors.blue('.gitignore')}.\n` +
+    'Keeping its rules and adding the template rules it lacks.'
+  )
+}
+
+export function existingRepositoryKept(projectName: string) {
+  return (
+    `${prefix('info')} ${colors.blue(projectName)} is already a git repository with history.\n` +
+    `Left it uncommitted. Review the scaffold and run ${colors.blue('git add -A && git commit')} yourself.`
+  )
+}
