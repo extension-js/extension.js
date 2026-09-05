@@ -15,6 +15,7 @@ import {
   type TelemetrySource,
   writeConsent
 } from './telemetry'
+import {listTemplates, templateAliasFor} from './template-catalog'
 
 type KnownCommand =
   | 'create'
@@ -78,6 +79,21 @@ function readArgValue(argv: string[], names: string[]): string | undefined {
  * options would silently retire the tag with every spec still green, so
  * create-source-attribution.spec.ts pins both halves together.
  */
+// Only an advertised starter name travels. A GitHub URL, a local folder or
+// any other freeform value names the person's own project, which the
+// published collection list promises never leaves the machine; those send
+// no template at all, and the failure count for the starter still lands.
+export function advertisedTemplateName(
+  value: string | undefined
+): string | undefined {
+  if (!value) return undefined
+  const name = value.trim()
+  if (!name) return undefined
+  if (listTemplates().includes(name)) return name
+  if (templateAliasFor(name)) return name
+  return undefined
+}
+
 export function telemetryCommandContext(
   command: string,
   argv: string[] = process.argv
@@ -85,7 +101,7 @@ export function telemetryCommandContext(
   if (command !== 'create') return {}
 
   return {
-    template: readArgValue(argv, ['--template', '-t']),
+    template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
     source: readArgValue(argv, ['--source']) || 'cli'
   }
 }
