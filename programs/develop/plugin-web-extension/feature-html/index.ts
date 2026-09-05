@@ -12,6 +12,9 @@ import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
+import {isUsingReact} from '../../plugin-js-frameworks/js-tools/react'
+import {isUsingSvelte} from '../../plugin-js-frameworks/js-tools/svelte'
+import {isUsingVue} from '../../plugin-js-frameworks/js-tools/vue'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
@@ -115,9 +118,27 @@ export class HtmlPlugin {
         // Keep the HTML HMR rule active if manifest parsing fails.
       }
 
+      // Every page surface answers a save the same way: the manifest folder,
+      // the project root (a top-level pages/ folder lives there) and the
+      // folder of every extra page. node_modules and content scripts stay out.
+      const projectRoot = String(compiler.options.context || '')
+      const pageDirs = new Set<string>([path.dirname(this.manifestPath)])
+      if (projectRoot) pageDirs.add(projectRoot)
+      for (const pagePath of Object.values(includeList)) {
+        if (typeof pagePath === 'string' && pagePath) {
+          pageDirs.add(path.dirname(pagePath))
+        }
+      }
+      const frameworkOwnsRefresh = Boolean(
+        projectRoot &&
+          (isUsingReact(projectRoot) ||
+            isUsingVue(projectRoot) ||
+            isUsingSvelte(projectRoot))
+      )
+
       compiler.options.module.rules.push({
         test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
+        include: Array.from(pageDirs),
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
         exclude: [
           /([\\/])node_modules\1/,
@@ -129,7 +150,8 @@ export class HtmlPlugin {
             loader: resolveDevelopDistFile('ensure-hmr-for-scripts'),
             options: {
               manifestPath: this.manifestPath,
-              includeList
+              includeList,
+              frameworkOwnsRefresh
             }
           }
         ]

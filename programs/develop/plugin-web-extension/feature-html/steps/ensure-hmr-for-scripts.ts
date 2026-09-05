@@ -30,6 +30,9 @@ const schema: Schema = {
     },
     includeList: {
       type: 'object'
+    },
+    frameworkOwnsRefresh: {
+      type: 'boolean'
     }
   },
   additionalProperties: false
@@ -71,6 +74,33 @@ export default function ensureHMRForScripts(
     return source
   }
 
+  // A framework with its own refresh runtime (React Refresh, the Vue and
+  // Svelte loaders) owns the page's updates and its mount point; a page
+  // accept here would empty the container underneath it.
+  if (
+    (options as {frameworkOwnsRefresh?: unknown})?.frameworkOwnsRefresh === true
+  ) {
+    if (debugHtmlHmr) {
+      console.log(
+        `[extjs:html-hmr] skip framework-refresh resource=${resourcePath}`
+      )
+    }
+    return source
+  }
+
+  // Only a page entry accepts its own update: a module another module
+  // imports must let the update bubble to the entry that renders it, or a
+  // bare self-accept re-runs the child while the importer keeps the stale
+  // binding and the page shows the old text.
+  const issuer = (this as unknown as {_module?: {issuer?: unknown}})?._module
+    ?.issuer
+  if (issuer) {
+    if (debugHtmlHmr) {
+      console.log(`[extjs:html-hmr] skip child resource=${resourcePath}`)
+    }
+    return source
+  }
+
   try {
     const manifestPath = String(options?.manifestPath || '')
     const manifestDir = manifestPath ? path.dirname(manifestPath) : ''
@@ -102,34 +132,6 @@ export default function ensureHMRForScripts(
           )
         }
         return source
-      }
-
-      interface IssuerLike {
-        resource?: unknown
-        userRequest?: unknown
-        issuer?: IssuerLike | null
-      }
-      let issuer = (this as unknown as {_module?: {issuer?: IssuerLike | null}})
-        ?._module?.issuer
-
-      while (issuer) {
-        const issuerResource = String(
-          issuer?.resource || issuer?.userRequest || ''
-        )
-
-        if (
-          issuerResource &&
-          contentEntryPaths.has(toResourceKey(issuerResource))
-        ) {
-          if (debugHtmlHmr) {
-            console.log(
-              `[extjs:html-hmr] skip issuer resource=${resourcePath} issuer=${issuerResource}`
-            )
-          }
-
-          return source
-        }
-        issuer = issuer?.issuer
       }
     }
   } catch (error) {
@@ -194,12 +196,9 @@ if (${hot}) {
           while (el.firstChild) el.removeChild(el.firstChild);
         };
 
-        clear(document.getElementById('app'));
-
-        var roots = document.querySelectorAll('[data-extension-root]');
-        roots.forEach(function(node) {
-          clear(node);
-        });
+        // The page mounts on #root; the version before must not stay
+        // underneath the one the entry renders next.
+        clear(document.getElementById('root'));
       } catch (err) {
         console.error('Error clearing HTML containers', err);
       }

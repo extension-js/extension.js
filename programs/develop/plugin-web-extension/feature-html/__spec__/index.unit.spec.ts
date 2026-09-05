@@ -56,6 +56,7 @@ describe('HtmlPlugin', () => {
       'utf8'
     )
     const compiler = makeCompiler('development')
+    compiler.options.context = path.dirname(path.dirname(manifestPath))
     new HtmlPlugin({
       manifestPath,
       includeList: {}
@@ -72,6 +73,10 @@ describe('HtmlPlugin', () => {
     expect(pageHmrRule?.issuerLayer).toEqual({
       not: EXTENSIONJS_CONTENT_SCRIPT_LAYER
     })
+    // A top-level pages/ folder sits under the project root, so the root is
+    // inside the injection scope beside the manifest folder.
+    expect(pageHmrRule?.include).toContain(path.dirname(manifestPath))
+    expect(pageHmrRule?.include).toContain(compiler.options.context)
     expect(
       pageHmrRule?.exclude?.some(
         (entry: unknown) => typeof entry === 'function'
