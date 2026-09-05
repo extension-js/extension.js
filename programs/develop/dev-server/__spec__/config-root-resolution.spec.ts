@@ -1,12 +1,16 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-const {loadCommandConfig, loadBrowserConfig, loadCustomConfig} = vi.hoisted(
-  () => ({
-    loadCommandConfig: vi.fn(async () => ({})),
-    loadBrowserConfig: vi.fn(async () => ({})),
-    loadCustomConfig: vi.fn(async () => (config: any) => config)
-  })
-)
+const {
+  loadCommandConfig,
+  loadBrowserConfig,
+  loadCustomConfig,
+  loadProjectConfigDefaults
+} = vi.hoisted(() => ({
+  loadCommandConfig: vi.fn(async () => ({})),
+  loadProjectConfigDefaults: vi.fn(async () => ({})),
+  loadBrowserConfig: vi.fn(async () => ({})),
+  loadCustomConfig: vi.fn(async () => (config: any) => config)
+}))
 
 const {rspackSpy, devServerConfigCapture} = vi.hoisted(() => ({
   rspackSpy: vi.fn(() => ({})),
@@ -34,7 +38,8 @@ vi.mock('../frameworks', () => ({
 vi.mock('../../lib/config-loader', () => ({
   loadCommandConfig,
   loadBrowserConfig,
-  loadCustomConfig
+  loadCustomConfig,
+  loadProjectConfigDefaults
 }))
 
 vi.mock(

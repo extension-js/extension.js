@@ -345,45 +345,72 @@ export async function loadCustomConfig(projectPath: string) {
   return (config: Configuration) => config
 }
 
+export type ProjectConfigDefaults = Pick<
+  FileConfig,
+  'extensions' | 'transpilePackages' | 'perfBudgets'
+>
+
+// Top-level `extensions`/`transpilePackages`/`perfBudgets` are the weakest
+// layer: browser.<vendor> beats them, commands.<cmd> beats both, a CLI flag
+// beats everything. They are returned on their own so no consumer sees a
+// project-wide default wearing command-layer specificity.
+export async function loadProjectConfigDefaults(
+  projectPath: string
+): Promise<ProjectConfigDefaults> {
+  const configPath = findConfigFile(projectPath)
+
+  if (configPath) {
+    if (await isUsingExperimentalConfig(projectPath)) {
+      try {
+        const userConfig = (await loadConfigFile(configPath)) as
+          | ProjectConfigDefaults
+          | undefined
+        return {
+          ...(userConfig?.extensions
+            ? {extensions: userConfig.extensions}
+            : {}),
+          ...(Array.isArray(userConfig?.transpilePackages)
+            ? {transpilePackages: userConfig.transpilePackages}
+            : {}),
+          ...(userConfig?.perfBudgets &&
+          typeof userConfig.perfBudgets === 'object'
+            ? {perfBudgets: userConfig.perfBudgets}
+            : {})
+        }
+      } catch (err: unknown) {
+        const error = err as Error
+        console.error(messages.configLoadingError(configPath, error))
+        throw err
+      }
+    }
+  }
+
+  return {}
+}
+
+type CommandConfigs = NonNullable<FileConfig['commands']>
+
+// The commands.<cmd> layer alone. Top-level keys come from
+// loadProjectConfigDefaults so each keeps its own specificity.
+export type CommandLayerConfig = Partial<
+  CommandConfigs['dev'] &
+    CommandConfigs['build'] &
+    CommandConfigs['start'] &
+    CommandConfigs['preview']
+> &
+  ProjectConfigDefaults
+
 export async function loadCommandConfig(
   projectPath: string,
   command: 'dev' | 'build' | 'start' | 'preview'
-) {
+): Promise<CommandLayerConfig> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        // Allow top-level `extensions`/`transpilePackages`/`perfBudgets` keys
-        // to apply to all commands, with per-command overrides via
-        // `commands.<cmd>.*`.
-        const configExtras = userConfig as
-          | Pick<FileConfig, 'extensions' | 'transpilePackages' | 'perfBudgets'>
-          | undefined
-        const baseExtensions =
-          configExtras && configExtras.extensions
-            ? {extensions: configExtras.extensions}
-            : {}
-        const baseTranspilePackages =
-          configExtras && Array.isArray(configExtras.transpilePackages)
-            ? {transpilePackages: configExtras.transpilePackages}
-            : {}
-        const basePerfBudgets =
-          configExtras &&
-          configExtras.perfBudgets &&
-          typeof configExtras.perfBudgets === 'object'
-            ? {perfBudgets: configExtras.perfBudgets}
-            : {}
-        const perCommand = userConfig?.commands?.[command]
-          ? userConfig.commands[command]
-          : {}
-        return {
-          ...baseExtensions,
-          ...baseTranspilePackages,
-          ...basePerfBudgets,
-          ...perCommand
-        }
+        return (userConfig?.commands?.[command] || {}) as CommandLayerConfig
       } catch (err: unknown) {
         const error = err as Error
         console.error(messages.configLoadingError(configPath, error))

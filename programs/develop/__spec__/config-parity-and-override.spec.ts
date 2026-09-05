@@ -5,8 +5,10 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   loadBrowserConfig,
   loadCommandConfig,
-  loadCustomConfig
+  loadCustomConfig,
+  loadProjectConfigDefaults
 } from '../lib/config-loader'
+import {mergeOptionLayers} from '../lib/merge-options'
 
 const created: string[] = []
 function tmpDir(prefix: string) {
@@ -231,21 +233,29 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
+    // The top-level value is its own (weakest) layer; a command layer only
+    // carries what commands.<cmd> sets, so browser.<vendor> can outrank it.
+    const projectCfg = await loadProjectConfigDefaults(dir)
+    expect(projectCfg).toEqual({extensions: {dir: './extensions'}})
+
     const devCfg = await loadCommandConfig(dir, 'dev')
     expect(devCfg).toMatchObject({
       extensions: ['./explicit-a', './explicit-b']
     })
 
     const startCfg = await loadCommandConfig(dir, 'start')
-    expect(startCfg).toMatchObject({
-      extensions: {dir: './extensions'}
-    })
+    expect(startCfg).toEqual({})
 
     const previewCfg = await loadCommandConfig(dir, 'preview')
-    expect(previewCfg).toMatchObject({
-      profile: 'user',
-      extensions: {dir: './extensions'}
-    })
+    expect(previewCfg).toEqual({profile: 'user'})
+    expect(
+      mergeOptionLayers(
+        {},
+        projectCfg,
+        {extensions: {dir: './from-browser'}},
+        previewCfg
+      )
+    ).toMatchObject({extensions: {dir: './from-browser'}})
   })
 
   it('merges top-level transpilePackages and allows per-command overrides', async () => {
@@ -258,14 +268,23 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
+    const projectCfg = await loadProjectConfigDefaults(dir)
+    expect(projectCfg).toEqual({transpilePackages: ['@workspace/ui']})
+
     const devCfg = await loadCommandConfig(dir, 'dev')
-    expect(devCfg).toMatchObject({
-      transpilePackages: ['@workspace/ui']
-    })
+    expect(devCfg).toEqual({})
 
     const buildCfg = await loadCommandConfig(dir, 'build')
     expect(buildCfg).toMatchObject({
       transpilePackages: ['@workspace/ui', '@workspace/icons']
     })
+    expect(
+      mergeOptionLayers(
+        {},
+        projectCfg,
+        {transpilePackages: ['@workspace/from-browser']},
+        devCfg
+      )
+    ).toMatchObject({transpilePackages: ['@workspace/from-browser']})
   })
 })

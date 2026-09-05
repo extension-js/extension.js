@@ -6,7 +6,11 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
+import {
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadProjectConfigDefaults
+} from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {
   ensureDevelopArtifacts,
@@ -90,12 +94,15 @@ export async function extensionDev(
       )
     }
 
-    // stock defaults, then browser.*, then commands.dev, then CLI. Unset CLI
-    // keys fall through so shared extension.config.js values apply.
+    // stock defaults, then top-level config, then browser.*, then
+    // commands.dev, then CLI. Unset CLI keys fall through so shared
+    // extension.config.js values apply.
+    const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const merged = withDarkMode({
       ...mergeOptionLayers<DevOptions & BrowserConfig>(
         DEV_COMMAND_DEFAULTS,
+        projectConfig,
         browserConfig,
         commandConfig,
         devOptions

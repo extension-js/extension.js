@@ -44,6 +44,7 @@ vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
 
 vi.mock('../lib/config-loader', () => ({
   loadBrowserConfig: vi.fn(async () => ({})),
+  loadProjectConfigDefaults: vi.fn(async () => ({})),
   loadCommandConfig: vi.fn(async () => ({}))
 }))
 

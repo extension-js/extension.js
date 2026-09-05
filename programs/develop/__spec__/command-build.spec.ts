@@ -37,6 +37,7 @@ vi.mock('../lib/config-loader', () => {
   return {
     loadCustomConfig: vi.fn(async () => userConfigSpy),
     loadBrowserConfig: vi.fn(async () => ({})),
+    loadProjectConfigDefaults: vi.fn(async () => ({})),
     loadCommandConfig: vi.fn(async () => ({
       some: 'cmd',
       transpilePackages: ['@workspace/ui']
