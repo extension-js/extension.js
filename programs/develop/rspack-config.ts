@@ -34,6 +34,7 @@ import {PlaywrightPlugin} from './plugin-playwright'
 import {ReloadPlugin, SetupChunkLoadingTarget} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
+import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
@@ -489,8 +490,9 @@ export default function webpackConfig(
             ]
           : ['node_modules', path.join(process.cwd(), 'node_modules')],
       // Root-absolute url(/img/x.png) in compiled CSS is a module request;
-      // `roots` maps it: public/ first, then the manifest dir (not always package root).
-      roots: [path.join(packageJsonDir, 'public'), path.dirname(manifestPath)],
+      // `roots` maps it: public/ first, then the manifest dir (not always
+      // package root), then next-to-manifest public/ for src layouts.
+      roots: publicResolveRoots(packageJsonDir, manifestPath),
       // TS NodeNext specifiers name the EMITTED file (./env.js) while source is
       // ./env.ts. Prefer TS sources for .js, falling back to a real .js sibling.
       extensionAlias: {

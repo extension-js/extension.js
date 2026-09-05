@@ -6,13 +6,13 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import * as messages from './messages'
+import {inspectPublicFolders} from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 interface SpecialFoldersPluginOptions {
@@ -40,13 +40,39 @@ export class SpecialFoldersPlugin {
   apply(compiler: Compiler) {
     const {manifestPath} = this.options
     const context = compiler.options.context || path.dirname(manifestPath)
-    const publicDir = path.join(context, 'public')
+    const inspection = inspectPublicFolders(manifestPath, context)
+    // The folder in use, or the canonical root path when there is none, so
+    // root-absolute refs keep resolving from the same place as before.
+    const publicDir = inspection.publicDir || path.join(context, 'public')
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
     compiler.hooks.thisCompilation.tap(
       SpecialFoldersPlugin.name,
       (compilation: Compilation) => {
+        // Say which folder ships, the way _locales does: a next-to-manifest
+        // folder gets the placement note, two folders name the winner.
+        if (inspection.bothExist) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'PublicFolderShadowedWarning',
+            messages.publicFolderShadowed(
+              inspection.fromRoot,
+              inspection.fromManifest
+            )
+          )
+        } else if (inspection.usedFallback) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'PublicLayoutWarning',
+            messages.publicMustBeAtProjectRoot(
+              inspection.fromManifest,
+              inspection.fromRoot
+            )
+          )
+        }
         compilation.hooks.processAssets.tap(
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
@@ -70,7 +96,7 @@ export class SpecialFoldersPlugin {
       }
     )
 
-    if (fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory()) {
+    if (inspection.publicDir) {
       // Guard against dangerous files in public/ that would overwrite generated assets
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
@@ -123,4 +149,19 @@ export class SpecialFoldersPlugin {
       }
     }
   }
+}
+
+function pushLayoutWarning(
+  compiler: Compiler,
+  compilation: Compilation,
+  name: string,
+  message: string
+) {
+  const ErrorConstructor =
+    (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)?.rspack
+      ?.WebpackError || Error
+  const warning = new ErrorConstructor(message)
+  warning.name = name
+  if (!compilation.warnings) compilation.warnings = []
+  compilation.warnings.push(warning)
 }

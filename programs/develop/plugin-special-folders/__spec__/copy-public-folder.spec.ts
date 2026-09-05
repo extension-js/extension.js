@@ -145,4 +145,67 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     )
     expect(warnApply).toHaveBeenCalledTimes(1)
   })
+  it('copies from the folder beside the manifest and notes the placement', () => {
+    ;(FS.existsSync as any).mockImplementation(
+      (absPath: string) => toPosix(absPath) === '/project/src/public'
+    )
+    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
+      isDirectory: () => true
+    }))
+    const warnings: any[] = []
+    const compiler = createFakeCompiler('production')
+    const originalTap = compiler.hooks.thisCompilation.tap
+    compiler.hooks.thisCompilation.tap = (
+      name: string,
+      callback: (c: any) => void
+    ) =>
+      originalTap(name, (compilation: any) => {
+        compilation.warnings = warnings
+        callback(compilation)
+      })
+
+    new SpecialFoldersPlugin({
+      manifestPath: '/project/src/manifest.json'
+    }).apply(compiler as any)
+
+    expect(copyApply).toHaveBeenCalled()
+    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe(
+      '/project/src/public'
+    )
+    expect(warnings.map((w) => w.name)).toContain('PublicLayoutWarning')
+    expect(String(warnings[0].message)).toContain('/project/src/public')
+    expect(String(warnings[0].message)).toContain('/project/public')
+  })
+
+  it('names the winner when both folders exist', () => {
+    ;(FS.existsSync as any).mockImplementation((absPath: string) =>
+      ['/project/public', '/project/src/public'].includes(toPosix(absPath))
+    )
+    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
+      isDirectory: () => true
+    }))
+    const warnings: any[] = []
+    const compiler = createFakeCompiler('production')
+    const originalTap = compiler.hooks.thisCompilation.tap
+    compiler.hooks.thisCompilation.tap = (
+      name: string,
+      callback: (c: any) => void
+    ) =>
+      originalTap(name, (compilation: any) => {
+        compilation.warnings = warnings
+        callback(compilation)
+      })
+
+    new SpecialFoldersPlugin({
+      manifestPath: '/project/src/manifest.json'
+    }).apply(compiler as any)
+
+    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe('/project/public')
+    const shadowed = warnings.find(
+      (w) => w.name === 'PublicFolderShadowedWarning'
+    )
+    expect(shadowed).toBeDefined()
+    expect(String(shadowed.message)).toContain('USING /project/public')
+    expect(String(shadowed.message)).toContain('IGNORED /project/src/public')
+  })
 })
