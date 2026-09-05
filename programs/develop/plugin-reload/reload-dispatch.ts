@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {prefix} from '../lib/messaging'
@@ -98,12 +99,23 @@ function isHotAsset(normalized: string): boolean {
   return normalized.startsWith('hot/') || normalized.includes('.hot-update.')
 }
 
+function isDirectory(absolute: string): boolean {
+  try {
+    return fs.statSync(absolute).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 function normalizeChangedPath(
   file: string,
   contextDir: string
 ): string | undefined {
   const raw = String(file || '')
   if (!raw) return undefined
+  // A watched folder (public/, the project root) is reported beside the file
+  // that changed inside it; only the file is a source worth naming.
+  if (path.isAbsolute(raw) && isDirectory(raw)) return undefined
   const normalized = path.isAbsolute(raw)
     ? path.relative(contextDir, raw).replace(/\\/g, '/')
     : raw.replace(/\\/g, '/')
