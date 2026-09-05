@@ -17,7 +17,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {htmlStaticAssetOutputName} from '../../plugin-web-extension/feature-html/html-lib/utils'
-import {replaceCssUrlRefs} from './dead-url-refs'
+import {replaceCssUrlRefs, toPosixPath} from './dead-url-refs'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -25,11 +25,15 @@ export interface InlinedCssUrlTarget {
   request: string
   absolutePath: string
   outputName: string
+  // A file under public/ already ships at the dist root through the public
+  // copier, under the same name. Emitting it again would ship it twice.
+  publicOwned: boolean
 }
 
 export interface RewriteInlinedCssUrlsContext {
   resourcePath: string
   manifestDir: string
+  // The folder the public copier ships from, so names agree with its output.
   publicRoot: string
 }
 
@@ -44,22 +48,52 @@ function isFile(candidate: string): boolean {
 function resolveTarget(
   req: string,
   {resourcePath, manifestDir, publicRoot}: RewriteInlinedCssUrlsContext
-): string | undefined {
+):
+  | {absolutePath: string; outputName: string; publicOwned: boolean}
+  | undefined {
   // public/ keeps precedence for a root-absolute ref: it is the documented
   // output-root contract, and the same order the dead-reference scan uses.
-  const candidates = req.startsWith('/')
-    ? [
-        path.join(publicRoot, req.slice(1)),
-        path.join(manifestDir, req.slice(1))
-      ]
-    : [path.resolve(path.dirname(resourcePath), req)]
-  return candidates.find(isFile)
+  if (req.startsWith('/')) {
+    const rel = req.slice(1)
+    const fromPublic = path.join(publicRoot, rel)
+    if (isFile(fromPublic)) {
+      return {
+        absolutePath: fromPublic,
+        outputName: toPosixPath(path.normalize(rel)),
+        publicOwned: true
+      }
+    }
+    const fromManifest = path.join(manifestDir, rel)
+    if (!isFile(fromManifest)) return undefined
+    return {
+      absolutePath: fromManifest,
+      outputName: htmlStaticAssetOutputName(
+        manifestDir,
+        resourcePath,
+        fromManifest
+      ),
+      publicOwned: false
+    }
+  }
+
+  const absolutePath = path.resolve(path.dirname(resourcePath), req)
+  if (!isFile(absolutePath)) return undefined
+  return {
+    absolutePath,
+    outputName: htmlStaticAssetOutputName(
+      manifestDir,
+      resourcePath,
+      absolutePath
+    ),
+    publicOwned: false
+  }
 }
 
 /**
  * Every relative or root-absolute url() that names a real file is rewritten
  * to `<placeholder><output name><query/hash>` and reported so the caller can
- * emit it. Remote, data:, fragment-only, protocol-relative and already
+ * emit it. A file public/ owns keeps the name the public copier gives it at
+ * the dist root. Remote, data:, fragment-only, protocol-relative and already
  * absolute references stay as authored, and so does a reference to a file
  * that does not exist (the dead-reference scan reports those).
  */
@@ -83,15 +117,11 @@ export function rewriteInlinedCssUrls(
 
     let outputName = seen.get(req)
     if (!outputName) {
-      const absolutePath = resolveTarget(req, context)
-      if (!absolutePath) return undefined
-      outputName = htmlStaticAssetOutputName(
-        context.manifestDir,
-        context.resourcePath,
-        absolutePath
-      )
+      const target = resolveTarget(req, context)
+      if (!target) return undefined
+      outputName = target.outputName
       seen.set(req, outputName)
-      targets.push({request: req, absolutePath, outputName})
+      targets.push({request: req, ...target})
     }
     return `${EXTENSION_ROOT_PLACEHOLDER}${outputName}${suffix}`
   })

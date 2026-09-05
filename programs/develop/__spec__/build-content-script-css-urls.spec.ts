@@ -3,11 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 
-// Real path: rspack resolves symlinks on module paths and the content-script
-// issuer index keys on the manifest path as given, so a symlinked tmpdir
-// would never match the stylesheet to its script.
-const SUITE_ROOT = fs.realpathSync(
-  fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-cs-css-urls-'))
+// The raw tmpdir on purpose: on macOS it is a symlink, and the content-script
+// issuer index must match the sheet to its script through it.
+const SUITE_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-build-cs-css-urls-')
 )
 
 const MATCHES = 'https://fonts.example/*'
@@ -20,7 +19,24 @@ function write(root: string, relPath: string, contents: string | Buffer) {
   fs.writeFileSync(abs, contents)
 }
 
-function writeFixture(name: string, manifestVersion: 2 | 3): string {
+const SHEET_RULES = [
+  '@font-face {',
+  '  font-family: "Probe";',
+  '  src: url(./fonts/probe.woff2) format("woff2");',
+  '}',
+  '.badge { background-image: url("/img/bg.png"); font-family: "Probe"; }',
+  '.versioned { background-image: url("./fonts/probe.woff2?v=2#frag"); }',
+  '.inline { background-image: url(data:image/gif;base64,R0lGOD); }',
+  '.remote { background-image: url("https://cdn.example/x.png"); }',
+  '.anchor { fill: url(#gradient); }',
+  ''
+].join('\n')
+
+function writeFixture(
+  name: string,
+  manifestVersion: 2 | 3,
+  sheet: 'plain' | 'module' = 'plain'
+): string {
   const root = path.join(SUITE_ROOT, name)
   fs.mkdirSync(root, {recursive: true})
 
@@ -60,36 +76,39 @@ function writeFixture(name: string, manifestVersion: 2 | 3): string {
     )
   )
 
-  // Both ways a script reaches its sheet: the side-effect import the wrapper
-  // hydrates, and the fetch(new URL()) the content-custom-font example uses.
-  write(
-    root,
-    'src/content.js',
-    [
-      "import './styles.css'",
-      "const sheet = new URL('./styles.css', import.meta.url)",
-      "console.log('sheet', sheet.href)",
-      ''
-    ].join('\n')
-  )
+  if (sheet === 'module') {
+    // A CSS module: the class map reaches JavaScript, the scoped text
+    // reaches the page through the sibling stylesheet chunk.
+    write(
+      root,
+      'src/content.js',
+      [
+        // Every class is used: an unused one is dropped in production and
+        // the parity check would then warn for a reason this spec is not about.
+        "import {anchor, badge, inline, remote, versioned} from './styles.module.css'",
+        'document.documentElement.classList.add(badge)',
+        "console.log('module', versioned, inline, remote, anchor)",
+        ''
+      ].join('\n')
+    )
+    write(root, 'src/styles.module.css', SHEET_RULES)
+  } else {
+    // Both ways a script reaches its sheet: the side-effect import the
+    // wrapper hydrates, and the fetch(new URL()) the content-custom-font
+    // example uses.
+    write(
+      root,
+      'src/content.js',
+      [
+        "import './styles.css'",
+        "const sheet = new URL('./styles.css', import.meta.url)",
+        "console.log('sheet', sheet.href)",
+        ''
+      ].join('\n')
+    )
+    write(root, 'src/styles.css', SHEET_RULES)
+  }
   write(root, 'src/background.js', "console.log('bg')\n")
-
-  write(
-    root,
-    'src/styles.css',
-    [
-      '@font-face {',
-      '  font-family: "Probe";',
-      '  src: url(./fonts/probe.woff2) format("woff2");',
-      '}',
-      '.badge { background-image: url("/img/bg.png"); font-family: "Probe"; }',
-      '.versioned { background-image: url("./fonts/probe.woff2?v=2#frag"); }',
-      '.inline { background-image: url(data:image/gif;base64,R0lGOD); }',
-      '.remote { background-image: url("https://cdn.example/x.png"); }',
-      '.anchor { fill: url(#gradient); }',
-      ''
-    ].join('\n')
-  )
   write(root, 'src/fonts/probe.woff2', FONT_BYTES)
   write(root, 'public/img/bg.png', IMAGE_BYTES)
 
@@ -154,6 +173,37 @@ function readBuilt(root: string, browser: 'chrome' | 'firefox') {
   return {distDir, manifest, source: fs.readFileSync(contentJs, 'utf8')}
 }
 
+// Every file in dist with this basename, relative to dist. The public copier
+// and the url() rewrite must agree on one name, so a target ships once.
+function distFilesNamed(distDir: string, basename: string): string[] {
+  const hits: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(abs)
+      else if (entry.name === basename) hits.push(path.relative(distDir, abs))
+    }
+  }
+  walk(distDir)
+  return hits.map((hit) => hit.split(path.sep).join('/')).sort()
+}
+
+// The sibling stylesheet chunk a content script's CSS modules land in.
+function readContentScriptCssChunk(distDir: string): {
+  name: string
+  css: string
+} {
+  const dir = path.join(distDir, 'content_scripts')
+  const chunk = fs
+    .readdirSync(dir)
+    .find((entry) => /^content-\d+.*\.css$/.test(entry))
+  expect(chunk, `css chunk in ${dir}`).toBeTruthy()
+  return {
+    name: `content_scripts/${chunk}`,
+    css: fs.readFileSync(path.join(dir, String(chunk)), 'utf8')
+  }
+}
+
 function warResources(manifest: BuiltManifest): string[] {
   const war = manifest.web_accessible_resources
   if (!war) return []
@@ -198,21 +248,22 @@ function expectResolvedTargets(
   const {distDir, manifest, source} = built
   const names = emittedNamesIn(source)
   const font = names.find((name) => name.endsWith('/fonts/probe.woff2'))
-  const image = names.find((name) => name.endsWith('/img/bg.png'))
   expect(font, `font target named in ${names.join(', ')}`).toBeTruthy()
-  expect(image, `image target named in ${names.join(', ')}`).toBeTruthy()
-
   expect(fs.readFileSync(path.join(distDir, String(font)))).toEqual(FONT_BYTES)
-  expect(fs.readFileSync(path.join(distDir, String(image)))).toEqual(
-    IMAGE_BYTES
-  )
+
+  // A public-owned root ref keeps the copier's name at the dist root, and
+  // that is the only copy of the file the build ships.
+  const image = 'img/bg.png'
+  expect(fs.readFileSync(path.join(distDir, image))).toEqual(IMAGE_BYTES)
+  expect(distFilesNamed(distDir, 'bg.png')).toEqual([image])
+  expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([font])
 
   const resources = warResources(manifest)
   expect(resources).toContain(font)
   expect(resources).toContain(image)
   if (opts.matches) {
     expect(warMatchesFor(manifest, String(font))).toEqual(opts.matches)
-    expect(warMatchesFor(manifest, String(image))).toEqual(opts.matches)
+    expect(warMatchesFor(manifest, image)).toEqual(opts.matches)
   }
 
   expect(source).not.toMatch(BARE_URL)
@@ -227,6 +278,10 @@ function expectResolvedTargets(
 }
 
 afterAll(() => {
+  if (process.env.KEEP_FIXTURE) {
+    console.log('KEPT fixture at', SUITE_ROOT)
+    return
+  }
   fs.rmSync(SUITE_ROOT, {recursive: true, force: true})
 })
 
@@ -245,6 +300,68 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     expect(summary.errors_count).toBe(0)
 
     expectResolvedTargets(readBuilt(root, 'firefox'), {})
+  }, 120_000)
+
+  it('production chrome MV3, CSS module: the scoped chunk names the extension root, the class map still reaches JavaScript', async () => {
+    const root = writeFixture('mv3-chrome-prod-module', 3, 'module')
+    const summary = await buildFixture(root, 'chrome', 'production')
+    expect(summary.errors_count).toBe(0)
+    // The public-owned file is registered to the module under the copier's
+    // name, and that must stay silent: same name, same bytes.
+    expect(summary.warnings_count).toBe(0)
+
+    const {distDir, manifest, source} = readBuilt(root, 'chrome')
+    const chunk = readContentScriptCssChunk(distDir)
+
+    // The injected text: nothing left that resolves against the host page.
+    expect(chunk.css).not.toMatch(BARE_URL)
+    expect(chunk.css).not.toMatch(/url\(\s*["']?\/assets\//)
+    const font = 'assets/src/fonts/probe.woff2'
+    const image = 'img/bg.png'
+    expect(chunk.css).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${font}`)
+    expect(chunk.css).toContain(
+      `__EXTENSIONJS_EXTENSION_ROOT__/${font}?v=2#frag`
+    )
+    expect(chunk.css).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
+    expect(chunk.css).toContain('data:image/gif;base64,R0lGOD')
+    expect(chunk.css).toContain('https://cdn.example/x.png')
+    expect(chunk.css).toContain('url(#gradient)')
+
+    // Targets ship once, at the names the chunk uses, and are reachable.
+    expect(fs.readFileSync(path.join(distDir, font))).toEqual(FONT_BYTES)
+    expect(fs.readFileSync(path.join(distDir, image))).toEqual(IMAGE_BYTES)
+    expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([font])
+    expect(distFilesNamed(distDir, 'bg.png')).toEqual([image])
+    const resources = warResources(manifest)
+    expect(resources).toContain(font)
+    expect(resources).toContain(image)
+    expect(resources).toContain(chunk.name)
+    expect(warMatchesFor(manifest, font)).toEqual([MATCHES])
+    expect(warMatchesFor(manifest, image)).toEqual([MATCHES])
+
+    // The module still scopes its classes and hands the map to JavaScript:
+    // every selector in the chunk is a value in the bundle's export map.
+    const scoped = Array.from(
+      chunk.css.matchAll(/\.([A-Za-z0-9_-]+)\s*\{/g),
+      (match) => match[1]
+    )
+    expect(scoped).toHaveLength(5)
+    for (const authored of [
+      'badge',
+      'versioned',
+      'inline',
+      'remote',
+      'anchor'
+    ]) {
+      expect(scoped).not.toContain(authored)
+    }
+    for (const name of scoped) {
+      expect(source).toContain(JSON.stringify(name))
+    }
+
+    // The bundle swaps the placeholder for the extension root when it
+    // injects the chunk text.
+    expect(source).toContain('__EXTENSIONJS_EXTENSION_ROOT__/')
   }, 120_000)
 
   it('development chrome MV3: the dev bundle carries the same resolved sheet', async () => {

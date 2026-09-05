@@ -138,12 +138,28 @@ describe('dead url() in a content-script stylesheet', () => {
         JSON.stringify(rule.use || []).includes('dead-css-url-loader')
       )
 
-    // Every inlined-sheet rule carries it; the css/module siblings resolve
-    // their url() through the module graph and would double-report.
-    expect(carriesScan(inlined).length).toBe(
-      inlined.filter((rule) => rule.type === 'javascript/auto').length
-    )
+    // Every content-script rule carries it: the inlined sheets leave as a
+    // runtime module, the css/module siblings stay CSS with rspack told to
+    // leave url() alone, so the scan is the only pass that sees them.
+    expect(carriesScan(inlined).length).toBe(inlined.length)
     expect(carriesScan(inlined).length).toBeGreaterThan(0)
+    const sheetModes = inlined.map((rule) => {
+      const scan = (rule.use as Array<{loader?: string; options?: any}>).find(
+        (entry) => String(entry.loader).includes('dead-css-url-loader')
+      )
+      return [rule.type, scan?.options?.sheet, rule.parser]
+    })
+    for (const [type, sheet, parser] of sheetModes) {
+      if (type === 'css/module') {
+        expect(sheet).toBe('chunk')
+        expect(parser).toEqual({url: false})
+      } else {
+        expect(type).toBe('javascript/auto')
+        expect(sheet).toBe('inline')
+        expect(parser).toBeUndefined()
+      }
+    }
     expect(carriesScan(emitted)).toHaveLength(0)
+    expect(emitted.every((rule) => rule.parser === undefined)).toBe(true)
   })
 })

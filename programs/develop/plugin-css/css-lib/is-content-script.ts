@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
+import {canonicalizeDir, toResourceKey} from '../../lib/resource-path'
 import type {Manifest} from '../../types'
 
 interface ContentScriptIndex {
@@ -45,17 +46,20 @@ function getContentScriptIndex(
   const manifestDir = path.dirname(manifestPath)
   const contentPaths = new Set<string>()
 
+  // rspack hands the issuer predicate a symlink-resolved path, so a key
+  // built from the manifest path as given never matches under a symlinked
+  // project dir (macOS tmpdir included). Same helper on both sides.
   for (const content of manifest.content_scripts || []) {
     if (content.js?.length) {
       for (const js of content.js) {
-        contentPaths.add(path.resolve(manifestDir, js))
+        contentPaths.add(toResourceKey(path.resolve(manifestDir, js)))
       }
     }
   }
 
   const index: ContentScriptIndex = {
     mtimeMs,
-    scriptsDir: path.resolve(projectPath, 'scripts'),
+    scriptsDir: canonicalizeDir(path.resolve(projectPath, 'scripts')),
     contentPaths
   }
   indexCache.set(cacheKey, index)
@@ -76,7 +80,7 @@ export function isContentScriptEntry(
     manifestPath,
     projectPath
   )
-  const absPathNormalized = path.resolve(absolutePath)
+  const absPathNormalized = toResourceKey(absolutePath)
 
   // Files inside <projectPath>/scripts are treated as content-script-like
   const relToScripts = path.relative(scriptsDir, absPathNormalized)
