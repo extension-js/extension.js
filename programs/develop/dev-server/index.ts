@@ -78,6 +78,11 @@ import {
 } from './lifecycle-stream'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  unbindDevSessionRestart
+} from './session-restart'
 
 function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
@@ -654,6 +659,7 @@ export async function devServer(
     if (bridgeControlToken) {
       clearControlToken(packageJsonDir, browserName)
     }
+    unbindDevSessionRestart()
   })
 
   // stock defaults, then browser.*, then commands.dev, then CLI/caller.
@@ -681,11 +687,11 @@ export async function devServer(
     config: mergedExtensionsConfig
   })
 
-  const baseConfig = webpackConfig(projectStructure, {
+  const webpackConfigOptions = {
     ...mergedDevOptions,
     extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,
-    mode: 'development',
+    mode: 'development' as const,
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
     controlPort: bridgeControlPort,
@@ -696,60 +702,9 @@ export async function devServer(
       clean: false,
       path: primaryDistPath
     }
-  })
-
-  const customWebpackConfig = await loadCustomConfig(packageJsonDir)
-  const finalConfig = customWebpackConfig(baseConfig)
-
-  const compilerConfig = merge(finalConfig, {})
-
-  const compiler = rspack(compilerConfig)
-  const manifestOutputPath = path.join(primaryDistPath, 'manifest.json')
-  const uninstallManifestGuard =
-    installManifestDiskWriteGuard(manifestOutputPath)
-  const releaseOutputFsGuard = suppressManifestOutputWrites(
-    compiler,
-    manifestOutputPath
-  )
-
-  // Under --no-browser no CDP controller owns reload, so broadcast the same
-  // classified reload decision over the control bridge; gated to avoid double-reload.
-  if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
-    const changedSources = createChangedSourcesTracker(compiler)
-    let isFirstBridgeCompile = true
-
-    compiler.hooks.done.tapPromise(
-      'extjs-no-browser-reload',
-      async (stats: Stats) => {
-        const compilation = stats.compilation
-        if (compilation.errors && compilation.errors.length > 0) return
-
-        // Skip the first compile: it's the initial build, not a change, and the
-        // SW producer hasn't connected yet anyway.
-        if (isFirstBridgeCompile) {
-          isFirstBridgeCompile = false
-          return
-        }
-
-        const outputPath = String(compilation.options?.output?.path || '')
-        const contextDir = String(compilation.options?.context || '')
-        const {forcedFull, changedSources: sources} = changedSources.snapshot()
-        const instruction = classifyReloadFromSources({
-          changedSources: sources,
-          forcedFull,
-          getContentScriptCount: () =>
-            readContentScriptCount(compilation, outputPath),
-          getSourceFeatureIndex: () =>
-            buildSourceFeatureIndex(compilation, contextDir),
-          outputPath
-        })
-
-        // Same shared dispatch seam as the launched path, here with the broker
-        // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
-        await dispatchReload(instruction, {broker: bridgeBroker})
-      }
-    )
   }
+
+  const manifestOutputPath = path.join(primaryDistPath, 'manifest.json')
 
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
@@ -777,23 +732,6 @@ export async function devServer(
     eventsPath: metadata.eventsPath
   })
   lifecycle.starting({requestedPort: Number(devOptions.port), port})
-  // Tapped after the ready-contract writer, so ready.json is on disk when the
-  // ready frame reads it.
-  attachLifecycleStream(compiler, lifecycle)
-
-  // Surface invalidation/fatal startup diagnostics during startup. Done-hook
-  // warning/error output is registered earlier so it prints before launch hooks.
-  setupCompilerLifecycleHooks(compiler)
-
-  if (devOptions.noBrowser) {
-    setupNoBrowserBannerOnFirstDone({
-      compiler,
-      browser: String(devOptions.browser || 'chromium'),
-      manifestPath,
-      readyPath: metadata.readyPath,
-      distPath: primaryDistPath
-    })
-  }
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
@@ -853,52 +791,183 @@ export async function devServer(
     liveReload: true
   }
 
-  const devServer = new RspackDevServer(serverConfig, compiler)
-
-  // The fs guard is process-global; a stopped server must release its path
-  // or later in-process writers to this dist are silently swallowed.
-  if (typeof devServer.stop === 'function') {
-    const originalDevServerStop = devServer.stop.bind(devServer)
-    devServer.stop = async () => {
-      try {
-        await originalDevServerStop()
-      } finally {
-        uninstallManifestGuard()
-        releaseOutputFsGuard()
-      }
-    }
-  }
-
   const START_TIMEOUT_MS = parseInt(
     String(process.env.EXTENSION_START_TIMEOUT_MS || '30000'),
     10
   )
-  let startTimeout: NodeJS.Timeout | undefined
 
-  try {
-    startTimeout = setTimeout(() => {
-      console.error(messages.devServerStartTimeout(START_TIMEOUT_MS))
-    }, START_TIMEOUT_MS)
-
-    await devServer.start()
-
-    if (startTimeout) clearTimeout(startTimeout)
-  } catch (error) {
-    if (startTimeout) clearTimeout(startTimeout)
-
-    metadata.writeError(
-      'dev_server_start_failed',
-      error instanceof Error ? error.message : String(error)
+  // One compiler and server per include list. A restart builds the next pair
+  // from the same session (ports, instance, broker, launched browser) and only
+  // the bundler is torn down.
+  async function createCompilerAndServer(opts: {isRestart: boolean}) {
+    const baseConfig = webpackConfig(projectStructure, webpackConfigOptions)
+    const customWebpackConfig = await loadCustomConfig(packageJsonDir)
+    const compilerConfig = merge(customWebpackConfig(baseConfig), {})
+    const compiler = rspack(compilerConfig)
+    const uninstallManifestGuard =
+      installManifestDiskWriteGuard(manifestOutputPath)
+    const releaseOutputFsGuard = suppressManifestOutputWrites(
+      compiler,
+      manifestOutputPath
     )
 
-    lifecycle.failed(error instanceof Error ? error.message : String(error))
-    humanLine(messages.extensionJsRunnerError(error))
-    process.exit(1)
+    // Under --no-browser no CDP controller owns reload, so broadcast the same
+    // classified reload decision over the control bridge; gated to avoid double-reload.
+    if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
+      const changedSources = createChangedSourcesTracker(compiler)
+      let isFirstBridgeCompile = true
+
+      compiler.hooks.done.tapPromise(
+        'extjs-no-browser-reload',
+        async (stats: Stats) => {
+          const compilation = stats.compilation
+          if (compilation.errors && compilation.errors.length > 0) return
+
+          // Skip the first compile: it's the initial build, not a change, and the
+          // SW producer hasn't connected yet anyway.
+          if (isFirstBridgeCompile) {
+            isFirstBridgeCompile = false
+            return
+          }
+
+          const outputPath = String(compilation.options?.output?.path || '')
+          const contextDir = String(compilation.options?.context || '')
+          const {forcedFull, changedSources: sources} =
+            changedSources.snapshot()
+          const instruction = classifyReloadFromSources({
+            changedSources: sources,
+            forcedFull,
+            getContentScriptCount: () =>
+              readContentScriptCount(compilation, outputPath),
+            getSourceFeatureIndex: () =>
+              buildSourceFeatureIndex(compilation, contextDir),
+            outputPath
+          })
+
+          // Same shared dispatch seam as the launched path, here with the broker
+          // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
+          await dispatchReload(instruction, {broker: bridgeBroker})
+        }
+      )
+    }
+
+    // Tapped after the ready-contract writer, so ready.json is on disk when the
+    // ready frame reads it.
+    attachLifecycleStream(compiler, lifecycle)
+
+    // Surface invalidation/fatal startup diagnostics during startup. Done-hook
+    // warning/error output is registered earlier so it prints before launch hooks.
+    setupCompilerLifecycleHooks(compiler)
+
+    if (!opts.isRestart && devOptions.noBrowser) {
+      setupNoBrowserBannerOnFirstDone({
+        compiler,
+        browser: String(devOptions.browser || 'chromium'),
+        manifestPath,
+        readyPath: metadata.readyPath,
+        distPath: primaryDistPath
+      })
+    }
+
+    const firstCompile = new Promise<Stats | null>((resolve) => {
+      let settled = false
+      const finish = (stats: Stats | null) => {
+        if (settled) return
+        settled = true
+        resolve(stats)
+      }
+      if (!compiler.hooks?.done?.tap) {
+        finish(null)
+        return
+      }
+      compiler.hooks.done.tap('extjs-session-restart-first-done', (stats) => {
+        finish(stats)
+      })
+      compiler.hooks.failed?.tap?.('extjs-session-restart-first-failed', () => {
+        finish(null)
+      })
+    })
+
+    const server = new RspackDevServer(serverConfig, compiler)
+
+    // The fs guard is process-global; a stopped server must release its path
+    // or later in-process writers to this dist are silently swallowed.
+    if (typeof server.stop === 'function') {
+      const originalDevServerStop = server.stop.bind(server)
+      server.stop = async () => {
+        try {
+          await originalDevServerStop()
+        } finally {
+          uninstallManifestGuard()
+          releaseOutputFsGuard()
+        }
+      }
+    }
+
+    return {compiler, server, firstCompile}
   }
+
+  async function startBundler(server: RspackDevServer) {
+    let startTimeout: NodeJS.Timeout | undefined
+
+    try {
+      startTimeout = setTimeout(() => {
+        console.error(messages.devServerStartTimeout(START_TIMEOUT_MS))
+      }, START_TIMEOUT_MS)
+
+      await server.start()
+
+      if (startTimeout) clearTimeout(startTimeout)
+    } catch (error) {
+      if (startTimeout) clearTimeout(startTimeout)
+
+      metadata.writeError(
+        'dev_server_start_failed',
+        error instanceof Error ? error.message : String(error)
+      )
+
+      lifecycle.failed(error instanceof Error ? error.message : String(error))
+      humanLine(messages.extensionJsRunnerError(error))
+      process.exit(1)
+    }
+  }
+
+  const firstBundle = await createCompilerAndServer({isRestart: false})
+  let currentServer: RspackDevServer | null = firstBundle.server
+  await startBundler(firstBundle.server)
+
+  // Plugins that find an entrypoint change ask for this; the request outlives
+  // the compiler that noticed it because the scheduler belongs to the session.
+  const sessionRestart = new DevSessionRestartScheduler()
+  sessionRestart.setHandler(async (request) => {
+    humanLine(messages.devServerRestarting(request))
+    const nextBundle = await createCompilerAndServer({isRestart: true})
+    const previous = currentServer
+    currentServer = null
+    if (previous && typeof previous.stop === 'function') {
+      await previous.stop()
+    }
+    currentServer = nextBundle.server
+    await startBundler(nextBundle.server)
+    const stats = await nextBundle.firstCompile
+    if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {
+      return
+    }
+    // The fresh compiler's first build carries no changed sources, so the
+    // classifier stays silent; the new entry set needs one full reload.
+    await dispatchReload(
+      {type: 'full', label: 'extension'},
+      {broker: bridgeBroker}
+    )
+  })
+  bindDevSessionRestart(sessionRestart)
+  process.once('exit', () => {
+    sessionRestart.dispose()
+  })
 
   // The launcher stamps browserExitedAt on the ready contract; poll for it so
   // a machine consumer learns the browser died without scraping prose.
   lifecycle.watchBrowserExit()
 
-  setupCleanupHandlers(devServer, portManager)
+  setupCleanupHandlers(() => currentServer, portManager)
 }

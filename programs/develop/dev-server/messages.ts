@@ -193,6 +193,33 @@ export function bundlerFatalError(error: unknown) {
   return `${getLoggingPrefix('error')} The build failed to start.\n${colors.red(text)}`
 }
 
+export function devServerRestarting(request: {
+  reason: string
+  pathAfter?: string
+  pathBefore?: string
+}) {
+  const what =
+    request.reason === 'icons'
+      ? 'a manifest icon'
+      : request.reason === 'html'
+        ? 'an HTML entrypoint'
+        : request.reason === 'json'
+          ? 'a manifest JSON entry'
+          : 'a manifest script entry'
+  const lines = [
+    `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
+  ]
+  if (request.pathBefore) {
+    lines.push(
+      `${colors.gray('BEFORE')} ${colors.underline(request.pathBefore)}`
+    )
+  }
+  if (request.pathAfter) {
+    lines.push(`${colors.gray('AFTER')} ${colors.underline(request.pathAfter)}`)
+  }
+  return lines.join('\n')
+}
+
 export function bundlerRecompiling() {
   return `${getLoggingPrefix('info')} Recompiling due to file changes…`
 }

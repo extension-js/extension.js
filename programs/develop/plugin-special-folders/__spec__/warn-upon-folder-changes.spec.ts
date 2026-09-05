@@ -2,6 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  unbindDevSessionRestart
+} from '../../dev-server/session-restart'
 import * as messages from '../messages'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
@@ -79,6 +84,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  unbindDevSessionRestart()
   for (const dir of tempDirs) {
     fs.rmSync(dir, {recursive: true, force: true})
   }
@@ -227,5 +233,40 @@ describe('WarnUponFolderChanges', () => {
       String(p).replace(/\\/g, '/')
     )
     expect(deps).toEqual([projectRoot.replace(/\\/g, '/')])
+  })
+
+  it('restarts a live session on an addition but still refuses a removal', async () => {
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'scripts', 'extra.js')
+    ])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(0)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'scripts',
+        pathAfter: path.join(projectRoot, 'scripts', 'extra.js')
+      })
+    )
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'scripts', 'extra.js')
+    ])
+    runCycle(compiler, compilation)
+    expect(compilation.errors.length).toBe(1)
+    expect(String(compilation.errors[0].details)).toContain('Removing from')
   })
 })

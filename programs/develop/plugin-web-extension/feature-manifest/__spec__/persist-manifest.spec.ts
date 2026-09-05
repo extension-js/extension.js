@@ -1,9 +1,19 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  requestDevSessionRestart,
+  unbindDevSessionRestart
+} from '../../../dev-server/session-restart'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
+
+afterEach(() => {
+  unbindDevSessionRestart()
+})
 
 type FakeCompilation = {
   errors: any[]
@@ -185,5 +195,40 @@ describe('PersistManifestToDisk', () => {
       'utf-8'
     )
     expect(JSON.parse(onDisk).content_scripts).toHaveLength(2)
+  })
+
+  it('stays quiet about missing chunks when a restart will emit them', () => {
+    const outputDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'persist-manifest-restarting-')
+    )
+    const manifestSource = JSON.stringify({
+      manifest_version: 3,
+      content_scripts: [{js: ['content_scripts/content-1.aaaaaaaa.js']}]
+    })
+    const compilationErrors: any[] = []
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {processAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifestSource}}
+            : undefined
+      })
+    )
+    const scheduler = new DevSessionRestartScheduler(60_000)
+    scheduler.setHandler(() => {})
+    bindDevSessionRestart(scheduler)
+    requestDevSessionRestart(compiler, {reason: 'scripts'})
+
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(fs.existsSync(path.join(outputDir, 'manifest.json'))).toBe(false)
+    expect(compilationErrors).toHaveLength(0)
+    scheduler.dispose()
   })
 })

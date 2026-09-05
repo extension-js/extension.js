@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, WebpackError} from '@rspack/core'
+import {requestDevSessionRestart} from '../../../dev-server/session-restart'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../html-lib/messages'
 import {getAssetsFromHtml} from '../html-lib/utils'
@@ -126,6 +127,15 @@ export class ThrowIfRecompileIsNeeded {
           ) {
             const projectRoot = path.dirname(this.manifestPath)
             const relToManifest = path.relative(projectRoot, changedFile)
+            if (
+              requestDevSessionRestart(compiler, {
+                reason: 'html',
+                pathAfter: changedFile,
+                manifestField: relToManifest
+              })
+            ) {
+              continue
+            }
             const err = new WebpackError(
               messages.serverRestartRequiredFromHtml(relToManifest, changedFile)
             ) as Error & {file?: string}

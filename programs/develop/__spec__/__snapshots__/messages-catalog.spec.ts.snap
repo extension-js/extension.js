@@ -9,6 +9,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "browserRunnerDisabled: function(1)",
     "bundlerFatalError: function(1)",
     "bundlerRecompiling: function(0)",
+    "devServerRestarting: function(1)",
     "devServerStartTimeout: function(1)",
     "extensionJsRunnerError: function(1)",
     "noEntrypointsDetected: function(1)",

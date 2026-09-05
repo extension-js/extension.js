@@ -11,6 +11,10 @@
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import {
+  type DevSessionRestartReason,
+  requestDevSessionRestart
+} from '../../dev-server/session-restart'
 import type {DevOptions, PluginInterface} from '../../types'
 import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
@@ -199,6 +203,14 @@ export class ManifestFieldsChangeDetector {
           if (iconsDiff) this.pending.icons = iconsDiff
           if (jsonDiff) this.pending.json = jsonDiff
 
+          // A live session restarts itself; prev stays on the old snapshot so
+          // a restart that never happened still sees the diff on the next save.
+          if (this.tryAutoRestart(compiler)) {
+            this.pending = {}
+            done()
+            return
+          }
+
           this.prev = next
           done()
         } catch {
@@ -222,6 +234,26 @@ export class ManifestFieldsChangeDetector {
         )
       }
     )
+  }
+
+  private tryAutoRestart(compiler: Compiler): boolean {
+    const order: DevSessionRestartReason[] = [
+      'scripts',
+      'html',
+      'icons',
+      'json'
+    ]
+    for (const reason of order) {
+      const change = this.pending[reason]
+      if (!change) continue
+      return requestDevSessionRestart(compiler, {
+        reason,
+        pathAfter: change.pathAfter,
+        pathBefore: change.pathBefore,
+        manifestField: change.manifestField
+      })
+    }
+    return false
   }
 
   private emitErrors(compilation: Compilation): void {

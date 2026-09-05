@@ -1,6 +1,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  unbindDevSessionRestart
+} from '../../../../dev-server/session-restart'
 import {getAssetsFromHtml} from '../../html-lib/utils'
 import {ThrowIfRecompileIsNeeded} from '../../steps/throw-if-recompile-is-needed'
 
@@ -87,6 +92,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
 
   afterEach(() => {
     fs.rmSync(tmp, {recursive: true, force: true})
+    unbindDevSessionRestart()
   })
 
   it('pushes HtmlEntrypointChanged when js/css entries change', () => {
@@ -235,5 +241,30 @@ describe('ThrowIfRecompileIsNeeded', () => {
 
     expect(compiler._errors).toHaveLength(1)
     expect(compiler._errors[0].file).toBe('watched.html')
+  })
+
+  it('asks a live session to restart instead of pushing the error', async () => {
+    fs.mkdirSync(tmp, {recursive: true})
+    const html = path.join(tmp, 'index.html')
+    writeHtml(html, 'a.js', 'a.css')
+    const compiler = makeCompiler([html])
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      includeList: {page: html}
+    } as any).apply(compiler as any)
+
+    writeHtml(html, 'b.js', 'b.css')
+    compiler.runMake()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(compiler._errors).toHaveLength(0)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({reason: 'html', pathAfter: html})
+    )
   })
 })
