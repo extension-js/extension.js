@@ -1,11 +1,3 @@
-// ██╗      ██████╗  ██████╗ █████╗ ██╗     ███████╗███████╗
-// ██║     ██╔═══██╗██╔════╝██╔══██╗██║     ██╔════╝██╔════╝
-// ██║     ██║   ██║██║     ███████║██║     █████╗  ███████╗
-// ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
-// ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
-// ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
@@ -18,22 +10,21 @@ export function trackLocaleDependencies(
   manifestPath: string,
   projectRoot?: string
 ): void {
-  if (compilation.errors?.length) return
-
-  // Only the canonical `<projectRoot>/_locales/` is scanned; a `_locales/`
-  // next to the manifest is rejected at validation time with a migration error.
+  // Tracked even when this build errored: a broken messages.json is exactly
+  // the file whose fix must trigger the next rebuild.
   const localesFields = getLocales(manifestPath, projectRoot) || []
   let added = 0
-
   for (const thisResource of localesFields) {
-    if (fs.existsSync(thisResource) && path.extname(thisResource) === '.json') {
-      if (!compilation.fileDependencies.has(thisResource)) {
-        compilation.fileDependencies.add(thisResource)
-        added++
-      }
+    if (path.extname(thisResource) !== '.json') continue
+    if (!fs.existsSync(thisResource)) {
+      compilation.missingDependencies?.add(thisResource)
+      continue
+    }
+    if (!compilation.fileDependencies.has(thisResource)) {
+      compilation.fileDependencies.add(thisResource)
+      added++
     }
   }
-
   if (isDebug()) {
     console.log(messages.localesDepsTracked(added))
   }

@@ -1,19 +1,11 @@
-// ███╗   ███╗ █████╗ ███╗   ██╗██╗███████╗███████╗███████╗████████╗
-// ████╗ ████║██╔══██╗████╗  ██║██║██╔════╝██╔════╝██╔════╝╚══██╔══╝
-// ██╔████╔██║███████║██╔██╗ ██║██║█████╗  █████╗  ███████╗   ██║
-// ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
-// ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
-// ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
 import * as path from 'node:path'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
-// Firefox-only: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
-export function themeExperiment(manifest: Manifest) {
+export function themeExperiment(manifest: Manifest, manifestPath?: string) {
   const te = manifest.theme_experiment
   return (
     te && {
@@ -21,13 +13,24 @@ export function themeExperiment(manifest: Manifest) {
         ...te,
         ...(typeof te.stylesheet === 'string' && {
           stylesheet: getFilename(
-            `theme_experiment/${getBasename(te.stylesheet)}`,
+            manifestPageOutputTarget(
+              te.stylesheet,
+              `theme_experiment/${getBasename(te.stylesheet)}`,
+              manifestPath
+            ),
             te.stylesheet
           )
         }),
         ...(Array.isArray(te.stylesheets) && {
           stylesheets: te.stylesheets.map((s: string, i: number) =>
-            getFilename(`theme_experiment/stylesheet-${i}.css`, s)
+            getFilename(
+              manifestPageOutputTarget(
+                s,
+                `theme_experiment/stylesheet-${i}.css`,
+                manifestPath
+              ),
+              s
+            )
           )
         })
       }

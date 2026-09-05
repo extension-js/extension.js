@@ -387,7 +387,7 @@ describe('JsonPlugin', () => {
     expect(compilation.fileDependencies.has(p)).toBe(true)
   })
 
-  it('skips processing when compilation has errors', () => {
+  it('skips emission but keeps tracking when compilation has errors', () => {
     const p = '/abs/path/wont-run.json'
     const mockedFs = fs as any
     mockedFs.existsSync.mockReturnValue(true)
@@ -403,7 +403,24 @@ describe('JsonPlugin', () => {
 
     expect(calls.emit).toBe(0)
     expect(Object.keys(assets)).toHaveLength(0)
-    expect(harness.compilation.fileDependencies.size).toBe(0)
+    // The file is still watched: fixing it must rebuild without a restart.
+    expect(harness.compilation.fileDependencies.has(p)).toBe(true)
+  })
+
+  it('remembers a missing JSON file so its arrival rebuilds', () => {
+    const missing = '/abs/path/not-yet.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockReturnValue(false)
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {'custom.feature': missing}
+    } as any)
+    const harness = createCompilerHarness()
+    harness.compilation.missingDependencies = new Set<string>()
+    harness.applyAndRun(plugin)
+
+    expect(harness.compilation.missingDependencies.has(missing)).toBe(true)
   })
 
   it('warns (not errors) when a non-critical JSON file is missing', () => {

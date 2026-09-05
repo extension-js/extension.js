@@ -14,13 +14,13 @@ import {browserAction} from './browser_action'
 import {chromeSettingsOverrides} from './chrome_settings_overrides.ts'
 import {themeExperiment} from './theme_experiment'
 
-export function manifestV2(manifest: Manifest) {
+export function manifestV2(manifest: Manifest, manifestPath?: string) {
   return {
     ...background(manifest),
     ...browserAction(manifest),
     ...pageAction(manifest),
     ...sidebarAction(manifest),
     ...chromeSettingsOverrides(manifest),
-    ...themeExperiment(manifest)
+    ...themeExperiment(manifest, manifestPath)
   }
 }

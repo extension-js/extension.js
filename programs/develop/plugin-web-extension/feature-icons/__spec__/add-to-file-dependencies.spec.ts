@@ -83,4 +83,37 @@ describe('AddToFileDependencies step', () => {
       '/abs/assets/keep.png'
     ])
   })
+
+  it('keeps tracking when the compilation already has errors', async () => {
+    const {AddToFileDependencies} = await import(
+      '../steps/add-to-file-dependencies'
+    )
+    const {compiler, compilation} = makeCompiler()
+    compilation.errors.push(new Error('earlier failure'))
+    FS.existsSync.mockReturnValue(true)
+    new AddToFileDependencies({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {icons: ['/abs/assets/a.png']}
+    } as any).apply(compiler as any)
+    expect(Array.from(compilation.fileDependencies)).toEqual([
+      '/abs/assets/a.png'
+    ])
+  })
+
+  it('remembers a missing icon so its arrival rebuilds', async () => {
+    const {AddToFileDependencies} = await import(
+      '../steps/add-to-file-dependencies'
+    )
+    const {compiler, compilation} = makeCompiler()
+    compilation.missingDependencies = new Set<string>()
+    FS.existsSync.mockReturnValue(false)
+    new AddToFileDependencies({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {icons: ['/abs/assets/gone.png']}
+    } as any).apply(compiler as any)
+    expect(compilation.fileDependencies.size).toBe(0)
+    expect(Array.from(compilation.missingDependencies)).toEqual([
+      '/abs/assets/gone.png'
+    ])
+  })
 })

@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {sidePanel} from '../side_panel'
 
 describe('sidePanel (MV3 override)', () => {

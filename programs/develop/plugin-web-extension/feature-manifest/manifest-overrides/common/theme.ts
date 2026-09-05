@@ -1,21 +1,23 @@
-// ███╗   ███╗ █████╗ ███╗   ██╗██╗███████╗███████╗███████╗████████╗
-// ████╗ ████║██╔══██╗████╗  ██║██║██╔════╝██╔════╝██╔════╝╚══██╔══╝
-// ██╔████╔██║███████║██╔██╗ ██║██║█████╗  █████╗  ███████╗   ██║
-// ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██╔══╝  ╚════██║   ██║
-// ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ███████╗███████║   ██║
-// ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
-// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
-
 import * as path from 'node:path'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
+import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
-const rewriteThemeImage = (value: string) =>
-  getFilename(`theme/images/${getBasename(value)}`, value)
+// A public-hosted image ships at its public-relative path (the copier puts
+// it there), so the manifest must name that path, not the canonical one.
+const rewriteThemeImage = (value: string, manifestPath?: string) =>
+  getFilename(
+    manifestPageOutputTarget(
+      value,
+      `theme/images/${getBasename(value)}`,
+      manifestPath
+    ),
+    value
+  )
 
-export function theme(manifest: Manifest) {
+export function theme(manifest: Manifest, manifestPath?: string) {
   return (
     manifest.theme && {
       theme: {
@@ -29,8 +31,8 @@ export function theme(manifest: Manifest) {
             ).map(([key, value]) => [
               key,
               Array.isArray(value)
-                ? value.map(rewriteThemeImage)
-                : rewriteThemeImage(value)
+                ? value.map((entry) => rewriteThemeImage(entry, manifestPath))
+                : rewriteThemeImage(value, manifestPath)
             ])
           )
         })

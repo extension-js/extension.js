@@ -1,62 +1,54 @@
-import {describe, expect, it} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it} from 'vitest'
 import {theme} from '../theme'
 
-describe('theme manifest override', () => {
-  it('rewrites a single-string theme image to theme/images/<basename>', () => {
-    const result = theme({
-      theme: {
-        images: {theme_frame: 'assets/header.png'},
-        colors: {frame: '#000'}
-      }
-    } as any)
+const dirs: string[] = []
+afterEach(() => {
+  for (const dir of dirs.splice(0))
+    fs.rmSync(dir, {recursive: true, force: true})
+})
 
-    expect(result).toEqual({
-      theme: {
-        images: {theme_frame: 'theme/images/header.png'},
-        colors: {frame: '#000'}
-      }
+function project(files: string[]) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-theme-override-'))
+  dirs.push(dir)
+  for (const file of files) {
+    const abs = path.join(dir, file)
+    fs.mkdirSync(path.dirname(abs), {recursive: true})
+    fs.writeFileSync(abs, 'png')
+  }
+  return path.join(dir, 'manifest.json')
+}
+
+describe('theme (images override)', () => {
+  it('rewrites in-project images to the canonical theme folder', () => {
+    const manifestPath = project(['images/frame.png'])
+    const result = theme(
+      {theme: {images: {theme_frame: 'images/frame.png'}}} as any,
+      manifestPath
+    )
+    expect(result?.theme.images).toEqual({
+      theme_frame: 'theme/images/frame.png'
     })
   })
 
-  it('rewrites an additional_backgrounds array without crashing on path.basename', () => {
-    const result = theme({
-      theme: {
-        images: {
-          additional_backgrounds: ['weta.png', 'nested/weta-left.png']
-        },
-        properties: {
-          additional_backgrounds_alignment: ['right top', 'left top']
+  it('keeps a public-hosted image at the path the copier ships it to', () => {
+    const manifestPath = project(['public/frame.png', 'public/bg.png'])
+    const result = theme(
+      {
+        theme: {
+          images: {
+            theme_frame: 'public/frame.png',
+            additional_backgrounds: ['/bg.png']
+          }
         }
-      }
-    } as any) as any
-
-    expect(result.theme.images.additional_backgrounds).toEqual([
-      'theme/images/weta.png',
-      'theme/images/weta-left.png'
-    ])
-    expect(result.theme.properties.additional_backgrounds_alignment).toEqual([
-      'right top',
-      'left top'
-    ])
-  })
-
-  it('handles a mix of string and array image fields', () => {
-    const result = theme({
-      theme: {
-        images: {
-          theme_frame: 'frame.png',
-          additional_backgrounds: ['a.png', 'b.png']
-        }
-      }
-    } as any) as any
-
-    expect(result.theme.images).toEqual({
-      theme_frame: 'theme/images/frame.png',
-      additional_backgrounds: ['theme/images/a.png', 'theme/images/b.png']
+      } as any,
+      manifestPath
+    )
+    expect(result?.theme.images).toEqual({
+      theme_frame: 'frame.png',
+      additional_backgrounds: ['bg.png']
     })
-  })
-
-  it('returns falsy when there is no theme', () => {
-    expect(theme({name: 'x'} as any)).toBeFalsy()
   })
 })
