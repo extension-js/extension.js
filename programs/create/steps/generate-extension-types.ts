@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {renderExtensionEnvTypes} from '../../develop/lib/extension-env-template'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 
@@ -17,19 +18,7 @@ export async function generateExtensionTypes(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
-  // Always use the published package path to ensure compatibility in monorepos
-  const typePath = 'extension'
-  const fileContent = `\
-// Required Extension.js types for TypeScript projects.
-// This file is auto-generated and should not be excluded.
-// If you need additional types, consider creating a new *.d.ts file and
-// referencing it in the "include" array of your tsconfig.json file.
-// See https://www.typescriptlang.org/tsconfig#include for more information.
-/// <reference types="${typePath}/types" />
-
-// Polyfill types for browser.* APIs
-/// <reference types="${typePath}/types/polyfill" />
-`
+  const fileContent = renderExtensionEnvTypes()
 
   try {
     await fs.mkdir(projectPath, {recursive: true})
