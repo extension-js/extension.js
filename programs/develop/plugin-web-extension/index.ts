@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
@@ -19,6 +18,7 @@ import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
+import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
 import {
   settingsOverridesIconFields,
@@ -40,7 +40,7 @@ export class WebExtensionPlugin {
   public apply(compiler: Compiler): void {
     const manifestPath = this.manifestPath
 
-    const manifestFieldsData = getManifestFieldsData({
+    const manifestFieldsData = getResolvedManifestFieldsData({
       manifestPath,
       browser: this.browser
     })

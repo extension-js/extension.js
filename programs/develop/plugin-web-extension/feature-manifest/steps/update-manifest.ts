@@ -28,7 +28,10 @@ import {getManifestOverrides} from '../manifest-overrides'
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 
 import {humanLine} from '../../../dev-server/lifecycle-stream'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {isDebug} from '../../../lib/messaging'
+import {reportToCompilation} from '../../shared/compilation-issues'
+import {shouldDropPageAction} from '../../shared/html-surfaces'
 import * as messages from '../messages'
 import {patchChromiumBackground} from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
@@ -82,7 +85,20 @@ export class UpdateManifest {
             if (compilation.errors.length > 0) return
 
             const manifest = getManifestContent(compilation, this.manifestPath)
-
+            if (
+              shouldDropPageAction(
+                filterKeysForThisBrowser(manifest, this.browser),
+                this.browser
+              )
+            ) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.pageActionNotSupportedByBrowser(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
             let patchedManifest = buildCanonicalManifest(
               this.manifestPath,
               manifest,

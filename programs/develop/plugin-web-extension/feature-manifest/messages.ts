@@ -130,3 +130,10 @@ export function manifestDepsTracked(addedCount: number) {
 export function manifestLegacyWarningsSummary(count: number) {
   return `${prefix('debug')} manifest legacyWarnings=${String(count)}`
 }
+
+export function pageActionNotSupportedByBrowser(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} does not show the ${colors.yellow('page_action')} address bar surface.\n` +
+    'The field was dropped from the built manifest and its page was not emitted.'
+  )
+}

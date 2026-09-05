@@ -10,7 +10,6 @@
 // reading manifest fields once per change and diffing all categories at once.
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import {
   type DevSessionRestartReason,
   requestDevSessionRestart
@@ -20,6 +19,7 @@ import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
 import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
 import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
+import {getResolvedManifestFieldsData} from './manifest-fields'
 
 function isCriticalJsonFeatureKey(key: string): boolean {
   return (
@@ -116,7 +116,7 @@ export class ManifestFieldsChangeDetector {
   }
 
   private readSnapshot(): Snapshot {
-    const fields = getManifestFieldsData({
+    const fields = getResolvedManifestFieldsData({
       manifestPath: this.manifestPath,
       browser: this.browser
     })
