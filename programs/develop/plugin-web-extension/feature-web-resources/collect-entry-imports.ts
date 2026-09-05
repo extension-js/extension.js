@@ -62,13 +62,16 @@ export function collectReferencedRuntimePayloads(
     if (!isExcludedFromWar(hit)) found.add(hit)
   }
 
+  // The public copier can name an asset with backslashes on Windows while
+  // the bundle text always refers to it with forward slashes.
   const eligible = emittedAssetNames
+    .map((name) => unixify(name))
     .filter((name) => !isExcludedFromWar(name))
     .sort((a, b) => b.length - a.length)
 
   for (const asset of eligible) {
     if (source.includes(asset)) {
-      found.add(unixify(asset))
+      found.add(asset)
     }
   }
 
