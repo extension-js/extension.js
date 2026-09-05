@@ -143,7 +143,8 @@ export {filterKeysForThisBrowser}
 export function buildCanonicalManifest(
   manifestPath: string,
   manifest: Manifest,
-  browser: DevOptions['browser']
+  browser: DevOptions['browser'],
+  projectPath?: string
 ): Manifest {
   const filteredManifest = filterKeysForThisBrowser(
     manifest,
@@ -158,6 +159,6 @@ export function buildCanonicalManifest(
 
   return {
     ...forOverrides,
-    ...JSON.parse(getManifestOverrides(manifestPath, forOverrides))
+    ...JSON.parse(getManifestOverrides(manifestPath, forOverrides, projectPath))
   } as Manifest
 }

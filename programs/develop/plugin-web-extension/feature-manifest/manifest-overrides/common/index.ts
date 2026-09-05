@@ -24,7 +24,11 @@ import {theme} from './theme'
 import {userScripts} from './user_scripts'
 import {webAccessibleResources} from './web_accessible_resources'
 
-export function manifestCommon(manifest: Manifest, manifestPath?: string) {
+export function manifestCommon(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return {
     ...backgroundPage(manifest),
     ...chromeUrlOverrides(manifest, manifestPath),
@@ -36,7 +40,7 @@ export function manifestCommon(manifest: Manifest, manifestPath?: string) {
     ...optionsPage(manifest, manifestPath),
     ...optionsUi(manifest, manifestPath),
     ...sandbox(manifest, manifestPath),
-    ...storage(manifest, manifestPath),
+    ...storage(manifest, manifestPath, projectPath),
     ...theme(manifest, manifestPath),
     ...userScripts(manifest),
     ...webAccessibleResources(manifest),

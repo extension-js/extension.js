@@ -14,12 +14,16 @@ import {declarativeNetRequest} from './declarative_net_request'
 import {hostPermissions} from './host_permissions'
 import {sidePanel} from './side_panel'
 
-export function manifestV3(manifest: Manifest, manifestPath?: string) {
+export function manifestV3(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return {
     ...action(manifest),
     ...pageAction(manifest),
     ...backgroundServiceWorker(manifest),
-    ...declarativeNetRequest(manifest, manifestPath),
+    ...declarativeNetRequest(manifest, manifestPath, projectPath),
     ...hostPermissions(manifest),
     ...sidePanel(manifest)
   }

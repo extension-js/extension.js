@@ -133,6 +133,31 @@ describe('declarativeNetRequest (MV3 override)', () => {
     }
   })
 
+  it('keeps a plain-spelled ruleset that public/ owns at the output root', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dnr-plain-'))
+    try {
+      fs.mkdirSync(path.join(dir, 'public', 'dnr'), {recursive: true})
+      fs.writeFileSync(path.join(dir, 'public', 'dnr', 'block.json'), '[]')
+      const result = declarativeNetRequest(
+        {
+          manifest_version: 3,
+          declarative_net_request: {
+            rule_resources: [
+              {id: 'ruleset_1', enabled: true, path: 'dnr/block.json'}
+            ]
+          }
+        } as any,
+        path.join(dir, 'manifest.json')
+      )
+
+      expect(result?.declarative_net_request?.rule_resources?.[0].path).toBe(
+        'dnr/block.json'
+      )
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('rewrites a leading-slash ruleset at the project root to the canonical path', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dnr-root-'))
     try {

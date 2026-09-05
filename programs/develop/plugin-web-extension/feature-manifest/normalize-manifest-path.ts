@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
 
 export function normalizeManifestOutputPath(originalPath: string) {
   if (!originalPath) return originalPath
@@ -53,6 +54,36 @@ export function manifestPageOutputTarget(
     }
     return normalizeManifestOutputPath(unixPath)
   }
+
+  return compiledTarget
+}
+
+// Output path for a manifest JSON resource (a DNR ruleset, a managed schema).
+// Same rules as pages, plus the plain spelling (`rules.json`): a file that is
+// missing beside the manifest but present in the public folder the copier
+// ships lands at the output root under its own name, so the built manifest
+// must name that copy. feature-json skips the emit for the same file, keep
+// the two agreed. An in-project file keeps its compiled slot.
+export function manifestJsonOutputTarget(
+  raw: string,
+  compiledTarget: string,
+  manifestPath?: string,
+  projectPath?: string
+): string {
+  const unixPath = raw.replace(/\\/g, '/')
+
+  if (/^(?:\/public\/|(?:\.\/)?public\/|\/)/i.test(unixPath) || !manifestPath) {
+    return manifestPageOutputTarget(unixPath, compiledTarget, manifestPath)
+  }
+
+  const rest = unixPath.replace(/^\.\//, '')
+  if (!rest || rest.split('/').includes('..')) return compiledTarget
+
+  const manifestDir = path.dirname(manifestPath)
+  if (fs.existsSync(path.join(manifestDir, rest))) return compiledTarget
+
+  const {publicDir} = inspectPublicFolders(manifestPath, projectPath)
+  if (publicDir && fs.existsSync(path.join(publicDir, rest))) return rest
 
   return compiledTarget
 }
