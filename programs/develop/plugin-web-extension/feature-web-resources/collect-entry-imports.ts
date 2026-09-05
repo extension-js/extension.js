@@ -141,6 +141,83 @@ function getAssetSource(compilation: Compilation, filename: string): string {
   return ''
 }
 
+type ChunkGroupLike = {
+  chunks?: Iterable<unknown>
+  getChildren?: () => Iterable<ChunkGroupLike>
+}
+
+type ChunkWithAsync = ChunkLike & {
+  getAllAsyncChunks?: () => Iterable<ChunkLike>
+}
+
+// The JavaScript chunks a content script loads on demand through import().
+// They are not initial chunks, so the entry walk above never sees them, and
+// Chrome refuses to load them from a page unless the manifest lists them.
+export function collectContentScriptAsyncChunkFiles(
+  compilation: Compilation
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {}
+  // Minimal compilations in unit specs carry no entrypoints map.
+  if (typeof compilation.entrypoints?.forEach !== 'function') return result
+
+  compilation.entrypoints.forEach((entry, entryName) => {
+    if (!String(entryName).startsWith('content_scripts/')) return
+
+    const initial = new Set<string>()
+    for (const chunk of toFileArray(
+      (entry as unknown as ChunkGroupLike).chunks as Iterable<string>
+    )) {
+      for (const file of toFileArray((chunk as unknown as ChunkLike).files)) {
+        initial.add(file)
+      }
+    }
+
+    const asyncFiles = new Set<string>()
+    const visitChunk = (chunk: ChunkLike) => {
+      for (const file of toFileArray(chunk.files)) {
+        if (!file.endsWith('.js') || initial.has(file)) continue
+        asyncFiles.add(unixify(file))
+      }
+    }
+    for (const chunk of toFileArray(
+      (entry as unknown as ChunkGroupLike).chunks as Iterable<string>
+    )) {
+      const withAsync = chunk as unknown as ChunkWithAsync
+      if (typeof withAsync.getAllAsyncChunks === 'function') {
+        for (const asyncChunk of withAsync.getAllAsyncChunks()) {
+          visitChunk(asyncChunk)
+        }
+      }
+    }
+    // Chunk groups reached through children cover bundlers without
+    // getAllAsyncChunks on the chunk itself.
+    const seenGroups = new Set<ChunkGroupLike>()
+    const visitGroup = (group: ChunkGroupLike) => {
+      if (seenGroups.has(group)) return
+      seenGroups.add(group)
+      for (const chunk of toFileArray(group.chunks as Iterable<string>)) {
+        visitChunk(chunk as unknown as ChunkLike)
+      }
+      if (typeof group.getChildren === 'function') {
+        for (const child of group.getChildren()) visitGroup(child)
+      }
+    }
+    if (
+      typeof (entry as unknown as ChunkGroupLike).getChildren === 'function'
+    ) {
+      for (const child of (
+        entry as unknown as ChunkGroupLike
+      ).getChildren?.() || []) {
+        visitGroup(child)
+      }
+    }
+
+    if (asyncFiles.size > 0) result[entryName] = Array.from(asyncFiles).sort()
+  })
+
+  return result
+}
+
 export function collectContentScriptEntryImports(
   compilation: Compilation,
   includeList?: FilepathList

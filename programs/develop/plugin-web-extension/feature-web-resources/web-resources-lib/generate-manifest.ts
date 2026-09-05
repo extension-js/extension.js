@@ -16,6 +16,7 @@ import {
   setCurrentManifestContent
 } from '../../feature-manifest/manifest-lib/manifest'
 import {
+  collectContentScriptAsyncChunkFiles,
   collectReferencedRuntimePayloads,
   listEmittedAssetNames
 } from '../collect-entry-imports'
@@ -285,6 +286,31 @@ export function generateManifestPatches(
             webAccessibleResourcesV2.push(resource)
           }
         })
+      }
+    }
+  }
+
+  // A chunk a content script loads through import() is fetched from the
+  // extension origin by the page, so it must be web accessible for that
+  // script's matches, in production as in dev (where a blanket glob covers it).
+  const asyncChunks = collectContentScriptAsyncChunkFiles(compilation)
+  for (const [entryName, chunkFiles] of Object.entries(asyncChunks)) {
+    const contentScript = canonicalManifest.content_scripts?.find(
+      (script: {js?: string[]}) =>
+        script.js?.some((jsFile: string) => jsFile.includes(entryName))
+    )
+    if (!contentScript) continue
+    if (canonicalManifest.manifest_version === 3) {
+      mergeIntoV3Group(
+        webAccessibleResourcesV3,
+        cleanMatches(contentScript.matches || []),
+        chunkFiles
+      )
+    } else {
+      for (const file of chunkFiles) {
+        if (!webAccessibleResourcesV2.includes(file)) {
+          webAccessibleResourcesV2.push(file)
+        }
       }
     }
   }
