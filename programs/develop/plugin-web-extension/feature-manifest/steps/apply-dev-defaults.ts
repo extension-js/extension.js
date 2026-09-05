@@ -145,6 +145,61 @@ export class ApplyDevDefaults {
                   }
                 : {}
 
+            // Dev injects what the bridge needs, but a permission or host
+            // the author kept optional turns required the moment dev lists
+            // it, so every promotion is named rather than left silent.
+            const pushDevWarning = (name: string, text: string) => {
+              const WebpackErrorCtor = compiler.rspack?.WebpackError
+              const warning = WebpackErrorCtor
+                ? new WebpackErrorCtor(text)
+                : (new Error(text) as Error)
+              warning.name = name
+              if (!compilation.warnings) compilation.warnings = []
+              compilation.warnings.push(
+                warning as (typeof compilation.warnings)[number]
+              )
+            }
+            const optionalPermissions = new Set<string>(
+              (canonicalManifest.optional_permissions as string[]) || []
+            )
+            const optionalHosts = new Set<string>([
+              ...((canonicalManifest.optional_host_permissions as string[]) ||
+                []),
+              ...(canonicalManifest.manifest_version === 3
+                ? []
+                : [...optionalPermissions])
+            ])
+            const devInjectedPermissions =
+              canonicalManifest.manifest_version === 3
+                ? ['scripting', 'tabs', 'management', 'storage']
+                : ['tabs', 'storage']
+            for (const permission of devInjectedPermissions) {
+              if (
+                optionalPermissions.has(permission) &&
+                !((canonicalManifest.permissions as string[]) || []).includes(
+                  permission
+                )
+              ) {
+                pushDevWarning(
+                  'DevPromotedOptionalPermissionWarning',
+                  `manifest.json lists "${permission}" under optional_permissions, but the dev build ` +
+                    `needs it and lists it under permissions too. Listed in both means required, ` +
+                    `so in development it is granted at install and your runtime request flow ` +
+                    `never runs. The production build keeps it optional.`
+                )
+              }
+            }
+            for (const match of contentScriptMatches) {
+              if (optionalHosts.has(match)) {
+                pushDevWarning(
+                  'DevPromotedOptionalHostWarning',
+                  `manifest.json keeps "${match}" optional, but a content script matches it and the ` +
+                    `dev build grants that host at install so it can re-inject the script on save. ` +
+                    `In development the host is required; the production build keeps it optional.`
+                )
+              }
+            }
+
             const patchedManifest = {
               ...canonicalManifest,
               content_security_policy:
@@ -188,11 +243,12 @@ export class ApplyDevDefaults {
 
             // Warn when the user's own source leans on a permission only the dev
             // instrumentation injected: it works in dev and fails in production.
+            // An optional permission counts as undeclared here: the shipped
+            // build has it only after a runtime request the dev build skips.
             try {
-              const declared = new Set<string>([
-                ...((canonicalManifest.permissions as string[]) || []),
-                ...((canonicalManifest.optional_permissions as string[]) || [])
-              ])
+              const declared = new Set<string>(
+                (canonicalManifest.permissions as string[]) || []
+              )
               const injectedForEra =
                 canonicalManifest.manifest_version === 3
                   ? INJECTED_PERMISSION_APIS
@@ -203,20 +259,21 @@ export class ApplyDevDefaults {
                 injectedForEra
               )
               for (const [api, file] of uses) {
-                const WebpackErrorCtor = compiler.rspack?.WebpackError
-                const text =
-                  `manifest.json does not declare the "${api}" permission, but ` +
-                  `${path.relative(path.dirname(this.manifestPath), file)} uses chrome.${api}. ` +
-                  `It works in development only because the dev instrumentation ` +
-                  `injects "${api}": the production build will fail at runtime. ` +
-                  `Add "${api}" to permissions in manifest.json.`
-                const warning = WebpackErrorCtor
-                  ? new WebpackErrorCtor(text)
-                  : (new Error(text) as Error)
-                warning.name = 'DevInjectedPermissionWarning'
-                compilation.warnings.push(
-                  warning as (typeof compilation.warnings)[number]
+                const relative = path.relative(
+                  path.dirname(this.manifestPath),
+                  file
                 )
+                const text = optionalPermissions.has(api)
+                  ? `manifest.json only lists the "${api}" permission under optional_permissions, but ` +
+                    `${relative} uses chrome.${api}. It works in development only because the dev ` +
+                    `instrumentation injects "${api}" as required: the production build has it only ` +
+                    `after a runtime chrome.permissions.request, so guard the use or move "${api}" to permissions.`
+                  : `manifest.json does not declare the "${api}" permission, but ` +
+                    `${relative} uses chrome.${api}. ` +
+                    `It works in development only because the dev instrumentation ` +
+                    `injects "${api}": the production build will fail at runtime. ` +
+                    `Add "${api}" to permissions in manifest.json.`
+                pushDevWarning('DevInjectedPermissionWarning', text)
               }
             } catch {
               // diagnostics only; never fail the compile over the scan
