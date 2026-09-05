@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {resolveDevelopInstallRoot} from './develop-context'
+import {prefix} from './messaging'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
@@ -21,6 +22,17 @@ import {hasProjectDependency} from './project-manifest'
 
 // Verbose-mode escape hatch shared with the rest of the develop pipeline;
 // EXTENSION_VERBOSE=1 restores the full structured diagnostic payload.
+// A best-effort step that fails keeps its fallback by design, and says so
+// only under EXTENSION_VERBOSE=1 so a healthy run stays as quiet as today.
+function debugSwallowed(step: string, error: unknown): void {
+  if (!isVerboseMode()) return
+  console.log(
+    `${prefix('debug')} optional-deps ${step}: ${String(
+      (error as Error)?.message || error
+    )}`
+  )
+}
+
 function isVerboseMode(): boolean {
   return String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 }
@@ -141,7 +153,8 @@ function tryResolveWithBase(
   try {
     const req = createRequire(packageJsonPath(basePath))
     return req.resolve(dependencyId)
-  } catch {
+  } catch (error) {
+    debugSwallowed(`resolve ${dependencyId} from ${basePath}`, error)
     return undefined
   }
 }
@@ -163,7 +176,8 @@ function resolveDependency(
   try {
     const resolvedPath = require.resolve(dependencyId, {paths: bases})
     return {resolvedPath, basePath: projectPath}
-  } catch {
+  } catch (error) {
+    debugSwallowed(`resolve ${dependencyId} from the project bases`, error)
     return undefined
   }
 }
@@ -190,7 +204,8 @@ function declaresDependency(
 ): boolean {
   try {
     return hasProjectDependency(projectPath, dependencyId)
-  } catch {
+  } catch (error) {
+    debugSwallowed(`read the project manifest for ${dependencyId}`, error)
     return false
   }
 }
@@ -227,7 +242,8 @@ function listInstalledPackageDirs(nodeModulesDir: string): string[] {
     }
 
     return packageDirs
-  } catch {
+  } catch (error) {
+    debugSwallowed('list the installed package folders', error)
     return []
   }
 }
@@ -295,7 +311,8 @@ function readPackageJsonFromDir(
   try {
     const raw = fs.readFileSync(manifestPath, 'utf8')
     return JSON.parse(raw || '{}')
-  } catch {
+  } catch (error) {
+    debugSwallowed(`read ${manifestPath}`, error)
     return undefined
   }
 }
@@ -349,8 +366,9 @@ function resolveFromPackageDir(packageDir: string): string | undefined {
 
   try {
     return require.resolve(packageDir)
-  } catch {
-    // fall through to package.json guided fallback
+  } catch (error) {
+    // Fall through to the package.json guided fallback.
+    debugSwallowed(`resolve the package folder ${packageDir}`, error)
   }
 
   const pkg = readPackageJsonFromDir(packageDir)
@@ -378,7 +396,8 @@ function dedupeFailures(packageIds: string[]) {
 function resolveRealPathSafe(targetPath: string): string {
   try {
     return fs.realpathSync(targetPath)
-  } catch {
+  } catch (error) {
+    debugSwallowed(`realpath ${targetPath}`, error)
     return path.resolve(targetPath)
   }
 }
@@ -439,7 +458,8 @@ function evaluateModuleContextRule(
       req(rule.packageId)
     }
     return undefined
-  } catch {
+  } catch (error) {
+    debugSwallowed(`verify ${rule.packageId}`, error)
     return rule.packageId
   }
 }
