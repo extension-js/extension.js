@@ -19,9 +19,15 @@ import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/u
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
+import {
+  getJsxImportSource,
+  isUsingJsxFramework,
+  swcParserForFile
+} from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
-import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
-import {isUsingReact, maybeUseReact} from './js-tools/react'
+import {maybeUsePreact} from './js-tools/preact'
+import {maybeUseReact} from './js-tools/react'
+import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
@@ -153,8 +159,10 @@ export class JsFrameworksPlugin {
           : rule.loader
             ? [{loader: rule.loader}]
             : []
-      const hasReactRefreshLoader = uses.some((useEntry) =>
-        String(useEntry?.loader || '').includes('react-refresh-loader')
+      const hasReactRefreshLoader = uses.some(
+        (useEntry) =>
+          typeof useEntry === 'object' &&
+          String(useEntry?.loader || '').includes('react-refresh-loader')
       )
 
       if (hasReactRefreshLoader) {
@@ -306,6 +314,7 @@ export class JsFrameworksPlugin {
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath, mode)
+    const maybeInstallSolid = await maybeUseSolid(projectPath)
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
@@ -323,6 +332,7 @@ export class JsFrameworksPlugin {
       ...(maybeInstallReact?.alias || {}),
       ...(maybeInstallPreact?.alias || {}),
       ...(maybeInstallVue?.alias || {}),
+      ...(maybeInstallSolid?.alias || {}),
       ...(maybeInstallSvelte?.alias || {}),
       ...compiler.options.resolve.alias
     }
@@ -374,7 +384,17 @@ export class JsFrameworksPlugin {
       ]
     }
 
-    const swcLoaderBase = {
+    const jsxInPlainJs = isUsingJsxFramework(projectPath)
+    const jsxImportSource = getJsxImportSource(projectPath)
+    const isPlatformModule = (resourcePath: string) =>
+      platformModulePaths.has(toResourceKey(resourcePath))
+
+    // One loader entry per file kind: the extension picks the parser, the
+    // rule picks module-ness, the installed framework picks the JSX runtime.
+    const swcLoaderFor = (
+      resourcePath: string,
+      options: {refresh: boolean; module: boolean}
+    ) => ({
       loader: 'builtin:swc-loader',
       options: {
         sync: true,
@@ -384,41 +404,35 @@ export class JsFrameworksPlugin {
         // Keep SWC transform-only: Rspack owns production minification, and disabling
         // SWC minify preserves magic comments like /* webpackIgnore: true */.
         minify: false,
-        // Auto-detect script vs module per file: content scripts and background.scripts
-        // load as classic sloppy scripts where octal escapes are legal; forced ESM rejects them.
-        isModule: 'unknown',
+        // Content scripts and background.scripts load as classic sloppy scripts
+        // where octal escapes are legal, so they keep per-file detection. Files
+        // the browser loads as modules compile as modules: in script form the
+        // automatic JSX runtime becomes a require() no page can run.
+        isModule: options.module ? true : 'unknown',
         sourceMap: wantsSourceMaps,
         env: {targets},
         jsc: {
-          parser: {
-            syntax: preferTypeScript ? 'typescript' : 'ecmascript',
-            tsx: preferTypeScript
-              ? true
-              : isUsingTypeScript(projectPath) &&
-                (isUsingReact(projectPath) || isUsingPreact(projectPath)),
-            jsx:
-              !preferTypeScript &&
-              (isUsingReact(projectPath) || isUsingPreact(projectPath)),
-            dynamicImport: true
-          },
+          parser: swcParserForFile(resourcePath, jsxInPlainJs),
           transform: {
             react: {
               development: mode === 'development',
               runtime: 'automatic',
-              importSource: 'react',
-              ...(isUsingPreact(projectPath)
-                ? {
-                    pragma: 'h',
-                    pragmaFrag: 'Fragment',
-                    throwIfNamespace: true,
-                    useBuiltins: false
-                  }
-                : {})
+              importSource: jsxImportSource,
+              refresh: options.refresh
             }
           }
         }
       }
-    }
+    })
+
+    // Static variants (not a use() function): vue-loader's plugin recompiles
+    // every rule and keeps only static loader entries.
+    const parserVariants = (options: {refresh: boolean; module: boolean}) => [
+      {test: /\.(tsx|mtsx)$/, use: swcLoaderFor('file.tsx', options)},
+      {test: /\.(ts|mts|cts)$/, use: swcLoaderFor('file.ts', options)},
+      {test: /\.(jsx|mjsx)$/, use: swcLoaderFor('file.jsx', options)},
+      {use: swcLoaderFor('file.js', options)}
+    ]
 
     const swcRules: LooseRuleSetRule[] = [
       {
@@ -429,43 +443,13 @@ export class JsFrameworksPlugin {
             Array.from(new Set([tsRoot, ...swcIncludeDirs]))
           ).some((dir) => isSubPath(resourcePath, dir)) &&
           isfeatureScriptsContentLike(resourcePath),
-        use: {
-          ...swcLoaderBase,
-          options: {
-            ...swcLoaderBase.options,
-            jsc: {
-              ...swcLoaderBase.options.jsc,
-              transform: {
-                ...swcLoaderBase.options.jsc.transform,
-                react: {
-                  ...swcLoaderBase.options.jsc.transform.react,
-                  refresh: false
-                }
-              }
-            }
-          }
-        }
+        oneOf: parserVariants({refresh: false, module: false})
       },
       {
         ...swcRuleBase,
         issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
-        use: {
-          ...swcLoaderBase,
-          options: {
-            ...swcLoaderBase.options,
-            jsc: {
-              ...swcLoaderBase.options.jsc,
-              transform: {
-                ...swcLoaderBase.options.jsc.transform,
-                react: {
-                  ...swcLoaderBase.options.jsc.transform.react,
-                  refresh: false
-                }
-              }
-            }
-          }
-        }
+        oneOf: parserVariants({refresh: false, module: false})
       },
       {
         ...swcRuleBase,
@@ -477,39 +461,29 @@ export class JsFrameworksPlugin {
         // per file, matching browser loading; platform-declared modules get ESM below.
         exclude: [
           ...swcRuleBase.exclude,
-          (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
+          (resourcePath: string) => isfeatureScriptsContentLike(resourcePath),
+          (resourcePath: string) => isPlatformModule(resourcePath)
         ],
-        use: {
-          ...swcLoaderBase,
-          options: {
-            ...swcLoaderBase.options,
-            jsc: {
-              ...swcLoaderBase.options.jsc,
-              transform: {
-                ...swcLoaderBase.options.jsc.transform,
-                react: {
-                  ...swcLoaderBase.options.jsc.transform.react,
-                  refresh: mode === 'development'
-                }
-              }
-            }
-          }
-        }
+        oneOf: parserVariants({refresh: mode === 'development', module: false})
       },
-      // Platform-declared ES modules only; rspack merges matching rules, and the
+      // Platform-declared ES modules only, compiled as modules; the
       // content-script exclusion keeps a doubly-declared file's cs instance classic.
       ...(platformModulePaths.size > 0
         ? [
             {
               test: swcRuleBase.test,
-              include: (resourcePath: string) =>
-                platformModulePaths.has(toResourceKey(resourcePath)),
+              issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+              include: (resourcePath: string) => isPlatformModule(resourcePath),
               exclude: [
                 (resourcePath: string) =>
                   isfeatureScriptsContentLike(resourcePath)
               ],
               resourceQuery: {not: /__extensionjs_classic_concat__/},
-              type: 'javascript/esm'
+              type: 'javascript/esm',
+              oneOf: parserVariants({
+                refresh: mode === 'development',
+                module: true
+              })
             }
           ]
         : [])
@@ -553,6 +527,7 @@ export class JsFrameworksPlugin {
       if (maybeInstallReact) integrations.push('React')
       if (maybeInstallPreact) integrations.push('Preact')
       if (maybeInstallVue) integrations.push('Vue')
+      if (maybeInstallSolid) integrations.push('Solid')
       if (maybeInstallSvelte) integrations.push('Svelte')
       if (preferTypeScript) integrations.push('TypeScript')
 

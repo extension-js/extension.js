@@ -55,7 +55,12 @@ vi.mock('../js-tools/preact', () => ({
   maybeUsePreact: vi.fn(async () => mockedPreact)
 }))
 vi.mock('../js-tools/vue', () => ({
+  isUsingVue: vi.fn(() => false),
   maybeUseVue: vi.fn(async () => mockedVue)
+}))
+vi.mock('../js-tools/solid', () => ({
+  isUsingSolid: vi.fn(() => false),
+  maybeUseSolid: vi.fn(async () => undefined)
 }))
 vi.mock('../js-tools/svelte', () => ({
   maybeUseSvelte: vi.fn(async () => mockedSvelte)
@@ -126,6 +131,16 @@ function createCompiler(
   } as any
 }
 
+// The swc rule carries one loader variant per file kind; pick the one for a resource.
+function swcOptions(rule: any, resource = '/project/src/index.ts') {
+  const variant = (rule?.oneOf || []).find(
+    (candidate: any) => !candidate.test || candidate.test.test(resource)
+  )
+  const use = variant?.use ?? rule?.use
+  const entry = Array.isArray(use) ? use[0] : use
+  return entry?.options
+}
+
 describe('JsFrameworksPlugin', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -156,9 +171,16 @@ describe('JsFrameworksPlugin', () => {
     expect(String(swcRule.test)).toContain('js')
     // A chrome build follows only the chrome floor; the gecko floor stays
     // out of the compiler (it belongs to the firefox build).
-    expect(swcRule.use?.options?.env?.targets).toEqual(['chrome >= 120'])
-    expect(swcRule.use?.options?.jsc?.parser?.syntax).toBe('typescript')
-    expect(swcRule.use?.options?.sourceMap).toBe(true)
+    expect(swcOptions(swcRule)?.env?.targets).toEqual(['chrome >= 120'])
+    expect(swcOptions(swcRule)?.jsc?.parser?.syntax).toBe('typescript')
+    expect(swcOptions(swcRule)?.jsc?.parser?.tsx).toBe(false)
+    expect(
+      swcOptions(swcRule, '/project/src/popup.tsx')?.jsc?.parser?.tsx
+    ).toBe(true)
+    expect(
+      swcOptions(swcRule, '/project/src/popup.jsx')?.jsc?.parser
+    ).toMatchObject({syntax: 'ecmascript', jsx: true})
+    expect(swcOptions(swcRule)?.sourceMap).toBe(true)
 
     const tests = compiler.options.module.rules.map((r: any) => String(r.test))
     expect(tests.some((t: string) => t.includes('\\.vue'))).toBe(true)
@@ -187,7 +209,7 @@ describe('JsFrameworksPlugin', () => {
     await (compiler.hooks.beforeRun as any)._cb()
 
     const swcRule = compiler.options.module.rules[0]
-    expect(swcRule?.use?.options?.minify).toBe(false)
+    expect(swcOptions(swcRule)?.minify).toBe(false)
   })
 
   it('enables SWC sourcemaps in production when devtool is enabled', async () => {
@@ -201,7 +223,7 @@ describe('JsFrameworksPlugin', () => {
     await (compiler.hooks.beforeRun as any)._cb()
 
     const swcRule = compiler.options.module.rules[0]
-    expect(swcRule?.use?.options?.sourceMap).toBe(true)
+    expect(swcOptions(swcRule)?.sourceMap).toBe(true)
   })
 
   it('disables SWC sourcemaps in development when devtool is explicitly false', async () => {
@@ -214,7 +236,7 @@ describe('JsFrameworksPlugin', () => {
     await plugin.apply(compiler)
 
     const swcRule = compiler.options.module.rules[0]
-    expect(swcRule?.use?.options?.sourceMap).toBe(false)
+    expect(swcOptions(swcRule)?.sourceMap).toBe(false)
   })
 
   it('does not add a second vue-loader rule when the user already configured one', async () => {

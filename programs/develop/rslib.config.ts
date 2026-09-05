@@ -38,6 +38,7 @@ const externals = [
   '@vue/compiler-sfc',
   'vue-style-loader',
   'svelte-loader',
+  'solid-js/h',
 
   'sass-loader',
   'less-loader',
@@ -58,6 +59,10 @@ const browserEntries = {
   'preact-refresh-shim': path.resolve(
     __dirname,
     './plugin-web-extension/feature-html/steps/preact-refresh-shim.ts'
+  ),
+  'solid-jsx-runtime': path.resolve(
+    __dirname,
+    './plugin-js-frameworks/js-tools/solid-jsx-runtime.ts'
   ),
   // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
   'main-world-bridge': path.resolve(

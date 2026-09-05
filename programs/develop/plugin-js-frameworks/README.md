@@ -9,8 +9,8 @@
 
 Automatically wires JS frameworks and TypeScript into the Rspack build used by Extension.js. It:
 
-- Detects frameworks in your `package.json` (React, Preact, Vue, Svelte) and TypeScript
-- Configures SWC parsing (JS/TS, JSX/TSX) based on detected dependencies
+- Detects frameworks in your `package.json` (React, Preact, Vue, Solid, Svelte) and TypeScript
+- Picks the SWC parser per file extension (`.ts`, `.tsx`, `.jsx`, `.js`) and the JSX runtime from the installed framework
 - Adds framework loaders/plugins and safe aliases to avoid duplicate renderer instances
 - Sets `tsconfig` resolution when TypeScript is present
 - Defers heavy configuration to `beforeRun` in production
@@ -21,9 +21,10 @@ Automatically wires JS frameworks and TypeScript into the Rspack build used by E
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **React**<br/>Auto‑installs fast refresh (when missing), applies ReactRefresh plugin, and aliases React/DOM/runtime.  |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Preact**<br/>Auto‑installs Prefresh, applies PreactRefresh, and aliases React imports to `preact/compat`.           |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Vue**<br/>Adds `vue-loader` + `VueLoaderPlugin`; supports optional `vue.loader.(js                                  | mjs)` with custom options. |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Vue**<br/>Adds `vue-loader` + `VueLoaderPlugin`; JSX/TSX pages import `vue/jsx-runtime`; supports optional `vue.loader.(js                                  | mjs)` with custom options. |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Solid**<br/>JSX/TSX pages compile through a runtime adapter over `solid-js/h`, so pages build without the Solid Babel preset. |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Svelte**<br/>Adds `svelte-loader` rules (including `.svelte.ts`) with dev/HMR defaults; supports `svelte.loader.*`. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **TypeScript**<br/>Ensures `tsconfig.json` exists/loaded, configures SWC parser for TS/TSX when React/Preact present. |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **TypeScript**<br/>Ensures `tsconfig.json` exists/loaded, the SWC parser follows the file extension, so `.tsx` and `.jsx` parse for every framework. |
 
 ### Usage
 
