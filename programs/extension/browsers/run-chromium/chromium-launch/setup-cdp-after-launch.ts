@@ -21,29 +21,13 @@ import {
   printProdBannerOnce
 } from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
+import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
-
-// True when the emitted manifest overrides the new tab page. Also check the
-// prefixed keys: a raw --load-extension dir may never have been de-prefixed.
-function manifestDeclaresNewtabOverride(outPath: string): boolean {
-  try {
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(outPath, 'manifest.json'), 'utf-8')
-    )
-    const overrides =
-      manifest?.chrome_url_overrides ||
-      manifest?.['chromium:chrome_url_overrides'] ||
-      manifest?.['chrome:chrome_url_overrides']
-    return Boolean(overrides && typeof overrides.newtab === 'string')
-  } catch {
-    return false
-  }
-}
 
 export async function setupCdpAfterLaunch(
   compilation: CompilationLike | undefined,
