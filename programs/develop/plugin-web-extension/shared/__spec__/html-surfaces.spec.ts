@@ -4,6 +4,7 @@ import {
   applyIndependentHtmlSurfaces,
   dropPageAction,
   isPageActionLiveSurface,
+  pageActionDropReason,
   pageActionOutputTarget,
   popupRefsShareSource,
   shouldDropPageAction
@@ -46,6 +47,29 @@ describe('isPageActionLiveSurface', () => {
       false
     )
     expect(dropPageAction(manifest)).toEqual({manifest_version: 3})
+  })
+
+  it('drops page_action beside browser_action on Chromium MV2, not on Firefox', () => {
+    const pair = {
+      manifest_version: 2,
+      browser_action: {default_popup: 'a.html'},
+      page_action: {default_popup: 'b.html'}
+    } as any
+    expect(pageActionDropReason(pair, 'chrome')).toBe('conflicts')
+    expect(pageActionDropReason(pair, 'edge')).toBe('conflicts')
+    expect(pageActionDropReason(pair, 'firefox')).toBeUndefined()
+    expect(
+      pageActionDropReason(
+        {manifest_version: 2, page_action: {default_popup: 'b.html'}} as any,
+        'chrome'
+      )
+    ).toBeUndefined()
+    expect(
+      pageActionDropReason(
+        {...pair, manifest_version: 3, action: pair.browser_action} as any,
+        'chrome'
+      )
+    ).toBe('unsupported')
   })
 })
 

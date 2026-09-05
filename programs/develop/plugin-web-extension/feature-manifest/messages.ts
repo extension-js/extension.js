@@ -137,3 +137,11 @@ export function pageActionNotSupportedByBrowser(browser: string) {
     'The field was dropped from the built manifest and its page was not emitted.'
   )
 }
+
+export function pageActionDroppedForBrowserAction(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} refuses a Manifest V2 manifest that declares both ${colors.yellow('browser_action')} and ${colors.yellow('page_action')}.\n` +
+    `The build kept ${colors.yellow('browser_action')} and dropped ${colors.yellow('page_action')} from the built manifest, so its page was not emitted. ` +
+    'Remove one of the two keys, or scope page_action with the firefox: prefix.'
+  )
+}

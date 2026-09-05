@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'node:path'
-import {isGeckoBasedBrowser} from '../../lib/constants'
+import {isChromiumBasedBrowser, isGeckoBasedBrowser} from '../../lib/constants'
 import type {DevOptions, Manifest} from '../../types'
 
 // The manifest-fields package folds action, browser_action and page_action
@@ -91,15 +91,35 @@ export function isPageActionLiveSurface(
   return Number.isFinite(version) && version < 3
 }
 
+// Why the built manifest leaves page_action out: the surface never shows
+// on this browser, or Chrome refuses a Manifest V2 manifest that declares
+// browser_action next to it ("Only one of browser_action, page_action, and
+// app can be specified"), so the toolbar key wins.
+export type PageActionDropReason = 'unsupported' | 'conflicts'
+
+export function pageActionDropReason(
+  manifest: Manifest | undefined,
+  browser: DevOptions['browser'] | string | undefined
+): PageActionDropReason | undefined {
+  if (!manifest || typeof manifest !== 'object') return undefined
+  if (!('page_action' in manifest) || manifest.page_action == null) {
+    return undefined
+  }
+  if (!isPageActionLiveSurface(manifest, browser)) return 'unsupported'
+  if (
+    isChromiumBasedBrowser(String(browser || '')) &&
+    manifest.browser_action != null
+  ) {
+    return 'conflicts'
+  }
+  return undefined
+}
+
 export function shouldDropPageAction(
   manifest: Manifest | undefined,
   browser: DevOptions['browser'] | string | undefined
 ): boolean {
-  if (!manifest || typeof manifest !== 'object') return false
-  if (!('page_action' in manifest) || manifest.page_action == null) {
-    return false
-  }
-  return !isPageActionLiveSurface(manifest, browser)
+  return pageActionDropReason(manifest, browser) !== undefined
 }
 
 export function dropPageAction(manifest: Manifest): Manifest {
@@ -140,7 +160,7 @@ export function applyIndependentHtmlSurfaces(
   if (actionAbs) next[ACTION_HTML_FEATURE] = actionAbs
   else delete next[ACTION_HTML_FEATURE]
 
-  if (!pageAbs || !isPageActionLiveSurface(manifest, browser)) {
+  if (!pageAbs || pageActionDropReason(manifest, browser)) {
     delete next[PAGE_ACTION_HTML_FEATURE]
     return next
   }
