@@ -14,6 +14,7 @@ import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import type {FilepathList} from '../../../types'
 import {handleStaticAsset} from './assets'
+import {bakeBaseHref} from './base-href'
 import {injectJsScript} from './inject'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
@@ -24,6 +25,7 @@ import {
   getExtname,
   getFilePath,
   joinEmittedAssetName,
+  resolveHtmlRefPath,
   resolveStaticAttributeName
 } from './utils'
 
@@ -86,7 +88,11 @@ export function patchHtml(
           ({filePath, childNode, assetType, attributeName}) => {
             const htmlDir = path.dirname(htmlEntry)
             const {cleanPath, hash, search} = cleanAssetUrl(filePath)
-            const absolutePath = path.resolve(htmlDir, cleanPath)
+            const absolutePath = resolveHtmlRefPath(
+              htmlEntry,
+              baseHref,
+              cleanPath
+            )
             const extname = getExtname(absolutePath)
 
             const excludedFilePath =
@@ -162,7 +168,6 @@ export function patchHtml(
                   cleanPath,
                   search,
                   hash,
-                  baseHref,
                   includeList,
                   extname,
                   thisChildNode,
@@ -214,6 +219,7 @@ export function patchHtml(
       }
     }
 
+    bakeBaseHref(htmlDocument)
     return parse5utilities.stringify(htmlDocument)
   }
 
@@ -228,6 +234,7 @@ export function patchHtmlNested(
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
+  const baseHref = getBaseHref(htmlDocument)
 
   for (const node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -242,7 +249,11 @@ export function patchHtmlNested(
           ({filePath, childNode, assetType, attributeName}) => {
             const htmlDir = path.dirname(htmlEntry)
             const {cleanPath, hash, search} = cleanAssetUrl(filePath)
-            const absolutePath = path.resolve(htmlDir, cleanPath)
+            const absolutePath = resolveHtmlRefPath(
+              htmlEntry,
+              baseHref,
+              cleanPath
+            )
             const attrName =
               assetType === 'staticSrc' || assetType === 'staticHref'
                 ? resolveStaticAttributeName(assetType, attributeName)
@@ -331,6 +342,7 @@ export function patchHtmlNested(
       }
     }
 
+    bakeBaseHref(htmlDocument)
     return parse5utilities.stringify(htmlDocument)
   }
 

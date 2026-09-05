@@ -29,7 +29,6 @@ export function handleStaticAsset(
   cleanPath: string,
   search: string | undefined,
   hash: string | undefined,
-  baseHref: string | undefined,
   includeList: FilepathList,
   extname: string,
   childNode: parse5utilities.ParsedNode,
@@ -70,18 +69,17 @@ export function handleStaticAsset(
     return node
   }
 
-  const baseJoin =
-    baseHref && !/^\w+:\/\//.test(baseHref)
-      ? path.resolve(htmlDir, baseHref)
-      : htmlDir
-  const fromRoot = path.parse(baseJoin).root
+  // The emitter names a static asset by its path from the page's folder, so
+  // the reference is written from the same folder (a <base href> plays no
+  // part here: the built page carries no base tag).
+  const fromRoot = path.parse(htmlDir).root
   const toRoot = path.parse(absolutePath).root
   const relativeFromHtml =
     fromRoot &&
     toRoot &&
     String(fromRoot).toLowerCase() !== String(toRoot).toLowerCase()
       ? path.basename(absolutePath)
-      : path.relative(baseJoin, absolutePath)
+      : path.relative(htmlDir, absolutePath)
   const posixRelative = relativeFromHtml.split(path.sep).join('/')
   const filepath = joinEmittedAssetName('assets', posixRelative)
   if (fs.existsSync(absolutePath)) {
