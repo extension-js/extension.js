@@ -164,6 +164,80 @@ describe('companion extensions resolver', () => {
     expect(fs.existsSync(path.join(target, 'manifest.json'))).toBe(true)
   })
 
+  it('recognises legacy, scheme-less and www store links as the same chrome id', async () => {
+    const id = 'fmkadmapgofadopljbjfkapdkoienihi'
+    for (const link of [
+      `https://chrome.google.com/webstore/detail/react-developer-tools/${id}`,
+      `chromewebstore.google.com/detail/react-developer-tools/${id}`,
+      `https://www.chromewebstore.google.com/detail/react-developer-tools/${id}`
+    ]) {
+      const root = tmpDir('extjs-companion-link-forms-')
+      mockFetchSuccess((outDir) => {
+        writeManifest(path.join(outDir, `${id}@7.0.1`))
+      })
+      const resolved = await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: [link]
+      })
+      const resolvedPaths = Array.isArray(resolved) ? resolved : resolved?.paths
+      expect(resolvedPaths, link).toEqual([
+        path.join(root, 'extensions', 'chrome', id)
+      ])
+    }
+  })
+
+  it('reports a link it cannot recognise as a link, not as a folder', async () => {
+    const root = tmpDir('extjs-companion-bad-link-')
+    for (const link of [
+      'https://chromewebstore.google.com/category/extensions',
+      'https://chromewebstore.gogle.com/detail/tool/fmkadmapgofadopljbjfkapdkoienihi',
+      'https://example.com/some/extension'
+    ]) {
+      await expect(
+        resolveCompanionExtensionsConfig({
+          projectRoot: root,
+          browser: 'chrome',
+          config: [link]
+        }),
+        link
+      ).rejects.toThrow(/not a store link this resolver recognises/)
+    }
+  })
+
+  it('reports a bare store id and an unrecognisable entry instead of dropping them', async () => {
+    const root = tmpDir('extjs-companion-bare-')
+    await expect(
+      resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: ['fmkadmapgofadopljbjfkapdkoienihi']
+      })
+    ).rejects.toThrow(/looks like a store id, not a store link/)
+    await expect(
+      resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: ['react-devtools']
+      })
+    ).rejects.toThrow(/neither a store link nor a folder path/)
+  })
+
+  it('keeps skipping the other browser link quietly, in every link form', async () => {
+    const root = tmpDir('extjs-companion-other-browser-')
+    const resolved = await resolveCompanionExtensionsConfig({
+      projectRoot: root,
+      browser: 'chrome',
+      config: [
+        'https://addons.mozilla.org/en-US/firefox/addon/react-devtools/',
+        'addons.mozilla.org/en-US/firefox/addon/react-devtools/'
+      ]
+    })
+    const resolvedPaths = Array.isArray(resolved) ? resolved : resolved?.paths
+    expect(resolvedPaths || []).toEqual([])
+    expect(fetchExtensionFromStore).not.toHaveBeenCalled()
+  })
+
   it('skips store download when manifest already exists', async () => {
     const root = tmpDir('extjs-companion-skip-')
     const id = 'fmkadmapgofadopljbjfkapdkoienihi'
