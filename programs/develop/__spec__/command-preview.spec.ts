@@ -319,6 +319,23 @@ describe('webpack/command-preview (run-only)', () => {
     expect(printed).toContain(path.join('/proj', 'dist', 'chrome'))
   })
 
+  it('previews the build commands.preview.browser names when no browser is passed', async () => {
+    ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+      browser: 'firefox'
+    })
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview('/proj', {} as any, runOnlyPreviewBrowser)
+
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe(path.join('/proj', 'dist', 'firefox'))
+    expect(call.browser).toBe('firefox')
+  })
+
   it('records the stock build folder when no outputPath is given', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
       if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))

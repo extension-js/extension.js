@@ -10,6 +10,7 @@ import {type Command, Option} from 'commander'
 import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -140,8 +141,17 @@ export function registerBuildCommand(program: Command) {
     .action(
       async (
         pathOrRemoteUrl: string,
-        {browser = 'chromium', ...buildOptions}: BuildOptions
+        {browser: cliBrowser, ...buildOptions}: BuildOptions
       ) => {
+        // Only an untyped --browser falls through to extension.config.js
+        // commands.build.browser, then the stock chromium default.
+        const browser =
+          cliBrowser ??
+          ((await resolveConfigBrowser(
+            pathOrRemoteUrl || process.cwd(),
+            'build'
+          )) as BuildOptions['browser']) ??
+          'chromium'
         if (
           buildOptions.debug ||
           buildOptions.author ||

@@ -37,7 +37,12 @@ import {
 import * as messages from './lib/messages'
 import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
 import {parseJsonSafe} from './lib/parse-json-safe'
-import {getDirs, getDistPath, normalizeBrowser} from './lib/paths'
+import {
+  configBrowserOrThrow,
+  getDirs,
+  getDistPath,
+  normalizeBrowser
+} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {
   buildSummaryPath,
@@ -131,14 +136,28 @@ export async function extensionBuild(
   // The CLI wrapper passes exitOnError=true; as a library import a failed
   // build must be a rejected promise, never a process.exit inside the host.
   const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest
+  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+  // `extension start` builds with commands.start values, polyfill on by
+  // default and a silent build. Plain `extension build` uses commands.build.
+  const commandKey =
+    buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
+
+  // A browser passed in wins; with none, commands.<cmd>.browser from the
+  // project config decides the target before the stock default does.
+  const configBrowser = buildOptions?.browser
+    ? undefined
+    : configBrowserOrThrow(
+        (await loadCommandConfig(packageJsonDir, commandKey)).browser,
+        commandKey
+      )
   const browser = normalizeBrowser(
-    buildOptions?.browser || 'chrome',
+    buildOptions?.browser || configBrowser || 'chrome',
     buildOptions?.chromiumBinary,
     buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
     buildOptions?.safariBinary
   )
 
-  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
   const distPath = getDistPath(packageJsonDir, browser)
   // Assets are emitted into this staging sibling and a rename publishes it,
   // so an interrupted build can never leave a manifest without its pages.
@@ -177,10 +196,6 @@ export async function extensionBuild(
       assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
 
-    // `extension start` builds with commands.start values, polyfill on by
-    // default and a silent build. Plain `extension build` uses commands.build.
-    const commandKey =
-      buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
     const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
     const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)

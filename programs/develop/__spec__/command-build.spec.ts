@@ -480,6 +480,31 @@ describe('webpack/command-build', () => {
       })
     })
 
+    it('reads commands.build.browser when no browser is passed, and refuses a bad name', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
+        browser: 'firefox'
+      })
+      await extensionBuild('/proj', {})
+      expect(webpackOpts()).toMatchObject({browser: 'firefox'})
+
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
+        browser: 'firefox'
+      })
+      await extensionBuild('/proj', {browser: 'edge'})
+      expect(webpackOpts()).toMatchObject({browser: 'edge'})
+
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
+        browser: 'nope'
+      })
+      await expect(extensionBuild('/proj', {})).rejects.toThrow(
+        /Unsupported browser in extension.config commands.build.browser: nope/
+      )
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
+        some: 'cmd',
+        transpilePackages: ['@workspace/ui']
+      })
+    })
+
     it('honors the browser.* layer, with commands.build beating it', async () => {
       ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
         transpilePackages: ['@workspace/from-browser-layer'],

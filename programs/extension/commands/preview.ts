@@ -15,6 +15,7 @@ import {
   firefoxBinaryAliasOption,
   geckoBinaryOption
 } from '../helpers/cli-options'
+import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -144,7 +145,16 @@ export function registerPreviewCommand(program: Command) {
         options: PreviewOptions,
         command: Command
       ) => {
-        const {browser = 'chromium', ...previewOptions} = options
+        const {browser: cliBrowser, ...previewOptions} = options
+        // Only an untyped --browser falls through to extension.config.js
+        // commands.preview.browser, then the stock chromium default.
+        const browser =
+          cliBrowser ??
+          ((await resolveConfigBrowser(
+            pathOrRemoteUrl || process.cwd(),
+            'preview'
+          )) as PreviewOptions['browser']) ??
+          'chromium'
         if (
           previewOptions.debug ||
           previewOptions.author ||
