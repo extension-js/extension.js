@@ -18,6 +18,57 @@ import {
   sessionReadyPath
 } from '../helpers/session-project-path'
 
+// How `--since` is read, resolved by the develop bridge's query helpers so
+// the command and the published query agree: a sequence number, or a point
+// in time compared against the event clock.
+type LogSince = {seq: number} | {time: number}
+type SinceHelpers = {
+  parseLogSince: (value: unknown) => LogSince | null | undefined
+  isAfterSince: (event: LogEventLike, since: LogSince) => boolean
+}
+
+// The same reading as the develop bridge's helpers, kept here so a runtime
+// that predates them still honors an ISO value; the bridge's copy wins when
+// it is there so the command and the published query never drift apart.
+function parseLogSinceLocal(value: unknown): LogSince | null | undefined {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? {seq: value} : undefined
+  }
+  const text = String(value).trim()
+  if (/^\d+(?:\.\d+)?$/.test(text)) return {seq: Number(text)}
+  const time = Date.parse(text)
+  return Number.isFinite(time) ? {time} : undefined
+}
+
+function isAfterSinceLocal(event: LogEventLike, since: LogSince): boolean {
+  if ('seq' in since) {
+    return !(typeof event.seq === 'number' && event.seq <= since.seq)
+  }
+  const raw = (event as {timestamp?: unknown; ts?: unknown}).timestamp
+  const time =
+    typeof raw === 'number'
+      ? raw
+      : typeof (event as {ts?: unknown}).ts === 'string'
+        ? Date.parse(String((event as {ts?: unknown}).ts))
+        : Number.NaN
+  return !Number.isFinite(time) || time > since.time
+}
+
+function sinceHelpersFrom(bridge: unknown): SinceHelpers {
+  const candidate = bridge as Partial<SinceHelpers> | null | undefined
+  return {
+    parseLogSince:
+      typeof candidate?.parseLogSince === 'function'
+        ? candidate.parseLogSince
+        : parseLogSinceLocal,
+    isAfterSince:
+      typeof candidate?.isAfterSince === 'function'
+        ? candidate.isAfterSince
+        : isAfterSinceLocal
+  }
+}
+
 type LogsOptions = {
   browser?: string
   follow?: boolean
@@ -79,13 +130,16 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   }
 }
 
-function makeFilter(opts: LogsOptions) {
+function makeFilter(
+  opts: LogsOptions,
+  since: LogSince | null,
+  helpers: SinceHelpers
+) {
   const minLevel = String(opts.level || 'all').toLowerCase()
   const contexts =
     opts.context && opts.context.toLowerCase() !== 'all'
       ? new Set(opts.context.split(',').map((c) => c.trim()))
       : null
-  const sinceSeq = opts.since != null ? Number(opts.since) : null
   const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
   const tabId = opts.tab != null && opts.tab !== '' ? Number(opts.tab) : null
 
@@ -102,14 +156,7 @@ function makeFilter(opts: LogsOptions) {
         return false
     }
 
-    if (
-      sinceSeq != null &&
-      Number.isFinite(sinceSeq) &&
-      typeof event.seq === 'number' &&
-      event.seq <= sinceSeq
-    ) {
-      return false
-    }
+    if (since && !helpers.isAfterSince(event, since)) return false
 
     if (urlMatches && !urlMatches(event)) return false
 
@@ -208,7 +255,10 @@ export function registerLogsCommand(program: Command) {
       '--signals-only',
       '[experimental] show only structured dx.signal diagnostics. No emitter ships yet, so this currently prints nothing'
     )
-    .option('--since <seq|iso>', 'only show events after this sequence number')
+    .option(
+      '--since <seq|iso>',
+      'only show events after this sequence number or ISO timestamp'
+    )
     .option(
       '--url <glob|substring>',
       'only events whose url/hostname matches (glob with * or plain substring)'
@@ -223,7 +273,28 @@ export function registerLogsCommand(program: Command) {
       const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
       const browser = options.browser || 'chromium'
       const format = resolveFormat(options)
-      const matches = makeFilter(options)
+      const helpers = sinceHelpersFrom(bridge)
+      const since = helpers.parseLogSince(options.since)
+      if (
+        options.since != null &&
+        options.since !== '' &&
+        since === undefined
+      ) {
+        const message = `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`
+        // eslint-disable-next-line no-console
+        console.error(message)
+        if (format !== 'pretty') {
+          writeFrame(
+            ENVELOPE.fail('logs', 'usage', {
+              code: CODES.E_INVALID_OPTION,
+              message,
+              name: 'CliError'
+            })
+          )
+        }
+        process.exit(1)
+      }
+      const matches = makeFilter(options, since ?? null, helpers)
 
       // An advertised filter that silently matches nothing teaches the wrong
       // lesson (ledger 181, same class as 179): the user reads the silence as
