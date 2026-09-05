@@ -19,7 +19,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
-import {canonicalizeDir} from '../lib/resource-path'
+import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import {
   extractCssUrlRefs,
@@ -62,9 +62,13 @@ function reportDeadRefs(
   publicRoot: string
 ) {
   const roots = [publicRoot, manifestDir]
-  const issuerDir = path.dirname(loader.resourcePath)
+  // Both sides of every path comparison go through the same canonical form:
+  // on Windows rspack can hand over an 8.3 short path while the roots above
+  // were expanded, and a mismatch names the target by a path that climbs out.
+  const resourcePath = canonicalizeResourcePath(loader.resourcePath)
+  const issuerDir = path.dirname(resourcePath)
   const issuerPath = toPosixPath(
-    path.relative(manifestDir, loader.resourcePath) || loader.resourcePath
+    path.relative(manifestDir, resourcePath) || resourcePath
   )
 
   const strict = process.env.EXTENSION_STRICT_REFS === 'true'
@@ -98,7 +102,7 @@ function emitTargets(
   sheet: DeadCssUrlLoaderOptions['sheet']
 ): string {
   const {css, targets} = rewriteInlinedCssUrls(source, {
-    resourcePath: loader.resourcePath,
+    resourcePath: canonicalizeResourcePath(loader.resourcePath),
     manifestDir,
     publicRoot
   })
