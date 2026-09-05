@@ -15,6 +15,7 @@ import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
+import {isJsonOutput} from '../helpers/output-flag'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -232,7 +233,7 @@ export function registerBuildCommand(program: Command) {
         }
 
         const {extensionBuild} = await loadExtensionDevelopModule()
-        const asJson = buildOptions.output === 'json'
+        const asJson = isJsonOutput(buildOptions)
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'

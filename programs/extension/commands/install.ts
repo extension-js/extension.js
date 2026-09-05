@@ -11,6 +11,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {isJsonOutput} from '../helpers/output-flag'
 import {
   type Browser,
   firstNonManagedInstallTarget,
@@ -162,7 +163,7 @@ export function registerInstallCommand(program: Command) {
       'result format. Use json for a schema-1 envelope on stdout'
     )
     .action(async (browserArg: string | undefined, options: InstallOptions) => {
-      const asJson = options.output === 'json'
+      const asJson = isJsonOutput(options)
       const named = Boolean(options.browser || browserArg)
       const selectedBrowser = (options.browser || browserArg || 'chromium') as
         | Browser
@@ -246,7 +247,7 @@ export function registerInstallCommand(program: Command) {
         browserArg: string | undefined,
         {browser, all, where, output}: UninstallOptions
       ) => {
-        const asJson = output === 'json'
+        const asJson = isJsonOutput({output})
         const named = Boolean(browserArg || browser)
         // Same resolution path as install: positional/--browser, comma lists,
         // and `all` (via --all or the name itself) expand through installTargets.

@@ -26,6 +26,12 @@ import {registerStartCommand} from './commands/start'
 import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
 import {
+  collectValuedLongFlags,
+  resolveCommandFromArgv as resolveCommandFromArgvWithFlags,
+  rewriteOutputAliasArgv,
+  scanArgvValue
+} from './helpers/cli-argv'
+import {
   commanderErrorEnvelope,
   commanderExitCode,
   commanderHumanError,
@@ -61,16 +67,6 @@ function developVersion() {
 
 process.env.EXTENSION_DEVELOP_VERSION = developVersion()
 
-function scanArgvValue(argv: string[], flag: string): string | undefined {
-  const equalArg = argv.find((arg) => arg.startsWith(`${flag}=`))
-  if (equalArg) return equalArg.slice(flag.length + 1)
-
-  const flagIndex = argv.indexOf(flag)
-  if (flagIndex >= 0) return argv[flagIndex + 1] || ''
-
-  return undefined
-}
-
 // --ai-help bypasses commander, so the deprecated --format alias has to be
 // honored by this raw scan too, not only by the registered Option.
 function resolveAIHelpFormatFromArgv(argv: string[]): string {
@@ -86,12 +82,12 @@ function resolveAIHelpFormatFromArgv(argv: string[]): string {
   return 'pretty'
 }
 
+// Filled once every command is registered, so the pre-parse scans skip the
+// value of any flag that takes one instead of reading it as the command.
+let valuedLongFlags: ReadonlySet<string> = new Set()
+
 function resolveCommandFromArgv(argv: string[]): string | undefined {
-  for (let i = 2; i < argv.length; i += 1) {
-    const arg = argv[i]
-    if (!arg.startsWith('-')) return arg
-  }
-  return undefined
+  return resolveCommandFromArgvWithFlags(argv, valuedLongFlags)
 }
 
 // A pre-parse refusal must still leave one machine frame on stdout when the
@@ -121,23 +117,11 @@ function failBeforeParse(
 // --format is a deprecated alias of --output. Only the root program declares
 // it (for --ai-help), so on a subcommand commander accepted it and nobody read
 // it: the run printed human output while the caller waited for an envelope.
-// Rewriting it here keeps one code path for every command instead of eleven.
 function applyOutputAliasArgvShim(argv: string[]): string[] {
-  const index = argv.findIndex(
-    (arg) => arg === '--format' || arg.startsWith('--format=')
-  )
-  if (index < 0) return argv
   // --ai-help resolves the alias itself, and it never reaches a subcommand.
   if (argv.includes('--ai-help')) return argv
-
-  const next = [...argv]
-  if (next[index].startsWith('--format=')) {
-    next[index] = `--output=${next[index].slice('--format='.length)}`
-  } else {
-    next[index] = '--output'
-  }
-
-  warnDeprecatedOutputAlias('--format')
+  const {argv: next, rewritten} = rewriteOutputAliasArgv(argv, valuedLongFlags)
+  if (rewritten) warnDeprecatedOutputAlias('--format')
   return next
 }
 
@@ -245,6 +229,7 @@ registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)
 registerCapabilitiesCommand(extensionJs)
+valuedLongFlags = collectValuedLongFlags(extensionJs)
 
 // Handled before commander parses: the JSON frame can outgrow one pipe
 // buffer, so the exit must wait for stdout to drain (#79).

@@ -15,6 +15,11 @@ import {
 } from '../helpers/cli-explicit'
 import {markErrorFramed} from '../helpers/cli-failure'
 import {
+  cliGeckoBinary,
+  firefoxBinaryAliasOption,
+  geckoBinaryOption
+} from '../helpers/cli-options'
+import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
@@ -42,6 +47,7 @@ type StartOptions = {
   profile?: string | boolean
   chromiumBinary?: string
   geckoBinary?: string
+  firefoxBinary?: string
   startingUrl?: string
   port?: string | number
   host?: string
@@ -118,10 +124,8 @@ export function registerStartCommand(program: Command) {
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
     )
-    .option(
-      '--gecko-binary, --firefox-binary <path-to-binary>',
-      'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
-    )
+    .addOption(geckoBinaryOption())
+    .addOption(firefoxBinaryAliasOption())
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
@@ -388,7 +392,7 @@ export function registerStartCommand(program: Command) {
               profile: normalizeProfileOption(startOptions.profile),
               browser: vendor as StartOptions['browser'],
               chromiumBinary: startOptions.chromiumBinary,
-              geckoBinary: startOptions.geckoBinary,
+              geckoBinary: cliGeckoBinary(startOptions),
               startingUrl: startOptions.startingUrl,
               port: startOptions.port,
               host: startOptions.host,

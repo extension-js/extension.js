@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import colors from 'pintor'
+import {scanArgvValue} from './cli-argv'
 import {
   CODES,
   ENVELOPE,
@@ -16,6 +17,7 @@ import {
   type ErrorCode,
   prefix
 } from './messaging'
+import {normalizeOutputFormat} from './output-flag'
 
 // One machine-readable stdout frame per process: commands that already framed
 // their failure mark the rethrown error so the top-level handler stays silent.
@@ -40,21 +42,7 @@ export function isErrorFramed(err: unknown): boolean {
 }
 
 export function wantsJsonOutput(argv: string[]): boolean {
-  const equalArg = argv.find((arg) => arg.startsWith('--output='))
-  if (equalArg) {
-    return equalArg.slice('--output='.length).trim().toLowerCase() === 'json'
-  }
-
-  const flagIndex = argv.indexOf('--output')
-  if (flagIndex >= 0) {
-    return (
-      String(argv[flagIndex + 1] || '')
-        .trim()
-        .toLowerCase() === 'json'
-    )
-  }
-
-  return false
+  return normalizeOutputFormat(scanArgvValue(argv, '--output')) === 'json'
 }
 
 interface CommanderErrorLike {

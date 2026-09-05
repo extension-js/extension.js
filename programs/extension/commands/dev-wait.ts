@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {CODES, type ErrorCode} from '../helpers/messaging'
+import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -90,7 +91,7 @@ function parseWaitTimeoutMs(value?: string | number): number {
 // Exported so a caller can resolve the format before runWaitMode runs, and
 // still report a machine-readable frame when it throws.
 export function parseWaitFormat(value?: string): WaitFormat {
-  return value === 'json' ? 'json' : 'pretty'
+  return normalizeOutputFormat(value) ?? 'pretty'
 }
 
 // The failure class is known where the throw happens, so tag it there. The

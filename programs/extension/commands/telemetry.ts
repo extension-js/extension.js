@@ -11,6 +11,7 @@ import colors from 'pintor'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {isJsonOutput} from '../helpers/output-flag'
 import {
   getTelemetryConsent,
   setTelemetryConsent
@@ -35,7 +36,7 @@ export function registerTelemetryCommand(program: Command) {
       const normalized = String(action || 'status')
         .trim()
         .toLowerCase() as TelemetryAction
-      const asJson = opts.output === 'json'
+      const asJson = isJsonOutput(opts)
 
       const emit = (frame: unknown) => {
         // eslint-disable-next-line no-console

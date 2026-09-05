@@ -14,6 +14,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {isJsonOutput} from '../helpers/output-flag'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -507,7 +508,7 @@ export function registerDoctorCommand(program: Command): void {
     )
     .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
-      const asJson = opts.output === 'json'
+      const asJson = isJsonOutput(opts)
       let results: DoctorCheckResult[]
 
       try {

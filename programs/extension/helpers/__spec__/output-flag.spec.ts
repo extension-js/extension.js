@@ -67,4 +67,14 @@ describe('resolveOutputFormat', () => {
     )
     expect(errorSpy).not.toHaveBeenCalled()
   })
+
+  it('reads one value regardless of case and spaces', async () => {
+    const {isJsonOutput, normalizeOutputFormat} = await freshModule()
+    expect(normalizeOutputFormat('JSON')).toBe('json')
+    expect(normalizeOutputFormat(' json ')).toBe('json')
+    expect(normalizeOutputFormat('Pretty')).toBe('pretty')
+    expect(normalizeOutputFormat('yaml')).toBeUndefined()
+    expect(isJsonOutput({output: 'JSON'})).toBe(true)
+    expect(isJsonOutput({output: 'pretty'})).toBe(false)
+  })
 })
