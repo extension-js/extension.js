@@ -26,6 +26,36 @@ export function isFirefoxHeadlessRequested(
 }
 
 export class FirefoxBinaryDetector {
+  // The argv a launch hands the binary, with or without a managed profile.
+  // The dry run prints this; the spawn runs it.
+  static launchPlan(input: {
+    binaryPath: string
+    profilePath: string
+    debugPort: number
+    binaryArgs: string[]
+    headless: boolean
+  }): {binary: string; args: string[]} {
+    if (input.profilePath) {
+      return FirefoxBinaryDetector.generateFirefoxArgs(
+        input.binaryPath,
+        input.profilePath,
+        input.debugPort,
+        input.binaryArgs,
+        input.headless
+      )
+    }
+    const args: string[] = [
+      ...(input.headless ? ['-headless'] : []),
+      ...(input.debugPort > 0
+        ? ['-start-debugger-server', String(input.debugPort)]
+        : []),
+      ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
+      ...(input.headless ? [] : ['--foreground']),
+      ...input.binaryArgs
+    ]
+    return {binary: input.binaryPath, args}
+  }
+
   static generateFirefoxArgs(
     binaryPath: string,
     profilePath: string,

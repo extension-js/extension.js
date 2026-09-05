@@ -39,10 +39,36 @@ type BrowserConfigOptions = {
     instanceId?: string
   }
 
+export interface FirefoxLaunchConfig {
+  // '' when the browser's own profile is used (no -profile argument).
+  profilePath: string
+  // The user's flags plus the starting URL, in the order the binary gets them.
+  binaryArgs: string[]
+  // The legacy `--binary-args=".." --profile=".." --verbose` string.
+  config: string
+}
+
+export interface FirefoxConfigMode {
+  // false composes the same decision without creating the profile or writing
+  // user.js, for a dry run that must print the plan and touch nothing.
+  provision?: boolean
+}
+
+// The legacy string form; the launcher reads the structured result so it
+// never re-parses this.
 export async function browserConfig(
   compilation: CompilationLike,
   configOptions: BrowserConfigOptions
 ) {
+  return (await resolveFirefoxLaunchConfig(compilation, configOptions)).config
+}
+
+export async function resolveFirefoxLaunchConfig(
+  compilation: CompilationLike,
+  configOptions: BrowserConfigOptions,
+  mode: FirefoxConfigMode = {}
+): Promise<FirefoxLaunchConfig> {
+  const provision = mode.provision !== false
   const {browser, profile, browserFlags = []} = configOptions
   const binaryArgs: string[] = []
   // Shared semantics with the chromium launcher: exact or switch-prefix
@@ -113,12 +139,13 @@ export async function browserConfig(
     resolveExplicit: (trimmedProfile) =>
       path.isAbsolute(trimmedProfile)
         ? trimmedProfile
-        : path.resolve(contextDir, trimmedProfile)
+        : path.resolve(contextDir, trimmedProfile),
+    provision
   })
 
   const profilePath: string = resolved.profilePath
 
-  if (resolved.kind === 'managed') {
+  if (resolved.kind === 'managed' && provision) {
     // Profile provisioning is an internal step; surface it only under --debug.
     if (isDebug())
       humanLine(messages.creatingUserProfile(shownPath(profilePath)))
@@ -140,7 +167,7 @@ export async function browserConfig(
     }
   }
 
-  if (profilePath) {
+  if (profilePath && provision) {
     try {
       fs.mkdirSync(profilePath, {recursive: true})
     } catch {
@@ -159,7 +186,7 @@ export async function browserConfig(
     }
   }
 
-  if (profilePath) {
+  if (profilePath && provision) {
     try {
       const prefs = getPreferences(configOptions?.preferences || {})
 
@@ -199,5 +226,5 @@ export async function browserConfig(
   if (profilePath) {
     parts.splice(1, 0, `--profile="${profilePath}"`)
   }
-  return parts.join(' ')
+  return {profilePath, binaryArgs, config: parts.join(' ')}
 }

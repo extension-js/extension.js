@@ -68,7 +68,7 @@ import type {
   ChromiumPluginRuntime
 } from '../chromium-types'
 import {waitForStableManifest} from '../manifest-readiness'
-import {browserConfig} from './browser-config'
+import {browserConfig, chromiumLaunchPlan} from './browser-config'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {setupProcessSignalHandlers} from './process-handlers'
@@ -302,17 +302,25 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    if (
-      this.options?.dryRun ||
-      process.env.VITEST ||
-      process.env.VITEST_WORKER_ID
-    ) {
+    const inTestRunner = Boolean(
+      process.env.VITEST || process.env.VITEST_WORKER_ID
+    )
+    const dryRun = Boolean(this.options?.dryRun)
+
+    // Specs never launch: without a dry run they get the bare placeholder,
+    // with one and no pin they get the real plan around a placeholder binary,
+    // since there is no browser to find inside the test runner.
+    if (inTestRunner && !dryRun) {
       logChromiumDryRun(
         this.options?.chromiumBinary
           ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
           : 'chromium-mock-binary',
         []
       )
+      return
+    }
+    if (inTestRunner && dryRun && !this.options?.chromiumBinary) {
+      this.printDryRunPlan(compilation, 'chromium-mock-binary')
       return
     }
 
@@ -837,13 +845,17 @@ export class ChromiumLaunchPlugin {
 
     let chromiumConfig: string[]
     try {
-      chromiumConfig = browserConfig(compilation, {
-        ...this.options,
-        profile: this.options.profile,
-        instanceId: this.options.instanceId,
-        extension: extensionsToLoad,
-        logLevel: this.options.logLevel
-      })
+      chromiumConfig = browserConfig(
+        compilation,
+        {
+          ...this.options,
+          profile: this.options.profile,
+          instanceId: this.options.instanceId,
+          extension: extensionsToLoad,
+          logLevel: this.options.logLevel
+        },
+        {provision: !dryRun}
+      )
     } catch (error) {
       // A locked profile aborts before the spawn, so no exit handler will ever
       // stamp it. Record the case here or the contract stays on "starting".
@@ -897,8 +909,8 @@ export class ChromiumLaunchPlugin {
       // Ignore
     }
 
-    if (this.options.dryRun) {
-      logChromiumDryRun(browserBinaryLocation, chromiumConfig)
+    if (dryRun) {
+      this.printDryRunPlan(compilation, browserBinaryLocation, chromiumConfig)
       return
     }
 
@@ -1047,6 +1059,20 @@ export class ChromiumLaunchPlugin {
     }
   }
 
+  // What a launch would run, from the same config seam as the spawn, with
+  // nothing provisioned on disk.
+  private printDryRunPlan(
+    compilation: CompilationLike,
+    binary: string,
+    chromiumConfig?: string[]
+  ) {
+    const flags =
+      chromiumConfig ??
+      browserConfig(compilation, {...this.options}, {provision: false})
+    const plan = chromiumLaunchPlan(binary, flags, this.options?.startingUrl)
+    logChromiumDryRun(plan.binary, plan.args)
+  }
+
   private async launchWithDirectSpawn(
     binary: string,
     chromeFlags: string[],
@@ -1055,9 +1081,11 @@ export class ChromiumLaunchPlugin {
     if (isDebug()) {
       this.logger.info(messages.chromeInitializingEnhancedReload())
     }
-    const launchArgs = this.options?.startingUrl
-      ? [...chromeFlags, this.options.startingUrl]
-      : [...chromeFlags]
+    const {args: launchArgs} = chromiumLaunchPlan(
+      binary,
+      chromeFlags,
+      this.options?.startingUrl
+    )
 
     // --remote-debugging-pipe talks over fds 3 & 4. stderr is PIPED and drained so
     // extension-load rejections reach the user instead of silently wedging dev.
