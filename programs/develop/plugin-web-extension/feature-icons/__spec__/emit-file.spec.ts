@@ -191,20 +191,25 @@ describe('EmitFile step', () => {
     ])
   })
 
-  it('emits theme/images entries to the theme/images folder', async () => {
+  it('emits theme/images entries under theme/images at their own path', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    FS.existsSync.mockImplementation(
-      (p: string) =>
-        p === '/abs/assets/weta.png' || p === '/abs/assets/weta-left.png'
-    )
+    const existing = new Set([
+      '/abs/project/images/weta.png',
+      '/abs/project/images/light/bg.png',
+      '/abs/project/images/dark/bg.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
-        'theme/images/weta.png': '/abs/assets/weta.png',
-        'theme/images/weta-left.png': '/abs/assets/weta-left.png'
+        'theme/images/theme_frame': '/abs/project/images/weta.png',
+        'theme/images/additional_backgrounds': [
+          '/abs/project/images/light/bg.png',
+          '/abs/project/images/dark/bg.png'
+        ]
       }
     } as any)
 
@@ -214,8 +219,9 @@ describe('EmitFile step', () => {
       (c: any[]) => c[0]
     )
     expect(calls).toEqual([
-      'theme/images/weta.png',
-      'theme/images/weta-left.png'
+      'theme/images/images/weta.png',
+      'theme/images/images/light/bg.png',
+      'theme/images/images/dark/bg.png'
     ])
   })
 
@@ -266,7 +272,7 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['theme/images/f.png'])
+    expect(calls).toEqual(['theme/images/_/assets/f.png'])
   })
 
   it('stays silent for a theme image with bytes in it', async () => {
@@ -491,6 +497,6 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['action/light.png'])
+    expect(calls).toEqual(['action/icons/light.png'])
   })
 })

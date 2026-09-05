@@ -12,6 +12,7 @@ import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
 import {omniboxIconFields} from './feature-icons/omnibox-fields'
+import {themeImageFields} from './feature-icons/theme-image-fields'
 import {JsonPlugin} from './feature-json'
 import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
@@ -96,12 +97,12 @@ export class WebExtensionPlugin {
     }).apply(compiler)
 
     // Grab all icon assets from the manifest including popup icons; theme images
-    // ride the same emit path so files land at theme/images/<basename>.
+    // ride the same emit path and land under theme/images at their own path.
     new IconsPlugin({
       manifestPath,
       includeList: {
         ...(manifestFieldsData.icons as FilepathList),
-        ...(manifestFieldsData.theme as FilepathList),
+        ...themeImageFields(manifestPath),
         ...omniboxIconFields(manifestPath),
         ...settingsOverridesIconFields(manifestPath)
       },

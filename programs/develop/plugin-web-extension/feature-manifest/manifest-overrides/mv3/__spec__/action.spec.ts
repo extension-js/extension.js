@@ -15,7 +15,7 @@ describe('action (MV3 override)', () => {
     expect(out.action.default_popup).toBe('action/index.html')
     expect(out.action.theme_icons).toEqual([
       {
-        light: 'action/light.png',
+        light: 'action/icons/light.png',
         dark: 'action/_/design/dark/logo.png',
         size: 16
       },

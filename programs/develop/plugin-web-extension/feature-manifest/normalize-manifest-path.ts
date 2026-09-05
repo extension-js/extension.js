@@ -103,20 +103,31 @@ export function iconOutputPath(raw: string) {
 }
 
 // Output path for action / browser_action theme_icons (light and dark).
-// In-project paths keep the <folder>/<basename> layout; outside paths get a
-// unique slot under that folder so a light/dark pair sharing a basename in
-// a shared design package does not clobber itself.
+// In-project paths keep their manifest-relative location under the folder,
+// so a light/dark pair that shares a basename in two folders stays two
+// files; outside paths get a unique slot under that folder.
 export function themeIconOutputPath(
   raw: string,
   folder: 'action' | 'browser_action'
 ): string {
+  return featureAssetOutputPath(raw, folder)
+}
+
+// Output path for a theme.images entry. Same rule as theme_icons under
+// theme/images, so additional_backgrounds entries that share a basename
+// keep their own alignment and tiling pairs.
+export function themeImageOutputPath(raw: string): string {
+  return featureAssetOutputPath(raw, 'theme/images')
+}
+
+function featureAssetOutputPath(raw: string, folder: string): string {
   if (/^(?:\/public\/|(?:\.\/)?public\/)/i.test(raw)) {
     return normalizeManifestOutputPath(raw)
   }
 
   const normalized = normalizeManifestOutputPath(raw).replace(/^\.\//, '')
   if (!pathEscapesExtensionRoot(normalized)) {
-    return `${folder}/${path.basename(normalized)}`
+    return `${folder}/${normalized}`
   }
 
   return externalAssetOutputPath(normalized, folder)
