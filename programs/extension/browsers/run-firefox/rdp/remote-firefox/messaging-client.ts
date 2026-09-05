@@ -10,7 +10,10 @@ import EventEmitter from 'node:events'
 import * as messages from '../../../browsers-lib/messages'
 import {evaluate as evalHelper} from './evaluate'
 import * as api from './rdp-api'
-import {RdpTransport} from './transport'
+import {RdpTransport, surfaceTransportError} from './transport'
+
+const RECONNECT_MAX_ATTEMPTS = 5
+const RECONNECT_RETRY_DELAY_MS = 1000
 
 export class MessagingClient extends EventEmitter {
   private transport = new RdpTransport()
@@ -20,16 +23,22 @@ export class MessagingClient extends EventEmitter {
   private disconnectedByUser = false
 
   async connect(port: number) {
-    this.lastPort = port
     this.disconnectedByUser = false
+    await this.openTransport(port)
+  }
+
+  private async openTransport(port: number) {
+    this.lastPort = port
     await this.transport.connect(port)
     if (!this.forwardingSetup) {
       this.forwardingSetup = true
       this.transport.on('message', (message) => this.emit('message', message))
-      this.transport.on('error', (error) => this.emit('error', error))
+      this.transport.on('error', (error) => surfaceTransportError(this, error))
+      // The transport emits 'end' once for any loss, a reset included, so
+      // this is the single place that decides whether to reconnect.
       this.transport.on('end', () => {
         this.emit('end')
-        this.attemptReconnect()
+        void this.attemptReconnect()
       })
       this.transport.on('timeout', () => this.emit('timeout'))
     }
@@ -43,22 +52,23 @@ export class MessagingClient extends EventEmitter {
   private async attemptReconnect() {
     if (this.disconnectedByUser || this.reconnecting || !this.lastPort) return
     this.reconnecting = true
-    const maxAttempts = 5
-    const retryDelay = 1000
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, retryDelay))
-      try {
-        this.transport = new RdpTransport()
-        this.forwardingSetup = false
-        await this.connect(this.lastPort)
-        this.reconnecting = false
-        this.emit('reconnected')
-        return
-      } catch {
-        // Ignore
+    try {
+      for (let i = 0; i < RECONNECT_MAX_ATTEMPTS; i++) {
+        await new Promise((r) => setTimeout(r, RECONNECT_RETRY_DELAY_MS))
+        if (this.disconnectedByUser) return
+        try {
+          this.transport = new RdpTransport()
+          this.forwardingSetup = false
+          await this.openTransport(this.lastPort)
+          this.emit('reconnected')
+          return
+        } catch {
+          // Ignore
+        }
       }
+    } finally {
+      this.reconnecting = false
     }
-    this.reconnecting = false
   }
 
   async request(requestProps: unknown) {
