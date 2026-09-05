@@ -19,6 +19,7 @@ export interface ReloadBroker {
     changedContentScriptEntries?: string[]
     label?: string
     changedFiles?: string[]
+    changedScriptFiles?: string[]
   }): number
   // When a broadcast reached zero producers, an optional operator warning
   // (grace-gated + deduped by the broker), or null; optional for test doubles.
@@ -37,7 +38,10 @@ function viaBroker(
     type: instruction.type,
     changedContentScriptEntries: instruction.changedContentScriptEntries,
     label: instruction.label,
-    changedFiles: instruction.changedAssets
+    changedFiles: instruction.changedAssets,
+    ...(instruction.changedScriptFiles?.length
+      ? {changedScriptFiles: instruction.changedScriptFiles}
+      : {})
   })
 }
 

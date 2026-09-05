@@ -298,13 +298,17 @@ export class BridgeBroker {
     changedContentScriptEntries?: string[]
     label?: string
     changedFiles?: string[]
+    changedScriptFiles?: string[]
   }): number {
     const frame: ReloadFrame = {
       type: 'reload',
       reloadType: instruction.type,
       changedContentScriptEntries: instruction.changedContentScriptEntries,
       label: instruction.label,
-      changedFiles: instruction.changedFiles
+      changedFiles: instruction.changedFiles,
+      ...(instruction.changedScriptFiles?.length
+        ? {changedScriptFiles: instruction.changedScriptFiles}
+        : {})
     }
 
     let notified = 0

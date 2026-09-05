@@ -194,6 +194,8 @@ export interface ReloadFrame {
   label?: string
   /** Project-relative source files that triggered this reload. */
   changedFiles?: string[]
+  /** Emitted scripts/ bundles the SW should replay its executeScript calls for. */
+  changedScriptFiles?: string[]
 }
 
 // Producer-to-server receipt confirmation for a ReloadFrame: a socket write

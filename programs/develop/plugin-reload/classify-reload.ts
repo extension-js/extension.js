@@ -19,6 +19,9 @@ export interface ReloadInstruction {
   type: ReloadType | 'page'
   changedContentScriptEntries?: string[]
   changedAssets?: string[]
+  // Emitted scripts/ bundles a changed source lands in, so the SW replays
+  // the programmatic executeScript calls that named them.
+  changedScriptFiles?: string[]
   // Human context label shared VERBATIM by every announcing surface, so they
   // can never disagree. e.g. "content_script (content/scripts.tsx)".
   label?: string
@@ -61,6 +64,8 @@ export interface SourceFeatureIndex {
   /** Source → canonical content_scripts entry names whose chunks contain it. */
   contentEntriesBySource: Map<string, Set<string>>
   pageSources: Set<string>
+  /** Source → emitted scripts/ bundle names whose chunks contain it. */
+  scriptFilesBySource?: Map<string, Set<string>>
 }
 
 // Loader-prefixed module identifier to project-relative resource path(s).
@@ -102,10 +107,12 @@ export function buildSourceFeatureIndex(
   compilation: import('@rspack/core').Compilation,
   contextDir: string
 ): SourceFeatureIndex {
+  const scriptFilesBySource = new Map<string, Set<string>>()
   const index: SourceFeatureIndex = {
     swSources: new Set(),
     contentEntriesBySource: new Map(),
-    pageSources: new Set()
+    pageSources: new Set(),
+    scriptFilesBySource
   }
   const chunkGraph = compilation.chunkGraph
   for (const chunk of compilation.chunks || []) {
@@ -113,6 +120,9 @@ export function buildSourceFeatureIndex(
     if (!name) continue
     const isBackground = /^background\//.test(name)
     const isContent = /^content_scripts\//.test(name)
+    const scriptFiles = /^scripts\//.test(name)
+      ? emittedScriptFiles(chunk, name)
+      : []
     for (const module of chunkGraph.getChunkModulesIterable(chunk)) {
       let identifier = ''
       try {
@@ -133,10 +143,42 @@ export function buildSourceFeatureIndex(
         } else {
           index.pageSources.add(rel)
         }
+        if (scriptFiles.length > 0) {
+          let files = scriptFilesBySource.get(rel)
+          if (!files) {
+            files = new Set()
+            scriptFilesBySource.set(rel, files)
+          }
+          for (const file of scriptFiles) files.add(file)
+        }
       }
     }
   }
   return index
+}
+
+// The scripts/ bundle names the SW's executeScript calls refer to; the
+// chunk's emitted files when known, else the unhashed [name].js form.
+function emittedScriptFiles(
+  chunk: {files?: Iterable<string>},
+  name: string
+): string[] {
+  const files = chunk?.files ? [...chunk.files] : []
+  const js = files.filter((file) => /\.js$/i.test(file))
+  return js.length > 0 ? js : [`${name}.js`]
+}
+
+function changedScriptFilesFor(
+  changedSources: string[],
+  index: SourceFeatureIndex | null
+): string[] {
+  const out = new Set<string>()
+  for (const rel of changedSources) {
+    const files = index?.scriptFilesBySource?.get(rel)
+    if (!files) continue
+    for (const file of files) out.add(file)
+  }
+  return [...out].sort()
 }
 
 // Pure reload classifier shared by the launched-browser and --no-browser
@@ -171,6 +213,14 @@ export function classifyReloadFromSources(opts: {
   } catch {
     index = null
   }
+
+  // A scripts/ bundle edit rides along whichever reload wins, so the SW can
+  // replay the injections that named it.
+  const scriptFiles = changedScriptFilesFor(changedSources, index)
+  const withScripts = (instruction: ReloadInstruction): ReloadInstruction =>
+    scriptFiles.length > 0
+      ? {...instruction, changedScriptFiles: scriptFiles}
+      : instruction
 
   const swChanged: string[] = []
   const contentEntries = new Set<string>()
@@ -216,7 +266,7 @@ export function classifyReloadFromSources(opts: {
   if (swChanged.length > 0) {
     // A shared module (SW chunk + content chunk) needs BOTH paths: the SW
     // restart carries the instruction plus the stale content-script entries.
-    return {
+    return withScripts({
       type: 'service-worker',
       ...(contentEntries.size > 0
         ? {changedContentScriptEntries: [...contentEntries].sort()}
@@ -228,46 +278,46 @@ export function classifyReloadFromSources(opts: {
           : 'service_worker',
         swChanged
       )
-    }
+    })
   }
 
   if (staticAssetChanged) {
-    return {
+    return withScripts({
       type: 'full',
       changedAssets: changedSources,
       label: formatReloadContextLabel('extension', changedSources)
-    }
+    })
   }
 
   if (contentChanged.length > 0) {
-    return {
+    return withScripts({
       type: 'content-scripts',
       changedContentScriptEntries: [...contentEntries].sort(),
       changedAssets: changedSources,
       label: formatReloadContextLabel('content_script', contentChanged)
-    }
+    })
   }
 
   if (pageChanged.length > 0 && unknown.length === 0) {
-    return {
+    return withScripts({
       type: 'page',
       changedAssets: changedSources,
       label: formatReloadContextLabel(
         pageContextFromSources(pageChanged),
         pageChanged
       )
-    }
+    })
   }
 
   const isServiceWorkerSource = (rel: string) =>
     /(^|\/)background(\.|\/)/i.test(rel) || /service[-_.]?worker/i.test(rel)
 
   if (unknown.some(isServiceWorkerSource)) {
-    return {
+    return withScripts({
       type: 'service-worker',
       changedAssets: changedSources,
       label: formatReloadContextLabel('service_worker', changedSources)
-    }
+    })
   }
 
   const contentScriptCount = getContentScriptCount()
@@ -276,24 +326,24 @@ export function classifyReloadFromSources(opts: {
     for (let i = 0; i < contentScriptCount; i++) {
       entries.push(getCanonicalContentScriptEntryName(i))
     }
-    return {
+    return withScripts({
       type: 'content-scripts',
       changedContentScriptEntries: entries,
       changedAssets: changedSources,
       label: formatReloadContextLabel('content_script', changedSources)
-    }
+    })
   }
 
   // Page-only edit: livereload owns the actual refresh; emit a notify-only
   // instruction so the reload announcement surfaces still fire.
-  return {
+  return withScripts({
     type: 'page',
     changedAssets: changedSources,
     label: formatReloadContextLabel(
       pageContextFromSources(changedSources),
       changedSources
     )
-  }
+  })
 }
 
 export function readContentScriptCount(

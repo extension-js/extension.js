@@ -26,6 +26,26 @@ describe('dispatchReload', () => {
     })
   })
 
+  it('forwards changedScriptFiles so the SW can replay its executeScript calls', async () => {
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    await dispatchReload(
+      {
+        type: 'page',
+        changedAssets: ['scripts/widget.ts'],
+        changedScriptFiles: ['scripts/widget.js'],
+        label: 'page (scripts/widget.ts)'
+      },
+      {broker}
+    )
+    expect(broker.broadcastReload).toHaveBeenCalledWith({
+      type: 'page',
+      changedContentScriptEntries: undefined,
+      label: 'page (scripts/widget.ts)',
+      changedFiles: ['scripts/widget.ts'],
+      changedScriptFiles: ['scripts/widget.js']
+    })
+  })
+
   it('prints the stdout "Reloading …" line only when a producer was notified', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 

@@ -808,6 +808,55 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(reloaded).toBe(true)
   })
 
+  it('a reload frame with changedScriptFiles hands them to the scripts-replay shim once', async () => {
+    const replayed: string[][] = []
+    const ws = setup(
+      {runtime: {reload: () => {}}},
+      {
+        __extjsScriptsReplay: (files: string[]) => {
+          replayed.push(files)
+          return Promise.resolve([])
+        }
+      }
+    )
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'page',
+      label: 'page (scripts/widget.ts)',
+      changedFiles: ['scripts/widget.ts'],
+      changedScriptFiles: ['scripts/widget.js']
+    })
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'page',
+      label: 'popup page (popup/popup.js)',
+      changedFiles: ['popup/popup.js']
+    })
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(replayed).toEqual([['scripts/widget.js']])
+  })
+
+  it('a reload frame with changedScriptFiles stays harmless without the shim installed', async () => {
+    let reloaded = false
+    const ws = setup({runtime: {reload: () => (reloaded = true)}})
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'page',
+      changedFiles: ['scripts/widget.ts'],
+      changedScriptFiles: ['scripts/widget.js']
+    })
+    await new Promise((r) => setTimeout(r, 20))
+
+    // Notify-only page frames never reload or ack, with or without a replay.
+    expect(reloaded).toBe(false)
+    expect(
+      ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'reload-ack')
+    ).toEqual([])
+  })
+
   it('open action: opens the popup when the action has a default_popup', async () => {
     let opened = false
     const ws = setup({
