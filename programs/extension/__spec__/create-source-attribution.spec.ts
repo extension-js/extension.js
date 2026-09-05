@@ -125,4 +125,27 @@ describe('the two halves stay joined', () => {
     expect(declared).toContain('--source')
     expect(telemetryCommandContext('create', line).source).toBe('templates')
   })
+
+  it('sends only an advertised starter name as the template', () => {
+    expect(
+      telemetryCommandContext(
+        'create',
+        argv('create', 'my-extension', '--template', 'javascript')
+      ).template
+    ).toBe('javascript')
+    for (const freeform of [
+      'https://github.com/acme/private-thing',
+      '/Users/jane/private/ext',
+      '../clients/acme/internal-ext',
+      'acme/private-thing'
+    ]) {
+      expect(
+        telemetryCommandContext(
+          'create',
+          argv('create', 'my-extension', '--template', freeform)
+        ),
+        freeform
+      ).toEqual({template: undefined, source: 'cli'})
+    }
+  })
 })

@@ -18,6 +18,15 @@ Per CLI run, at most one of:
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else.
 
+The `create` command adds two properties so a broken advertised starter shows up in its failure counts:
+
+| property   | value                                                                 |
+| ---------- | --------------------------------------------------------------------- |
+| `template` | the starter name as listed by `extension create --help`, or absent   |
+| `source`   | `cli`, or the surface that started the create (for example `templates`) |
+
+`template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine.
+
 `is_source_build` is a boolean and nothing more. It is `false` when the CLI was resolved from a package manager directory, which is what an ordinary install looks like, and `true` when it was resolved from a checkout of this repository. It exists so a run of the framework's own development can be told apart from a run by somebody using it. No path, no directory name and no hash of either is collected or transmitted; only the boolean leaves the machine.
 
 ## Explicitly never collected
