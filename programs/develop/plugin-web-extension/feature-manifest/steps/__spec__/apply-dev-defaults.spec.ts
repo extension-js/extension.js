@@ -1,3 +1,6 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {ApplyDevDefaults} from '../apply-dev-defaults'
@@ -101,10 +104,31 @@ describe('ApplyDevDefaults', () => {
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
 
-  function runDevDefaults(manifest: Record<string, unknown>) {
+  function runDevDefaults(
+    manifest: Record<string, unknown>,
+    browser: 'chrome' | 'firefox' = 'chrome',
+    modules: Array<{resource: string}> = []
+  ) {
+    const {out, warnings} = runDevDefaultsWithWarnings(
+      manifest,
+      browser,
+      modules
+    )
+    void warnings
+    return out
+  }
+
+  function runDevDefaultsWithWarnings(
+    manifest: Record<string, unknown>,
+    browser: 'chrome' | 'firefox' = 'chrome',
+    modules: Array<{resource: string}> = []
+  ) {
     let updated: string | undefined
+    const warnings: Array<{name: string; message: string}> = []
     const compilation = {
       errors: [],
+      warnings,
+      modules,
       getAsset: (name: string) =>
         name === 'manifest.json'
           ? {source: () => JSON.stringify(manifest)}
@@ -125,10 +149,125 @@ describe('ApplyDevDefaults', () => {
     } as any
     new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
-      browser: 'chrome'
+      browser
     }).apply(compiler)
-    return JSON.parse(updated!)
+    return {out: JSON.parse(updated!), warnings}
   }
+
+  const SANDBOX =
+    "sandbox allow-scripts; script-src 'self' https://cdn.example.com"
+
+  it('keeps the author sandbox policy byte for byte and loosens only the pages slot (MV3)', () => {
+    const out = runDevDefaults({
+      manifest_version: 3,
+      name: 'x',
+      content_security_policy: {
+        extension_pages:
+          "script-src 'self'; object-src 'self'; connect-src 'self' https://api.example.com",
+        sandbox: SANDBOX
+      }
+    })
+    expect(out.content_security_policy.sandbox).toBe(SANDBOX)
+    expect(out.content_security_policy.extension_pages).toContain(
+      'ws://localhost:*'
+    )
+    expect(out.content_security_policy.extension_pages).toContain(
+      'https://api.example.com'
+    )
+    expect(out.content_security_policy.extension_pages).toContain(
+      "script-src 'self'"
+    )
+  })
+
+  it('keeps the sandbox slot on an MV2 object policy and a plain string on an MV2 string policy (Firefox)', () => {
+    const asObject = runDevDefaults(
+      {
+        manifest_version: 2,
+        name: 'x',
+        content_security_policy: {
+          extension_pages: "script-src 'self'; object-src 'self'",
+          sandbox: SANDBOX
+        }
+      },
+      'firefox'
+    )
+    expect(asObject.content_security_policy.sandbox).toBe(SANDBOX)
+    expect(asObject.content_security_policy.extension_pages).toContain(
+      "'unsafe-eval'"
+    )
+
+    const asString = runDevDefaults(
+      {
+        manifest_version: 2,
+        name: 'x',
+        content_security_policy: "script-src 'self'; object-src 'self'"
+      },
+      'firefox'
+    )
+    expect(typeof asString.content_security_policy).toBe('string')
+    expect(asString.content_security_policy).toContain("'unsafe-eval'")
+  })
+
+  it('names an optional permission the dev build turns required', () => {
+    const {out, warnings} = runDevDefaultsWithWarnings({
+      manifest_version: 3,
+      name: 'x',
+      optional_permissions: ['tabs']
+    })
+    expect(out.permissions).toContain('tabs')
+    expect(out.optional_permissions).toEqual(['tabs'])
+    expect(
+      warnings.filter((w) => w.name === 'DevPromotedOptionalPermissionWarning')
+    ).toHaveLength(1)
+    expect(warnings[0].message).toContain('"tabs"')
+  })
+
+  it('names an optional host a content script match promotes', () => {
+    const {out, warnings} = runDevDefaultsWithWarnings({
+      manifest_version: 3,
+      name: 'x',
+      optional_host_permissions: ['https://opt.example.com/*'],
+      content_scripts: [{matches: ['https://opt.example.com/*'], js: ['c.js']}]
+    })
+    expect(out.host_permissions).toContain('https://opt.example.com/*')
+    expect(out.optional_host_permissions).toEqual(['https://opt.example.com/*'])
+    const promoted = warnings.filter(
+      (w) => w.name === 'DevPromotedOptionalHostWarning'
+    )
+    expect(promoted).toHaveLength(1)
+    expect(promoted[0].message).toContain('https://opt.example.com/*')
+  })
+
+  it('stays quiet when nothing optional is promoted', () => {
+    const {warnings} = runDevDefaultsWithWarnings({
+      manifest_version: 3,
+      name: 'x',
+      permissions: ['tabs'],
+      optional_permissions: ['bookmarks']
+    })
+    expect(warnings).toEqual([])
+  })
+
+  it('warns when source uses a permission the author only made optional', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-defaults-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, 'chrome.storage.local.get("k")\n')
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x', optional_permissions: ['storage']},
+        'chrome',
+        [{resource: file}]
+      )
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('optional_permissions')
+      expect(drift[0].message).toContain('"storage"')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
 
   it('injects scripting + tabs (+ management) in dev for MV3', () => {
     const out = runDevDefaults({manifest_version: 3, name: 'x'})

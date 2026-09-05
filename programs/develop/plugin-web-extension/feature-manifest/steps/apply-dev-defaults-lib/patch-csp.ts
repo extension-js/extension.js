@@ -71,7 +71,30 @@ function loosenConnectSrcForDev(csp: Map<string, string[]>) {
   }
 }
 
-export function patchV2CSP(manifest: Manifest) {
+// Dev only loosens the pages policy. Every other slot the author wrote
+// (sandbox above all) rides along byte for byte: a whole-key replacement
+// dropped them and left a sandboxed page with its helper script blocked.
+function keepSiblingSlots(
+  policy: Manifest['content_security_policy'],
+  extensionPages: string
+): Manifest['content_security_policy'] {
+  if (policy && typeof policy === 'object' && !Array.isArray(policy)) {
+    return {
+      ...(policy as Record<string, unknown>),
+      extension_pages: extensionPages
+    } as Manifest['content_security_policy']
+  }
+  return extensionPages as Manifest['content_security_policy']
+}
+
+export function patchV2CSP(
+  manifest: Manifest
+): Manifest['content_security_policy'] {
+  const authored = manifest.content_security_policy
+  return keepSiblingSlots(authored, patchV2PagesPolicy(manifest))
+}
+
+function patchV2PagesPolicy(manifest: Manifest): string {
   const policy: string | undefined = resolveV2Policy(
     manifest.content_security_policy
   )
@@ -132,7 +155,11 @@ export function patchV3CSP(manifest: Manifest) {
     }
   }
 
-  const csp = parse(policy.extension_pages || '')
+  const extensionPages =
+    typeof policy === 'string'
+      ? policy
+      : (policy as {extension_pages?: unknown}).extension_pages
+  const csp = parse(typeof extensionPages === 'string' ? extensionPages : '')
   const defaultDirectives = {
     'script-src': ["'self'"],
     'object-src': ["'self'"]
@@ -152,7 +179,7 @@ export function patchV3CSP(manifest: Manifest) {
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   const extensionPagesPolicy = buildCSP(cspObject)
 
-  return {
-    extension_pages: extensionPagesPolicy
+  return keepSiblingSlots(policy, extensionPagesPolicy) as {
+    extension_pages: string
   }
 }
