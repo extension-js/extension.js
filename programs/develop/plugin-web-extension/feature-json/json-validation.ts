@@ -10,11 +10,18 @@ import {type Compilation, WebpackError} from '@rspack/core'
 import {stripBom} from '../../lib/parse-json-safe'
 import * as messages from './messages'
 
+// The fields package spells the feature storage/managed_schema; the dotted
+// form is kept for callers that still use it.
+export function isManagedSchemaFeature(feature: string): boolean {
+  return (
+    feature === 'storage/managed_schema' || feature === 'storage.managed_schema'
+  )
+}
+
 export function isCriticalJsonFeature(feature: string): boolean {
   return (
     feature.startsWith('declarative_net_request') ||
-    feature === 'storage.managed_schema' ||
-    feature === 'storage/managed_schema'
+    isManagedSchemaFeature(feature)
   )
 }
 
@@ -131,7 +138,7 @@ export function validateJsonAsset(
         compilation.warnings.push(warn)
       }
     }
-  } else if (feature === 'storage.managed_schema') {
+  } else if (isManagedSchemaFeature(feature)) {
     if (
       parsed === null ||
       Array.isArray(parsed) ||

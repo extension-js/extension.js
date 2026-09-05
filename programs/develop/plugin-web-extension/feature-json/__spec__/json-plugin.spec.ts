@@ -114,14 +114,14 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage.managed_schema': [p1, p2]}
+      includeList: {'storage/managed_schema': [p1, p2]}
     } as any)
     const harness = createCompilerHarness()
     const {assets, calls} = harness.applyAndRun(plugin)
 
     expect(calls.emit).toBe(1)
     expect(calls.update).toBe(1)
-    expect(assets['storage.managed_schema.json']).toBe('{"v":2}')
+    expect(assets['storage/managed_schema.json']).toBe('{"v":2}')
   })
 
   it('errors when a leading-slash critical JSON ref is missing from public/', () => {
@@ -255,7 +255,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage.managed_schema': p}
+      includeList: {'storage/managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)
@@ -379,7 +379,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage.managed_schema': p}
+      includeList: {'storage/managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     const {compilation} = harness.applyAndRun(plugin)
@@ -395,7 +395,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage.managed_schema': p}
+      includeList: {'storage/managed_schema': p}
     } as any)
     const harness = createCompilerHarness()
     harness.compilation.errors.push(new Error('stop'))
@@ -451,7 +451,7 @@ describe('JsonPlugin', () => {
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage.managed_schema': schemaPath}
+      includeList: {'storage/managed_schema': schemaPath}
     } as any)
     const harness = createCompilerHarness()
     const {compilation, calls} = harness.applyAndRun(plugin)

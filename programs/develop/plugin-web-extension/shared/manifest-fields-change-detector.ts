@@ -17,16 +17,14 @@ import {
 import type {DevOptions, PluginInterface} from '../../types'
 import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
+import {isCriticalJsonFeature} from '../feature-json/json-validation'
 import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
 import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
 import {getResolvedManifestFieldsData} from './manifest-fields'
 
-function isCriticalJsonFeatureKey(key: string): boolean {
-  return (
-    key.startsWith('declarative_net_request') ||
-    key === 'storage.managed_schema'
-  )
-}
+// One spelling of "critical" for the build and the watcher, so a schema
+// edit restarts the way a ruleset edit does.
+const isCriticalJsonFeatureKey = isCriticalJsonFeature
 
 interface CategoryChange {
   hasChange: boolean
