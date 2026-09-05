@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 import type {CompanionExtensionsConfig} from './types'
 
 export function isDir(p: string): boolean {
@@ -58,4 +59,26 @@ export function normalizeCompanionConfig(config?: CompanionExtensionsConfig): {
   }
 
   return {dir: scanDir, paths: explicitPaths}
+}
+
+// The store downloader files companions under extensions/<browser>/ with
+// these three folder names; a folder named for a browser belongs to that
+// browser's sessions only. Any other name is a shared companion.
+const BROWSER_COMPANION_FOLDERS = new Set(['chrome', 'edge', 'firefox'])
+
+export function isBrowserNamedCompanionFolder(name: string): boolean {
+  return BROWSER_COMPANION_FOLDERS.has(name.toLowerCase())
+}
+
+export function companionFolderForBrowser(browser: string | undefined): string {
+  if (browser && isGeckoBasedBrowser(String(browser))) return 'firefox'
+  if (browser === 'edge') return 'edge'
+  return 'chrome'
+}
+
+export function companionFolderMatchesBrowser(
+  name: string,
+  browser: string | undefined
+): boolean {
+  return name.toLowerCase() === companionFolderForBrowser(browser)
 }

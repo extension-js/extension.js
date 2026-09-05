@@ -94,6 +94,41 @@ describe('companion extensions resolver', () => {
     )
   })
 
+  it('loads a browser-named subfolder only for its browser, shared and explicit entries for every browser', () => {
+    const root = tmpDir('extjs-companion-scope-')
+    writeManifest(path.join(root, 'extensions', 'shared'))
+    writeManifest(path.join(root, 'extensions', 'chrome', 'c1'))
+    writeManifest(path.join(root, 'extensions', 'firefox', 'f1'))
+    writeManifest(path.join(root, 'extensions', 'edge', 'e1'))
+    writeManifest(path.join(root, 'extensions', 'explicit-only'))
+
+    const resolveFor = (browser: string) =>
+      resolveCompanionExtensionDirs({
+        projectRoot: root,
+        config: {dir: './extensions', paths: ['./extensions/explicit-only']},
+        browser
+      }).map((value) => toPosix(path.relative(root, value)).toLowerCase())
+
+    expect(resolveFor('firefox').sort()).toEqual([
+      'extensions/explicit-only',
+      'extensions/firefox/f1',
+      'extensions/shared'
+    ])
+    expect(resolveFor('chrome').sort()).toEqual([
+      'extensions/chrome/c1',
+      'extensions/explicit-only',
+      'extensions/shared'
+    ])
+    expect(resolveFor('edge').sort()).toEqual([
+      'extensions/edge/e1',
+      'extensions/explicit-only',
+      'extensions/shared'
+    ])
+    // Gecko forks share the firefox folder; unknown chromium names the chrome one.
+    expect(resolveFor('waterfox')).toContain('extensions/firefox/f1')
+    expect(resolveFor('chromium-based')).toContain('extensions/chrome/c1')
+  })
+
   it('rejects local paths outside ./extensions', async () => {
     const root = tmpDir('extjs-companion-outside-')
 

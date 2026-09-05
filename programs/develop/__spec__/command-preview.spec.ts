@@ -418,8 +418,10 @@ describe('webpack/command-preview (run-only)', () => {
         'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
       ]
     })
+    // The browser rides along so a browser-named companion folder is scoped
+    // to its own sessions in the preview run record too.
     expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
-      expect.objectContaining({config: {paths: ['/comp/a']}})
+      expect.objectContaining({config: {paths: ['/comp/a']}, browser: 'chrome'})
     )
   })
 
