@@ -729,3 +729,48 @@ describe('postcss detection', () => {
     expect(autoprefixerFactory).toHaveBeenCalled()
   })
 })
+
+describe('loadUserPostCssConfigObject reports a broken config', () => {
+  it('warns naming the file when the config throws, and when plugins have the wrong shape', async () => {
+    const {loadUserPostCssConfigObject} = await import(
+      '../../css-tools/postcss'
+    )
+    const os = await import('node:os')
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-postcss-broken-'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const throwing = path.join(dir, 'postcss.config.cjs')
+      fs.writeFileSync(throwing, 'throw new Error("boom in config")\n')
+      expect(
+        await loadUserPostCssConfigObject(throwing, dir, 'development')
+      ).toBeUndefined()
+      expect(warn.mock.calls.flat().join(' ')).toContain('postcss.config.cjs')
+      expect(warn.mock.calls.flat().join(' ')).toContain('boom in config')
+
+      warn.mockClear()
+      const wrongShape = path.join(dir, 'postcss.config.json')
+      fs.writeFileSync(wrongShape, JSON.stringify({plugins: 'tailwindcss'}))
+      expect(
+        await loadUserPostCssConfigObject(wrongShape, dir, 'development')
+      ).toBeUndefined()
+      expect(warn.mock.calls.flat().join(' ')).toContain(
+        'lists plugins as string'
+      )
+
+      warn.mockClear()
+      const fine = path.join(dir, 'postcss.fine.json')
+      fs.writeFileSync(fine, JSON.stringify({plugins: {autoprefixer: {}}}))
+      expect(
+        await loadUserPostCssConfigObject(fine, dir, 'development')
+      ).toEqual({
+        plugins: {autoprefixer: {}}
+      })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+})

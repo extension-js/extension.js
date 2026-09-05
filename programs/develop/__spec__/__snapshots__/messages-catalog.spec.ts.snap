@@ -100,6 +100,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "isUsingIntegration: function(1)",
     "lateCssImportIgnored: function(2)",
     "missingSassDependency: function(0)",
+    "postCssConfigPluginsShape: function(2)",
+    "postCssConfigUnreadable: function(2)",
     "postCssPluginNotResolved: function(2)",
     "preprocessorShippedUncompiled: function(2)",
     "youAreAllSet: function(1)",

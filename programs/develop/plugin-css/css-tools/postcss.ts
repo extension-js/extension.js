@@ -145,7 +145,7 @@ function tailwindStringPluginDisableShims() {
   return [{'@tailwindcss/postcss': false}, {tailwindcss: false}]
 }
 
-async function loadUserPostCssConfigObject(
+export async function loadUserPostCssConfigObject(
   configPath: string,
   projectPath: string,
   mode: string
@@ -159,28 +159,54 @@ async function loadUserPostCssConfigObject(
       // No YAML parser available here; let postcss-loader handle it.
       return undefined
     } else if (configPath.endsWith('.cjs')) {
-      loaded = tryLoadCjsConfig(configPath)
+      loaded = tryLoadCjsConfig(configPath, {report: true})
     } else {
       try {
         const mod = await import(pathToFileURL(configPath).href)
         loaded = mod?.default ?? mod
-      } catch {
-        loaded = tryLoadCjsConfig(configPath)
+      } catch (importError) {
+        // A CJS-shaped file under an ESM import fails on `module`; the
+        // hand-rolled CJS load gets its own turn, and only if that fails
+        // too is the file reported as unreadable.
+        loaded = tryLoadCjsConfig(configPath, {report: false})
+        if (loaded === undefined) {
+          console.warn(
+            messages.postCssConfigUnreadable(configPath, importError)
+          )
+          return undefined
+        }
       }
     }
-  } catch {
+  } catch (error) {
+    console.warn(messages.postCssConfigUnreadable(configPath, error))
     return undefined
   }
 
   if (typeof loaded === 'function') {
     try {
       loaded = loaded({env: mode, mode, cwd: projectPath})
-    } catch {
+    } catch (error) {
+      console.warn(messages.postCssConfigUnreadable(configPath, error))
       return undefined
     }
   }
 
-  return loaded && typeof loaded === 'object' ? loaded : undefined
+  if (!loaded || typeof loaded !== 'object') return undefined
+
+  // A plugins value PostCSS could never take is a config mistake, not an
+  // absent config: say so instead of silently dropping the whole file.
+  const plugins = (loaded as {plugins?: unknown}).plugins
+  if (
+    plugins !== undefined &&
+    plugins !== null &&
+    !Array.isArray(plugins) &&
+    typeof plugins !== 'object'
+  ) {
+    console.warn(messages.postCssConfigPluginsShape(configPath, typeof plugins))
+    return undefined
+  }
+
+  return loaded
 }
 
 function unwrapDefaultExport(mod: AnyModule): AnyModule {
@@ -298,7 +324,10 @@ function resolveConfigPluginList(
   return {plugins, unresolved}
 }
 
-function tryLoadCjsConfig(configPath: string): AnyModule | undefined {
+function tryLoadCjsConfig(
+  configPath: string,
+  options: {report: boolean} = {report: true}
+): AnyModule | undefined {
   try {
     const source = fs.readFileSync(configPath, 'utf8')
     const moduleObj: {exports: AnyModule} = {exports: {}}
@@ -314,7 +343,10 @@ function tryLoadCjsConfig(configPath: string): AnyModule | undefined {
     )
     fn(req, moduleObj, exportsObj, configPath, path.dirname(configPath))
     return moduleObj.exports
-  } catch {
+  } catch (error) {
+    if (options.report) {
+      console.warn(messages.postCssConfigUnreadable(configPath, error))
+    }
     return undefined
   }
 }

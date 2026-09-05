@@ -116,3 +116,20 @@ export function lateCssImportIgnored(issuerPath: string, line?: number) {
     `Move the ${colors.blue('@import')} above every other rule to make it load.`
   ].join('\n')
 }
+
+// A config file that is there but cannot be read must not look like no
+// config at all: the two cases need different fixes.
+export function postCssConfigUnreadable(configPath: string, error: unknown) {
+  return (
+    `${prefix('warn')} Could not load the PostCSS config at ${colors.gray(configPath)}.\n` +
+    `${String((error as Error)?.message || error)}\n` +
+    'The build continues without it. Fix the file or remove it.'
+  )
+}
+
+export function postCssConfigPluginsShape(configPath: string, found: string) {
+  return (
+    `${prefix('warn')} The PostCSS config at ${colors.gray(configPath)} lists plugins as ${found}.\n` +
+    'PostCSS expects an array or an object keyed by plugin name. The build continues without this config.'
+  )
+}
