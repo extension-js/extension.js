@@ -81,6 +81,23 @@ type LogsOptions = {
   output?: 'pretty' | 'json' | 'ndjson'
 }
 
+// One narrowing at the parse boundary: a line that is not a JSON object is
+// not an event, so the filters and printers only ever see the loose view
+// below and never an untyped parse result.
+function parseLogLine(line: string): LogEventLike | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(line)
+  } catch {
+    return null
+  }
+  return isLogEventLike(parsed) ? parsed : null
+}
+
+function isLogEventLike(value: unknown): value is LogEventLike {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 // Bridge log events are dynamic ndjson lines; this loose view names every
 // field the filters and printers probe.
 export interface LogEventLike {
@@ -338,13 +355,8 @@ export function registerLogsCommand(program: Command) {
       }
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
       for (const line of lines) {
-        let event: LogEventLike
-        try {
-          event = JSON.parse(line)
-        } catch {
-          continue
-        }
-        if (matches(event)) printEvent(event, format)
+        const event = parseLogLine(line)
+        if (event && matches(event)) printEvent(event, format)
       }
     })
 }
