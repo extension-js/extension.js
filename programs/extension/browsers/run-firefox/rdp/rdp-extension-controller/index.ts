@@ -64,6 +64,10 @@ export class FirefoxRDPController {
     return this.remote.getAddonInstallRefusalReason()
   }
 
+  async openNewTab(): Promise<boolean> {
+    return await this.remote.openNewTab()
+  }
+
   getExtensionId(): string | undefined {
     return this.remote.getDerivedExtensionId()
   }

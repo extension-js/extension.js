@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
+import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import type {CompilationLike} from '../../browsers-types'
 import type {FirefoxPluginRuntime} from '../firefox-types'
 import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
@@ -75,6 +76,30 @@ export async function setupRdpAfterLaunch(
     }
   } catch (error) {
     throw withRefusalReason(error)
+  }
+
+  // The launch tab predates add-on registration, so it sits on about:blank
+  // while Firefox already serves the override; open a fresh tab onto it the
+  // way chromium does. Skipped for startingUrl and --no-open.
+  try {
+    const outPath = String(compilation?.options?.output?.path || '')
+    if (
+      !plugin.startingUrl &&
+      !plugin.noOpen &&
+      manifestDeclaresNewtabOverride(outPath)
+    ) {
+      const live = (plugin.rdpController || controller) as {
+        openNewTab?: () => Promise<boolean>
+      }
+      const opened = await live.openNewTab?.()
+      if (!opened && isDebug()) {
+        humanWarn(
+          '[browser] Firefox: could not open the new-tab override page.'
+        )
+      }
+    }
+  } catch {
+    // best-effort only, never block launch on the courtesy tab
   }
 
   return controller

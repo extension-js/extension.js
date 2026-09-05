@@ -31,6 +31,7 @@ import {
 } from './addons-install'
 import {printRunningInDevelopmentSummary} from './firefox-utils'
 import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
+import {openManagerNewTab} from './manager-tab'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {MessagingClient} from './messaging-client'
 import {deriveMozExtensionId} from './moz-id'
@@ -325,6 +326,13 @@ export class RemoteFirefox {
         )
       )
     }
+  }
+
+  // Opens a new tab through the manager add-on over the live RDP
+  // connection; false when no session or manager is reachable.
+  public async openNewTab(): Promise<boolean> {
+    if (!this.client) return false
+    return await openManagerNewTab(this.client)
   }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)

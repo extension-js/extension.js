@@ -160,6 +160,7 @@ function buildPreviewFirefoxOptions(
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     startingUrl: pluginOptions.startingUrl,
+    noOpen: pluginOptions.noOpen,
     geckoBinary: pluginOptions.geckoBinary,
     instanceId: pluginOptions.instanceId,
     port: pluginOptions.port,

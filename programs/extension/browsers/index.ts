@@ -224,6 +224,7 @@ async function launchFirefox(
     preferences: opts.preferences,
     browserFlags: opts.browserFlags,
     startingUrl: opts.startingUrl,
+    noOpen: opts.noOpen,
     geckoBinary: opts.geckoBinary,
     instanceId: opts.instanceId,
     port: opts.port,
