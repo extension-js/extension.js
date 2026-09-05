@@ -29,6 +29,11 @@ export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
     browser_action?: {
       theme_icons?: ThemeIcon[]
     }
+    // Firefox supports theme_icons on the MV3 action (light/dark toolbar
+    // icons), which @types/chrome does not model.
+    action?: chrome.runtime.ManifestV3['action'] & {
+      theme_icons?: ThemeIcon[]
+    }
     // Extension.js augments the standard omnibox shape with a `default_icon`
     // (string path or per-size record), which `@types/chrome` does not model.
     omnibox?: {

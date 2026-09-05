@@ -9,6 +9,7 @@
 import type {Compiler} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
 import type {FilepathList, PluginInterface, ThemeIcon} from '../../types'
+import {extractActionThemeIcons} from './extract-action-theme-icons'
 import * as messages from './messages'
 import {normalizeIconIncludeKeys} from './normalize-keys'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
@@ -37,9 +38,14 @@ export class IconsPlugin {
   public apply(compiler: Compiler): void {
     // Normalize include keys so downstream steps can consistently
     // determine output folders and severities without relying on callers.
-    const normalizedIncludeList = normalizeIconIncludeKeys(
-      this.includeList as Record<string, unknown> | undefined
-    )
+    // action.theme_icons is folded in here: the fields package does not
+    // extract it, and the emitter is the only thing that can ship it.
+    const normalizedIncludeList = {
+      ...normalizeIconIncludeKeys(
+        this.includeList as Record<string, unknown> | undefined
+      ),
+      ...extractActionThemeIcons(this.manifestPath)
+    }
 
     if (isDebug()) {
       const beforeKeys = Object.keys(

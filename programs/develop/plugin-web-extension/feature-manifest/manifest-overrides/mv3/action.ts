@@ -6,9 +6,12 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Manifest} from '../../../../types'
+import type {Manifest, ThemeIcon} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {iconOutputPath} from '../../normalize-manifest-path'
+import {
+  iconOutputPath,
+  themeIconOutputPath
+} from '../../normalize-manifest-path'
 
 export function action(manifest: Manifest) {
   return (
@@ -37,6 +40,27 @@ export function action(manifest: Manifest) {
                     return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )
+        }),
+        // Firefox MV3 action.theme_icons (light/dark toolbar icons) mirror
+        // browser_action.theme_icons and land under action/.
+        ...(manifest.action.theme_icons && {
+          theme_icons: (manifest.action.theme_icons as ThemeIcon[]).map(
+            (themeIcon) => ({
+              ...themeIcon,
+              ...(themeIcon.light && {
+                light: getFilename(
+                  themeIconOutputPath(String(themeIcon.light), 'action'),
+                  String(themeIcon.light)
+                )
+              }),
+              ...(themeIcon.dark && {
+                dark: getFilename(
+                  themeIconOutputPath(String(themeIcon.dark), 'action'),
+                  String(themeIcon.dark)
+                )
+              })
+            })
+          )
         })
       }
     }

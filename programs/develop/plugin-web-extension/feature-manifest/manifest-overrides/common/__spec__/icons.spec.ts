@@ -30,11 +30,14 @@ describe('icons manifest override, output path matches the icon emitter', () => 
     })
   })
 
-  it('flattens paths that escape the project to icons/<basename>', () => {
+  it('gives paths that escape the project a unique slot under icons/', () => {
     const out = icons({
-      icons: {16: '../shared/i16.png'}
+      icons: {16: '../shared/i16.png', 32: '../other/i16.png'}
     } as any) as any
-    expect(out.icons).toEqual({16: 'icons/i16.png'})
+    expect(out.icons).toEqual({
+      16: 'icons/_/shared/i16.png',
+      32: 'icons/_/other/i16.png'
+    })
   })
 
   it('keeps genuine public/ icon paths at their extension-root location', () => {

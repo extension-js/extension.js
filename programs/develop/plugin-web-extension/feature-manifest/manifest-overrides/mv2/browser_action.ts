@@ -6,12 +6,11 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'node:path'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
-  normalizeManifestOutputPath
+  themeIconOutputPath
 } from '../../normalize-manifest-path'
 
 export function browserAction(manifest: Manifest) {
@@ -47,28 +46,22 @@ export function browserAction(manifest: Manifest) {
               return {
                 ...themeIcon,
                 ...(themeIcon.light && {
-                  light: (() => {
-                    const raw = String(themeIcon.light)
-                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                      raw
-                    )
-                    const target = isPublic
-                      ? normalizeManifestOutputPath(raw)
-                      : `browser_action/${path.basename(raw)}`
-                    return getFilename(target, raw)
-                  })()
+                  light: getFilename(
+                    themeIconOutputPath(
+                      String(themeIcon.light),
+                      'browser_action'
+                    ),
+                    String(themeIcon.light)
+                  )
                 }),
                 ...(themeIcon.dark && {
-                  dark: (() => {
-                    const raw = String(themeIcon.dark)
-                    const isPublic = /^(?:\/public\/|(?:\.\/)?public\/)/i.test(
-                      raw
-                    )
-                    const target = isPublic
-                      ? normalizeManifestOutputPath(raw)
-                      : `browser_action/${path.basename(raw)}`
-                    return getFilename(target, raw)
-                  })()
+                  dark: getFilename(
+                    themeIconOutputPath(
+                      String(themeIcon.dark),
+                      'browser_action'
+                    ),
+                    String(themeIcon.dark)
+                  )
                 })
               }
             }

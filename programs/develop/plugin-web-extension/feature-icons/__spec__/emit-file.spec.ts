@@ -103,12 +103,14 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toContain('icons/icon16.png')
-    expect(calls).toContain('icons/icon48.png')
-    expect(calls).toContain('icons/action16.png')
-    expect(calls).toContain('icons/ba16.png')
-    expect(calls).toContain('icons/pa16.png')
-    expect(calls).toContain('icons/sa16.png')
+    // Sources outside the extension root keep a unique slot under icons/
+    // derived from their relative path, never a bare basename.
+    expect(calls).toContain('icons/_/assets/icon16.png')
+    expect(calls).toContain('icons/_/assets/icon48.png')
+    expect(calls).toContain('icons/_/assets/action16.png')
+    expect(calls).toContain('icons/_/assets/ba16.png')
+    expect(calls).toContain('icons/_/assets/pa16.png')
+    expect(calls).toContain('icons/_/assets/sa16.png')
   })
 
   it('preserves manifest-relative paths for in-project icons (G16)', async () => {
@@ -160,7 +162,7 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['icons/keep.png'])
+    expect(calls).toEqual(['icons/_/assets/keep.png'])
   })
 
   it('emits browser_action/theme_icons to browser_action folder', async () => {
@@ -183,7 +185,10 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['browser_action/a.png', 'browser_action/b.png'])
+    expect(calls).toEqual([
+      'browser_action/_/assets/a.png',
+      'browser_action/_/assets/b.png'
+    ])
   })
 
   it('emits theme/images entries to the theme/images folder', async () => {
@@ -419,6 +424,73 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['icons/icon48.png'])
+    expect(calls).toEqual(['icons/_/assets/icon48.png'])
+  })
+
+  it('keeps two outside-root icons that share a basename apart', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+    const existing = new Set([
+      '/abs/design/a/logo.png',
+      '/abs/design/b/logo.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
+    new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        icons: ['/abs/design/a/logo.png'],
+        'action/default_icon': ['/abs/design/b/logo.png']
+      }
+    } as any).apply(compiler as any)
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toHaveLength(2)
+    expect(new Set(calls).size).toBe(2)
+    expect(calls).toEqual([
+      'icons/_/design/a/logo.png',
+      'icons/_/design/b/logo.png'
+    ])
+  })
+
+  it('keeps a light/dark theme_icons pair that shares a basename apart', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+    const existing = new Set([
+      '/abs/design/light/logo.png',
+      '/abs/design/dark/logo.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
+    new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        'browser_action/theme_icons': [
+          '/abs/design/light/logo.png',
+          '/abs/design/dark/logo.png'
+        ]
+      }
+    } as any).apply(compiler as any)
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toEqual([
+      'browser_action/_/design/light/logo.png',
+      'browser_action/_/design/dark/logo.png'
+    ])
+  })
+
+  it('emits MV3 action/theme_icons under the action folder', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+    const existing = new Set(['/abs/project/icons/light.png'])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
+    new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {'action/theme_icons': ['/abs/project/icons/light.png']}
+    } as any).apply(compiler as any)
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toEqual(['action/light.png'])
   })
 })
