@@ -2,6 +2,7 @@
 // This file is published by the extension package.
 /// <reference types="node" />
 /// <reference types="chrome" />
+/// <reference path="./assets.d.ts" />
 
 declare global {
   // Align types with Extension.js runtime: we provide the browser global via
@@ -57,66 +58,6 @@ declare global {
      */
     __EXTENSION_SHADOW_ROOT__: ShadowRoot
   }
-}
-
-type CSSContentData = Readonly<Record<string, string>>
-type CSSModuleData = Readonly<Record<string, string>>
-
-declare module '*.css' {
-  const content: CSSContentData
-  export default content
-}
-
-declare module '*.module.css' {
-  const content: CSSModuleData
-  export default content
-}
-declare module '*.module.scss' {
-  const content: CSSModuleData
-  export default content
-}
-declare module '*.module.sass' {
-  const content: CSSModuleData
-  export default content
-}
-
-declare module '*.png' {
-  const content: string
-  export default content
-}
-declare module '*.jpg' {
-  const content: string
-  export default content
-}
-declare module '*.jpeg' {
-  const content: string
-  export default content
-}
-declare module '*.gif' {
-  const content: string
-  export default content
-}
-declare module '*.webp' {
-  const content: string
-  export default content
-}
-declare module '*.avif' {
-  const content: string
-  export default content
-}
-declare module '*.ico' {
-  const content: string
-  export default content
-}
-declare module '*.bmp' {
-  const content: string
-  export default content
-}
-declare module '*.svg' {
-  // Use any to avoid conflicts with SVGR or other SVG loaders.
-  // biome-ignore lint/suspicious/noExplicitAny: deliberate, a stricter type conflicts with SVGR-style loaders
-  const content: any
-  export default content
 }
 
 export {}

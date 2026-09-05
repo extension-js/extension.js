@@ -15,7 +15,7 @@ export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
 
 const STYLE_TYPE = 'Readonly<Record<string, string>>'
 
-// Keep this list in step with the wildcard blocks in extension/types/index.d.ts.
+// Keep this list in step with the wildcard blocks in extension/types/assets.d.ts.
 // The spec for generate-extension-types compares the two so they cannot drift.
 export const EXTENSION_ENV_WILDCARD_MODULES = Object.freeze([
   {pattern: '*.css', type: STYLE_TYPE},
