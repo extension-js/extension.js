@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {takeVerbatimCss} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
 
 const BROKEN_CSS = [
@@ -12,7 +13,7 @@ const BROKEN_CSS = [
   '.also-ok { display: none; }'
 ].join('\n')
 
-function runPitch(resourcePath: string) {
+function runPitch(resourcePath: string, module?: {type: string}) {
   return new Promise<{
     result: string | undefined
     warnings: Error[]
@@ -20,6 +21,7 @@ function runPitch(resourcePath: string) {
     const warnings: Error[] = []
     const ctx = {
       resourcePath,
+      _module: module,
       emitWarning: (w: Error) => warnings.push(w),
       async: () => (err: Error | null, content?: string) =>
         err ? reject(err) : resolve({result: content, warnings})
@@ -57,5 +59,18 @@ describe('css-parse-guard-loader', () => {
     const {result, warnings} = await runPitch(file)
     expect(result).toBeUndefined()
     expect(warnings).toEqual([])
+  })
+
+  it('hands the native css type a placeholder rule and keeps the raw sheet for the restore step', async () => {
+    const file = writeTemp('native.css', BROKEN_CSS)
+    const {result, warnings} = await runPitch(file, {type: 'css'})
+    expect(warnings.length).toBe(1)
+    expect(String(result)).toMatch(
+      /^\.__extjs_verbatim_[a-z0-9]+__\{--extjs-verbatim:1\}/
+    )
+    const id = /__extjs_verbatim_([a-z0-9]+)__/.exec(
+      String(result)
+    )?.[1] as string
+    expect(takeVerbatimCss(id)).toBe(BROKEN_CSS)
   })
 })

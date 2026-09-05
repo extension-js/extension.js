@@ -141,8 +141,15 @@ export async function buildCssRules(
 
       // Runs last, right before rspack's native CSS parser, which fails the
       // module on an @import after other rules that browsers simply skip.
+      // The parse guard pitches ahead of it in every project, PostCSS or
+      // not: a sheet the parser rejects ships as authored with one warning.
       if (type === 'css' || type === 'css/module') {
-        ;(use as Array<Record<string, unknown>>).unshift({
+        const guard = resolveDevelopDistFile('css-parse-guard-loader')
+        const list = use as Array<Record<string, unknown>>
+        if (!list.some((entry) => entry?.loader === guard)) {
+          list.unshift({loader: guard})
+        }
+        list.unshift({
           loader: resolveDevelopDistFile('late-css-import-loader')
         })
       }
