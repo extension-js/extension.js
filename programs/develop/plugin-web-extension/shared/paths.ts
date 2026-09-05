@@ -89,3 +89,13 @@ export function collectRootAbsoluteRefs(source: string): Set<string> {
 
   return refs
 }
+
+// A manifest value with a scheme (https:, about:, moz-extension:) or a
+// protocol-relative prefix is an address, never a file the build must ship.
+export function isManifestAddress(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  // Two or more scheme letters: a single letter followed by a colon is a
+  // Windows drive, which is a file path.
+  return /^[a-z][a-z0-9+.-]+:/i.test(trimmed) || trimmed.startsWith('//')
+}

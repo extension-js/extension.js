@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import rspack, {Compilation, type Compiler} from '@rspack/core'
 import {isCompilerRestarting} from '../../../dev-server/session-restart'
+import {isManifestAddress} from '../../shared/paths'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
 
 function readJsonSafe(source: string) {
@@ -24,7 +25,7 @@ function normalizeManifestFile(filePath: unknown): string | undefined {
   if (typeof filePath !== 'string') return undefined
   const normalized = filePath.trim().replace(/^\/+/, '')
   if (!normalized) return undefined
-  if (/^(https?:)?\/\//i.test(filePath)) return undefined
+  if (isManifestAddress(filePath)) return undefined
   if (/[*?[\]{}]/.test(normalized)) return undefined
   return normalized
 }
@@ -57,6 +58,11 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
           history?: unknown
           bookmarks?: unknown
         }
+        theme_experiment?: {stylesheet?: unknown}
+        chrome_settings_overrides?: {
+          startup_pages?: unknown
+          search_provider?: {favicon_url?: unknown}
+        }
       }
     | undefined
   const background = manifestObj?.background
@@ -83,6 +89,14 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
   addFile(manifestObj?.chrome_url_overrides?.newtab)
   addFile(manifestObj?.chrome_url_overrides?.history)
   addFile(manifestObj?.chrome_url_overrides?.bookmarks)
+  // Firefox theme and search overrides name packaged files too; addresses
+  // are filtered by normalizeManifestFile.
+  addFile(manifestObj?.theme_experiment?.stylesheet)
+  addFile(manifestObj?.chrome_settings_overrides?.search_provider?.favicon_url)
+  const startupPages = manifestObj?.chrome_settings_overrides?.startup_pages
+  if (Array.isArray(startupPages)) {
+    for (const page of startupPages) addFile(page)
+  }
 
   const contentScripts = manifestObj?.content_scripts
   if (Array.isArray(contentScripts)) {

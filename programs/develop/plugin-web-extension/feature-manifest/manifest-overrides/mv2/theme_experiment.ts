@@ -5,6 +5,9 @@ import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
+// Only `stylesheet` is a Firefox key. A `stylesheets` list is not part of
+// theme_experiment, so it passes through untouched rather than earning a
+// promise nothing emits.
 export function themeExperiment(manifest: Manifest, manifestPath?: string) {
   const te = manifest.theme_experiment
   return (
@@ -19,18 +22,6 @@ export function themeExperiment(manifest: Manifest, manifestPath?: string) {
               manifestPath
             ),
             te.stylesheet
-          )
-        }),
-        ...(Array.isArray(te.stylesheets) && {
-          stylesheets: te.stylesheets.map((s: string, i: number) =>
-            getFilename(
-              manifestPageOutputTarget(
-                s,
-                `theme_experiment/stylesheet-${i}.css`,
-                manifestPath
-              ),
-              s
-            )
           )
         })
       }
