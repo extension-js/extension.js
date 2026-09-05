@@ -27,6 +27,7 @@ import {
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {sanitize} from './lib/sanitize'
+import {ensureSessionArtifactsIgnoreFile} from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   createPlaywrightMetadataWriter,
@@ -113,11 +114,14 @@ export async function extensionPreview(
     previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
   const runningMessage =
     metadataCommand === 'start' ? messages.starting : messages.previewing
+  // The run record describes the directory the browser loads, so its path
+  // and the extension id derived from it name the actual load, not the
+  // stock build folder the flag may have replaced.
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(browser),
     command: metadataCommand,
-    distPath,
+    distPath: outputPath,
     manifestPath: projectStructure.manifestPath,
     port:
       typeof previewOptions.port === 'number'
@@ -151,6 +155,8 @@ export async function extensionPreview(
     )
     humanLine(messages.debugPreviewOutput(outputPath, distPath))
   }
+
+  ensureSessionArtifactsIgnoreFile(packageJsonDir)
 
   // Run-only preview requires an existing unpacked extension root at outputPath.
   // If dist/<browser> doesn't exist, computePreviewOutputPath falls back to manifestDir.
@@ -196,11 +202,12 @@ export async function extensionPreview(
 
   humanLine(runningMessage(browser))
 
-  if (
-    !previewOptions.outputPath &&
-    path.resolve(outputPath) !== path.resolve(distPath)
-  ) {
-    humanLine(messages.previewingSourceFallback(browser, distPath))
+  if (path.resolve(outputPath) !== path.resolve(distPath)) {
+    humanLine(
+      previewOptions.outputPath
+        ? messages.previewingCustomOutput(browser, outputPath, distPath)
+        : messages.previewingSourceFallback(browser, distPath)
+    )
   }
 
   const safeProjectConfig = sanitize(projectConfig) as {

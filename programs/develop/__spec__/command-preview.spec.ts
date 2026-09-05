@@ -28,6 +28,12 @@ vi.mock('../lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
+const ensureSessionArtifactsIgnoreFile = vi.hoisted(() => vi.fn())
+vi.mock('../lib/session-paths', async () => ({
+  ...(await vi.importActual<any>('../lib/session-paths')),
+  ensureSessionArtifactsIgnoreFile
+}))
+
 vi.mock('../plugin-special-folders/folder-extensions/resolve-dirs', () => ({
   resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a'])
 }))
@@ -67,6 +73,22 @@ vi.mock('../plugin-playwright', () => ({
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
 
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+const printed: string[] = []
+// humanLine prints to console.log, or to stderr under machine output. The
+// spies are re-armed per test because afterEach restores every mock.
+function captureOutput() {
+  printed.length = 0
+  vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+    printed.push(args.join(' '))
+  })
+  vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+    printed.push(String(chunk))
+    return true
+  }) as typeof process.stderr.write)
+}
+function printedLines() {
+  return printed.join('\n')
+}
 
 import {extensionPreview} from '../command-preview'
 import * as configLoaderMod from '../lib/config-loader'
@@ -84,6 +106,7 @@ describe('webpack/command-preview (run-only)', () => {
     vi.resetModules()
     runOnlyPreviewBrowser.mockClear()
     logSpy.mockClear()
+    captureOutput()
     ;(fs.existsSync as any)?.mockReset?.()
     ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
     ;(resolveDirsMod as any).resolveCompanionExtensionDirs?.mockClear?.()
@@ -285,6 +308,34 @@ describe('webpack/command-preview (run-only)', () => {
     // asAbsolute keeps already-absolute input verbatim on every platform;
     // path.resolve would rewrite this to D:\... on Windows and diverge.
     expect(call.outPath).toBe('/custom/unpacked')
+    // The run record describes the loaded directory, so the recorded path and
+    // the extension id derived from it match the load.
+    expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
+      expect.objectContaining({distPath: '/custom/unpacked'})
+    )
+    expect(ensureSessionArtifactsIgnoreFile).toHaveBeenCalledWith('/proj')
+    const printed = printedLines()
+    expect(printed).toContain('Previewing chrome from /custom/unpacked')
+    expect(printed).toContain(path.join('/proj', 'dist', 'chrome'))
+  })
+
+  it('records the stock build folder when no outputPath is given', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
+      expect.objectContaining({distPath: path.join('/proj', 'dist', 'chrome')})
+    )
+    expect(printedLines()).not.toContain('Previewing chrome from')
   })
 
   it('throws when outputPath does not contain manifest.json', async () => {

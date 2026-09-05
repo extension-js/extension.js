@@ -770,6 +770,17 @@ export function debugOutputPath(pathValue: string) {
   return `${prefix('debug')} output   path=${pathValue}`
 }
 
+export function previewingCustomOutput(
+  browser: DevOptions['browser'],
+  outputPath: string,
+  distPath: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Previewing ${String(browser)} from ${outputPath}.\n` +
+    `This is not the build folder ${distPath}. The run record describes the folder loaded.`
+  )
+}
+
 export function debugPreviewOutput(outputPath: string, distPath: string) {
   return `${prefix('debug')} preview  output=${outputPath} dist=${distPath}`
 }
