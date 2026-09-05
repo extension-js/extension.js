@@ -67,6 +67,10 @@ function findEmittedCss(distDir: string): string | null {
     const js = fs.readFileSync(f, 'utf8')
     const m = js.match(/"data:text\/css;base64,([A-Za-z0-9+/=]+)"/)
     if (m) return Buffer.from(m[1], 'base64').toString('utf8')
+    // A content-script sheet ships as a runtime stylesheet module that keeps
+    // the processed text as one JSON string literal.
+    const runtime = js.match(/__extjsCssText = ("(?:[^"\\]|\\.)*")/)
+    if (runtime) return JSON.parse(runtime[1])
   }
   return null
 }

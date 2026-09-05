@@ -56,6 +56,23 @@ export function isDeadCssUrlRef(
   return !candidates.some((candidate) => fs.existsSync(candidate))
 }
 
+/**
+ * Rewrites url() targets in place. The replacer returns the new target, or
+ * undefined to keep the reference exactly as authored.
+ */
+export function replaceCssUrlRefs(
+  source: string,
+  replacer: (request: string) => string | undefined
+): string {
+  return source.replace(URL_REF, (whole, dq, sq, bare) => {
+    const request = dq ?? sq ?? bare ?? ''
+    if (!request) return whole
+    const next = replacer(request)
+    if (next === undefined) return whole
+    return `url("${next.replace(/["\\]/g, '\\$&')}")`
+  })
+}
+
 /** Every url() target in a stylesheet, in source order, duplicates collapsed. */
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
