@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
-import {findNearestPackageJson, validatePackageJson} from './package-json'
+import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
 
@@ -330,13 +330,25 @@ export async function getProjectStructure(
   pathOrRemoteUrl: string | undefined
 ): Promise<ProjectStructure> {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
+  return resolveProjectStructureSync(projectPath)
+}
+
+// The same walk `dev` anchors its session on, usable by the read-only
+// session tools: local path in, manifest and project root out, no network.
+export function resolveProjectStructureSync(
+  projectPath: string,
+  options: {quiet?: boolean} = {}
+): ProjectStructure {
+  const log = (line: string) => {
+    if (!options.quiet) console.log(line)
+  }
 
   const isUnderDir = (baseDir: string, candidatePath: string): boolean => {
     const rel = path.relative(baseDir, candidatePath)
     return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
   }
 
-  const packageJsonPathFromProject = await findNearestPackageJson(
+  const packageJsonPathFromProject = findNearestPackageJsonSync(
     path.join(projectPath, 'manifest.json')
   )
   const denoJsonPathFromProject = findNearestDenoConfigSync(
@@ -363,9 +375,7 @@ export async function getProjectStructure(
 
       if (absoluteCandidates.length === 1) {
         manifestPath = absoluteCandidates[0]
-        console.log(
-          messages.resolvedWorkspaceManifest(projectPath, manifestPath)
-        )
+        log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
       } else {
         throw new Error(
           messages.manifestNotFoundError(manifestPath, relativeCandidates)
@@ -450,7 +460,7 @@ export async function getProjectStructure(
     )
     if (alternatives.length === 1) {
       manifestPath = alternatives[0]
-      console.log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
+      log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
     } else {
       throw new Error(messages.notAnExtensionManifestError(manifestPath))
     }
@@ -458,7 +468,7 @@ export async function getProjectStructure(
 
   // Find nearest package.json and deno.json(c); web-only mode only applies
   // when neither is present or valid.
-  const packageJsonPath = await findNearestPackageJson(manifestPath)
+  const packageJsonPath = findNearestPackageJsonSync(manifestPath)
   const packageJsonDir = packageJsonPath
     ? path.dirname(packageJsonPath)
     : undefined

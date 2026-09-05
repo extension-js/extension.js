@@ -18,6 +18,10 @@ import {
   type EnvelopeError,
   type ErrorCode
 } from '../helpers/messaging'
+import {
+  resolveSessionProjectPath,
+  sessionReadyPath
+} from '../helpers/session-project-path'
 import {formatPrettyLogLine, type LogEventLike} from './logs'
 
 export function readRecentConsole(
@@ -328,11 +332,11 @@ function printResult(
 }
 
 async function runCommand(input: RunInput): Promise<void> {
-  const projectPath = path.resolve(input.projectPathArg || process.cwd())
+  const bridge = await loadExtensionDevelopBridgeModule()
+  const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
   const browser = input.opts.browser || 'chromium'
 
-  const {BridgeController, readReadyContract, readControlToken} =
-    await loadExtensionDevelopBridgeModule()
+  const {BridgeController, readReadyContract, readControlToken} = bridge
 
   const outputFrame = {command: input.command, output: input.opts.output}
 
@@ -344,6 +348,7 @@ async function runCommand(input: RunInput): Promise<void> {
   if (!ready) {
     fail(
       `No active control channel found for ${browser}. ` +
+        `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
         `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.`,
       {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )

@@ -67,9 +67,6 @@ export {
   controlTokenPath,
   readControlToken
 } from './dev-server/control-bridge/session-token'
-// Session-state paths. Every consumer that hardcodes
-// `dist/extension-js/<browser>/ready.json` is one layout change away from
-// silently reading nothing, so the layout is published rather than implied.
 export {
   actionsPath,
   browserArtifactsDir,
@@ -82,6 +79,10 @@ export {
   sessionArtifactsRootDir,
   sessionStateDir
 } from './lib/session-paths'
+// Session-state paths. Every consumer that hardcodes
+// `dist/extension-js/<browser>/ready.json` is one layout change away from
+// silently reading nothing, so the layout is published rather than implied.
+export {resolveSessionProjectRoot} from './lib/session-project-root'
 // The writer's own type for ready.json, so a consumer names the contract the
 // engine maintains instead of hand-declaring a twenty-field mirror of it.
 export type {

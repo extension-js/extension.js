@@ -90,7 +90,8 @@ describe('the extension-develop/bridge entry', () => {
       'browserDistDir',
       'browserProfileRootDir',
       'sessionArtifactsRootDir',
-      'sessionStateDir'
+      'sessionStateDir',
+      'resolveSessionProjectRoot'
     ]) {
       expect(
         typeof (bridge as Record<string, unknown>)[name],
