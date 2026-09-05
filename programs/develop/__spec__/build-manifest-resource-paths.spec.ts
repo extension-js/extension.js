@@ -103,7 +103,9 @@ describe('theme images', () => {
       {'images/frame.png': PNG}
     )
     const {distDir, manifest} = await build(root)
-    expect(manifest.theme.images.theme_frame).toBe('theme/images/frame.png')
+    expect(manifest.theme.images.theme_frame).toBe(
+      'theme/images/images/frame.png'
+    )
     expectInDist(distDir, manifest.theme.images.theme_frame)
   }, 120_000)
 })

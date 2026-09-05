@@ -1,19 +1,16 @@
-import * as path from 'node:path'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {manifestPageOutputTarget} from '../../normalize-manifest-path'
-
-const getBasename = (filepath: string) => path.basename(filepath)
+import {
+  manifestPageOutputTarget,
+  themeImageOutputPath
+} from '../../normalize-manifest-path'
 
 // A public-hosted image ships at its public-relative path (the copier puts
 // it there), so the manifest must name that path, not the canonical one.
+// Everything else lands where the icons emitter puts it; keep them agreed.
 const rewriteThemeImage = (value: string, manifestPath?: string) =>
   getFilename(
-    manifestPageOutputTarget(
-      value,
-      `theme/images/${getBasename(value)}`,
-      manifestPath
-    ),
+    manifestPageOutputTarget(value, themeImageOutputPath(value), manifestPath),
     value
   )
 

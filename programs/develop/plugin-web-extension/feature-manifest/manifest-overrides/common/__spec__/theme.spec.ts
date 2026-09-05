@@ -22,14 +22,32 @@ function project(files: string[]) {
 }
 
 describe('theme (images override)', () => {
-  it('rewrites in-project images to the canonical theme folder', () => {
-    const manifestPath = project(['images/frame.png'])
+  it('rewrites in-project images to their own path under the theme folder', () => {
+    const manifestPath = project([
+      'images/frame.png',
+      'images/light/bg.png',
+      'images/dark/bg.png'
+    ])
     const result = theme(
-      {theme: {images: {theme_frame: 'images/frame.png'}}} as any,
+      {
+        theme: {
+          images: {
+            theme_frame: 'images/frame.png',
+            additional_backgrounds: [
+              'images/light/bg.png',
+              'images/dark/bg.png'
+            ]
+          }
+        }
+      } as any,
       manifestPath
     )
     expect(result?.theme.images).toEqual({
-      theme_frame: 'theme/images/frame.png'
+      theme_frame: 'theme/images/images/frame.png',
+      additional_backgrounds: [
+        'theme/images/images/light/bg.png',
+        'theme/images/images/dark/bg.png'
+      ]
     })
   })
 

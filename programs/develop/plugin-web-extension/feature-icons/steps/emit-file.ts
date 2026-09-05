@@ -13,7 +13,8 @@ import {isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {
   iconOutputPath,
-  themeIconOutputPath
+  themeIconOutputPath,
+  themeImageOutputPath
 } from '../../feature-manifest/normalize-manifest-path'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../messages'
@@ -260,8 +261,6 @@ export class EmitFile {
                   // land under their manifest key folder.
                   outputDir = group
                 } else if (isThemeImage) {
-                  // Theme image keys arrive as theme/images/<basename>, so the file must land
-                  // there to match the path the theme manifest override writes.
                   outputDir = 'theme/images'
                 }
 
@@ -288,6 +287,16 @@ export class EmitFile {
                     filename = themeIconOutputPath(relFromManifest, folder)
                   } else if (resolved) {
                     filename = themeIconOutputPath(resolved, folder)
+                  }
+                }
+
+                // Two theme images that share a basename are two files, so
+                // the name comes from the source location, not the basename.
+                if (isThemeImage) {
+                  if (relFromManifest && !path.isAbsolute(relFromManifest)) {
+                    filename = themeImageOutputPath(relFromManifest)
+                  } else if (resolved) {
+                    filename = themeImageOutputPath(resolved)
                   }
                 }
 

@@ -118,7 +118,7 @@ new ManifestPlugin({
 | side_panel.default_icon (MV3)      | icons/icon16.png                   | icons/icon16.png                                   |
 | sidebar_action.default_panel (MV2) | sidebar.html                       | sidebar/index.html (canonical output)              |
 | storage.managed_schema             | schema.json                        | storage/managed_schema.json                        |
-| theme.images.theme_frame           | images/theme_frame.png             | theme/images/theme_frame.png                       |
+| theme.images.theme_frame           | images/theme_frame.png             | theme/images/images/theme_frame.png (path kept)    |
 | user_scripts.api_script            | api.js                             | user_scripts/api_script.js                         |
 | web_accessible_resources (MV3)     | assets imported by content scripts | grouped and merged per matches; deterministic sort |
 | web_accessible_resources (MV2)     | assets imported by content scripts | flat array; de-duplicated and sorted               |
@@ -131,7 +131,9 @@ Notes:
 
 - icons/\* → `icons/`
 - action/default_icon → `icons/` (the icon file path remains under `icons/`)
-- browser_action/theme_icons → `browser_action/`
+- browser_action/theme_icons → `browser_action/<path from the manifest>` (a light/dark pair that shares a basename stays two files)
+- theme/images → `theme/images/<path from the manifest>`
+- html static assets → `assets/<path from the manifest>` (two pages naming their own `./logo.png` stay two files)
 - page_action/default_popup → `page_action/`
 - options_ui/page → `options_ui/`
 

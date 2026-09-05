@@ -2,7 +2,8 @@ import {describe, expect, it} from 'vitest'
 import {
   externalAssetOutputPath,
   iconOutputPath,
-  themeIconOutputPath
+  themeIconOutputPath,
+  themeImageOutputPath
 } from '../normalize-manifest-path'
 
 describe('iconOutputPath', () => {
@@ -39,13 +40,20 @@ describe('iconOutputPath', () => {
 })
 
 describe('themeIconOutputPath', () => {
-  it('keeps in-project theme icons at <folder>/<basename>', () => {
+  it('keeps in-project theme icons at their own path under the folder', () => {
     expect(themeIconOutputPath('icons/light.png', 'action')).toBe(
-      'action/light.png'
+      'action/icons/light.png'
     )
     expect(themeIconOutputPath('images/dark.png', 'browser_action')).toBe(
-      'browser_action/dark.png'
+      'browser_action/images/dark.png'
     )
+  })
+
+  it('keeps a light/dark pair inside the root apart', () => {
+    const light = themeIconOutputPath('icons/light/icon.png', 'browser_action')
+    const dark = themeIconOutputPath('icons/dark/icon.png', 'browser_action')
+    expect(light).not.toBe(dark)
+    expect(light).toBe('browser_action/icons/light/icon.png')
   })
 
   it('keeps a light/dark pair outside the root apart', () => {
@@ -57,6 +65,22 @@ describe('themeIconOutputPath', () => {
 
   it('leaves public-hosted theme icons at the extension root', () => {
     expect(themeIconOutputPath('public/light.png', 'action')).toBe('light.png')
+  })
+})
+
+describe('themeImageOutputPath', () => {
+  it('keeps same-basename theme images apart under theme/images', () => {
+    const light = themeImageOutputPath('images/light/bg.png')
+    const dark = themeImageOutputPath('images/dark/bg.png')
+    expect(light).toBe('theme/images/images/light/bg.png')
+    expect(dark).toBe('theme/images/images/dark/bg.png')
+  })
+
+  it('gives an outside-root image a slot and leaves public ones alone', () => {
+    expect(themeImageOutputPath('../design/bg.png')).toBe(
+      'theme/images/_/design/bg.png'
+    )
+    expect(themeImageOutputPath('public/bg.png')).toBe('bg.png')
   })
 })
 
