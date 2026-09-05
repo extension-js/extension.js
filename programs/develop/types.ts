@@ -457,8 +457,10 @@ export type OutputConfig = {
 
 /**
  * Per-category asset size budgets (bytes) for the perf-budgets plugin.
- * Set at the top level of extension.config.js, or per command via
- * `commands.dev.perfBudgets` / `commands.build.perfBudgets`.
+ * Set at the top level of extension.config.js (weakest), under
+ * `browser.<vendor>.perfBudgets`, or per command via
+ * `commands.dev.perfBudgets` / `commands.build.perfBudgets` (strongest
+ * below a CLI flag).
  */
 export type PerfBudgetsConfig = Partial<
   Record<import('./plugin-perf-budgets').AssetCategory, number>
@@ -633,13 +635,15 @@ export interface FileConfig {
    */
   extensions?: CompanionExtensionsConfig
   /**
-   * Default transpile allowlist for all commands.
-   * Per-command `commands.<name>.transpilePackages` overrides this value.
+   * Default transpile allowlist for all commands, the weakest layer.
+   * `browser.<vendor>.transpilePackages` overrides it, and per-command
+   * `commands.<name>.transpilePackages` overrides both.
    */
   transpilePackages?: string[]
   /**
-   * Default per-category asset budgets for all commands.
-   * Per-command `commands.dev|build.perfBudgets` overrides this value.
+   * Default per-category asset budgets for all commands, the weakest layer.
+   * `browser.<vendor>.perfBudgets` overrides it, and per-command
+   * `commands.dev|build.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   config?: (config: Configuration) => Configuration

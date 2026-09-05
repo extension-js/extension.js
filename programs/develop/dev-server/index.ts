@@ -18,7 +18,8 @@ import {merge} from 'webpack-merge'
 import {
   loadBrowserConfig,
   loadCommandConfig,
-  loadCustomConfig
+  loadCustomConfig,
+  loadProjectConfigDefaults
 } from '../lib/config-loader'
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
@@ -460,6 +461,7 @@ export async function devServer(
     ? path.dirname(projectManifestPath)
     : path.dirname(manifestPath)
 
+  const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
   const browserConfig = await loadBrowserConfig(
     packageJsonDir,
@@ -663,14 +665,16 @@ export async function devServer(
     unbindDevSessionRestart()
   })
 
-  // stock defaults, then browser.*, then commands.dev, then CLI/caller.
-  // Undefined values are stripped per layer so unset CLI flags never clobber
-  // extension.config.js values.
+  // stock defaults, then top-level config, then browser.*, then commands.dev,
+  // then CLI/caller. Undefined values are stripped per layer so unset CLI
+  // flags never clobber extension.config.js values.
+  const safeProjectConfig = sanitize(projectConfig)
   const safeBrowserConfig = sanitize(browserConfig)
   const safeCommandConfig = sanitize(commandConfig)
   const safeDevOptions = sanitize(devOptions)
   const mergedDevOptions = mergeOptionLayers<DevOptions>(
     DEV_COMMAND_DEFAULTS,
+    safeProjectConfig,
     safeBrowserConfig,
     safeCommandConfig,
     safeDevOptions
@@ -681,6 +685,7 @@ export async function devServer(
     safeDevOptions.extensions ??
     safeCommandConfig.extensions ??
     safeBrowserConfig.extensions ??
+    safeProjectConfig.extensions ??
     specialFoldersData.extensions
   const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
     projectRoot: packageJsonDir,

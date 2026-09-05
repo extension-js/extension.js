@@ -9,7 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as devServerMessages from './dev-server/messages'
-import {loadBrowserConfig, loadCommandConfig} from './lib/config-loader'
+import {
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadProjectConfigDefaults
+} from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {mergeOptionLayers, SERVE_COMMAND_DEFAULTS} from './lib/merge-options'
@@ -167,6 +171,7 @@ export async function extensionPreview(
 
   // Load command + browser defaults from the project root; when start.ts
   // delegates here, honor commands.start.* rather than commands.preview.*.
+  const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, metadataCommand)
   const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
@@ -198,6 +203,9 @@ export async function extensionPreview(
     humanLine(messages.previewingSourceFallback(browser, distPath))
   }
 
+  const safeProjectConfig = sanitize(projectConfig) as {
+    extensions?: CompanionExtensionsConfig
+  }
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(
     commandConfig
@@ -211,6 +219,7 @@ export async function extensionPreview(
     safePreviewOptions.extensions ??
     safeCommandConfig.extensions ??
     safeBrowserConfig.extensions ??
+    safeProjectConfig.extensions ??
     specialFoldersData.extensions
   const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
     projectRoot: packageJsonDir,
@@ -231,8 +240,9 @@ export async function extensionPreview(
     safeCommandConfig.chromiumBinary ||
     safeBrowserConfig.chromiumBinary
 
-  // stock defaults, then browser.*, then commands.start|preview, then CLI.
-  // Unset CLI keys fall through so shared extension.config.js values apply.
+  // stock defaults, then top-level config, then browser.*, then
+  // commands.start|preview, then CLI. Unset CLI keys fall through so shared
+  // extension.config.js values apply.
   const merged: PreviewOptions &
     BrowserConfig & {
       extensions?: CompanionExtensionsConfig
@@ -241,6 +251,7 @@ export async function extensionPreview(
     } = {
     ...mergeOptionLayers<PreviewOptions & BrowserConfig>(
       SERVE_COMMAND_DEFAULTS,
+      safeProjectConfig,
       safeBrowserConfig,
       safeCommandConfig,
       safePreviewOptions
