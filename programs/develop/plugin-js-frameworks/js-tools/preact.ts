@@ -61,6 +61,17 @@ export async function maybeUsePreact(
 
   const alias: Record<string, string> = {}
 
+  // The JSX runtimes exist only through the package's exports map, and the
+  // directory alias below resolves a sub-path on disk, so name them first:
+  // rspack takes the first alias key that matches, in insertion order.
+  if (preactJsxRuntime) {
+    alias['preact/jsx-runtime'] = preactJsxRuntime
+  }
+
+  if (preactJsxDevRuntime) {
+    alias['preact/jsx-dev-runtime'] = preactJsxDevRuntime
+  }
+
   // Alias preact to the package directory (a prefix for sub-paths like
   // preact/hooks); pnpm strict layouts otherwise break preact/compat.
   if (preactDir) {

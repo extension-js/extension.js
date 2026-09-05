@@ -184,7 +184,10 @@ function project(
   return root
 }
 
-async function build(root: string) {
+async function build(
+  root: string,
+  mode: 'production' | 'development' = 'production'
+) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
@@ -204,7 +207,7 @@ async function build(root: string) {
       browser: 'chrome',
       silent: false,
       install: false,
-      mode: 'production',
+      mode,
       exitOnError: false
     } as any)
   } catch (error) {
@@ -270,6 +273,42 @@ describe('JSX pages across frameworks', () => {
     )
     expect(imported.errors).toBe(0)
     expect(imported.pageBundle()).toMatch(/__jsxRuntime=["']preact["']/)
+  }, 120_000)
+
+  it('preact: a development build resolves the dev JSX runtime the package only exports', async () => {
+    // The real package has a jsx-runtime directory but names jsx-dev-runtime
+    // only in its exports map, so a directory alias alone cannot find it.
+    const root = project('preact', {'popup.jsx': RENDER_ONLY})
+    fs.rmSync(path.join(root, 'node_modules/preact/jsx-dev-runtime.js'))
+    write(
+      root,
+      'node_modules/preact/jsx-runtime/package.json',
+      JSON.stringify({main: '../jsx-runtime.js'})
+    )
+    write(
+      root,
+      'node_modules/preact/package.json',
+      JSON.stringify({
+        name: 'preact',
+        version: '10.27.3',
+        type: 'module',
+        main: './index.js',
+        exports: {
+          '.': './index.js',
+          './jsx-runtime': './jsx-runtime.js',
+          './jsx-dev-runtime': './jsx-runtime.js',
+          './compat': './compat.js',
+          './hooks': './hooks.js',
+          './package.json': './package.json'
+        }
+      })
+    )
+    const built = await build(root, 'development')
+    expect(built.errors).toBe(0)
+    expect(built.output).not.toMatch(
+      /Cannot find module 'preact\/jsx-dev-runtime'/
+    )
+    expect(built.pageBundle()).toMatch(/__jsxRuntime\s*=\s*["']preact["']/)
   }, 120_000)
 
   it('vue: a tsx page builds against vue/jsx-runtime with or without a tsconfig', async () => {
