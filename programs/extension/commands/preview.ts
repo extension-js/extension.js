@@ -10,6 +10,11 @@ import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {explicitCliValue} from '../helpers/cli-explicit'
+import {
+  cliGeckoBinary,
+  firefoxBinaryAliasOption,
+  geckoBinaryOption
+} from '../helpers/cli-options'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -20,6 +25,7 @@ import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
+import {isJsonOutput} from '../helpers/output-flag'
 import {
   type Browser,
   isSafariVendor,
@@ -33,6 +39,7 @@ type PreviewOptions = {
   profile?: string | boolean
   chromiumBinary?: string
   geckoBinary?: string
+  firefoxBinary?: string
   startingUrl?: string
   port?: string | number
   logLevel?: string
@@ -78,10 +85,8 @@ export function registerPreviewCommand(program: Command) {
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
     )
-    .option(
-      '--gecko-binary, --firefox-binary <path-to-binary>',
-      'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
-    )
+    .addOption(geckoBinaryOption())
+    .addOption(firefoxBinaryAliasOption())
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
@@ -152,7 +157,7 @@ export function registerPreviewCommand(program: Command) {
             process.env.EXTENSION_VERBOSE = '1'
         }
 
-        const asJson = previewOptions.output === 'json'
+        const asJson = isJsonOutput(previewOptions)
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
@@ -230,7 +235,7 @@ export function registerPreviewCommand(program: Command) {
                 profile: normalizeProfileOption(previewOptions.profile),
                 browser: vendor as PreviewOptions['browser'],
                 chromiumBinary: previewOptions.chromiumBinary,
-                geckoBinary: previewOptions.geckoBinary,
+                geckoBinary: cliGeckoBinary(previewOptions),
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
                 noBrowser: await resolveNoBrowser(

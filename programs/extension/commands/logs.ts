@@ -122,7 +122,16 @@ function makeFilter(opts: LogsOptions) {
 }
 
 function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
-  if (opts.output) return opts.output
+  const requested = String(opts.output ?? '')
+    .trim()
+    .toLowerCase()
+  if (
+    requested === 'pretty' ||
+    requested === 'json' ||
+    requested === 'ndjson'
+  ) {
+    return requested
+  }
 
   return process.stdout.isTTY ? 'pretty' : 'ndjson'
 }

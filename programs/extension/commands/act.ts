@@ -18,6 +18,7 @@ import {
   type EnvelopeError,
   type ErrorCode
 } from '../helpers/messaging'
+import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -271,7 +272,7 @@ function fail(message: string, frame?: FailFrame): never {
   // eslint-disable-next-line no-console
   console.error(message)
 
-  if (frame && frame.output === 'json') {
+  if (frame && normalizeOutputFormat(frame.output) === 'json') {
     writeFrame(
       ENVELOPE.fail(frame.command, statusForCode(frame.code), {
         code: frame.code,
@@ -289,7 +290,7 @@ function printResult(
   output: 'pretty' | 'json' | undefined,
   command: string
 ): void {
-  if (output === 'json') {
+  if (normalizeOutputFormat(output) === 'json') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(buildActEnvelope(command, result)))
     return

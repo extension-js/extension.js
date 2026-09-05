@@ -23,11 +23,25 @@ export function warnDeprecatedOutputAlias(flag: string): void {
   console.error(messages.deprecatedOutputAlias(flag))
 }
 
-function normalize(value: unknown): OutputFormat | undefined {
+// The one reading of an output value: case and surrounding spaces never
+// change what a caller asked for.
+export function normalizeOutputFormat(
+  value: unknown
+): OutputFormat | undefined {
   const v = String(value ?? '')
     .trim()
     .toLowerCase()
   return v === 'pretty' || v === 'json' ? v : undefined
+}
+
+const normalize = normalizeOutputFormat
+
+export function isJsonOutput(opts: {
+  output?: string
+  format?: string
+  waitFormat?: string
+}): boolean {
+  return resolveOutputFormat(opts) === 'json'
 }
 
 // --output wins; a deprecated alias still takes effect but warns once on

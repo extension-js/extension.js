@@ -13,6 +13,7 @@ import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
+import {isJsonOutput} from '../helpers/output-flag'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the platform MCP. Every
@@ -254,7 +255,7 @@ export function registerPublishCommand(program: Command) {
     )
     .option('--output <pretty|json>', 'output format (default pretty)')
     .action(async (projectPathArg: string, opts: PublishOptions) => {
-      const asJson = opts.output === 'json'
+      const asJson = isJsonOutput(opts)
 
       // One exit path for every refusal: json gets the envelope, pretty keeps
       // the prose it already printed.

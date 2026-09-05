@@ -17,6 +17,11 @@ import {
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
 import {markErrorFramed} from '../helpers/cli-failure'
+import {
+  cliGeckoBinary,
+  firefoxBinaryAliasOption,
+  geckoBinaryOption
+} from '../helpers/cli-options'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -45,6 +50,7 @@ type DevOptions = {
   persistProfile?: boolean
   chromiumBinary?: string
   geckoBinary?: string
+  firefoxBinary?: string
   polyfill?: boolean | string
   open?: boolean
   startingUrl?: string
@@ -117,10 +123,8 @@ export function registerDevCommand(program: Command) {
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
     )
-    .option(
-      '--gecko-binary, --firefox-binary <path-to-binary>',
-      'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
-    )
+    .addOption(geckoBinaryOption())
+    .addOption(firefoxBinaryAliasOption())
     .option(
       '--safari-binary <path-to-binary>',
       'specify the Safari binary to open after packaging (safari targets only)'
@@ -465,7 +469,7 @@ export function registerDevCommand(program: Command) {
             profile: normalizeProfileOption(devOptions.profile),
             browser: vendor as DevOptions['browser'],
             chromiumBinary: devOptions.chromiumBinary,
-            geckoBinary: devOptions.geckoBinary,
+            geckoBinary: cliGeckoBinary(devOptions),
             polyfill: explicitCliValue(
               command,
               'polyfill',

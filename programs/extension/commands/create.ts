@@ -15,6 +15,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {isJsonOutput} from '../helpers/output-flag'
 import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
   DEFAULT_TEMPLATE,
@@ -79,7 +80,7 @@ export function registerCreateCommand(program: Command) {
           output
         }: CreateOptions & {output?: 'pretty' | 'json'}
       ) => {
-        const asJson = output === 'json'
+        const asJson = isJsonOutput({output})
 
         if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
           try {
