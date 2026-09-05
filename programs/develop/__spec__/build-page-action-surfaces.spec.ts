@@ -167,4 +167,37 @@ describe('Chromium popups', () => {
       'does not show the page_action address bar surface'
     )
   }, 120_000)
+
+  // Chrome refuses an MV2 manifest that declares both browser_action and
+  // page_action, so the build keeps the toolbar key and says what it dropped.
+  it('keeps browser_action over page_action in an MV2 build and names the dropped key', async () => {
+    const {distDir, manifest, output} = await build(
+      project({
+        manifest_version: 2,
+        browser_action: {default_popup: 'pages/toolbar.html'},
+        page_action: {default_popup: 'pages/address.html'}
+      }),
+      'chrome'
+    )
+    expect(manifest.browser_action.default_popup).toBe('action/index.html')
+    expect(manifest.page_action).toBeUndefined()
+    expect(fs.existsSync(path.join(distDir, 'page_action'))).toBe(false)
+    expect(output).toContain('page_action')
+    expect(output).toContain('browser_action')
+    expect(output).toMatch(/dropped/i)
+  }, 120_000)
+
+  it('keeps a lone page_action in an MV2 build', async () => {
+    const {distDir, manifest} = await build(
+      project({
+        manifest_version: 2,
+        page_action: {default_popup: 'pages/address.html'}
+      }),
+      'chrome'
+    )
+    expect(manifest.page_action.default_popup).toBe('page_action/index.html')
+    expect(fs.existsSync(path.join(distDir, 'page_action', 'index.html'))).toBe(
+      true
+    )
+  }, 120_000)
 })
