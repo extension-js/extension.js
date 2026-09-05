@@ -558,9 +558,15 @@ export class JsFrameworksPlugin {
       )
       return
     }
-    // dev/watch: beforeRun never fires, so configure eagerly and gate the first
-    // compilation via watchRun, closing the race with async contract resolution.
+    // dev/watch: configure eagerly and gate the first compilation on the one
+    // promise from both hooks. watchRun covers the dev server; beforeRun covers
+    // a one-shot development build (compiler.run), which otherwise read the
+    // rules while the async contract resolution was still racing.
     const configuring = this.configureOptions(compiler)
+    compiler.hooks.beforeRun.tapPromise(
+      JsFrameworksPlugin.name,
+      () => configuring
+    )
     compiler.hooks.watchRun.tapPromise(
       JsFrameworksPlugin.name,
       () => configuring
