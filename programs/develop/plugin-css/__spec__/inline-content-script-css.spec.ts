@@ -59,16 +59,16 @@ describe('rewriteInlinedCssUrls', () => {
     expect(css).toContain(
       `url("${EXTENSION_ROOT_PLACEHOLDER}assets/content/fonts/a.woff2")`
     )
-    expect(css).toContain(
-      `url("${EXTENSION_ROOT_PLACEHOLDER}assets/public/img/bg.png")`
-    )
+    // public/ ships at the dist root through the copier, under its own name.
+    expect(css).toContain(`url("${EXTENSION_ROOT_PLACEHOLDER}img/bg.png")`)
     expect(css).toContain(
       `url("${EXTENSION_ROOT_PLACEHOLDER}assets/content/fonts/a.woff2?v=2#x")`
     )
     expect(targets.map((target) => target.outputName)).toEqual([
       'assets/content/fonts/a.woff2',
-      'assets/public/img/bg.png'
+      'img/bg.png'
     ])
+    expect(targets.map((target) => target.publicOwned)).toEqual([false, true])
     expect(targets[0].absolutePath).toBe(
       path.join(dir, 'content', 'fonts', 'a.woff2')
     )

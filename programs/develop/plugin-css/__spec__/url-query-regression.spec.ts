@@ -79,8 +79,10 @@ describe('css-url-query regression (end-to-end)', () => {
   let fixtureDir: string
 
   beforeAll(() => {
-    fixtureDir = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-url-query-regression-'))
+    // The raw tmpdir on purpose: on macOS it is a symlink, and the
+    // content-script rule must still match the sheet to its script.
+    fixtureDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-url-query-regression-')
     )
     writeFixture(fixtureDir)
   })

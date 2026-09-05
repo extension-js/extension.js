@@ -160,15 +160,39 @@ export async function buildCssRules(
       // Its output is the runtime stylesheet module, hence the JS type: an
       // inlined data: URL could never name the extension root in a url().
       let ruleType = type
+      let parser: RuleSetRule['parser']
       if (type === 'asset/inline' && manifestPath) {
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('dead-css-url-loader'),
-          options: {manifestPath, projectPath}
+          options: {manifestPath, projectPath, sheet: 'inline'}
         })
         ruleType = 'javascript/auto'
       }
 
-      return {test, exclude, type: ruleType, issuer, use} as RuleSetRule
+      // A content-script CSS module keeps rspack's scoping and class-name
+      // exports, but its text lands in a <style> on the visited page too, so
+      // the same rewrite runs and rspack leaves url() alone: resolved through
+      // the module graph it would bake the '/' public path in again.
+      if (
+        type === 'css/module' &&
+        nonModuleType === 'asset/inline' &&
+        manifestPath
+      ) {
+        ;(use as Array<Record<string, unknown>>).unshift({
+          loader: resolveDevelopDistFile('dead-css-url-loader'),
+          options: {manifestPath, projectPath, sheet: 'chunk'}
+        })
+        parser = {url: false}
+      }
+
+      return {
+        test,
+        exclude,
+        type: ruleType,
+        issuer,
+        use,
+        ...(parser ? {parser} : {})
+      } as RuleSetRule
     })
   )
 }
