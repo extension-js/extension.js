@@ -59,9 +59,11 @@ function startCaptureServer(): Promise<{
 
 function runCreate(
   args: string[],
-  port: number
+  port: number,
+  seed?: (work: string) => void
 ): Promise<{status: number | null}> {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-fail-'))
+  seed?.(work)
   const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
   const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
 
@@ -110,9 +112,32 @@ describe('a failed create reports command_failed before it exits', () => {
     expect(failed).toHaveLength(1)
     expect(failed[0].properties.command).toBe('create')
     expect(failed[0].properties.success).toBe(false)
-    expect(failed[0].properties.template).toBe(
-      'a-template-that-does-not-exist-xyz'
+    // A name that is not an advertised starter is the person's own text
+    // (it could be a repo or a path), so it never travels; only the source does.
+    expect(failed[0].properties.template).toBeUndefined()
+    expect(failed[0].properties.source).toBe('cli')
+  }, 120000)
+
+  it('keeps an advertised starter name on the failure so a broken starter stays visible', async () => {
+    const server = await startCaptureServer()
+    close = server.close
+
+    // The bundled javascript starter needs no network; a visible file in the
+    // target folder makes the directory guard refuse, so the create fails.
+    const result = await runCreate(
+      ['create', './telemetry-proof', '--template', 'javascript'],
+      server.port,
+      (work) => {
+        fs.mkdirSync(path.join(work, 'telemetry-proof'), {recursive: true})
+        fs.writeFileSync(path.join(work, 'telemetry-proof', 'notes.txt'), 'x')
+      }
     )
+
+    expect(result.status).toBe(1)
+    const events = server.batches.flatMap((batch) => batch.batch)
+    const failed = events.filter((event) => event.event === 'command_failed')
+    expect(failed).toHaveLength(1)
+    expect(failed[0].properties.template).toBe('javascript')
     expect(failed[0].properties.source).toBe('cli')
   }, 120000)
 
