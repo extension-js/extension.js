@@ -45,8 +45,13 @@ function getBrowserFolder(browser: string | undefined): StoreBrowser {
   return 'chrome'
 }
 
+// The web store moved hosts; the old chrome.google.com/webstore links still
+// name the same 32-character id.
 function parseChromeWebStoreId(url: URL): string | null {
-  if (url.hostname !== 'chromewebstore.google.com') return null
+  const host = stripWww(url.hostname)
+  const legacy =
+    host === 'chrome.google.com' && /^\/webstore(?:\/|$)/i.test(url.pathname)
+  if (host !== 'chromewebstore.google.com' && !legacy) return null
 
   const match = url.pathname.match(/\/([a-z]{32})(?:\/|$)/i)
 
@@ -54,7 +59,7 @@ function parseChromeWebStoreId(url: URL): string | null {
 }
 
 function parseEdgeAddonsId(url: URL): string | null {
-  if (url.hostname !== 'microsoftedge.microsoft.com') return null
+  if (stripWww(url.hostname) !== 'microsoftedge.microsoft.com') return null
 
   const match = url.pathname.match(/\/([a-z]{32})(?:\/|$)/i)
 
@@ -62,24 +67,44 @@ function parseEdgeAddonsId(url: URL): string | null {
 }
 
 function parseAmoSlug(url: URL): string | null {
-  if (url.hostname !== 'addons.mozilla.org') return null
+  if (stripWww(url.hostname) !== 'addons.mozilla.org') return null
 
   const match = url.pathname.match(/\/addon\/([^/]+)(?:\/|$)/i)
 
   return match ? match[1] : null
 }
 
-function parseStoreUrl(
-  raw: string
-): {browser: StoreBrowser; id: string} | null {
-  let url: URL
+const STORE_HOSTS = new Set([
+  'chromewebstore.google.com',
+  'chrome.google.com',
+  'microsoftedge.microsoft.com',
+  'addons.mozilla.org'
+])
 
+function stripWww(hostname: string): string {
+  return hostname.toLowerCase().replace(/^www\./, '')
+}
+
+// An entry is a link when it carries a web scheme, or when it starts with a
+// store host and no scheme (the shape a pasted address bar often has).
+function toWebUrl(raw: string): URL | null {
   try {
-    url = new URL(raw)
+    const url = new URL(raw)
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url
+    return null
+  } catch {
+    // Not an absolute URL; try the scheme-less store form below.
+  }
+  const match = raw.match(/^([a-z0-9.-]+)(?:[/?#].*)?$/i)
+  if (!match || !STORE_HOSTS.has(stripWww(match[1]))) return null
+  try {
+    return new URL(`https://${raw}`)
   } catch {
     return null
   }
+}
 
+function parseStoreUrl(url: URL): {browser: StoreBrowser; id: string} | null {
   const chromeId = parseChromeWebStoreId(url)
   if (chromeId) return {browser: 'chrome', id: chromeId}
 
@@ -222,15 +247,27 @@ export async function resolveCompanionExtensionsConfig(opts: {
   const localPaths: string[] = []
 
   for (const entry of normalized.paths) {
-    const parsedStore = parseStoreUrl(entry)
-    if (parsedStore) {
+    // Three outcomes: a store link (resolved, or skipped quietly when it
+    // belongs to another browser), a folder path, or an entry that is
+    // neither and is reported as such rather than diagnosed as a folder.
+    const url = toWebUrl(entry)
+    if (url) {
+      const parsedStore = parseStoreUrl(url)
+      if (!parsedStore) {
+        throw new Error(
+          `Companion extension link is not a store link this resolver recognises: ${entry}\n` +
+            'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
+            'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
+            'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
+        )
+      }
       if (parsedStore.browser !== runtimeBrowser) {
         continue
       }
 
       const resolvedPath = await resolveStoreExtensionToPath({
         projectRoot,
-        storeUrl: entry,
+        storeUrl: url.href,
         browser: parsedStore.browser,
         id: parsedStore.id
       })
@@ -241,7 +278,21 @@ export async function resolveCompanionExtensionsConfig(opts: {
 
     if (isPathLike(entry)) {
       localPaths.push(entry)
+      continue
     }
+
+    if (/^[a-p]{32}$/i.test(entry)) {
+      throw new Error(
+        `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
+          'Use the full store link so the browser it belongs to is known, ' +
+          `for example https://chromewebstore.google.com/detail/<name>/${entry}`
+      )
+    }
+
+    throw new Error(
+      `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
+        'Give a store link or a path under ./extensions'
+    )
   }
 
   if (localPaths.length > 0) {
