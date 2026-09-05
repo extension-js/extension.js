@@ -60,15 +60,19 @@ export class ReloadPlugin {
 
   public readonly manifestPath: string
   public readonly browser?: DevOptions['browser']
+  private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.devSession = options.devSession
   }
 
   public apply(compiler: Compiler): void {
     if (
       compiler.options.mode === 'production' ||
+      // A shippable development build carries no reload client.
+      this.devSession === false ||
       process.env.EXTENSION_NO_RELOAD === 'true'
     ) {
       return

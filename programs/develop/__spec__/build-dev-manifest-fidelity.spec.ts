@@ -51,11 +51,14 @@ async function build(
   console.error = (...args: unknown[]) => lines.push(args.join(' '))
   let summary: {errors_count: number; warnings?: string[]}
   try {
+    // A development-mode build is shippable; only the dev session (named by
+    // its command) takes the dev manifest, so the dev leg names it.
     summary = await extensionBuild(root, {
       browser,
       silent: false,
       install: false,
       mode,
+      ...(mode === 'development' ? {metadataCommand: 'dev'} : {}),
       exitOnError: false
     } as any)
     expect(summary.errors_count).toBe(0)

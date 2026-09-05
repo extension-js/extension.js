@@ -57,6 +57,10 @@ export type PluginInterface = {
   browser?: DevOptions['browser']
   includeList?: FilepathList
   transpilePackages?: string[]
+  /** True inside `extension dev`: the one axis that turns dev instrumentation
+   * (dev CSP, injected permissions, reload client, page HMR) on. A build in
+   * development mode is shippable and keeps the author's manifest. */
+  devSession?: boolean
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
@@ -288,7 +292,9 @@ export interface BuildOptions {
    * preserve historical behavior. Setting 'development' is useful for
    * staging/QA dists that should still pass through the bundler's debug
    * pipeline (sourcemaps, looser minification). Mirrors `vite build --mode`
-   * and `webpack --mode`.
+   * and `webpack --mode`. The artifact stays shippable: it carries the
+   * author's CSP and permissions, no reload client, and its zip holds no
+   * maps. Only `extension dev` turns the dev instrumentation on.
    */
   mode?: 'development' | 'production' | 'none'
   /**

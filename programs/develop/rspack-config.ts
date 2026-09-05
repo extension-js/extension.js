@@ -47,6 +47,14 @@ export default function webpackConfig(
   const {manifestPath} = projectStructure
   const {packageJsonDir} = getDirs(projectStructure)
 
+  // Dev instrumentation follows the command, not the mode: `extension dev`
+  // is a session, `extension build --mode development` is a shippable
+  // artifact that must carry the author's manifest and no reload client.
+  // A caller naming no command keeps the mode as its signal.
+  const devSession = devOptions.metadataCommand
+    ? devOptions.metadataCommand === 'dev'
+    : (devOptions.mode || 'development') === 'development'
+
   let rawManifest: unknown
   try {
     rawManifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
@@ -168,13 +176,15 @@ export default function webpackConfig(
     }),
     new WebExtensionPlugin({
       manifestPath,
-      browser: devOptions.browser
+      browser: devOptions.browser,
+      devSession
     }),
-    // Dev-only reload/HMR strategy. Must register AFTER WebExtensionPlugin,
-    // whose declared entries it decorates. No-ops in production.
+    // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
+    // whose declared entries it decorates. No-ops outside `extension dev`.
     new ReloadPlugin({
       manifestPath,
-      browser: devOptions.browser
+      browser: devOptions.browser,
+      devSession
     }),
     // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
     // Production needs it too: rspack's web-target loader appends a <script> to

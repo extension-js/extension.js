@@ -307,9 +307,11 @@ export class ZipPlugin {
           // run is skipped by name or the new zip would swallow it.
           writeZipFile(
             distPath,
-            listFilesUnder(outPath, new Set([toPosix(zipName)])).map(
-              (file) => ({name: file, absPath: path.join(outPath, file)})
-            )
+            // A store zip carries the extension, not its debugging aids: a
+            // development-mode build leaves maps in dist for the author.
+            listFilesUnder(outPath, new Set([toPosix(zipName)]))
+              .filter((file) => !file.endsWith('.map'))
+              .map((file) => ({name: file, absPath: path.join(outPath, file)}))
           )
           created.push({kind: 'dist', path: distPath})
         }
