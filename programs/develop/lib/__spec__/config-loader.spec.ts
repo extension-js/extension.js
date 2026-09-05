@@ -2,9 +2,17 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {loadBrowserConfig} from '../config-loader'
+import {loadBrowserConfig, loadCommandConfig} from '../config-loader'
 
 describe('config-loader', () => {
+  it('loadCommandConfig on a remote URL resolves empty without walking the disk', async () => {
+    // dev asks for commands.dev.* before the URL is cloned; 4.1.13 walked
+    // the URL as a relative path and never returned.
+    const url =
+      'https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder'
+    await expect(loadCommandConfig(url, 'dev')).resolves.toEqual({})
+  })
+
   it('loadBrowserConfig returns defaults when no config present', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-'))
     const cfg = await loadBrowserConfig(dir, 'chrome')

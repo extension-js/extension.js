@@ -230,4 +230,12 @@ describe('manifest find-up helpers', () => {
       path.join(dir, 'deno.json')
     )
   })
+
+  it('findNearestDenoConfigSync returns null for a URL-shaped path', () => {
+    const remote = path.join(
+      'https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder',
+      'manifest.json'
+    )
+    expect(findNearestDenoConfigSync(remote)).toBeNull()
+  })
 })

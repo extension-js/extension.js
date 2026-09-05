@@ -9,12 +9,20 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+// A remote URL joined with a file name reads as "https:/host/...", which is a
+// relative path whose ancestry never holds a manifest. Windows drive letters
+// are a single character, so they do not match.
+function isUrlShaped(target: string): boolean {
+  return /^[a-z][a-z0-9+.-]+:\/+/i.test(target)
+}
+
 async function findUpLocal(
   filename: string,
   options: {cwd: string}
 ): Promise<string | undefined> {
-  const root = path.parse(options.cwd).root
-  let currentDir = options.cwd
+  if (isUrlShaped(options.cwd)) return undefined
+  const root = path.parse(path.resolve(options.cwd)).root
+  let currentDir = path.resolve(options.cwd)
 
   while (true) {
     const candidate = path.join(currentDir, filename)
@@ -27,8 +35,11 @@ async function findUpLocal(
       // Ignore
     }
 
-    if (currentDir === root) return undefined
-    currentDir = path.dirname(currentDir)
+    // A relative start (a URL handed in as a path) never reaches the
+    // filesystem root, so stop as soon as the walk stops climbing.
+    const parentDir = path.dirname(currentDir)
+    if (currentDir === root || parentDir === currentDir) return undefined
+    currentDir = parentDir
   }
 }
 
@@ -36,8 +47,9 @@ function findUpLocalSync(
   filename: string,
   options: {cwd: string}
 ): string | undefined {
-  const root = path.parse(options.cwd).root
-  let currentDir = options.cwd
+  if (isUrlShaped(options.cwd)) return undefined
+  const root = path.parse(path.resolve(options.cwd)).root
+  let currentDir = path.resolve(options.cwd)
 
   while (true) {
     const candidate = path.join(currentDir, filename)
@@ -49,8 +61,11 @@ function findUpLocalSync(
       // Ignore
     }
 
-    if (currentDir === root) return undefined
-    currentDir = path.dirname(currentDir)
+    // A relative start (a URL handed in as a path) never reaches the
+    // filesystem root, so stop as soon as the walk stops climbing.
+    const parentDir = path.dirname(currentDir)
+    if (currentDir === root || parentDir === currentDir) return undefined
+    currentDir = parentDir
   }
 }
 
