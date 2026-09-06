@@ -30,6 +30,10 @@ import {maybeUseLess} from './css-tools/less'
 import {findPostCssConfig} from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
+import {
+  PUBLIC_ROOT_SCHEME,
+  restorePublicRootRefs as restorePublicRootRefsInSource
+} from './public-css-url-loader'
 
 export {injectCssLink} from './css-lib/inject-css-link'
 export type {CssAssetResult} from './css-lib/resolve-css-asset'
@@ -170,6 +174,32 @@ export class CssPlugin {
     })
   }
 
+  // A page sheet's url() to a file public/ owns left the loader chain behind
+  // a scheme rspack does not request; the emitted sheet names the root path.
+  private restorePublicRootRefs(compiler: Compiler) {
+    if (!compiler.hooks?.thisCompilation?.tap) return
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:public`, (c) => {
+      if (!c?.hooks?.processAssets?.tap) return
+      c.hooks.processAssets.tap(
+        {
+          name: `${CssPlugin.name}:public-root-restore`,
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE + 2
+        },
+        () => {
+          for (const asset of c.getAssets()) {
+            if (!/\.(css|js)$/.test(asset.name)) continue
+            const before = asset.source.source().toString()
+            if (!before.includes(PUBLIC_ROOT_SCHEME)) continue
+            c.updateAsset(
+              asset.name,
+              new sources.RawSource(restorePublicRootRefsInSource(before))
+            )
+          }
+        }
+      )
+    })
+  }
+
   // A url() to a nonexistent file is fatal to rspack but Chrome 404s it silently
   // and applies the rest; cancel and warn. EXTENSION_STRICT_REFS restores fatal.
   private tolerateDeadUrlRefs(compiler: Compiler) {
@@ -260,6 +290,7 @@ export class CssPlugin {
     // Parity first: a minimal compiler in a spec keeps one thisCompilation
     // tap, and the dead-url guard is the one those specs exercise.
     this.keepCssParityInProduction(compiler)
+    this.restorePublicRootRefs(compiler)
     this.tolerateDeadUrlRefs(compiler)
     const mode = compiler.options.mode || 'development'
     if (mode === 'production') {
