@@ -13,7 +13,8 @@ import * as path from 'node:path'
 // backslashes on Windows), a relative path whose ancestry never holds a
 // manifest. Windows drive letters are a single character, so they do not match.
 function isUrlShaped(target: string): boolean {
-  return /^[a-z][a-z0-9+.-]+:[\\/]+/i.test(target)
+  // path.join on Windows also prefixes the URL with a dot segment.
+  return /^(?:\.[\\/])?[a-z][a-z0-9+.-]+:[\\/]+/i.test(target)
 }
 
 async function findUpLocal(
