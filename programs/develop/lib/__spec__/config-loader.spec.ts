@@ -13,6 +13,29 @@ describe('config-loader', () => {
     await expect(loadCommandConfig(url, 'dev')).resolves.toEqual({})
   })
 
+  it('loadCommandConfig on a relative project path resolves like the absolute one', async () => {
+    // A monorepo root runs `extension dev packages/extension`; the walk-up
+    // from that relative start looped forever on 4.1.13 the same way.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-relative-'))
+    const pkg = path.join(root, 'packages', 'extension')
+    fs.mkdirSync(path.join(pkg, 'src'), {recursive: true})
+    fs.writeFileSync(path.join(pkg, 'package.json'), '{"name":"probe"}')
+    fs.writeFileSync(
+      path.join(pkg, 'src', 'manifest.json'),
+      '{"manifest_version":3,"name":"probe","version":"1.0.0"}'
+    )
+    const previous = process.cwd()
+    process.chdir(root)
+    try {
+      await expect(
+        loadCommandConfig('packages/extension', 'dev')
+      ).resolves.toEqual(await loadCommandConfig(pkg, 'dev'))
+    } finally {
+      process.chdir(previous)
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('loadBrowserConfig returns defaults when no config present', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-'))
     const cfg = await loadBrowserConfig(dir, 'chrome')
