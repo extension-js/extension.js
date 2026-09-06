@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 4.1.14 (September 6, 2026)
+
+### Fixes
+
+- Stop the config lookup walking a remote URL before the clone ([95017eeb](https://github.com/extension-js/extension.js/commit/95017eeb8d60d339c5a0579a44a20ce5716b4275))
+
+<details>
+<summary>Other changes (5)</summary>
+
+- Accept the dot segment Windows prefixes to a URL-shaped path ([ca8a911d](https://github.com/extension-js/extension.js/commit/ca8a911dc3aad145ba114b369bc8ccf6896ede79))
+- Recognize a URL-shaped path with backslashes in the walk-up guards ([ae561a95](https://github.com/extension-js/extension.js/commit/ae561a95258e93449cf61184d0afad3a3dd11239))
+- Cover the relative project path in the command config lookup spec ([7b55848f](https://github.com/extension-js/extension.js/commit/7b55848fb50c75cdf4612909a30c16669f9a0990))
+- Alias the Preact JSX runtimes before the package directory ([149778cb](https://github.com/extension-js/extension.js/commit/149778cb1fa14ccb9a81c1738d1d0a9ed0ea2d72))
+- Give the logs follower a wider attach window on CI runners ([5bafac7e](https://github.com/extension-js/extension.js/commit/5bafac7e0fc90ce31b08bb84bd67f87cc0cb26b0))
+</details>
+
 ## 4.1.13 (September 5, 2026)
 
 ### Fixes
