@@ -9,11 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-// A remote URL joined with a file name reads as "https:/host/...", which is a
-// relative path whose ancestry never holds a manifest. Windows drive letters
-// are a single character, so they do not match.
+// A remote URL joined with a file name reads as "https:/host/..." (or with
+// backslashes on Windows), a relative path whose ancestry never holds a
+// manifest. Windows drive letters are a single character, so they do not match.
 function isUrlShaped(target: string): boolean {
-  return /^[a-z][a-z0-9+.-]+:\/+/i.test(target)
+  return /^[a-z][a-z0-9+.-]+:[\\/]+/i.test(target)
 }
 
 async function findUpLocal(

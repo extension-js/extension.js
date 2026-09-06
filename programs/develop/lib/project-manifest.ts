@@ -278,8 +278,8 @@ export function findNearestProjectManifestSync(
 // mirroring findNearestPackageJson's contract.
 export function findNearestDenoConfigSync(manifestPath: string): string | null {
   // A remote URL joined with a file name is a relative path with no
-  // manifest anywhere above it.
-  if (/^[a-z][a-z0-9+.-]+:\/+/i.test(manifestPath)) return null
+  // manifest anywhere above it (path.join writes backslashes on Windows).
+  if (/^[a-z][a-z0-9+.-]+:[\\/]+/i.test(manifestPath)) return null
   const root = path.parse(path.resolve(manifestPath)).root
   let currentDir = path.dirname(path.resolve(manifestPath))
 
