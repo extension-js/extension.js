@@ -117,6 +117,10 @@ const nodeEntries = {
     __dirname,
     './plugin-css/late-css-import-loader.ts'
   ),
+  'public-css-url-loader': path.resolve(
+    __dirname,
+    './plugin-css/public-css-url-loader.ts'
+  ),
   'preprocessor-passthrough-loader': path.resolve(
     __dirname,
     './plugin-css/preprocessor-passthrough-loader.ts'

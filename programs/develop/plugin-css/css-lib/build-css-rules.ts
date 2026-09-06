@@ -161,6 +161,16 @@ export async function buildCssRules(
       // inlined data: URL could never name the extension root in a url().
       let ruleType = type
       let parser: RuleSetRule['parser']
+
+      // A page sheet keeps a root-absolute url() that public/ owns as the
+      // root path the copier ships; rspack would emit a hashed second copy.
+      if (nonModuleType === 'css' && manifestPath && type !== 'asset/inline') {
+        ;(use as Array<Record<string, unknown>>).unshift({
+          loader: resolveDevelopDistFile('public-css-url-loader'),
+          options: {manifestPath, projectPath}
+        })
+      }
+
       if (type === 'asset/inline' && manifestPath) {
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('dead-css-url-loader'),
