@@ -111,7 +111,7 @@ function read(distDir: string, file: string) {
 }
 
 function scriptSrcs(html: string) {
-  return [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1])
+  return [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/gi)].map((m) => m[1])
 }
 
 function contentScriptFile(distDir: string) {
@@ -165,7 +165,7 @@ describe('default page-only split chunks', () => {
       '/options/index.js'
     ])
     for (const tag of read(distDir, 'action/index.html').match(
-      /<script[^>]*>/g
+      /<script[^>]*>/gi
     ) || []) {
       expect(tag).toContain('type="module"')
     }
