@@ -3,7 +3,7 @@
 Extension.js collects a tiny amount of anonymous telemetry to understand which commands are used and which fail. No source code, file paths, URLs, or project content is ever collected.
 
 - Two events total: `command_executed` and `command_failed`
-- Three properties: `command`, `success`, `version`
+- Three properties on every event: `command`, `success`, `version`
 - Opt-out, with notice on first run
 - Sampled and capped to stay well inside the PostHog free tier
 
@@ -14,9 +14,29 @@ Per CLI run, at most one of:
 | event              | sampled                           | properties                     |
 | ------------------ | --------------------------------- | ------------------------------ |
 | `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
-| `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version` |
+| `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else.
+
+A failure adds two more properties so a failure count can be read as a cause rather than a number:
+
+| property    | value                                                                      |
+| ----------- | -------------------------------------------------------------------------- |
+| `code`      | one name from the CLI's fixed error catalog, for example `E_MANIFEST_NOT_FOUND` |
+| `exit_code` | the process exit code, an integer from 0 to 255                            |
+
+`code` is checked against the catalog before it is sent. A Node errno, a message, or any
+value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
+no error text ever travels.
+
+When a run offers to download a managed browser, the command's event carries the outcome so
+the offer can be told apart from a dead end:
+
+| property                  | value                                              |
+| ------------------------- | -------------------------------------------------- |
+| `browser_install`         | `offered`, `accepted`, `declined` or `failed`      |
+| `browser_install_browser` | the managed browser name, for example `chrome`     |
+| `browser_install_seconds` | whole seconds the download took, when one ran      |
 
 The `create` command adds two properties so a broken advertised starter shows up in its failure counts:
 

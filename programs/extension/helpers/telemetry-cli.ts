@@ -7,7 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {readBrowserInstall} from './browser-install-outcome'
 import {getCliPackageJson} from './cli-package-json'
+import {CODES} from './messaging'
 import {
   resolveTelemetryConsent,
   resolveTelemetryStorage,
@@ -18,25 +20,47 @@ import {
 import {listTemplates, templateAliasFor} from './template-catalog'
 
 type KnownCommand =
+  | 'build'
+  | 'capabilities'
   | 'create'
   | 'dev'
-  | 'start'
-  | 'preview'
-  | 'build'
+  | 'doctor'
+  | 'eval'
+  | 'inspect'
   | 'install'
-  | 'uninstall'
+  | 'logs'
+  | 'open'
+  | 'preview'
+  | 'publish'
+  | 'reload'
+  | 'start'
+  | 'storage'
   | 'telemetry'
+  | 'uninstall'
   | 'unknown'
 
-const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
+// Every command the CLI registers. An unlisted verb reports as 'unknown', which
+// is what keeps a project path or a typo out of the payload, so the list has to
+// stay complete or half the failures land under 'unknown'. A spec pins it to the
+// registered commands.
+export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
+  'build',
+  'capabilities',
   'create',
   'dev',
-  'start',
-  'preview',
-  'build',
+  'doctor',
+  'eval',
+  'inspect',
   'install',
-  'uninstall',
+  'logs',
+  'open',
+  'preview',
+  'publish',
+  'reload',
+  'start',
+  'storage',
   'telemetry',
+  'uninstall',
   'unknown'
 ])
 
@@ -97,10 +121,30 @@ export function advertisedTemplateName(
 export function telemetryCommandContext(
   command: string,
   argv: string[] = process.argv
-): {template?: string; source?: string} {
-  if (command !== 'create') return {}
+): {
+  template?: string
+  source?: string
+  browser_install?: string
+  browser_install_browser?: string
+  browser_install_seconds?: number
+} {
+  // Whether the first-run download offer converts, on whichever command made
+  // it. Four fixed outcomes and a managed browser name, never a path.
+  const install = readBrowserInstall()
+  const installContext = install
+    ? {
+        browser_install: install.outcome,
+        browser_install_browser: install.browser,
+        ...(install.seconds === undefined
+          ? {}
+          : {browser_install_seconds: install.seconds})
+      }
+    : {}
+
+  if (command !== 'create') return installContext
 
   return {
+    ...installContext,
     template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
     source: readArgValue(argv, ['--source']) || 'cli'
   }
@@ -150,12 +194,41 @@ export function markCommandSuccess(command = invoked): void {
   })
 }
 
-export function markCommandFailure(command = invoked): void {
+export interface CommandFailureDetails {
+  // A CODES value. Anything else is dropped, so a message never travels.
+  code?: unknown
+  exitCode?: unknown
+}
+
+// Only a catalog code travels. An error message carries paths and project
+// names, and a freeform code would be the same leak by another name.
+export function telemetryFailureCode(code: unknown): string | undefined {
+  if (typeof code !== 'string') return undefined
+  return Object.prototype.hasOwnProperty.call(CODES, code) ? code : undefined
+}
+
+// A process exit code is a small integer. Anything else is not one.
+export function telemetryExitCode(exitCode: unknown): number | undefined {
+  if (typeof exitCode !== 'number') return undefined
+  if (!Number.isInteger(exitCode) || exitCode < 0 || exitCode > 255) {
+    return undefined
+  }
+  return exitCode
+}
+
+export function markCommandFailure(
+  command = invoked,
+  details: CommandFailureDetails = {}
+): void {
   if (!markTracked()) return
+  const code = telemetryFailureCode(details.code)
+  const exitCode = telemetryExitCode(details.exitCode)
   telemetry.track('command_failed', {
     command,
     success: false,
     version,
+    ...(code ? {code} : {}),
+    ...(exitCode === undefined ? {} : {exit_code: exitCode}),
     ...telemetryCommandContext(command)
   })
 }

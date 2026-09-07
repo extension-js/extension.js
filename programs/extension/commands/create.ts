@@ -130,7 +130,10 @@ export function registerCreateCommand(program: Command) {
           // The non-json path throws and index.ts marks the failure there. The
           // json path returns instead of throwing, so it has to mark its own,
           // and without this create could not report a failure at all.
-          markCommandFailure()
+          markCommandFailure(undefined, {
+            code: createErrorCode(error),
+            exitCode: 1
+          })
           if (!asJson) throw error
 
           // eslint-disable-next-line no-console
