@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import readline from 'node:readline'
+import {recordBrowserInstall} from '../../helpers/browser-install-outcome'
 import {humanLine} from '../../helpers/messaging'
 import * as messages from './messages'
 
@@ -71,17 +72,22 @@ export async function offerManagedInstall(
   if (!canPromptForInstall()) return false
 
   humanLine(messages.firstRunInstallOffer(target))
+  recordBrowserInstall('offered', target)
   const accepted = await askToInstall(messages.firstRunInstallQuestion(target))
   if (!accepted) {
+    recordBrowserInstall('declined', target)
     humanLine(messages.firstRunInstallDeclined(target))
     return false
   }
 
+  const startedAt = Date.now()
   try {
     const {extensionInstall} = await import('extension-install')
     await extensionInstall({browser: target})
+    recordBrowserInstall('accepted', target, (Date.now() - startedAt) / 1000)
     return true
   } catch (error) {
+    recordBrowserInstall('failed', target, (Date.now() - startedAt) / 1000)
     humanLine(
       messages.firstRunInstallFailed(
         target,

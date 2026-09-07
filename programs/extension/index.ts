@@ -48,7 +48,11 @@ import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtim
 import * as messages from './helpers/messages'
 import {CODES} from './helpers/messaging'
 import {warnDeprecatedOutputAlias} from './helpers/output-flag'
-import {markCommandFailure, markCommandSuccess} from './helpers/telemetry-cli'
+import {
+  markCommandFailure,
+  markCommandSuccess,
+  telemetryFailureCode
+} from './helpers/telemetry-cli'
 
 // Public type surface for extension.config.js, re-exported from the root. The
 // .js extension is required for node16/nodenext resolution (TS2834).
@@ -282,7 +286,7 @@ if (process.argv.includes('--ai-help')) {
         const exitCode = commanderExitCode(err)
         // exitCode 0 is help or version display, not a failure.
         if (exitCode === 0) process.exit(0)
-        markCommandFailure()
+        markCommandFailure(undefined, {code: CODES.E_ARGS, exitCode})
         // eslint-disable-next-line no-console
         console.error(commanderHumanError(err, commandName))
         if (asJson) {
@@ -292,7 +296,14 @@ if (process.argv.includes('--ai-help')) {
         return
       }
 
-      markCommandFailure()
+      // A command that framed its own failure carries the precise code; an
+      // unframed throw is an internal error and says so.
+      markCommandFailure(undefined, {
+        code:
+          telemetryFailureCode((err as {code?: unknown} | undefined)?.code) ||
+          CODES.E_INTERNAL,
+        exitCode: 1
+      })
       // eslint-disable-next-line no-console
       console.error(messages.unhandledError(err))
       if (asJson && !isErrorFramed(err)) {
