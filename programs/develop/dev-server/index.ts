@@ -24,6 +24,7 @@ import {
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {isDebug} from '../lib/messaging'
+import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
@@ -810,7 +811,9 @@ export async function devServer(
   async function createCompilerAndServer(opts: {isRestart: boolean}) {
     const baseConfig = webpackConfig(projectStructure, webpackConfigOptions)
     const customWebpackConfig = await loadCustomConfig(packageJsonDir)
-    const compilerConfig = merge(customWebpackConfig(baseConfig), {})
+    const compilerConfig = applySplitChunksGuard(
+      merge(customWebpackConfig(baseConfig), {})
+    )
     const compiler = rspack(compilerConfig)
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)

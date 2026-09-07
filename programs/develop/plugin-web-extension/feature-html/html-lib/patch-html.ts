@@ -15,7 +15,7 @@ import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import type {FilepathList} from '../../../types'
 import {handleStaticAsset} from './assets'
 import {bakeBaseHref} from './base-href'
-import {injectJsScript} from './inject'
+import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
 import {
@@ -53,12 +53,29 @@ function warnIfPublicRootAssetMissing(
   compilation.warnings.push(warn)
 }
 
+// Inserts a node right before a sibling inside the same parent.
+function insertBefore(
+  reference: parse5utilities.ParsedNode,
+  node: ReturnType<typeof parse5utilities.createNode>
+): void {
+  const parent = (reference as {parentNode?: {childNodes: unknown[]}})
+    .parentNode
+  if (!parent || !Array.isArray(parent.childNodes)) return
+  const index = parent.childNodes.indexOf(reference)
+  if (index === -1) return
+  ;(node as {parentNode?: unknown}).parentNode = parent
+  parent.childNodes.splice(index, 0, node)
+}
+
+// siblingScripts are the root-absolute chunk files the page must load before
+// its own bundle, in load order. Empty when the entry is a single file.
 export function patchHtml(
   compilation: Compilation,
   feature: string,
   htmlEntry: string,
   includeList: FilepathList,
-  manifestDir?: string
+  manifestDir?: string,
+  siblingScripts: string[] = []
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
@@ -209,15 +226,17 @@ export function patchHtml(
         const lastScriptNode = bundledScriptNodes[
           bundledScriptNodes.length - 1
         ] as ReturnType<typeof parse5utilities.createNode>
-        const propagateScriptAttrs = new Set(['type', 'defer', 'async'])
-        lastScriptNode.attrs = [
-          {name: 'src', value: getFilePath(feature, '.js', true)},
-          ...(firstScriptAttrs || []).filter((attr) =>
-            propagateScriptAttrs.has(attr.name)
-          )
-        ]
+        // Sibling chunks go right before the entry tag so they keep the
+        // author's position relative to inline and preserved scripts.
+        for (const src of siblingScripts) {
+          insertBefore(lastScriptNode, createScriptTag(src, firstScriptAttrs))
+        }
+        lastScriptNode.attrs = scriptTagAttrs(
+          getFilePath(feature, '.js', true),
+          firstScriptAttrs
+        )
       } else if (bodyNode) {
-        injectJsScript(bodyNode, feature, firstScriptAttrs)
+        injectJsScript(bodyNode, feature, firstScriptAttrs, siblingScripts)
       }
     }
 

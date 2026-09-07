@@ -36,6 +36,7 @@ import {
 } from './lib/merge-options'
 import * as messages from './lib/messages'
 import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
+import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
   configBrowserOrThrow,
@@ -277,7 +278,7 @@ export async function extensionBuild(
       plugins: allPluginsButBrowserRunners
     })
 
-    const compilerConfig = merge(userConfig)
+    const compilerConfig = applySplitChunksGuard(merge(userConfig))
     compilerConfig.stats = false
 
     // A user config that re-points output.path opts out of the staging swap
