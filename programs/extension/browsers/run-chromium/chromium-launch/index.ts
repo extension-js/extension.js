@@ -32,6 +32,10 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import {
+  type InstallableTarget,
+  offerManagedInstall
+} from '../../browsers-lib/first-run-install'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import {
   diagnoseChromiumManifestRefusal,
@@ -740,6 +744,36 @@ export class ChromiumLaunchPlugin {
             )
           )
           browserBinaryLocation = normalized
+        }
+      }
+
+      // Nothing resolved anywhere. Offer the download in a terminal a human is
+      // watching, so the first run ends in a running extension, not a command
+      // to copy. Chrome for Testing is what a chromium target launches anyway.
+      if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
+        const offerTarget: InstallableTarget | null =
+          browser === 'chromium'
+            ? 'chrome'
+            : browser === 'chrome' || browser === 'edge'
+              ? browser
+              : null
+
+        if (offerTarget && (await offerManagedInstall(offerTarget))) {
+          const justInstalled = (): string | null => {
+            try {
+              const env = managedEnvFor(offerTarget)
+              const located =
+                offerTarget === 'edge'
+                  ? locateEdge({env})
+                  : locateChrome(true, {env})
+              return normalizePath(located || null)
+            } catch {
+              return null
+            }
+          }
+
+          const resolved = resolveManagedBinary() || justInstalled()
+          if (isUsableBinary(resolved)) browserBinaryLocation = resolved
         }
       }
 

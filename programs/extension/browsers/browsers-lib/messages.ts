@@ -1216,3 +1216,36 @@ export function rdpInvalidRequestPayload() {
     `If it repeats, report it with your Firefox version.`
   )
 }
+
+export function firstRunInstallOffer(browser: string) {
+  const name = managedBrowserDisplayName(browser)
+  return (
+    `${getLoggingPrefix('info')} ${name} is not installed yet.\n` +
+    `Extension.js runs your extension in a version-pinned browser with an isolated profile, ` +
+    `so it never touches the browser you use every day.\n` +
+    `${colors.gray('NO DOWNLOAD')} ${colors.blue('--browser=edge')} or ${colors.blue('--browser=brave')} ` +
+    `use a browser already on this machine, and ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} ` +
+    `pins any binary, including your own Chrome.`
+  )
+}
+
+export function firstRunInstallQuestion(browser: string) {
+  const name = managedBrowserDisplayName(browser)
+  return `${getLoggingPrefix('info')} Download ${name} now? ${colors.gray('[Y/n]')} `
+}
+
+export function firstRunInstallDeclined(browser: string) {
+  return (
+    `${getLoggingPrefix('info')} Skipped the download.\n` +
+    `Run ${colors.blue(`npx extension install ${browser}`)} when you want it, ` +
+    `or pass one of the no-download options above.`
+  )
+}
+
+export function firstRunInstallFailed(browser: string, reason: string) {
+  return (
+    `${getLoggingPrefix('warn')} The download did not finish.\n` +
+    `${colors.gray('REASON')} ${reason}\n` +
+    `Run ${colors.blue(`npx extension install ${browser}`)} to see the full output.`
+  )
+}
