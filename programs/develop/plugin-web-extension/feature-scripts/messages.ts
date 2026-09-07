@@ -75,6 +75,55 @@ export function injectedCompiledSourceLiteral(
   return lines.join('\n')
 }
 
+const SPLIT_ENTRY_RECIPE_URL =
+  'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
+
+// One loader per surface: the HTML tag, the background registration, the
+// content_scripts list or the injection call. Each names exactly one file.
+const SPLIT_ENTRY_SURFACES = {
+  page: {
+    loads: (entryName: string) => `${entryName}.html references only`,
+    effect: 'the page renders blank'
+  },
+  background: {
+    loads: () => 'the background registration loads only',
+    effect: 'the background script never starts'
+  },
+  content_script: {
+    loads: () => 'the content_scripts declaration injects only',
+    effect: 'the content script never runs on the page'
+  },
+  script: {
+    loads: () => 'the runtime injection loads only',
+    effect: 'the script never runs'
+  }
+} as const
+
+export function entrySplitAcrossInitialFiles(
+  entryName: string,
+  surface: keyof typeof SPLIT_ENTRY_SURFACES,
+  ownFile: string,
+  extraFiles: string[]
+) {
+  const shape = SPLIT_ENTRY_SURFACES[surface]
+  const count = extraFiles.length + 1
+  const lines: string[] = []
+  lines.push(
+    `${entryName} is split into ${count} initial files, but ${shape.loads(entryName)} ${ownFile}.`
+  )
+  lines.push(`${colors.gray('LOADED')} ${colors.underline(ownFile)}`)
+  lines.push(
+    `${colors.gray('NOT LOADED')} ${extraFiles.map((file) => colors.underline(file)).join(', ')}`
+  )
+  lines.push(
+    `The entry waits for the other files at runtime and never runs, so ${shape.effect}.`
+  )
+  lines.push(
+    `Only a user-set optimization.splitChunks cache group does this. Use chunks: 'async' and import() the shared module: ${colors.blue(SPLIT_ENTRY_RECIPE_URL)}`
+  )
+  return lines.join('\n')
+}
+
 export function fetchedFileDependencyMissing(
   assetName: string,
   literal: string,
