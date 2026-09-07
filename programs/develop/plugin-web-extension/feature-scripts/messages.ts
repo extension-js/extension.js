@@ -57,6 +57,24 @@ export function injectedFileDependencyMissing(
   return lines.join('\n')
 }
 
+export function injectedCompiledSourceLiteral(
+  assetName: string,
+  literal: string,
+  emittedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${assetName} injects '${literal}', but ${literal} is compiled to ${emittedPath}.`
+  )
+  lines.push(`${colors.gray('REQUESTED')} ${colors.underline(literal)}`)
+  lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
+  lines.push(
+    `The browser asks for the source path, which the output does not contain, so the injection fails at runtime.`
+  )
+  lines.push(`Inject the emitted path: ${colors.blue(emittedPath)}.`)
+  return lines.join('\n')
+}
+
 export function fetchedFileDependencyMissing(
   assetName: string,
   literal: string,

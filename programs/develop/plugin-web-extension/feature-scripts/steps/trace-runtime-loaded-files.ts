@@ -37,6 +37,17 @@ const EMITTED_WORKER_PATH = 'background/service_worker.js'
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
+// Sources the compiler rewrites to .js: a runtime injection literal naming one
+// asks the browser for a path the build never emits.
+const COMPILED_TO_JS_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.jsx',
+  '.mts',
+  '.cts',
+  '.mjs',
+  '.cjs'
+])
 
 export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
@@ -440,6 +451,25 @@ export class TraceRuntimeLoadedFiles {
         if (!distRel || seen.has(distRel)) continue
         seen.add(distRel)
 
+        // The literal spells the source of a file this build compiled, so the
+        // browser would request a path that is not in the output. Say so
+        // instead of copying the raw source through.
+        const emittedPath = compiledSourceEmittedPath(distRel)
+        if (emittedPath && compilation.getAsset(emittedPath)) {
+          const warn = new WebpackError(
+            messages.injectedCompiledSourceLiteral(
+              asset.name,
+              literal,
+              emittedPath
+            )
+          ) as Error & {file?: string; name?: string}
+          warn.name = 'InjectedScriptCompiledSource'
+          warn.file = asset.name
+          compilation.warnings ||= []
+          compilation.warnings.push(warn)
+          continue
+        }
+
         copyThroughOrWarn(compilation, {
           manifestDir,
           sourceRel: distRel,
@@ -570,6 +600,14 @@ function findSourceSibling(abs: string): string | undefined {
   return SOURCE_SIBLING_EXTENSIONS.map((ext) => base + ext).find((candidate) =>
     fs.existsSync(candidate)
   )
+}
+
+// The .js path the build emits for a compiled source literal, or null when
+// the literal already names a file the browser can load as-is.
+export function compiledSourceEmittedPath(distRel: string): string | null {
+  const ext = path.posix.extname(distRel)
+  if (!COMPILED_TO_JS_EXTENSIONS.has(ext.toLowerCase())) return null
+  return `${distRel.slice(0, -ext.length)}.js`
 }
 
 function unixify(filePath: string): string {
@@ -752,31 +790,50 @@ function extractImportScriptsLiterals(source: string): string[] {
   return literals
 }
 
-function extractInjectedFileLiterals(source: string): string[] {
+// Extract the file paths a runtime injection call ships to the browser. JS and
+// CSS come back alike: every one is copied through verbatim, never compiled.
+export function extractInjectedFileLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
-  const callRe = /\b(?:executeScript|insertCSS|removeCSS)\s*\(/g
-
-  let match: RegExpExecArray | null
-  while ((match = callRe.exec(code))) {
-    const args = readBalancedArgs(code, match.index + match[0].length - 1)
-    if (args == null) continue
-
-    // MV3 chrome.scripting.*, `files: [...]` arrays of literals.
-    const filesRe = /["']?files["']?\s*:\s*\[([^\]]*)\]/g
-    let filesMatch: RegExpExecArray | null
-    while ((filesMatch = filesRe.exec(args))) {
-      for (const element of splitTopLevelArgs(filesMatch[1])) {
-        const literal = pureStringLiteral(element)
-        if (literal != null) literals.push(literal)
-      }
+  const calls = [
+    {
+      callRe: /\b(?:executeScript|insertCSS|removeCSS)\s*\(/g,
+      arrayProps: ['files']
+    },
+    {
+      callRe: /\b(?:registerContentScripts|updateContentScripts)\s*\(/g,
+      arrayProps: ['js', 'css']
     }
+  ]
 
-    // MV2 tabs.executeScript / tabs.insertCSS, `file: "..."` singular.
-    const fileRe = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
-    let fileMatch: RegExpExecArray | null
-    while ((fileMatch = fileRe.exec(args))) {
-      literals.push(unescapeStringBody(fileMatch[2]))
+  for (const {callRe, arrayProps} of calls) {
+    let match: RegExpExecArray | null
+    while ((match = callRe.exec(code))) {
+      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      if (args == null) continue
+
+      // `files: [...]` on chrome.scripting.*, `js: [...]` and `css: [...]` on
+      // registered content scripts, arrays of literals.
+      for (const prop of arrayProps) {
+        const arrayRe = new RegExp(
+          `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*\\[([^\\]]*)\\]`,
+          'g'
+        )
+        let arrayMatch: RegExpExecArray | null
+        while ((arrayMatch = arrayRe.exec(args))) {
+          for (const element of splitTopLevelArgs(arrayMatch[1])) {
+            const literal = pureStringLiteral(element)
+            if (literal != null) literals.push(literal)
+          }
+        }
+      }
+
+      // MV2 tabs.executeScript / tabs.insertCSS, `file: "..."` singular.
+      const fileRe = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
+      let fileMatch: RegExpExecArray | null
+      while ((fileMatch = fileRe.exec(args))) {
+        literals.push(unescapeStringBody(fileMatch[2]))
+      }
     }
   }
 
