@@ -32,7 +32,7 @@ function makeCompilation(mode: 'development' | 'production'): Compilation {
 }
 
 function scriptTags(html: string): string[] {
-  return html.match(/<script[^>]*>/g) || []
+  return html.match(/<script[^>]*>/gi) || []
 }
 
 function srcOf(tag: string): string | undefined {
