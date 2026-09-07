@@ -25,7 +25,7 @@ jobs:
         run: git fetch --depth=1 origin main && git show origin/main:scripts/traffic-snapshot.mjs > traffic-snapshot.mjs
       - name: Append this week's line
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN || secrets.GITHUB_TOKEN }}
           OUT: traffic.ndjson
         run: node traffic-snapshot.mjs
       - name: Commit
