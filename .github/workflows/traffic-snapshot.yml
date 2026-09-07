@@ -1,0 +1,37 @@
+name: Traffic snapshot
+
+# GitHub keeps traffic data for 14 days and npm's daily counts have holes,
+# so a weekly snapshot on the analytics branch is the only durable record.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: analytics
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch main's snapshot script
+        run: git fetch --depth=1 origin main && git show origin/main:scripts/traffic-snapshot.mjs > traffic-snapshot.mjs
+      - name: Append this week's line
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUT: traffic.ndjson
+        run: node traffic-snapshot.mjs
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add traffic.ndjson
+          git commit -m "Snapshot traffic for $(date -u +%F)" || echo "nothing to commit"
+          git push origin analytics
