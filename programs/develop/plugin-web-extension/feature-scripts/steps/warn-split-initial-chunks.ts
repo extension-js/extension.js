@@ -8,30 +8,22 @@
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {
+  classifyEntrySurface,
+  type EntrySurface
+} from '../../../lib/split-chunks'
+import {
   type EntrypointLike,
   entryOwnJsFile,
   initialJsFiles
 } from '../../shared/initial-files'
 import * as messages from '../messages'
 
-export type SplitEntrySurface =
-  | 'page'
-  | 'background'
-  | 'content_script'
-  | 'script'
+export type SplitEntrySurface = EntrySurface
+export {classifyEntrySurface}
 
-// Every surface loads exactly one file per entry: the HTML tag, the
-// background registration, the content_scripts list or the injection call.
-export function classifyEntrySurface(entryName: string): SplitEntrySurface {
-  if (entryName.startsWith('background')) return 'background'
-  if (entryName.startsWith('content_scripts/')) return 'content_script'
-  if (entryName.startsWith('scripts/')) return 'script'
-  return 'page'
-}
-
-// The bundler keeps one file per entry, so several initial files only come
-// from a user cache group. The build is green while the surface loads one file
-// and the entry waits for the rest forever: say so once per entry.
+// An HTML page lists every sibling chunk in its emitted markup, so only the
+// single-file surfaces can be split by a user cache group: the surface loads
+// one file and the entry waits for the rest forever. Say so once per entry.
 export class WarnSplitInitialChunks {
   apply(compiler: Compiler): void {
     if (!compiler?.hooks?.thisCompilation?.tap) return
@@ -49,6 +41,8 @@ export class WarnSplitInitialChunks {
               EntrypointLike
             >
             for (const [entryName, entrypoint] of entrypoints) {
+              const surface = classifyEntrySurface(entryName)
+              if (surface === 'page') continue
               const files = initialJsFiles(entrypoint)
               if (files.length <= 1) continue
 
@@ -59,7 +53,7 @@ export class WarnSplitInitialChunks {
               const warn = new WebpackError(
                 messages.entrySplitAcrossInitialFiles(
                   entryName,
-                  classifyEntrySurface(entryName),
+                  surface,
                   ownFile,
                   extraFiles
                 )

@@ -10,8 +10,34 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {
+  type EntrypointLike,
+  entryOwnJsFile,
+  initialJsFiles
+} from '../../shared/initial-files'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
+
+// The chunk files a page entry loads besides its own bundle, root-absolute
+// and in load order. Read from the final chunk graph, so a shared cache
+// group chunk shows up here and nowhere else.
+export function siblingScriptsFor(
+  compilation: Compilation,
+  feature: string
+): string[] {
+  const entrypoints = compilation.entrypoints as
+    | ReadonlyMap<string, EntrypointLike>
+    | undefined
+  const entrypoint =
+    typeof entrypoints?.get === 'function' ? entrypoints.get(feature) : null
+  if (!entrypoint || typeof entrypoint.getFiles !== 'function') return []
+  const files = initialJsFiles(entrypoint)
+  if (files.length <= 1) return []
+  const ownFile = entryOwnJsFile(feature, entrypoint, files)
+  return files
+    .filter((file) => file !== ownFile)
+    .map((file) => getFilePath(file, '', true))
+}
 
 export class UpdateHtmlFile {
   public readonly manifestPath: string
@@ -61,7 +87,8 @@ export class UpdateHtmlFile {
               feature,
               resolved,
               (this.includeList || {}) as FilepathList,
-              projectDir
+              projectDir,
+              siblingScriptsFor(compilation as unknown as Compilation, feature)
             )
 
             const updatedHtml =

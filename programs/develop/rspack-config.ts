@@ -24,6 +24,7 @@ import {isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
+import {defaultSplitChunks} from './lib/split-chunks'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
@@ -603,8 +604,11 @@ export default function webpackConfig(
       // Concatenate modules in prod only: in dev, scope hoisting breaks
       // @rspack/plugin-react-refresh with a __webpack_module__ ReferenceError.
       concatenateModules: devOptions.mode === 'production',
-      // Keep a single file per entry (extensions expect static file names)
-      splitChunks: false,
+      // HTML pages share the framework runtime and their common modules
+      // through stable sibling files. Every other surface keeps one file.
+      splitChunks: defaultSplitChunks(),
+      // The runtime stays inside each entry: a page loads its siblings from
+      // the HTML, a background or content script loads nothing else.
       runtimeChunk: false,
       moduleIds: 'deterministic',
       chunkIds: 'deterministic'

@@ -114,24 +114,38 @@ describe('classifyEntrySurface', () => {
 })
 
 describe('WarnSplitInitialChunks', () => {
-  it('warns once for an entry with two initial files', () => {
+  it('stays silent for a page split into several files: the HTML loads them', () => {
     const warnings = run({
       'action/index': {
-        files: ['shared.js', 'action/index.js'],
+        files: ['shared/framework.js', 'shared/commons.js', 'action/index.js'],
         entryFile: 'action/index.js'
+      },
+      'options/index': {
+        files: ['shared/commons.js', 'options/index.js'],
+        entryFile: 'options/index.js'
+      }
+    })
+    expect(warnings).toHaveLength(0)
+  })
+
+  it('warns once for a single-file surface split into two files', () => {
+    const warnings = run({
+      'scripts/inject': {
+        files: ['shared/commons.js', 'scripts/inject.js'],
+        entryFile: 'scripts/inject.js'
       }
     })
     expect(warnings).toHaveLength(1)
     const text = String(warnings[0].message)
     expect(text).toContain(
-      'action/index is split into 2 initial files, but action/index.html references only action/index.js.'
+      'scripts/inject is split into 2 initial files, but the runtime injection loads only scripts/inject.js.'
     )
-    expect(text).toContain('shared.js')
-    expect(text).toContain('the page renders blank')
+    expect(text).toContain('shared/commons.js')
+    expect(text).toContain('the script never runs')
     expect(text).toContain(
       'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
     )
-    expect(warnings[0].file).toBe('action/index.js')
+    expect(warnings[0].file).toBe('scripts/inject.js')
   })
 
   it('stays silent for an entry with one initial file', () => {

@@ -766,6 +766,13 @@ export function debugBrowser(
   )
 }
 
+export function debugSplitChunksNarrowed(optionPaths: string[]) {
+  return (
+    `${prefix('debug')} chunks   narrowed=${optionPaths.join(',')} ` +
+    `single-file=background,content_scripts/,scripts/`
+  )
+}
+
 export function debugOutputPath(pathValue: string) {
   return `${prefix('debug')} output   path=${pathValue}`
 }
