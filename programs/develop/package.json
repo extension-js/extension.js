@@ -144,7 +144,7 @@
     "svelte": "5.55.9",
     "tsup": "^8.5.1",
     "typescript": "7.0.2",
-    "vitest": "^4.1.9",
+    "vitest": "^5.0.0",
     "vue-style-loader": "4.1.3",
     "webpack": "^5.104.1"
   }
