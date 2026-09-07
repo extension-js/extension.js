@@ -203,6 +203,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "themeNotSupportedByBrowser: function(1)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
+    "entrySplitAcrossInitialFiles: function(4)",
     "fetchedFileDependencyMissing: function(3)",
     "getURLDependencyMissing: function(3)",
     "importScriptsDependencyMissing: function(4)",
