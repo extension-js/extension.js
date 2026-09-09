@@ -15,6 +15,10 @@ import {
   getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
+import {
+  devInjectedPermissions,
+  partiallyGatedNote
+} from './apply-dev-defaults-lib/dev-injected-permissions'
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
@@ -22,10 +26,6 @@ import {
   patchWebResourcesV2,
   patchWebResourcesV3
 } from './apply-dev-defaults-lib/patch-web-resources'
-
-// Dev instrumentation injects these into the dist manifest; user code relying on
-// an undeclared one ships broken. `tabs` is excluded: warnings would be noise.
-const INJECTED_PERMISSION_APIS = ['storage', 'scripting', 'management'] as const
 
 // Scan the module graph's own source files for chrome/browser API usage whose
 // permission is dev-injected but undeclared. Emitted bundles would false-positive.
@@ -175,11 +175,12 @@ export class ApplyDevDefaults {
                 ? []
                 : [...optionalPermissions])
             ])
-            const devInjectedPermissions =
-              canonicalManifest.manifest_version === 3
-                ? ['scripting', 'tabs', 'management', 'storage']
-                : ['tabs', 'storage']
-            for (const permission of devInjectedPermissions) {
+            // One list drives the patch below and both warnings, so the dev
+            // manifest can never grant a permission the warnings miss.
+            const injectedPermissions = devInjectedPermissions(
+              canonicalManifest.manifest_version
+            )
+            for (const permission of injectedPermissions) {
               if (
                 optionalPermissions.has(permission) &&
                 !((canonicalManifest.permissions as string[]) || []).includes(
@@ -201,7 +202,7 @@ export class ApplyDevDefaults {
                   'DevPromotedOptionalHostWarning',
                   `manifest.json keeps "${match}" optional, but a content script matches it and the ` +
                     `dev build grants that host at install so it can re-inject the script on save. ` +
-                    `In development the host is required; the production build keeps it optional.`
+                    `In development the host is required. The production build keeps it optional.`
                 )
               }
             }
@@ -215,28 +216,15 @@ export class ApplyDevDefaults {
 
               // Dev-only permissions for the control bridge + reload loop. MV2 also
               // needs content-script host patterns in `permissions` (no host_permissions).
-              ...(canonicalManifest.manifest_version === 3
-                ? {
-                    permissions: [
-                      ...new Set([
-                        'scripting',
-                        'tabs',
-                        'management',
-                        'storage',
-                        ...(canonicalManifest.permissions || [])
-                      ])
-                    ]
-                  }
-                : {
-                    permissions: [
-                      ...new Set([
-                        'tabs',
-                        'storage',
-                        ...contentScriptMatches,
-                        ...(canonicalManifest.permissions || [])
-                      ])
-                    ]
-                  }),
+              permissions: [
+                ...new Set([
+                  ...injectedPermissions,
+                  ...(canonicalManifest.manifest_version === 3
+                    ? []
+                    : contentScriptMatches),
+                  ...(canonicalManifest.permissions || [])
+                ])
+              ],
               ...hostPermissionsPatch,
 
               ...patchBackground(canonicalManifest, this.browser),
@@ -255,14 +243,10 @@ export class ApplyDevDefaults {
               const declared = new Set<string>(
                 (canonicalManifest.permissions as string[]) || []
               )
-              const injectedForEra =
-                canonicalManifest.manifest_version === 3
-                  ? INJECTED_PERMISSION_APIS
-                  : (['storage'] as const)
               const uses = findInjectedOnlyPermissionUses(
                 compilation,
                 declared,
-                injectedForEra
+                injectedPermissions
               )
               for (const [api, file] of uses) {
                 const relative = path.relative(
@@ -279,10 +263,13 @@ export class ApplyDevDefaults {
                     `It works in development only because the dev instrumentation ` +
                     `injects "${api}": the production build will fail at runtime. ` +
                     `Add "${api}" to permissions in manifest.json.`
-                pushDevWarning('DevInjectedPermissionWarning', text)
+                pushDevWarning(
+                  'DevInjectedPermissionWarning',
+                  text + partiallyGatedNote(api)
+                )
               }
             } catch {
-              // diagnostics only; never fail the compile over the scan
+              // Diagnostics only, never fail the compile over the scan
             }
 
             const source = JSON.stringify(patchedManifest, null, 2)

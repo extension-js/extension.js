@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {findInjectedOnlyPermissionUses} from '../steps/apply-dev-defaults'
+import {devInjectedPermissions} from '../steps/apply-dev-defaults-lib/dev-injected-permissions'
 
 describe('findInjectedOnlyPermissionUses', () => {
   let tmp: string
@@ -36,6 +37,17 @@ describe('findInjectedOnlyPermissionUses', () => {
     )
     expect(hits.get('storage')).toBe(sw)
     expect(hits.has('scripting')).toBe(false)
+  })
+
+  it('flags chrome.tabs, which dev injects and the scan used to skip', () => {
+    const sw = write('sw.js', 'chrome.tabs.query({active: true})\n')
+    const hits = findInjectedOnlyPermissionUses(
+      compilationWith([sw]),
+      new Set(['storage']),
+      devInjectedPermissions(3)
+    )
+    expect(hits.get('tabs')).toBe(sw)
+    expect(hits.has('storage')).toBe(false)
   })
 
   it('stays silent when the manifest declares the permission', () => {

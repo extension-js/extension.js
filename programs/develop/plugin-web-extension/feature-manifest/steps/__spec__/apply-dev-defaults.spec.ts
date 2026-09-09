@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {ApplyDevDefaults} from '../apply-dev-defaults'
+import {devInjectedPermissions} from '../apply-dev-defaults-lib/dev-injected-permissions'
 
 describe('ApplyDevDefaults', () => {
   it('registers processAssets after REPORT so it runs after WAR patching', () => {
@@ -267,6 +268,108 @@ describe('ApplyDevDefaults', () => {
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
+  })
+
+  it('warns when source uses chrome.tabs and the manifest never declares it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, 'chrome.tabs.query({}, (t) => console.log(t))\n')
+    try {
+      const {out, warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'chrome',
+        [{resource: file}]
+      )
+      expect(out.permissions).toContain('tabs')
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('"tabs"')
+      expect(drift[0].message).toContain('background.js')
+      expect(drift[0].message).toContain('favIconUrl')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('warns on chrome.tabs for MV2 too', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-mv2-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, 'browser.tabs.query({})\n')
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 2, name: 'x'},
+        'firefox',
+        [{resource: file}]
+      )
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('"tabs"')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  // The defect this pins: the warning read a hand-kept copy of the injected
+  // list and drifted. This walks the permissions the dev manifest really
+  // grants and proves each one still raises the warning.
+  describe.each([
+    2, 3
+  ])('every permission the dev manifest injects warns when used (MV%i)', (manifest_version) => {
+    const bare = runDevDefaults({manifest_version, name: 'x'})
+    const injected: string[] = bare.permissions
+
+    it('grants only permissions the shared list names', () => {
+      expect([...injected].sort()).toEqual(
+        [...devInjectedPermissions(manifest_version)].sort()
+      )
+    })
+
+    it.each(injected)('warns on undeclared chrome.%s use', (api: string) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-cover-'))
+      const file = path.join(dir, 'background.js')
+      fs.writeFileSync(file, `chrome.${api}.someCall()\n`)
+      try {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {manifest_version, name: 'x'},
+          manifest_version === 3 ? 'chrome' : 'firefox',
+          [{resource: file}]
+        )
+        const drift = warnings.filter(
+          (w) => w.name === 'DevInjectedPermissionWarning'
+        )
+        expect(drift).toHaveLength(1)
+        expect(drift[0].message).toContain(`"${api}"`)
+      } finally {
+        fs.rmSync(dir, {recursive: true, force: true})
+      }
+    })
+  })
+
+  // Hosts never drifted because the patch and the promotion warning read the
+  // same local. This keeps that single source honest.
+  it('injects exactly the hosts the promotion warning inspects', () => {
+    const {out, warnings} = runDevDefaultsWithWarnings({
+      manifest_version: 3,
+      name: 'x',
+      host_permissions: ['https://declared.test/*'],
+      optional_host_permissions: ['https://opt.test/*'],
+      content_scripts: [
+        {matches: ['https://opt.test/*', '<all_urls>'], js: ['c.js']}
+      ]
+    })
+    expect([...out.host_permissions].sort()).toEqual(
+      ['<all_urls>', 'https://declared.test/*', 'https://opt.test/*'].sort()
+    )
+    const promoted = warnings.filter(
+      (w) => w.name === 'DevPromotedOptionalHostWarning'
+    )
+    expect(
+      promoted.map((w) => w.message.includes('https://opt.test/*'))
+    ).toEqual([true])
   })
 
   it('injects scripting + tabs (+ management) in dev for MV3', () => {
