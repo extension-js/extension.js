@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 4.1.16 (September 9, 2026)
+
+<details>
+<summary>Other changes (5)</summary>
+
+- Build the em dash from its code point so the prose check passes ([dd1acf40](https://github.com/extension-js/extension.js/commit/dd1acf405e4f0c0b3e7bd00499ef821e7543ab43))
+- Repin the template catalog so scaffolds carry the chrome types ([863859bd](https://github.com/extension-js/extension.js/commit/863859bda4caaaa14bc9fdc84670b9002d13322d))
+- Warn on every permission the dev manifest injects, including tabs ([9cc59ad2](https://github.com/extension-js/extension.js/commit/9cc59ad254b1ca9ac06fae699a0d978298d9f884))
+- Tell --no-open and --no-browser apart and accept both everywhere ([a190d56a](https://github.com/extension-js/extension.js/commit/a190d56af3ca2ed255d9d662467498c503c4efc0))
+- Report watch sessions and flush telemetry on every exit path ([4c5f9b2d](https://github.com/extension-js/extension.js/commit/4c5f9b2db71135df79915d32f7f828e94f5b9de0))
+</details>
+
 ## 4.1.15 (September 9, 2026)
 
 <details>
