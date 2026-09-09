@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 4.1.15 (September 9, 2026)
+
+<details>
+<summary>Other changes (10)</summary>
+
+- Match script tags in any case when a spec reads emitted HTML ([0b897d7f](https://github.com/extension-js/extension.js/commit/0b897d7fbf401edd1dd929d925c11382264404d8))
+- Report a failure code and the install offer outcome in telemetry ([c709b709](https://github.com/extension-js/extension.js/commit/c709b70945afff04c130127e85dfa431abed66d4))
+- Offer the managed browser download on a first run in a terminal ([95123b20](https://github.com/extension-js/extension.js/commit/95123b20575dc244a92d1ade753c00d7a2de820d))
+- Share page code through sibling chunks the emitted HTML loads ([f39ed11b](https://github.com/extension-js/extension.js/commit/f39ed11b5cdf5e97f13f252c5d4f5dc55d51a6f7))
+- Keep the traffic snapshot going when the token cannot read traffic ([aa3babee](https://github.com/extension-js/extension.js/commit/aa3babee6bc9c0b948baf2f4e6aa4ff8226cbaba))
+- Record npm and stars even when the traffic endpoints refuse the token ([7e700934](https://github.com/extension-js/extension.js/commit/7e700934ce05fe07067e66163cc70727179fe555))
+- Snapshot GitHub and npm traffic weekly on the analytics branch ([9e06391e](https://github.com/extension-js/extension.js/commit/9e06391eca0ce984a478afdca0144937271a8110))
+- Warn when a user cache group splits an entry into several files ([57dafec0](https://github.com/extension-js/extension.js/commit/57dafec09656e5fd045ded07271a971f167b5c14))
+- Warn when a runtime injection literal names a compiled source ([c3bf9550](https://github.com/extension-js/extension.js/commit/c3bf9550fd7ed3fd75ec64c03a2214527a2761d5))
+- Keep a page stylesheet's public-owned root url() at the extension root ([a1c89d2a](https://github.com/extension-js/extension.js/commit/a1c89d2ab5cccda64c7ae0c8d6c2700e3eb90ac3))
+</details>
+
 ## 4.1.14 (September 6, 2026)
 
 ### Fixes
