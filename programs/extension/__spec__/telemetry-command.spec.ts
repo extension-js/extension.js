@@ -1,8 +1,14 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+// The exit path marks the outcome and flushes through this module, so a mock
+// that names only the consent pair leaves the command running against a hole.
 vi.mock('../helpers/telemetry-cli', () => ({
   getTelemetryConsent: vi.fn(() => ({enabled: true, source: 'default'})),
-  setTelemetryConsent: vi.fn(() => ({ok: true, path: '/tmp/consent.json'}))
+  setTelemetryConsent: vi.fn(() => ({ok: true, path: '/tmp/consent.json'})),
+  invokedCommand: vi.fn(() => 'telemetry'),
+  markCommandSuccess: vi.fn(),
+  markCommandFailure: vi.fn(),
+  telemetry: {flush: vi.fn(async () => {})}
 }))
 
 import {registerTelemetryCommand} from '../commands/telemetry'

@@ -167,16 +167,26 @@ export function getTelemetryConsent(): {
   return consent
 }
 
+// The verb this run invoked, for the exit path that reports an outcome the
+// command never got to mark itself.
+export function invokedCommand(): string {
+  return invoked
+}
+
 export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
   ok: boolean
   path: string | null
 } {
   const ok = writeConsent(value)
+  // A refusal covers the run that made it, so `extension telemetry disable`
+  // never reports itself. Enabling starts at the next run, not this one.
+  if (value === 'disabled') telemetry.disable()
   const storage = resolveTelemetryStorage()
   return {ok, path: storage?.consentFile ?? null}
 }
 
 let tracked = false
+let sessionStarted = false
 
 function markTracked(): boolean {
   if (tracked) return false
@@ -184,7 +194,52 @@ function markTracked(): boolean {
   return true
 }
 
+/* @invariant A WATCH SESSION IS COUNTED WHEN IT STARTS, BECAUSE THE ONLY OTHER
+ * MOMENT AVAILABLE IS ONE THIS PROCESS NEVER REACHES.
+ *
+ * `markCommandSuccess` runs after `parseAsync` resolves, and `dev`, `start` and
+ * `preview` never resolve it: they watch until a signal kills them. The
+ * `beforeExit` fallback cannot stand in either, because Node does not emit that
+ * event for a signal death. So a successful dev session emitted nothing at all,
+ * and the only `dev` rows that ever reached the collector were the runs that
+ * crashed before the watch loop began. Read on 2026-09-09 that was 28 events
+ * across 16 users reporting a 66% failure rate, which described the sampling
+ * and not the product.
+ *
+ * Two things follow from that, and both are load bearing. The event is emitted
+ * at the handoff to the long-running runtime rather than held for the exit, and
+ * it is flushed right there rather than queued, so a `SIGKILL`, a lost flush or
+ * a `process.exit` from another signal handler cannot erase the session.
+ *
+ * It stays `command_executed`. A third event name would have split the one
+ * question the two-event scheme answers, "did this command work", across two
+ * vocabularies; `session: 'started'` says which half of the run the row
+ * describes while `command_failed` keeps its exact meaning, so a failure that
+ * lands after the session came up still travels and the failure rate for `dev`
+ * finally has a denominator counted the same way as its numerator.
+ */
+export function markCommandSessionStart(command = invoked): void {
+  if (tracked || sessionStarted) return
+  sessionStarted = true
+  telemetry.track('command_executed', {
+    command,
+    success: true,
+    version,
+    session: 'started',
+    ...telemetryCommandContext(command)
+  })
+  // Sent now, not queued. Holding it for the exit is the defect being fixed.
+  void telemetry.flush()
+}
+
+export function hasTrackedSessionStart(): boolean {
+  return sessionStarted
+}
+
 export function markCommandSuccess(command = invoked): void {
+  // A session already counted at its start is one run, not two: its clean exit
+  // adds nothing, and `command_failed` is still free to report a later death.
+  if (sessionStarted) return
   if (!markTracked()) return
   telemetry.track('command_executed', {
     command,
