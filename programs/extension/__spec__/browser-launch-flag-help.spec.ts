@@ -79,6 +79,8 @@ describe('--no-open and --no-browser read as different flags', () => {
   it('keeps the house style out of the shared copy', () => {
     const copy = `${NO_OPEN_FLAG_DESCRIPTION}${BROWSER_LAUNCH_HELP_FOOTER}`
     expect(copy).not.toContain(';')
-    expect(copy).not.toContain('—')
+    // Built from its code point so the literal character never appears in
+    // this file, which the repo prose check scans like any other source.
+    expect(copy).not.toContain(String.fromCharCode(0x2014))
   })
 })
