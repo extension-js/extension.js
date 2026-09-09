@@ -27,12 +27,17 @@ import {
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
-import {resolveNoBrowser} from '../helpers/no-browser'
+import {
+  BROWSER_LAUNCH_HELP_FOOTER,
+  NO_OPEN_FLAG_DESCRIPTION,
+  resolveNoBrowser
+} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
 import {resolveOutputFormat} from '../helpers/output-flag'
+import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
@@ -53,6 +58,7 @@ type StartOptions = {
   port?: string | number
   host?: string
   polyfill?: boolean | string
+  open?: boolean
   install?: boolean
   debug?: boolean
   author?: boolean
@@ -105,7 +111,10 @@ export function registerStartCommand(program: Command) {
     .description(commandDescriptions.start)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit; pair with --output json for machine output\n'
+      '\nAdditional options:\n' +
+        '  --no-browser    stop the browser launch, the build still runs\n' +
+        '  --wait          wait for ready contract and exit, pair with --output json for machine output\n' +
+        BROWSER_LAUNCH_HELP_FOOTER
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -121,6 +130,7 @@ export function registerStartCommand(program: Command) {
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
+    .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
@@ -331,6 +341,10 @@ export function registerStartCommand(program: Command) {
           )
         }
 
+        // Counted here rather than at an exit `start` does not reach: it keeps
+        // running behind the launched browser until a signal ends it.
+        markCommandSessionStart('start')
+
         const {extensionBuild} = await loadExtensionDevelopModule()
 
         for (const vendor of list) {
@@ -407,6 +421,13 @@ export function registerStartCommand(program: Command) {
               port: startOptions.port,
               host: startOptions.host,
               noBrowser: false,
+              // Only forward a typed --no-open, so commands.start.noOpen and
+              // the stock default still decide when the user left it alone.
+              noOpen: explicitCliValue(
+                command,
+                'open',
+                startOptions.open === false
+              ),
               extensions: parseExtensionsList(startOptions.extensions),
               metadataCommand: 'start',
               logLevel,

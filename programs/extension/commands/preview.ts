@@ -21,12 +21,17 @@ import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-ru
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
-import {resolveNoBrowser} from '../helpers/no-browser'
+import {
+  BROWSER_LAUNCH_HELP_FOOTER,
+  NO_OPEN_FLAG_DESCRIPTION,
+  resolveNoBrowser
+} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
 import {isJsonOutput} from '../helpers/output-flag'
+import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
@@ -41,6 +46,7 @@ type PreviewOptions = {
   chromiumBinary?: string
   geckoBinary?: string
   firefoxBinary?: string
+  open?: boolean
   startingUrl?: string
   port?: string | number
   logLevel?: string
@@ -72,7 +78,9 @@ export function registerPreviewCommand(program: Command) {
     .description(commandDescriptions.preview)
     .addHelpText(
       'after',
-      '\nAdditional option:\n  --no-browser    do not launch the browser\n'
+      '\nAdditional option:\n' +
+        '  --no-browser    stop the browser launch\n' +
+        BROWSER_LAUNCH_HELP_FOOTER
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -88,6 +96,7 @@ export function registerPreviewCommand(program: Command) {
     )
     .addOption(geckoBinaryOption())
     .addOption(firefoxBinaryAliasOption())
+    .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
@@ -226,6 +235,10 @@ export function registerPreviewCommand(program: Command) {
           if (isRemote) process.env.EXTJS_LIGHT = '1'
         }
 
+        // Counted at the handoff: preview holds the browser open and exits on
+        // a signal, ten milliseconds after which its own handler kills it.
+        markCommandSessionStart('preview')
+
         const {extensionPreview} = await loadExtensionDevelopPreviewModule()
         const previewed: string[] = []
 
@@ -246,6 +259,13 @@ export function registerPreviewCommand(program: Command) {
                 browser: vendor as PreviewOptions['browser'],
                 chromiumBinary: previewOptions.chromiumBinary,
                 geckoBinary: cliGeckoBinary(previewOptions),
+                // Only forward a typed --no-open, so commands.preview.noOpen
+                // and the stock default still decide when it is not typed.
+                noOpen: explicitCliValue(
+                  command,
+                  'open',
+                  previewOptions.open === false
+                ),
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
                 noBrowser: await resolveNoBrowser(
