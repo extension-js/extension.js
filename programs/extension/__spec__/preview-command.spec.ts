@@ -87,6 +87,21 @@ describe('extension preview', () => {
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
   })
 
+  it('forwards a typed --no-open and leaves it unset otherwise', async () => {
+    expect(await run(['preview', '.', '--no-open'])).toBe(0)
+    const [, withFlag] = extensionPreview.mock.calls[0]
+    // --no-open still launches the browser. Only the tab is skipped, so
+    // noBrowser stays false and noOpen carries the decision.
+    expect((withFlag as any).noOpen).toBe(true)
+    expect((withFlag as any).noBrowser).toBe(false)
+
+    vi.clearAllMocks()
+
+    expect(await run(['preview', '.'])).toBe(0)
+    const [, withoutFlag] = extensionPreview.mock.calls[0]
+    expect((withoutFlag as any).noOpen).toBeUndefined()
+  })
+
   it('normalizes --profile false to the system-profile sentinel', async () => {
     expect(await run(['preview', '.', '--profile', 'false'])).toBe(0)
     const [, opts] = extensionPreview.mock.calls[0]

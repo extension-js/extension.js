@@ -27,13 +27,18 @@ import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
-import {resolveNoBrowser} from '../helpers/no-browser'
+import {
+  BROWSER_LAUNCH_HELP_FOOTER,
+  NO_OPEN_FLAG_DESCRIPTION,
+  resolveNoBrowser
+} from '../helpers/no-browser'
 import {
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
 import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
+import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -109,7 +114,11 @@ export function registerDevCommand(program: Command) {
     .description(commandDescriptions.dev)
     .addHelpText(
       'after',
-      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --no-reload     emit a dev-mode dist without the content-script reload runtime; tabs need manual reload to see changes\n  --wait          wait for ready contract and exit; pair with --output json for machine output\n'
+      '\nAdditional options:\n' +
+        '  --no-browser    stop the browser launch, the dev server still starts\n' +
+        '  --no-reload     emit a dev-mode dist without the content-script reload runtime, tabs need a manual reload to see changes\n' +
+        '  --wait          wait for ready contract and exit, pair with --output json for machine output\n' +
+        BROWSER_LAUNCH_HELP_FOOTER
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -156,10 +165,7 @@ export function registerDevCommand(program: Command) {
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
-    .option(
-      '--no-open',
-      'do not open the browser automatically (default: open)'
-    )
+    .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
@@ -435,6 +441,10 @@ export function registerDevCommand(program: Command) {
             })
           )
         }
+
+        // The run is counted here, at the handoff to the watch loop, because
+        // `dev` never returns and the exit that used to report it is a signal.
+        markCommandSessionStart('dev')
 
         const {extensionDev} = await loadExtensionDevelopModule()
 
