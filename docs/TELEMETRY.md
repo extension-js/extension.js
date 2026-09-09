@@ -9,7 +9,7 @@ Extension.js collects a tiny amount of anonymous telemetry to understand which c
 
 ## What is collected
 
-Per CLI run, at most one of:
+Per CLI run, at most one of these, except for a watch session, which is explained below:
 
 | event              | sampled                           | properties                     |
 | ------------------ | --------------------------------- | ------------------------------ |
@@ -28,6 +28,29 @@ A failure adds two more properties so a failure count can be read as a cause rat
 `code` is checked against the catalog before it is sent. A Node errno, a message, or any
 value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
 no error text ever travels.
+
+### Long-running commands
+
+`dev`, `start` and `preview` do not end on their own, they watch until you stop them. Counting
+them only at exit would mean a session that ends with Ctrl-C is never counted at all, which is
+what used to happen. So these three report once at the moment the session comes up:
+
+| property  | value                                                              |
+| --------- | ------------------------------------------------------------------ |
+| `session` | `started`, present only on `command_executed` for these commands   |
+
+Three consequences worth stating plainly:
+
+- **A watch session can produce two rows**, one `command_executed` with `session: started` when
+  it comes up, and one `command_failed` later if it breaks. That is deliberate. It gives the
+  failure count a denominator counted the same way.
+- **Session rows are never sampled.** Sampling the denominator while failures ship in full would
+  overstate the failure rate by five times, which is the reporting error this exists to fix.
+- **Stopping a watch session with Ctrl-C is not a failure** and is not reported as one. A short
+  command killed by a signal does report a failure, with `code` `E_INTERRUPTED`.
+
+Nothing extra is collected here. `session` is a single word with two possible states, attached
+to an event that was already being sent.
 
 When a run offers to download a managed browser, the command's event carries the outcome so
 the offer can be told apart from a dead end:
@@ -62,7 +85,7 @@ The `create` command adds two properties so a broken advertised starter shows up
 
 Three independent controls, all combined:
 
-- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 – 1.0). Failures are never sampled.
+- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are the `session: started` rows for `dev`, `start` and `preview`.
 - **Per-run cap**, at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
 - **Debounce**, duplicate `(event, command, success)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
@@ -86,6 +109,10 @@ extension telemetry enable
 extension telemetry             # no arg = show status
 extension telemetry status
 ```
+
+The run that turns telemetry off reports nothing about itself. `extension telemetry disable`
+silences the running process at the moment it records your choice, so the act of opting out is
+never the last thing collected from you.
 
 The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent) and is the only piece of telemetry state persisted on disk besides the anonymous install id and a local audit log of events actually sent.
 

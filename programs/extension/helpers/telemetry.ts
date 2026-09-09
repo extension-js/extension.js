@@ -19,6 +19,13 @@ export type TelemetryProps = {
   version: string
   template?: string
   source?: string
+  // 'started' marks the one event a watch command emits when its session
+  // comes up, since `dev`, `start` and `preview` have no exit to report.
+  session?: 'started'
+  // Both are already validated by the caller: a catalog name and a small
+  // integer. They are re-checked below, since this is the last gate.
+  code?: string
+  exit_code?: number
 }
 
 /* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
@@ -39,6 +46,29 @@ export type TelemetryProps = {
  * of one character below it.
  */
 const VERSION_MAX_LENGTH = 64
+
+/* @invariant THE TWO PROPERTIES THAT NAME A FAILURE HAVE TO SURVIVE THIS
+ * FUNCTION, AND FOR A LONG TIME THEY DID NOT.
+ *
+ * `markCommandFailure` builds `code` and `exit_code`, the docs describe both as
+ * sent, and this class rebuilt the payload from a fixed list that named neither.
+ * The spread that carried them into `track` also defeated the excess-property
+ * check that would have caught it, so every `command_failed` row ever collected
+ * is a count with no cause attached, and the local audit log has no cause in it
+ * either. They are re-validated here rather than trusted: a shape check is what
+ * keeps an error message or a Node errno from arriving as a code.
+ */
+const CATALOG_CODE = /^E_[A-Z0-9_]{1,48}$/
+
+function catalogCode(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  return CATALOG_CODE.test(value) ? value : undefined
+}
+
+function smallExitCode(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
+  return value >= 0 && value <= 255 ? value : undefined
+}
 
 function sanitizeTag(value: string): string {
   return String(value)
@@ -500,6 +530,12 @@ export class Telemetry {
     return !this.disabled
   }
 
+  // A run that turns telemetry off must not report itself on the way out.
+  disable(): void {
+    this.disabled = true
+    this.buffer.length = 0
+  }
+
   track(event: TelemetryEvent, props: TelemetryProps): void {
     try {
       if (this.disabled) return
@@ -521,6 +557,13 @@ export class Telemetry {
       }
       if (props.template) enforcedProps.template = sanitizeTag(props.template)
       if (props.source) enforcedProps.source = sanitizeTag(props.source)
+      if (props.session === 'started') enforcedProps.session = 'started'
+      // A failure count that cannot be read as a cause is a number and
+      // nothing else, so the two properties that name the cause travel.
+      const code = catalogCode(props.code)
+      if (code) enforcedProps.code = code
+      const exitCode = smallExitCode(props.exit_code)
+      if (exitCode !== undefined) enforcedProps.exit_code = exitCode
 
       const payload = {
         event,
@@ -538,6 +581,7 @@ export class Telemetry {
       if (
         event === 'command_executed' &&
         props.command !== 'create' &&
+        props.session !== 'started' &&
         Math.random() > this.sampleRate
       ) {
         return

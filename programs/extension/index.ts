@@ -53,6 +53,7 @@ import {
   markCommandSuccess,
   telemetryFailureCode
 } from './helpers/telemetry-cli'
+import {installTelemetrySignalHandlers} from './helpers/telemetry-signals'
 
 // Public type surface for extension.config.js, re-exported from the root. The
 // .js extension is required for node16/nodenext resolution (TS2834).
@@ -62,6 +63,10 @@ export type {
   CompanionExtensionsConfig,
   FileConfig
 } from './config-types.js'
+
+// Before any command action runs, so this listener sees a Ctrl-C ahead of the
+// browser and dev-server teardown handlers those actions install later.
+installTelemetrySignalHandlers()
 
 const cliPackageJson = getCliPackageJson()
 
