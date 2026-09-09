@@ -24,21 +24,21 @@ if (!isFirefoxLike) {
   chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message || message.type !== 'openSidebar') return
 
+  // Every line here runs synchronously on purpose. sidePanel.open() is only
+  // allowed inside the user gesture that the content-script click carries, and
+  // a tabs.query callback outlives it: the panel then silently refuses to open.
+  // sender.tab is the tab the click came from, so no lookup is needed at all.
   chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
 
-  if (!chrome.sidePanel.open) return
+  const tabId = sender.tab?.id
+  if (!chrome.sidePanel.open || tabId === undefined) return
 
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    const activeTabId = tabs?.[0]?.id
-    if (!activeTabId) return
-
-    try {
-      chrome.sidePanel.open({tabId: activeTabId})
-    } catch (error) {
-      console.error(error)
-    }
-  })
+  try {
+    chrome.sidePanel.open({tabId})
+  } catch (error) {
+    console.error(error)
+  }
 })
