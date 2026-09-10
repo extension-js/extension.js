@@ -957,3 +957,20 @@ export function noBrowserNotSupportedForCommand(command?: string) {
     )}.\n` + `${fmt.label('GOT')} ${code(command || '(none)')}`
   )
 }
+
+// --wait only reads the ready contract, it never starts a server, so pairing
+// it with --no-browser waits on a file nothing in that run writes.
+export function noBrowserWithWait(command: string) {
+  return (
+    `${getLoggingPrefix('error')} ${code('--no-browser')} and ${code(
+      '--wait'
+    )} cannot run in the same process.\n` +
+    `${code('--no-browser')} runs the server without a browser, and ${code(
+      '--wait'
+    )} only reads the ready contract another process writes.\n` +
+    `${fmt.label('RUN')} ${code(`extension ${command} --no-browser`)}\n` +
+    `${fmt.label('THEN')} ${code(
+      `extension ${command} --wait --output json`
+    )} in a second process`
+  )
+}
