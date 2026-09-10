@@ -369,6 +369,22 @@ export function registerDevCommand(program: Command) {
         }
 
         if (devOptions.wait) {
+          // --wait polls the ready contract and never starts a server, so with
+          // --no-browser this run would poll for a file it never writes. Refuse
+          // instead of burning the whole --wait-timeout on a certain failure.
+          // Only the typed flag counts: commands.dev.noBrowser in
+          // extension.config.js belongs to the producer process, and refusing
+          // there would break the documented two-process pattern.
+          if (process.env.EXTENSION_CLI_NO_BROWSER === '1') {
+            // eslint-disable-next-line no-console
+            console.error(messages.noBrowserWithWait('dev'))
+            failAndExit(asJson, 'usage', {
+              code: CODES.E_INVALID_OPTION,
+              message:
+                '--no-browser and --wait cannot run in the same process. Run `extension dev --no-browser` in one process and `extension dev --wait` in another.'
+            })
+          }
+
           // The deprecated --wait-format alias already mapped onto --output in
           // resolveOutputFormat, so one flag decides the whole stdout dialect.
           const waitAsJson = asJson

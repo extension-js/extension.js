@@ -192,6 +192,22 @@ describe('extension start', () => {
     })
     expect(extensionBuild).not.toHaveBeenCalled()
   })
+
+  it('refuses --no-browser with --wait instead of polling for a file no one writes', async () => {
+    // Same process, both flags: --wait never starts a server, so the run used
+    // to sit on the ready contract for the whole --wait-timeout and then fail.
+    process.env.EXTENSION_CLI_NO_BROWSER = '1'
+    expect(await run(['start', '.', '--wait', '--output', 'json'])).toBe(1)
+    expect(runWaitMode).not.toHaveBeenCalled()
+    expect(extensionBuild).not.toHaveBeenCalled()
+    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(payload).toMatchObject({
+      ok: false,
+      command: 'start',
+      status: 'usage',
+      error: {code: 'E_INVALID_OPTION'}
+    })
+  })
 })
 
 describe('extension start browser from config', () => {

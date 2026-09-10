@@ -234,4 +234,35 @@ describe('extension dev', () => {
     })
     expect(extensionDev).not.toHaveBeenCalled()
   })
+
+  it('refuses --no-browser with --wait instead of polling for a file no one writes', async () => {
+    // Same process, both flags: --wait never starts a server, so the run used
+    // to sit on the ready contract for the whole --wait-timeout and then fail.
+    process.env.EXTENSION_CLI_NO_BROWSER = '1'
+    expect(await run(['dev', '.', '--wait', '--wait-timeout', '45000'])).toBe(1)
+    expect(runWaitMode).not.toHaveBeenCalled()
+    expect(extensionDev).not.toHaveBeenCalled()
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--no-browser/)
+  })
+
+  it('frames the --no-browser with --wait refusal under --output json', async () => {
+    process.env.EXTENSION_CLI_NO_BROWSER = '1'
+    expect(await run(['dev', '.', '--wait', '--output', 'json'])).toBe(1)
+    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(payload).toMatchObject({
+      ok: false,
+      command: 'dev',
+      status: 'usage',
+      error: {code: 'E_INVALID_OPTION'}
+    })
+  })
+
+  it('still waits when noBrowser comes from extension.config.js', async () => {
+    // The config value belongs to the producer process. Refusing on it would
+    // break the documented two-process pattern for those projects.
+    loadCommandConfig.mockResolvedValue({noBrowser: true})
+    expect(await run(['dev', '.', '--wait', '--output', 'json'])).toBe(0)
+    expect(runWaitMode).toHaveBeenCalledTimes(1)
+    loadCommandConfig.mockResolvedValue({})
+  })
 })
