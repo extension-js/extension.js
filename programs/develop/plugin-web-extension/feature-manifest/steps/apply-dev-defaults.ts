@@ -16,6 +16,12 @@ import {
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {
+  declaredHostPatterns,
+  devInjectedHostPatterns,
+  findInjectedOnlyHostUses,
+  optionalHostPatterns
+} from './apply-dev-defaults-lib/dev-injected-hosts'
+import {
   devInjectedPermissions,
   partiallyGatedNote
 } from './apply-dev-defaults-lib/dev-injected-permissions'
@@ -121,19 +127,11 @@ export class ApplyDevDefaults {
               this.manifestPath
             )
 
-            // Match patterns of every declared content script. Used below to
-            // grant host access for the dev open-tab re-injection.
-            const contentScriptMatches: string[] = Array.isArray(
-              canonicalManifest.content_scripts
-            )
-              ? (
-                  canonicalManifest.content_scripts as Array<{
-                    matches?: unknown
-                  }>
-                ).flatMap((cs) =>
-                  Array.isArray(cs?.matches) ? cs.matches : []
-                )
-              : []
+            // Match patterns of every declared content script. One list drives
+            // the patch below and all three host warnings, so the dev manifest
+            // can never grant a host the warnings miss.
+            const contentScriptMatches: readonly string[] =
+              devInjectedHostPatterns(canonicalManifest)
 
             // MV3 with content scripts: grant host access so the SW can inject the
             // fresh script into already-open tabs on save. Never ships to production.
@@ -267,6 +265,46 @@ export class ApplyDevDefaults {
                   'DevInjectedPermissionWarning',
                   text + partiallyGatedNote(api)
                 )
+              }
+            } catch {
+              // Diagnostics only, never fail the compile over the scan
+            }
+
+            // Warn when source outside a content script requests a host that
+            // only the content-script match unioned in. Dev answers it and the
+            // packaged build has no host permission for it.
+            try {
+              const injectedOnlyHosts = findInjectedOnlyHostUses(
+                compilation.modules as Iterable<{
+                  resource?: string
+                  layer?: string | null
+                }>,
+                contentScriptMatches,
+                declaredHostPatterns(canonicalManifest),
+                optionalHostPatterns(canonicalManifest)
+              )
+              const hostKey =
+                canonicalManifest.manifest_version === 3
+                  ? 'host_permissions'
+                  : 'permissions'
+              for (const use of injectedOnlyHosts) {
+                const relative = path.relative(
+                  path.dirname(this.manifestPath),
+                  use.file
+                )
+                const text = use.optional
+                  ? `manifest.json only lists "${use.pattern}" under optional host permissions, but ` +
+                    `${relative} requests ${use.url}. It works in development only because a content ` +
+                    `script matches "${use.pattern}" and the dev build grants that host as required ` +
+                    `so it can re-inject the script on save. The production build has the host only ` +
+                    `after a runtime chrome.permissions.request, so guard the request or add ` +
+                    `"${use.pattern}" to ${hostKey} in manifest.json.`
+                  : `manifest.json does not grant host access to ${use.url}, but ${relative} ` +
+                    `requests it. It works in development only because a content script matches ` +
+                    `"${use.pattern}" and the dev build grants that host so it can re-inject the ` +
+                    `script on save. The production build has no host permission for it and the ` +
+                    `request is blocked. Add "${use.pattern}" to ${hostKey} in manifest.json.`
+                pushDevWarning('DevInjectedHostWarning', text)
               }
             } catch {
               // Diagnostics only, never fail the compile over the scan
