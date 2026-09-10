@@ -76,6 +76,9 @@ export function resolveSafariBuildConfig(
     bundleIdDerived,
     macOsOnly: host.macOsOnly !== false,
     language: 'swift',
+    // --no-open means open nothing at all. Safari has no starting-URL surface
+    // (startingUrl is not part of SafariPluginLike), so skipping the app raise
+    // is the whole of the contract here.
     open: !host.noOpen,
     safariBinary: host.safariBinary,
     developmentTeam: String(host.developmentTeam || '').trim() || undefined

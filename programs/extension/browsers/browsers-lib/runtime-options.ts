@@ -48,6 +48,17 @@ export function pickSharedBrowserRuntimeOptions(
   }, {} as SharedBrowserRuntimeOptions)
 }
 
+// --no-open means open nothing at all, so it suppresses the starting URL the
+// same way it suppresses the courtesy new-tab. Every family reads the launch
+// URL through here so the two readings can never drift apart again.
+export function resolveStartingUrl(options: {
+  startingUrl?: string
+  noOpen?: boolean
+}): string | undefined {
+  if (options.noOpen) return undefined
+  return options.startingUrl
+}
+
 export type BrowserLaunchRequestSource = Pick<
   PluginInterface,
   | 'browser'
@@ -59,6 +70,7 @@ export type BrowserLaunchRequestSource = Pick<
   | 'copyFromProfile'
   | 'preferences'
   | 'startingUrl'
+  | 'noOpen'
   | 'port'
 >
 
@@ -73,6 +85,7 @@ export type BrowserLaunchRequest = Pick<
   | 'copyFromProfile'
   | 'preferences'
   | 'startingUrl'
+  | 'noOpen'
   | 'port'
 > & {
   mode: 'development' | 'production' | 'none'
@@ -93,6 +106,7 @@ export function buildBrowserLaunchRequest<T extends object = {}>(
     copyFromProfile: options.copyFromProfile,
     preferences: options.preferences || {},
     startingUrl: options.startingUrl,
+    noOpen: options.noOpen,
     port: options.port,
     mode,
     ...(extras || ({} as T))

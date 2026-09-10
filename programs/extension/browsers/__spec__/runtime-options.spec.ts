@@ -60,6 +60,7 @@ describe('browser runtime-options helpers', () => {
           profile: '/tmp/profile',
           preferences: {homepage: 'about:blank'},
           startingUrl: 'https://example.com/',
+          noOpen: true,
           port: 9222
         },
         'development',
@@ -72,6 +73,7 @@ describe('browser runtime-options helpers', () => {
       profile: '/tmp/profile',
       preferences: {homepage: 'about:blank'},
       startingUrl: 'https://example.com/',
+      noOpen: true,
       port: 9222,
       mode: 'development',
       persistProfile: true

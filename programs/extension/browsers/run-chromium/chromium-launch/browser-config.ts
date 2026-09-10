@@ -11,7 +11,10 @@ import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
-import {toExtensionLoadList} from '../../browsers-lib/runtime-options'
+import {
+  resolveStartingUrl,
+  toExtensionLoadList
+} from '../../browsers-lib/runtime-options'
 import {
   cleanupOldTempProfiles,
   deriveDebugPortWithInstance,
@@ -135,15 +138,17 @@ export interface BrowserConfigMode {
 
 // The argv a launch hands the binary: the composed flags, then the starting
 // URL as Chromium's positional argument. The dry run prints this; the spawn
-// runs it.
+// runs it. --no-open drops the URL, matching Gecko.
 export function chromiumLaunchPlan(
   binary: string,
   chromiumConfig: string[],
-  startingUrl?: string
+  startingUrl?: string,
+  noOpen?: boolean
 ): {binary: string; args: string[]} {
+  const launchUrl = resolveStartingUrl({startingUrl, noOpen})
   return {
     binary,
-    args: startingUrl ? [...chromiumConfig, startingUrl] : [...chromiumConfig]
+    args: launchUrl ? [...chromiumConfig, launchUrl] : [...chromiumConfig]
   }
 }
 
