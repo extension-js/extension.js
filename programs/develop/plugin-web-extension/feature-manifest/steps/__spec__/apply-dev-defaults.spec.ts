@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {ApplyDevDefaults} from '../apply-dev-defaults'
+import {devInjectedHostPatterns} from '../apply-dev-defaults-lib/dev-injected-hosts'
 import {devInjectedPermissions} from '../apply-dev-defaults-lib/dev-injected-permissions'
 
 describe('ApplyDevDefaults', () => {
@@ -108,7 +109,7 @@ describe('ApplyDevDefaults', () => {
   function runDevDefaults(
     manifest: Record<string, unknown>,
     browser: 'chrome' | 'firefox' = 'chrome',
-    modules: Array<{resource: string}> = []
+    modules: Array<{resource: string; layer?: string}> = []
   ) {
     const {out, warnings} = runDevDefaultsWithWarnings(
       manifest,
@@ -122,7 +123,7 @@ describe('ApplyDevDefaults', () => {
   function runDevDefaultsWithWarnings(
     manifest: Record<string, unknown>,
     browser: 'chrome' | 'firefox' = 'chrome',
-    modules: Array<{resource: string}> = []
+    modules: Array<{resource: string; layer?: string}> = []
   ) {
     let updated: string | undefined
     const warnings: Array<{name: string; message: string}> = []
@@ -350,7 +351,8 @@ describe('ApplyDevDefaults', () => {
   })
 
   // Hosts never drifted because the patch and the promotion warning read the
-  // same local. This keeps that single source honest.
+  // same local. That local is now a shared helper, and this keeps every
+  // consumer of it honest.
   it('injects exactly the hosts the promotion warning inspects', () => {
     const {out, warnings} = runDevDefaultsWithWarnings({
       manifest_version: 3,
@@ -370,6 +372,280 @@ describe('ApplyDevDefaults', () => {
     expect(
       promoted.map((w) => w.message.includes('https://opt.test/*'))
     ).toEqual([true])
+  })
+
+  describe('undeclared host access the dev build grants', () => {
+    const withSource = (
+      contents: string,
+      run: (file: string, dir: string) => void
+    ) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-host-'))
+      const file = path.join(dir, 'background.js')
+      fs.writeFileSync(file, contents)
+      try {
+        run(file, dir)
+      } finally {
+        fs.rmSync(dir, {recursive: true, force: true})
+      }
+    }
+
+    const hostWarnings = (warnings: Array<{name: string; message: string}>) =>
+      warnings.filter((w) => w.name === 'DevInjectedHostWarning')
+
+    it('warns when a background fetch rides on a content-script match (MV3)', () => {
+      withSource(
+        "fetch('https://api.example.com/v1/ping').then((r) => r.text())\n",
+        (file) => {
+          const {out, warnings} = runDevDefaultsWithWarnings(
+            {
+              manifest_version: 3,
+              name: 'x',
+              content_scripts: [
+                {matches: ['https://api.example.com/*'], js: ['c.js']}
+              ]
+            },
+            'chrome',
+            [{resource: file}]
+          )
+          expect(out.host_permissions).toContain('https://api.example.com/*')
+          const found = hostWarnings(warnings)
+          expect(found).toHaveLength(1)
+          expect(found[0].message).toContain('https://api.example.com/v1/ping')
+          expect(found[0].message).toContain('background.js')
+          expect(found[0].message).toContain('host_permissions')
+        }
+      )
+    })
+
+    // The false positive this guards. A content-script request answers to the
+    // page CORS policy, so it works after packaging and must stay silent.
+    it('stays silent for the same fetch inside a content script', () => {
+      withSource(
+        "fetch('https://api.example.com/v1/ping').then((r) => r.text())\n",
+        (file) => {
+          const {warnings} = runDevDefaultsWithWarnings(
+            {
+              manifest_version: 3,
+              name: 'x',
+              content_scripts: [
+                {matches: ['https://api.example.com/*'], js: ['c.js']}
+              ]
+            },
+            'chrome',
+            [{resource: file, layer: 'extensionjs-content-script'}]
+          )
+          expect(hostWarnings(warnings)).toEqual([])
+        }
+      )
+    })
+
+    // A shared module reached from both contexts becomes two modules, and only
+    // the copy outside the content-script layer needs the host permission.
+    // The content-only origin next to it must stay unreported.
+    it('warns on the background copy and not on the content-only origin', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-host-mix-'))
+      const shared = path.join(dir, 'shared.js')
+      const contentOnly = path.join(dir, 'content-only.js')
+      fs.writeFileSync(
+        shared,
+        "export const ping = () => fetch('https://api.example.com/v1/ping')\n"
+      )
+      fs.writeFileSync(
+        contentOnly,
+        "fetch('https://only.example.com/v1/scrape')\n"
+      )
+      try {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {
+            manifest_version: 3,
+            name: 'x',
+            content_scripts: [
+              {
+                matches: [
+                  'https://api.example.com/*',
+                  'https://only.example.com/*'
+                ],
+                js: ['c.js']
+              }
+            ]
+          },
+          'chrome',
+          [
+            {resource: shared, layer: 'extensionjs-content-script'},
+            {resource: contentOnly, layer: 'extensionjs-content-script'},
+            {resource: shared}
+          ]
+        )
+        const found = hostWarnings(warnings)
+        expect(found).toHaveLength(1)
+        expect(found[0].message).toContain('https://api.example.com/v1/ping')
+        expect(found[0].message).not.toContain('only.example.com')
+      } finally {
+        fs.rmSync(dir, {recursive: true, force: true})
+      }
+    })
+
+    it('warns on an XMLHttpRequest open and a new Request too', () => {
+      withSource(
+        'const xhr = new XMLHttpRequest()\n' +
+          "xhr.open('GET', 'https://api.example.com/v1/ping')\n",
+        (file) => {
+          const {warnings} = runDevDefaultsWithWarnings(
+            {
+              manifest_version: 3,
+              name: 'x',
+              content_scripts: [
+                {matches: ['https://api.example.com/*'], js: ['c.js']}
+              ]
+            },
+            'chrome',
+            [{resource: file}]
+          )
+          expect(hostWarnings(warnings)).toHaveLength(1)
+        }
+      )
+      withSource(
+        "const req = new Request('https://api.example.com/v1/ping')\n",
+        (file) => {
+          const {warnings} = runDevDefaultsWithWarnings(
+            {
+              manifest_version: 3,
+              name: 'x',
+              content_scripts: [
+                {matches: ['https://api.example.com/*'], js: ['c.js']}
+              ]
+            },
+            'chrome',
+            [{resource: file}]
+          )
+          expect(hostWarnings(warnings)).toHaveLength(1)
+        }
+      )
+    })
+
+    it('stays silent when the author declared the host themselves', () => {
+      withSource("fetch('https://api.example.com/v1/ping')\n", (file) => {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {
+            manifest_version: 3,
+            name: 'x',
+            host_permissions: ['https://api.example.com/*'],
+            content_scripts: [
+              {matches: ['https://api.example.com/*'], js: ['c.js']}
+            ]
+          },
+          'chrome',
+          [{resource: file}]
+        )
+        expect(hostWarnings(warnings)).toEqual([])
+      })
+    })
+
+    // Dev grants no host the content scripts do not name, so a request nobody
+    // covers fails in dev too and is not this warning's business.
+    it('stays silent for an origin no content script matches', () => {
+      withSource("fetch('https://elsewhere.example.org/v1/ping')\n", (file) => {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {
+            manifest_version: 3,
+            name: 'x',
+            content_scripts: [
+              {matches: ['https://api.example.com/*'], js: ['c.js']}
+            ]
+          },
+          'chrome',
+          [{resource: file}]
+        )
+        expect(hostWarnings(warnings)).toEqual([])
+      })
+    })
+
+    it('stays silent for the dev server on localhost', () => {
+      withSource("fetch('http://localhost:8080/hot/update.json')\n", (file) => {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {
+            manifest_version: 3,
+            name: 'x',
+            content_scripts: [{matches: ['<all_urls>'], js: ['c.js']}]
+          },
+          'chrome',
+          [{resource: file}]
+        )
+        expect(hostWarnings(warnings)).toEqual([])
+      })
+    })
+
+    it('warns on MV2, where the injected host lands in permissions', () => {
+      withSource(
+        "browser.runtime.onInstalled.addListener(() => fetch('https://api.example.com/v1/ping'))\n",
+        (file) => {
+          const {out, warnings} = runDevDefaultsWithWarnings(
+            {
+              manifest_version: 2,
+              name: 'x',
+              content_scripts: [
+                {matches: ['https://api.example.com/*'], js: ['c.js']}
+              ]
+            },
+            'firefox',
+            [{resource: file}]
+          )
+          expect(out.permissions).toContain('https://api.example.com/*')
+          const found = hostWarnings(warnings)
+          expect(found).toHaveLength(1)
+          expect(found[0].message).toContain('permissions')
+          expect(found[0].message).not.toContain('host_permissions')
+        }
+      )
+    })
+
+    it('names an optional host promotion in the request warning', () => {
+      withSource("fetch('https://api.example.com/v1/ping')\n", (file) => {
+        const {warnings} = runDevDefaultsWithWarnings(
+          {
+            manifest_version: 3,
+            name: 'x',
+            optional_host_permissions: ['https://api.example.com/*'],
+            content_scripts: [
+              {matches: ['https://api.example.com/*'], js: ['c.js']}
+            ]
+          },
+          'chrome',
+          [{resource: file}]
+        )
+        const found = hostWarnings(warnings)
+        expect(found).toHaveLength(1)
+        expect(found[0].message).toContain('optional host permissions')
+      })
+    })
+
+    // The defect this pins: the injected hosts and the warned hosts have to
+    // stay one list. This walks the hosts the dev manifest really grants and
+    // proves each one raises the warning from a background request.
+    it.each([
+      ['https://api.example.com/*', 'https://api.example.com/v1/ping'],
+      ['*://*.example.net/*', 'https://cdn.example.net/asset.json'],
+      ['<all_urls>', 'https://anything.example.org/']
+    ])('every host the dev manifest injects warns (%s)', (pattern, url) => {
+      const manifest = {
+        manifest_version: 3,
+        name: 'x',
+        content_scripts: [{matches: [pattern], js: ['c.js']}]
+      }
+      const bare = runDevDefaults(manifest)
+      expect(bare.host_permissions).toEqual([
+        ...devInjectedHostPatterns(manifest)
+      ])
+
+      withSource(`fetch('${url}')\n`, (file) => {
+        const {warnings} = runDevDefaultsWithWarnings(manifest, 'chrome', [
+          {resource: file}
+        ])
+        const found = hostWarnings(warnings)
+        expect(found).toHaveLength(1)
+        expect(found[0].message).toContain(url)
+      })
+    })
   })
 
   it('injects scripting + tabs (+ management) in dev for MV3', () => {
