@@ -1103,7 +1103,12 @@ export class ChromiumLaunchPlugin {
     const flags =
       chromiumConfig ??
       browserConfig(compilation, {...this.options}, {provision: false})
-    const plan = chromiumLaunchPlan(binary, flags, this.options?.startingUrl)
+    const plan = chromiumLaunchPlan(
+      binary,
+      flags,
+      this.options?.startingUrl,
+      this.options?.noOpen
+    )
     logChromiumDryRun(plan.binary, plan.args)
   }
 
@@ -1118,7 +1123,8 @@ export class ChromiumLaunchPlugin {
     const {args: launchArgs} = chromiumLaunchPlan(
       binary,
       chromeFlags,
-      this.options?.startingUrl
+      this.options?.startingUrl,
+      this.options?.noOpen
     )
 
     // --remote-debugging-pipe talks over fds 3 & 4. stderr is PIPED and drained so

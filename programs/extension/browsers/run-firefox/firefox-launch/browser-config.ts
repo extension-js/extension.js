@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import {
   cleanupOldTempProfiles,
   filterBrowserFlags,
@@ -89,8 +90,9 @@ export async function resolveFirefoxLaunchConfig(
 
   // Firefox accepts a URL as the last argument (parity with Chromium's
   // startingUrl). Deliberately unquoted; the caller wraps the args string.
-  if (configOptions.startingUrl && !configOptions.noOpen) {
-    binaryArgs.push('--url', String(configOptions.startingUrl))
+  const launchUrl = resolveStartingUrl(configOptions)
+  if (launchUrl) {
+    binaryArgs.push('--url', String(launchUrl))
   }
 
   const outPath =
