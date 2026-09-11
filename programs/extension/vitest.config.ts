@@ -30,7 +30,8 @@ export default defineConfig({
       '__spec__/*.spec.ts',
       '__spec__/exec/**/*.spec.ts',
       '__spec__/contract/**/*.spec.ts',
-      'browsers/__spec__/**/*.spec.ts'
+      'browsers/__spec__/**/*.spec.ts',
+      'commands/__spec__/**/*.spec.ts'
     ],
     setupFiles: ['__spec__/setup/env.ts'],
     sequence: {concurrent: false},
