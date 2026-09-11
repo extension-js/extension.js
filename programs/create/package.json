@@ -84,16 +84,16 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
-    "@changesets/cli": "^2.29.8",
-    "@rslib/core": "^0.23.1",
+    "@changesets/cli": "^3.0.2",
+    "@rslib/core": "^1.0.0",
     "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^26",
     "@types/webextension-polyfill": "0.12.4",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^5.0.0",
     "tsconfig": "*",
     "typescript": "7.0.2",
-    "vitest": "^4.1.9",
+    "vitest": "^5.0.0",
     "webextension-polyfill": "^0.12.0"
   }
 }

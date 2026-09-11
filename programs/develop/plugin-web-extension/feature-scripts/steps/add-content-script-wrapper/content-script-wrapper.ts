@@ -8,7 +8,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import {initSync, parse as parseModuleSyntax} from 'es-module-lexer'
+import {parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
 import {
   adjustLoaderSourceMap,
@@ -28,11 +28,6 @@ import {
   getContentScriptCssProbeMarker
 } from '../../contracts'
 import * as messages from '../../messages'
-
-/* @invariant The lexer must come from the wasm entry, synchronously
-   initialized here: the `es-module-lexer/js` asm.js build prints a V8
-   "Invalid asm.js" warning on every run of any node this package supports. */
-initSync()
 
 interface ContentScriptLoaderContext {
   getOptions(): {manifestPath: string; mode?: string}
@@ -144,7 +139,9 @@ function hasDefaultExport(
     // The lexer only scans import/export statements, tolerating TS/TSX without
     // per-syntax config; anything it can't lex throws into the regex fallback.
     const [, moduleExports] = parseModuleSyntax(source)
-    const result = moduleExports.some((entry) => entry.n === 'default')
+    const result = moduleExports.some(
+      (entry) => 'name' in entry && entry.name === 'default'
+    )
 
     compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, result)
     return result
