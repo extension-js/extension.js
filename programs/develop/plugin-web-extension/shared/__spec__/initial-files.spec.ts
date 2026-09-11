@@ -31,4 +31,77 @@ describe('initial JS files for a page entry', () => {
       entryOwnJsFile('chrome_url_overrides/newtab', entrypoint, files)
     ).toBe('chrome_url_overrides/newtab.js')
   })
+
+  it('keeps a page authored under a folder named hot', () => {
+    expect(isJsFile('pages/hot/deals.js')).toBe(true)
+    expect(isJsFile('hot-deals/index.js')).toBe(true)
+  })
+
+  it('keeps the own chunk and every sibling of a page under hot', () => {
+    const entrypoint = {
+      getFiles: () => [
+        'shared/framework.js',
+        'shared/commons.js',
+        'pages/hot/deals.js'
+      ],
+      getEntrypointChunk: () => ({files: new Set(['pages/hot/deals.js'])})
+    }
+
+    const files = initialJsFiles(entrypoint)
+
+    expect(files).toEqual([
+      'shared/framework.js',
+      'shared/commons.js',
+      'pages/hot/deals.js'
+    ])
+    const ownFile = entryOwnJsFile('pages/hot/deals', entrypoint, files)
+    expect(ownFile).toBe('pages/hot/deals.js')
+    expect(files.filter((file) => file !== ownFile)).toEqual([
+      'shared/framework.js',
+      'shared/commons.js'
+    ])
+  })
+
+  it('still drops a hot update chunk sitting beside a page under hot', () => {
+    const entrypoint = {
+      getFiles: () => [
+        'hot/780.ca34d5da38cd8826.js',
+        'hot/780.ca34d5da38cd8826.hot-update.js',
+        'shared/commons.js',
+        'pages/hot/deals.js'
+      ]
+    }
+
+    expect(initialJsFiles(entrypoint)).toEqual([
+      'shared/commons.js',
+      'pages/hot/deals.js'
+    ])
+  })
+
+  it('resolves the own file of a control page and keeps its siblings', () => {
+    const entrypoint = {
+      getFiles: () => [
+        'shared/framework.js',
+        'shared/commons.js',
+        'pages/deals.js'
+      ],
+      getEntrypointChunk: () => ({files: new Set(['pages/deals.js'])})
+    }
+
+    const files = initialJsFiles(entrypoint)
+    const ownFile = entryOwnJsFile('pages/deals', entrypoint, files)
+
+    expect(ownFile).toBe('pages/deals.js')
+    expect(files.filter((file) => file !== ownFile)).toEqual([
+      'shared/framework.js',
+      'shared/commons.js'
+    ])
+  })
+
+  it('returns nothing rather than guessing when the own file is absent', () => {
+    const files = ['shared/framework.js', 'shared/commons.js']
+    const entrypoint = {getFiles: () => files}
+
+    expect(entryOwnJsFile('pages/deals', entrypoint, files)).toBeUndefined()
+  })
 })

@@ -19,10 +19,10 @@ export interface EntrypointLike {
 }
 
 const HOT_UPDATE_FILE = /\.hot-update\.m?js$/i
-// Hot update chunks are emitted into `hot/`, and some arrive without the
-// `.hot-update` infix. They call a global the entry defines, so a page that
-// loads one as a sibling throws before the app can mount.
-const HOT_UPDATE_DIR = /(^|\/)hot\//i
+// Hot update chunks are emitted into `hot/` at the bundle root, and some
+// arrive without the `.hot-update` infix. Anchored, so that a user page under
+// its own `hot/` folder keeps its chunk.
+const HOT_UPDATE_DIR = /^hot\//i
 
 export function isJsFile(file: string): boolean {
   return (
@@ -61,5 +61,7 @@ export function entryOwnJsFile(
     `^${entryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\.[a-z0-9]+)?\\.m?js$`,
     'i'
   )
-  return files.find((file) => byName.test(file)) || files[files.length - 1]
+  // No guess when neither lookup answers, because the caller drops this file
+  // from the page markup and a wrong answer deletes a chunk the page needs.
+  return files.find((file) => byName.test(file))
 }
