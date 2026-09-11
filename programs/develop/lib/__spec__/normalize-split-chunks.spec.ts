@@ -46,7 +46,8 @@ describe('isPageChunkName', () => {
       'background/scripts',
       'background/index',
       'content_scripts/content-0',
-      'scripts/inject'
+      'scripts/inject',
+      'user_scripts/api_script'
     ]) {
       expect(isPageChunkName(name)).toBe(false)
     }
@@ -62,6 +63,9 @@ describe('defaultSplitChunks', () => {
     expect(pageInitialChunks(chunk('background/service_worker'))).toBe(false)
     expect(pageInitialChunks(chunk('content_scripts/content-0'))).toBe(false)
     expect(pageInitialChunks(chunk('scripts/inject'))).toBe(false)
+    // The manifest names one file for user_scripts.api_script, so a cache
+    // group that hoists part of it writes a file nothing ever loads.
+    expect(pageInitialChunks(chunk('user_scripts/api_script'))).toBe(false)
     expect(pageInitialChunks(chunk(undefined))).toBe(false)
   })
 
@@ -188,6 +192,7 @@ describe('normalizeSplitChunks', () => {
     expect(shared(chunk('options/index'))).toBe(true)
     expect(shared(chunk('options/index', false))).toBe(false)
     expect(shared(chunk('background/scripts'))).toBe(false)
+    expect(shared(chunk('user_scripts/api_script'))).toBe(false)
 
     // The input is never mutated and the untouched branches are shared.
     expect(
