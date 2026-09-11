@@ -11,16 +11,18 @@ const packageRoot = path.join(__dirname, '..')
 const include = vitestConfig.test?.include ?? []
 
 // Build output holds compiled copies of specs, so the walk has to skip
-// everything the run skips.
-const exclude = [
-  ...(vitestConfig.test?.exclude ?? []),
-  '**/node_modules/**',
-  '**/.git/**'
-]
+// everything the run skips. A predicate rather than glob strings: string
+// excludes only landed in Node 22.14 and the engine floor is 22.12.
+function isExcludedPath(entry: string): boolean {
+  return (
+    /(^|[\\/])(node_modules|dist|\.git|\.tmp-tests)([\\/]|$)/.test(entry) ||
+    /(^|[\\/])__spec__[\\/]\.tmp-/.test(entry)
+  )
+}
 
 function collect(patterns: readonly string[]): string[] {
   if (patterns.length === 0) return []
-  return globSync([...patterns], {cwd: packageRoot, exclude})
+  return globSync([...patterns], {cwd: packageRoot, exclude: isExcludedPath})
 }
 
 describe('vitest include globs cover every spec on disk', () => {
