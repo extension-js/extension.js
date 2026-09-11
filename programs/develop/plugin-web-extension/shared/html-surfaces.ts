@@ -17,6 +17,7 @@ import type {DevOptions, Manifest} from '../../types'
 
 export const ACTION_HTML_FEATURE = 'action/index'
 export const PAGE_ACTION_HTML_FEATURE = 'page_action/index'
+export const OPTIONS_HTML_FEATURE = 'options/index'
 export const ACTION_HTML_OUTPUT = 'action/index.html'
 export const PAGE_ACTION_HTML_OUTPUT = 'page_action/index.html'
 
@@ -76,6 +77,20 @@ export function pageActionPopupRef(
 ): string | undefined {
   if (!manifest) return undefined
   return readDefaultPopup(manifest.page_action)
+}
+
+// The source the single options page is built from. Chromium reads the legacy
+// options_page only when options_ui.page gave no URL, and Gecko reads
+// options_ui.page first too, so the modern key owns the compiled page.
+export function optionsPageRef(
+  manifest: Manifest | undefined
+): string | undefined {
+  if (!manifest) return undefined
+  const modern = (manifest.options_ui as {page?: unknown} | undefined)?.page
+  if (typeof modern === 'string' && modern.trim()) return modern.trim()
+  const legacy = (manifest as {options_page?: unknown}).options_page
+  if (typeof legacy === 'string' && legacy.trim()) return legacy.trim()
+  return undefined
 }
 
 // Firefox shows page_action in every manifest version; Chromium dropped the
@@ -147,6 +162,14 @@ export function applyIndependentHtmlSurfaces(
   browser: DevOptions['browser'] | string | undefined
 ): HtmlFields {
   const next: HtmlFields = {...(html || {})}
+
+  // The fields package folds both options keys into one slot and prefers the
+  // legacy one, so repoint that slot at the key the browsers read first.
+  const optionsRef = optionsPageRef(manifest)
+  if (optionsRef) {
+    next[OPTIONS_HTML_FEATURE] = resolveManifestHtmlPath(context, optionsRef)
+  }
+
   const actionRef = actionPopupRef(manifest)
   const pageRef = pageActionPopupRef(manifest)
   const actionAbs = actionRef

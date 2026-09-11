@@ -126,6 +126,20 @@ function manifestFieldForHtmlFeature(
       (manifestKey) => manifestKey === key || manifestKey.endsWith(`:${key}`)
     )
 
+  // Both engines read options_ui.page before the legacy key, and the build
+  // compiles that source, so the label has to name the same one.
+  const hasOptionsUiPage = () =>
+    Object.entries(manifest).some(([manifestKey, value]) => {
+      if (
+        manifestKey !== 'options_ui' &&
+        !manifestKey.endsWith(':options_ui')
+      ) {
+        return false
+      }
+      const page = (value as {page?: unknown} | null)?.page
+      return typeof page === 'string' && page.trim().length > 0
+    })
+
   if (featureName.startsWith('chrome_url_overrides/')) {
     return featureName.replace('/', '.')
   }
@@ -139,7 +153,9 @@ function manifestFieldForHtmlFeature(
     case 'page_action/index':
       return 'page_action.default_popup'
     case 'options/index':
-      return has('options_page') ? 'options_page' : 'options_ui.page'
+      return hasOptionsUiPage() || !has('options_page')
+        ? 'options_ui.page'
+        : 'options_page'
     case 'background/index':
       return 'background.page'
     case 'devtools/index':
