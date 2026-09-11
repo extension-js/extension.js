@@ -43,6 +43,28 @@ describe('extractActionThemeIcons', () => {
     })
   })
 
+  it('reads theme icons declared under a browser prefix', () => {
+    const {dir, manifestPath} = manifestWith({
+      'firefox:action': {theme_icons: [{light: 'l.png', dark: 'd.png'}]}
+    })
+    expect(extractActionThemeIcons(manifestPath, 'firefox')).toEqual({
+      'action/theme_icons': [path.join(dir, 'l.png'), path.join(dir, 'd.png')]
+    })
+    // Another browser's prefix stays out of this build.
+    expect(extractActionThemeIcons(manifestPath, 'chrome')).toEqual({})
+  })
+
+  it('lets a prefixed action win over the plain key', () => {
+    const {dir, manifestPath} = manifestWith({
+      action: {theme_icons: [{light: 'plain.png'}]},
+      'chrome:action': {theme_icons: [{light: 'chrome.png'}]}
+    })
+    // A chrome: key covers the whole chromium family, edge included.
+    expect(extractActionThemeIcons(manifestPath, 'edge')).toEqual({
+      'action/theme_icons': [path.join(dir, 'chrome.png')]
+    })
+  })
+
   it('returns nothing without theme_icons or without a readable manifest', () => {
     const {manifestPath} = manifestWith({action: {default_popup: 'p.html'}})
     expect(extractActionThemeIcons(manifestPath)).toEqual({})

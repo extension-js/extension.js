@@ -96,7 +96,8 @@ export class AddContentScriptWrapper {
           loader: this.resolveLoader(),
           options: {
             manifestPath: this.manifestPath,
-            mode: compiler.options.mode
+            mode: compiler.options.mode,
+            browser: this.browser
           }
         },
         {
@@ -114,7 +115,8 @@ export class AddContentScriptWrapper {
           loader: this.resolveLoader(),
           options: {
             manifestPath: this.manifestPath,
-            mode: compiler.options.mode
+            mode: compiler.options.mode,
+            browser: this.browser
           }
         }
       ]

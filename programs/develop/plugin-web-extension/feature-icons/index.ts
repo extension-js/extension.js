@@ -8,7 +8,12 @@
 
 import type {Compiler} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
-import type {FilepathList, PluginInterface, ThemeIcon} from '../../types'
+import type {
+  DevOptions,
+  FilepathList,
+  PluginInterface,
+  ThemeIcon
+} from '../../types'
 import {extractActionThemeIcons} from './extract-action-theme-icons'
 import * as messages from './messages'
 import {normalizeIconIncludeKeys} from './normalize-keys'
@@ -30,10 +35,12 @@ import {EmitFile} from './steps/emit-file'
 export class IconsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList | {[x: string]: ThemeIcon}
+  public readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.browser = (options.browser as DevOptions['browser']) || 'chrome'
   }
   public apply(compiler: Compiler): void {
     // Normalize include keys so downstream steps can consistently
@@ -44,7 +51,7 @@ export class IconsPlugin {
       ...normalizeIconIncludeKeys(
         this.includeList as Record<string, unknown> | undefined
       ),
-      ...extractActionThemeIcons(this.manifestPath)
+      ...extractActionThemeIcons(this.manifestPath, this.browser)
     }
 
     if (isDebug()) {

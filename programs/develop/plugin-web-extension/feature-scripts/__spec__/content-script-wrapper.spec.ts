@@ -25,7 +25,11 @@ function createTempProject() {
   return dir
 }
 
-function createLoaderContext(resourcePath: string, manifestPath: string) {
+function createLoaderContext(
+  resourcePath: string,
+  manifestPath: string,
+  browser?: string
+) {
   return {
     resourcePath,
     _compilation: {},
@@ -33,7 +37,8 @@ function createLoaderContext(resourcePath: string, manifestPath: string) {
     getOptions() {
       return {
         manifestPath,
-        mode: 'development'
+        mode: 'development',
+        ...(browser ? {browser} : {})
       }
     }
   }
@@ -225,6 +230,42 @@ describe('content-script-wrapper loader', () => {
     expect(wrapped).toBe(vendored)
     expect(wrapped).not.toContain('__EXTJS_WRAPPER_KIND')
     expect(wrapped).not.toContain('__EXTENSIONJS_REINJECT_GENERATION')
+  })
+
+  it('wraps a content script declared under the target browser prefix', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(contentDir, 'scripts.ts')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        'firefox:content_scripts': [
+          {matches: ['<all_urls>'], js: ['content/scripts.ts']}
+        ]
+      }),
+      'utf8'
+    )
+    const source = "console.log('prefixed entry')"
+
+    const firefox = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath, 'firefox') as any,
+      source
+    )
+    expect(firefox).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+
+    // The same file is a plain module on a chrome build, so it stays untouched.
+    const chrome = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath, 'chrome') as any,
+      source
+    )
+    expect(chrome).toBe(source)
   })
 
   it('still wraps a *.min.js that is an explicitly declared content_scripts entry', () => {
