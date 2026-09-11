@@ -213,7 +213,7 @@ function markTracked(): boolean {
  *
  * It stays `command_executed`. A third event name would have split the one
  * question the two-event scheme answers, "did this command work", across two
- * vocabularies; `session: 'started'` says which half of the run the row
+ * vocabularies. `session: 'started'` says which half of the run the row
  * describes while `command_failed` keeps its exact meaning, so a failure that
  * lands after the session came up still travels and the failure rate for `dev`
  * finally has a denominator counted the same way as its numerator.

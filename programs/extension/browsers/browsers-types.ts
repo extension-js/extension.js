@@ -95,7 +95,7 @@ export type DefaultBrowserFlags =
  */
 export interface PluginOptions {
   /**
-   * Do not open the browser automatically after launch.
+   * Launch the browser but open no tab, not even the starting URL.
    * @default false
    */
   noOpen?: boolean
