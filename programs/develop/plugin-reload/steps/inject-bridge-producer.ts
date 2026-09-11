@@ -14,8 +14,10 @@ import {
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 
 // Matches the compiled background entry across engines: Chromium emits
-// background/service_worker.js, Firefox background/scripts.js; scripts? covers both.
-const BACKGROUND_ASSET = /(^|\/)background\/(?:service_worker|scripts?)\.js$/i
+// background/service_worker.js, Firefox background/scripts.js, and a declared
+// background page compiles to background/index.js; scripts? covers both forms.
+const BACKGROUND_ASSET =
+  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
 
 // Prepends the agent-bridge producer to the compiled background SW; control
 // port + instanceId come from process.env, nothing injected when unavailable.

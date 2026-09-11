@@ -106,6 +106,20 @@ describe('InjectBridgeProducer', () => {
     )
   })
 
+  // An MV2 background.page compiles to background/index.js, and that bundle is
+  // the only background context the built manifest actually loads.
+  it('covers the compiled background page bundle', () => {
+    process.env.EXTENSION_CONTROL_PORT = '8123'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset('background/index.js', '/* mv2 background page */')
+    runProcessAssets()
+    expect(getAssetSource('background/index.js')).toContain(
+      '__extjsBridgeProducerInstalled'
+    )
+  })
+
   it('leaves non-background assets alone', () => {
     process.env.EXTENSION_CONTROL_PORT = '8123'
     const {compiler, runProcessAssets, setAsset, getAssetSource} =

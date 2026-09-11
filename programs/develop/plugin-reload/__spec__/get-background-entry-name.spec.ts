@@ -124,4 +124,38 @@ describe('getBackgroundEntryName', () => {
     expect(result.pageEntry).toBe('background')
     expect(result.serviceWorkerEntry).toBeUndefined()
   })
+
+  it('names the compiled background page entry for an MV2 background.page', () => {
+    const manifestDir = makeProject(['background.html'])
+    const manifest = {
+      manifest_version: 2,
+      background: {page: 'background.html'}
+    } as Manifest
+
+    const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
+    expect(result.pageEntry).toBe('background/index')
+    expect(result.serviceWorkerEntry).toBeUndefined()
+  })
+
+  it('names the compiled background page entry on gecko too', () => {
+    const manifestDir = makeProject(['background.html'])
+    const manifest = {
+      manifest_version: 2,
+      background: {page: 'background.html'}
+    } as Manifest
+
+    const result = getBackgroundEntryName(manifest, 'firefox', {manifestDir})
+    expect(result.pageEntry).toBe('background/index')
+  })
+
+  it('prefers a declared script over a page declared beside it', () => {
+    const manifestDir = makeProject(['background.html', 'background.js'])
+    const manifest = {
+      manifest_version: 2,
+      background: {page: 'background.html', scripts: ['background.js']}
+    } as Manifest
+
+    const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
+    expect(result.pageEntry).toBe('background/script')
+  })
 })

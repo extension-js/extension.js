@@ -233,3 +233,39 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.options.entry['background/service_worker']).toBe(existing)
   })
 })
+
+// An MV2 background page IS the background context: the built manifest keeps
+// naming background/index.html, so a default script entry lands nowhere.
+describe('SetupBackgroundEntry with a declared MV2 background page', () => {
+  for (const browser of ['chrome', 'firefox', 'edge'] as const) {
+    it(`registers no orphan script entry on ${browser}`, () => {
+      const manifestPath = writeManifest({
+        manifest_version: 2,
+        name: 'Background page',
+        version: '1.0.0',
+        background: {page: 'background.html'}
+      })
+      const compiler = fakeCompiler()
+
+      new SetupBackgroundEntry({manifestPath, browser}).apply(compiler)
+
+      expect(compiler.options.entry).toEqual({})
+      expect(compiler.__collectErrors()).toHaveLength(0)
+    })
+  }
+
+  it('still registers the script entry when the page sits next to scripts', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 2,
+      name: 'Background page',
+      version: '1.0.0',
+      background: {page: 'background.html', scripts: ['missing.js']}
+    })
+    const compiler = fakeCompiler()
+
+    new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
+
+    expect(compiler.options.entry).toEqual({})
+    expect(compiler.__collectErrors()).toHaveLength(1)
+  })
+})

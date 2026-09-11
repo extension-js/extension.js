@@ -32,6 +32,27 @@ export function getBackgroundEntryName(
   eagerChunkLoading: boolean
 } {
   if (manifest.background) {
+    // A background page is compiled as the background/index HTML surface, so
+    // the runtime belongs in that entry and not in a script entry nothing loads.
+    const backgroundPage = manifest.background.page
+    const backgroundScripts = manifest.background.scripts
+    const hasScriptEntry = Boolean(
+      manifest.background.service_worker ||
+        (Array.isArray(backgroundScripts) && backgroundScripts.length > 0)
+    )
+
+    if (
+      typeof backgroundPage === 'string' &&
+      backgroundPage &&
+      !hasScriptEntry
+    ) {
+      return {
+        pageEntry: 'background/index',
+        tryCatchWrapper: true,
+        eagerChunkLoading: false
+      }
+    }
+
     if (isGeckoBasedBrowser(String(browser))) {
       return {
         pageEntry: 'background/script',
