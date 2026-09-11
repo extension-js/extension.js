@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   e2e:
@@ -101,6 +102,12 @@ jobs:
           # after waiting the full 90s for a CDP port that was never going to
           # be printed. Point them at the CLI this job just compiled.
           EXTENSION_LOCAL_CLI_CJS: ${{ github.workspace }}/programs/extension/bin/extension.cjs
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/report-red-lane.sh "Nightly e2e"
 
       - name: Upload Test Report
         if: ${{ !cancelled() }}
