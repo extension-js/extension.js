@@ -49,3 +49,38 @@ describe('themeImageFields', () => {
     expect(themeImageFields('/nope/manifest.json')).toEqual({})
   })
 })
+
+describe('themeImageFields with browser-prefixed themes', () => {
+  function prefixedManifest(key: string, theme: unknown) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-theme-prefix-'))
+    dirs.push(dir)
+    const manifestPath = path.join(dir, 'manifest.json')
+    fs.writeFileSync(manifestPath, JSON.stringify({[key]: theme}))
+    return {dir, manifestPath}
+  }
+
+  it('keeps every image of a firefox:theme instead of collapsing basenames', () => {
+    const {dir, manifestPath} = prefixedManifest('firefox:theme', {
+      images: {
+        theme_frame: 'images/frame.png',
+        additional_backgrounds: ['images/bg/frame.png']
+      }
+    })
+    expect(themeImageFields(manifestPath, 'firefox')).toEqual({
+      'theme/images/theme_frame': path.join(dir, 'images/frame.png'),
+      'theme/images/additional_backgrounds': [
+        path.join(dir, 'images/bg/frame.png')
+      ]
+    })
+  })
+
+  it('resolves a chrome: prefix for every chromium target and skips others', () => {
+    const {dir, manifestPath} = prefixedManifest('chrome:theme', {
+      images: {theme_frame: 'images/frame.png'}
+    })
+    expect(themeImageFields(manifestPath, 'edge')).toEqual({
+      'theme/images/theme_frame': path.join(dir, 'images/frame.png')
+    })
+    expect(themeImageFields(manifestPath, 'firefox')).toEqual({})
+  })
+})

@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
 import {isUsingReact} from '../../plugin-js-frameworks/js-tools/react'
@@ -100,8 +101,11 @@ export class HtmlPlugin {
     if (devSession) {
       const contentScriptEntryPaths = new Set<string>()
       try {
-        const manifest = parseJsonSafe(
-          fs.readFileSync(this.manifestPath, 'utf-8')
+        // A browser-prefixed key is the only spelling this target sees, so the
+        // page HMR loader has to skip content scripts declared under one too.
+        const manifest = filterKeysForThisBrowser(
+          parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8')),
+          this.browser
         )
         const manifestDir = path.dirname(this.manifestPath)
         const contentScripts = Array.isArray(manifest?.content_scripts)

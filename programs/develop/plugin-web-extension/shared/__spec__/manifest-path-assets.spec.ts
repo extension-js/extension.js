@@ -100,3 +100,58 @@ describe('settingsOverridesStartupPages', () => {
     })
   })
 })
+
+describe('browser-prefixed settings keys', () => {
+  it('reads theme_experiment declared under a browser prefix', () => {
+    const {dir, manifestPath} = manifestWith(
+      {'firefox:theme_experiment': {stylesheet: 'theme/chrome.scss'}},
+      ['theme/chrome.scss']
+    )
+    expect(themeExperimentStylesheetEntries(manifestPath, 'firefox')).toEqual({
+      'theme_experiment/chrome': [path.join(dir, 'theme', 'chrome.scss')]
+    })
+    // Another browser's prefix stays out of this build.
+    expect(themeExperimentStylesheetEntries(manifestPath, 'chrome')).toEqual({})
+  })
+
+  it('reads chrome_settings_overrides declared under a browser prefix', () => {
+    const {dir, manifestPath} = manifestWith(
+      {
+        'firefox:chrome_settings_overrides': {
+          startup_pages: ['pages/start.html'],
+          search_provider: {favicon_url: 'icons/fav.png'}
+        }
+      },
+      ['pages/start.html']
+    )
+    expect(settingsOverridesStartupPages(manifestPath, 'firefox')).toEqual({
+      'chrome_settings_overrides/startup-0': path.join(
+        dir,
+        'pages',
+        'start.html'
+      )
+    })
+    expect(settingsOverridesIconFields(manifestPath, 'firefox')).toEqual({
+      'chrome_settings_overrides/favicon_url': path.join(
+        dir,
+        'icons',
+        'fav.png'
+      )
+    })
+  })
+
+  it('resolves a chrome: prefix for every chromium target', () => {
+    const {dir, manifestPath} = manifestWith({
+      'chrome:chrome_settings_overrides': {
+        search_provider: {favicon_url: 'icons/fav.png'}
+      }
+    })
+    expect(settingsOverridesIconFields(manifestPath, 'edge')).toEqual({
+      'chrome_settings_overrides/favicon_url': path.join(
+        dir,
+        'icons',
+        'fav.png'
+      )
+    })
+  })
+})

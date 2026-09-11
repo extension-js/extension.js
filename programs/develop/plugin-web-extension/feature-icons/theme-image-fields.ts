@@ -8,16 +8,25 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
-import type {FilepathList} from '../../types'
+import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 // The manifest-fields package keys theme images by basename, so two images
 // that share a basename collapse into one entry before the emitter runs.
 // Key them by their theme.images property instead and keep every path.
-export function themeImageFields(manifestPath: string): FilepathList {
+export function themeImageFields(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
   let manifest: {theme?: {images?: unknown}}
   try {
-    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
+    // A theme written as firefox:theme is invisible to a raw read, and the
+    // basename collapse this function exists to undo comes back with it.
+    manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    ) as {theme?: {images?: unknown}}
   } catch {
     return {}
   }

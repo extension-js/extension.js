@@ -257,8 +257,17 @@ export class JsFrameworksPlugin {
       // Ignore
     }
 
-    const contentScripts = Array.isArray(manifest?.content_scripts)
-      ? manifest.content_scripts
+    // A browser-prefixed key is the only spelling this target sees, so read
+    // the resolved manifest here as the background block below already does.
+    let browserManifest: ParsedJson = manifest
+    try {
+      browserManifest = filterKeysForThisBrowser(manifest, this.browser)
+    } catch {
+      // Ignore
+    }
+
+    const contentScripts = Array.isArray(browserManifest?.content_scripts)
+      ? browserManifest.content_scripts
       : []
 
     for (const contentScript of contentScripts) {
@@ -276,7 +285,6 @@ export class JsFrameworksPlugin {
     // everything else loads classic, so only declared modules are force-marked ESM below.
     const platformModulePaths = new Set<string>()
     try {
-      const browserManifest = filterKeysForThisBrowser(manifest, this.browser)
       const background = browserManifest?.background
       if (
         background?.type === 'module' &&

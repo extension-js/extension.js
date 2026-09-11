@@ -15,11 +15,13 @@ export async function cssInContentScriptLoader(
   projectPath: string,
   manifestPath: string,
   mode: DevOptions['mode'],
-  usage: PreprocessorUsage = {}
+  usage: PreprocessorUsage = {},
+  browser: DevOptions['browser'] = 'chrome'
 ): Promise<RuleSetRule[]> {
   return buildCssRules(projectPath, mode, usage, {
     nonModuleType: 'asset/inline',
-    issuer: (issuer) => isContentScriptEntry(issuer, manifestPath, projectPath),
+    issuer: (issuer) =>
+      isContentScriptEntry(issuer, manifestPath, projectPath, browser),
     manifestPath
   })
 }

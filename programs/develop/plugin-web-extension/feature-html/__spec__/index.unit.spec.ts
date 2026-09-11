@@ -83,4 +83,46 @@ describe('HtmlPlugin', () => {
       )
     ).toBe(true)
   })
+
+  it('scopes the page HMR loader away from browser-prefixed content entries', () => {
+    const cases: Array<[string, string, boolean]> = [
+      ['firefox:content_scripts', 'firefox', true],
+      ['chrome:content_scripts', 'edge', true],
+      ['firefox:content_scripts', 'chrome', false]
+    ]
+
+    for (const [key, browser, excluded] of cases) {
+      const tmp = path.join(
+        __dirname,
+        `.tmp-html-plugin-${browser}-${excluded}`
+      )
+      fs.rmSync(tmp, {recursive: true, force: true})
+      fs.mkdirSync(tmp, {recursive: true})
+      const manifestPath = path.join(tmp, 'manifest.json')
+      fs.writeFileSync(
+        manifestPath,
+        JSON.stringify({name: 'x', [key]: [{js: ['content.ts']}]}),
+        'utf8'
+      )
+      const compiler = makeCompiler('development')
+      compiler.options.context = path.dirname(path.dirname(manifestPath))
+      new HtmlPlugin({manifestPath, browser, includeList: {}} as any).apply(
+        compiler as any
+      )
+
+      const pageHmrRule = compiler.options.module.rules.find((rule: any) =>
+        Array.isArray(rule?.use)
+          ? rule.use.some((entry: any) =>
+              String(entry?.loader || '').includes('ensure-hmr-for-scripts')
+            )
+          : false
+      )
+      const excludeFn = pageHmrRule?.exclude?.find(
+        (entry: unknown) => typeof entry === 'function'
+      ) as (resourcePath: string) => boolean
+
+      expect(excludeFn(path.join(tmp, 'content.ts'))).toBe(excluded)
+      fs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
 })

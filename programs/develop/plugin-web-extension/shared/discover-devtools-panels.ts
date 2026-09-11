@@ -8,7 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {FilepathList} from '../../types'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
+import type {DevOptions, FilepathList} from '../../types'
 
 // chrome.devtools.panels.create(title, icon, page, cb): the page argument is
 // an extension-root-relative HTML path that never appears in the manifest,
@@ -98,12 +99,20 @@ function scanScriptGraph(entryAbsPath: string, found: string[]): void {
  * them as extra HTML entries keyed by their extension-root-relative path so
  * the emitted dist serves the exact URL Chrome will request.
  */
-export function discoverDevtoolsPanelPages(manifestPath: string): FilepathList {
+export function discoverDevtoolsPanelPages(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
   const projectDir = path.dirname(manifestPath)
 
   let devtoolsPage = ''
   try {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    // The fields package resolves firefox:devtools_page and emits the page, so
+    // a raw read here would drop the panels of a page the build already ships.
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
+      browser
+    )
     if (typeof manifest?.devtools_page === 'string') {
       devtoolsPage = manifest.devtools_page
     }

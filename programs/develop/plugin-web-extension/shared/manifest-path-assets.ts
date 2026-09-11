@@ -8,8 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
-import type {FilepathList} from '../../types'
+import type {DevOptions, FilepathList, Manifest} from '../../types'
 import {isManifestAddress} from './paths'
 
 // The manifest-fields package does not extract theme_experiment.stylesheet,
@@ -25,9 +26,17 @@ type SettingsManifest = {
   }
 }
 
-function readManifest(manifestPath: string): SettingsManifest {
+// These fields are gecko-only in practice, so they are usually written under
+// a browser prefix and a raw read would promise output paths nothing produces.
+function readManifest(
+  manifestPath: string,
+  browser: DevOptions['browser']
+): SettingsManifest {
   try {
-    return JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
+    return filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    ) as SettingsManifest
   } catch {
     return {}
   }
@@ -65,9 +74,10 @@ function localFile(manifestDir: string, value: unknown): string | undefined {
 // theme_experiment.stylesheet compiles through the css pipeline as its own
 // entry, so a scss/less source still lands under its advertised .css name.
 export function themeExperimentStylesheetEntries(
-  manifestPath: string
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
 ): FilepathList {
-  const manifest = readManifest(manifestPath)
+  const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
   const file = localFile(manifestDir, manifest.theme_experiment?.stylesheet)
   if (!file) return {}
@@ -76,9 +86,10 @@ export function themeExperimentStylesheetEntries(
 }
 
 export function settingsOverridesIconFields(
-  manifestPath: string
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
 ): FilepathList {
-  const manifest = readManifest(manifestPath)
+  const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
   const fav = manifest.chrome_settings_overrides?.search_provider?.favicon_url
   if (typeof fav !== 'string' || !fav.trim() || isManifestAddress(fav)) {
@@ -90,9 +101,10 @@ export function settingsOverridesIconFields(
 }
 
 export function settingsOverridesStartupPages(
-  manifestPath: string
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
 ): FilepathList {
-  const manifest = readManifest(manifestPath)
+  const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
   const pages = manifest.chrome_settings_overrides?.startup_pages
   if (!Array.isArray(pages)) return {}
