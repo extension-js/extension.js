@@ -158,7 +158,8 @@ export default function webpackConfig(
       mode: devOptions.mode
     }),
     new CssPlugin({
-      manifestPath
+      manifestPath,
+      browser: devOptions.browser
     }),
     new WasmPlugin({
       manifestPath,

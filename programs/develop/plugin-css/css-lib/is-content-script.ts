@@ -8,9 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {canonicalizeDir, toResourceKey} from '../../lib/resource-path'
-import type {Manifest} from '../../types'
+import type {DevOptions, Manifest} from '../../types'
 
 interface ContentScriptIndex {
   mtimeMs: number
@@ -24,9 +25,12 @@ const indexCache = new Map<string, ContentScriptIndex>()
 
 function getContentScriptIndex(
   manifestPath: string,
-  projectPath: string
+  projectPath: string,
+  browser: DevOptions['browser']
 ): ContentScriptIndex {
-  const cacheKey = `${manifestPath}::${projectPath}`
+  // The browser belongs in the key: the same manifest resolves to a different
+  // content-script set per target, and a shared key would serve a stale one.
+  const cacheKey = `${manifestPath}::${projectPath}::${browser}`
 
   let mtimeMs = -1
   try {
@@ -40,8 +44,11 @@ function getContentScriptIndex(
     return cached
   }
 
-  const manifest: Manifest = parseJsonSafe(
-    fs.readFileSync(manifestPath, 'utf8')
+  // A content script declared as firefox:content_scripts is invisible to a
+  // raw read, and its CSS then leaves through the page stylesheet rule.
+  const manifest: Manifest = filterKeysForThisBrowser(
+    parseJsonSafe(fs.readFileSync(manifestPath, 'utf8')),
+    browser
   )
   const manifestDir = path.dirname(manifestPath)
   const contentPaths = new Set<string>()
@@ -69,7 +76,8 @@ function getContentScriptIndex(
 export function isContentScriptEntry(
   absolutePath: string,
   manifestPath: string,
-  projectPath: string
+  projectPath: string,
+  browser: DevOptions['browser'] = 'chrome'
 ): boolean {
   if (!absolutePath || !manifestPath || !projectPath) {
     return false
@@ -78,7 +86,8 @@ export function isContentScriptEntry(
 
   const {scriptsDir, contentPaths} = getContentScriptIndex(
     manifestPath,
-    projectPath
+    projectPath,
+    browser
   )
   const absPathNormalized = toResourceKey(absolutePath)
 

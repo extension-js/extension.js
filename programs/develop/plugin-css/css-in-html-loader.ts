@@ -15,14 +15,15 @@ export async function cssInHtmlLoader(
   projectPath: string,
   mode: DevOptions['mode'],
   manifestPath: string,
-  usage: PreprocessorUsage = {}
+  usage: PreprocessorUsage = {},
+  browser: DevOptions['browser'] = 'chrome'
 ): Promise<RuleSetRule[]> {
   // HTML entries emit a real stylesheet (css) and match everything that is NOT
   // a content script.
   return buildCssRules(projectPath, mode, usage, {
     nonModuleType: 'css',
     issuer: (issuer) =>
-      !isContentScriptEntry(issuer, manifestPath, projectPath),
+      !isContentScriptEntry(issuer, manifestPath, projectPath, browser),
     manifestPath
   })
 }

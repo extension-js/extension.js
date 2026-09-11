@@ -8,15 +8,24 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
-import type {FilepathList} from '../../types'
+import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 // The manifest-fields package has no omnibox entry, so the omnibox icon had
 // no emitter at all: the manifest named a path nothing produced.
-export function omniboxIconFields(manifestPath: string): FilepathList {
+export function omniboxIconFields(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
   let manifest: {omnibox?: {default_icon?: unknown}}
   try {
-    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
+    // An omnibox written under a browser prefix is invisible to a raw read,
+    // and the manifest then names an icon path nothing produces.
+    manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    ) as {omnibox?: {default_icon?: unknown}}
   } catch {
     return {}
   }

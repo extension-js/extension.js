@@ -88,6 +88,38 @@ describe('discoverDevtoolsPanelPages', () => {
     ).toEqual({})
   })
 
+  it('finds panels behind a browser-prefixed devtools page', () => {
+    const files = {
+      'devtools.html': '<script src="devtools.js"></script>',
+      'devtools.js':
+        'chrome.devtools.panels.create("P", "", "panel.html", function() {})',
+      'panel.html': '<html></html>'
+    }
+    const gecko = makeProject({
+      ...files,
+      'manifest.json': JSON.stringify({
+        'firefox:devtools_page': 'devtools.html'
+      })
+    })
+    expect(
+      discoverDevtoolsPanelPages(path.join(gecko, 'manifest.json'), 'firefox')
+    ).toEqual({panel: path.join(gecko, 'panel.html')})
+
+    // A chrome: key covers the whole chromium family, edge included.
+    const chromium = makeProject({
+      ...files,
+      'manifest.json': JSON.stringify({'chrome:devtools_page': 'devtools.html'})
+    })
+    expect(
+      discoverDevtoolsPanelPages(path.join(chromium, 'manifest.json'), 'edge')
+    ).toEqual({panel: path.join(chromium, 'panel.html')})
+
+    // Another browser's prefix stays out of this build.
+    expect(
+      discoverDevtoolsPanelPages(path.join(gecko, 'manifest.json'), 'chrome')
+    ).toEqual({})
+  })
+
   it('returns nothing without a devtools page', () => {
     const root = makeProject({
       'manifest.json': JSON.stringify({name: 'no devtools'})
