@@ -204,3 +204,80 @@ describe('default page-only split chunks', () => {
     ])
   }, 120_000)
 })
+
+// user_scripts.api_script names exactly one file in the manifest, so it is a
+// single-file surface: whatever the default groups hoist out of it is lost.
+function userScriptProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-split-us-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({
+      private: true,
+      name: 'split-user-scripts',
+      version: '0.0.0',
+      dependencies: {react: '0.0.0'}
+    })
+  )
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'split-user-scripts',
+      version: '1.0.0',
+      permissions: ['userScripts'],
+      action: {default_popup: 'popup.html'},
+      options_ui: {page: 'options.html'},
+      user_scripts: {api_script: 'api.js'}
+    })
+  )
+  const reactDir = path.join(root, 'node_modules', 'react')
+  fs.mkdirSync(reactDir, {recursive: true})
+  fs.writeFileSync(
+    path.join(reactDir, 'package.json'),
+    JSON.stringify({name: 'react', version: '0.0.0', main: 'index.js'})
+  )
+  fs.writeFileSync(
+    path.join(reactDir, 'index.js'),
+    `exports.createElement = function () { globalThis.__react = '${REACT_MARK}'; return '${REACT_MARK}' }\n`
+  )
+  fs.writeFileSync(
+    path.join(root, 'shared.js'),
+    `export function greet(name) {\n  globalThis.__shared = '${SHARED_MARK}'\n  return name + ' ' + '${SHARED_MARK}'\n}\n`
+  )
+  for (const page of ['popup', 'options']) {
+    fs.writeFileSync(
+      path.join(root, `${page}.html`),
+      `<html><body><div id="root"></div><script type="module" src="./${page}.js"></script></body></html>\n`
+    )
+    fs.writeFileSync(
+      path.join(root, `${page}.js`),
+      `import {createElement} from 'react'\nimport {greet} from './shared.js'\ndocument.getElementById('root').textContent = greet('${page}') + createElement()\n`
+    )
+  }
+  fs.writeFileSync(
+    path.join(root, 'api.js'),
+    `import {createElement} from 'react'\nimport {greet} from './shared.js'\nconsole.log(greet('api'), createElement())\n`
+  )
+  return root
+}
+
+describe('user_scripts.api_script is a single-file surface', () => {
+  it('keeps every module the api script needs inside its own file', async () => {
+    const root = userScriptProject()
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(root, 'dist', 'chrome')
+    const manifest = JSON.parse(read(distDir, 'manifest.json'))
+    expect(manifest.user_scripts.api_script).toBe('user_scripts/api_script.js')
+
+    const apiScript = read(distDir, 'user_scripts/api_script.js')
+    expect(apiScript).toContain(SHARED_MARK)
+    expect(apiScript).toContain(REACT_MARK)
+
+    // The pages still share, so the fixture really does exercise the groups.
+    expect(read(distDir, 'shared/commons.js')).toContain(SHARED_MARK)
+    expect(read(distDir, 'action/index.js')).not.toContain(SHARED_MARK)
+  }, 120_000)
+})
