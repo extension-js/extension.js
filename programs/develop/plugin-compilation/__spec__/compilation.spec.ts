@@ -38,6 +38,18 @@ vi.mock('../clean-dist', () => {
   return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
 })
 
+vi.mock('../zip', () => {
+  const apply = vi.fn()
+  class ZipPluginMock {
+    public static lastOptions: any
+    constructor(options: any) {
+      ;(ZipPluginMock as any).lastOptions = options
+    }
+    apply = apply
+  }
+  return {ZipPlugin: ZipPluginMock}
+})
+
 vi.mock('../compilation-lib/messages', () => ({
   boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`,
   zipPackagingSkipped: (reason: string) => `zip-skip(${reason})`
@@ -317,18 +329,6 @@ describe('CompilationPlugin', () => {
       .join('\n')
     expect(rendered).not.toContain('ERROR in ./missing-entry.js')
     consoleErrorSpy.mockRestore()
-  })
-
-  vi.mock('../zip', () => {
-    const apply = vi.fn()
-    class ZipPluginMock {
-      public static lastOptions: any
-      constructor(options: any) {
-        ;(ZipPluginMock as any).lastOptions = options
-      }
-      apply = apply
-    }
-    return {ZipPlugin: ZipPluginMock}
   })
 
   it('registers ZipPlugin only in production when zip/zipSource are set', async () => {

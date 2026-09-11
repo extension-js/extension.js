@@ -118,7 +118,7 @@
     "wsl-support": "0.1.0"
   },
   "devDependencies": {
-    "@rslib/core": "^0.23.1",
+    "@rslib/core": "^1.0.0",
     "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^26",
@@ -128,6 +128,6 @@
     "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
     "typescript": "7.0.2",
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.0"
   }
 }

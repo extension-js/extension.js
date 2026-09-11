@@ -184,12 +184,16 @@ export default function ensureHMRForScripts(
   // `javascript/auto` infers module-vs-script FROM THE SOURCE SYNTAX, so the
   // injected guard must pick the API the source's own syntax already selects.
   const callback = this.async()
-  esModuleLexerInit
+  esModuleLexerInit()
     .then(() => {
       let hasModuleSyntax = false
       try {
-        const [, , , moduleSyntax] = esModuleLexerParse(source)
-        hasModuleSyntax = Boolean(moduleSyntax)
+        const [moduleImports, moduleExports] = esModuleLexerParse(source)
+        // A classic script may call `import()`, so only static imports,
+        // re-exports and `import.meta` prove the source is a module.
+        hasModuleSyntax =
+          moduleExports.length > 0 ||
+          moduleImports.some((entry) => entry.type !== 'dynamic')
       } catch {
         // Not lexable as a module, the script parse keeps it alive.
       }
