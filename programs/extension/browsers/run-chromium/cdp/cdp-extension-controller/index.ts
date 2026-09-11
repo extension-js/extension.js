@@ -99,6 +99,32 @@ export class CDPExtensionController {
     await this.cdp.sendCommand('Target.createTarget', {url})
   }
 
+  // The devtools companion opens its welcome page on a first run, and the
+  // launch tab gets repointed at chrome://extensions. Under --no-open the
+  // user asked for no tab at all, so close whatever opened itself.
+  async closeSelfOpenedTabs(): Promise<number> {
+    if (!this.cdp) return 0
+
+    const targets = await this.cdp.getTargets()
+    let closed = 0
+
+    for (const target of targets) {
+      const url = String(target?.url || '')
+      const selfOpened =
+        url.startsWith('chrome://extensions') ||
+        /^chrome-extension:\/\/[a-p]+\/pages\/welcome\.html/.test(url)
+
+      if (target?.type !== 'page' || !selfOpened) continue
+
+      await this.cdp.sendCommand('Target.closeTarget', {
+        targetId: target.targetId
+      })
+      closed += 1
+    }
+
+    return closed
+  }
+
   // Ask the browser whether it actually accepted the dist, before anything
   // prints a banner. Chrome answers a refusal with its own reason text.
   async verifyGuestLoaded(): Promise<LoadUnpackedOutcome> {
