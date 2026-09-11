@@ -37,6 +37,10 @@ interface ExtensionInfoResult {
   version?: string
 }
 
+// The bundled devtools companion pins its Chromium id through the manifest
+// key, so its welcome page can be told apart from a user extension's.
+const DEVTOOLS_COMPANION_ID_CHROMIUM = 'kgdaecdpfkikjncaalnmmnjjfpofkcbl'
+
 const __fileReadCache = new Map<string, {key: string; text: string}>()
 
 function readTextFileCached(filePath: string): string {
@@ -100,19 +104,30 @@ export class CDPExtensionController {
   }
 
   // The devtools companion opens its welcome page on a first run, and the
-  // launch tab gets repointed at chrome://extensions. Under --no-open the
+  // launch tab gets repointed at the extensions page. Under --no-open the
   // user asked for no tab at all, so close whatever opened itself.
   async closeSelfOpenedTabs(): Promise<number> {
     if (!this.cdp) return 0
+
+    // Only the extensions this session loads for itself count: a user
+    // extension that opens its own pages/welcome.html must keep that tab.
+    const selfIds = new Set<string>([DEVTOOLS_COMPANION_ID_CHROMIUM])
+    for (const extensionPath of this.extensionPaths || []) {
+      if (path.resolve(extensionPath) === path.resolve(this.outPath)) continue
+      selfIds.add(expectedChromiumExtensionId(extensionPath))
+    }
 
     const targets = await this.cdp.getTargets()
     let closed = 0
 
     for (const target of targets) {
       const url = String(target?.url || '')
+      const welcome =
+        /^chrome-extension:\/\/([a-p]+)\/pages\/welcome\.html/.exec(url)
       const selfOpened =
         url.startsWith('chrome://extensions') ||
-        /^chrome-extension:\/\/[a-p]+\/pages\/welcome\.html/.test(url)
+        url.startsWith('edge://extensions') ||
+        (welcome !== null && selfIds.has(welcome[1]))
 
       if (target?.type !== 'page' || !selfOpened) continue
 
