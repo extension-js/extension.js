@@ -296,7 +296,9 @@ export function browserConfig(
       : []),
     ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
     ...linuxContainerSandboxFlags,
-    ...aiOptimizedFlags,
+    // Tooling flags sit below the exclusion knob like the defaults do, so a
+    // user debugging container crashes can still cancel --disable-dev-shm-usage.
+    ...filterBrowserFlags(aiOptimizedFlags, excludeFlags),
     ...(devWantsCDP
       ? [
           `--remote-debugging-port=${cdpPort}`,
