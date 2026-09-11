@@ -25,6 +25,6 @@ export function manifestV3(
     ...backgroundServiceWorker(manifest),
     ...declarativeNetRequest(manifest, manifestPath, projectPath),
     ...hostPermissions(manifest),
-    ...sidePanel(manifest)
+    ...sidePanel(manifest, manifestPath)
   }
 }
