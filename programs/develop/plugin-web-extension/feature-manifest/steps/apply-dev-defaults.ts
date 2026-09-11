@@ -23,7 +23,8 @@ import {
 } from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   devInjectedPermissions,
-  partiallyGatedNote
+  partiallyGatedNote,
+  partiallyGatedWarning
 } from './apply-dev-defaults-lib/dev-injected-permissions'
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
@@ -70,6 +71,16 @@ export function findInjectedOnlyPermissionUses(
  * Applies dev-only manifest patches (CSP, permissions, background, WAR for reload).
  * Runs only in development mode, after WAR patching (REPORT+100).
  */
+// A host permission for the request's own origin is the narrow grant; the
+// content-script pattern is often <all_urls> and would widen the store prompt.
+function requestOriginPattern(url: string, fallback: string): string {
+  try {
+    return `${new URL(url).origin}/*`
+  } catch {
+    return fallback
+  }
+}
+
 export class ApplyDevDefaults {
   private readonly manifestPath?: string
   private readonly browser: DevOptions['browser']
@@ -256,14 +267,17 @@ export class ApplyDevDefaults {
                     `${relative} uses chrome.${api}. It works in development only because the dev ` +
                     `instrumentation injects "${api}" as required: the production build has it only ` +
                     `after a runtime chrome.permissions.request, so guard the use or move "${api}" to permissions.`
-                  : `manifest.json does not declare the "${api}" permission, but ` +
-                    `${relative} uses chrome.${api}. ` +
-                    `It works in development only because the dev instrumentation ` +
-                    `injects "${api}": the production build will fail at runtime. ` +
-                    `Add "${api}" to permissions in manifest.json.`
+                  : partiallyGatedWarning(api, relative) ||
+                    `manifest.json does not declare the "${api}" permission, but ` +
+                      `${relative} uses chrome.${api}. ` +
+                      `It works in development only because the dev instrumentation ` +
+                      `injects "${api}": the production build will fail at runtime. ` +
+                      `Add "${api}" to permissions in manifest.json.`
                 pushDevWarning(
                   'DevInjectedPermissionWarning',
-                  text + partiallyGatedNote(api)
+                  optionalPermissions.has(api)
+                    ? text + partiallyGatedNote(api)
+                    : text
                 )
               }
             } catch {
@@ -300,10 +314,13 @@ export class ApplyDevDefaults {
                     `after a runtime chrome.permissions.request, so guard the request or add ` +
                     `"${use.pattern}" to ${hostKey} in manifest.json.`
                   : `manifest.json does not grant host access to ${use.url}, but ${relative} ` +
-                    `requests it. It works in development only because a content script matches ` +
-                    `"${use.pattern}" and the dev build grants that host so it can re-inject the ` +
-                    `script on save. The production build has no host permission for it and the ` +
-                    `request is blocked. Add "${use.pattern}" to ${hostKey} in manifest.json.`
+                    `requests it. The dev build grants that host because a content script ` +
+                    `matches "${use.pattern}" and it re-injects the script on save. The ` +
+                    `production build has no host permission for it, so the request is ` +
+                    `subject to the server's CORS policy and is blocked when the server ` +
+                    `does not allow it. If it needs the permission, add ` +
+                    `"${requestOriginPattern(use.url, use.pattern)}" to ${hostKey} in ` +
+                    `manifest.json rather than the content-script pattern.`
                 pushDevWarning('DevInjectedHostWarning', text)
               }
             } catch {

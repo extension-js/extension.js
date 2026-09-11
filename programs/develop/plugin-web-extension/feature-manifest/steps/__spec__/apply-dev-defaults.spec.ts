@@ -289,6 +289,10 @@ describe('ApplyDevDefaults', () => {
       expect(drift[0].message).toContain('"tabs"')
       expect(drift[0].message).toContain('background.js')
       expect(drift[0].message).toContain('favIconUrl')
+      // chrome.tabs.sendMessage needs no permission, so the warning must not
+      // promise a runtime failure for the whole namespace.
+      expect(drift[0].message).not.toContain('will fail at runtime')
+      expect(drift[0].message).toContain('work packaged without it')
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
@@ -413,6 +417,11 @@ describe('ApplyDevDefaults', () => {
           expect(found[0].message).toContain('https://api.example.com/v1/ping')
           expect(found[0].message).toContain('background.js')
           expect(found[0].message).toContain('host_permissions')
+          // A CORS-open endpoint works packaged with no host permission, so
+          // the warning names that condition and the request's own origin.
+          expect(found[0].message).toContain('CORS')
+          expect(found[0].message).toContain('"https://api.example.com/*"')
+          expect(found[0].message).not.toContain('the request is blocked.')
         }
       )
     })

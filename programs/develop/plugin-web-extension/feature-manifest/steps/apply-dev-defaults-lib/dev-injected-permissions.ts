@@ -27,16 +27,33 @@ export function devInjectedPermissions(
     : DEV_INJECTED_PERMISSIONS_MV2
 }
 
-// Extra sentence appended to the undeclared-use warning when the namespace is
-// reachable without the permission and only parts of it are gated.
+// The gated part of a namespace that is reachable without the permission.
+// For these the warning must not claim the packaged build fails outright:
+// chrome.tabs.sendMessage is the most common use and needs no permission.
 const PARTIALLY_GATED_APIS: Record<string, string> = {
   tabs:
-    'Some chrome.tabs methods run without the permission, but the tab url, ' +
-    'title and favIconUrl fields and the url and title query filters come ' +
-    'back empty without it.'
+    'the tab url, title and favIconUrl fields and the url and title query ' +
+    'filters come back empty without it, while other chrome.tabs calls work ' +
+    'packaged without it'
 }
 
 export function partiallyGatedNote(api: string): string {
   const note = PARTIALLY_GATED_APIS[api]
-  return note ? ` ${note}` : ''
+  return note ? ` Only part of the namespace is gated: ${note}.` : ''
+}
+
+// The whole warning for a partially gated namespace, or null when the
+// namespace is fully gated and the caller's own text applies.
+export function partiallyGatedWarning(
+  api: string,
+  relative: string
+): string | null {
+  const note = PARTIALLY_GATED_APIS[api]
+  if (!note) return null
+  return (
+    `manifest.json does not declare the "${api}" permission, but ` +
+    `${relative} uses chrome.${api}. The dev build injects "${api}" so ` +
+    `the same code may behave differently once packaged: ${note}. ` +
+    `Add "${api}" to permissions in manifest.json if you read those fields.`
+  )
 }
