@@ -15,6 +15,14 @@ function makeCompilation(
   return {options: {output: {path: out}}} as any
 }
 
+// Chromium keeps one merged --disable-features switch, so an exclusion has to
+// be judged on the entries inside it rather than on a substring of the whole.
+function disabledFeatureEntries(flags: string[]) {
+  const switchFlag = flags.find((f) => f.startsWith('--disable-features='))
+  expect(switchFlag).toBeTruthy()
+  return String(switchFlag).replace('--disable-features=', '').split(',')
+}
+
 function getUserDataDir(flags: string[]) {
   const userDirFlag = flags.find((f) => f.startsWith('--user-data-dir='))
   expect(userDirFlag).toBeTruthy()
@@ -457,6 +465,57 @@ describe('Chromium feature-switch merging', () => {
     } as any)
     expect(flags).not.toContain('--start-maximized')
     expect(flags).toContain('--kiosk')
+  })
+
+  it('excludeBrowserFlags cancels the tooling flags Extension.js adds', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      excludeBrowserFlags: ['--disable-dev-shm-usage', '--memory-pressure-off']
+    } as any)
+    expect(flags).not.toContain('--disable-dev-shm-usage')
+    expect(flags).not.toContain('--memory-pressure-off')
+    expect(flags).toContain('--disable-hang-monitor')
+    expect(flags).toContain('--max_old_space_size=4096')
+  })
+
+  it('excluding TranslateUI drops it from the merged feature switch', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      excludeBrowserFlags: ['--disable-features=TranslateUI']
+    } as any)
+    const entries = disabledFeatureEntries(flags)
+    expect(entries).not.toContain('TranslateUI')
+    expect(entries).toContain('Translate')
+    expect(entries).toContain('MediaRoute')
+  })
+
+  it('excluding Translate drops it without taking TranslateUI along', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      excludeBrowserFlags: ['--disable-features=Translate']
+    } as any)
+    const entries = disabledFeatureEntries(flags)
+    expect(entries).not.toContain('Translate')
+    expect(entries).toContain('TranslateUI')
+    expect(entries).toContain('MediaRoute')
+  })
+
+  it('excluding both translation switches clears the pair', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome',
+      excludeBrowserFlags: [
+        '--disable-features=Translate',
+        '--disable-features=TranslateUI'
+      ]
+    } as any)
+    const entries = disabledFeatureEntries(flags)
+    expect(entries).not.toContain('Translate')
+    expect(entries).not.toContain('TranslateUI')
+    expect(entries).toContain('MediaRoute')
   })
 
   it('an exclude never loose-prefix cancels a longer flag name', () => {
