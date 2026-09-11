@@ -376,8 +376,10 @@ export function registerDevCommand(program: Command) {
           // extension.config.js belongs to the producer process, and refusing
           // there would break the documented two-process pattern.
           if (process.env.EXTENSION_CLI_NO_BROWSER === '1') {
-            // eslint-disable-next-line no-console
-            console.error(messages.noBrowserWithWait('dev'))
+            if (!asJson) {
+              // eslint-disable-next-line no-console
+              console.error(messages.noBrowserWithWait('dev'))
+            }
             failAndExit(asJson, 'usage', {
               code: CODES.E_INVALID_OPTION,
               message:

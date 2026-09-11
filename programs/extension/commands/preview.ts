@@ -78,7 +78,7 @@ export function registerPreviewCommand(program: Command) {
     .description(commandDescriptions.preview)
     .addHelpText(
       'after',
-      '\nAdditional option:\n' +
+      '\nAdditional options:\n' +
         '  --no-browser    stop the browser launch\n' +
         BROWSER_LAUNCH_HELP_FOOTER
     )

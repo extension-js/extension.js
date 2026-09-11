@@ -188,7 +188,7 @@ describe('a dev session reports itself while it is still running', () => {
 
     child.kill('SIGINT')
     await waitFor(() => closed, 20_000, 'the dev session to end').catch(() => {
-      // The exit path belongs to the dev server and the browser handlers; this
+      // The exit path belongs to the dev server and the browser handlers. This
       // spec is about the row, not about who ends the process.
     })
 
