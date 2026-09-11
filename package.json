@@ -34,7 +34,7 @@
     "test:cli": "node scripts/run-test.mjs cli",
     "test:build": "node scripts/run-test.mjs develop",
     "test:dev": "node scripts/run-test.mjs develop",
-    "test:e2e": "pnpm exec playwright test",
+    "test:e2e": "node scripts/ensure-templates.mjs && pnpm exec playwright test",
     "smoke:npx": "node scripts/smoke-npx.mjs",
     "smoke:first-dev": "node scripts/validate-first-dev-run.mjs",
     "smoke:content-template-first-dev": "node scripts/verify-content-template-first-dev.mjs",

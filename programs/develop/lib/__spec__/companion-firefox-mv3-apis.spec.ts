@@ -68,11 +68,7 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
     shell: false
   })
 
-  if (result.status !== 0) {
-    return false
-  }
-
-  return fs.existsSync(bundlePath)
+  return result.status === 0
 }
 
 describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
@@ -81,8 +77,22 @@ describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
 
     it(`${companion.name}: background bundle is free of MV3-only chrome APIs`, () => {
       const built = ensureFirefoxBuild(companion.packageDir, companion.name)
-      if (!built) return
+      // A failed build used to return early and pass, so a broken bundler
+      // reported green here. A build that does not run is now a failure.
+      expect(built, `${companion.name}: firefox build did not run`).toBe(true)
 
+      const manifestPath = path.join(
+        companion.packageDir,
+        'dist',
+        'firefox',
+        'manifest.json'
+      )
+      expect(
+        fs.existsSync(manifestPath),
+        `${companion.name}: firefox build emitted nothing`
+      ).toBe(true)
+
+      // A theme ships no background script, so it has no bundle to scan.
       const bundlePath = firefoxBundlePath(companion.packageDir)
       if (!fs.existsSync(bundlePath)) return
 
