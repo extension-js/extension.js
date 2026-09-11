@@ -8,18 +8,26 @@
 
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {iconOutputPath} from '../../normalize-manifest-path'
+import {
+  iconOutputPath,
+  manifestPageOutputTarget
+} from '../../normalize-manifest-path'
 
-export function sidebarAction(manifest: Manifest) {
+export function sidebarAction(manifest: Manifest, manifestPath?: string) {
   return (
     manifest.sidebar_action && {
       sidebar_action: {
         ...manifest.sidebar_action,
         ...(manifest.sidebar_action.default_panel && {
-          default_panel: getFilename(
-            `sidebar/index.html`,
-            manifest.sidebar_action.default_panel as string
-          )
+          default_panel: (() => {
+            const raw = String(manifest.sidebar_action.default_panel)
+            // A panel hosted in public/ ships under its own name, so the
+            // compiled slot is only right for a panel the pipeline builds.
+            return getFilename(
+              manifestPageOutputTarget(raw, 'sidebar/index.html', manifestPath),
+              raw
+            )
+          })()
         }),
 
         ...(manifest.sidebar_action.default_icon && {
