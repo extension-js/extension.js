@@ -113,7 +113,9 @@ export async function runCommand(
   const child = spawn(command, args, {
     cwd: opts.cwd,
     env: buildExecEnv(opts.env),
-    stdio: 'pipe'
+    stdio: 'pipe',
+    // Windows runs package managers through .cmd shims, which need a shell.
+    shell: process.platform === 'win32'
   })
 
   let stdout = ''

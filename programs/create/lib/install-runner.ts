@@ -40,7 +40,9 @@ export async function runInstall(
   const child = spawn(command, args, {
     stdio: opts.stdio,
     cwd: opts.cwd,
-    env: env || process.env
+    env: env || process.env,
+    // Windows runs package managers through .cmd shims, which need a shell.
+    shell: process.platform === 'win32'
   })
   let stdout = ''
   let stderr = ''

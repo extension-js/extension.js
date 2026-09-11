@@ -47,7 +47,8 @@ if (version.status !== 0) {
 const run = spawnSync(
   'pnpm',
   ['exec', 'playwright', 'test', ...process.argv.slice(2)],
-  {cwd: root, stdio: 'inherit', env}
+  {cwd: root, stdio: 'inherit', env, shell: process.platform === 'win32'}
 )
 
+if (run.error) console.error(run.error.message)
 process.exit(run.status ?? 1)
