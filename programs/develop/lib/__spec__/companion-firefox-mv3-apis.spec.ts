@@ -49,7 +49,9 @@ function ensureCliBuilt(): boolean {
     {
       cwd: REPO_ROOT,
       stdio: 'inherit',
-      shell: false
+      // Package managers are .cmd shims on Windows, which spawn cannot run
+      // without a shell: the build silently never ran there.
+      shell: process.platform === 'win32'
     }
   )
 
@@ -65,7 +67,7 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
   const result = spawnSync('npm', ['run', 'build:firefox'], {
     cwd: packageDir,
     stdio: 'inherit',
-    shell: false
+    shell: process.platform === 'win32'
   })
 
   return result.status === 0
