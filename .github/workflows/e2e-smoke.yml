@@ -1,0 +1,72 @@
+name: CI – E2E Smoke
+
+# The nightly runs the whole lane and reports once a day, which is how a
+# September 7 regression stayed red until September 11. This is the same
+# lane cut to the specs that load a page and run it, on every push to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    name: Run E2E Smoke
+    timeout-minutes: 30
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Get Playwright version
+        id: pw-version
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-
+
+      - name: Compile Extension.js
+        run: pnpm compile
+
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+
+      - name: Install Playwright Chromium
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install --with-deps chromium
+
+      # These four assertions are the ones that load the built page and run
+      # it. Emitted-markup specs stayed green through a script that threw on
+      # load, so only this shape notices.
+      - name: Run the page-executing slice
+        run: |
+          xvfb-run -a timeout --signal=INT --kill-after=1m 20m pnpm test:e2e \
+            --project=chromium \
+            --grep "mounts its app into the page|module it imports on demand|no manual reload|hardened against page CSS"
+        env:
+          PLAYWRIGHT_HEADLESS: '0'
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/report-red-lane.sh "E2E smoke"
+
+      - name: Upload Test Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-smoke-report
+          path: e2e-report/
