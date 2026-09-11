@@ -284,14 +284,23 @@ export class FirefoxLaunchPlugin {
     const dryRun = Boolean(this.host.dryRun)
 
     // Specs never launch: without a dry run they get the bare placeholder,
-    // with one and no pin they get the real plan around a placeholder binary,
-    // since there is no browser to find inside the test runner.
+    // with one they get the real plan around the pinned binary, or around a
+    // placeholder when there is no pin to find inside the test runner.
     if (inTestRunner && !dryRun) {
       logFirefoxDryRun('firefox-mock-binary', [])
       return
     }
-    if (inTestRunner && dryRun && !this.host.geckoBinary) {
-      await this.printDryRunPlan(compilation, options, 'firefox-mock-binary')
+    // A pinned binary used to fall through to discovery, which probes the
+    // filesystem and execs the binary for a version line, and that took
+    // minutes on a Windows runner. Mirrors the chromium short circuit.
+    if (inTestRunner && dryRun) {
+      await this.printDryRunPlan(
+        compilation,
+        options,
+        this.host.geckoBinary
+          ? normalizeBinaryPathForWsl(String(this.host.geckoBinary))
+          : 'firefox-mock-binary'
+      )
       return
     }
 
@@ -569,6 +578,9 @@ export class FirefoxLaunchPlugin {
       compilation,
       {
         ...options,
+        // The plan prints the flags the user asked for, so a caller that
+        // carries them on the plugin alone still sees them in the argv.
+        browserFlags: options.browserFlags || this.host.browserFlags || [],
         profile: this.host.profile,
         preferences: this.host.preferences || {},
         instanceId: this.host.instanceId

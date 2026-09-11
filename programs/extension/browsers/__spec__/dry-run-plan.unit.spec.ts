@@ -145,7 +145,7 @@ describe('firefox --dry-run', () => {
         extension: [out],
         geckoBinary: pin,
         dryRun: true,
-        browserFlags: ['-foreground'],
+        browserFlags: ['-jsconsole'],
         profile
       } as any,
       createFirefoxContext() as any
@@ -158,7 +158,7 @@ describe('firefox --dry-run', () => {
     expect(printed()).not.toContain('--binary-args=""')
     expect(args).toContain(`-profile ${profile}`)
     expect(args).toContain('-start-debugger-server')
-    expect(args).toContain('-foreground')
+    expect(args).toContain('-jsconsole')
   })
 
   it('writes no profile or user.js', async () => {
