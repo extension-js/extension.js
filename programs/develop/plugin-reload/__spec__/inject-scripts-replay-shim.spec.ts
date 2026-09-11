@@ -70,6 +70,17 @@ describe('InjectScriptsReplayShim', () => {
     )
   })
 
+  it('prepends to the compiled MV2 background page bundle', () => {
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectScriptsReplayShim().apply(compiler)
+    setAsset('background/index.js', '/* mv2 background page */')
+    runProcessAssets()
+    expect(getAssetSource('background/index.js')).toContain(
+      '__extjsScriptsReplayInstalled'
+    )
+  })
+
   it('does NOT prepend to content_scripts or arbitrary assets', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()

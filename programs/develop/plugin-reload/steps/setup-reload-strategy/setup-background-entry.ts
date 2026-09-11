@@ -88,6 +88,10 @@ export class SetupBackgroundEntry {
       )
     }
 
+    // A declared background page is the background context, and the built
+    // manifest keeps naming it, so a default script entry here loads nowhere.
+    const hasBackgroundPage = Boolean(manifestBg?.page)
+
     if (isGecko) {
       const bgScripts = manifestBg?.scripts
 
@@ -95,7 +99,7 @@ export class SetupBackgroundEntry {
         const bgScriptPath = path.join(dirname, bgScripts[0])
         const maybeError = this.getMissingBackgroundError(bgScriptPath)
         if (maybeError) hookError(maybeError)
-      } else {
+      } else if (!hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
       return
@@ -111,7 +115,7 @@ export class SetupBackgroundEntry {
         const maybeError = this.getMissingBackgroundError(bgScriptPath)
 
         if (maybeError) hookError(maybeError)
-      } else {
+      } else if (!hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     } else {
