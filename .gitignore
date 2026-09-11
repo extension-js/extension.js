@@ -127,3 +127,8 @@ _FUTURE/
 extensions/browser-extension/
 extensions/monorepo/
 
+# Hydrated from extension-js/examples by scripts/hydrate-templates-from-examples.sh
+templates/
+
+# Telemetry home the template builds point the CLI at
+.xdg-config/
