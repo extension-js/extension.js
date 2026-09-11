@@ -188,12 +188,9 @@ export default function ensureHMRForScripts(
     .then(() => {
       let hasModuleSyntax = false
       try {
-        const [moduleImports, moduleExports] = esModuleLexerParse(source)
-        // A classic script may call `import()`, so only static imports,
-        // re-exports and `import.meta` prove the source is a module.
-        hasModuleSyntax =
-          moduleExports.length > 0 ||
-          moduleImports.some((entry) => entry.type !== 'dynamic')
+        // The lexer's own verdict: a classic script may call `import()`, and
+        // a bare `export {}` is a module, both of which a hand count gets wrong.
+        ;[, , , hasModuleSyntax] = esModuleLexerParse(source)
       } catch {
         // Not lexable as a module, the script parse keeps it alive.
       }

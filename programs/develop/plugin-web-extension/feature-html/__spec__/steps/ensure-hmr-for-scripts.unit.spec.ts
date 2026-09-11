@@ -74,6 +74,9 @@ describe('ensureHMRForScripts loader', () => {
     for (const src of [
       'import x from "./x"; console.log(x)',
       'export const a = 1',
+      // A bare module marker has no named export and no import, and is
+      // still a module: the lexer knows, a hand count of the two lists does not.
+      'export {}',
       'console.log(import.meta.url)'
     ]) {
       const out = await runLoader(
