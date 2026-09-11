@@ -98,19 +98,22 @@ const run = async () => {
   const target = process.argv[2] ?? 'all'
   const turboFilters = getTurboFilters(target)
 
-  const primaryCode = await runCommand('dotenv', [
-    '--',
-    'turbo',
-    'run',
-    'test',
-    ...turboFilters
-  ])
-
-  if (primaryCode === 0) {
-    return 0
+  // Only a runner that never started earns the fallback: a turbo run that
+  // reported failing tests used to re-run the whole suite and print it twice.
+  let primaryCode
+  try {
+    primaryCode = await runCommand('dotenv', [
+      '--',
+      'turbo',
+      'run',
+      'test',
+      ...turboFilters
+    ])
+  } catch {
+    return runFallbackTests(target)
   }
 
-  return runFallbackTests(target)
+  return primaryCode
 }
 
 try {
