@@ -35,6 +35,20 @@ describe('--no-open closes the tabs the session opened for itself', () => {
     expect(closed).toEqual(['a', 'b'])
   })
 
+  it('keeps a user extension welcome page and closes the Edge extensions page', async () => {
+    const {controller, closed} = controllerWithTargets([
+      {
+        targetId: 'user',
+        type: 'page',
+        url: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/pages/welcome.html'
+      },
+      {targetId: 'edge', type: 'page', url: 'edge://extensions/'}
+    ])
+
+    await expect(controller.closeSelfOpenedTabs()).resolves.toBe(1)
+    expect(closed).toEqual(['edge'])
+  })
+
   it('leaves service workers and other targets alone', async () => {
     const {controller, closed} = controllerWithTargets([
       {targetId: 'sw', type: 'service_worker', url: WELCOME},
