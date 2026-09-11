@@ -8,8 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
-import type {FilepathList} from '../../types'
+import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 function resolveManifestIconPath(context: string, relativePath: string) {
   const unix = relativePath.replace(/\\/g, '/')
@@ -26,12 +27,20 @@ function resolveManifestIconPath(context: string, relativePath: string) {
 // The manifest-fields package only extracts browser_action.theme_icons;
 // Firefox MV3 action.theme_icons need the same emit path or the rewritten
 // entries in the built manifest point at files nothing produced.
-export function extractActionThemeIcons(manifestPath: string): FilepathList {
+export function extractActionThemeIcons(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
   let manifest: {
     action?: {theme_icons?: Array<{light?: string; dark?: string}>}
   }
   try {
-    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8')))
+    // An action written under a browser prefix is invisible to a raw read,
+    // and the built manifest then names theme icons nothing emits.
+    manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    ) as typeof manifest
   } catch {
     return {}
   }

@@ -15,6 +15,7 @@ import {
   inputOrIdentityMap,
   returnWithMap
 } from '../../../../lib/loader-source-maps'
+import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -22,6 +23,7 @@ import {
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
 import {EXTENSION_ROOT_PLACEHOLDER} from '../../../../plugin-css/css-lib/inline-content-script-css'
+import type {DevOptions, Manifest} from '../../../../types'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName,
@@ -30,7 +32,7 @@ import {
 import * as messages from '../../messages'
 
 interface ContentScriptLoaderContext {
-  getOptions(): {manifestPath: string; mode?: string}
+  getOptions(): {manifestPath: string; mode?: string; browser?: string}
   _compilation?: unknown
   resourcePath: string
   resourceQuery?: string
@@ -42,7 +44,8 @@ const schema = {
   type: 'object',
   properties: {
     manifestPath: {type: 'string'},
-    mode: {type: 'string'}
+    mode: {type: 'string'},
+    browser: {type: 'string'}
   }
 } as Parameters<typeof validate>[0]
 
@@ -164,24 +167,36 @@ const __EXTENSIONJS_manifestParseCache = new Map<
   {key: string; manifest: Record<string, unknown>}
 >()
 
-function readManifestCached(manifestPath: string): Record<string, unknown> {
+function readManifestCached(
+  manifestPath: string,
+  browser: DevOptions['browser']
+): Record<string, unknown> {
+  // A content script declared as firefox:content_scripts is invisible to a
+  // raw read, so the loader let it through unwrapped. The browser belongs in
+  // the cache key because the same manifest resolves differently per target.
+  const resolve = (raw: unknown) =>
+    filterKeysForThisBrowser(raw as Manifest, browser) as Record<
+      string,
+      unknown
+    >
+  const cacheKey = `${manifestPath}::${browser}`
   try {
     const stat = fs.statSync(manifestPath)
     const key = `${stat.mtimeMs}:${stat.size}`
-    const cached = __EXTENSIONJS_manifestParseCache.get(manifestPath)
+    const cached = __EXTENSIONJS_manifestParseCache.get(cacheKey)
 
     if (cached && cached.key === key) return cached.manifest
 
-    const manifest = JSON.parse(
-      stripBom(fs.readFileSync(manifestPath, 'utf-8'))
+    const manifest = resolve(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
     )
-    __EXTENSIONJS_manifestParseCache.set(manifestPath, {key, manifest})
+    __EXTENSIONJS_manifestParseCache.set(cacheKey, {key, manifest})
 
     return manifest
   } catch {
     // stat/read/parse failures fall back to a direct read so callers keep
     // their existing error behavior.
-    return JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+    return resolve(JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8'))))
   }
 }
 
@@ -205,7 +220,8 @@ export default function contentScriptWrapper(
   const packageJsonDir = canonicalizeDir(
     packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
   )
-  const manifest = readManifestCached(manifestPath)
+  const browser = (options.browser as DevOptions['browser']) || 'chrome'
+  const manifest = readManifestCached(manifestPath, browser)
   const isProd = String(options?.mode || '').toLowerCase() === 'production'
   const rewrittenSource = String(source)
 
