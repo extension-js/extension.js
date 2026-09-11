@@ -19,9 +19,17 @@ export interface EntrypointLike {
 }
 
 const HOT_UPDATE_FILE = /\.hot-update\.m?js$/i
+// Hot update chunks are emitted into `hot/`, and some arrive without the
+// `.hot-update` infix. They call a global the entry defines, so a page that
+// loads one as a sibling throws before the app can mount.
+const HOT_UPDATE_DIR = /(^|\/)hot\//i
 
 export function isJsFile(file: string): boolean {
-  return /\.m?js$/i.test(file) && !HOT_UPDATE_FILE.test(file)
+  return (
+    /\.m?js$/i.test(file) &&
+    !HOT_UPDATE_FILE.test(file) &&
+    !HOT_UPDATE_DIR.test(file)
+  )
 }
 
 // Every JavaScript file the entry must load before it runs: the runtime
