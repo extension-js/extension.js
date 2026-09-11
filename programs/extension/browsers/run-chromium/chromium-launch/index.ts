@@ -323,8 +323,15 @@ export class ChromiumLaunchPlugin {
       )
       return
     }
-    if (inTestRunner && dryRun && !this.options?.chromiumBinary) {
-      this.printDryRunPlan(compilation, 'chromium-mock-binary')
+    // A pinned binary used to fall through to discovery, which probes the
+    // filesystem for real browsers and took minutes on a Windows runner.
+    if (inTestRunner && dryRun) {
+      this.printDryRunPlan(
+        compilation,
+        this.options?.chromiumBinary
+          ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
+          : 'chromium-mock-binary'
+      )
       return
     }
 

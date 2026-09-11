@@ -348,5 +348,15 @@ export async function setupCdpAfterLaunch(
     // best-effort only, never block launch on the courtesy tab
   }
 
+  // The companion opens its welcome page on a first run and the launch tab
+  // lands on chrome://extensions, neither of which honors --no-open.
+  try {
+    if (plugin.noOpen) {
+      await cdpExtensionController.closeSelfOpenedTabs()
+    }
+  } catch {
+    // Ignore
+  }
+
   plugin.cdpController = cdpExtensionController
 }
