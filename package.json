@@ -42,7 +42,7 @@
     "smoke:open-action": "node scripts/validate-open-action-trigger.mjs",
     "smoke:session-lifecycle": "node scripts/validate-session-lifecycle.mjs",
     "ci:test:core": "pnpm run test:dev",
-    "ci:test:rspack": "pnpm -C programs/develop run compile && pnpm -C programs/develop exec vitest run __spec__/build- __spec__/dev-public-folder-reload __spec__/dev-content-script-hash-stability __spec__/devtools-panel-emit __spec__/html-ts-entry __spec__/manifest-output-contract __spec__/public-manifest-refusal __spec__/public-surface __spec__/start-run-receipt lib/__spec__/env-preload plugin-compilation/__spec__/generate-zip plugin-css/__spec__/url-query-regression",
+    "ci:test:rspack": "pnpm -C programs/develop run compile && pnpm -C programs/develop exec vitest run __spec__/build- __spec__/dev-public-folder-reload __spec__/dev-content-script-hash-stability __spec__/devtools-panel-emit __spec__/html-ts-entry __spec__/manifest-output-contract __spec__/public-manifest-refusal __spec__/public-surface __spec__/start-run-receipt lib/__spec__/env-preload plugin-compilation/__spec__/generate-zip plugin-css/__spec__/url-query-regression dev-server/__spec__/real-dev-server-boot plugin-js-frameworks/__spec__/real-refresh-compile",
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",
     "ci:test:create": "node scripts/run-test.mjs create",
