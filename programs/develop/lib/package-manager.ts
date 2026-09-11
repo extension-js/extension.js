@@ -208,7 +208,9 @@ function canRunCorepack(): boolean {
     const spawnSync = spawnSyncImported
     const result = spawnSync('corepack', ['--version'], {
       stdio: 'ignore',
-      windowsHide: true
+      windowsHide: true,
+      // corepack is a .cmd shim on Windows, so a bare spawn never finds it.
+      shell: process.platform === 'win32'
     })
     return result?.status === 0
   } catch {
