@@ -4,6 +4,7 @@ import {
   applyIndependentHtmlSurfaces,
   dropPageAction,
   isPageActionLiveSurface,
+  optionsPageRef,
   pageActionDropReason,
   pageActionOutputTarget,
   popupRefsShareSource,
@@ -152,5 +153,104 @@ describe('applyIndependentHtmlSurfaces', () => {
       'action/index': path.join(context, 'toolbar.html'),
       'options/index': '/proj/o.html'
     })
+  })
+})
+
+// Both engines read options_ui.page first and fall back to options_page:
+// Chromium parses the legacy key only when options_ui.page gave no URL, and
+// Gecko reads `options_ui?.page ?? options_page`.
+describe('optionsPageRef', () => {
+  it('prefers the modern key when both are declared', () => {
+    expect(
+      optionsPageRef({
+        manifest_version: 3,
+        options_page: 'legacy.html',
+        options_ui: {page: 'modern.html'}
+      } as any)
+    ).toBe('modern.html')
+  })
+
+  it('falls back to the legacy key when it is the only one declared', () => {
+    expect(
+      optionsPageRef({manifest_version: 2, options_page: 'legacy.html'} as any)
+    ).toBe('legacy.html')
+  })
+
+  it('falls back when options_ui carries no page of its own', () => {
+    expect(
+      optionsPageRef({
+        manifest_version: 3,
+        options_page: 'legacy.html',
+        options_ui: {open_in_tab: true}
+      } as any)
+    ).toBe('legacy.html')
+    expect(
+      optionsPageRef({
+        manifest_version: 3,
+        options_page: 'legacy.html',
+        options_ui: {page: '   '}
+      } as any)
+    ).toBe('legacy.html')
+  })
+
+  it('answers nothing when the manifest declares no options page', () => {
+    expect(optionsPageRef({manifest_version: 3} as any)).toBeUndefined()
+    expect(optionsPageRef(undefined)).toBeUndefined()
+  })
+})
+
+describe('applyIndependentHtmlSurfaces options slot', () => {
+  it('repoints the collapsed slot at the modern source when both are declared', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'options/index': path.join(context, 'legacy.html')},
+      {
+        manifest_version: 3,
+        options_page: 'legacy.html',
+        options_ui: {page: 'modern.html', open_in_tab: false}
+      } as any,
+      context,
+      'chrome'
+    )
+    expect(html).toEqual({'options/index': path.join(context, 'modern.html')})
+  })
+
+  it('leaves a legacy-only slot exactly where the fields package put it', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'options/index': path.join(context, 'legacy.html')},
+      {manifest_version: 2, options_page: 'legacy.html'} as any,
+      context,
+      'chrome'
+    )
+    expect(html).toEqual({'options/index': path.join(context, 'legacy.html')})
+  })
+
+  it('keeps one slot when both keys name the same file', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'options/index': path.join(context, 'shared.html')},
+      {
+        manifest_version: 3,
+        options_page: 'shared.html',
+        options_ui: {page: './shared.html'}
+      } as any,
+      context,
+      'chrome'
+    )
+    expect(html).toEqual({'options/index': path.join(context, 'shared.html')})
+  })
+
+  it('resolves a modern page hosted in public/', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'options/index': path.join(context, 'legacy.html')},
+      {
+        manifest_version: 3,
+        options_page: 'legacy.html',
+        options_ui: {page: 'public/options.html'}
+      } as any,
+      context,
+      'chrome'
+    )
+    expect(html['options/index']).toBe(
+      path.join(context, 'public', 'options.html')
+    )
   })
 })
