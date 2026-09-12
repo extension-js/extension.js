@@ -31,6 +31,7 @@ export function detectBunVersion(
 
 // Under the Bun runtime the reported Node version is Bun's emulated one, so
 // naming the user's Node install would send them to upgrade the wrong thing.
+// The emulated version is not the reason for the refusal, the runtime is.
 export function unsupportedNodeVersionMessage(
   version: string,
   bunVersion?: string
@@ -38,10 +39,10 @@ export function unsupportedNodeVersionMessage(
   if (bunVersion) {
     return (
       `[Extension.js] The extension CLI runs on Node.js, not on the Bun ` +
-      `runtime. Bun ${bunVersion} emulates Node.js ${version}, below the ` +
-      `required ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}, so the Node.js you have ` +
-      `installed is not the problem. Re-run without the --bun flag, plain ` +
-      `bunx runs the extension CLI on Node.js.`
+      `runtime (Bun ${bunVersion}, reporting Node.js ${version}), so the ` +
+      `Node.js you have installed is not the problem. Run it on Node.js ` +
+      `instead: drop --bun from bunx or bun run, or unset run.bun in ` +
+      `bunfig.toml, plain bunx runs the extension CLI on Node.js.`
     )
   }
 
@@ -51,11 +52,14 @@ export function unsupportedNodeVersionMessage(
   )
 }
 
+// Bun is refused on its own, not through the version floor: a Bun that
+// emulates 22.12 or later would otherwise run the CLI on a runtime it does
+// not support.
 export function enforceSupportedNodeVersion(
   version: string = process.versions.node,
   bunVersion: string | undefined = detectBunVersion()
 ): void {
-  if (isSupportedNodeVersion(version)) return
+  if (!bunVersion && isSupportedNodeVersion(version)) return
   // eslint-disable-next-line no-console
   console.error(unsupportedNodeVersionMessage(version, bunVersion))
   process.exit(1)
