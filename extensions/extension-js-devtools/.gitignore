@@ -30,7 +30,6 @@ yarn-error.log*
 # extension.js
 extension-env.d.ts
 
-pages/centralized-logger/*
 
 # extension.js local session state
 .extension-js

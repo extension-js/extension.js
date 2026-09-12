@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Tailwind scans sources by itself but skips gitignored paths and depends
+   on the build cwd, so name every folder that carries class names. */
+@source "../src";
+@source "../pages";
+@source "../scripts";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

@@ -73,6 +73,38 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
   return result.status === 0
 }
 
+// Tailwind finds class names by scanning the project and skips gitignored
+// paths, so a stale ignore on pages/ shipped a devtools panel with half its
+// utilities missing. These classes are used only under pages/.
+const PAGES_ONLY_UTILITIES = ['.gap-1\\.5', '.h-7', '.table-fixed'] as const
+
+describe('companion devtools panel stylesheet', () => {
+  const devtools = COMPANIONS[0]
+  if (!fs.existsSync(devtools.packageDir)) return
+
+  it('carries the utilities the logger panel under pages/ uses', () => {
+    const built = ensureFirefoxBuild(devtools.packageDir, devtools.name)
+    expect(built, `${devtools.name}: firefox build did not run`).toBe(true)
+
+    const cssPath = path.join(
+      devtools.packageDir,
+      'dist',
+      'firefox',
+      'pages',
+      'centralized-logger.css'
+    )
+    expect(fs.existsSync(cssPath), 'logger panel stylesheet missing').toBe(true)
+
+    const css = fs.readFileSync(cssPath, 'utf8')
+    const missing = PAGES_ONLY_UTILITIES.filter((cls) => !css.includes(cls))
+    expect(
+      missing,
+      'the logger panel stylesheet lacks utilities its own sources use: ' +
+        'check @source in src/styles.css and that pages/ is not gitignored'
+    ).toEqual([])
+  })
+})
+
 describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
   for (const companion of COMPANIONS) {
     if (!fs.existsSync(companion.packageDir)) continue
