@@ -33,7 +33,9 @@ no error text ever travels.
 
 `dev`, `start` and `preview` do not end on their own, they watch until you stop them. Counting
 them only at exit would mean a session that ends with Ctrl-C is never counted at all, which is
-what used to happen. So these three report once at the moment the session comes up:
+what used to happen. So these three report once at the handoff to the watch runtime, which is
+before the first compile: a `dev` whose first compile fails has already contributed its started
+row, and the failure then arrives as its own `command_failed` row.
 
 | property  | value                                                              |
 | --------- | ------------------------------------------------------------------ |
@@ -41,9 +43,9 @@ what used to happen. So these three report once at the moment the session comes 
 
 Three consequences worth stating plainly:
 
-- **A watch session can produce two rows**, one `command_executed` with `session: started` when
-  it comes up, and one `command_failed` later if it breaks. That is deliberate. It gives the
-  failure count a denominator counted the same way.
+- **A watch session can produce two rows**, one `command_executed` with `session: started` at
+  the handoff, and one `command_failed` later if it breaks, first compile included. That is
+  deliberate. It gives the failure count a denominator counted the same way.
 - **Session rows are never sampled.** Sampling the denominator while failures ship in full would
   overstate the failure rate by five times, which is the reporting error this exists to fix.
 - **Stopping a watch session with Ctrl-C is not a failure** and is not reported as one. A short
