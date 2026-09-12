@@ -12,8 +12,9 @@ import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 // A declared background page compiles to background/index.js, which is the
 // background context for that manifest shape and the only place to replay from.
+// scripts? mirrors InjectBridgeProducer so both shims land on the same bundle.
 const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|script|index)\.js$/i
+  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
 
 // Prepends the dev-only scripts-replay shim to the compiled background asset.
 // A processAssets post-process (not BannerPlugin) so only that asset is touched.
