@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 
 // Structural view of the manifest fields the tracer reads; values stay
@@ -51,9 +53,14 @@ const COMPILED_TO_JS_EXTENSIONS = new Set([
 
 export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
 
-  constructor(options: {manifestPath: string}) {
+  constructor(options: {
+    manifestPath: string
+    browser?: DevOptions['browser']
+  }) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
   }
 
   apply(compiler: Compiler) {
@@ -81,7 +88,12 @@ export class TraceRuntimeLoadedFiles {
 
   private readManifest(): TracedManifest | undefined {
     try {
-      return JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+      // A popup or worker declared under a browser prefix is invisible to a
+      // raw read: the popup then ships twice and the worker's imports go untraced.
+      return filterKeysForThisBrowser(
+        JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8')) as Manifest,
+        this.browser
+      ) as TracedManifest
     } catch {
       return undefined
     }

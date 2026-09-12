@@ -6,8 +6,6 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import fs from 'node:fs'
-import path from 'node:path'
 import {
   init as esModuleLexerInit,
   parse as esModuleLexerParse
@@ -19,8 +17,6 @@ import {
   inputOrIdentityMap,
   returnWithMap
 } from '../../../lib/loader-source-maps'
-import {stripBom} from '../../../lib/parse-json-safe'
-import {toResourceKey} from '../../../lib/resource-path'
 import type {LoaderInterface} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
 
@@ -118,47 +114,10 @@ export default function ensureHMRForScripts(
     return source
   }
 
-  try {
-    const manifestPath = String(options?.manifestPath || '')
-    const manifestDir = manifestPath ? path.dirname(manifestPath) : ''
-
-    if (manifestPath && resourcePath) {
-      const manifest = JSON.parse(
-        stripBom(fs.readFileSync(manifestPath, 'utf-8'))
-      )
-      const contentScripts = Array.isArray(manifest?.content_scripts)
-        ? manifest.content_scripts
-        : []
-
-      const contentEntryPaths = new Set<string>()
-
-      for (const contentScript of contentScripts) {
-        const jsList = Array.isArray(contentScript?.js) ? contentScript.js : []
-
-        for (const jsFile of jsList) {
-          contentEntryPaths.add(
-            toResourceKey(path.resolve(manifestDir, jsFile))
-          )
-        }
-      }
-
-      if (contentEntryPaths.has(toResourceKey(resourcePath))) {
-        if (debugHtmlHmr) {
-          console.log(
-            `[extjs:html-hmr] skip direct resource=${resourcePath} manifest=${manifestPath}`
-          )
-        }
-        return source
-      }
-    }
-  } catch (error) {
-    if (debugHtmlHmr) {
-      console.log(
-        `[extjs:html-hmr] error resource=${resourcePath} manifest=${String(options?.manifestPath || '')} error=${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-    // Fail silently and keep the HTML HMR path for regular page scripts.
-  }
+  // Declared content scripts never reach this loader: the rule in
+  // feature-html/index.ts excludes them from the browser-resolved manifest.
+  // A raw re-read here would skip a page script that only the plain key names
+  // while a prefixed key overrides it, and would parse the manifest per file.
 
   if (debugHtmlHmr) {
     console.log(

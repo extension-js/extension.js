@@ -137,25 +137,29 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toBe(src)
   })
 
-  it('skips declared content script entries', () => {
+  it('leaves the content-script skip to the rule exclude, so a plain-key path a prefixed key overrides still gets HMR', async () => {
+    // On a firefox build the resolved manifest names only other.ts as a
+    // content script, so content.ts is a page script the rule lets through.
+    // A raw read of the plain key here would wrongly skip it.
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ensure-hmr-'))
     const manifestPath = path.join(tmpDir, 'manifest.json')
-    const contentScriptPath = path.join(tmpDir, 'content.ts')
+    const pageScriptPath = path.join(tmpDir, 'content.ts')
     fs.writeFileSync(
       manifestPath,
-      JSON.stringify({content_scripts: [{js: ['content.ts']}]})
+      JSON.stringify({
+        content_scripts: [{js: ['content.ts']}],
+        'firefox:content_scripts': [{js: ['other.ts']}]
+      })
     )
-    fs.writeFileSync(contentScriptPath, 'console.log("content")')
+    fs.writeFileSync(pageScriptPath, 'console.log("page")')
 
-    const src = 'console.log("content")'
-    const out = ensureHMRForScripts.call(
-      {
-        getOptions: () => ({manifestPath}),
-        resourcePath: contentScriptPath
-      },
+    const src = 'console.log("page")'
+    const out = await runLoader(
+      {getOptions: () => ({manifestPath}), resourcePath: pageScriptPath},
       src
     )
-    expect(out).toBe(src)
+    expect(out).toContain('.accept()')
+    expect(out).toContain(src)
   })
 
   it('skips modules in the content-script layer', () => {

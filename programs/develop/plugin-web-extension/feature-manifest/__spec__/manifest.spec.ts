@@ -43,4 +43,34 @@ describe('filterKeysForThisBrowser', () => {
     expect(patched.action).toEqual({default_title: 'Chromium'})
     expect((patched as any)['firefox:action']).toBeUndefined()
   })
+
+  it('keeps source order between sibling family prefixes, the later key wins', () => {
+    // Neither chromium: nor chrome: is the specific prefix on an edge build.
+    // The manifest-fields package resolves entries with the same rule, so
+    // this pins the shared outcome: change both or entries and consumers split.
+    const chromeLast = {
+      'chromium:action': {default_title: 'Chromium'},
+      'chrome:action': {default_title: 'Chrome'}
+    } as any
+    expect(
+      (filterKeysForThisBrowser(chromeLast, 'edge') as any).action
+    ).toEqual({default_title: 'Chrome'})
+
+    const chromiumLast = {
+      'chrome:action': {default_title: 'Chrome'},
+      'chromium:action': {default_title: 'Chromium'}
+    } as any
+    expect(
+      (filterKeysForThisBrowser(chromiumLast, 'edge') as any).action
+    ).toEqual({default_title: 'Chromium'})
+
+    // The specific prefix still beats every family sibling regardless of order.
+    const specificFirst = {
+      'edge:action': {default_title: 'Edge'},
+      'chrome:action': {default_title: 'Chrome'}
+    } as any
+    expect(
+      (filterKeysForThisBrowser(specificFirst, 'edge') as any).action
+    ).toEqual({default_title: 'Edge'})
+  })
 })
