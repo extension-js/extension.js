@@ -1,6 +1,11 @@
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {collectContentScriptEntryImports} from '../collect-entry-imports'
+import {
+  collectContentScriptAsyncChunkFiles,
+  collectContentScriptEntryImports,
+  isInjectedScriptEntry,
+  isPageContextEntry
+} from '../collect-entry-imports'
 
 type ChunkWithAuxFiles = {auxiliaryFiles: string[]}
 type EntryPointMock = {chunks: Set<ChunkWithAuxFiles>}
@@ -72,6 +77,22 @@ describe('collectContentScriptEntryImports', () => {
       expect.arrayContaining(['core.wasm', 'weights.bin'])
     )
     expect(res['content_scripts/content-a']).not.toContain('skip.map')
+  })
+
+  it('collects the files of a scripting API file and a user script too', () => {
+    const compilation = makeCompilationMock({
+      'scripts/inject': ['scripts/inject.css'],
+      'user_scripts/api_script': ['user_scripts/api_script.css', 'x.map'],
+      'action/index': ['action/index.css'],
+      'background/service_worker': ['bg.css']
+    })
+    const res = collectContentScriptEntryImports(compilation, {})
+    expect(res['scripts/inject']).toEqual(['scripts/inject.css'])
+    expect(res['user_scripts/api_script']).toEqual([
+      'user_scripts/api_script.css'
+    ])
+    expect(res['action/index']).toBeUndefined()
+    expect(res['background/service_worker']).toBeUndefined()
   })
 
   it('de-dupes auxiliary files', () => {
@@ -196,5 +217,50 @@ describe('collectContentScriptEntryImports', () => {
     const res = collectContentScriptEntryImports(compilation, includeList)
     expect(res['content_scripts/content-0']).toContain('img/bg.png')
     expect(res['content_scripts/content-0']).not.toContain('img/other.png')
+  })
+})
+
+describe('page-context entry classification', () => {
+  it('names the surfaces a page fetches from', () => {
+    expect(isInjectedScriptEntry('scripts/inject')).toBe(true)
+    expect(isInjectedScriptEntry('user_scripts/api_script')).toBe(true)
+    expect(isInjectedScriptEntry('content_scripts/content-0')).toBe(false)
+    expect(isPageContextEntry('content_scripts/content-0')).toBe(true)
+    expect(isPageContextEntry('scripts/inject')).toBe(true)
+    expect(isPageContextEntry('action/index')).toBe(false)
+    expect(isPageContextEntry('background/service_worker')).toBe(false)
+  })
+})
+
+describe('collectContentScriptAsyncChunkFiles', () => {
+  function entryWithAsync(ownFile: string, asyncFiles: string[]) {
+    const chunk = {
+      files: new Set([ownFile]),
+      getAllAsyncChunks: () => asyncFiles.map((file) => ({files: [file]}))
+    }
+    return {chunks: [chunk], getChildren: () => []}
+  }
+
+  it('lists import() chunks of every page-context entry and no page', () => {
+    const compilation = {
+      entrypoints: new Map([
+        [
+          'content_scripts/content-0',
+          entryWithAsync('content_scripts/content-0.js', ['lazy-content.js'])
+        ],
+        ['scripts/inject', entryWithAsync('scripts/inject.js', ['lazy-a.js'])],
+        [
+          'user_scripts/api_script',
+          entryWithAsync('user_scripts/api_script.js', ['lazy-b.js'])
+        ],
+        ['action/index', entryWithAsync('action/index.js', ['lazy-page.js'])]
+      ])
+    } as unknown as Compilation
+
+    expect(collectContentScriptAsyncChunkFiles(compilation)).toEqual({
+      'content_scripts/content-0': ['lazy-content.js'],
+      'scripts/inject': ['lazy-a.js'],
+      'user_scripts/api_script': ['lazy-b.js']
+    })
   })
 })

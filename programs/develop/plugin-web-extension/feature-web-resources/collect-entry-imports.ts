@@ -7,8 +7,22 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compilation} from '@rspack/core'
+import {classifyEntrySurface} from '../../lib/split-chunks'
 import type {FilepathList} from '../../types'
 import {unixify} from '../shared/paths'
+
+// A scripting API file under scripts/ or a user_scripts api_script. The
+// browser injects it into a page, so what it fetches is fetched by the page.
+export function isInjectedScriptEntry(entryName: string): boolean {
+  return classifyEntrySurface(String(entryName || '')) === 'script'
+}
+
+// Every entry whose bundle runs inside a web page. Its async chunks and
+// stylesheets need a web_accessible_resources listing or the page 404s.
+export function isPageContextEntry(entryName: string): boolean {
+  const surface = classifyEntrySurface(String(entryName || ''))
+  return surface === 'content_script' || surface === 'script'
+}
 
 type ChunkLike = {
   files?: Iterable<string>
@@ -153,9 +167,9 @@ type ChunkWithAsync = ChunkLike & {
   getAllAsyncChunks?: () => Iterable<ChunkLike>
 }
 
-// The JavaScript chunks a content script loads on demand through import().
-// They are not initial chunks, so the entry walk above never sees them, and
-// Chrome refuses to load them from a page unless the manifest lists them.
+// The JavaScript chunks a page-context entry loads on demand through
+// import(). They are not initial chunks, so the entry walk above never sees
+// them, and Chrome refuses to load them from a page unless the manifest lists them.
 export function collectContentScriptAsyncChunkFiles(
   compilation: Compilation
 ): Record<string, string[]> {
@@ -164,7 +178,7 @@ export function collectContentScriptAsyncChunkFiles(
   if (typeof compilation.entrypoints?.forEach !== 'function') return result
 
   compilation.entrypoints.forEach((entry, entryName) => {
-    if (!String(entryName).startsWith('content_scripts/')) return
+    if (!isPageContextEntry(String(entryName))) return
 
     const initial = new Set<string>()
     for (const chunk of toFileArray(
@@ -228,15 +242,13 @@ export function collectContentScriptEntryImports(
   const entryImports: Record<string, string[]> = {}
 
   const contentEntryNames = new Set<string>(
-    Object.keys(includeList || {}).filter((k) =>
-      k.startsWith('content_scripts')
-    )
+    Object.keys(includeList || {}).filter((k) => isPageContextEntry(k))
   )
 
   const chunkGraph = compilation.chunkGraph
 
   compilation.entrypoints.forEach((_entry, entryName) => {
-    if (String(entryName).startsWith('content_scripts/')) {
+    if (isPageContextEntry(String(entryName))) {
       contentEntryNames.add(entryName)
     }
   })
