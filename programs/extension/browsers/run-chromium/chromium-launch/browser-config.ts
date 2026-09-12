@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
+import {stageCompanionForNoOpen} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
@@ -251,6 +252,15 @@ export function browserConfig(
     }
   }
 
+  // --no-open must also silence the companion's first-run tabs, and the
+  // companion only learns that from a flag file in a per-session copy.
+  const extensionsForLaunch = stageCompanionForNoOpen({
+    extensionPaths: extensionsToLoad,
+    noOpen: configOptions.noOpen,
+    stageRoot: userProfilePath || undefined,
+    provision
+  })
+
   const excludeFlags = configOptions.excludeBrowserFlags || []
 
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
@@ -291,8 +301,8 @@ export function browserConfig(
   // Default flags: chrome-launcher's flags.ts; tooling flags per
   // chrome-flags-for-tools.md.
   const baseFlags = [
-    ...(extensionsToLoad.length
-      ? [`--load-extension=${extensionsToLoad.join()}`]
+    ...(extensionsForLaunch.length
+      ? [`--load-extension=${extensionsForLaunch.join()}`]
       : []),
     ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
     ...linuxContainerSandboxFlags,
