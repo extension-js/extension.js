@@ -44,6 +44,31 @@ describe('patchHtml', () => {
     expect(updated).not.toContain('src="a.js"')
   })
 
+  it('patches the given markup instead of the file when html is passed', () => {
+    const tmp = makeTmp('override')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(
+      htmlPath,
+      `<html><head><title>$EXTENSION_PUBLIC_FOO</title></head><body><script src="a.js"></script></body></html>`
+    )
+    const updated = patchHtml(
+      makeCompilation('production'),
+      'feature/index',
+      htmlPath,
+      {'feature/index': htmlPath},
+      tmp,
+      ['/shared/commons.js'],
+      `<html><head><title>envBar</title></head><body><script src="a.js"></script></body></html>`
+    )
+    expect(updated).toContain('<title>envBar</title>')
+    expect(updated).not.toContain('$EXTENSION_PUBLIC_FOO')
+    expect(updated).toContain('src="/shared/commons.js"')
+    expect(updated).toContain('src="/feature/index.js"')
+    expect(updated.indexOf('/shared/commons.js')).toBeLessThan(
+      updated.indexOf('/feature/index.js')
+    )
+  })
+
   it('keeps public-root absolute assets as-is', () => {
     const tmp = makeTmp('public')
     const htmlPath = path.join(tmp, 'index.html')

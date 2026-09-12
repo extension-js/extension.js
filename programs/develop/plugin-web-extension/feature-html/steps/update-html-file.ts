@@ -39,6 +39,19 @@ export function siblingScriptsFor(
     .map((file) => getFilePath(file, '', true))
 }
 
+// The current markup of an emitted page, from either shape the compilation
+// hands back: an Asset record wrapping a Source, or the Source itself.
+function readAssetSource(asset: unknown): string | undefined {
+  const holder = asset as {source?: unknown} | undefined
+  const source = typeof holder?.source === 'function' ? holder : holder?.source
+  const read = (source as {source?: () => unknown} | undefined)?.source
+  if (typeof read !== 'function') return undefined
+  const value = read.call(source)
+  if (typeof value === 'string') return value
+  if (Buffer.isBuffer(value)) return value.toString('utf8')
+  return undefined
+}
+
 export class UpdateHtmlFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -82,13 +95,21 @@ export class UpdateHtmlFile {
 
             if (!existing) continue
 
+            // EmitHtmlFile copied the source file into this asset and the env
+            // step templates $EXTENSION_* in it at this same stage. Building
+            // on the asset instead of the file keeps that work, so the env
+            // step stays the one owner of templating and this step the one
+            // owner of script and asset rewriting, in either tap order.
+            const currentHtml = readAssetSource(existing)
+
             const updated = patchHtml(
               compilation as unknown as Compilation,
               feature,
               resolved,
               (this.includeList || {}) as FilepathList,
               projectDir,
-              siblingScriptsFor(compilation as unknown as Compilation, feature)
+              siblingScriptsFor(compilation as unknown as Compilation, feature),
+              currentHtml
             )
 
             const updatedHtml =
