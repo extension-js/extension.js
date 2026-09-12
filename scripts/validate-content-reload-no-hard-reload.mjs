@@ -383,7 +383,9 @@ function runDevAndValidateContentReload(cwd, deepChain) {
     const child = spawn('npm', ['run', 'dev', '--', `--browser=${browser}`], {
       cwd,
       env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // npm is a .cmd shim on Windows, which only a shell can start.
+      shell: process.platform === 'win32'
     })
 
     let output = ''
