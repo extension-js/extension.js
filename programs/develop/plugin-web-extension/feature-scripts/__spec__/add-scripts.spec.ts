@@ -88,6 +88,51 @@ describe('AddScripts', () => {
     ).toBeUndefined()
   })
 
+  function buildServiceWorkerEntry(
+    manifest: Record<string, unknown>,
+    browser: string
+  ) {
+    const projectDir = createTempProject()
+    const swPath = path.join(projectDir, 'sw.js')
+    fs.writeFileSync(swPath, 'console.log(1)\n', 'utf8')
+    fs.writeFileSync(
+      path.join(projectDir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, ...manifest}),
+      'utf8'
+    )
+    const compiler = createCompiler(projectDir)
+    new AddScripts({
+      manifestPath: path.join(projectDir, 'manifest.json'),
+      browser,
+      includeList: {'background/service_worker': [swPath]}
+    } as any).apply(compiler as any)
+    return (compiler.options.entry as any)['background/service_worker']
+  }
+
+  it('gives a module service worker the module chunk loader whether the key is plain or prefixed', () => {
+    // importScripts throws inside a module worker, so a chromium:background
+    // module worker on a chrome build must not get the import-scripts loader.
+    expect(
+      buildServiceWorkerEntry(
+        {'chromium:background': {type: 'module', service_worker: 'sw.js'}},
+        'chrome'
+      ).chunkLoading
+    ).toBeUndefined()
+    expect(
+      buildServiceWorkerEntry(
+        {background: {type: 'module', service_worker: 'sw.js'}},
+        'chrome'
+      ).chunkLoading
+    ).toBeUndefined()
+    // A classic worker keeps importScripts chunk loading.
+    expect(
+      buildServiceWorkerEntry(
+        {'chromium:background': {service_worker: 'sw.js'}},
+        'chrome'
+      ).chunkLoading
+    ).toBe('import-scripts')
+  })
+
   it('uses a sequential entry module for multi-file content script groups', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')

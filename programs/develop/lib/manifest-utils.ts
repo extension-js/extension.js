@@ -68,6 +68,10 @@ export function filterKeysForThisBrowser(
       }
 
       // Precedence (deterministic): plain < family prefix < specific prefix.
+      // Two sibling family prefixes on one build (chromium: and chrome: on
+      // edge) keep source order, the later key wins. The manifest-fields
+      // package that discovers entries applies the same rule, so a change
+      // here must land there too or entries and consumers split.
       for (const [strippedKey, value] of Object.entries(familyMatches)) {
         result[strippedKey] = value
       }

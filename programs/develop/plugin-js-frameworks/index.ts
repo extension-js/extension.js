@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {filterKeysForThisBrowser} from 'browser-extension-manifest-fields'
+import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'

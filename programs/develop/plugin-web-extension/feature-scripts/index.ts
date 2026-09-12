@@ -57,7 +57,8 @@ export class ScriptsPlugin {
     // Runtime-loaded files the module graph cannot see (importScripts, executeScript
     // files payloads): copied through verbatim, missing references warn.
     new TraceRuntimeLoadedFiles({
-      manifestPath: this.manifestPath
+      manifestPath: this.manifestPath,
+      browser: this.browser
     }).apply(compiler)
 
     // import(chrome.runtime.getURL(...)) resolves at runtime; no module map can

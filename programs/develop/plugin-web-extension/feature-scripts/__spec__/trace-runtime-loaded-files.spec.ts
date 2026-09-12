@@ -16,12 +16,15 @@ afterEach(() => {
   }
 })
 
-function createTempProject(files: Record<string, string>) {
+function createTempProject(
+  files: Record<string, string>,
+  manifest: Record<string, unknown> = {}
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-trace-'))
   tempDirs.push(dir)
   fs.writeFileSync(
     path.join(dir, 'manifest.json'),
-    JSON.stringify({manifest_version: 3, name: 'fixture'}),
+    JSON.stringify({manifest_version: 3, name: 'fixture', ...manifest}),
     'utf8'
   )
   for (const [rel, content] of Object.entries(files)) {
@@ -60,13 +63,46 @@ function makeCompilation(assets: Record<string, string>) {
   return {compiler, compilation, emitted}
 }
 
-function runTrace(projectDir: string, assets: Record<string, string>) {
+function runTrace(
+  projectDir: string,
+  assets: Record<string, string>,
+  browser?: string
+) {
   const made = makeCompilation(assets)
   new TraceRuntimeLoadedFiles({
-    manifestPath: path.join(projectDir, 'manifest.json')
+    manifestPath: path.join(projectDir, 'manifest.json'),
+    browser: browser as any
   }).apply(made.compiler)
   return made
 }
+
+describe('TraceRuntimeLoadedFiles manifest surfaces', () => {
+  it('reads a popup declared under a browser prefix as a compiled surface', () => {
+    // The page pipeline relocates the popup, so a getURL to it must not copy
+    // the raw source through. A raw manifest read misses the prefixed key.
+    const files = {'popup.html': '<html></html>'}
+    const manifest = {'firefox:action': {default_popup: 'popup.html'}}
+    const assets = {
+      'background/index.js': 'chrome.runtime.getURL("popup.html");'
+    }
+
+    const firefox = runTrace(
+      createTempProject(files, manifest),
+      assets,
+      'firefox'
+    )
+    expect(firefox.emitted.has('popup.html')).toBe(false)
+
+    // On a chrome build the key resolves to nothing, so the file is a plain
+    // getURL target and copies through.
+    const chrome = runTrace(
+      createTempProject(files, manifest),
+      assets,
+      'chrome'
+    )
+    expect(chrome.emitted.has('popup.html')).toBe(true)
+  })
+})
 
 describe('extractInjectedFileLiterals', () => {
   it('reads files arrays from chrome.scripting injection calls', () => {
