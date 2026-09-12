@@ -8,6 +8,7 @@
       "!_FUTURE",
       "!extensions",
       "!extensions/**/dist",
+      "!templates",
       "!templates/**/dist",
       "!templates-artifacts",
       "!**/dist",
