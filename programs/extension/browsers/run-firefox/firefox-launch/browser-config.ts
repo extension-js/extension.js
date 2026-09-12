@@ -9,9 +9,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
+import {stageCompanionForNoOpen} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
-import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
+import {
+  resolveStartingUrl,
+  toExtensionLoadList
+} from '../../browsers-lib/runtime-options'
 import {
   cleanupOldTempProfiles,
   filterBrowserFlags,
@@ -34,6 +38,7 @@ type BrowserConfigOptions = {
   startingUrl?: string
   port?: number | string
   noOpen?: boolean
+  extension?: string | string[]
 } & BrowserConfig & {
     keepProfileChanges?: boolean
     copyFromProfile?: string
@@ -47,6 +52,10 @@ export interface FirefoxLaunchConfig {
   binaryArgs: string[]
   // The legacy `--binary-args=".." --profile=".." --verbose` string.
   config: string
+  // The add-on dirs the RDP install offers, with the devtools companion
+  // swapped for its per-session copy under --no-open. Empty when the caller
+  // passed no extension.
+  extensionsToLoad: string[]
 }
 
 export interface FirefoxConfigMode {
@@ -221,6 +230,17 @@ export async function resolveFirefoxLaunchConfig(
     }
   }
 
+  // Same reason as the Chromium side: the companion reads a flag file from a
+  // per-session copy, and the profile dir is the one place only this run owns.
+  const extensionsToLoad = stageCompanionForNoOpen({
+    extensionPaths: configOptions.extension
+      ? toExtensionLoadList(configOptions.extension)
+      : [],
+    noOpen: configOptions.noOpen,
+    stageRoot: profilePath || undefined,
+    provision
+  })
+
   const parts = ['--verbose']
   if (binaryArgs.length > 0) {
     parts.unshift(`--binary-args="${binaryArgs.join(' ')}"`)
@@ -228,5 +248,5 @@ export async function resolveFirefoxLaunchConfig(
   if (profilePath) {
     parts.splice(1, 0, `--profile="${profilePath}"`)
   }
-  return {profilePath, binaryArgs, config: parts.join(' ')}
+  return {profilePath, binaryArgs, config: parts.join(' '), extensionsToLoad}
 }

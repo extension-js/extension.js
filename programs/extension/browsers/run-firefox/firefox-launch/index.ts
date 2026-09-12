@@ -458,6 +458,7 @@ export class FirefoxLaunchPlugin {
       compilation,
       {
         ...options,
+        extension: this.host.extension,
         profile: this.host.profile,
         preferences: this.host.preferences || {},
         instanceId: effectiveInstanceId
@@ -465,6 +466,12 @@ export class FirefoxLaunchPlugin {
       {provision: !dryRun}
     )
     const {profilePath, binaryArgs: firefoxArgs} = launchConfig
+
+    // The RDP install reads the list off the host, so the staged companion
+    // copy has to replace the shared dist there before the install runs.
+    if (launchConfig.extensionsToLoad.length > 0) {
+      this.host.extension = launchConfig.extensionsToLoad
+    }
 
     // One argv for the printed plan and the spawn.
     const plan = FirefoxBinaryDetector.launchPlan({

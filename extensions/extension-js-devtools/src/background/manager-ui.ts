@@ -7,12 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {createExtensionsPageTab, handleFirstRun} from './define-initial-tab'
+import {readSessionFlags} from './session-flags'
 
 function bgGreen(str: string) {
   return `background: transparent; color: #0971fe; ${str}`
 }
 
 export async function initManagerUI() {
+  // --no-open means no tab at all. The CLI says so through a flag file in the
+  // per-session copy it stages, read here before any tab is created.
+  const session = await readSessionFlags()
+  if (session.noOpen) return
+
   try {
     chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
       const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
