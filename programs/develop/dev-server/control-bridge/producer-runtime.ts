@@ -722,28 +722,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       fullReload();
     }
 
-    // One server-built label travels the ReloadFrame; both announcement
-    // surfaces fire HERE, next to the actual reload action, so they stay true.
-
-    // Stable IDs of the bundled extension-js-devtools companion: Chromium pins
-    // via the manifest "key"; Firefox via browser_specific_settings.gecko.id.
-    var DEVTOOLS_COMPANION_ID_CHROMIUM = "kgdaecdpfkikjncaalnmmnjjfpofkcbl";
-    var DEVTOOLS_COMPANION_ID_FIREFOX = "devtools@extension.js";
-
-    function notifyDevtoolsCompanion(phase, label, kind) {
-      try {
-        var chrome = g.chrome;
-        if (!chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") return;
-        var id = engineName() === "firefox" ? DEVTOOLS_COMPANION_ID_FIREFOX : DEVTOOLS_COMPANION_ID_CHROMIUM;
-        chrome.runtime.sendMessage(
-          id,
-          {type: "extjs-dev-reload-state", phase: phase, label: label || "", kind: kind || "", instanceId: INSTANCE_ID},
-          function () { noopLastError(); }
-        );
-      } catch (e) {
-        // Ignore
-      }
-    }
+    // One server-built label travels the ReloadFrame; the announcement
+    // fires HERE, next to the actual reload action, so it stays true.
 
     // console.log the reload line into every open injectable tab; the patched
     // ISOLATED-world console also lands it in the dev-server log stream.
@@ -810,8 +790,6 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         : "extension";
       var announced = "[Extension.js] Reloading " + (label || fallback) + "…";
 
-      notifyDevtoolsCompanion("reloading", label, kind);
-
       // A scripts/ bundle edit: re-run the executeScript calls that named it
       // on their recorded tabs, before any reload decision below.
       replayProgrammaticScripts(frame.changedScriptFiles);
@@ -827,11 +805,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       send({type: "reload-ack", reloadType: kind, label: label});
 
       announceReloadInTabs(announced);
-      performDevReload(kind, function () {
-        // Only the content-scripts path confirms from here; full/SW reloads
-        // are confirmed by the devtools companion's chrome.management listeners.
-        notifyDevtoolsCompanion("reloaded", label, kind);
-      });
+      performDevReload(kind, function () {});
     }
 
     function sanitize(args) {
