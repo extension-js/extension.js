@@ -69,15 +69,22 @@ function insertBefore(
 
 // siblingScripts are the root-absolute chunk files the page must load before
 // its own bundle, in load order. Empty when the entry is a single file.
+// html is the markup to patch when the caller already holds the current
+// asset, so earlier processAssets work on it survives. htmlEntry then only
+// anchors relative refs. Without it the source file is read from disk.
 export function patchHtml(
   compilation: Compilation,
   feature: string,
   htmlEntry: string,
   includeList: FilepathList,
   manifestDir?: string,
-  siblingScripts: string[] = []
+  siblingScripts: string[] = [],
+  html?: string
 ): string {
-  const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile =
+    typeof html === 'string'
+      ? html
+      : fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 
