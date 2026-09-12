@@ -2,6 +2,64 @@
 
 ## Unreleased
 
+## 4.1.17 (September 12, 2026)
+
+### Features
+
+- Add a focused rspack test entry for ecosystem CI ([1d9a376a](https://github.com/extension-js/extension.js/commit/1d9a376a9207fef78d5f44b437dc3168fdbd479f))
+
+### Fixes
+
+- Stop the reload runtime from messaging the companion extension ([ddaaee7e](https://github.com/extension-js/extension.js/commit/ddaaee7e0fd80c2c30d10a842fb9c9419f20cc35))
+- Patch the emitted page from its current asset so env templating survives ([a1677a25](https://github.com/extension-js/extension.js/commit/a1677a2574cb05c0725ed94803eb2fdb481a7740))
+- Resolve prefixed keys in the script steps, drop the HMR loader re-read ([fcf37668](https://github.com/extension-js/extension.js/commit/fcf3766860b6961113ee8b5ff3c41eb2a062b816))
+- Resolve prefixed keys in the wrapper loader and theme icon reader ([66700831](https://github.com/extension-js/extension.js/commit/667008314721fbe24e8ed73f2f2ec2f609ac1434))
+- Stop treating an MV2 background page as a runnable script entry ([1e050b8a](https://github.com/extension-js/extension.js/commit/1e050b8a5b87ceb1013886a66e17e4a19e4587ef))
+- Resolve the sidebar panel through the shared output target helper ([bb6989ae](https://github.com/extension-js/extension.js/commit/bb6989ae6bb040ff57255c3b857cf4921f180dad))
+- Resolve browser-prefixed manifest keys in every consumer ([5de1c10f](https://github.com/extension-js/extension.js/commit/5de1c10f168ad64e00a484dd6d590c1c90cb9147))
+- Stop the test lane from hiding failures and racing itself ([73a2a39d](https://github.com/extension-js/extension.js/commit/73a2a39d6600da378bccdcd5901646d711de558f))
+
+<details>
+<summary>Other changes (36)</summary>
+
+- Trim the companion to its welcome page, blank new tab and first-run tabs ([163c2099](https://github.com/extension-js/extension.js/commit/163c2099a92b9c01a5bcf0fb1c0eadc784ee22b4))
+- Let Tailwind scan the logger panel so the devtools UI is styled ([f2dc1478](https://github.com/extension-js/extension.js/commit/f2dc1478b9d8e6767d5f2e2a2c49131053d98921))
+- Serialize the CLI suite after its dependencies and lint past the mirror ([b3d547b9](https://github.com/extension-js/extension.js/commit/b3d547b9c5378e3b7fa0667eef555cca4e8c8192))
+- Note the process-assets ordering and keep spec scratch out of the tree ([de59c0d5](https://github.com/extension-js/extension.js/commit/de59c0d5c6f554f6ee9eede9bf751ec1b32d74fc))
+- Label a missing page by its resolved key, reword the script split note ([801c5faa](https://github.com/extension-js/extension.js/commit/801c5faad707ff52cc5be2ad273dfc424660ce8b))
+- Drop the unreachable branch from the externally_connectable patch ([a4db44a7](https://github.com/extension-js/extension.js/commit/a4db44a7964e0f92191a4fc5e69adc42753d79d5))
+- Scan .mts and .cts sources and dedupe MAIN world host patterns in dev ([49fd73e8](https://github.com/extension-js/extension.js/commit/49fd73e8cc908bc59b1e64eb212c373c68f7c8ef))
+- Inject the replay shim into a background scripts bundle too ([f89654d3](https://github.com/extension-js/extension.js/commit/f89654d3381464628949182fdaa52b975f182515))
+- List the page-context chunks of injected scripts as web accessible ([adbf5869](https://github.com/extension-js/extension.js/commit/adbf5869aa692a88f458b3154d6435c96011566e))
+- Say a telemetry session row marks the handoff, not a finished boot ([fb98592f](https://github.com/extension-js/extension.js/commit/fb98592f30d5409ce8d12960d74a689c6893daf4))
+- Refuse the Bun runtime whatever Node version it emulates ([c28dab3e](https://github.com/extension-js/extension.js/commit/c28dab3e9d6d47d1ef324aa137e8add0bb7eb22b))
+- Stage a per-session companion copy so --no-open opens no tab anywhere ([6a52227a](https://github.com/extension-js/extension.js/commit/6a52227a1da1070a770c69be7121e5b1d464d345))
+- Align the no-open help and the no-browser refusal across commands ([14deb5df](https://github.com/extension-js/extension.js/commit/14deb5dfb860ce70bc4a6eff358d917bedcb2f30))
+- Exclude build output from the spec guard with a predicate on Node 22.12 ([409ead8f](https://github.com/extension-js/extension.js/commit/409ead8f0a233deec90ef6c73b90503a183311f0))
+- Spawn package managers through a shell on Windows in every runner ([4d14acaf](https://github.com/extension-js/extension.js/commit/4d14acaf506b44bc6af4e961d6aec1c671ee96a1))
+- Take the lexer's module verdict so export {} keeps its HMR guard ([4ba54b12](https://github.com/extension-js/extension.js/commit/4ba54b128b9dd0aceb7d93a2dabafd6bf9d32618))
+- Say when an undeclared host or tabs use really breaks the packaged build ([3944ab4b](https://github.com/extension-js/extension.js/commit/3944ab4b30e39a25f872f83ee99637ea80d40ba5))
+- Close only the session's own welcome page under --no-open, Edge too ([e9078fa3](https://github.com/extension-js/extension.js/commit/e9078fa3a557a9552d45db8788a69c12fd12f667))
+- Build the options page from options_ui before the legacy key ([2a821e17](https://github.com/extension-js/extension.js/commit/2a821e17b821e9e88b1c79fceee83678ede68c04))
+- Classify a user script as a script so its modules stay in its file ([c95dce17](https://github.com/extension-js/extension.js/commit/c95dce1747101ae75c09073fd47de19d859549bb))
+- Fail the suite when a spec file matches no include glob ([eb2018d7](https://github.com/extension-js/extension.js/commit/eb2018d76bc65340a5017c528da6977fab7ad78d))
+- Let excludeBrowserFlags cancel the tooling flags too ([9bd617ef](https://github.com/extension-js/extension.js/commit/9bd617efe9c3f163942a2f6c89b75264d02c70d4))
+- Keep a page under a user folder named hot from losing its chunk ([59d6caec](https://github.com/extension-js/extension.js/commit/59d6caecff3097b53481be39697057397f6886ee))
+- Print the pinned Firefox dry-run plan without probing the binary ([09f6d233](https://github.com/extension-js/extension.js/commit/09f6d233c51bf0286e9270de844c3406bc412702))
+- Close the tabs the session opens for itself when --no-open is set ([3c3b02c3](https://github.com/extension-js/extension.js/commit/3c3b02c3c9a0e047700d05ba29760d6196937cd7))
+- Spawn the package manager through a shell on Windows ([af2ef9ec](https://github.com/extension-js/extension.js/commit/af2ef9ec1ff7de85405c64307c7204c4a22d12c6))
+- Run the page-executing specs on every push and report a red lane ([03f5ba94](https://github.com/extension-js/extension.js/commit/03f5ba94b42ccef66073db19e4e27c420a776393))
+- Keep hot update chunks out of the scripts a page loads ([012510ad](https://github.com/extension-js/extension.js/commit/012510adec4f21726371497b82dadf1374e2ff42))
+- Make the end-to-end lane runnable outside CI ([83bf7d5f](https://github.com/extension-js/extension.js/commit/83bf7d5fc238f69fc5f030b2a67fec5c6b8e6c56))
+- Cover the dev server boot and React refresh with real compiles ([d31e5f52](https://github.com/extension-js/extension.js/commit/d31e5f5267a167464487b5007e1ab50a35ac763d))
+- Raise the rspack floor to the version rslib 1.0 needs ([3a4d6240](https://github.com/extension-js/extension.js/commit/3a4d624037346a96356dc7aa8463773deab8e98e))
+- Take the dependabot majors and patch the js-yaml advisory ([ac796a1f](https://github.com/extension-js/extension.js/commit/ac796a1fdd43ad3383d6039002aed6c8ecfa2167))
+- Open no tab at all when --no-open is set, on every browser ([44c0e020](https://github.com/extension-js/extension.js/commit/44c0e020479ff0c662a3d6ba9bfb05270c584c18))
+- Warn when dev grants a host the manifest never declared ([322e651e](https://github.com/extension-js/extension.js/commit/322e651e70ef93fa8842b867ebd5840d130aa820))
+- Refuse --no-browser with --wait instead of waiting for nothing ([e4864f5d](https://github.com/extension-js/extension.js/commit/e4864f5d79619cfa96645b3c933d01ce6ea781dd))
+- Explain the Bun runtime refusal instead of blaming installed Node ([7601e44d](https://github.com/extension-js/extension.js/commit/7601e44de15df09ed7eaf95e8d245f3643a14548))
+</details>
+
 ## 4.1.16 (September 9, 2026)
 
 <details>
