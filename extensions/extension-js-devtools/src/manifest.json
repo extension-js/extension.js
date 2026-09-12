@@ -3,7 +3,7 @@
   "manifest_version": 3,
   "version": "3.0.0",
   "name": "Extension.js",
-  "description": "Extension.js built-in developer tools",
+  "description": "Extension.js built-in companion",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "chromium:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAllbZJQG6Sfby1qyGr2pyR5JktAOh44tJMD1fm4Svk0JF/8TYwTTugJaFTPZoCepdgNU8gwc+jixaleQHOKNxmm2g1aV0eW8XSv4Mk+QM3//l9ftwvyoE/Z7vcwI1KT+OxUAoq6RUuQVjm007c4/mE3TiH83Atubrhp6eFVX7BfLAD49SNlpSvaK+Y8QgsJcmjQmLiUpkd4w9kWT3pk0Gn2Ytjz9spPurhdnFatwMuATQggazmS+lq0chGLzlznWN64lZER3iQ/gv30Z1DHGAPyOlf1w4YgVortWnbqrkIKzpCnymW2z8sj1BQMknaBW3katl20gg2DnpX4acsCzwYQIDAQAB",
@@ -11,7 +11,9 @@
     "gecko": {
       "id": "devtools@extension.js",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
@@ -19,44 +21,23 @@
   "icons": {
     "48": "images/logo.png"
   },
-  "chromium:action": {
-    "default_icon": {
-      "48": "images/logo.png"
-    },
-    "default_title": "Open Extension.js"
-  },
-  "firefox:browser_action": {
-    "default_icon": {
-      "48": "images/logo.png"
-    },
-    "default_title": "Open Extension.js"
-  },
-  "devtools_page": "devtools/index.html",
-  "options_ui": {
-    "page": "options/index.html",
-    "open_in_tab": true
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/scripts.tsx"],
-      "run_at": "document_idle"
-    }
+  "chromium:permissions": [
+    "management",
+    "tabs",
+    "storage"
   ],
-  "chromium:permissions": ["management", "tabs", "storage", "webNavigation"],
-  "firefox:permissions": ["management", "tabs", "storage"],
-  "chromium:host_permissions": ["<all_urls>"],
+  "firefox:permissions": [
+    "management",
+    "tabs",
+    "storage"
+  ],
   "background": {
     "chromium:service_worker": "background/index.ts",
-    "firefox:scripts": ["background/index.ts"]
+    "firefox:scripts": [
+      "background/index.ts"
+    ]
   },
   "chromium:chrome_url_overrides": {
     "newtab": "pages/newtab.html"
-  },
-  "chromium:web_accessible_resources": [
-    {
-      "resources": ["assets/*", "scripts/logger-client.js", "pages/*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }
