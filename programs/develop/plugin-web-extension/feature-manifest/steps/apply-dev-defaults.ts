@@ -19,7 +19,8 @@ import {
   declaredHostPatterns,
   devInjectedHostPatterns,
   findInjectedOnlyHostUses,
-  optionalHostPatterns
+  optionalHostPatterns,
+  scannableSourcePath
 } from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   devInjectedPermissions,
@@ -46,9 +47,10 @@ export function findInjectedOnlyPermissionUses(
   if (!candidates.length) return firstOffenderByApi
 
   for (const module of compilation.modules) {
-    const resource = (module as {resource?: string}).resource
-    if (!resource || resource.includes('node_modules')) continue
-    if (!/\.(?:js|jsx|ts|tsx|mjs|cjs)$/.test(resource)) continue
+    const resource = scannableSourcePath(
+      (module as {resource?: string}).resource
+    )
+    if (!resource) continue
     let source: string
     try {
       const stat = fs.statSync(resource)
