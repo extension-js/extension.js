@@ -1869,7 +1869,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(runtimeReloaded).toBe(true)
   })
 
-  it('reload broadcast (page): notify-only, no extension reload, no tab console line, companion still pinged', async () => {
+  it('reload broadcast (page): notify-only, no extension reload, no tab console line, no message to other extensions', async () => {
     const external: Array<{id: string; msg: any}> = []
     const execCalls: unknown[] = []
     let runtimeReloaded = false
@@ -1905,16 +1905,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(runtimeReloaded).toBe(false)
     expect(execCalls).toHaveLength(0)
-    expect(external).toHaveLength(1)
-    expect(external[0].msg).toMatchObject({
-      type: 'extjs-dev-reload-state',
-      phase: 'reloading',
-      label: 'sidebar page (src/sidebar/index.tsx)',
-      kind: 'page'
-    })
+    // The reload state used to be pushed to the bundled companion; the
+    // producer now talks to no other extension.
+    expect(external).toHaveLength(0)
   })
 
-  it('reload broadcast (content-scripts): confirms "reloaded" to the devtools companion after reinjection', async () => {
+  it('reload broadcast (content-scripts): messages no other extension after reinjection', async () => {
     const external: Array<{id: string; msg: any}> = []
     const diskManifest = {
       content_scripts: [
@@ -1953,11 +1949,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
     await new Promise((r) => setTimeout(r, 20))
 
-    const phases = external.map((e) => e.msg.phase)
-    expect(phases).toEqual(['reloading', 'reloaded'])
-    for (const e of external) {
-      expect(e.msg.label).toBe('content_script (src/content/scripts.ts)')
-    }
+    expect(external).toEqual([])
   })
 
   it('inspect of a content tab extracts a DOM snapshot via chrome.scripting', async () => {
