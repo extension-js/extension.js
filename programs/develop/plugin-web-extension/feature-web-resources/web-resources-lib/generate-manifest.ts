@@ -18,6 +18,7 @@ import {
 import {
   collectContentScriptAsyncChunkFiles,
   collectReferencedRuntimePayloads,
+  isInjectedScriptEntry,
   listEmittedAssetNames
 } from '../collect-entry-imports'
 import {cleanMatches} from './clean-matches'
@@ -250,11 +251,40 @@ export function generateManifestPatches(
     }
   }
 
+  // A scripting API file or a user script runs on whichever page the
+  // extension injects it into, unknown at build time, so what the page
+  // fetches for it is exposed to every origin, the group dev already uses.
+  const addInjectedScriptResources = (resources: string[]) => {
+    if (resources.length === 0) return
+    if (canonicalManifest.manifest_version === 3) {
+      mergeIntoV3Group(
+        webAccessibleResourcesV3,
+        cleanMatches(['<all_urls>']),
+        resources
+      )
+      return
+    }
+    for (const resource of resources) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
+      }
+    }
+  }
+
   for (const [entryName, resources] of Object.entries(entryImports)) {
     const contentScript = canonicalManifest.content_scripts?.find(
       (script: {js?: string[]}) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
+
+    if (!contentScript && isInjectedScriptEntry(entryName)) {
+      addInjectedScriptResources(
+        resources.filter(
+          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
+        )
+      )
+      continue
+    }
 
     if (contentScript) {
       const matches = contentScript.matches || []
@@ -299,7 +329,12 @@ export function generateManifestPatches(
       (script: {js?: string[]}) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
-    if (!contentScript) continue
+    if (!contentScript) {
+      if (isInjectedScriptEntry(entryName)) {
+        addInjectedScriptResources(chunkFiles)
+      }
+      continue
+    }
     if (canonicalManifest.manifest_version === 3) {
       mergeIntoV3Group(
         webAccessibleResourcesV3,
