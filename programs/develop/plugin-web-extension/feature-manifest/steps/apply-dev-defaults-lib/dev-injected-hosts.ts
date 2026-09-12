@@ -18,9 +18,15 @@ export function devInjectedHostPatterns(
 ): readonly string[] {
   const contentScripts = manifest?.content_scripts
   if (!Array.isArray(contentScripts)) return []
-  return (contentScripts as Array<{matches?: unknown}>).flatMap((cs) =>
-    Array.isArray(cs?.matches) ? (cs.matches as string[]) : []
-  )
+  // A MAIN world script repeats its matches on a synthesised bridge entry,
+  // so the union dedupes or the promotion warning prints the pattern twice.
+  return [
+    ...new Set(
+      (contentScripts as Array<{matches?: unknown}>).flatMap((cs) =>
+        Array.isArray(cs?.matches) ? (cs.matches as string[]) : []
+      )
+    )
+  ]
 }
 
 // MV3 keeps hosts in host_permissions. MV2 has no such key, so a host lives
@@ -52,10 +58,24 @@ export function optionalHostPatterns(
     .filter((entry) => isHostPattern(entry))
 }
 
+// The schemes a match pattern can name a host under. ws and wss are hosts a
+// worker socket needs, urn carries no authority so it never names one.
 export function isHostPattern(value: string): boolean {
   return (
-    value === '<all_urls>' || /^(?:\*|https?|file|ftp|urn):\/\//.test(value)
+    value === '<all_urls>' || /^(?:\*|https?|wss?|file|ftp):\/\//.test(value)
   )
+}
+
+// The source files a dev scan reads. The module graph names an SFC block as
+// file.vue?vue&type=script, so the query goes before the extension test.
+const SCANNABLE_SOURCE_RE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx|vue|svelte)$/
+
+export function scannableSourcePath(
+  resource: string | undefined
+): string | undefined {
+  if (!resource || resource.includes('node_modules')) return undefined
+  const bare = resource.split('?')[0]
+  return SCANNABLE_SOURCE_RE.test(bare) ? bare : undefined
 }
 
 function escapeForRegExp(value: string): string {
@@ -188,9 +208,8 @@ export function findInjectedOnlyHostUses(
   const firstUseByOrigin = new Map<string, InjectedOnlyHostUse>()
 
   for (const module of modules) {
-    const resource = module?.resource
-    if (!resource || resource.includes('node_modules')) continue
-    if (!/\.(?:js|jsx|ts|tsx|mjs|cjs)$/.test(resource)) continue
+    const resource = scannableSourcePath(module?.resource)
+    if (!resource) continue
     if (isContentScriptModule(module)) continue
 
     let source: string

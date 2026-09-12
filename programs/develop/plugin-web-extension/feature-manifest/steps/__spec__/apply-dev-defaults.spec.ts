@@ -3,7 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {ApplyDevDefaults} from '../apply-dev-defaults'
+import {
+  ApplyDevDefaults,
+  findInjectedOnlyPermissionUses
+} from '../apply-dev-defaults'
 import {devInjectedHostPatterns} from '../apply-dev-defaults-lib/dev-injected-hosts'
 import {devInjectedPermissions} from '../apply-dev-defaults-lib/dev-injected-permissions'
 
@@ -803,5 +806,25 @@ describe('ApplyDevDefaults', () => {
     expect(out.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.js'
     ])
+  })
+})
+
+describe('findInjectedOnlyPermissionUses', () => {
+  it('reads .mts and .cts modules and a resource that carries a query', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-scan-ext-'))
+    const worker = path.join(dir, 'worker.mts')
+    const legacy = path.join(dir, 'legacy.cts')
+    fs.writeFileSync(worker, 'chrome.tabs.query({})\n')
+    fs.writeFileSync(legacy, 'chrome.scripting.executeScript({})\n')
+    const uses = findInjectedOnlyPermissionUses(
+      {
+        modules: [{resource: worker}, {resource: `${legacy}?used`}]
+      } as any,
+      new Set<string>(),
+      ['tabs', 'scripting']
+    )
+    expect(uses.get('tabs')).toBe(worker)
+    expect(uses.get('scripting')).toBe(legacy)
+    fs.rmSync(dir, {recursive: true, force: true})
   })
 })

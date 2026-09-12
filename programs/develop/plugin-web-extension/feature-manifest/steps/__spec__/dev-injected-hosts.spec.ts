@@ -1,11 +1,17 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   declaredHostPatterns,
   devInjectedHostPatterns,
   findAbsoluteRequestUrls,
+  findInjectedOnlyHostUses,
   isContentScriptModule,
+  isHostPattern,
   matchesHostPattern,
-  optionalHostPatterns
+  optionalHostPatterns,
+  scannableSourcePath
 } from '../apply-dev-defaults-lib/dev-injected-hosts'
 
 describe('devInjectedHostPatterns', () => {
@@ -25,6 +31,85 @@ describe('devInjectedHostPatterns', () => {
   it('returns nothing when there are no content scripts', () => {
     expect(devInjectedHostPatterns({manifest_version: 3})).toEqual([])
     expect(devInjectedHostPatterns({content_scripts: 'nope'})).toEqual([])
+  })
+
+  it('lists a pattern once when a MAIN world bridge entry repeats it', () => {
+    expect(
+      devInjectedHostPatterns({
+        manifest_version: 3,
+        content_scripts: [
+          {matches: ['https://a.test/*'], world: 'MAIN'},
+          {matches: ['https://a.test/*']},
+          {matches: ['https://b.test/*', 'https://a.test/*']}
+        ]
+      })
+    ).toEqual(['https://a.test/*', 'https://b.test/*'])
+  })
+})
+
+describe('isHostPattern', () => {
+  it('accepts the schemes a match pattern can carry, sockets included', () => {
+    for (const pattern of [
+      '<all_urls>',
+      '*://*/*',
+      'https://a.test/*',
+      'http://a.test/*',
+      'ws://a.test/*',
+      'wss://*.a.test/*',
+      'file:///*',
+      'ftp://a.test/*'
+    ]) {
+      expect(isHostPattern(pattern), pattern).toBe(true)
+    }
+  })
+
+  it('rejects urn and plain API permission names', () => {
+    for (const value of ['urn://x', 'tabs', 'storage', 'scripting']) {
+      expect(isHostPattern(value), value).toBe(false)
+    }
+  })
+})
+
+describe('scannableSourcePath', () => {
+  it('reads every script extension, .mts and .cts included', () => {
+    for (const ext of ['js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'mts', 'cts']) {
+      expect(scannableSourcePath(`/p/src/a.${ext}`), ext).toBe(
+        `/p/src/a.${ext}`
+      )
+    }
+  })
+
+  it('drops a request query before the extension test and the read', () => {
+    expect(scannableSourcePath('/p/src/a.ts?used')).toBe('/p/src/a.ts')
+    expect(scannableSourcePath('/p/App.vue?vue&type=script&lang.ts')).toBe(
+      '/p/App.vue'
+    )
+    expect(scannableSourcePath('/p/App.svelte')).toBe('/p/App.svelte')
+  })
+
+  it('skips dependencies, data files and empty resources', () => {
+    expect(scannableSourcePath('/p/node_modules/x/a.js')).toBeUndefined()
+    expect(scannableSourcePath('/p/data.json')).toBeUndefined()
+    expect(scannableSourcePath('/p/style.css?x.ts')).toBeUndefined()
+    expect(scannableSourcePath(undefined)).toBeUndefined()
+  })
+})
+
+describe('findInjectedOnlyHostUses', () => {
+  it('scans .mts, .cts and a resource that carries a query', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-host-scan-'))
+    const worker = path.join(dir, 'worker.mts')
+    const legacy = path.join(dir, 'legacy.cts')
+    fs.writeFileSync(worker, "fetch('https://api.one.test/v1')\n")
+    fs.writeFileSync(legacy, "fetch('https://api.two.test/v1')\n")
+    const uses = findInjectedOnlyHostUses(
+      [{resource: worker}, {resource: `${legacy}?used`}],
+      ['https://api.one.test/*', 'https://api.two.test/*'],
+      [],
+      []
+    )
+    expect(uses.map((use) => use.file).sort()).toEqual([legacy, worker].sort())
+    fs.rmSync(dir, {recursive: true, force: true})
   })
 })
 
