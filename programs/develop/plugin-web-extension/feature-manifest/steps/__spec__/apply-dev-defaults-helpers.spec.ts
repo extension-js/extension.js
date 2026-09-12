@@ -129,6 +129,18 @@ describe('ApplyDevDefaults patch helpers', () => {
     })
   })
 
+  it('leaves a declared externally_connectable ids allowlist alone', () => {
+    expect(
+      patchExternallyConnectable({
+        externally_connectable: {
+          matches: ['https://example.com/*'],
+          ids: ['abcdefghijklmnopabcdefghijklmnop']
+        }
+      } as any)
+    ).toEqual({})
+    expect(patchExternallyConnectable({} as any)).toEqual({})
+  })
+
   it('adds dev web-accessible defaults while preserving existing entries', () => {
     expect(
       patchWebResourcesV2({
