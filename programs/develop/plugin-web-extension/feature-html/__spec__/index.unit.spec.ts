@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../plugin-web-extension/feature-scripts/contracts'
 import {HtmlPlugin} from '../index'
 
@@ -27,11 +28,21 @@ function makeCompiler(mode: 'development' | 'production') {
   } as any
 }
 
+// Scratch projects live under the OS temp dir, so a crashed run leaves no
+// litter in the source tree.
+const tmpRoots: string[] = []
+function makeTmp(prefix: string) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
+  tmpRoots.push(dir)
+  return dir
+}
+afterAll(() => {
+  for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
+})
+
 describe('HtmlPlugin', () => {
   it('adds dev-mode loaders for HMR and logger', () => {
-    const tmp = path.join(__dirname, '.tmp-html-plugin')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('extjs-html-plugin')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{"name":"x"}', 'utf8')
     const compiler = makeCompiler('development')
@@ -43,9 +54,7 @@ describe('HtmlPlugin', () => {
   })
 
   it('scopes the page HMR loader away from feature-scripts2 content entries', () => {
-    const tmp = path.join(__dirname, '.tmp-html-plugin-fs2')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('extjs-html-plugin-fs2')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(
       manifestPath,
@@ -92,12 +101,7 @@ describe('HtmlPlugin', () => {
     ]
 
     for (const [key, browser, excluded] of cases) {
-      const tmp = path.join(
-        __dirname,
-        `.tmp-html-plugin-${browser}-${excluded}`
-      )
-      fs.rmSync(tmp, {recursive: true, force: true})
-      fs.mkdirSync(tmp, {recursive: true})
+      const tmp = makeTmp(`extjs-html-plugin-${browser}-${excluded}`)
       const manifestPath = path.join(tmp, 'manifest.json')
       fs.writeFileSync(
         manifestPath,
