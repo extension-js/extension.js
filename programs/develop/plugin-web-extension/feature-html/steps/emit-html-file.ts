@@ -9,8 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
-import type {FilepathList, PluginInterface} from '../../../types'
+import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
@@ -76,7 +77,11 @@ export class EmitHtmlFile {
                   compilation,
                   compiler,
                   messages.manifestPageMissing(
-                    manifestFieldForHtmlFeature(featureName, this.manifestPath),
+                    manifestFieldForHtmlFeature(
+                      featureName,
+                      this.manifestPath,
+                      this.browser
+                    ),
                     resolved
                   ),
                   isLoadChecked ? 'error' : 'warning',
@@ -109,36 +114,33 @@ export class EmitHtmlFile {
 }
 
 // Map an HTML includeList feature key back to the manifest field the user
-// wrote, browser-prefix tolerant, so errors point at their own manifest.
-function manifestFieldForHtmlFeature(
+// wrote. The manifest is filtered for the target browser first, the same
+// view the include list was built from, so a firefox: key never labels a
+// chrome build.
+export function manifestFieldForHtmlFeature(
   featureName: string,
-  manifestPath: string
+  manifestPath: string,
+  browser?: PluginInterface['browser']
 ): string {
   let manifest: Record<string, unknown> = {}
   try {
-    manifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+    manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8'))) as Manifest,
+      browser || 'chrome'
+    ) as Record<string, unknown>
   } catch {
     // fall through to positional labels
   }
 
-  const has = (key: string) =>
-    Object.keys(manifest).some(
-      (manifestKey) => manifestKey === key || manifestKey.endsWith(`:${key}`)
-    )
+  const has = (key: string) => key in manifest
 
-  // Both engines read options_ui.page before the legacy key, and the build
-  // compiles that source, so the label has to name the same one.
-  const hasOptionsUiPage = () =>
-    Object.entries(manifest).some(([manifestKey, value]) => {
-      if (
-        manifestKey !== 'options_ui' &&
-        !manifestKey.endsWith(':options_ui')
-      ) {
-        return false
-      }
-      const page = (value as {page?: unknown} | null)?.page
-      return typeof page === 'string' && page.trim().length > 0
-    })
+  // Both engines read options_ui.page before the legacy key (optionsPageRef
+  // in shared/html-surfaces), and the build compiles that source, so the
+  // label has to name the same one.
+  const hasOptionsUiPage = () => {
+    const page = (manifest.options_ui as {page?: unknown} | undefined)?.page
+    return typeof page === 'string' && page.trim().length > 0
+  }
 
   if (featureName.startsWith('chrome_url_overrides/')) {
     return featureName.replace('/', '.')

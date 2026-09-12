@@ -138,7 +138,7 @@ describe('WarnSplitInitialChunks', () => {
     expect(warnings).toHaveLength(1)
     const text = String(warnings[0].message)
     expect(text).toContain(
-      'scripts/inject is split into 2 initial files, but the runtime injection loads only scripts/inject.js.'
+      'scripts/inject is split into 2 initial files, but the browser injects only scripts/inject.js.'
     )
     expect(text).toContain('shared/commons.js')
     expect(text).toContain('the script never runs')
@@ -197,7 +197,7 @@ describe('WarnSplitInitialChunks', () => {
       'the content_scripts declaration injects only content_scripts/content-0.js'
     )
     expect(String(warnings[1].message)).toContain(
-      'the runtime injection loads only scripts/inject.js'
+      'the browser injects only scripts/inject.js'
     )
   })
 })

@@ -1,7 +1,11 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {EmitHtmlFile} from '../../steps/emit-html-file'
+import {
+  EmitHtmlFile,
+  manifestFieldForHtmlFeature
+} from '../../steps/emit-html-file'
 
 function makeCompilation() {
   const state: any = {warnings: []}
@@ -57,5 +61,48 @@ describe('EmitHtmlFile', () => {
       includeList: {'pages/missing': '/missing.html'}
     } as any).apply(c as any)
     expect(c.state.warnings.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('manifestFieldForHtmlFeature', () => {
+  it('labels the options slot from the keys the target browser reads', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emit-label-'))
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        name: 'X',
+        options_page: 'legacy.html',
+        'firefox:options_ui': {page: 'modern.html'}
+      })
+    )
+    // Chrome never reads the firefox: key, so its missing file is the legacy one.
+    expect(
+      manifestFieldForHtmlFeature('options/index', manifestPath, 'chrome')
+    ).toBe('options_page')
+    expect(
+      manifestFieldForHtmlFeature('options/index', manifestPath, 'firefox')
+    ).toBe('options_ui.page')
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('labels a prefixed popup key only on the browser that reads it', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emit-label-'))
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        name: 'X',
+        'chromium:action': {default_popup: 'popup.html'},
+        'firefox:browser_action': {default_popup: 'popup.html'}
+      })
+    )
+    expect(
+      manifestFieldForHtmlFeature('action/index', manifestPath, 'edge')
+    ).toBe('action.default_popup')
+    expect(
+      manifestFieldForHtmlFeature('action/index', manifestPath, 'firefox')
+    ).toBe('browser_action.default_popup')
+    fs.rmSync(tmp, {recursive: true, force: true})
   })
 })

@@ -93,8 +93,10 @@ const SPLIT_ENTRY_SURFACES = {
     loads: () => 'the content_scripts declaration injects only',
     effect: 'the content script never runs on the page'
   },
+  // A scripting API call and a user_scripts api_script both hand the browser
+  // one file to inject, so the wording has to hold for either.
   script: {
-    loads: () => 'the runtime injection loads only',
+    loads: () => 'the browser injects only',
     effect: 'the script never runs'
   }
 } as const
