@@ -14,7 +14,9 @@ import {getDevExtension} from '@/background/define-initial-tab'
 
 import '@/styles.css'
 
-applyTheme()
+// The page paints a dark backdrop whatever the OS theme, so the tokens
+// must be the dark set or the heading lands dark on dark.
+applyTheme('dark')
 
 type AppFooterProps = HTMLAttributes<HTMLDivElement>
 

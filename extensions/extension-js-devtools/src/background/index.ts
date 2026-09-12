@@ -7,86 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {initManagerUI} from './manager-ui'
-import {appendExternalLog} from './log-central'
 
 type ResolveIconMessage = {
   type: 'resolve-icon-url'
   url: string
-}
-
-type GetDxStatusMessage = {
-  type: 'get-dx-status'
-}
-
-type OpenOptionsPageMessage = {
-  type: 'open-options-page'
-}
-
-type DxSignalMessage = {
-  type: 'dx-signal'
-  level?: 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
-  context?: 'background' | 'content' | 'page' | 'sidebar' | 'popup' | 'options' | 'devtools'
-  eventType?: 'log' | 'dx.signal'
-  code?: string
-  status?: 'ok' | 'warn' | 'fail'
-  data?: Record<string, unknown>
-  remediation?: string
-  messageParts?: unknown[]
-  url?: string
-  stack?: string
-  errorName?: string
-}
-
-type DxStatusResponse = {
-  ok: true
-  extensionEnabled: boolean | null
-  extensionName?: string
-  extensionId?: string
-}
-
-type KnownMessage =
-  | ResolveIconMessage
-  | GetDxStatusMessage
-  | OpenOptionsPageMessage
-  | DxSignalMessage
-
-function isBuiltInExtension(extension: chrome.management.ExtensionInfo) {
-  const name = String(extension.name || '').toLowerCase()
-  return (
-    name.includes('extension.js built-in developer tools') ||
-    name.includes('extension.js theme')
-  )
-}
-
-async function getUserDevExtensionStatus(): Promise<DxStatusResponse> {
-  const allExtensions = (await new Promise((resolve) => {
-    chrome.management.getAll(resolve)
-  })) as chrome.management.ExtensionInfo[]
-
-  const candidates = (allExtensions || []).filter((extension) => {
-    return (
-      extension.id !== chrome.runtime.id &&
-      extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
-      extension.installType === 'development' &&
-      extension.type !== 'theme' &&
-      !isBuiltInExtension(extension)
-    )
-  })
-
-  if (candidates.length === 0) {
-    return {ok: true, extensionEnabled: null}
-  }
-
-  const preferred =
-    candidates.find((extension) => extension.enabled) ||
-    candidates[candidates.length - 1]
-
-  return {
-    ok: true,
-    extensionEnabled: Boolean(preferred?.enabled),
-    extensionName: preferred?.name,
-    extensionId: preferred?.id
-  }
 }
 
 function isAllowedIconUrl(rawUrl: string) {
@@ -119,77 +43,23 @@ async function fetchIconAsDataUrl(rawUrl: string) {
   })
 }
 
+// The welcome page cannot fetch another extension's icon on Firefox, so it
+// asks the background to turn the icon URL into a data URL.
 chrome.runtime.onMessage.addListener(
-  (message: KnownMessage, sender, sendResponse) => {
+  (message: ResolveIconMessage, sender, sendResponse) => {
     if (sender?.id && sender.id !== chrome.runtime.id) return
-    if (!message) return
+    if (!message || message.type !== 'resolve-icon-url') return
 
-    if (message.type === 'resolve-icon-url') {
-      if (!message.url || !isAllowedIconUrl(message.url)) {
-        sendResponse({ok: false, error: 'Unsupported icon URL'})
-        return
-      }
-
-      fetchIconAsDataUrl(message.url)
-        .then((dataUrl) => sendResponse({ok: true, dataUrl}))
-        .catch((error) => sendResponse({ok: false, error: String(error)}))
-
-      return true
+    if (!message.url || !isAllowedIconUrl(message.url)) {
+      sendResponse({ok: false, error: 'Unsupported icon URL'})
+      return
     }
 
-    if (message.type === 'get-dx-status') {
-      getUserDevExtensionStatus()
-        .then((payload) => sendResponse(payload))
-        .catch((error) =>
-          sendResponse({ok: false, error: String(error || 'Unknown error')})
-        )
-      return true
-    }
+    fetchIconAsDataUrl(message.url)
+      .then((dataUrl) => sendResponse({ok: true, dataUrl}))
+      .catch((error) => sendResponse({ok: false, error: String(error)}))
 
-    if (message.type === 'open-options-page') {
-      // Content scripts cannot call openOptionsPage, so the overlay asks here.
-      try {
-        chrome.runtime.openOptionsPage(() => {
-          if (chrome.runtime.lastError) {
-            sendResponse({
-              ok: false,
-              error: String(chrome.runtime.lastError.message || 'Unknown error')
-            })
-            return
-          }
-          sendResponse({ok: true})
-        })
-      } catch (error) {
-        sendResponse({ok: false, error: String(error || 'Unknown error')})
-      }
-      return true
-    }
-
-    if (message.type === 'dx-signal') {
-      try {
-        appendExternalLog({
-          level: message.level || 'info',
-          context: message.context || 'content',
-          messageParts:
-            Array.isArray(message.messageParts) && message.messageParts.length > 0
-              ? message.messageParts
-              : [message.code || 'DX_SIGNAL'],
-          eventType: message.eventType || 'dx.signal',
-          code: message.code,
-          status: message.status,
-          data: message.data,
-          remediation: message.remediation,
-          url: typeof message.url === 'string' ? message.url : undefined,
-          stack: typeof message.stack === 'string' ? message.stack : undefined,
-          errorName:
-            typeof message.errorName === 'string' ? message.errorName : undefined
-        })
-        sendResponse({ok: true})
-      } catch (error) {
-        sendResponse({ok: false, error: String(error || 'Unknown error')})
-      }
-      return true
-    }
+    return true
   }
 )
 
@@ -200,106 +70,3 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.runtime.onInstalled.addListener(async () => {
   await initManagerUI()
 })
-
-// Broadcast reload-state pings to the content-script overlay pill. Two signal
-// sources: the bridge producer (onMessageExternal) and chrome.management events.
-function isUserDevExtensionForReload(
-  info: chrome.management.ExtensionInfo
-): boolean {
-  if (!info) return false
-  if (info.id === chrome.runtime.id) return false
-  if (info.installType !== 'development') return false
-  if (info.type === 'theme') return false
-  return !isBuiltInExtension(info)
-}
-
-// Label from the most recent 'reloading' signal, replayed on the management
-// confirmation so "reloaded" clears with the same context it started with.
-let lastReloadLabel = ''
-
-function broadcastReloadState(
-  state: 'reloading' | 'reloaded',
-  label?: string,
-  kind?: string
-) {
-  try {
-    chrome.tabs.query({}, (tabs) => {
-      for (const tab of tabs || []) {
-        if (typeof tab.id !== 'number') continue
-        try {
-          chrome.tabs
-            .sendMessage(tab.id, {
-              type: 'extjs-dev-reload',
-              state,
-              label: label || '',
-              kind: kind || ''
-            })
-            .catch(() => {
-              // Tab has no listener, ignore (most pages won't host the overlay).
-            })
-        } catch {
-          // Older Chrome may throw synchronously; nothing to do.
-        }
-      }
-    })
-  } catch {
-    // chrome.tabs may be unavailable in odd contexts; ignore.
-  }
-}
-
-type ExternalReloadStateMessage = {
-  type?: string
-  phase?: string
-  label?: string
-  kind?: string
-}
-
-if (typeof chrome.runtime?.onMessageExternal?.addListener === 'function') {
-  chrome.runtime.onMessageExternal.addListener(
-    (message: ExternalReloadStateMessage, sender, sendResponse) => {
-      if (!message || message.type !== 'extjs-dev-reload-state') return
-      const senderId = sender?.id
-      if (!senderId) return
-
-      const phase = message.phase === 'reloaded' ? 'reloaded' : 'reloading'
-      const label = typeof message.label === 'string' ? message.label : ''
-      const kind = typeof message.kind === 'string' ? message.kind : ''
-
-      // Only trust unpacked dev extensions (the user's extension running
-      // under `extension dev`, the sender of the bridge-producer signal).
-      chrome.management.get(senderId, (info) => {
-        if (chrome.runtime.lastError) return
-        if (!isUserDevExtensionForReload(info)) return
-        lastReloadLabel = phase === 'reloading' ? label : ''
-        broadcastReloadState(phase, label, kind)
-      })
-
-      sendResponse({ok: true})
-    }
-  )
-}
-
-if (typeof chrome.management?.onDisabled?.addListener === 'function') {
-  chrome.management.onDisabled.addListener((info) => {
-    if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloading', lastReloadLabel)
-  })
-}
-
-if (typeof chrome.management?.onEnabled?.addListener === 'function') {
-  chrome.management.onEnabled.addListener((info) => {
-    if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloaded', lastReloadLabel)
-    lastReloadLabel = ''
-  })
-}
-
-if (typeof chrome.management?.onInstalled?.addListener === 'function') {
-  // Reloaded unpacked extensions fire onInstalled with reason=update without
-  // flipping onDisabled first; treat it as "reloaded" so the pill clears.
-  chrome.management.onInstalled.addListener((info) => {
-    if (!isUserDevExtensionForReload(info)) return
-    broadcastReloadState('reloaded', lastReloadLabel)
-    lastReloadLabel = ''
-  })
-}

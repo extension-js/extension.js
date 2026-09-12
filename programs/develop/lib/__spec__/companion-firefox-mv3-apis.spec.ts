@@ -74,15 +74,19 @@ function ensureFirefoxBuild(packageDir: string, name: string): boolean {
 }
 
 // Tailwind finds class names by scanning the project and skips gitignored
-// paths, so a stale ignore on pages/ shipped a devtools panel with half its
-// utilities missing. These classes are used only under pages/.
-const PAGES_ONLY_UTILITIES = ['.gap-1\\.5', '.h-7', '.table-fixed'] as const
+// paths, so a stale ignore on pages/ once shipped a page with half its
+// utilities missing. These classes are used only under pages/welcome.
+const WELCOME_UTILITIES = [
+  '.rounded-2xl',
+  '.backdrop-blur',
+  '.underline-offset-4'
+] as const
 
-describe('companion devtools panel stylesheet', () => {
+describe('companion welcome page stylesheet', () => {
   const devtools = COMPANIONS[0]
   if (!fs.existsSync(devtools.packageDir)) return
 
-  it('carries the utilities the logger panel under pages/ uses', () => {
+  it('carries the utilities the welcome page under pages/ uses', () => {
     const built = ensureFirefoxBuild(devtools.packageDir, devtools.name)
     expect(built, `${devtools.name}: firefox build did not run`).toBe(true)
 
@@ -91,15 +95,15 @@ describe('companion devtools panel stylesheet', () => {
       'dist',
       'firefox',
       'pages',
-      'centralized-logger.css'
+      'welcome.css'
     )
-    expect(fs.existsSync(cssPath), 'logger panel stylesheet missing').toBe(true)
+    expect(fs.existsSync(cssPath), 'welcome page stylesheet missing').toBe(true)
 
     const css = fs.readFileSync(cssPath, 'utf8')
-    const missing = PAGES_ONLY_UTILITIES.filter((cls) => !css.includes(cls))
+    const missing = WELCOME_UTILITIES.filter((cls) => !css.includes(cls))
     expect(
       missing,
-      'the logger panel stylesheet lacks utilities its own sources use: ' +
+      'the welcome page stylesheet lacks utilities its own sources use: ' +
         'check @source in src/styles.css and that pages/ is not gitignored'
     ).toEqual([])
   })

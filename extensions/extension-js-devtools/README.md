@@ -5,7 +5,10 @@
 
 # Extension.js devtools
 
-Built-in developer tools used by Extension.js during development.
+The companion extension Extension.js loads next to yours during development.
+It opens the welcome page on a first run, points the launch tab at the
+browser's extensions page, keeps the new tab blank, and reads the per-session
+`extension-js-session.json` flag so `--no-open` opens nothing at all.
 
 ## Build
 
