@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import React, {useEffect, useState} from 'react'
+import logo from '@/images/logo.png'
 import {
   ExternalLink as ExternalLinkIcon,
   MoonIcon,
@@ -226,7 +227,7 @@ export function SettingsAside() {
         className="inline-flex items-center"
         title="extension.js.org"
       >
-        <img src={'/logo.png'} alt="Extension.js" className="h-6 w-auto" />
+        <img src={logo} alt="Extension.js" className="h-6 w-auto" />
       </a>
     </aside>
   )
