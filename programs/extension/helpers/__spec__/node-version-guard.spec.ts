@@ -52,7 +52,7 @@ describe('enforceSupportedNodeVersion', () => {
     expect(message).not.toContain('\n')
   })
 
-  it('names Bun and the --bun flag when the runtime is Bun', () => {
+  it('names Bun and every way of landing on it when the runtime is Bun', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const exitSpy = vi
       .spyOn(process, 'exit')
@@ -66,13 +66,40 @@ describe('enforceSupportedNodeVersion', () => {
     expect(message).toBe(unsupportedNodeVersionMessage('22.6.0', '1.2.13'))
     expect(message).toBe(
       '[Extension.js] The extension CLI runs on Node.js, not on the Bun ' +
-        'runtime. Bun 1.2.13 emulates Node.js 22.6.0, below the required ' +
-        '22.12, so the Node.js you have installed is not the problem. ' +
-        'Re-run without the --bun flag, plain bunx runs the extension CLI ' +
-        'on Node.js.'
+        'runtime (Bun 1.2.13, reporting Node.js 22.6.0), so the Node.js ' +
+        'you have installed is not the problem. Run it on Node.js instead: ' +
+        'drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, ' +
+        'plain bunx runs the extension CLI on Node.js.'
     )
+    expect(message).toContain('bunx')
+    expect(message).toContain('bun run')
+    expect(message).toContain('run.bun')
     expect(message).not.toContain('Upgrade Node.js')
     expect(message).not.toContain('\n')
+  })
+
+  it('refuses Bun even when its emulated Node version clears the floor', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+
+    enforceSupportedNodeVersion('22.12.0', '1.3.0')
+    enforceSupportedNodeVersion('24.1.0', '1.3.0')
+
+    expect(exitSpy).toHaveBeenCalledTimes(2)
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    for (const call of errorSpy.mock.calls) {
+      const message = call[0] as string
+      expect(message).toBe(
+        unsupportedNodeVersionMessage(
+          message.includes('24.1.0') ? '24.1.0' : '22.12.0',
+          '1.3.0'
+        )
+      )
+      expect(message).toContain('Bun 1.3.0')
+      expect(message).not.toContain('\n')
+    }
   })
 
   it('keeps the plain Node message when the runtime is not Bun', () => {
@@ -98,7 +125,7 @@ describe('enforceSupportedNodeVersion', () => {
   })
 })
 
-describe('detectBunRuntime', () => {
+describe('detectBunVersion', () => {
   it('reads the Bun version that only the Bun runtime sets', () => {
     const bunVersions = {
       ...process.versions,
