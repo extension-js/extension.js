@@ -121,4 +121,91 @@ describe('AddAssetsToCompilation', () => {
       }
     })
   })
+
+  describe('root-absolute refs the build satisfies from a source sibling', () => {
+    function makeCompilationWithDiagnostics(context: string) {
+      const assets: Record<string, any> = {}
+      const compilationObj: any = {
+        options: {
+          mode: 'production',
+          output: {path: path.join(context, 'dist')}
+        },
+        getAsset: (name: string) => assets[name],
+        assets,
+        errors: [] as any[],
+        warnings: [] as any[],
+        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+        emitAsset: (name: string, src: any) => {
+          assets[name] = {
+            source: {source: () => (src.source ? src.source() : src)}
+          }
+        }
+      }
+      const compiler = {
+        options: {mode: 'production', context},
+        hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
+      }
+      return {compiler, compilation: compilationObj}
+    }
+
+    function writeRootRefFixture(name: string, files: Record<string, string>) {
+      const tmp = path.join(__dirname, `.tmp-${name}`)
+      fs.rmSync(tmp, {recursive: true, force: true})
+      fs.mkdirSync(tmp, {recursive: true})
+      const manifestPath = path.join(tmp, 'manifest.json')
+      fs.writeFileSync(manifestPath, '{}', 'utf8')
+      const html = path.join(tmp, 'popup.html')
+      fs.writeFileSync(
+        html,
+        `<html><body><script src="/lib/widget.js" type="module"></script></body></html>`
+      )
+      for (const [rel, content] of Object.entries(files)) {
+        const abs = path.join(tmp, rel)
+        fs.mkdirSync(path.dirname(abs), {recursive: true})
+        fs.writeFileSync(abs, content)
+      }
+      return {tmp, manifestPath, html}
+    }
+
+    function run(name: string, files: Record<string, string>) {
+      const {tmp, manifestPath, html} = writeRootRefFixture(name, files)
+      const {compiler, compilation} = makeCompilationWithDiagnostics(tmp)
+      new AddAssetsToCompilation({
+        manifestPath,
+        includeList: {'action/index': html}
+      } as any).apply(compiler as any)
+      return compilation.warnings.map((w: any) => String(w.message))
+    }
+
+    it('does not warn when the .js ref is compiled from a .ts sibling', () => {
+      expect(run('root-ref-sibling', {'lib/widget.ts': 'export {}'})).toEqual(
+        []
+      )
+    })
+
+    it('does not warn when the root file itself exists', () => {
+      expect(
+        run('root-ref-present', {'lib/widget.js': 'console.log(1)'})
+      ).toEqual([])
+    })
+
+    it('warns when neither the file nor a sibling exists', () => {
+      const warnings = run('root-ref-absent', {'lib/other.ts': 'export {}'})
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain(
+        "The page references a script file that doesn't exist."
+      )
+      expect(warnings[0]).toContain('/lib/widget.js')
+    })
+
+    it('does not count a sibling under public/, which copies verbatim', () => {
+      const warnings = run('root-ref-public-sibling', {
+        'public/lib/widget.ts': 'export {}'
+      })
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain(
+        "The page references a script file that doesn't exist."
+      )
+    })
+  })
 })

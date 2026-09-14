@@ -180,6 +180,15 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
     }
     expect(summary.errors_count).toBe(0)
 
+    // The missing-file check runs before the child compilation emits
+    // lib/widget.js, so it must credit the lib/widget.ts sibling instead of
+    // flagging a file that will exist.
+    expect(
+      (summary.warnings || []).filter((message) =>
+        message.includes("doesn't exist")
+      )
+    ).toEqual([])
+
     expect(exists('lib/widget.js'), 'missing lib/widget.js').toBe(true)
     const widget = read('lib/widget.js')
     expectNoUnresolvedImports(widget)
@@ -237,6 +246,11 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
   it('does the same in a development build', async () => {
     const summary = await buildFixture('development')
     expect(summary.errors_count).toBe(0)
+    expect(
+      (summary.warnings || []).filter((message) =>
+        message.includes("doesn't exist")
+      )
+    ).toEqual([])
     const widget = read('lib/widget.js')
     expectNoUnresolvedImports(widget)
     expect(widget).toContain('toUpperCase')
