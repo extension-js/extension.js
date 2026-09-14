@@ -97,6 +97,37 @@ describe('needsInstall', () => {
     expect(needsInstall(asAbsolute(project))).toBe(false)
   })
 
+  it('returns false when a hoisted workspace root holds the dependency for a member without node_modules', async () => {
+    const root = makeTempDir('extjs-needs-install-ws-')
+    const member = path.join(root, 'apps', 'ext')
+    fs.mkdirSync(member, {recursive: true})
+    fs.writeFileSync(
+      path.join(member, 'package.json'),
+      JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
+    )
+    fs.mkdirSync(path.join(root, 'node_modules', 'tailwindcss'), {
+      recursive: true
+    })
+
+    const {needsInstall, asAbsolute} = await import('../paths')
+    expect(needsInstall(asAbsolute(member), root)).toBe(false)
+    expect(needsInstall(asAbsolute(member))).toBe(true)
+  })
+
+  it('returns true when the workspace root node_modules lacks every declared dependency', async () => {
+    const root = makeTempDir('extjs-needs-install-ws-')
+    const member = path.join(root, 'apps', 'ext')
+    fs.mkdirSync(member, {recursive: true})
+    fs.writeFileSync(
+      path.join(member, 'package.json'),
+      JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
+    )
+    fs.mkdirSync(path.join(root, 'node_modules', 'other'), {recursive: true})
+
+    const {needsInstall, asAbsolute} = await import('../paths')
+    expect(needsInstall(asAbsolute(member), root)).toBe(true)
+  })
+
   it('returns false when .pnpm directory exists', async () => {
     const project = makeTempDir('extjs-needs-install-')
     fs.writeFileSync(
