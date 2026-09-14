@@ -80,7 +80,14 @@ export function browserInstallArgs(
     return [...packageRunnerPrefix, 'playwright@latest', 'install', 'msedge']
   }
 
-  const browserRef = target === 'chrome' ? 'chrome@stable' : target
+  // Puppeteer resolves a bare "firefox" to Nightly, so pin the release
+  // channel the same way Chrome is pinned to stable.
+  const browserRef =
+    target === 'chrome'
+      ? 'chrome@stable'
+      : target === 'firefox'
+        ? 'firefox@stable'
+        : target
   return [
     ...packageRunnerPrefix,
     '@puppeteer/browsers@latest',
