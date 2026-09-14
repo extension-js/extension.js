@@ -6,7 +6,11 @@ set -euo pipefail
 # issue tracker instead, one open issue per lane, commented on each failure.
 
 LANE="${1:?lane name required}"
-TITLE="$LANE is red on main"
+# A lane that tracks a moving target (the browser-channel lane) names the
+# build it failed on, so each new build gets its own issue instead of a
+# comment on a stale one. Everything else keeps the "<lane> is red on main"
+# title the dedupe search below relies on.
+TITLE="${RED_LANE_TITLE:-$LANE is red on main}"
 RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 BODY="Failing run: ${RUN_URL}
 Commit: ${GITHUB_SHA}
@@ -14,8 +18,8 @@ Commit: ${GITHUB_SHA}
 Reproduce locally:
 
 \`\`\`
-bash scripts/hydrate-templates-from-examples.sh
-pnpm run test:e2e --project=chromium
+${RED_LANE_REPRO:-bash scripts/hydrate-templates-from-examples.sh
+pnpm run test:e2e --project=chromium}
 \`\`\`"
 
 EXISTING="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
