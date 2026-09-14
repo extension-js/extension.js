@@ -14,6 +14,7 @@ import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 import {dropPageAction, shouldDropPageAction} from '../../shared/html-surfaces'
 import {getManifestOverrides} from '../manifest-overrides'
+import {dropMv2HostKeys} from '../manifest-overrides/mv2/host_permissions'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -157,8 +158,10 @@ export function buildCanonicalManifest(
     ? dropPageAction(filteredManifest)
     : filteredManifest
 
-  return {
+  // The filtered source is spread under the overrides, so the MV2 host keys
+  // the overrides folded into permissions need dropping here as well.
+  return dropMv2HostKeys({
     ...forOverrides,
     ...JSON.parse(getManifestOverrides(manifestPath, forOverrides, projectPath))
-  } as Manifest
+  }) as Manifest
 }
