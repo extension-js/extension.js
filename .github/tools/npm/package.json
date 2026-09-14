@@ -3,6 +3,6 @@
   "private": true,
   "description": "Pins the npm CLI that performs OIDC trusted publishing. Installed with `npm ci` so Scorecard sees a lockfile-driven install.",
   "dependencies": {
-    "npm": "11.19.0"
+    "npm": "11.19.1"
   }
 }
