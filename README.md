@@ -8,8 +8,10 @@
 [discord-url]: https://discord.gg/v9h2RgeTSN
 [snyk-image]: https://snyk.io/test/github/extension-js/extension.js/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension.js
+[scorecard-image]: https://api.scorecard.dev/projects/github.com/extension-js/extension.js/badge
+[scorecard-url]: https://scorecard.dev/viewer/?uri=github.com/extension-js/extension.js
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] 
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Scorecard][scorecard-image]][scorecard-url]
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
