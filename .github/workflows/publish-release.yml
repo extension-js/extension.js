@@ -19,9 +19,7 @@ on:
         default: false
 
 permissions:
-  contents: write
-  id-token: write
-  deployments: write
+  contents: read
 
 concurrency:
   group: publish-${{ inputs.channel }}-${{ inputs.version || github.run_id }}
@@ -34,9 +32,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: ${{ inputs.channel }}
+    permissions:
+      # Version bump commit, tag push and the GitHub Release
+      contents: write
+      # OIDC token for npm provenance
+      id-token: write
+      # createDeployment and createDeploymentStatus for the channel environment
+      deployments: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -48,12 +53,12 @@ jobs:
         run: bash scripts/check-bundled-template-drift.sh
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.28.0
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
@@ -216,7 +221,7 @@ jobs:
       - name: Create GitHub Release
         if: ${{ inputs.channel != 'canary' && steps.validate.outputs.resume != 'true' }}
         id: create_release
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -608,7 +613,7 @@ jobs:
       - name: Create GitHub Deployment (in_progress)
         if: ${{ inputs.channel != 'canary' }}
         id: create_deployment
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -635,7 +640,7 @@ jobs:
 
       - name: Mark Deployment successful
         if: ${{ inputs.channel != 'canary' }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VERSION: ${{ steps.validate.outputs.version }}
         with:

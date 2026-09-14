@@ -21,9 +21,9 @@ jobs:
       checks: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup actionlint
-        uses: reviewdog/action-actionlint@v1
+        uses: reviewdog/action-actionlint@8b682e1e7e512151d73a6b9449cbff173846226e # v1.74.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-check
