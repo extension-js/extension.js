@@ -8,8 +8,9 @@
 
 import type {Manifest} from '../../../../types'
 
-// MV2: string | { sandbox?: string }
+// MV2: string
 // MV3: { extension_pages?: string; sandbox?: string }
+// The mv2 override turns the object form into the string MV2 reads.
 export function contentSecurityPolicy(manifest: Manifest) {
   return (
     manifest.content_security_policy && {

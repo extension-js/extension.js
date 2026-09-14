@@ -145,3 +145,11 @@ export function pageActionDroppedForBrowserAction(browser: string) {
     'Remove one of the two keys, or scope page_action with the firefox: prefix.'
   )
 }
+
+export function mv2SandboxPolicyDropped(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} reads a Manifest V2 ${colors.yellow('content_security_policy')} as one string, so the ${colors.yellow('sandbox')} slot has nowhere to go.\n` +
+    `The build wrote the ${colors.yellow('extension_pages')} policy as that string and dropped the sandbox policy from the built manifest. ` +
+    'Scope the object form with the chromium: prefix, or declare a Manifest V3 build for this browser.'
+  )
+}

@@ -87,11 +87,10 @@ function keepSiblingSlots(
   return extensionPages as Manifest['content_security_policy']
 }
 
-export function patchV2CSP(
-  manifest: Manifest
-): Manifest['content_security_policy'] {
-  const authored = manifest.content_security_policy
-  return keepSiblingSlots(authored, patchV2PagesPolicy(manifest))
+// MV2 reads one string, so the dev policy is the loosened pages policy on
+// its own. The canonical manifest already folded an object to that string.
+export function patchV2CSP(manifest: Manifest): string {
+  return patchV2PagesPolicy(manifest)
 }
 
 function patchV2PagesPolicy(manifest: Manifest): string {

@@ -11,6 +11,7 @@ import {stripBom} from '../../../lib/parse-json-safe'
 import type {Manifest} from '../../../types'
 import {manifestCommon} from './common'
 import {manifestV2} from './mv2'
+import {dropMv2ObjectPolicy} from './mv2/content_security_policy'
 import {dropMv2HostKeys} from './mv2/host_permissions'
 import {manifestV3} from './mv3'
 
@@ -64,7 +65,7 @@ export function getManifestOverrides(
     merged.background = backgroundMerged
   }
 
-  // MV2 folded its host lists into permissions above, and the source spread
-  // still carries the MV3 keys Firefox rejects.
-  return JSON.stringify(dropMv2HostKeys(merged), null, 2)
+  // MV2 folded its host lists into permissions and its CSP object into a
+  // string above, and the source spread still carries the MV3 shapes.
+  return JSON.stringify(dropMv2ObjectPolicy(dropMv2HostKeys(merged)), null, 2)
 }

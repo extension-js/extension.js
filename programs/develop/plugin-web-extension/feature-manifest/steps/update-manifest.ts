@@ -22,6 +22,7 @@ import {
 } from '../manifest-lib/manifest'
 import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
 import {getManifestOverrides} from '../manifest-overrides'
+import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
 
 // A single `content_scripts` entry as carried by the canonical `Manifest`
 // type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
@@ -85,10 +86,11 @@ export class UpdateManifest {
             if (compilation.errors.length > 0) return
 
             const manifest = getManifestContent(compilation, this.manifestPath)
-            const dropReason = pageActionDropReason(
-              filterKeysForThisBrowser(manifest, this.browser),
+            const forBrowser = filterKeysForThisBrowser(
+              manifest,
               this.browser
-            )
+            ) as Manifest
+            const dropReason = pageActionDropReason(forBrowser, this.browser)
             if (dropReason) {
               reportToCompilation(
                 compilation,
@@ -100,6 +102,15 @@ export class UpdateManifest {
                   : messages.pageActionNotSupportedByBrowser(
                       String(this.browser)
                     ),
+                'warning',
+                'manifest.json'
+              )
+            }
+            if (hasMv2SandboxPolicy(forBrowser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv2SandboxPolicyDropped(String(this.browser)),
                 'warning',
                 'manifest.json'
               )
