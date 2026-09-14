@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 4.1.18 (September 14, 2026)
+
+<details>
+<summary>Other changes (27)</summary>
+
+- Move the release npm pin to 11.19.1, the patch for its bundled advisories ([926921af](https://github.com/extension-js/extension.js/commit/926921af2d0abe8ceffacf53fc88a688e2aba40d))
+- Install the release npm from a lockfile so its pin is hash-verified ([f594b44a](https://github.com/extension-js/extension.js/commit/f594b44ab0d7f57658940c7be1dbd37bd55d9a69))
+- Override addons-linter's image-size to the release that fixes the DoS ([827cf358](https://github.com/extension-js/extension.js/commit/827cf3587a53b9ab77176a28546b5f0f94040070))
+- Spawn package managers through cross-spawn instead of a Windows shell ([29dbe800](https://github.com/extension-js/extension.js/commit/29dbe800ff2a23e99b8a379125a61a10f6a320d1))
+- Match the missing-script path on either separator in the assets spec ([9f9477f6](https://github.com/extension-js/extension.js/commit/9f9477f6a4d92bcf7ec415162f50d2333593f2b2))
+- Credit a compiled sibling before warning that a root script is missing ([c58a8549](https://github.com/extension-js/extension.js/commit/c58a8549abf1cdcd859f5ec9bc8526128526548a))
+- Warn when a Firefox build bundles sidePanel or an MV2 chrome.action call ([78a5fd99](https://github.com/extension-js/extension.js/commit/78a5fd99e3cc0d7cd613e54bde829ee6535f29dd))
+- Compile root-absolute script refs through the tracer's child compilation ([dac86be7](https://github.com/extension-js/extension.js/commit/dac86be70792884e3c0034408808e4eff7026593))
+- Pin every workflow action to a commit and scope write tokens to jobs ([5fac88aa](https://github.com/extension-js/extension.js/commit/5fac88aa22b1402e80db48ec8bd1e05c1b2882c1))
+- Repin the template catalog to the special-folders lint fixes ([62a442a5](https://github.com/extension-js/extension.js/commit/62a442a5cb2b861fb7debf19c0467ee984c19506))
+- Repin the template catalog so the scaffold builds clean for Firefox ([2362f394](https://github.com/extension-js/extension.js/commit/2362f394070e9b983e2ddc70f77c9faf46c23609))
+- Emit the MV2 content_security_policy as a string on Firefox builds ([5d58721f](https://github.com/extension-js/extension.js/commit/5d58721f67ae9b6a704f8780bb6a852078ddc037))
+- Repin the template catalog so scaffolds carry ids and sized icons ([bf419616](https://github.com/extension-js/extension.js/commit/bf4196163ecf61f369a6d75114c11d5d3a2293a8))
+- Normalize dist paths in the traced compile spec so Windows lists match ([ce7a033a](https://github.com/extension-js/extension.js/commit/ce7a033a14eab1efeb04ee2ef81f5a98eca877db))
+- Compile the files the tracer copies instead of shipping raw source ([e7036086](https://github.com/extension-js/extension.js/commit/e703608622017b14bfe50ca0c0f2e78dac3a581f))
+- Import content script chunks via chrome.runtime.getURL for AMO ([99a76726](https://github.com/extension-js/extension.js/commit/99a76726256d91234f74c7c20993ce9bb79e32e7))
+- Fold host permissions into permissions for a Firefox MV2 build ([a5cb3142](https://github.com/extension-js/extension.js/commit/a5cb3142d4e7c3be52576cfdffb56b76bf5e9cf1))
+- Install a pnpm workspace member from its workspace root ([80ede1a5](https://github.com/extension-js/extension.js/commit/80ede1a51c5b6458006bc75ffb770f8d81dbeb11))
+- Keep go-git-it quiet and drop the fake PATH row when dev takes a URL ([7dd3bf3c](https://github.com/extension-js/extension.js/commit/7dd3bf3ceb1b5d3931d8294e7a126020915cc202))
+- Show the Scorecard badge on the published package README too ([e514b06c](https://github.com/extension-js/extension.js/commit/e514b06c7f89f259452911684a129e6148b4a5b2))
+- Warn with addons-linter findings after a production Firefox build ([a2b16802](https://github.com/extension-js/extension.js/commit/a2b16802c73db4d61ee0bba31e78e51edaa77560))
+- Run the rspack suite weekly against dependency prereleases ([8a928182](https://github.com/extension-js/extension.js/commit/8a9281823858f5c920a1784edef8fd1fe4cb12b0))
+- Run the dev-reload slice weekly on the browser prerelease channels ([b6d764d4](https://github.com/extension-js/extension.js/commit/b6d764d43750b465a842796c14186be892236fec))
+- Publish an OpenSSF Scorecard for the repo and show it in the README ([5b7c70d2](https://github.com/extension-js/extension.js/commit/5b7c70d21b9b93100729d48d75d361849219dcc3))
+- Run the core and CLI suites on the Node floor and on Node 24 ([fa99414f](https://github.com/extension-js/extension.js/commit/fa99414fcf6587828e83c6daf59376420314773c))
+- Pin the managed Firefox install to the stable channel ([c64a1d25](https://github.com/extension-js/extension.js/commit/c64a1d25dd933ea850d3a2c39a7f37b8cf6b7c12))
+- Describe the reload model accurately in the README ([23f58668](https://github.com/extension-js/extension.js/commit/23f58668557bcd1e63b30f4c1ec6dc43b38687bb))
+</details>
+
 ## 4.1.17 (September 12, 2026)
 
 ### Features
