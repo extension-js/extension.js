@@ -1,0 +1,136 @@
+name: CI – Browser Channels
+
+# Playwright pins a stable browser build, so a Chromium or Firefox change that
+# breaks extension loading (Chromium 152 broke service worker reload) reaches
+# users before it reaches CI. This lane runs the dev-reload slice of the
+# examples suite against the pre-release channels once a week and opens an
+# issue when one goes red. It blocks nothing.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  channel:
+    name: ${{ matrix.channel }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 70
+    strategy:
+      # One channel going red must not cancel the evidence from the others.
+      fail-fast: false
+      matrix:
+        include:
+          # `spec` is what @puppeteer/browsers resolves, `binary_env` is the
+          # variable the hydrated specs read (extension-fixtures.ts and the
+          # content-reload specs in extension-js/examples), `deps` names the
+          # Playwright system-library set the channel binary needs.
+          - channel: chrome-canary
+            spec: chrome@canary
+            binary_env: EXTENSION_CHROMIUM_BINARY
+            deps: chromium
+            project: chromium
+            grep: 'dev html|content-script reload:|content reload on launched Chromium|reload strategy|background script edit triggers rebuild'
+          - channel: chrome-dev
+            spec: chrome@dev
+            binary_env: EXTENSION_CHROMIUM_BINARY
+            deps: chromium
+            project: chromium
+            grep: 'dev html|content-script reload:|content reload on launched Chromium|reload strategy|background script edit triggers rebuild'
+          - channel: firefox-nightly
+            spec: firefox@nightly
+            binary_env: EXTENSION_GECKO_BINARY
+            deps: firefox
+            project: firefox
+            grep: 'firefox content-script reload:'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Compile Extension.js
+        run: pnpm compile
+
+      # See e2e.yml: prove the CLI the specs spawn answers before any test
+      # spends its whole budget waiting on a port that will never be printed.
+      - name: Assert the compiled CLI answers
+        run: node programs/extension/bin/extension.cjs --version
+
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+
+      # Only the system libraries. The browser under test comes from the
+      # channel download below, not from Playwright's pinned build. The apt
+      # hold keeps `install-deps firefox` off the snap shim (see e2e.yml).
+      - name: Install browser system libraries
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install-deps ${{ matrix.deps }}
+
+      # @puppeteer/browsers prints "<browser>@<buildId> <executablePath>" as
+      # its last line. The Chrome for Testing channels and Firefox Nightly are
+      # both served this way, so one step covers the whole matrix.
+      - name: Install ${{ matrix.spec }}
+        run: |
+          out="$(npx --yes @puppeteer/browsers@3 install "${{ matrix.spec }}" --path "$RUNNER_TEMP/browsers" | tail -n 1)"
+          echo "resolved: $out"
+          bin="${out#* }"
+          [ -x "$bin" ] || { echo "::error::no executable at '$bin'"; exit 1; }
+          version="$("$bin" --version | awk '{print $NF}')"
+          "$bin" --version
+          {
+            echo "BROWSER_BIN=$bin"
+            echo "BROWSER_VERSION=$version"
+            echo "${{ matrix.binary_env }}=$bin"
+          } >> "$GITHUB_ENV"
+
+      # Same shape as e2e.yml: headed under Xvfb, an inner budget so a wedged
+      # run ends as a failing step that names the spec, SIGINT so Playwright
+      # still writes its report. The grep is the dev-reload slice: HTML pages
+      # under `extension dev`, content-script reinjection into an open tab,
+      # and the service worker reload path that Chromium 152 broke.
+      - name: Run the dev-reload slice on ${{ matrix.channel }}
+        run: |
+          xvfb-run -a timeout --signal=INT --kill-after=2m 50m \
+            pnpm test:e2e --project=${{ matrix.project }} --grep "${{ matrix.grep }}" || {
+            code=$?
+            if [ "$code" = "124" ] || [ "$code" = "137" ]; then
+              echo "::error::the ${{ matrix.channel }} slice hit the 50m inner timeout. The last test named by the list reporter above is where it wedged."
+              pgrep -af "chrome|chromium|firefox|Xvfb|playwright|node" || true
+            fi
+            exit "$code"
+          }
+        env:
+          PLAYWRIGHT_HEADLESS: '0'
+          # The content-reload specs honour this subset filter. It is the
+          # same template list scripts/verify-dev-reload-suite.mjs in the
+          # examples repo runs as the dev-reload suite.
+          CONTENT_RELOAD_EXAMPLES: content,content-react,content-vue,content-svelte,content-preact,content-typescript,content-env,content-css-modules,content-less,content-less-modules,content-sass,content-sass-modules,content-custom-font,content-multi-one-entry,content-multi-three-entries,javascript,react
+
+      # One issue per channel build. A new build on the same channel opens a
+      # new issue instead of commenting on the last one, since the failure
+      # may be a different browser change.
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: "Browser channel is red: ${{ matrix.channel }} ${{ env.BROWSER_VERSION || 'unresolved' }}"
+          RED_LANE_REPRO: |
+            npx @puppeteer/browsers@3 install ${{ matrix.spec }} --path "$HOME/browsers"
+            bash scripts/hydrate-templates-from-examples.sh
+            export ${{ matrix.binary_env }}="<executable path printed by the install>"
+            pnpm run test:e2e --project=${{ matrix.project }} --grep "${{ matrix.grep }}"
+        run: bash scripts/report-red-lane.sh "Browser channel ${{ matrix.channel }}"
+
+      - name: Upload Test Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-channel-${{ matrix.channel }}-report
+          path: e2e-report/
+          retention-days: 15
