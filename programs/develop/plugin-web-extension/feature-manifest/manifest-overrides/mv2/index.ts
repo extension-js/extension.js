@@ -12,6 +12,7 @@ import {sidebarAction} from '../common/sidebar_action'
 import {background} from './background'
 import {browserAction} from './browser_action'
 import {chromeSettingsOverrides} from './chrome_settings_overrides.ts'
+import {contentSecurityPolicy} from './content_security_policy'
 import {hostPermissions} from './host_permissions'
 import {themeExperiment} from './theme_experiment'
 
@@ -23,6 +24,7 @@ export function manifestV2(manifest: Manifest, manifestPath?: string) {
     ...sidebarAction(manifest, manifestPath),
     ...chromeSettingsOverrides(manifest, manifestPath),
     ...hostPermissions(manifest),
+    ...contentSecurityPolicy(manifest),
     ...themeExperiment(manifest, manifestPath)
   }
 }

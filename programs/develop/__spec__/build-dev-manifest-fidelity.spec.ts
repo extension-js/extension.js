@@ -133,8 +133,16 @@ describe('dev manifest keeps the author security contract', () => {
     const prod = await build(root, 'firefox', 'production')
     const dev = await build(root, 'firefox', 'development')
 
-    expect(prod.manifest.content_security_policy.sandbox).toBe(SANDBOX)
-    expect(dev.manifest.content_security_policy.sandbox).toBe(SANDBOX)
+    // Firefox MV2 reads the policy as one string and has no sandbox slot, so
+    // the pages policy ships as a string and the sandbox slot is dropped with
+    // a warning instead of an object AMO rejects.
+    expect(prod.manifest.content_security_policy).toBe(
+      "script-src 'self'; object-src 'self'"
+    )
+    expect(typeof dev.manifest.content_security_policy).toBe('string')
+    expect(dev.manifest.content_security_policy).toContain("script-src 'self'")
+    expect(dev.manifest.content_security_policy).not.toContain('sandbox')
+    expect(prod.output).toMatch(/sandbox/i)
     expect(dev.manifest.optional_permissions).toEqual(
       prod.manifest.optional_permissions
     )

@@ -184,22 +184,26 @@ describe('ApplyDevDefaults', () => {
     )
   })
 
-  it('keeps the sandbox slot on an MV2 object policy and a plain string on an MV2 string policy (Firefox)', () => {
+  it('writes a plain string for MV2 from an object policy and from a string policy (Firefox)', () => {
+    // Firefox MV2 reads one string, an object fails AMO validation even in dev.
     const asObject = runDevDefaults(
       {
         manifest_version: 2,
         name: 'x',
         content_security_policy: {
-          extension_pages: "script-src 'self'; object-src 'self'",
+          extension_pages:
+            "script-src 'self' https://cdn.example.com; object-src 'self'",
           sandbox: SANDBOX
         }
       },
       'firefox'
     )
-    expect(asObject.content_security_policy.sandbox).toBe(SANDBOX)
-    expect(asObject.content_security_policy.extension_pages).toContain(
-      "'unsafe-eval'"
+    expect(typeof asObject.content_security_policy).toBe('string')
+    expect(asObject.content_security_policy).toContain(
+      'https://cdn.example.com'
     )
+    expect(asObject.content_security_policy).toContain("'unsafe-eval'")
+    expect(asObject.content_security_policy).not.toContain('allow-scripts')
 
     const asString = runDevDefaults(
       {
