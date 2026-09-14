@@ -1,3 +1,6 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const execInstallCommand = vi.fn()
@@ -66,6 +69,43 @@ describe('ensureUserProjectDependencies', () => {
 
     const [, args] = execInstallCommand.mock.calls[0]
     expect(args).toEqual(['install', '--ignore-scripts', '--ignore-workspace'])
+  })
+
+  it('installs a pnpm workspace member from the workspace root, filtered, never in the member dir', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-eda-ws-'))
+    try {
+      fs.writeFileSync(
+        path.join(root, 'pnpm-workspace.yaml'),
+        'packages: ["apps/*"]\n'
+      )
+      const member = path.join(root, 'apps', 'ext')
+      fs.mkdirSync(member, {recursive: true})
+      fs.writeFileSync(
+        path.join(member, 'package.json'),
+        JSON.stringify({name: 'ext', dependencies: {vue: '^3.0.0'}})
+      )
+      resolvePackageManager.mockReturnValue({name: 'pnpm'})
+      execInstallCommand.mockResolvedValueOnce(undefined)
+
+      await ensureUserProjectDependencies(member as any)
+
+      expect(resolvePackageManager).toHaveBeenCalledWith({cwd: root})
+      const [, args, options] = execInstallCommand.mock.calls[0]
+      expect(args).toEqual([
+        'install',
+        '--ignore-scripts',
+        '--filter',
+        '{apps/ext}...'
+      ])
+      expect(options.cwd).toBe(root)
+      const warned = (console.warn as any).mock.calls
+        .map((call: any[]) => String(call[0]))
+        .join('\n')
+      expect(warned).toContain(root)
+      expect(warned).toContain('workspace root')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
   it('suppresses lifecycle scripts by default: auto-install must not run wild postinstall', async () => {

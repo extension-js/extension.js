@@ -14,8 +14,9 @@ import {isDebug} from './messaging'
 import {
   buildInstallCommand,
   execInstallCommand,
+  findPnpmWorkspaceMember,
   installScriptSuppression,
-  projectInstallArgs,
+  projectInstallTarget,
   resolveNpmPackageManager,
   resolvePackageManager
 } from './package-manager'
@@ -31,23 +32,29 @@ import {type AbsolutePath, needsInstall} from './paths'
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath
 ) {
-  if (!needsInstall(packageJsonDir)) return
+  const member = findPnpmWorkspaceMember(packageJsonDir)
+  if (!needsInstall(packageJsonDir, member?.root)) return
 
-  const pm = resolvePackageManager({cwd: packageJsonDir})
+  // A member's lockfile lives at its workspace root, so the manager is read there.
+  const pm = resolvePackageManager({cwd: member?.root ?? packageJsonDir})
   const suppression = installScriptSuppression(pm)
+  const target = projectInstallTarget(pm, packageJsonDir, member)
   const cmd = buildInstallCommand(pm, [
     'install',
     ...suppression.args,
-    ...projectInstallArgs(pm, packageJsonDir)
+    ...target.args
   ])
 
   if (suppression.args.length || Object.keys(suppression.env).length) {
     console.warn(messages.projectInstallScriptsDisabled(pm.name))
   }
+  if (target.cwd !== packageJsonDir) {
+    console.warn(messages.projectInstallInWorkspaceRoot(target.cwd))
+  }
 
   try {
     await execInstallCommand(cmd.command, cmd.args, {
-      cwd: packageJsonDir,
+      cwd: target.cwd,
       stdio: 'inherit',
       env: suppression.env
     })

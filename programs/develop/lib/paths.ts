@@ -75,7 +75,10 @@ export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
   return asAbsolute(path.join(packageJsonDir, 'node_modules'))
 }
 
-export function needsInstall(packageJsonDir: AbsolutePath): boolean {
+export function needsInstall(
+  packageJsonDir: AbsolutePath,
+  workspaceRoot?: string
+): boolean {
   const nm = getNodeModulesDir(packageJsonDir)
 
   // Web-only mode: no project manifest means nothing to install; an install
@@ -95,27 +98,33 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
       return false
     }
 
-    if (!fs.existsSync(nm)) {
-      return true
+    if (fs.existsSync(nm)) {
+      if (fs.existsSync(path.join(nm, '.pnpm'))) {
+        return false
+      }
+
+      if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
+        return false
+      }
+
+      // Deno's nodeModulesDir "auto" layout keeps its store in node_modules/.deno.
+      if (fs.existsSync(path.join(nm, '.deno'))) {
+        return false
+      }
+
+      const hasInstalledDep = deps.some((dep) =>
+        fs.existsSync(path.join(nm, dep))
+      )
+      if (hasInstalledDep) return false
     }
 
-    if (fs.existsSync(path.join(nm, '.pnpm'))) {
-      return false
+    // A hoisted pnpm workspace keeps every member's packages in the root
+    // node_modules, where resolution from the member still finds them.
+    if (workspaceRoot) {
+      const rootModules = path.join(workspaceRoot, 'node_modules')
+      return !deps.some((dep) => fs.existsSync(path.join(rootModules, dep)))
     }
-
-    if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
-      return false
-    }
-
-    // Deno's nodeModulesDir "auto" layout keeps its store in node_modules/.deno.
-    if (fs.existsSync(path.join(nm, '.deno'))) {
-      return false
-    }
-
-    const hasInstalledDep = deps.some((dep) =>
-      fs.existsSync(path.join(nm, dep))
-    )
-    return !hasInstalledDep
+    return true
   } catch {
     return true
   }

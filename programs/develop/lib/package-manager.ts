@@ -347,6 +347,164 @@ export function projectInstallArgs(
   return ['--ignore-workspace']
 }
 
+export type PnpmWorkspaceMember = {
+  root: string
+  relativeDir: string
+}
+
+// Nearest dir holding pnpm-workspace.yaml, the project dir included. A .git
+// dir met on the way up is the project's own repository, so a workspace file
+// above it belongs to somebody else.
+export function findPnpmWorkspaceRoot(startDir: string): string | undefined {
+  let current = path.resolve(startDir)
+  while (true) {
+    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
+      return current
+    }
+    if (fs.existsSync(path.join(current, '.git'))) return undefined
+    const parent = path.dirname(current)
+    if (parent === current) return undefined
+    current = parent
+  }
+}
+
+function cleanYamlListItem(value: string): string {
+  const trimmed = value.trim()
+  const quoted = /^(['"])(.*?)\1/.exec(trimmed)
+  if (quoted) return quoted[2].trim()
+  return trimmed.replace(/\s+#.*$/, '').trim()
+}
+
+// The `packages` globs of pnpm-workspace.yaml, block or flow style. pnpm
+// reads the file with a full YAML parser, this only needs that one list.
+export function readPnpmWorkspacePackages(workspaceRoot: string): string[] {
+  let raw: string
+  try {
+    raw = fs.readFileSync(
+      path.join(workspaceRoot, 'pnpm-workspace.yaml'),
+      'utf8'
+    )
+  } catch {
+    return []
+  }
+
+  const lines = raw.split(/\r?\n/)
+  const patterns: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const key = /^packages\s*:(.*)$/.exec(lines[i])
+    if (!key) continue
+
+    const inline = key[1].trim()
+    if (inline.startsWith('[')) {
+      let flow = inline
+      let j = i
+      while (!flow.includes(']') && j + 1 < lines.length) {
+        j++
+        flow += lines[j]
+      }
+      const body = flow.slice(1, flow.indexOf(']'))
+      for (const item of body.split(',')) {
+        const value = cleanYamlListItem(item)
+        if (value) patterns.push(value)
+      }
+      break
+    }
+
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j]
+      if (!line.trim() || line.trim().startsWith('#')) continue
+      const item = /^\s+-\s*(.+)$/.exec(line)
+      if (!item) break
+      const value = cleanYamlListItem(item[1])
+      if (value) patterns.push(value)
+    }
+    break
+  }
+  return patterns
+}
+
+// Enough of the glob grammar for workspace member lists: `*` within one
+// path segment, `**` across segments, `?` for one character.
+function workspaceGlobToRegExp(pattern: string): RegExp {
+  let source = '^'
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i]
+    if (char === '*' && pattern[i + 1] === '*') {
+      const spansSegments = pattern[i + 2] === '/'
+      source += spansSegments ? '(?:.*/)?' : '.*'
+      i += spansSegments ? 2 : 1
+    } else if (char === '*') {
+      source += '[^/]*'
+    } else if (char === '?') {
+      source += '[^/]'
+    } else {
+      source += char.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    }
+  }
+  return new RegExp(`${source}$`)
+}
+
+export function isPnpmWorkspaceMemberDir(
+  patterns: string[],
+  relativeDir: string
+): boolean {
+  const target = relativeDir.split(path.sep).join('/')
+  let included = false
+  for (const raw of patterns) {
+    const negated = raw.startsWith('!')
+    const glob = (negated ? raw.slice(1) : raw)
+      .replace(/^\.\//, '')
+      .replace(/\/+$/, '')
+    if (!workspaceGlobToRegExp(glob).test(target)) continue
+    // pnpm feeds negations to the matcher as ignores, so one exclusion wins
+    // over every inclusion whatever the list order.
+    if (negated) return false
+    included = true
+  }
+  return included
+}
+
+// The project is a member when an ancestor workspace file lists its dir.
+// The workspace root itself and a project no pattern names both come back
+// undefined, so the caller keeps confining the install to the project.
+export function findPnpmWorkspaceMember(
+  projectDir: string
+): PnpmWorkspaceMember | undefined {
+  const root = findPnpmWorkspaceRoot(projectDir)
+  if (!root) return undefined
+
+  const resolvedProject = path.resolve(projectDir)
+  if (root === resolvedProject) return undefined
+
+  const relativeDir = path
+    .relative(root, resolvedProject)
+    .split(path.sep)
+    .join('/')
+  if (!isPnpmWorkspaceMemberDir(readPnpmWorkspacePackages(root), relativeDir)) {
+    return undefined
+  }
+  return {root, relativeDir}
+}
+
+export type ProjectInstallTarget = {cwd: string; args: string[]}
+
+// Where an auto-install runs and what confines it. A pnpm workspace member
+// installs from its root, filtered to the member and its workspace
+// dependencies, so the lockfile and the linker layout stay the workspace's.
+export function projectInstallTarget(
+  pm: PackageManagerResolution,
+  projectDir: string,
+  member: PnpmWorkspaceMember | undefined
+): ProjectInstallTarget {
+  if (pm.name === 'pnpm' && member) {
+    return {
+      cwd: member.root,
+      args: ['--filter', `{${member.relativeDir}}...`]
+    }
+  }
+  return {cwd: projectDir, args: projectInstallArgs(pm, projectDir)}
+}
+
 // Stop auto-installs from running lifecycle scripts: a wild package.json must
 // not get code execution. Opt back in with EXTENSION_ALLOW_INSTALL_SCRIPTS=true.
 export function installScriptSuppression(pm: PackageManagerResolution): {

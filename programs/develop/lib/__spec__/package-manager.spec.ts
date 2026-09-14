@@ -29,8 +29,13 @@ vi.mock('child_process', () => ({
 import {
   buildInstallCommand,
   execInstallCommand,
+  findPnpmWorkspaceMember,
+  findPnpmWorkspaceRoot,
   installScriptSuppression,
+  isPnpmWorkspaceMemberDir,
   projectInstallArgs,
+  projectInstallTarget,
+  readPnpmWorkspacePackages,
   resolvePackageManager
 } from '../package-manager'
 
@@ -216,6 +221,120 @@ describe('package-manager projectInstallArgs', () => {
       expect(projectInstallArgs({name: 'npm'}, dir)).toEqual([])
       expect(projectInstallArgs({name: 'yarn'}, dir)).toEqual([])
       expect(projectInstallArgs({name: 'bun'}, dir)).toEqual([])
+    })
+  })
+})
+
+describe('package-manager pnpm workspace membership', () => {
+  const created: string[] = []
+
+  // The temp root also gets a .git dir so the walk never leaves it, whatever
+  // sits above the OS temp folder on the machine running the suite.
+  const makeWorkspace = (
+    workspaceYaml: string | null,
+    memberRel = 'apps/ext'
+  ) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-ws-'))
+    created.push(root)
+    fs.mkdirSync(path.join(root, '.git'))
+    if (workspaceYaml !== null) {
+      fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), workspaceYaml)
+    }
+    const member = path.join(root, memberRel)
+    fs.mkdirSync(member, {recursive: true})
+    fs.writeFileSync(
+      path.join(member, 'package.json'),
+      JSON.stringify({name: 'ext', dependencies: {vue: '^3.0.0'}})
+    )
+    return {root, member}
+  }
+
+  afterEach(() => {
+    for (const dir of created) fs.rmSync(dir, {recursive: true, force: true})
+    created.length = 0
+  })
+
+  it('finds the workspace root above a member and names the member dir', () => {
+    const {root, member} = makeWorkspace('packages: ["apps/*"]\n')
+    expect(findPnpmWorkspaceRoot(member)).toBe(root)
+    expect(findPnpmWorkspaceMember(member)).toEqual({
+      root,
+      relativeDir: 'apps/ext'
+    })
+  })
+
+  it('treats a project holding pnpm-workspace.yaml itself as the root, not a member', () => {
+    const {root} = makeWorkspace('packages:\n  - "apps/*"\n')
+    expect(findPnpmWorkspaceRoot(root)).toBe(root)
+    expect(findPnpmWorkspaceMember(root)).toBeUndefined()
+  })
+
+  it('returns nothing when no workspace file exists up to the repo boundary', () => {
+    const {member} = makeWorkspace(null)
+    expect(findPnpmWorkspaceRoot(member)).toBeUndefined()
+    expect(findPnpmWorkspaceMember(member)).toBeUndefined()
+  })
+
+  it('stops at a nested .git boundary: a workspace above the repo is foreign', () => {
+    const {root} = makeWorkspace('packages: ["**"]\n', 'repo/ext')
+    fs.mkdirSync(path.join(root, 'repo', '.git'))
+    const project = path.join(root, 'repo', 'ext')
+    expect(findPnpmWorkspaceRoot(project)).toBeUndefined()
+    expect(findPnpmWorkspaceMember(project)).toBeUndefined()
+  })
+
+  it('ignores an ancestor workspace whose package list does not name the project', () => {
+    const {root, member} = makeWorkspace('packages: ["packages/*"]\n')
+    expect(findPnpmWorkspaceRoot(member)).toBe(root)
+    expect(findPnpmWorkspaceMember(member)).toBeUndefined()
+  })
+
+  it('reads block-style package lists past other keys, comments and negations', () => {
+    const {root} = makeWorkspace(
+      'catalog:\n  vue: ^3.0.0\npackages:\n  # apps\n  - "apps/*"\n' +
+        '  - \'packages/**\' # libs\n  - "!apps/skip"\nonlyBuiltDependencies: []\n'
+    )
+    expect(readPnpmWorkspacePackages(root)).toEqual([
+      'apps/*',
+      'packages/**',
+      '!apps/skip'
+    ])
+  })
+
+  it('matches member dirs the way pnpm globs do', () => {
+    const patterns = ['apps/*', 'packages/**', '!apps/skip']
+    expect(isPnpmWorkspaceMemberDir(patterns, 'apps/ext')).toBe(true)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'apps/ext/nested')).toBe(false)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'packages/a/b')).toBe(true)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'apps/skip')).toBe(false)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'tools/x')).toBe(false)
+    expect(isPnpmWorkspaceMemberDir(['./apps/'], 'apps')).toBe(true)
+  })
+
+  it('installs a member from the workspace root, filtered to the member', () => {
+    const {root, member} = makeWorkspace('packages: ["apps/*"]\n')
+    const found = findPnpmWorkspaceMember(member)
+    expect(projectInstallTarget({name: 'pnpm'}, member, found)).toEqual({
+      cwd: root,
+      args: ['--filter', '{apps/ext}...']
+    })
+  })
+
+  it('keeps confining a non-member pnpm project to its own dir', () => {
+    const {member} = makeWorkspace('packages: ["packages/*"]\n')
+    const found = findPnpmWorkspaceMember(member)
+    expect(projectInstallTarget({name: 'pnpm'}, member, found)).toEqual({
+      cwd: member,
+      args: ['--ignore-workspace']
+    })
+  })
+
+  it('leaves other package managers installing in the project dir', () => {
+    const {root, member} = makeWorkspace('packages: ["apps/*"]\n')
+    const found = {root, relativeDir: 'apps/ext'}
+    expect(projectInstallTarget({name: 'npm'}, member, found)).toEqual({
+      cwd: member,
+      args: []
     })
   })
 })
