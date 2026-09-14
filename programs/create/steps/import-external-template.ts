@@ -69,7 +69,7 @@ const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
 // Move it with `node scripts/generate-template-corpus.mjs --ref <sha>`, which
 // regenerates the name list the CLI advertises from the same commit.
 // EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
-export const DEFAULT_TEMPLATES_REF = 'b838dd842997f97f6ad1b7b100e7ff15952ea251'
+export const DEFAULT_TEMPLATES_REF = '4f65fc43c18c4ab98a6b1d3a0b5c83e1523fb460'
 
 // The one template that ships inside the npm package, so it scaffolds with no
 // network call. The help text derives its "no network" promise from this list
