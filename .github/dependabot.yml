@@ -34,6 +34,13 @@ updates:
       - "dependencies"
 
   # GitHub Actions used by the workflows (version + SHA updates)
+  # The npm the release job installs is lockfile-pinned here, so bumps must
+  # arrive as PRs like every other dependency.
+  - package-ecosystem: "npm"
+    directory: "/.github/tools/npm"
+    schedule:
+      interval: "weekly"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
