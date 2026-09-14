@@ -38,6 +38,7 @@ import {patchChromiumBackground} from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
+import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -246,6 +247,17 @@ export class UpdateManifest {
               warn.file = 'manifest.json'
               compilation.warnings.push(warn)
             }
+
+            // Store-readiness hint for the bundle itself: a Chromium-only
+            // API that survived into the Gecko build is what addons-linter
+            // reports as UNSUPPORTED_API, so name it here first.
+            reportGeckoUnsupportedApis(
+              compilation,
+              compiler,
+              this.browser,
+              patchedManifest,
+              projectPath
+            )
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)

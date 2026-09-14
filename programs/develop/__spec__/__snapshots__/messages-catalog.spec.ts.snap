@@ -195,6 +195,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-web-extension/feature-manifest/messages.ts": [
     "fatalManifestShapeFixed: function(2)",
+    "geckoActionUnsupportedOnMv2: function(1)",
+    "geckoSidePanelUnsupported: function(1)",
     "invalidThemeValue: function(3)",
     "legacyManifestPathWarning: function(3)",
     "manifestDepsTracked: function(1)",
@@ -211,6 +213,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "themeNotSupportedByBrowser: function(1)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
+    "compiledSourceSpelling: function(4)",
     "entrySplitAcrossInitialFiles: function(4)",
     "fetchedFileDependencyMissing: function(3)",
     "getURLDependencyMissing: function(3)",
