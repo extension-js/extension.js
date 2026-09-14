@@ -1,0 +1,97 @@
+name: CI – Dependency Canary
+
+# The toolchains this repo is coupled to (rspack, the framework runtimes and
+# their refresh plugins, typescript) each ship prereleases weeks before a
+# stable. This lane installs those prereleases once a week and runs the
+# browser-free rspack suite against them, so an upstream break reaches us as
+# an issue while it is still a prerelease and not on the day a release pins it.
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deps-canary-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: ${{ matrix.leg }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      # One broken upstream must not hide another, every leg always runs.
+      fail-fast: false
+      matrix:
+        leg:
+          - rspack-canary
+          - frameworks-next
+          - typescript-next
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Writes pnpm.overrides into the root package.json for every package in
+      # the leg whose prerelease tag is ahead of the lockfile pin, and prints
+      # the plan as a table. A tag that fell behind the pin is skipped, so a
+      # quiet week ends with count=0 and the suite is not run against stable.
+      - name: Point the leg at its prerelease tags
+        id: overrides
+        run: node scripts/deps-canary-overrides.mjs "${{ matrix.leg }}"
+
+      - name: Nothing newer than the lockfile
+        if: steps.overrides.outputs.count == '0'
+        run: echo "::notice title=${{ matrix.leg }}::no prerelease is ahead of the lockfile this week, nothing to test"
+
+      # --no-frozen-lockfile because the overrides change the resolution.
+      # minimum-release-age is lifted because .npmrc holds it at three days
+      # and a canary published this morning is exactly what this lane wants.
+      - name: Install with the overrides
+        if: steps.overrides.outputs.count != '0'
+        run: pnpm install --no-frozen-lockfile --config.minimum-release-age=0
+
+      # A red run has to name what it ran against, the tag moved since.
+      - name: Print the resolved versions
+        if: steps.overrides.outputs.count != '0'
+        run: |
+          # shellcheck disable=SC2086
+          pnpm -r ls --depth 0 ${{ steps.overrides.outputs.packages }}
+          git diff --no-color -- package.json
+
+      - name: Run the rspack suite
+        if: steps.overrides.outputs.count != '0'
+        run: pnpm run ci:test:rspack
+
+      # ci:test:rspack already carries real-refresh-compile and every build-*
+      # spec, build-framework-pages included. This adds the rest of the
+      # frameworks plugin surface on top of the compiled dist it left behind.
+      - name: Run the frameworks plugin specs
+        if: steps.overrides.outputs.count != '0' && matrix.leg == 'frameworks-next'
+        run: pnpm -C programs/develop exec vitest run plugin-js-frameworks/__spec__
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: 'Dependency canary is red: ${{ matrix.leg }}'
+          RED_LANE_REPRO: |
+            node scripts/deps-canary-overrides.mjs ${{ matrix.leg }}
+            pnpm install --no-frozen-lockfile --config.minimum-release-age=0
+            pnpm run ci:test:rspack
+        run: bash scripts/report-red-lane.sh "Dependency canary ${{ matrix.leg }}"
