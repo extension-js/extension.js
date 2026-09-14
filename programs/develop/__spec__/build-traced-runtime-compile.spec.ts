@@ -171,6 +171,8 @@ const listDist = () =>
     .readdirSync(distDir(), {recursive: true})
     .map(String)
     .filter((rel) => fs.statSync(path.join(distDir(), rel)).isFile())
+    // Windows lists nested entries with backslashes, the assertions use slashes.
+    .map((rel) => rel.split(path.sep).join('/'))
     .sort()
 
 // Runs the text as a classic script in a fresh realm and returns the globals
