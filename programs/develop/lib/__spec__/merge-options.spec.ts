@@ -25,7 +25,8 @@ describe('mergeOptionLayers', () => {
       polyfill: false,
       zip: false,
       zipSource: false,
-      silent: false
+      silent: false,
+      addonLint: true
     })
     expect(
       mergeOptionLayers<Record<string, any>>(SERVE_COMMAND_DEFAULTS)

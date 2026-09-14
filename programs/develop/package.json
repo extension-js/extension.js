@@ -141,6 +141,7 @@
     "@types/sass-loader": "8.0.10",
     "@types/webextension-polyfill": "0.12.4",
     "@types/ws": "^8.18.1",
+    "addons-linter": "10.12.0",
     "svelte": "5.55.9",
     "tsup": "^8.5.1",
     "typescript": "7.0.2",

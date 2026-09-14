@@ -288,6 +288,12 @@ export interface BuildOptions {
   polyfill?: boolean
   silent?: boolean
   /**
+   * Run Mozilla's addons-linter over the emitted dist after a production
+   * build for a Gecko target and print its findings as build warnings.
+   * Needs `addons-linter` installed in the project. Defaults to `true`.
+   */
+  addonLint?: boolean
+  /**
    * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
    * preserve historical behavior. Setting 'development' is useful for
    * staging/QA dists that should still pass through the bundler's debug
@@ -625,6 +631,7 @@ export interface FileConfig {
       | 'zipSource'
       | 'polyfill'
       | 'silent'
+      | 'addonLint'
       | 'safariBinary'
       | 'appName'
       | 'bundleId'

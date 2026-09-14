@@ -151,6 +151,11 @@ export interface BuildCommandConfig {
   zipSource?: boolean
   zipFilename?: string
   silent?: boolean
+  /**
+   * Run addons-linter over Firefox production builds and print its findings
+   * as warnings. Needs `addons-linter` installed. Defaults to `true`.
+   */
+  addonLint?: boolean
   extensions?: CompanionExtensionsConfig
   transpilePackages?: string[]
   perfBudgets?: PerfBudgetsConfig
