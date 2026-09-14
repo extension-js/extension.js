@@ -42,6 +42,39 @@ function project() {
   return root
 }
 
+// A code-splitting content script under an MV2 manifest that still writes
+// host_permissions: both findings the build step now avoids on its own.
+function codeSplitProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-split-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'splitme', version: '0.0.0'})
+  )
+  fs.writeFileSync(
+    path.join(root, 'greet.js'),
+    'export const greet = () => "SPLIT_GREETING"\n'
+  )
+  fs.writeFileSync(
+    path.join(root, 'content.js'),
+    'export default async function main() {\n  const {greet} = await import("./greet.js")\n  console.log(greet())\n}\n'
+  )
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'splitme',
+      version: '1.0.0',
+      'chromium:manifest_version': 3,
+      'firefox:manifest_version': 2,
+      browser_specific_settings: {gecko: {id: 'splitme@example.com'}},
+      permissions: ['storage'],
+      host_permissions: ['<all_urls>'],
+      content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
+    })
+  )
+  return root
+}
+
 async function build(
   root: string,
   options: {
@@ -108,6 +141,36 @@ describe('addon lint after a production firefox build', () => {
     expect(
       (summary.warnings || []).some((line) => line.includes('DANGEROUS_EVAL'))
     ).toBe(true)
+  }, 180_000)
+
+  it('does not flag the MV2 manifest or the chunk loader the build emits', async () => {
+    const root = codeSplitProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).not.toContain('MANIFEST_FIELD_UNSUPPORTED')
+    expect(output).not.toContain('UNSAFE_VAR_ASSIGNMENT')
+
+    const distDir = path.join(root, 'dist', 'firefox')
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
+    )
+    expect(manifest.manifest_version).toBe(2)
+    expect(manifest).not.toHaveProperty('host_permissions')
+    expect(manifest.permissions).toEqual(['storage', '<all_urls>'])
+
+    // The content script keeps its native chunk loader, and every dynamic
+    // import in it goes through chrome.runtime.getURL, the form AMO accepts.
+    const entry: string = manifest.content_scripts[0].js[0]
+    const script = fs.readFileSync(path.join(distDir, entry), 'utf8')
+    const imports = script.match(/\bimport\(/g) || []
+    expect(imports.length).toBeGreaterThan(0)
+    expect(script.match(/\bimport\(chrome\.runtime\.getURL\(/g) || []).toHaveLength(
+      imports.length
+    )
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {
