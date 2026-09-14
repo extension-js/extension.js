@@ -163,6 +163,12 @@ export function authorInstallNotice(target: string) {
   return `${prefix('debug')} install  target=${target}`
 }
 
+export function projectInstallInWorkspaceRoot(workspaceRoot: string) {
+  return (
+    `${getLoggingPrefix('info')} This project is a pnpm workspace member, ` +
+    `installing from the workspace root at ${colors.blue(workspaceRoot)}.`
+  )
+}
 export function projectInstallFallbackToNpm(pmName: string) {
   return (
     `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
@@ -509,11 +515,11 @@ export function downloadingProjectPath(projectName: string) {
   return `${getLoggingPrefix('info')} Downloading ${formatted}…`
 }
 
-export function creatingProjectPath(projectPath: string) {
-  return (
-    `${getLoggingPrefix('info')} Creating a new browser extension…\n` +
-    `${colors.gray('PATH')} ${colors.underline(projectPath)}`
-  )
+// A remote source lands in a folder the card's rows already point at. PATH
+// is an error-evidence label, and the URL pathname it used to carry was
+// never a directory on this machine.
+export function creatingProjectPath() {
+  return `${getLoggingPrefix('info')} Creating a new browser extension…`
 }
 
 export function downloadedProjectFolderNotFound(

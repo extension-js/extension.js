@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
+import {isDebug} from './messaging'
 import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
@@ -54,6 +55,26 @@ function withTimeout<T>(
   return Promise.race([task, timeout]).finally(() => {
     if (timer) clearTimeout(timer)
   }) as Promise<T>
+}
+
+// go-git-it prints its git version and an unauthenticated GitHub API
+// rate-limit warning on its own. Neither is a user decision, so both stay
+// behind --debug like the rest of the tool's chatter.
+async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
+  if (isDebug()) return task()
+
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout)
+  const originalStderrWrite = process.stderr.write.bind(process.stderr)
+
+  process.stdout.write = (() => true) as typeof process.stdout.write
+  process.stderr.write = (() => true) as typeof process.stderr.write
+
+  try {
+    return await task()
+  } finally {
+    process.stdout.write = originalStdoutWrite
+    process.stderr.write = originalStderrWrite
+  }
 }
 
 async function importUrlSourceFromGithub(
@@ -119,10 +140,17 @@ async function importUrlSourceFromGithub(
 
   async function tryGitClone() {
     const {default: goGitIt} = await import('go-git-it')
-    await withTimeout(
-      goGitIt(pathOrRemoteUrl, cwd, text),
-      REMOTE_FETCH_TIMEOUT_MS,
-      pathOrRemoteUrl
+    // go-git-it echoes the progress text itself, but that echo is silenced
+    // with the rest of its output, so the user still sees activity from here.
+    if (!isDebug()) console.log(text)
+    // The timeout races inside the silencer so a hung clone restores stdout
+    // before the timeout error has to print.
+    await withSuppressedOutput(() =>
+      withTimeout(
+        goGitIt(pathOrRemoteUrl, cwd, text),
+        REMOTE_FETCH_TIMEOUT_MS,
+        pathOrRemoteUrl
+      )
     )
   }
 
@@ -262,7 +290,7 @@ export async function getProjectPath(
         messages.downloadingProjectPath(projectName)
       )
 
-      console.log(messages.creatingProjectPath(url.pathname))
+      console.log(messages.creatingProjectPath())
 
       return urlSource
     }
