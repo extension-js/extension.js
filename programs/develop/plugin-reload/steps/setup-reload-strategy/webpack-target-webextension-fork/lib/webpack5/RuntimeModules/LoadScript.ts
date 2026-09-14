@@ -72,11 +72,26 @@ export default function LoadScriptRuntimeModule(
         ');' +
         '} catch (e) { return false; } })();'
 
+      // addons-linter accepts a dynamic import only when its argument is a
+      // chrome.runtime.getURL call, so the extension world hands the chunk
+      // path back through it. The MAIN world has no runtime.getURL and keeps
+      // the absolute URL. The guard sits outside the import argument on purpose.
+      const importPrelude = isMainWorld
+        ? []
+        : [
+            `if (!(typeof chrome === "object" && chrome && chrome.runtime && typeof chrome.runtime.getURL === "function")) return ${FALLBACK_LOADER}(url, done, key, chunkId);`,
+            `${_const} base = chrome.runtime.getURL("/");`,
+            `${_const} target = String(url).indexOf(base) === 0 ? String(url).slice(base.length - 1) : url;`
+          ]
+      const importCall = isMainWorld
+        ? 'import(url)'
+        : 'import(chrome.runtime.getURL(target))'
+
       const DynamicImportLoader =
         `${_const} ${DYNAMIC_IMPORT_LOADER} = ` +
-        f(
-          'url, done, key, chunkId',
-          `import(url).then(${f('', [
+        f('url, done, key, chunkId', [
+          ...importPrelude,
+          `${importCall}.then(${f('', [
             'if (isNotIframe) return done();',
             'try {',
             Template.indent([
@@ -104,7 +119,7 @@ export default function LoadScriptRuntimeModule(
             'console.warn("Dynamic import loader failed. Using fallback loader (see https://github.com/awesome-webextension/webpack-target-webextension#content-script).", e);',
             `${FALLBACK_LOADER}(url, done, key, chunkId);`
           ])});`
-        )
+        ])
 
       const DOMLoader =
         `${_const} ${DOM_LOADER} = ` +
