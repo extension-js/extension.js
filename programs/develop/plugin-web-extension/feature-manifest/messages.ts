@@ -153,3 +153,31 @@ export function mv2SandboxPolicyDropped(browser: string) {
     'Scope the object form with the chromium: prefix, or declare a Manifest V3 build for this browser.'
   )
 }
+
+export function geckoSidePanelUnsupported(file: string) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} uses chrome.sidePanel, which is Chromium only.`
+  )
+  lines.push(
+    `Firefox opens a sidebar through the ${colors.yellow('sidebar_action')} manifest key on every manifest version, and addons-linter flags the call as UNSUPPORTED_API.`
+  )
+  lines.push(
+    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')} so the Firefox bundle drops it.`
+  )
+  return lines.join('\n')
+}
+
+export function geckoActionUnsupportedOnMv2(file: string) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} uses chrome.action, which Manifest V2 does not have on Firefox.`
+  )
+  lines.push(
+    `Firefox Manifest V2 exposes the toolbar button as browserAction, and addons-linter flags the call as UNSUPPORTED_API.`
+  )
+  lines.push(
+    `Use browserAction behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or declare Manifest V3 for Firefox with ${colors.yellow('firefox:manifest_version')}.`
+  )
+  return lines.join('\n')
+}
