@@ -19,7 +19,8 @@
       "vite": "^8.0.16",
       "which": "^4.0.0",
       "js-yaml": "^4.3.2",
-      "read-yaml-file": "^2.1.0"
+      "read-yaml-file": "^2.1.0",
+      "image-size@2": "2.0.4"
     }
   },
   "scripts": {

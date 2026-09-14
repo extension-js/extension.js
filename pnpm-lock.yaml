@@ -18,6 +18,7 @@ overrides:
   which: ^4.0.0
   js-yaml: ^4.3.2
   read-yaml-file: ^2.1.0
+  image-size@2: 2.0.4
 
 importers:
 
@@ -3236,9 +3237,9 @@ packages:
     engines: {node: '>=0.10.0'}
     hasBin: true
 
-  image-size@2.0.2:
-    resolution: {integrity: sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w==}
-    engines: {node: '>=16.x'}
+  image-size@2.0.4:
+    resolution: {integrity: sha512-QRUkFFsRV/6fuESxb9Vkq+a0LkSrgKXuc2NEqfikiXxxN/G3tjWt5EVUlMaImRBZRZK/jRBEbYvpPYZL8t08Zw==}
+    engines: {node: '>=18'}
     hasBin: true
 
   immutable@5.1.9:
@@ -6414,7 +6415,7 @@ snapshots:
       espree: 11.2.0
       esprima: 4.0.1
       fast-json-patch: 3.1.1
-      image-size: 2.0.2
+      image-size: 2.0.4
       json-merge-patch: 1.0.2
       pino: 10.3.1
       semver: 7.8.5
@@ -7196,7 +7197,7 @@ snapshots:
   image-size@0.5.5:
     optional: true
 
-  image-size@2.0.2: {}
+  image-size@2.0.4: {}
 
   immutable@5.1.9: {}
 
