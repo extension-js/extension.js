@@ -8,9 +8,18 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
+import {
+  Compilation,
+  type Compiler,
+  EntryPlugin,
+  javascript as rspackJavascript,
+  library as rspackLibrary,
+  sources,
+  WebpackError
+} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import type {DevOptions, Manifest} from '../../../types'
+import {isClassicScript} from '../../shared/classic-concat'
 import * as messages from '../messages'
 
 // Structural view of the manifest fields the tracer reads; values stay
@@ -39,17 +48,80 @@ const EMITTED_WORKER_PATH = 'background/service_worker.js'
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
-// Sources the compiler rewrites to .js: a runtime injection literal naming one
-// asks the browser for a path the build never emits.
+// Sources the compiler rewrites to .js: a runtime literal naming one asks the
+// browser for a path the build never emits.
 const COMPILED_TO_JS_EXTENSIONS = new Set([
   '.ts',
   '.tsx',
   '.jsx',
   '.mts',
   '.cts',
+  '.mtsx',
+  '.mjsx',
   '.mjs',
   '.cjs'
 ])
+// Spellings the browser will not execute at all (Chrome serves .ts as
+// video/mp2t and refuses it as a script), unlike .mjs and .cjs.
+const SOURCE_ONLY_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.jsx',
+  '.mts',
+  '.cts',
+  '.mtsx',
+  '.mjsx'
+])
+const SCRIPT_EXTENSIONS = new Set([
+  '.js',
+  '.cjs',
+  '.mjs',
+  '.jsx',
+  '.mjsx',
+  '.ts',
+  '.mts',
+  '.cts',
+  '.tsx',
+  '.mtsx'
+])
+
+// Where a traced literal was found, which fixes how the browser executes it.
+type LoadContext = 'importScripts' | 'injected' | 'getURL' | 'html'
+// importScripts and injection payloads always run as classic scripts. A getURL
+// or HTML target is loaded the way its author wrote it, so the file decides.
+export type TracedLoad = 'classic' | 'by-shape'
+export type TracedFormat = 'module' | 'classic'
+
+export type TracedFilePlan =
+  | {kind: 'copy'; sourcePath: string; emitPath: string}
+  | {
+      kind: 'compile'
+      sourcePath: string
+      emitPath: string
+      format: TracedFormat
+      spelledAs?: string
+    }
+  | {kind: 'skip'; reason: 'emitted' | 'public'; emitPath: string}
+  | {
+      kind: 'skip'
+      reason: 'compiled-elsewhere'
+      emitPath: string
+      spelledAs: string
+    }
+  | {kind: 'missing'; emitPath: string}
+
+interface CompileRequest {
+  sourcePath: string
+  emitPath: string
+  format: TracedFormat
+  context: LoadContext
+}
+
+interface ApplyContext {
+  context: LoadContext
+  onMissing: () => void
+  onSourceSpelling: (emitPath: string, spelledAs: string) => void
+}
 
 export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
@@ -69,17 +141,31 @@ export class TraceRuntimeLoadedFiles {
       (compilation) => {
         // SUMMARIZE runs after minification: copied files stay verbatim
         // (classic scripts share globals) and the scan sees final user bundles.
-        compilation.hooks.processAssets.tap(
+        compilation.hooks.processAssets.tapPromise(
           {
             name: TraceRuntimeLoadedFiles.name,
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
-          () => {
-            this.traceWorkerImportScripts(compilation)
-            this.traceInjectedFilePayloads(compilation)
-            this.traceFetchedFiles(compilation, compiler)
-            this.traceGetURLFiles(compilation)
-            this.traceWebpackChunkSiblings(compilation, compiler)
+          async () => {
+            const run = new TraceRun(
+              compilation,
+              compiler,
+              path.dirname(this.manifestPath)
+            )
+            // Sources that need the bundler are compiled once per round, then
+            // their output is scanned like any other bundle, since a compiled
+            // file can itself load further files at runtime.
+            let only: Set<string> | undefined
+            for (let round = 0; round <= MAX_TRACE_DEPTH; round++) {
+              this.traceWorkerImportScripts(run, only)
+              this.traceInjectedFilePayloads(run, only)
+              this.traceFetchedFiles(run, only)
+              this.traceGetURLFiles(run, only)
+              this.traceWebpackChunkSiblings(run, only)
+              const emitted = await run.flushCompiles()
+              if (emitted.length === 0) break
+              only = new Set(emitted)
+            }
           }
         )
       }
@@ -99,20 +185,28 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
-  private traceWorkerImportScripts(compilation: Compilation) {
+  private traceWorkerImportScripts(run: TraceRun, only?: Set<string>) {
     const manifest = this.readManifest()
     const workerRef = manifest?.background?.service_worker
     // Module workers cannot legally call importScripts.
     if (!workerRef || manifest?.background?.type === 'module') return
 
-    const workerAsset = compilation.getAsset(EMITTED_WORKER_PATH)
+    const workerAsset = run.compilation.getAsset(EMITTED_WORKER_PATH)
     if (!workerAsset) return
 
-    const manifestDir = path.dirname(this.manifestPath)
     const sourceWorkerPath = unixify(String(workerRef)).replace(/^\/+/, '')
+    // Later rounds scan the deps compiled for the worker in the previous
+    // round; copied deps chain inline below since their text is at hand.
+    const roots = only
+      ? [...only].filter((name) => run.workerScope.has(name))
+      : [EMITTED_WORKER_PATH]
 
-    let pending = [workerAsset.source.source().toString()]
-    const seen = new Set<string>()
+    let pending: string[] = []
+    for (const name of roots) {
+      const asset = run.compilation.getAsset(name)
+      if (asset) pending.push(asset.source.source().toString())
+    }
+    const seen = run.seen.importScripts
 
     for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
       const next: string[] = []
@@ -124,35 +218,56 @@ export class TraceRuntimeLoadedFiles {
           if (!sourceRel || !distRel || seen.has(distRel)) continue
           seen.add(distRel)
 
-          const copied = copyThroughOrWarn(compilation, {
-            manifestDir,
+          const plan = planTracedFile({
+            manifestDir: run.manifestDir,
             sourceRel,
             distRel,
-            warning: (expected, sourceSibling) =>
-              messages.importScriptsDependencyMissing(
-                sourceWorkerPath,
-                literal,
-                expected,
-                sourceSibling
+            loadsAs: 'classic',
+            hasAsset: run.hasAsset
+          })
+          const copied = run.apply(plan, {
+            context: 'importScripts',
+            onMissing: () =>
+              run.warn(
+                'ImportScriptsDependencyMissing',
+                EMITTED_WORKER_PATH,
+                messages.importScriptsDependencyMissing(
+                  sourceWorkerPath,
+                  literal,
+                  sourceRel
+                )
               ),
-            warningName: 'ImportScriptsDependencyMissing',
-            warningFile: EMITTED_WORKER_PATH
+            onSourceSpelling: (emitPath) =>
+              run.warn(
+                'ImportScriptsCompiledSource',
+                EMITTED_WORKER_PATH,
+                compiledSourceSpelling(
+                  EMITTED_WORKER_PATH,
+                  'importScripts',
+                  literal,
+                  emitPath
+                )
+              )
           })
 
           // Imported classic scripts may chain further importScripts calls;
           // those still resolve against the worker URL, not the file's own.
           if (copied != null) {
             next.push(copied)
+            run.workerScope.add(distRel)
+          }
 
-            // wasm-bindgen --target no-modules pairs X.js with X_bg.wasm via a
-            // computed fetch, so copy the sibling through when it exists.
-            if (sourceRel.endsWith('.js')) {
-              copyIfExists(
-                compilation,
-                path.join(manifestDir, sourceRel.replace(/\.js$/, '_bg.wasm')),
-                distRel.replace(/\.js$/, '_bg.wasm')
-              )
-            }
+          // wasm-bindgen --target no-modules pairs X.js with X_bg.wasm via a
+          // computed fetch, so copy the sibling through when it exists.
+          if (plan.kind !== 'missing' && sourceRel.endsWith('.js')) {
+            copyIfExists(
+              run.compilation,
+              path.join(
+                run.manifestDir,
+                sourceRel.replace(/\.js$/, '_bg.wasm')
+              ),
+              distRel.replace(/\.js$/, '_bg.wasm')
+            )
           }
         }
       }
@@ -161,21 +276,22 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
-  private traceFetchedFiles(compilation: Compilation, compiler: Compiler) {
-    const manifestDir = path.dirname(this.manifestPath)
-    const seen = new Set<string>()
+  // fetch() reads bytes, so a fetched file is data whatever its extension and
+  // is always copied as-is.
+  private traceFetchedFiles(run: TraceRun, only?: Set<string>) {
+    const {compilation, manifestDir} = run
+    const seen = run.seen.fetched
 
     // fetch() resolves against the PAGE URL, and pages get relocated in dist,
     // so the entry's source dir approximates the author's lost relative base.
-    const entrySourceDirs = collectEntrySourceDirs(compiler)
+    const entrySourceDirs = run.entrySourceDirs
 
     // Content scripts (and injected scripts/ helpers) run inside web pages,
     // where a relative fetch() resolves against the WEBSITE, untraceable.
-    const jsAssets = compilation
-      .getAssets()
+    const jsAssets = run
+      .jsAssets(only)
       .filter(
         (asset) =>
-          /\.js$/i.test(asset.name) &&
           !asset.name.startsWith('content_scripts/') &&
           !asset.name.startsWith('scripts/')
       )
@@ -213,42 +329,30 @@ export class TraceRuntimeLoadedFiles {
         const abs = candidates.find(
           (candidate) =>
             !path.relative(manifestDir, candidate).startsWith('..') &&
-            fs.existsSync(candidate) &&
-            fs.statSync(candidate).isFile()
+            isFile(candidate)
         )
 
         if (abs) {
-          compilation.emitAsset(
-            distRel,
-            new sources.RawSource(fs.readFileSync(abs))
-          )
-          try {
-            compilation.fileDependencies.add(abs)
-          } catch {
-            // ignore, watch registration is best-effort
-          }
+          run.emitCopy(abs, distRel)
           continue
         }
 
         // Only extensioned paths warn: a bare "/v1/users"-style literal is far
         // likelier an API route than a file the author expected in the package.
         if (/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
-          const warn = new WebpackError(
+          run.warn(
+            'RuntimeFetchedFileMissing',
+            asset.name,
             messages.fetchedFileDependencyMissing(asset.name, literal, distRel)
-          ) as Error & {file?: string; name?: string}
-          warn.name = 'RuntimeFetchedFileMissing'
-          warn.file = asset.name
-          compilation.warnings ||= []
-          compilation.warnings.push(warn)
+          )
         }
       }
     }
   }
 
-  private traceGetURLFiles(compilation: Compilation) {
-    const manifestDir = path.dirname(this.manifestPath)
+  private traceGetURLFiles(run: TraceRun, only?: Set<string>) {
     const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
-    const seen = new Set<string>()
+    const seen = run.seen.getURL
 
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
@@ -256,17 +360,15 @@ export class TraceRuntimeLoadedFiles {
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
 
-    let pending: PendingScan[] = compilation
-      .getAssets()
-      .filter((asset) => /\.js$/i.test(asset.name))
-      .map((asset) => ({
-        kind: 'js' as const,
-        content: asset.source.source().toString(),
-        assetName: asset.name
-      }))
+    let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
+      kind: 'js' as const,
+      content: asset.source.source().toString(),
+      assetName: asset.name
+    }))
 
-    // Copied files chain: a getURL'd module can call getURL again, keep a
-    // static relative import graph, or be an HTML page with subresources.
+    // Copied files chain: a getURL'd classic script can call getURL again or
+    // import() a module, and a copied HTML page has subresources. Compiled
+    // files chain through the next round instead, once their output exists.
     for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
       const next: PendingScan[] = []
 
@@ -294,7 +396,7 @@ export class TraceRuntimeLoadedFiles {
                   })
                 ),
                 // Only files WE copied verbatim: emitted bundles had their
-                // static imports resolved by the bundler already.
+                // imports resolved by the bundler already.
                 ...(item.copied
                   ? extractStaticImportLiterals(item.content).map(
                       (literal) => ({
@@ -310,6 +412,8 @@ export class TraceRuntimeLoadedFiles {
                 baseRel: item.baseRel
               }))
 
+        const assetName = item.kind === 'js' ? item.assetName : item.baseRel
+
         for (const {
           literal,
           baseRel,
@@ -324,72 +428,75 @@ export class TraceRuntimeLoadedFiles {
           // relocated by the main pipeline, copying their raw sources would
           // ship duplicates.
           if (declaredSurfaces.has(distRel)) continue
-          if (compilation.getAsset(distRel)) continue
-          // public/ files land at the output root via the special-folders
-          // pipeline.
-          if (fs.existsSync(path.join(manifestDir, 'public', distRel))) continue
 
           // getURL paths are root-anchored, so source and dist paths match.
-          const abs = path.join(manifestDir, distRel)
-          if (
-            !path.relative(manifestDir, abs).startsWith('..') &&
-            fs.existsSync(abs) &&
-            fs.statSync(abs).isFile()
-          ) {
-            const buffer = fs.readFileSync(abs)
-            compilation.emitAsset(distRel, new sources.RawSource(buffer))
-            try {
-              compilation.fileDependencies.add(abs)
-            } catch {
-              // ignore, watch registration is best-effort
-            }
-            if (/\.(?:js|mjs)$/i.test(distRel)) {
-              next.push({
-                kind: 'js',
-                content: buffer.toString(),
-                assetName: distRel,
-                copied: true
-              })
-            } else if (/\.html?$/i.test(distRel)) {
-              next.push({
-                kind: 'html',
-                content: buffer.toString(),
-                baseRel: distRel
-              })
-            }
-            continue
-          }
+          const plan = planTracedFile({
+            manifestDir: run.manifestDir,
+            sourceRel: distRel,
+            distRel,
+            loadsAs: 'by-shape',
+            hasAsset: run.hasAsset
+          })
+          const copied = run.apply(plan, {
+            context: item.kind === 'html' ? 'html' : 'getURL',
+            onMissing: () => {
+              // Warn only for extensioned getURL misses found in JS: HTML
+              // misses are the page author's problem, extensionless args
+              // often origin math.
+              if (item.kind !== 'js' || !/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
+                return
+              }
+              run.warn(
+                isStaticImport
+                  ? 'RuntimeStaticImportFileMissing'
+                  : isRuntimeSurface
+                    ? 'RuntimeSetSurfaceFileMissing'
+                    : 'RuntimeGetURLFileMissing',
+                assetName,
+                isStaticImport
+                  ? messages.staticImportDependencyMissing(
+                      assetName,
+                      literal,
+                      distRel
+                    )
+                  : isRuntimeSurface
+                    ? messages.runtimeSetSurfaceDependencyMissing(
+                        assetName,
+                        literal,
+                        distRel
+                      )
+                    : messages.getURLDependencyMissing(
+                        assetName,
+                        literal,
+                        distRel
+                      )
+              )
+            },
+            onSourceSpelling: (emitPath) =>
+              run.warn(
+                'RuntimeGetURLCompiledSource',
+                assetName,
+                compiledSourceSpelling(
+                  assetName,
+                  item.kind === 'html'
+                    ? 'an HTML src/href attribute'
+                    : 'chrome.runtime.getURL()',
+                  literal,
+                  emitPath
+                )
+              )
+          })
 
-          // Warn only for extensioned getURL misses found in JS: HTML misses
-          // are the page author's problem, extensionless args often origin math.
-          if (item.kind === 'js' && /\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
-            const warn = new WebpackError(
-              isStaticImport
-                ? messages.staticImportDependencyMissing(
-                    item.assetName,
-                    literal,
-                    distRel
-                  )
-                : isRuntimeSurface
-                  ? messages.runtimeSetSurfaceDependencyMissing(
-                      item.assetName,
-                      literal,
-                      distRel
-                    )
-                  : messages.getURLDependencyMissing(
-                      item.assetName,
-                      literal,
-                      distRel
-                    )
-            ) as Error & {file?: string; name?: string}
-            warn.name = isStaticImport
-              ? 'RuntimeStaticImportFileMissing'
-              : isRuntimeSurface
-                ? 'RuntimeSetSurfaceFileMissing'
-                : 'RuntimeGetURLFileMissing'
-            warn.file = item.assetName
-            compilation.warnings ||= []
-            compilation.warnings.push(warn)
+          if (copied == null) continue
+          if (/\.(?:js|mjs)$/i.test(distRel)) {
+            next.push({
+              kind: 'js',
+              content: copied,
+              assetName: distRel,
+              copied: true
+            })
+          } else if (/\.html?$/i.test(distRel)) {
+            next.push({kind: 'html', content: copied, baseRel: distRel})
           }
         }
       }
@@ -398,18 +505,12 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
-  private traceWebpackChunkSiblings(
-    compilation: Compilation,
-    compiler: Compiler
-  ) {
-    const manifestDir = path.dirname(this.manifestPath)
-    const entrySourceDirs = collectEntrySourceDirs(compiler)
+  // Prebuilt webpack bundles are finished output, so their numeric chunks are
+  // copied as-is.
+  private traceWebpackChunkSiblings(run: TraceRun, only?: Set<string>) {
+    const {compilation, manifestDir, entrySourceDirs} = run
 
-    const jsAssets = compilation
-      .getAssets()
-      .filter((asset) => /\.js$/i.test(asset.name))
-
-    for (const asset of jsAssets) {
+    for (const asset of run.jsAssets(only)) {
       const content = asset.source.source().toString()
       if (!hasWebpackChunkLoadingRuntime(content)) continue
 
@@ -445,17 +546,10 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
-  private traceInjectedFilePayloads(compilation: Compilation) {
-    const manifestDir = path.dirname(this.manifestPath)
-    const seen = new Set<string>()
+  private traceInjectedFilePayloads(run: TraceRun, only?: Set<string>) {
+    const seen = run.seen.injected
 
-    // Snapshot first: importScripts tracing above may have emitted classic
-    // worker deps, and those can themselves call chrome.scripting APIs.
-    const jsAssets = compilation
-      .getAssets()
-      .filter((asset) => /\.js$/i.test(asset.name))
-
-    for (const asset of jsAssets) {
+    for (const asset of run.jsAssets(only)) {
       const content = asset.source.source().toString()
 
       for (const literal of extractInjectedFileLiterals(content)) {
@@ -463,42 +557,457 @@ export class TraceRuntimeLoadedFiles {
         if (!distRel || seen.has(distRel)) continue
         seen.add(distRel)
 
-        // The literal spells the source of a file this build compiled, so the
-        // browser would request a path that is not in the output. Say so
-        // instead of copying the raw source through.
-        const emittedPath = compiledSourceEmittedPath(distRel)
-        if (emittedPath && compilation.getAsset(emittedPath)) {
-          const warn = new WebpackError(
-            messages.injectedCompiledSourceLiteral(
-              asset.name,
-              literal,
-              emittedPath
-            )
-          ) as Error & {file?: string; name?: string}
-          warn.name = 'InjectedScriptCompiledSource'
-          warn.file = asset.name
-          compilation.warnings ||= []
-          compilation.warnings.push(warn)
-          continue
-        }
-
-        copyThroughOrWarn(compilation, {
-          manifestDir,
+        const plan = planTracedFile({
+          manifestDir: run.manifestDir,
           sourceRel: distRel,
           distRel,
-          warning: (expected, sourceSibling) =>
-            messages.injectedFileDependencyMissing(
+          loadsAs: 'classic',
+          hasAsset: run.hasAsset
+        })
+        run.apply(plan, {
+          context: 'injected',
+          onMissing: () =>
+            run.warn(
+              'InjectedScriptFilesMissing',
               asset.name,
-              literal,
-              expected,
-              sourceSibling
+              messages.injectedFileDependencyMissing(
+                asset.name,
+                literal,
+                distRel
+              )
             ),
-          warningName: 'InjectedScriptFilesMissing',
-          warningFile: asset.name
+          // The literal spells the source of a file this build compiles, so
+          // the browser would request a path that is not in the output.
+          onSourceSpelling: (emitPath) =>
+            run.warn(
+              'InjectedScriptCompiledSource',
+              asset.name,
+              messages.injectedCompiledSourceLiteral(
+                asset.name,
+                literal,
+                emitPath
+              )
+            )
         })
       }
     }
   }
+}
+
+// One tracing pass over a compilation: the dedupe sets every step shares, the
+// files queued for the bundler, and the emit helpers.
+class TraceRun {
+  readonly seen = {
+    importScripts: new Set<string>(),
+    injected: new Set<string>(),
+    fetched: new Set<string>(),
+    getURL: new Set<string>()
+  }
+  // Assets that execute in the worker's scope, so importScripts literals in
+  // them resolve against the worker URL.
+  readonly workerScope = new Set<string>([EMITTED_WORKER_PATH])
+  readonly entrySourceDirs: Map<string, string>
+  readonly hasAsset: (name: string) => boolean
+  private readonly queue = new Map<string, CompileRequest>()
+
+  constructor(
+    readonly compilation: Compilation,
+    readonly compiler: Compiler,
+    readonly manifestDir: string
+  ) {
+    this.entrySourceDirs = collectEntrySourceDirs(compiler)
+    this.hasAsset = (name) => Boolean(compilation.getAsset(name))
+  }
+
+  jsAssets(only?: Set<string>) {
+    return this.compilation
+      .getAssets()
+      .filter(
+        (asset) => /\.js$/i.test(asset.name) && (!only || only.has(asset.name))
+      )
+  }
+
+  // Copies return their text so the caller can keep scanning it. Compiles are
+  // queued and return null: their output is scanned in the next round.
+  apply(plan: TracedFilePlan, ctx: ApplyContext): string | null {
+    switch (plan.kind) {
+      case 'skip':
+        if (plan.reason === 'compiled-elsewhere') {
+          ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
+        }
+        return null
+      case 'missing':
+        ctx.onMissing()
+        return null
+      case 'copy':
+        return this.emitCopy(plan.sourcePath, plan.emitPath)
+      case 'compile': {
+        if (plan.spelledAs) ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
+        // First request for an output path wins, so a file reached through
+        // two literals (its source and its emitted spelling) compiles once.
+        if (!this.queue.has(plan.emitPath)) {
+          this.queue.set(plan.emitPath, {
+            sourcePath: plan.sourcePath,
+            emitPath: plan.emitPath,
+            format: plan.format,
+            context: ctx.context
+          })
+        }
+        if (ctx.context === 'importScripts') this.workerScope.add(plan.emitPath)
+        this.watch(plan.sourcePath)
+        return null
+      }
+    }
+  }
+
+  emitCopy(abs: string, distRel: string): string {
+    const buffer = fs.readFileSync(abs)
+    this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
+    this.watch(abs)
+    return buffer.toString()
+  }
+
+  warn(name: string, file: string, message: string) {
+    const warning = new WebpackError(message) as Error & {
+      file?: string
+      name?: string
+    }
+    warning.name = name
+    warning.file = file
+    this.compilation.warnings ||= []
+    this.compilation.warnings.push(warning)
+  }
+
+  watch(abs: string) {
+    try {
+      this.compilation.fileDependencies.add(abs)
+    } catch {
+      // Ignore, watch registration is best-effort
+    }
+  }
+
+  // Runs the queued sources through the bundler and returns the JS assets
+  // that appeared, so the caller can scan them for further runtime loads.
+  async flushCompiles(): Promise<string[]> {
+    const requests = [...this.queue.values()]
+    this.queue.clear()
+    if (requests.length === 0) return []
+
+    const before = new Set(
+      this.compilation.getAssets().map((asset) => asset.name)
+    )
+    for (const format of ['module', 'classic'] as const) {
+      const group = requests.filter((request) => request.format === format)
+      if (group.length === 0) continue
+      await compileTracedFiles(this, format, group)
+    }
+    return this.compilation
+      .getAssets()
+      .map((asset) => asset.name)
+      .filter((name) => !before.has(name) && /\.js$/i.test(name))
+  }
+}
+
+// Decide how a traced file ships. The browser runs a classic .js file as
+// written, and copying keeps the globals side-by-side classic scripts share.
+// Everything the browser cannot run as written (TypeScript, JSX, ES modules
+// with imports to resolve) goes through the bundler, emitted at the path the
+// runtime asks for, or at the .js spelling when the literal names a source.
+export function planTracedFile(opts: {
+  manifestDir: string
+  sourceRel: string
+  distRel: string
+  loadsAs: TracedLoad
+  hasAsset: (name: string) => boolean
+}): TracedFilePlan {
+  const {manifestDir, sourceRel, distRel, loadsAs, hasAsset} = opts
+
+  // Already produced by the compilation (an emitted chunk or a previously
+  // traced file), nothing to do.
+  if (hasAsset(distRel))
+    return {kind: 'skip', reason: 'emitted', emitPath: distRel}
+  // public/ files land at the output root via the special-folders pipeline.
+  if (isFile(path.join(manifestDir, 'public', distRel))) {
+    return {kind: 'skip', reason: 'public', emitPath: distRel}
+  }
+
+  const abs = path.join(manifestDir, sourceRel)
+  const inside = !path.relative(manifestDir, abs).startsWith('..')
+  const ext = path.posix.extname(distRel).toLowerCase()
+
+  if (inside && isFile(abs)) {
+    if (!SCRIPT_EXTENSIONS.has(ext)) {
+      return {kind: 'copy', sourcePath: abs, emitPath: distRel}
+    }
+    const emitted = compiledSourceEmittedPath(distRel)
+    if (emitted) {
+      // The main pipeline already compiled this source (a scripts/ entry):
+      // its output owns the .js path, the source spelling ships nothing.
+      if (hasAsset(emitted)) {
+        return {
+          kind: 'skip',
+          reason: 'compiled-elsewhere',
+          emitPath: emitted,
+          spelledAs: distRel
+        }
+      }
+      const format = formatFor(abs, loadsAs)
+      if (SOURCE_ONLY_EXTENSIONS.has(ext)) {
+        return {
+          kind: 'compile',
+          sourcePath: abs,
+          emitPath: emitted,
+          format,
+          spelledAs: distRel
+        }
+      }
+      return {kind: 'compile', sourcePath: abs, emitPath: distRel, format}
+    }
+    if (isClassicScript(abs)) {
+      return {kind: 'copy', sourcePath: abs, emitPath: distRel}
+    }
+    return {
+      kind: 'compile',
+      sourcePath: abs,
+      emitPath: distRel,
+      format: formatFor(abs, loadsAs)
+    }
+  }
+
+  // The literal names the emitted .js of a source the build compiles, the
+  // same mapping the manifest pipeline applies to scripts/ files.
+  if (inside && ext === '.js') {
+    const sibling = findSourceSibling(abs)
+    if (sibling) {
+      return {
+        kind: 'compile',
+        sourcePath: sibling,
+        emitPath: distRel,
+        format: formatFor(sibling, loadsAs)
+      }
+    }
+  }
+
+  return {kind: 'missing', emitPath: distRel}
+}
+
+function formatFor(sourcePath: string, loadsAs: TracedLoad): TracedFormat {
+  if (loadsAs === 'classic') return 'classic'
+  return isClassicScript(sourcePath) ? 'classic' : 'module'
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
+}
+
+// Compile traced sources in a child of the main compilation, one per output
+// format, so they get the same loaders and resolution as every entry. The
+// child's assets land in the parent at the paths the runtime asks for.
+async function compileTracedFiles(
+  run: TraceRun,
+  format: TracedFormat,
+  requests: CompileRequest[]
+): Promise<void> {
+  const {compilation, compiler} = run
+  const isModule = format === 'module'
+  const chunkLoadingFor = (context: LoadContext) =>
+    isModule
+      ? 'import'
+      : context === 'importScripts'
+        ? 'import-scripts'
+        : 'jsonp'
+
+  const entries = requests.map(
+    (request) =>
+      new EntryPlugin(compiler.context, request.sourcePath, {
+        name: request.emitPath.replace(/\.[^./]+$/, ''),
+        filename: request.emitPath,
+        chunkLoading: chunkLoadingFor(request.context),
+        ...(isModule ? {library: {type: 'module'}} : {})
+      })
+  )
+
+  const child = compilation.createChildCompiler(
+    `${TraceRuntimeLoadedFiles.name}:${format}`,
+    {
+      filename: '[name].js',
+      module: isModule,
+      // No wrapper: a lone classic file keeps its top-level declarations
+      // global, which is what importScripts and injected scripts rely on.
+      iife: false,
+      chunkFormat: isModule ? 'module' : 'array-push',
+      chunkLoading: isModule ? 'import' : 'jsonp',
+      library: isModule ? {type: 'module'} : undefined,
+      clean: false
+    } as unknown as Parameters<Compilation['createChildCompiler']>[1],
+    entries
+  )
+
+  // Applied after the inherited builtins: the module library marks the
+  // entry's exports as used when it runs, which must come after provided
+  // exports are known or production tree-shakes every export away.
+  for (const type of new Set(
+    requests.map((request) => chunkLoadingFor(request.context))
+  )) {
+    new rspackJavascript.EnableChunkLoadingPlugin(type).apply(child)
+  }
+  if (isModule) new rspackLibrary.EnableLibraryPlugin('module').apply(child)
+
+  child.options.entry = {}
+  child.options.optimization = {
+    ...child.options.optimization,
+    splitChunks: false,
+    runtimeChunk: false
+  }
+  child.options.module = {
+    ...child.options.module,
+    // A runtime-loaded file is fetched by URL as one script, so it ships
+    // self-contained: relative import() calls are inlined, getURL ones are
+    // kept native by the loader upstream.
+    parser: withEagerDynamicImports(
+      child.options.module.parser as Record<string, unknown> | undefined
+    ) as typeof child.options.module.parser,
+    // Fast-refresh code needs the dev runtime the parent entries carry.
+    rules: withoutDevRefresh(
+      child.options.module.rules as LooseRule[]
+    ) as typeof child.options.module.rules
+  }
+
+  await new Promise<void>((resolve) => {
+    child.runAsChild((error, _entries, childCompilation) => {
+      if (error) {
+        const failure = new WebpackError(
+          `Compiling runtime-loaded ${requests
+            .map((request) => request.emitPath)
+            .join(', ')} failed: ${error.message}`
+        ) as Error & {name?: string}
+        failure.name = 'RuntimeLoadedFileCompileFailed'
+        compilation.errors.push(failure)
+      }
+      if (childCompilation) {
+        // Stats only count the parent's own diagnostics, so a broken traced
+        // source has to fail the build from here.
+        for (const childError of childCompilation.errors) {
+          compilation.errors.push(childError)
+        }
+        for (const childWarning of childCompilation.warnings) {
+          compilation.warnings ||= []
+          compilation.warnings.push(childWarning)
+        }
+        try {
+          for (const dep of childCompilation.fileDependencies) {
+            compilation.fileDependencies.add(dep)
+          }
+          for (const dep of childCompilation.contextDependencies) {
+            compilation.contextDependencies.add(dep)
+          }
+        } catch {
+          // Ignore, watch registration is best-effort
+        }
+      }
+      resolve()
+    })
+  })
+}
+
+function withEagerDynamicImports(
+  parser: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {...(parser || {})}
+  for (const key of [
+    'javascript',
+    'javascript/auto',
+    'javascript/esm',
+    'javascript/dynamic'
+  ]) {
+    next[key] = {
+      ...((next[key] as Record<string, unknown> | undefined) || {}),
+      dynamicImportMode: 'eager'
+    }
+  }
+  return next
+}
+
+type LooseUse =
+  | string
+  | {loader?: string; options?: Record<string, unknown>}
+  | ((...args: unknown[]) => unknown)
+interface LooseRule {
+  loader?: string
+  use?: LooseUse | LooseUse[]
+  oneOf?: LooseRule[]
+  rules?: LooseRule[]
+  [key: string]: unknown
+}
+
+const isRefreshLoader = (use: LooseUse) =>
+  typeof use === 'function'
+    ? false
+    : /react-refresh/.test(
+        String(typeof use === 'string' ? use : use.loader || '')
+      )
+
+function withoutDevRefresh(rules: LooseRule[]): LooseRule[] {
+  return rules
+    .map((rule): LooseRule | null => {
+      if (!rule || typeof rule !== 'object') return rule
+      if (rule.loader && /react-refresh/.test(rule.loader)) return null
+      const next: LooseRule = {...rule}
+      if (Array.isArray(next.oneOf)) next.oneOf = withoutDevRefresh(next.oneOf)
+      if (Array.isArray(next.rules)) next.rules = withoutDevRefresh(next.rules)
+      if (next.use !== undefined) {
+        const list = (Array.isArray(next.use) ? next.use : [next.use])
+          .filter((use) => !isRefreshLoader(use))
+          .map(withoutSwcRefresh)
+        next.use = Array.isArray(next.use) ? list : list[0]
+      }
+      return next
+    })
+    .filter((rule): rule is LooseRule => rule !== null)
+}
+
+// swc's refresh transform emits $RefreshReg$ calls only the dev runtime
+// defines, so the flag is turned off for the child.
+function withoutSwcRefresh(use: LooseUse): LooseUse {
+  if (typeof use !== 'object' || use.loader !== 'builtin:swc-loader') return use
+  const jsc = use.options?.jsc as
+    | {transform?: {react?: {refresh?: unknown}}}
+    | undefined
+  if (!jsc?.transform?.react?.refresh) return use
+  return {
+    ...use,
+    options: {
+      ...use.options,
+      jsc: {
+        ...jsc,
+        transform: {
+          ...jsc.transform,
+          react: {...jsc.transform.react, refresh: false}
+        }
+      }
+    }
+  }
+}
+
+// A getURL or importScripts literal that spells a compiled source. Injection
+// calls have their own catalog entry, these share this text.
+function compiledSourceSpelling(
+  assetName: string,
+  api: string,
+  literal: string,
+  emittedPath: string
+): string {
+  return [
+    `${assetName} loads '${literal}' via ${api}, but ${literal} is compiled to ${emittedPath}.`,
+    `REQUESTED ${literal}`,
+    `EMITTED ${emittedPath}`,
+    `The browser asks for the source path, which the output does not contain, so the load fails at runtime.`,
+    `Reference the emitted path: ${emittedPath}.`
+  ].join('\n')
 }
 
 // Entry name -> directory of the entry's first filesystem import, for
@@ -543,74 +1052,22 @@ function copyIfExists(
   distRel: string
 ): void {
   if (compilation.getAsset(distRel)) return
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return
+  if (!isFile(abs)) return
   compilation.emitAsset(distRel, new sources.RawSource(fs.readFileSync(abs)))
   try {
     compilation.fileDependencies.add(abs)
   } catch {
-    // ignore, watch registration is best-effort
+    // Ignore, watch registration is best-effort
   }
 }
 
-// Copy a runtime-loaded file through verbatim, or push a build warning when
-// missing. Returns the copied content so callers can scan it further.
-function copyThroughOrWarn(
-  compilation: Compilation,
-  opts: {
-    manifestDir: string
-    sourceRel: string
-    distRel: string
-    warning: (expectedPath: string, sourceSibling?: string) => string
-    warningName: string
-    warningFile: string
-  }
-): string | null {
-  // Already produced by the compilation (an emitted chunk or a previously
-  // copied file), nothing to do.
-  if (compilation.getAsset(opts.distRel)) return null
-
-  // Files under public/ are copied to the output root by the special-folders
-  // pipeline; don't double-emit or warn about those.
-  if (fs.existsSync(path.join(opts.manifestDir, 'public', opts.distRel))) {
-    return null
-  }
-
-  const abs = path.join(opts.manifestDir, opts.sourceRel)
-
-  if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
-    const buffer = fs.readFileSync(abs)
-    compilation.emitAsset(opts.distRel, new sources.RawSource(buffer))
-    try {
-      compilation.fileDependencies.add(abs)
-    } catch {
-      // ignore, watch registration is best-effort
-    }
-    return buffer.toString()
-  }
-
-  const sourceSibling = findSourceSibling(abs)
-  const warn = new WebpackError(
-    opts.warning(
-      opts.sourceRel,
-      sourceSibling
-        ? unixify(path.relative(opts.manifestDir, sourceSibling))
-        : undefined
-    )
-  ) as Error & {file?: string; name?: string}
-  warn.name = opts.warningName
-  warn.file = opts.warningFile
-  compilation.warnings ||= []
-  compilation.warnings.push(warn)
-  return null
-}
-
-// The literal may target a source file that compiles to .js (injected.ts as
-// "injected.js"). Surface that: these files are copied as-is, not compiled.
+// The source next to a missing .js literal (injected.ts for "injected.js"),
+// which the build compiles to that .js name.
 function findSourceSibling(abs: string): string | undefined {
   if (!abs.endsWith('.js')) return undefined
   const base = abs.slice(0, -'.js'.length)
   return SOURCE_SIBLING_EXTENSIONS.map((ext) => base + ext).find((candidate) =>
-    fs.existsSync(candidate)
+    isFile(candidate)
   )
 }
 
@@ -803,7 +1260,7 @@ function extractImportScriptsLiterals(source: string): string[] {
 }
 
 // Extract the file paths a runtime injection call ships to the browser. JS and
-// CSS come back alike: every one is copied through verbatim, never compiled.
+// CSS come back alike, the planner decides what compiles and what copies.
 export function extractInjectedFileLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
