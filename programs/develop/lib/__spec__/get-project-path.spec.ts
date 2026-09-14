@@ -251,3 +251,151 @@ describe('get-project-path', () => {
     expect(s.manifestPath.endsWith('manifest.json')).toBe(true)
   })
 })
+
+// A GitHub tree URL goes through go-git-it, which prints a git version line
+// and an unauthenticated rate-limit warning on its own. Those must not reach
+// the user unless they asked for --debug.
+describe('get-project-path (GitHub source)', () => {
+  const url =
+    'https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder'
+  const gitVersionLine = 'Using git version 9.9.9 (test)'
+  const rateLimitLine =
+    'GitHub API rate limit reached, continuing without connectivity check...'
+
+  let stdoutSpy: ReturnType<typeof vi.spyOn>
+  let stderrSpy: ReturnType<typeof vi.spyOn>
+  let logSpy: ReturnType<typeof vi.spyOn>
+  let prevDebug: string | undefined
+  let prevAuthor: string | undefined
+
+  beforeEach(() => {
+    prevDebug = process.env.EXTENSION_DEBUG
+    prevAuthor = process.env.EXTENSION_AUTHOR_MODE
+    delete process.env.EXTENSION_DEBUG
+    delete process.env.EXTENSION_AUTHOR_MODE
+    stdoutSpy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation((() => true) as never)
+    stderrSpy = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((() => true) as never)
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    stdoutSpy.mockRestore()
+    stderrSpy.mockRestore()
+    logSpy.mockRestore()
+    if (prevDebug === undefined) delete process.env.EXTENSION_DEBUG
+    else process.env.EXTENSION_DEBUG = prevDebug
+    if (prevAuthor === undefined) delete process.env.EXTENSION_AUTHOR_MODE
+    else process.env.EXTENSION_AUTHOR_MODE = prevAuthor
+    vi.doUnmock('go-git-it')
+    vi.doUnmock('../zip')
+  })
+
+  const writtenTo = (spy: ReturnType<typeof vi.spyOn>) =>
+    spy.mock.calls.map((call) => String(call[0])).join('')
+
+  // Stands in for go-git-it: writes what the real tool writes, then lands
+  // the sample where the real clone would.
+  function mockNoisyClone() {
+    const goGitIt = vi.fn(async (_url: string, cwd: string, text: string) => {
+      process.stdout.write(`${text}\n`)
+      process.stdout.write(`${gitVersionLine}\n`)
+      process.stderr.write(`${rateLimitLine}\n`)
+      const dest = path.join(cwd, 'sample.page-redder')
+      fs.mkdirSync(dest, {recursive: true})
+      fs.writeFileSync(path.join(dest, 'manifest.json'), '{"name":"redder"}')
+    })
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+    return goGitIt
+  }
+
+  it('silences go-git-it noise by default and prints no PATH row', async () => {
+    const root = makeTempDir('extjs-github-tree-')
+    const cwd = process.cwd()
+    const goGitIt = mockNoisyClone()
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const result = await fresh(url)
+
+      expect(goGitIt).toHaveBeenCalledTimes(1)
+      expect(fs.realpathSync(result)).toBe(
+        fs.realpathSync(path.join(root, 'sample.page-redder'))
+      )
+      expect(writtenTo(stdoutSpy)).not.toContain(gitVersionLine)
+      expect(writtenTo(stderrSpy)).not.toContain(rateLimitLine)
+
+      const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+      expect(logged).toContain('Downloading')
+      expect(logged).toContain('Creating a new browser extension')
+      expect(logged).not.toContain('PATH')
+      expect(logged).not.toContain('/GoogleChrome/chrome-extensions-samples/tree')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  it('lets go-git-it noise through under EXTENSION_DEBUG=1', async () => {
+    const root = makeTempDir('extjs-github-tree-debug-')
+    const cwd = process.cwd()
+    mockNoisyClone()
+    process.env.EXTENSION_DEBUG = '1'
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      await fresh(url)
+      expect(writtenTo(stdoutSpy)).toContain(gitVersionLine)
+      expect(writtenTo(stderrSpy)).toContain(rateLimitLine)
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  it('restores stdout and falls back to the codeload zip when the clone rejects', async () => {
+    const root = makeTempDir('extjs-github-tree-fallback-')
+    const cwd = process.cwd()
+    const goGitIt = vi.fn(async () => {
+      throw new Error('Failed to connect to GitHub: offline')
+    })
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+    const downloadAndExtractZip = vi.fn(async (zipUrl: string) => {
+      expect(zipUrl).toBe(
+        'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/refs/heads/main'
+      )
+      const sample = path.join(
+        root,
+        'chrome-extensions-samples-main',
+        'functional-samples',
+        'sample.page-redder'
+      )
+      fs.mkdirSync(sample, {recursive: true})
+      fs.writeFileSync(path.join(sample, 'manifest.json'), '{"name":"redder"}')
+      return root
+    })
+    vi.doMock('../zip', () => ({downloadAndExtractZip}))
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const result = await fresh(url)
+      expect(downloadAndExtractZip).toHaveBeenCalledTimes(1)
+      expect(fs.realpathSync(result)).toBe(
+        fs.realpathSync(
+          path.join(
+            root,
+            'chrome-extensions-samples-main',
+            'functional-samples',
+            'sample.page-redder'
+          )
+        )
+      )
+      // The silencer must hand stdout back even when the clone fails.
+      process.stdout.write('after-fallback')
+      expect(writtenTo(stdoutSpy)).toContain('after-fallback')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+})
