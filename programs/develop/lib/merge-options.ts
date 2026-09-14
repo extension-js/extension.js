@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {ADDON_LINT_DEFAULT} from './addon-lint'
 import {sanitize} from './sanitize'
 
 /**
@@ -29,7 +30,8 @@ export const BUILD_COMMAND_DEFAULTS = {
   polyfill: false,
   zip: false,
   zipSource: false,
-  silent: false
+  silent: false,
+  addonLint: ADDON_LINT_DEFAULT
 }
 
 /**
@@ -50,7 +52,10 @@ export const SERVE_COMMAND_DEFAULTS = {
  */
 export const START_BUILD_DEFAULTS = {
   polyfill: true,
-  silent: true
+  silent: true,
+  // start previews the build in a browser, it does not ship it, so the
+  // store check stays out of that loop unless the config asks for it.
+  addonLint: false
 }
 
 /**

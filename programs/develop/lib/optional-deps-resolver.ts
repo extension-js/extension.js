@@ -45,7 +45,9 @@ function installVerbForPackageManager(name: PackageManagerName): string {
   return 'add -D'
 }
 
-function formatInstallHint(
+// Exported so a best-effort step (the AMO lint) can print the same
+// package-manager-aware hint without going through a throw.
+export function formatInstallHint(
   projectPath: string,
   packageSpecs: string[]
 ): string {

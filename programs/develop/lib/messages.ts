@@ -224,6 +224,55 @@ function platformDocsUrl(): string {
     .replace(/\/+$/, '')
 }
 
+function pluralize(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
+}
+
+export function addonLintSummary(
+  errorCount: number,
+  warningCount: number,
+  distDisplay: string
+) {
+  const parts: string[] = []
+  if (errorCount > 0) parts.push(pluralize(errorCount, 'error'))
+  if (warningCount > 0) parts.push(pluralize(warningCount, 'warning'))
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org: ` +
+    `addons-linter found ${parts.join(' and ')} in ${colors.underline(distDisplay)}`
+  )
+}
+
+// Linter errors get the warning glyph, linter warnings the quieter info one,
+// so the ones AMO rejects outright stand apart at a glance.
+export function addonLintFinding(
+  level: 'error' | 'warning',
+  code: string,
+  message: string,
+  location: string
+) {
+  const glyph = getLoggingPrefix(level === 'error' ? 'warn' : 'info')
+  const where = location ? ` ${colors.gray(`(${location})`)}` : ''
+  return `${glyph} AMO ${level} ${colors.yellow(code)}: ${message}${where}`
+}
+
+export function addonLintMore(hiddenCount: number, distDisplay: string) {
+  return (
+    `${getLoggingPrefix('info')} ${pluralize(hiddenCount, 'more finding')} not shown. ` +
+    `Run ${colors.blue(`npx addons-linter ${distDisplay}`)} for the full report.`
+  )
+}
+
+export function addonLintNotInstalled(installHint: string) {
+  return (
+    `${getLoggingPrefix('info')} Skipped the addons.mozilla.org lint: addons-linter is not installed. ` +
+    `Install it with: ${colors.blue(installHint)} or pass ${colors.blue('--no-addon-lint')} to silence this.`
+  )
+}
+
+export function addonLintFailed(reason: string) {
+  return `${getLoggingPrefix('debug')} addon-lint skipped=true reason="${reason}"`
+}
+
 export function buildShareHint() {
   const docs = platformDocsUrl()
   if (!docs) return ''

@@ -33,6 +33,7 @@ type BuildOptions = {
   zipSource?: boolean
   zipFilename?: string
   silent?: boolean
+  addonLint?: boolean
   install?: boolean
   extensions?: string
   mode?: string
@@ -82,6 +83,15 @@ export function registerBuildCommand(program: Command) {
       '--silent [boolean]',
       'suppress the build summary output. Defaults to `false`',
       parseOptionalBoolean
+    )
+    .option(
+      '--addon-lint [boolean]',
+      'check Firefox builds against addons.mozilla.org rules with addons-linter when it is installed. Findings print as warnings. Defaults to `true`',
+      parseOptionalBoolean
+    )
+    .option(
+      '--no-addon-lint',
+      'skip the addons.mozilla.org lint of Firefox builds'
     )
     .option(
       '--install [boolean]',
@@ -264,6 +274,7 @@ export function registerBuildCommand(program: Command) {
               zipSource: buildOptions.zipSource,
               zipFilename: buildOptions.zipFilename,
               silent: buildOptions.silent,
+              addonLint: buildOptions.addonLint,
               install: buildOptions.install,
               extensions: parseExtensionsList(buildOptions.extensions),
               mode,

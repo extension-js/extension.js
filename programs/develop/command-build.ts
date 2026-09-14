@@ -10,7 +10,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
-import {humanLine} from './dev-server/lifecycle-stream'
+import {humanLine, stripAnsi} from './dev-server/lifecycle-stream'
+import {runAddonLint} from './lib/addon-lint'
 import {
   promoteStagingDist,
   removeStagingDir,
@@ -382,6 +383,41 @@ export async function extensionBuild(
           // a re-pointed output.path is not dist/<browser>.
           summary = getBuildSummary(browser, info, displayDistPath)
 
+          const distDisplay =
+            relativeToCwd(displayDistPath) || collapseHomeDir(displayDistPath)
+
+          // Store readiness for Gecko targets: addons-linter runs over the
+          // promoted dist and its findings join the warnings, never the
+          // errors. A missing linter is one hint, a broken one a debug line.
+          const lintLines: string[] = []
+          try {
+            const lint = await runAddonLint({
+              projectPath: packageJsonDir,
+              distPath: displayDistPath,
+              distDisplay,
+              browser,
+              mode: resolvedMode,
+              enabled: mergedBuildOptions.addonLint
+            })
+            if (lint.status === 'missing' && lint.hint) {
+              lintLines.push(lint.hint)
+            } else if (lint.status === 'failed' && isDebug()) {
+              lintLines.push(lint.debugLine)
+            } else if (lint.status === 'linted' && lint.findings > 0) {
+              lintLines.push(...lint.lines)
+              summary = {
+                ...summary,
+                warnings_count: summary.warnings_count + lint.findings,
+                warnings: [
+                  ...(summary.warnings || []),
+                  ...lint.lines.map((line) => stripAnsi(line))
+                ]
+              }
+            }
+          } catch {
+            // A store check can never fail a green build.
+          }
+
           // Hosts that shell out to `extension build` cannot see the returned
           // summary, so persist it next to ready.json. Best-effort only.
           try {
@@ -394,7 +430,7 @@ export async function extensionBuild(
             // Never fail a green build over the informational contract.
           }
 
-          if (summary.warnings_count > 0) {
+          if ((info?.warnings || []).length > 0) {
             // Emit-time warnings already printed when the plugin acted; the
             // summary keeps them all so the json record stays complete.
             const warningDetails = messages.buildWarningsDetails(
@@ -408,8 +444,8 @@ export async function extensionBuild(
             }
           }
 
-          const distDisplay =
-            relativeToCwd(displayDistPath) || collapseHomeDir(displayDistPath)
+          for (const line of lintLines) humanLine(line)
+
           humanLine(
             messages.buildComplete(browser, distDisplay, summary.total_bytes)
           )
