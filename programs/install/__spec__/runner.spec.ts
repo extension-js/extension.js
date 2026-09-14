@@ -7,13 +7,52 @@ vi.mock('node:child_process', async () => {
   return {...actual, spawnSync: spawnSyncMock}
 })
 
+const spawnMock = vi.hoisted(() => vi.fn())
+vi.mock('cross-spawn', () => ({
+  spawn: (...args: unknown[]) => spawnMock(...args)
+}))
+
 import {
   browserInstallArgs,
   browserInstallCommand,
   browserInstallEnv,
   detectSystemEdgeBinary,
-  isEdgePrivilegeEscalationFailure
+  isEdgePrivilegeEscalationFailure,
+  runCommand
 } from '../lib/runner'
+
+describe('install runner runCommand', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  it('hands the destination to cross-spawn as one argument with no shell option', async () => {
+    spawnMock.mockImplementation(() => ({
+      stdout: {on: () => undefined},
+      stderr: {on: () => undefined},
+      on: (event: string, cb: (code: number) => void) => {
+        if (event === 'close') setImmediate(() => cb(0))
+      }
+    }))
+    // A shell would split or execute this path, so it must arrive verbatim.
+    const destination = 'C:\\Users\\me & rm -rf x\\browsers'
+    const args = browserInstallArgs('chrome', destination)
+
+    const result = await runCommand('npx.cmd', args, {
+      cwd: process.cwd(),
+      env: {...process.env}
+    })
+
+    expect(result.code).toBe(0)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    const [command, spawnArgs, options] = spawnMock.mock.calls[0]
+    expect(command).toBe('npx.cmd')
+    expect(spawnArgs).toEqual(args)
+    expect(spawnArgs[spawnArgs.length - 1]).toBe(destination)
+    expect(options).not.toHaveProperty('shell')
+    expect(options.stdio).toBe('pipe')
+  })
+})
 
 describe('install runner mapping', () => {
   const prevEnv = {...process.env}
