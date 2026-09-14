@@ -29,7 +29,7 @@ Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
 Browser extensions ship with the worst dev experience in modern web. Manifest V3 fragmentation, browser-specific quirks, no hot reload for content scripts, and a separate build pipeline for every target. Extension.js fixes that.
 
-- **Hot Module Replacement** for background, content, popup, and options scripts, including React, Vue, Svelte, and Preact components
+- **Hot Module Replacement** for popup, options, devtools and other extension pages, including React, Vue, Svelte, and Preact components, with targeted reloads for content scripts and the service worker so one save never reloads the whole extension
 - **Manifest V3 by default**, with automatic adapters for Chrome, Edge, Firefox, and Safari targets
 - **One CLI** for Chrome, Edge, Firefox, and any Chromium or Gecko binary
 - **Zero config**, no webpack, no rollup, no plugins to maintain
@@ -51,7 +51,7 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 | :--------- | :----------- |
 | Run any GitHub sample directly | `extension dev https://github.com/.../sample` |
 | Managed browser binaries | `extension install firefox` downloads an isolated build |
-| Cross-browser HMR for content scripts | Built in, no plugin glue |
+| Targeted content-script reload across browsers | Built in, only the changed entries re-inject, no plugin glue |
 | Production zip for the stores | `extension build --zip` |
 | Framework agnostic | [Vanilla](https://templates.extension.dev/javascript), [TS](https://templates.extension.dev/typescript), [React](https://templates.extension.dev/react), [Vue](https://templates.extension.dev/vue), [Svelte](https://templates.extension.dev/svelte), [Preact](https://templates.extension.dev/preact), no lock-in |
 | Custom Chromium and Gecko binaries | `--chromium-binary`, `--gecko-binary` |
