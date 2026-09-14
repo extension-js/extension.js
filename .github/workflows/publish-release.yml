@@ -65,15 +65,33 @@ jobs:
           cache: 'pnpm'
 
       # OIDC trusted publishing needs npm >= 11.5.1 and Node 22 ships npm 10.x,
-      # so npm has to be upgraded here. It is PINNED and never `@latest`:
-      # npm 12.0.2 shipped 2026-07-29 and turned unknown CLI flags from a
-      # warning into a hard EUNKNOWNCONFIG error, which killed the publish on
-      # `--no-git-checks` (a pnpm flag that had ridden along harmlessly for
-      # months) before the OIDC token exchange was ever attempted. A floating
-      # tag on the tool that performs the publish makes every release hostage
-      # to that tool's next major.
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@11.19.0
+      # so a newer npm has to go on PATH here. It is PINNED and never
+      # `@latest`: npm 12.0.2 shipped 2026-07-29 and turned unknown CLI flags
+      # from a warning into a hard EUNKNOWNCONFIG error, which killed the
+      # publish on `--no-git-checks` (a pnpm flag that had ridden along
+      # harmlessly for months) before the OIDC token exchange was ever
+      # attempted. A floating tag on the tool that performs the publish makes
+      # every release hostage to that tool's next major.
+      #
+      # The pin lives in .github/tools/npm/package.json next to a committed
+      # package-lock.json, so the install is lockfile-driven (version and
+      # integrity hash both verified) rather than `npm install -g npm@<ver>`,
+      # which Scorecard's Pinned-Dependencies check reports as unpinned. The
+      # installed binary goes first on PATH so every later npm step uses it.
+      - name: Install the pinned npm for trusted publishing
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix .github/tools/npm
+          echo "${GITHUB_WORKSPACE}/.github/tools/npm/node_modules/.bin" >> "${GITHUB_PATH}"
+
+      - name: Verify the pinned npm is on PATH
+        run: |
+          EXPECTED="$(node -p "require('./.github/tools/npm/package.json').dependencies.npm")"
+          ACTUAL="$(npm --version)"
+          if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+            echo "Expected npm ${EXPECTED} on PATH, found ${ACTUAL}" >&2
+            exit 1
+          fi
+          echo "npm ${ACTUAL} (pinned in .github/tools/npm/package-lock.json)"
 
       - name: Verify pnpm
         run: |
