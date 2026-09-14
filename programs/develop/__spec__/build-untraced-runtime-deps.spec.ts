@@ -623,21 +623,25 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     ).toBe(false)
   }, 120_000)
 
-  it('copies chrome.runtime.getURL() targets, dynamic import from a content script and an HTML page with its subresources (bug 8)', async () => {
+  it('ships chrome.runtime.getURL() targets: a compiled ES module for a dynamic import from a content script, and an HTML page with its subresources (bug 8)', async () => {
     const summary = await buildFixture(GETURL_ROOT)
     expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(GETURL_ROOT, 'dist', 'chrome')
 
+    // common.js is an ES module, so it goes through the bundler: its relative
+    // closure travels inside the file and the export the import() reads
+    // survives. Copying it verbatim used to ship its imports as raw siblings.
     const commonDist = path.join(distDir, 'common.js')
     expect(fs.existsSync(commonDist), `missing ${commonDist}`).toBe(true)
-    expect(fs.readFileSync(commonDist, 'utf8')).toBe(
-      fs.readFileSync(path.join(GETURL_ROOT, 'common.js'), 'utf8')
-    )
+    const common = fs.readFileSync(commonDist, 'utf8')
+    expect(common).not.toMatch(/from\s*['"]\.\/lib\/helper\.js['"]/)
+    expect(common).toContain('with-closure')
+    expect(common).toMatch(/\bexport\s*\{[^}]*\bMESSAGE\b/)
 
     for (const rel of ['lib/helper.js', 'lib/deeper.js']) {
       const abs = path.join(distDir, rel)
-      expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+      expect(fs.existsSync(abs), `unexpected raw sibling ${abs}`).toBe(false)
     }
 
     const contentBundle = fs.readFileSync(
