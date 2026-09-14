@@ -47,7 +47,10 @@ const createFakeCompiler = (
           errors: [],
           hooks: {
             processAssets: {
-              tap: (_opts: any, fn: () => void) => fn()
+              tap: (_opts: any, fn: () => void) => fn(),
+              tapPromise: (_opts: any, fn: () => Promise<void>) => {
+                void fn()
+              }
             }
           },
           getAssets: () => [],

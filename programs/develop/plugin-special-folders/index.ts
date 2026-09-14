@@ -78,7 +78,7 @@ export class SpecialFoldersPlugin {
             )
           )
         }
-        compilation.hooks.processAssets.tap(
+        compilation.hooks.processAssets.tapPromise(
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
             // Late enough that HTML and CSS assets exist to be scanned.
@@ -88,7 +88,7 @@ export class SpecialFoldersPlugin {
               }
             ).PROCESS_ASSETS_STAGE_SUMMARIZE
           },
-          () => {
+          () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
             // which is not always the compiler context / package.json dir.
             emitRootAbsoluteRefs(
@@ -96,7 +96,6 @@ export class SpecialFoldersPlugin {
               path.dirname(manifestPath),
               publicDir
             )
-          }
         )
       }
     )

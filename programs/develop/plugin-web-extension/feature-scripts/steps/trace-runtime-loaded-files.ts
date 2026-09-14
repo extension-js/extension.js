@@ -86,7 +86,7 @@ const SCRIPT_EXTENSIONS = new Set([
 ])
 
 // Where a traced literal was found, which fixes how the browser executes it.
-type LoadContext = 'importScripts' | 'injected' | 'getURL' | 'html'
+export type LoadContext = 'importScripts' | 'injected' | 'getURL' | 'html'
 // importScripts and injection payloads always run as classic scripts. A getURL
 // or HTML target is loaded the way its author wrote it, so the file decides.
 export type TracedLoad = 'classic' | 'by-shape'
@@ -110,11 +110,18 @@ export type TracedFilePlan =
     }
   | {kind: 'missing'; emitPath: string}
 
-interface CompileRequest {
+export interface CompileRequest {
   sourcePath: string
   emitPath: string
   format: TracedFormat
   context: LoadContext
+}
+
+// The two handles a child compilation needs. TraceRun satisfies it, and so
+// does any other plugin holding a compilation.
+interface CompileHost {
+  compilation: Compilation
+  compiler: Compiler
 }
 
 interface ApplyContext {
@@ -241,7 +248,7 @@ export class TraceRuntimeLoadedFiles {
               run.warn(
                 'ImportScriptsCompiledSource',
                 EMITTED_WORKER_PATH,
-                compiledSourceSpelling(
+                messages.compiledSourceSpelling(
                   EMITTED_WORKER_PATH,
                   'importScripts',
                   literal,
@@ -476,7 +483,7 @@ export class TraceRuntimeLoadedFiles {
               run.warn(
                 'RuntimeGetURLCompiledSource',
                 assetName,
-                compiledSourceSpelling(
+                messages.compiledSourceSpelling(
                   assetName,
                   item.kind === 'html'
                     ? 'an HTML src/href attribute'
@@ -691,21 +698,36 @@ class TraceRun {
   async flushCompiles(): Promise<string[]> {
     const requests = [...this.queue.values()]
     this.queue.clear()
-    if (requests.length === 0) return []
-
-    const before = new Set(
-      this.compilation.getAssets().map((asset) => asset.name)
+    const emitted = await compileRuntimeLoadedFiles(
+      this.compilation,
+      this.compiler,
+      requests
     )
-    for (const format of ['module', 'classic'] as const) {
-      const group = requests.filter((request) => request.format === format)
-      if (group.length === 0) continue
-      await compileTracedFiles(this, format, group)
-    }
-    return this.compilation
-      .getAssets()
-      .map((asset) => asset.name)
-      .filter((name) => !before.has(name) && /\.js$/i.test(name))
+    return emitted.filter((name) => /\.js$/i.test(name))
   }
+}
+
+// Runs planned sources through the bundler, one child per output format, and
+// returns the names of the assets that appeared. The special-folders plugin
+// reaches the same kind of file through root-absolute HTML and CSS refs and
+// compiles them here too, so both sites ship identical output.
+export async function compileRuntimeLoadedFiles(
+  compilation: Compilation,
+  compiler: Compiler,
+  requests: CompileRequest[]
+): Promise<string[]> {
+  if (requests.length === 0) return []
+
+  const before = new Set(compilation.getAssets().map((asset) => asset.name))
+  for (const format of ['module', 'classic'] as const) {
+    const group = requests.filter((request) => request.format === format)
+    if (group.length === 0) continue
+    await compileTracedFiles({compilation, compiler}, format, group)
+  }
+  return compilation
+    .getAssets()
+    .map((asset) => asset.name)
+    .filter((name) => !before.has(name))
 }
 
 // Decide how a traced file ships. The browser runs a classic .js file as
@@ -808,11 +830,11 @@ function isFile(candidate: string): boolean {
 // format, so they get the same loaders and resolution as every entry. The
 // child's assets land in the parent at the paths the runtime asks for.
 async function compileTracedFiles(
-  run: TraceRun,
+  host: CompileHost,
   format: TracedFormat,
   requests: CompileRequest[]
 ): Promise<void> {
-  const {compilation, compiler} = run
+  const {compilation, compiler} = host
   const isModule = format === 'module'
   const chunkLoadingFor = (context: LoadContext) =>
     isModule
@@ -991,23 +1013,6 @@ function withoutSwcRefresh(use: LooseUse): LooseUse {
       }
     }
   }
-}
-
-// A getURL or importScripts literal that spells a compiled source. Injection
-// calls have their own catalog entry, these share this text.
-function compiledSourceSpelling(
-  assetName: string,
-  api: string,
-  literal: string,
-  emittedPath: string
-): string {
-  return [
-    `${assetName} loads '${literal}' via ${api}, but ${literal} is compiled to ${emittedPath}.`,
-    `REQUESTED ${literal}`,
-    `EMITTED ${emittedPath}`,
-    `The browser asks for the source path, which the output does not contain, so the load fails at runtime.`,
-    `Reference the emitted path: ${emittedPath}.`
-  ].join('\n')
 }
 
 // Entry name -> directory of the entry's first filesystem import, for

@@ -207,3 +207,24 @@ export function reservedScriptsFolder(relPath: string, indicators: string[]) {
     `${colors.blue('tools/')}, or ${colors.blue('tasks/')}), or move the file out of scripts/.`
   )
 }
+
+// A getURL, importScripts or HTML literal that spells a compiled source.
+// Injection calls have their own entry above, the other loaders share this.
+export function compiledSourceSpelling(
+  assetName: string,
+  api: string,
+  literal: string,
+  emittedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${assetName} loads '${literal}' via ${api}, but ${literal} is compiled to ${emittedPath}.`
+  )
+  lines.push(`${colors.gray('REQUESTED')} ${colors.underline(literal)}`)
+  lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
+  lines.push(
+    `The browser asks for the source path, which the output does not contain, so the load fails at runtime.`
+  )
+  lines.push(`Reference the emitted path: ${colors.blue(emittedPath)}.`)
+  return lines.join('\n')
+}
