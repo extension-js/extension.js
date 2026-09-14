@@ -52,6 +52,19 @@ describe('install runner mapping', () => {
     ])
   })
 
+  it('pins firefox to the stable channel instead of the nightly default', () => {
+    clearPackageManagerEnv()
+
+    expect(browserInstallArgs('firefox', '/tmp/x')).toEqual([
+      '-y',
+      '@puppeteer/browsers@latest',
+      'install',
+      'firefox@stable',
+      '--path',
+      '/tmp/x'
+    ])
+  })
+
   it('maps edge to playwright installer args + env', () => {
     clearPackageManagerEnv()
 
