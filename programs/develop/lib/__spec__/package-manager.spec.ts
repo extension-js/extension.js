@@ -26,6 +26,13 @@ vi.mock('child_process', () => ({
   spawnSync: vi.fn(() => ({status: 0}))
 }))
 
+// Installs go through cross-spawn, which requires child_process natively and
+// so never sees the mock above. Intercept it at its own seam instead.
+vi.mock('cross-spawn', () => ({
+  spawn: (...args: any[]) => spawnMock(...args),
+  sync: vi.fn(() => ({status: 0}))
+}))
+
 import {
   buildInstallCommand,
   execInstallCommand,
@@ -342,16 +349,19 @@ describe('package-manager pnpm workspace membership', () => {
 describe('package-manager execInstallCommand', () => {
   beforeEach(() => spawnMock.mockClear())
 
-  it('uses shell: true on Windows when command is .cmd or .bat', async () => {
-    if (process.platform !== 'win32') return
-    await execInstallCommand('C:\\path\\to\\pnpm.cmd', ['install'], {
+  it('passes a .cmd command and its args to cross-spawn with no shell option', async () => {
+    // A shell would join these into one cmd.exe string, so a member path
+    // with metacharacters must stay a single argument.
+    const args = ['install', '--filter', '{apps/a b & c}...']
+    await execInstallCommand('C:\\path\\to\\pnpm.cmd', args, {
       cwd: process.cwd()
     })
-    expect(spawnMock).toHaveBeenCalledWith(
-      'C:\\path\\to\\pnpm.cmd',
-      ['install'],
-      expect.objectContaining({shell: true})
-    )
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    const [command, spawnArgs, options] = (spawnMock.mock.calls as any)[0]
+    expect(command).toBe('C:\\path\\to\\pnpm.cmd')
+    expect(spawnArgs).toEqual(args)
+    expect(options).not.toHaveProperty('shell')
+    expect(options.cwd).toBe(process.cwd())
   })
 })
 

@@ -207,6 +207,9 @@ importers:
       content-security-policy-parser:
         specifier: ^0.6.0
         version: 0.6.0
+      cross-spawn:
+        specifier: ^7.0.6
+        version: 7.0.6
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3

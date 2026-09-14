@@ -6,14 +6,11 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {
-  execFileSync,
-  spawn,
-  spawnSync as spawnSyncImported
-} from 'node:child_process'
+import {execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {spawn, sync as spawnSync} from 'cross-spawn'
 import {buildExecEnv, detectPackageManagerFromLockfile} from 'prefers-yarn'
 
 // buildExecEnv and lockfile sniffing come from prefers-yarn; the resolver
@@ -205,12 +202,11 @@ function resolveCommandOnPath(command: string) {
 
 function canRunCorepack(): boolean {
   try {
-    const spawnSync = spawnSyncImported
+    // corepack is a .cmd shim on Windows. cross-spawn resolves the shim
+    // itself, so no shell string is built for the probe.
     const result = spawnSync('corepack', ['--version'], {
       stdio: 'ignore',
-      windowsHide: true,
-      // corepack is a .cmd shim on Windows, so a bare spawn never finds it.
-      shell: process.platform === 'win32'
+      windowsHide: true
     })
     return result?.status === 0
   } catch {
@@ -572,16 +568,14 @@ export function execInstallCommand(
   const invocation = buildSpawnInvocation(command, args)
   const env = buildExecEnv()
   const stdio = options?.stdio ?? 'ignore'
-  // On Windows, .cmd/.bat must be run with shell (spawn EINVAL otherwise)
-  const useShell =
-    process.platform === 'win32' && /\.(cmd|bat)$/i.test(invocation.command)
 
   return new Promise((resolve, reject) => {
+    // cross-spawn runs .cmd/.bat shims on Windows and escapes every argument
+    // itself, so a project path with shell metacharacters stays one argument.
     const child = spawn(invocation.command, invocation.args, {
       cwd: options?.cwd,
       stdio,
-      env: {...(env || process.env), ...options?.env},
-      ...(useShell ? {shell: true} : {})
+      env: {...(env || process.env), ...options?.env}
     })
 
     child.on('close', (code) => {

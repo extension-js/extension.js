@@ -6,9 +6,9 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {sync as spawnSync} from 'cross-spawn'
 import {getPackageManagerSpec} from 'prefers-yarn'
 
 export {getPackageManagerSpec as getPackageManagerSpecFromEnv} from 'prefers-yarn'
@@ -114,16 +114,19 @@ export function resolvePackageManagerSpec(
   const fromEnv = getPackageManagerSpec()
   if (fromEnv && fromEnv.startsWith(`${manager}@`)) return fromEnv
   try {
-    // Windows installs the managers as .cmd shims, which only a shell can
-    // run; the name comes from the closed list above, never from input.
-    const version = execFileSync(manager, ['--version'], {
+    // Windows installs the managers as .cmd shims. cross-spawn resolves the
+    // shim itself, so the probe never goes through a shell string.
+    const probe = spawnSync(manager, ['--version'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000,
-      shell: process.platform === 'win32'
+      timeout: 5000
     })
-      .trim()
-      .replace(/^v/, '')
+    const version =
+      probe.status === 0
+        ? String(probe.stdout || '')
+            .trim()
+            .replace(/^v/, '')
+        : ''
     if (/^\d+\.\d+\.\d+/.test(version)) return `${manager}@${version}`
   } catch {
     // The manager is not on PATH; nothing usable to declare.
