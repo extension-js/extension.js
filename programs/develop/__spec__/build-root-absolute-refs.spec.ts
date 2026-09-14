@@ -137,23 +137,22 @@ afterAll(() => {
 })
 
 describe('build: root-absolute references (real rspack)', () => {
-  it('ships the static import closure of a root-absolute html script src', async () => {
+  it('bundles the static import closure of a root-absolute html script src into the file', async () => {
     const summary = await buildFixture(HTML_SRC_ROOT)
     expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(HTML_SRC_ROOT, 'dist', 'chrome')
 
+    // An ES module named by the page goes through the bundler, which resolves
+    // the root-absolute import itself, so the closure travels inside the file
+    // instead of shipping as a raw sibling.
     const popupJs = fs.readFileSync(
       path.join(distDir, 'js', 'popup.js'),
       'utf8'
     )
-    expect(popupJs).toContain('from "/js/gr.js"')
-
-    const grJs = path.join(distDir, 'js', 'gr.js')
-    expect(fs.existsSync(grJs), `missing ${grJs}`).toBe(true)
-    expect(fs.readFileSync(grJs, 'utf8')).toContain(
-      'root-absolute import loaded'
-    )
+    expect(popupJs).not.toContain('from "/js/gr.js"')
+    expect(popupJs).toContain('root-absolute import loaded')
+    expect(fs.existsSync(path.join(distDir, 'js', 'gr.js'))).toBe(false)
 
     expect(summary.warnings_count ?? 0).toBe(0)
   }, 120_000)
