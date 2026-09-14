@@ -5,24 +5,30 @@ function SidebarApp() {
   const root = document.getElementById('root')
   if (!root) return
 
-  root.innerHTML = `
-    <div class="sidebar_app">
-      <img
-        class="sidebar_logo"
-        src="${javascriptLogo}"
-        alt="The JavaScript logo"
-      />
-      <h1 class="sidebar_title">Sidebar Panel</h1>
-      <p class="sidebar_description">
-        Learn more in the
-        <a
-          href="https://extension.js.org"
-          target="_blank" rel="noopener noreferrer"
-        >Extension.js docs</a>
-        .
-      </p>
-    </div>
-  `
+  const app = document.createElement('div')
+  app.className = 'sidebar_app'
+
+  const logo = document.createElement('img')
+  logo.className = 'sidebar_logo'
+  logo.src = javascriptLogo
+  logo.alt = 'The JavaScript logo'
+
+  const title = document.createElement('h1')
+  title.className = 'sidebar_title'
+  title.textContent = 'Sidebar Panel'
+
+  const link = document.createElement('a')
+  link.href = 'https://extension.js.org'
+  link.target = '_blank'
+  link.rel = 'noopener noreferrer'
+  link.textContent = 'Extension.js docs'
+
+  const description = document.createElement('p')
+  description.className = 'sidebar_description'
+  description.append('Learn more in the ', link, ' .')
+
+  app.append(logo, title, description)
+  root.replaceChildren(app)
 }
 
 SidebarApp()
