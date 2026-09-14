@@ -195,7 +195,8 @@ describe('AddAssetsToCompilation', () => {
       expect(warnings[0]).toContain(
         "The page references a script file that doesn't exist."
       )
-      expect(warnings[0]).toContain('/lib/widget.js')
+      // The warning prints a native path, so Windows shows backslashes.
+      expect(warnings[0]).toMatch(/[\\/]lib[\\/]widget\.js/)
     })
 
     it('does not count a sibling under public/, which copies verbatim', () => {
