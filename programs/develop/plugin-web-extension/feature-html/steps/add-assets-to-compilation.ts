@@ -12,6 +12,7 @@ import {Compilation, type Compiler, sources} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {resolveRootAbsoluteRef} from '../../shared/paths'
+import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {
@@ -121,6 +122,23 @@ function warnMissingPublicRootResources(params: {
         publicRootForResource
       ) ||
       resolveRootAbsoluteRef(publicRootUrl, projectRoot, publicRootForResource)
+    ) {
+      return
+    }
+
+    // A missing .js whose source sibling sits at the root (lib/widget.ts for
+    // /lib/widget.js) is compiled to that path by emitRootAbsoluteRefs.
+    if (
+      findCompiledRootRefSource(
+        publicRootUrl,
+        manifestDir,
+        publicRootForResource
+      ) ||
+      findCompiledRootRefSource(
+        publicRootUrl,
+        projectRoot,
+        publicRootForResource
+      )
     ) {
       return
     }

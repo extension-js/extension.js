@@ -15,6 +15,7 @@ import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import type {FilepathList} from '../../../types'
 import {handleStaticAsset} from './assets'
 import {bakeBaseHref} from './base-href'
+import {findCompiledRootRefSource} from './compiled-root-ref'
 import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
 import * as messages from './messages'
 import {parseHtml} from './parse-html'
@@ -32,12 +33,18 @@ import {
 function warnIfPublicRootAssetMissing(
   compilation: Compilation,
   htmlEntry: string,
-  cleanPath: string
+  cleanPath: string,
+  manifestDir?: string
 ): void {
-  const projectDir = path.dirname(path.dirname(htmlEntry))
-  const publicCandidate = path.join(projectDir, 'public', cleanPath.slice(1))
+  const projectDir = manifestDir || path.dirname(path.dirname(htmlEntry))
+  const publicDir = path.join(projectDir, 'public')
+  const publicCandidate = path.join(publicDir, cleanPath.slice(1))
 
   if (fs.existsSync(publicCandidate)) return
+  // emitRootAbsoluteRefs ships a root file as-is and compiles the source
+  // sibling of a missing .js to that path, so neither is a dead ref.
+  if (fs.existsSync(path.join(projectDir, cleanPath.slice(1)))) return
+  if (findCompiledRootRefSource(cleanPath, projectDir, publicDir)) return
 
   const warn = new WebpackError(
     messages.fileNotFound(htmlEntry, cleanPath)
@@ -295,7 +302,8 @@ export function patchHtmlNested(
                   warnIfPublicRootAssetMissing(
                     compilation,
                     htmlEntry,
-                    cleanPath
+                    cleanPath,
+                    manifestDir
                   )
 
                   thisChildNode = parse5utilities.setAttribute(
@@ -313,7 +321,8 @@ export function patchHtmlNested(
                   warnIfPublicRootAssetMissing(
                     compilation,
                     htmlEntry,
-                    cleanPath
+                    cleanPath,
+                    manifestDir
                   )
                   thisChildNode = parse5utilities.setAttribute(
                     thisChildNode,
@@ -329,7 +338,8 @@ export function patchHtmlNested(
                   warnIfPublicRootAssetMissing(
                     compilation,
                     htmlEntry,
-                    cleanPath
+                    cleanPath,
+                    manifestDir
                   )
                   thisChildNode = applyRewrittenStaticUrl(
                     thisChildNode,
