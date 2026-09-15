@@ -524,8 +524,9 @@ export function programAIHelp() {
 
 ${'Browser-specific configuration'}
 - Use browser prefixes in manifest.json for browser-specific fields:
-  ${code('{"firefox:manifest": 2, "chrome:manifest": 3}')}
-  This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
+  ${code('{"firefox:manifest_version": 2, "chromium:manifest_version": 3}')}
+  This applies manifest v2 to Firefox only, v3 to every Chromium-based browser.
+  ${code('chrome:')} and ${code('edge:')} apply only to that one browser.
 
 ${'Centralized logger (for AI & CI)'}
 - Logs from all contexts are centralized by the manager extension and streamed to the CLI.

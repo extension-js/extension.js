@@ -146,6 +146,20 @@ export function pageActionDroppedForBrowserAction(browser: string) {
   )
 }
 
+export function vendorPrefixedKeyDropped(
+  key: string,
+  familyKey: string,
+  vendor: 'chrome' | 'edge',
+  browser: string
+) {
+  const vendorName = vendor === 'edge' ? 'Edge' : 'Chrome'
+  return (
+    `${prefix('warn')} ${colors.yellow(key)} now applies only to ${vendorName} builds, so the ${colors.blue(browser)} build dropped it.\n` +
+    `Rename it to ${colors.yellow(familyKey)} to keep it on every Chromium-based browser. ` +
+    `Leave it as is if it's meant for ${vendorName} only.`
+  )
+}
+
 export function mv2SandboxPolicyDropped(browser: string) {
   return (
     `${prefix('warn')} ${colors.blue(browser)} reads a Manifest V2 ${colors.yellow('content_security_policy')} as one string, so the ${colors.yellow('sandbox')} slot has nowhere to go.\n` +

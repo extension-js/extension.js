@@ -8,26 +8,37 @@ type Tier = 'specific' | 'family' | 'foreign'
 
 // Which prefixes each target treats as its own, its engine family, or
 // somebody else's. Safari inherits the chromium family for manifest keys.
+// chrome: and edge: are vendor exact, foreign to every other target.
 const TARGETS: Record<string, Record<Tier, string[]>> = {
   chrome: {
     specific: ['chrome'],
-    family: ['chromium', 'edge'],
-    foreign: ['firefox', 'gecko', 'safari', 'webkit']
+    family: ['chromium'],
+    foreign: ['edge', 'firefox', 'gecko', 'safari', 'webkit']
   },
   edge: {
     specific: ['edge'],
-    family: ['chromium', 'chrome'],
-    foreign: ['firefox', 'gecko', 'safari', 'webkit']
+    family: ['chromium'],
+    foreign: ['chrome', 'firefox', 'gecko', 'safari', 'webkit']
+  },
+  chromium: {
+    specific: ['chromium'],
+    family: [],
+    foreign: ['chrome', 'edge', 'firefox', 'gecko', 'safari', 'webkit']
+  },
+  brave: {
+    specific: ['brave'],
+    family: ['chromium'],
+    foreign: ['chrome', 'edge', 'firefox', 'gecko', 'safari', 'webkit']
   },
   firefox: {
     specific: ['firefox'],
     family: ['gecko'],
-    foreign: ['chrome', 'chromium', 'edge', 'safari', 'webkit']
+    foreign: ['brave', 'chrome', 'chromium', 'edge', 'safari', 'webkit']
   },
   safari: {
     specific: ['safari', 'webkit'],
-    family: ['chrome', 'chromium', 'edge'],
-    foreign: ['firefox', 'gecko']
+    family: ['chromium'],
+    foreign: ['brave', 'chrome', 'edge', 'firefox', 'gecko']
   }
 }
 
@@ -118,6 +129,7 @@ describe('filterKeysForThisBrowser properties', () => {
           fc
             .tuple(
               fc.constantFrom(
+                'brave',
                 'chrome',
                 'chromium',
                 'edge',

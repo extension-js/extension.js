@@ -57,9 +57,9 @@ describe('extractActionThemeIcons', () => {
   it('lets a prefixed action win over the plain key', () => {
     const {dir, manifestPath} = manifestWith({
       action: {theme_icons: [{light: 'plain.png'}]},
-      'chrome:action': {theme_icons: [{light: 'chrome.png'}]}
+      'chromium:action': {theme_icons: [{light: 'chrome.png'}]}
     })
-    // A chrome: key covers the whole chromium family, edge included.
+    // A chromium: key covers the whole chromium family, edge included.
     expect(extractActionThemeIcons(manifestPath, 'edge')).toEqual({
       'action/theme_icons': [path.join(dir, 'chrome.png')]
     })
