@@ -178,43 +178,49 @@ export function manifestFingerprintPath(config: SafariBuildConfig): string {
   return path.join(config.projectLocation, '.manifest-fingerprint')
 }
 
-function stableStringify(obj: unknown): string {
-  if (obj === null || obj === undefined) return JSON.stringify(obj)
-  if (typeof obj !== 'object') return JSON.stringify(obj)
-  if (Array.isArray(obj)) {
-    return `[${obj.map(stableStringify).join(',')}]`
+// The generated project references each top-level entry of the build folder by
+// name, so adding or removing one is what a regeneration has to catch.
+function topLevelEntries(extensionDir: string): string[] {
+  try {
+    return fs.readdirSync(extensionDir).sort()
+  } catch {
+    return []
   }
-  const keys = Object.keys(obj as Record<string, unknown>).sort()
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((obj as Record<string, unknown>)[k])}`).join(',')}}`
 }
 
-function readManifestRaw(extensionDir: string): string {
+// The converter builds the app's icon set from the manifest icons, so those
+// are the one manifest field a regeneration still has to track.
+function iconsFingerprint(extensionDir: string): string {
   try {
-    return fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8')
+    const raw = fs.readFileSync(
+      path.join(extensionDir, 'manifest.json'),
+      'utf8'
+    )
+    const icons = (JSON.parse(raw) as {icons?: Record<string, unknown>}).icons
+    if (!icons || typeof icons !== 'object') return ''
+    return Object.keys(icons)
+      .sort()
+      .map((size) => `${size}:${String(icons[size])}`)
+      .join(',')
   } catch {
     return ''
   }
 }
 
-function normalizeManifest(raw: string): string {
-  try {
-    return stableStringify(JSON.parse(raw))
-  } catch {
-    return raw
-  }
-}
-
-// v2 fingerprint: manifest content PLUS identity inputs (app name, bundle id,
-// platform); identity changes re-run the converter, v1 shapes migrate once.
+// v3 fingerprint: identity inputs plus the entries the project references.
+// The manifest's bytes are deliberately out of it. Dev rewrites content-script
+// paths to content-hashed names on every edit, which made each save look like a
+// new project and re-ran the converter for nothing. Older shapes migrate once.
 export function composeProjectFingerprint(config: SafariBuildConfig): string {
   return JSON.stringify({
-    v: 2,
+    v: 3,
     identity: {
       appName: config.appName,
       bundleId: config.bundleIdentifier,
       macOsOnly: config.macOsOnly
     },
-    manifest: normalizeManifest(readManifestRaw(config.extensionDir))
+    entries: topLevelEntries(config.extensionDir),
+    icons: iconsFingerprint(config.extensionDir)
   })
 }
 

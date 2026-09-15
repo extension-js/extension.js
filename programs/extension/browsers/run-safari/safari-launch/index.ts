@@ -374,7 +374,9 @@ async function runSafariPipeline(
 
     saveManifestFingerprint(config)
     logger.info?.(messages.safariConverted(config.projectLocation))
-  } else {
+  } else if (mode === 'full') {
+    // Dev resyncs run this on every save. The line says nothing new there, and
+    // the first package already reported how the project was reused.
     logger.info?.(messages.safariSkippingConversion())
   }
 

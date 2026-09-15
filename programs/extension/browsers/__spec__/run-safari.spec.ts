@@ -530,7 +530,10 @@ describe('manifest fingerprinting', () => {
     expect(isProjectStale(config)).toBe(false)
   })
 
-  it('reports stale when permissions change', () => {
+  // The generated project encodes identity, the top-level entries it references
+  // and the icon set. Permissions reach Safari through the copied manifest, so
+  // regenerating the project for them only cost a rebuild and discarded settings.
+  it('ignores a permissions change, which the project does not encode', () => {
     writeManifest(distDir, {name: 'Evolving', permissions: ['storage']})
     const config = configFor(distDir)
     saveManifestFingerprint(config)
@@ -539,6 +542,47 @@ describe('manifest fingerprinting', () => {
       name: 'Evolving',
       permissions: ['storage', 'tabs']
     })
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  // Dev renames content scripts on every edit (content-0.<hash>.js), which used
+  // to read as a new project and re-ran the converter on every single save.
+  it('ignores a content-script rename inside an entry it already references', () => {
+    writeManifest(distDir, {name: 'Hashed'})
+    fs.mkdirSync(path.join(distDir, 'content_scripts'), {recursive: true})
+    fs.writeFileSync(
+      path.join(distDir, 'content_scripts', 'content-0.aaa.js'),
+      ''
+    )
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    fs.rmSync(path.join(distDir, 'content_scripts', 'content-0.aaa.js'))
+    fs.writeFileSync(
+      path.join(distDir, 'content_scripts', 'content-0.bbb.js'),
+      ''
+    )
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  it('reports stale when a new top-level entry appears', () => {
+    writeManifest(distDir, {name: 'Growing'})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    fs.mkdirSync(path.join(distDir, 'devtools'), {recursive: true})
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when an older fingerprint shape is on disk', () => {
+    writeManifest(distDir, {name: 'Migrating'})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    fs.writeFileSync(
+      manifestFingerprintPath(config),
+      JSON.stringify({v: 2, identity: {}, manifest: '{}'})
+    )
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -788,7 +832,24 @@ describe('safari pipeline staleness integration', () => {
     expect(xcodebuildCalls).toHaveLength(2)
   })
 
-  it('manifest change: triggers the converter', async () => {
+  it('new top-level entry: triggers the converter', async () => {
+    await runFakePipeline({name: 'MyExt', permissions: ['storage']})
+    expect(converterCalls).toHaveLength(1)
+
+    // The project references each top-level entry by name, so a surface that
+    // did not exist when it was generated needs a new reference.
+    fs.mkdirSync(path.join(distDir, 'devtools'), {recursive: true})
+
+    const second = await runFakePipeline({
+      name: 'MyExt',
+      permissions: ['storage']
+    })
+    expect(second.logs).toContain('[stale]')
+    expect(second.logs).toContain('[converted]')
+    expect(converterCalls).toHaveLength(2)
+  })
+
+  it('permissions change alone: reuses the project', async () => {
     await runFakePipeline({name: 'MyExt', permissions: ['storage']})
     expect(converterCalls).toHaveLength(1)
 
@@ -796,13 +857,12 @@ describe('safari pipeline staleness integration', () => {
       name: 'MyExt',
       permissions: ['storage', 'tabs']
     })
-    expect(second.logs).toContain('[stale]')
-    expect(second.logs).toContain('[converted]')
-    expect(converterCalls).toHaveLength(2)
+    expect(second.logs).not.toContain('[stale]')
+    expect(converterCalls).toHaveLength(1)
   })
 
   it('user Xcode configuration survives regeneration', async () => {
-    await runFakePipeline({name: 'SignedExt', permissions: ['storage']})
+    await runFakePipeline({name: 'SignedExt', icons: {'48': 'icon48.png'}})
 
     const config = configFor(distDir)
     const projFile = pbxprojPath(config)
@@ -819,7 +879,7 @@ describe('safari pipeline staleness integration', () => {
 
     const result = await runFakePipeline({
       name: 'SignedExt',
-      permissions: ['storage', 'activeTab']
+      icons: {'48': 'icon48.png', '128': 'icon128.png'}
     })
 
     expect(result.logs).toContain('[stale]')
