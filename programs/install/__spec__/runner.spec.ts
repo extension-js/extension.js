@@ -13,6 +13,10 @@ vi.mock('cross-spawn', () => ({
 }))
 
 import {
+  PLAYWRIGHT_VERSION,
+  PUPPETEER_BROWSERS_VERSION
+} from '../lib/installer-versions'
+import {
   browserInstallArgs,
   browserInstallCommand,
   browserInstallEnv,
@@ -54,6 +58,27 @@ describe('install runner runCommand', () => {
   })
 })
 
+describe('install runner pinned installer versions', () => {
+  it('pins each installer to an exact version, never a tag or a range', () => {
+    const exact = /^\d+\.\d+\.\d+$/
+    expect(PUPPETEER_BROWSERS_VERSION).toMatch(exact)
+    expect(PLAYWRIGHT_VERSION).toMatch(exact)
+  })
+
+  it('never hands a package runner an unpinned installer', () => {
+    for (const ua of ['', 'pnpm/10.28.0 npm/? node/v24', 'bun/1.3.0']) {
+      process.env.npm_config_user_agent = ua
+      for (const target of ['chromium', 'chrome', 'firefox', 'edge'] as const) {
+        const spec = browserInstallArgs(target, '/tmp/x').find((arg) =>
+          /^(@puppeteer\/browsers|playwright)@/.test(arg)
+        )
+        expect(spec).toMatch(/@\d+\.\d+\.\d+$/)
+      }
+    }
+    delete process.env.npm_config_user_agent
+  })
+})
+
 describe('install runner mapping', () => {
   const prevEnv = {...process.env}
 
@@ -73,7 +98,7 @@ describe('install runner mapping', () => {
     const chromiumArgs = browserInstallArgs('chromium', '/tmp/x')
     expect(chromiumArgs).toEqual([
       '-y',
-      '@puppeteer/browsers@latest',
+      `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
       'install',
       'chromium',
       '--path',
@@ -83,7 +108,7 @@ describe('install runner mapping', () => {
     const chromeArgs = browserInstallArgs('chrome', '/tmp/x')
     expect(chromeArgs).toEqual([
       '-y',
-      '@puppeteer/browsers@latest',
+      `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
       'install',
       'chrome@stable',
       '--path',
@@ -96,7 +121,7 @@ describe('install runner mapping', () => {
 
     expect(browserInstallArgs('firefox', '/tmp/x')).toEqual([
       '-y',
-      '@puppeteer/browsers@latest',
+      `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
       'install',
       'firefox@stable',
       '--path',
@@ -109,7 +134,7 @@ describe('install runner mapping', () => {
 
     expect(browserInstallArgs('edge', '/tmp/edge')).toEqual([
       '-y',
-      'playwright@latest',
+      `playwright@${PLAYWRIGHT_VERSION}`,
       'install',
       'msedge'
     ])
@@ -132,7 +157,7 @@ describe('install runner mapping', () => {
     expect(cmd === 'pnpm' || cmd === 'pnpm.cmd').toBe(true)
     expect(browserInstallArgs('chrome', '/tmp/x')).toEqual([
       'dlx',
-      '@puppeteer/browsers@latest',
+      `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
       'install',
       'chrome@stable',
       '--path',
