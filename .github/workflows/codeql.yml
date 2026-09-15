@@ -1,0 +1,68 @@
+name: CodeQL
+
+# OpenSSF Scorecard only credits the SAST check when a workflow file in this
+# repo runs github/codeql-action, so CodeQL is set up here as an "advanced
+# setup" instead of GitHub's default setup, which is invisible to Scorecard.
+# Do not re-enable default setup in the repo settings: while it is on, GitHub
+# rejects the SARIF uploads this workflow produces and analysis stops.
+#
+# The matrix mirrors what default setup ran (javascript-typescript plus
+# actions, default query suite, weekly schedule) and keeps the same
+# "/language:<name>" categories so the existing alert history carries over.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '15 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    permissions:
+      # Upload the SARIF to code scanning
+      security-events: write
+      # Fetch private CodeQL packs, harmless on a public repo
+      packages: read
+      # Required by the action to read workflow run metadata
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: actions
+            build-mode: none
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Leaving "queries" unset selects the default suite, the same one default
+      # setup used. Set "queries: security-extended" to widen the coverage.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: "/language:${{ matrix.language }}"
