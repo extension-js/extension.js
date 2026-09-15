@@ -167,6 +167,45 @@ export class TemplateNotFoundError extends Error {
   }
 }
 
+export class InsecureTemplateUrlError extends Error {
+  readonly url: string
+  constructor(url: string) {
+    super(`template URL is not https: ${url}`)
+    this.name = 'InsecureTemplateUrlError'
+    this.url = url
+  }
+}
+
+// A template runs code on this machine at install time, and anyone on the
+// network path can rewrite a plain HTTP download. Opting in is explicit.
+export function isRefusedHttpTemplateUrl(url: string): boolean {
+  if (process.env.EXTENSION_ALLOW_HTTP_TEMPLATE === 'true') return false
+  return /^http:\/\//i.test(url)
+}
+
+// An https URL that redirects to http downgrades the same download, so the
+// redirect is held to the rule the first URL was.
+export function refuseHttpRedirect(options: {
+  protocol?: string
+  href?: string
+}): void {
+  const target = String(options.href || `${options.protocol || ''}//`)
+  if (isRefusedHttpTemplateUrl(target)) {
+    throw new InsecureTemplateUrlError(target)
+  }
+}
+
+function findInsecureTemplateUrlError(
+  error: unknown
+): InsecureTemplateUrlError | null {
+  let current: unknown = error
+  for (let depth = 0; current && depth < 4; depth++) {
+    if (current instanceof InsecureTemplateUrlError) return current
+    current = (current as {cause?: unknown}).cause
+  }
+  return null
+}
+
 export class TemplateDownloadError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause: unknown) {
@@ -194,11 +233,13 @@ async function downloadArchive(
         responseType: 'arraybuffer',
         maxRedirects: 5,
         timeout: timeoutMs,
-        headers: {'User-Agent': 'extension-create'}
+        headers: {'User-Agent': 'extension-create'},
+        beforeRedirect: refuseHttpRedirect
       })
       return Buffer.from(data)
     } catch (error) {
       lastError = error
+      if (findInsecureTemplateUrlError(error)) break
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
       const status = (error as {response?: {status?: number}})?.response?.status
@@ -257,6 +298,11 @@ async function importFromExamplesCatalog(
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
+  // The override feeds the same archive into the project, so it follows the
+  // same https rule as a template URL passed on the command line.
+  if (overrideUrl && isRefusedHttpTemplateUrl(overrideUrl)) {
+    throw new InsecureTemplateUrlError(overrideUrl)
+  }
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
   let buffer: Buffer | undefined
@@ -270,6 +316,10 @@ async function importFromExamplesCatalog(
       source = candidate
       break
     } catch (error) {
+      // A downgrade refusal is not a download failure, so it must not fall
+      // back to the bundled template.
+      const insecure = findInsecureTemplateUrlError(error)
+      if (insecure) throw insecure
       lastError = error
     }
   }
@@ -546,6 +596,10 @@ export async function importExternalTemplate(
     : null
 
   try {
+    if (isRefusedHttpTemplateUrl(template)) {
+      throw new InsecureTemplateUrlError(template)
+    }
+
     await fs.mkdir(projectPath, {recursive: true})
 
     if (!isHttp && !isGithub && BUNDLED_TEMPLATES.includes(resolvedTemplate)) {
@@ -615,7 +669,8 @@ export async function importExternalTemplate(
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
-        timeout: NETWORK_TIMEOUT_MS
+        timeout: NETWORK_TIMEOUT_MS,
+        beforeRedirect: refuseHttpRedirect
       })
       const contentType = String(headers?.['content-type'] || '')
       const looksZip =
@@ -687,7 +742,10 @@ export async function importExternalTemplate(
     }
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).
-    if (error instanceof TemplateNotFoundError) {
+    const insecureUrl = findInsecureTemplateUrlError(error)
+    if (insecureUrl) {
+      logger.error(messages.templateUrlNotHttps(insecureUrl.url))
+    } else if (error instanceof TemplateNotFoundError) {
       logger.error(
         messages.templateNotFoundInCatalog(
           templateName,
