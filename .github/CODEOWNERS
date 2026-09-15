@@ -1,0 +1,3 @@
+# The maintainer owns every path. Branch protection on main requires a code
+# owner review, so pull requests from contributors wait for the maintainer.
+* @cezaraugusto
