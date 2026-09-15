@@ -1,0 +1,341 @@
+name: Extension.js – Release Attest
+
+# Attaches the four published npm tarballs to a GitHub release and covers
+# them with SLSA build provenance (multiple.intoto.jsonl) produced by the
+# slsa-github-generator reusable workflow. OpenSSF Scorecard's Signed-Releases
+# check reads the assets of the last 5 releases that have assets: a release
+# whose assets include a *.intoto.jsonl provenance file scores 10, a signature
+# file alone scores 8, and assets with neither score 0. The order of the jobs
+# below guarantees a release never ends up with tarballs and no provenance:
+# the provenance is uploaded first, and the tarballs are attached only after
+# they verify against it. Any failure leaves the release untouched (unscored)
+# or provenance-only, never in the 0-scoring state.
+#
+# This workflow is decoupled from publish-release.yml on purpose. A failure
+# here leaves the npm publish and the GitHub release untouched, and a re-run
+# or a backfill is idempotent (uploads clobber same-named assets).
+#
+# Triggers:
+# - workflow_run is the normal path. publish-release.yml creates the release
+#   with GITHUB_TOKEN, and GitHub delivers no `release` event for a release
+#   created by GITHUB_TOKEN, so the completion of the publish run is the signal
+#   instead. The release that run created is found by its creation time. A
+#   canary publish or a draft creates no public release, so the run is a no-op.
+#   workflow_run only fires for the copy of this file on the default branch.
+# - release published covers a draft made public by hand (publish-release.yml
+#   has a draft input) and any release created outside CI.
+# - workflow_dispatch backfills one tag:
+#   gh workflow run release-attest.yml -f tag=v4.1.17
+
+run-name: Attest ${{ inputs.tag || github.event.release.tag_name || format('release from publish run {0}', github.event.workflow_run.id) }}
+
+on:
+  workflow_run:
+    workflows: ["Extension.js – Release Publish"]
+    types: [completed]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attest, for example v4.1.17"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-attest-${{ inputs.tag || github.event.release.tag_name || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve release
+    # A failed publish run may have died before npm had the packages, the
+    # maintainer resumes it and the resumed run's completion arrives here.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      attest: ${{ steps.resolve.outputs.attest }}
+    steps:
+      - name: Resolve the release tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RUN_STARTED_AT: ${{ github.event.workflow_run.run_started_at }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              TAG="v${INPUT_TAG#v}"
+              ;;
+            release)
+              TAG="$RELEASE_TAG"
+              ;;
+            workflow_run)
+              # The publish run creates its release after it starts, so the
+              # newest public release created at or after run start is it.
+              # ISO 8601 UTC timestamps compare correctly as strings.
+              TAG=$(gh api "repos/$REPO/releases?per_page=10" \
+                | jq -r --arg since "$RUN_STARTED_AT" \
+                  '[.[] | select(.draft | not) | select(.created_at >= $since)] | sort_by(.created_at) | last | .tag_name // empty')
+              if [ -z "$TAG" ]; then
+                echo "::notice title=Nothing to attest::The publish run created no public GitHub release (canary channel or draft), skipping."
+                echo "attest=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              ;;
+            *)
+              echo "unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "'$TAG' is not a release tag (vX.Y.Z or vX.Y.Z-prerelease)" >&2
+            exit 1
+          fi
+
+          # A draft is invisible to Scorecard and to consumers. Refuse it so
+          # the assets land through the release event once it is public.
+          DRAFT=$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft)
+          if [ "$DRAFT" = "true" ]; then
+            echo "release $TAG is a draft, publish it first" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+            echo "attest=true"
+          } >> "$GITHUB_OUTPUT"
+          echo "Attesting release $TAG"
+
+  # Reads the package list from the tag, waits for npm, fetches the published
+  # tarballs and turns their sha256 into the generator's subject list. Nothing
+  # is written to the release here.
+  subjects:
+    name: Compute subjects
+    needs: resolve
+    if: needs.resolve.outputs.attest == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      packages: ${{ steps.packages.outputs.list }}
+      hashes: ${{ steps.hashes.outputs.hashes }}
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      # The tag's own package.json files name the packages, and each must
+      # carry the release version or the tag is not the one the packages
+      # were published from (a mistyped backfill tag stops here).
+      - name: List the packages the tag publishes
+        id: packages
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGES=""
+          for dir in programs/extension programs/develop programs/create programs/install; do
+            NAME=$(node -p "require('./$dir/package.json').name")
+            VER=$(node -p "require('./$dir/package.json').version")
+            if [ "$VER" != "$VERSION" ]; then
+              echo "$dir is at $VER on this tag, expected $VERSION" >&2
+              exit 1
+            fi
+            PACKAGES="$PACKAGES $NAME"
+          done
+          echo "list=${PACKAGES# }" >> "$GITHUB_OUTPUT"
+          echo "Packages:${PACKAGES}"
+
+      # npm answers a publish with 202 and processes it afterwards, and this
+      # workflow can start while that is still in flight. Same ten minute
+      # budget as the replication wait in publish-release.yml.
+      - name: Wait for npm to serve every package
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PACKAGES: ${{ steps.packages.outputs.list }}
+        run: |
+          set -euo pipefail
+          PENDING="$PACKAGES"
+          for i in {1..40}; do
+            STILL=""
+            for PKG in $PENDING; do
+              if npm view "$PKG@$VERSION" version >/dev/null 2>&1; then
+                echo "Found $PKG@$VERSION on npm."
+              else
+                STILL="$STILL $PKG"
+              fi
+            done
+            PENDING="${STILL# }"
+            if [ -z "$PENDING" ]; then
+              exit 0
+            fi
+            echo "Waiting for npm replication of:$STILL ($i/40)"
+            sleep 15
+          done
+          echo "Not visible on npm after ten minutes:$PENDING" >&2
+          exit 1
+
+      # `npm pack <name>@<version>` fetches the registry tarball itself, so
+      # the release asset is byte for byte what `npm install` receives. npm
+      # checks the download against the registry integrity on the way down,
+      # the explicit sha512 comparison puts that fact on the run log.
+      - name: Download the published tarballs
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PACKAGES: ${{ steps.packages.outputs.list }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist-release
+          for PKG in $PACKAGES; do
+            npm pack "$PKG@$VERSION" --pack-destination dist-release --loglevel=error
+            FILE="dist-release/$PKG-$VERSION.tgz"
+            if [ ! -f "$FILE" ]; then
+              echo "npm pack did not produce $FILE" >&2
+              exit 1
+            fi
+            EXPECTED=$(npm view "$PKG@$VERSION" dist.integrity --loglevel=error)
+            ACTUAL="sha512-$(openssl dgst -sha512 -binary "$FILE" | base64 -w0)"
+            if [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "$FILE does not match the registry integrity of $PKG@$VERSION" >&2
+              exit 1
+            fi
+            echo "$FILE matches the registry integrity"
+          done
+          ls -la dist-release
+
+      # The generator takes the exact `sha256sum` output, base64 encoded on
+      # one line. Run inside the directory so the file names are bare: the
+      # provenance subject names must equal the release asset names, that is
+      # what slsa-verifier matches on.
+      - name: Compute the provenance subjects
+        id: hashes
+        working-directory: dist-release
+        run: |
+          set -euo pipefail
+          HASHES=$(sha256sum -- *.tgz | base64 -w0)
+          echo "$HASHES" | base64 -d
+          echo "hashes=$HASHES" >> "$GITHUB_OUTPUT"
+
+  # Generates the SLSA v1 provenance for the four tarballs, signs it with
+  # Sigstore (keyless, through this run's OIDC identity) and uploads
+  # multiple.intoto.jsonl to the release. The generator must be referenced by
+  # its semver tag: its detect-env job verifies its own ref and refuses a
+  # commit sha, so this is the one `uses:` in the repo that cannot be sha
+  # pinned. Scorecard's Pinned-Dependencies counts that single line as
+  # unpinned, the known cost of the official SLSA builder.
+  provenance:
+    name: SLSA provenance
+    needs: [resolve, subjects]
+    if: needs.resolve.outputs.attest == 'true' && needs.subjects.outputs.hashes != ''
+    permissions:
+      # The generator reads the workflow run it attests
+      actions: read
+      # OIDC token for the keyless Sigstore signature of the provenance
+      id-token: write
+      # Uploads multiple.intoto.jsonl to the release
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.subjects.outputs.hashes }}
+      upload-assets: true
+      # No trigger here runs on the tag ref, so the generator has to be told
+      # which release receives the provenance.
+      upload-tag-name: ${{ needs.resolve.outputs.tag }}
+
+  # Fetches the tarballs again (same registry bytes, integrity checked), proves
+  # each one against the provenance now on the release with slsa-verifier, and
+  # only then attaches them. The provenance records refs/heads/main as the
+  # source ref (none of the triggers run on the tag), so consumers verify with
+  # --source-uri and not --source-tag.
+  assets:
+    name: Verify and upload tarballs
+    needs: [resolve, subjects, provenance]
+    if: needs.resolve.outputs.attest == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    # One writer at a time per tag, so a backfill and a publish-triggered run
+    # for the same release never race on the same asset names.
+    concurrency:
+      group: release-attest-assets-${{ needs.resolve.outputs.tag }}
+      cancel-in-progress: false
+    permissions:
+      # gh release upload
+      contents: write
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install slsa-verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+
+      - name: Download the published tarballs
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PACKAGES: ${{ needs.subjects.outputs.packages }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist-release
+          for PKG in $PACKAGES; do
+            npm pack "$PKG@$VERSION" --pack-destination dist-release --loglevel=error
+            FILE="dist-release/$PKG-$VERSION.tgz"
+            EXPECTED=$(npm view "$PKG@$VERSION" dist.integrity --loglevel=error)
+            ACTUAL="sha512-$(openssl dgst -sha512 -binary "$FILE" | base64 -w0)"
+            if [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "$FILE does not match the registry integrity of $PKG@$VERSION" >&2
+              exit 1
+            fi
+          done
+          ls -la dist-release
+
+      - name: Verify every tarball against the uploaded provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        working-directory: dist-release
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$REPO" --pattern '*.intoto.jsonl'
+          for FILE in *.tgz; do
+            slsa-verifier verify-artifact "$FILE" \
+              --provenance-path multiple.intoto.jsonl \
+              --source-uri "github.com/$REPO"
+          done
+
+      # --clobber makes a re-run, or a backfill of a release that already has
+      # the files, replace them instead of failing on the asset name.
+      - name: Upload the tarballs to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" dist-release/*.tgz --repo "$REPO" --clobber
+          echo "Assets on $TAG:"
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name'
