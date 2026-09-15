@@ -233,11 +233,13 @@ async function downloadArchive(
         responseType: 'arraybuffer',
         maxRedirects: 5,
         timeout: timeoutMs,
-        headers: {'User-Agent': 'extension-create'}
+        headers: {'User-Agent': 'extension-create'},
+        beforeRedirect: refuseHttpRedirect
       })
       return Buffer.from(data)
     } catch (error) {
       lastError = error
+      if (findInsecureTemplateUrlError(error)) break
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
       const status = (error as {response?: {status?: number}})?.response?.status
@@ -296,6 +298,11 @@ async function importFromExamplesCatalog(
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
+  // The override feeds the same archive into the project, so it follows the
+  // same https rule as a template URL passed on the command line.
+  if (overrideUrl && isRefusedHttpTemplateUrl(overrideUrl)) {
+    throw new InsecureTemplateUrlError(overrideUrl)
+  }
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
   let buffer: Buffer | undefined
@@ -309,6 +316,10 @@ async function importFromExamplesCatalog(
       source = candidate
       break
     } catch (error) {
+      // A downgrade refusal is not a download failure, so it must not fall
+      // back to the bundled template.
+      const insecure = findInsecureTemplateUrlError(error)
+      if (insecure) throw insecure
       lastError = error
     }
   }

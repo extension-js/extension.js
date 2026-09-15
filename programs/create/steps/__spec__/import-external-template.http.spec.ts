@@ -135,6 +135,59 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     expect(fs.existsSync(projectPath)).toBe(false)
   })
 
+  it('refuses an http EXTENSION_CREATE_TEMPLATE_URL without the offline fallback', async () => {
+    const prevUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL
+    process.env.EXTENSION_CREATE_TEMPLATE_URL =
+      'http://mirror.example.com/x.zip'
+    try {
+      const projectPath = await makeProjectPath()
+      const errors: string[] = []
+
+      await expect(
+        importExternalTemplate(
+          projectPath,
+          'my-ext',
+          'typescript',
+          {log: () => {}, error: (...args) => errors.push(args.join(' '))},
+          {ownsProjectDir: true, allowOfflineFallback: true}
+        )
+      ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+
+      expect(axios.get).not.toHaveBeenCalled()
+      expect(errors.join('\n')).toContain('http://mirror.example.com/x.zip')
+      expect(fs.existsSync(projectPath)).toBe(false)
+    } finally {
+      if (prevUrl === undefined)
+        delete process.env.EXTENSION_CREATE_TEMPLATE_URL
+      else process.env.EXTENSION_CREATE_TEMPLATE_URL = prevUrl
+    }
+  })
+
+  it('stops a catalog download that redirects to http, with no retry or fallback', async () => {
+    vi.mocked(axios.get).mockImplementation(async () => {
+      refuseHttpRedirect({href: 'http://mirror.example.com/x.zip'})
+      return {data: new ArrayBuffer(0), headers: {}}
+    })
+    const projectPath = await makeProjectPath()
+
+    await expect(
+      importExternalTemplate(
+        projectPath,
+        'my-ext',
+        'typescript',
+        {log: () => {}, error: () => {}},
+        {ownsProjectDir: true, allowOfflineFallback: true}
+      )
+    ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+
+    expect(axios.get).toHaveBeenCalledTimes(1)
+    const [, config] = vi.mocked(axios.get).mock.calls[0]
+    expect(
+      (config as {beforeRedirect?: unknown} | undefined)?.beforeRedirect
+    ).toBe(refuseHttpRedirect)
+    expect(fs.existsSync(projectPath)).toBe(false)
+  })
+
   it('lets an https redirect through and holds an http one', () => {
     expect(() =>
       refuseHttpRedirect({
