@@ -1,3 +1,7 @@
+import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
@@ -76,5 +80,61 @@ describe('vue tools', () => {
     expect(result?.alias?.['@vue/shared']).toContain(
       '/project/node_modules/@vue/shared'
     )
+  })
+})
+
+describe('resolveVueBundlerEntry', () => {
+  function fakeProject(vueManifest: Record<string, unknown>, files: string[]) {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue-entry-'))
+    )
+    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"app"}')
+    const vueDir = path.join(root, 'node_modules', 'vue')
+    for (const rel of files) {
+      fs.mkdirSync(path.dirname(path.join(vueDir, rel)), {recursive: true})
+      fs.writeFileSync(path.join(vueDir, rel), '')
+    }
+    fs.writeFileSync(
+      path.join(vueDir, 'package.json'),
+      JSON.stringify({name: 'vue', ...vueManifest})
+    )
+    return root
+  }
+
+  beforeEach(() => {
+    vi.doUnmock('module')
+    vi.resetModules()
+  })
+
+  it('picks the runtime ESM build named by package.json module', async () => {
+    const root = fakeProject(
+      {main: 'index.js', module: 'dist/vue.runtime.esm-bundler.js'},
+      ['index.js', 'dist/vue.runtime.esm-bundler.js']
+    )
+    const {resolveVueBundlerEntry} = await import('../../js-tools/vue')
+    const req = createRequire(path.join(root, 'package.json'))
+    expect(resolveVueBundlerEntry(req, 'vue')).toBe(
+      path.join(
+        root,
+        'node_modules',
+        'vue',
+        'dist',
+        'vue.runtime.esm-bundler.js'
+      )
+    )
+    fs.rmSync(root, {recursive: true, force: true})
+  })
+
+  it('falls back to the main entry when module is missing or absent on disk', async () => {
+    const root = fakeProject({main: 'index.js', module: 'dist/gone.js'}, [
+      'index.js'
+    ])
+    const {resolveVueBundlerEntry} = await import('../../js-tools/vue')
+    const req = createRequire(path.join(root, 'package.json'))
+    expect(resolveVueBundlerEntry(req, 'vue')).toBe(
+      path.join(root, 'node_modules', 'vue', 'index.js')
+    )
+    expect(resolveVueBundlerEntry(req, 'not-installed')).toBeUndefined()
+    fs.rmSync(root, {recursive: true, force: true})
   })
 })
