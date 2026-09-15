@@ -8,10 +8,6 @@ const pkg = JSON.parse(
 )
 const typesDir = path.join(pkgRoot, 'types')
 
-// Known gaps, still resolved from the project's own install. Remove a name
-// once the package declares its types, so the guard covers it too.
-const KNOWN_UNDECLARED = ['node', 'webextension-polyfill']
-
 function typesPackageName(name: string): string {
   return name.startsWith('@')
     ? `@types/${name.slice(1).replace('/', '__')}`
@@ -48,33 +44,36 @@ function collectTypeLibraries(): string[] {
 
 describe('published types dependencies (extension package)', () => {
   const dependencies: Record<string, string> = pkg.dependencies || {}
+  const devDependencies: Record<string, string> = pkg.devDependencies || {}
+  const peerDependencies: Record<string, string> = pkg.peerDependencies || {}
   const libraries = collectTypeLibraries()
+  const typePackages = libraries.map(typesPackageName)
 
   it('ships the types folder that extension-env.d.ts references', () => {
     expect(pkg.files).toContain('types')
-    expect(libraries.length).toBeGreaterThan(0)
+    expect(libraries).toEqual(['chrome', 'node', 'webextension-polyfill'])
   })
 
-  it('declares every type library the published types reference as a dependency', () => {
-    const undeclared = libraries.filter(
-      (name) =>
-        !KNOWN_UNDECLARED.includes(name) &&
-        !dependencies[typesPackageName(name)] &&
-        !dependencies[name]
-    )
+  it('installs the types of every library the published types reference', () => {
+    const undeclared = typePackages.filter((name) => !dependencies[name])
 
     expect(undeclared).toEqual([])
   })
 
-  it('declares @types/chrome at runtime, so chrome resolves without a project copy', () => {
-    expect(libraries).toContain('chrome')
-    expect(dependencies['@types/chrome']).toBeTruthy()
-    expect(pkg.devDependencies?.['@types/chrome']).toBeUndefined()
+  // A "*" range lets npm, pnpm and bun reuse the copy the project already has,
+  // so a project that pins its own version never gets a second one on disk.
+  it('accepts any version, so the project copy wins', () => {
+    for (const name of typePackages) {
+      expect(dependencies[name]).toBe('*')
+    }
   })
 
-  it('lists only known gaps that the published types still reference', () => {
-    for (const name of KNOWN_UNDECLARED) {
-      expect(libraries).toContain(name)
+  // A peer is skipped by Yarn and by npm --legacy-peer-deps, and a
+  // devDependency never reaches the user, so both would bring the bug back.
+  it('declares them only as regular dependencies', () => {
+    for (const name of typePackages) {
+      expect(devDependencies[name]).toBeUndefined()
+      expect(peerDependencies[name]).toBeUndefined()
     }
   })
 })

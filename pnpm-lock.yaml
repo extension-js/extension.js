@@ -338,8 +338,14 @@ importers:
   programs/extension:
     dependencies:
       '@types/chrome':
-        specifier: ^0.1.33
+        specifier: '*'
         version: 0.1.37
+      '@types/node':
+        specifier: '*'
+        version: 26.0.1
+      '@types/webextension-polyfill':
+        specifier: '*'
+        version: 0.12.5
       brave-location:
         specifier: 3.1.1
         version: 3.1.1
@@ -410,15 +416,9 @@ importers:
       '@types/cross-spawn':
         specifier: ^6.0.6
         version: 6.0.6
-      '@types/node':
-        specifier: ^26
-        version: 26.0.1
       '@types/semver':
         specifier: ^7.7.1
         version: 7.7.1
-      '@types/webextension-polyfill':
-        specifier: 0.12.4
-        version: 0.12.4
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1

@@ -116,14 +116,14 @@
     "ws": "^8.20.1",
     "update-check": "^1.5.4",
     "wsl-support": "0.1.0",
-    "@types/chrome": "^0.1.33"
+    "@types/chrome": "*",
+    "@types/node": "*",
+    "@types/webextension-polyfill": "*"
   },
   "devDependencies": {
     "@rslib/core": "^1.0.0",
     "@types/cross-spawn": "^6.0.6",
-    "@types/node": "^26",
     "@types/semver": "^7.7.1",
-    "@types/webextension-polyfill": "0.12.4",
     "@types/ws": "^8.18.1",
     "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
