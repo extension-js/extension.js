@@ -8,7 +8,7 @@
 [discord-url]: https://discord.gg/v9h2RgeTSN
 [snyk-image]: https://snyk.io/test/github/extension-js/extension.js/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension.js
-[scorecard-image]: https://api.scorecard.dev/projects/github.com/extension-js/extension.js/badge
+[scorecard-image]: https://img.shields.io/ossf-scorecard/github.com/extension-js/extension.js?label=OpenSSF%20Scorecard&style=flat&color=0971fe
 [scorecard-url]: https://scorecard.dev/viewer/?uri=github.com/extension-js/extension.js
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Scorecard][scorecard-image]][scorecard-url]
