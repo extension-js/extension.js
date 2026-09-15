@@ -84,8 +84,8 @@ export function filterKeysForThisBrowser(
       // Precedence (deterministic): plain < family prefix < specific prefix.
       // Two sibling family prefixes on one build (gecko: and firefox: on
       // waterfox) keep source order, the later key wins. The manifest-fields
-      // package still reaches chrome: and edge: family wide, so
-      // getResolvedManifestFieldsData hands it a manifest resolved here.
+      // package that discovers entries applies the same rule, so a change
+      // here must land there too or entries and consumers split.
       for (const [strippedKey, value] of familyMatches) {
         result.set(strippedKey, value)
       }

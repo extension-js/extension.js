@@ -23,8 +23,8 @@ afterEach(() => {
   }
 })
 
-// The fields package still resolves chrome: family wide, so without the
-// resolved copy an edge build would compile the Chrome worker as its entry.
+// Entry discovery must follow the vendor-exact rule, or an edge build would
+// compile the Chrome worker as its entry.
 describe('getResolvedManifestFieldsData with vendor-exact prefixes', () => {
   const manifest = {
     manifest_version: 3,
