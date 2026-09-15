@@ -139,6 +139,9 @@ jobs:
       # Matrix values reach the shell through env, so the run line stays plain
       # shell that workflow linters and Scorecard can parse.
       - name: Run optional deps smoke
+        # bash on every OS: the Windows default shell is PowerShell, which does
+        # not expand the parameter syntax below.
+        shell: bash
         env:
           SMOKE_PM: ${{ matrix.pm }}
           SMOKE_BROWSER: ${{ matrix.browser }}
