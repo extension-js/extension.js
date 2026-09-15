@@ -218,6 +218,10 @@ Sponsors help the project ship faster releases, better developer experience, and
 
 Documentation is hosted by [Mintlify](https://mintlify.com/?utm_medium=infrastructure&utm_source=extensionjs) through its open source program. Tiers and placement are listed in [BACKERS.md](https://github.com/extension-js/extension.js/blob/main/BACKERS.md).
 
+## Contributing
+
+Bug reports and pull requests are welcome. Read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for the dev setup, the test commands, and what a pull request needs to carry.
+
 ## License
 
 MIT (c) Cezar Augusto and the Extension.js authors.
