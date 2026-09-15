@@ -337,6 +337,9 @@ importers:
 
   programs/extension:
     dependencies:
+      '@types/chrome':
+        specifier: ^0.1.33
+        version: 0.1.37
       brave-location:
         specifier: 3.1.1
         version: 3.1.1
@@ -404,9 +407,6 @@ importers:
       '@rslib/core':
         specifier: ^1.0.0
         version: 1.0.0(core-js@3.47.0)(typescript@7.0.2)
-      '@types/chrome':
-        specifier: ^0.1.33
-        version: 0.1.37
       '@types/cross-spawn':
         specifier: ^6.0.6
         version: 6.0.6
