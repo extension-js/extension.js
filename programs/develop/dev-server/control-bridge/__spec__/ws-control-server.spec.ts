@@ -110,7 +110,8 @@ describe('ws control server (integration)', () => {
   it.each([
     'http://localhost:3000',
     'https://attacker.example',
-    'HTTPS://attacker.example'
+    'HTTPS://attacker.example',
+    'null'
   ])('refuses the upgrade from a web page Origin %s', async (origin) => {
     const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
     server = await startControlServer({broker})
@@ -162,13 +163,31 @@ describe('ws control server (integration)', () => {
     expect(await nextFrame(ws)).toMatchObject({type: 'ready'})
   })
 
-  it('treats only http and https as a web Origin', () => {
+  it('treats http, https and the opaque null as a web Origin', () => {
     expect(isWebOrigin(undefined)).toBe(false)
     expect(isWebOrigin('')).toBe(false)
     expect(isWebOrigin('chrome-extension://id')).toBe(false)
     expect(isWebOrigin('moz-extension://id')).toBe(false)
+    expect(isWebOrigin('safari-web-extension://id')).toBe(false)
     expect(isWebOrigin('http://127.0.0.1:8080')).toBe(true)
     expect(isWebOrigin('https://example.com')).toBe(true)
+    expect(isWebOrigin('null')).toBe(true)
+    expect(isWebOrigin('NULL')).toBe(true)
+  })
+
+  it('accepts a Node client that sends no Origin', async () => {
+    const broker = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
+    server = await startControlServer({broker})
+    const ws = await connect(server.port)
+    ws.send(
+      JSON.stringify({
+        type: 'hello',
+        v: 1,
+        role: 'consumer',
+        instanceId: 'inst-1'
+      })
+    )
+    expect(await nextFrame(ws)).toMatchObject({type: 'ready'})
   })
 
   it('closes a socket that presents the wrong instanceId', async () => {

@@ -37,11 +37,13 @@ export interface StartControlServerOptions {
 let connSeq = 0
 
 // The session instance id already gates every hello. As defense in depth, a
-// socket opened from a web page (an http or https Origin) is refused outright.
-// The extension producer sends its own scheme, like chrome-extension:// or
+// socket opened from a web page is refused outright: an http or https Origin,
+// or the opaque `null` a sandboxed iframe or a file:// page sends. The
+// extension producer sends its own scheme, like chrome-extension:// or
 // moz-extension://, and Node clients send no Origin.
 export function isWebOrigin(origin: string | undefined): boolean {
-  return /^https?:\/\//i.test(String(origin || '').trim())
+  const value = String(origin || '').trim()
+  return value.toLowerCase() === 'null' || /^https?:\/\//i.test(value)
 }
 
 export function startControlServer(
