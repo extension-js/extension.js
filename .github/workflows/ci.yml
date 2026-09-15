@@ -10,14 +10,9 @@ on:
       - '.github/CODE_OF_CONDUCT.md'
       - '.github/SECURITY.md'
       - 'LICENSE'
+  # Pull requests run CI on every change, docs included, so the required
+  # CI passed check always reports and a docs-only PR is never stuck waiting.
   pull_request:
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - '.github/FUNDING.yml'
-      - '.github/CODE_OF_CONDUCT.md'
-      - '.github/SECURITY.md'
-      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
@@ -273,3 +268,31 @@ jobs:
 
       - name: Run full test suite
         run: pnpm test
+
+  ci-passed:
+    # The one check branch protection requires. It waits on every CI job and
+    # fails only on a failed or cancelled job, so a skipped job never blocks.
+    name: CI passed
+    if: always()
+    needs:
+      - quality
+      - tests
+      - tests-node
+      - smoke-npx
+      - bundled-extensions
+      - tests-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the result of every CI job
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: ${RESULTS}"
+          for result in ${RESULTS}
+          do
+            if [ "${result}" = "failure" ] || [ "${result}" = "cancelled" ]
+            then
+              exit 1
+            fi
+          done
