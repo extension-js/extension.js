@@ -182,6 +182,20 @@ export function geckoSidePanelUnsupported(file: string) {
   return lines.join('\n')
 }
 
+export function safariSidePanelUnsupported(file: string) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} calls chrome.sidePanel, which Safari does not have.`
+  )
+  lines.push(
+    `The call throws when the script runs. In a background service worker, Safari then never starts the worker, and nothing reports an error.`
+  )
+  lines.push(
+    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow('chrome.sidePanel?.')}.`
+  )
+  return lines.join('\n')
+}
+
 export function geckoActionUnsupportedOnMv2(file: string) {
   const lines: string[] = []
   lines.push(

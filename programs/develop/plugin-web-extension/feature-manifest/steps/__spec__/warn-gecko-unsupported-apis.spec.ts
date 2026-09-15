@@ -50,11 +50,34 @@ describe('usesGeckoUnsupportedApi', () => {
   })
 })
 
+describe('usesGeckoUnsupportedApi on webkit', () => {
+  it('matches an unguarded call and lets optional chaining through', () => {
+    expect(usesGeckoUnsupportedApi(SIDE_PANEL, 'sidePanel', 'webkit')).toBe(
+      true
+    )
+    expect(
+      usesGeckoUnsupportedApi(
+        'chrome.sidePanel?.setPanelBehavior({})',
+        'sidePanel',
+        'webkit'
+      )
+    ).toBe(false)
+    expect(
+      usesGeckoUnsupportedApi('if (chrome.sidePanel) {}', 'sidePanel', 'webkit')
+    ).toBe(false)
+  })
+})
+
 describe('geckoUnsupportedApis', () => {
   it('adds action only when the resolved manifest is Manifest V2', () => {
     expect(geckoUnsupportedApis(2)).toEqual(['sidePanel', 'action'])
     expect(geckoUnsupportedApis(3)).toEqual(['sidePanel'])
     expect(geckoUnsupportedApis(undefined)).toEqual(['sidePanel'])
+  })
+
+  it('checks only sidePanel on webkit, since Safari has action', () => {
+    expect(geckoUnsupportedApis(2, 'webkit')).toEqual(['sidePanel'])
+    expect(geckoUnsupportedApis(3, 'webkit')).toEqual(['sidePanel'])
   })
 })
 
@@ -240,7 +263,11 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     }).apply(compiler)
     return (
       compilation.warnings as Array<Error & {name?: string; file?: string}>
-    ).filter((w) => w.name === 'GeckoUnsupportedApiWarning')
+    ).filter(
+      (w) =>
+        w.name === 'GeckoUnsupportedApiWarning' ||
+        w.name === 'SafariUnsupportedApiWarning'
+    )
   }
 
   const mv2 = {name: 'x', version: '1.0.0', manifest_version: 2}
@@ -268,6 +295,23 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     const warnings = run('production', 'firefox', mv3, SIDE_PANEL + ACTION)
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('chrome.sidePanel')
+  })
+
+  it('warns on a production safari build that calls chrome.sidePanel', () => {
+    const warnings = run('production', 'safari', mv3, SIDE_PANEL + ACTION)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('SafariUnsupportedApiWarning')
+    expect(warnings[0].file).toBe('background.js')
+    expect(warnings[0].message).toContain(
+      'background.js calls chrome.sidePanel, which Safari does not have'
+    )
+    expect(warnings[0].message).toContain('never starts the worker')
+  })
+
+  it('keeps safari quiet for a guarded call and in development', () => {
+    const guarded = 'chrome.sidePanel?.setPanelBehavior({})\n'
+    expect(run('production', 'safari', mv3, guarded)).toEqual([])
+    expect(run('development', 'safari', mv3, SIDE_PANEL)).toEqual([])
   })
 
   it('stays quiet for chromium targets and in development', () => {

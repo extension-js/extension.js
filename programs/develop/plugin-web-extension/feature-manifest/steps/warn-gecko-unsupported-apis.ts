@@ -9,12 +9,16 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 
 export type GeckoUnsupportedApi = 'sidePanel' | 'action'
+
+// gecko follows addons-linter, which flags any static read. webkit follows
+// the Safari runtime, where only an unguarded call on a missing namespace throws.
+export type UnsupportedApiEngine = 'gecko' | 'webkit'
 
 export interface GeckoUnsupportedApiUse {
   api: GeckoUnsupportedApi
@@ -27,20 +31,27 @@ export interface GeckoUnsupportedApiUse {
 // The namespaces addons-linter reports as UNSUPPORTED_API on a Gecko build.
 // sidePanel has no Firefox counterpart on any manifest version. action is
 // Manifest V3 only, so a Manifest V2 Firefox bundle still needs browserAction.
+// Safari has action on Manifest V3 but no sidePanel on any version.
 export function geckoUnsupportedApis(
-  manifestVersion: unknown
+  manifestVersion: unknown,
+  engine: UnsupportedApiEngine = 'gecko'
 ): GeckoUnsupportedApi[] {
+  if (engine === 'webkit') return ['sidePanel']
   return manifestVersion === 2 ? ['sidePanel', 'action'] : ['sidePanel']
 }
 
 // A static member read on the namespace is what addons-linter matches, so a
 // runtime guard around the same call still trips it and must still warn.
+// Safari only throws when the call reads through the missing namespace, so
+// optional chaining on it is safe there.
 export function usesGeckoUnsupportedApi(
   source: string,
-  api: GeckoUnsupportedApi
+  api: GeckoUnsupportedApi,
+  engine: UnsupportedApiEngine = 'gecko'
 ): boolean {
+  const chain = engine === 'webkit' ? '' : '\\??'
   const memberRe = new RegExp(
-    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*\\??\\.\\s*[A-Za-z_$]`
+    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
   )
   return memberRe.test(source)
 }
@@ -133,9 +144,12 @@ function emittedFilesOf(
  */
 export function findGeckoUnsupportedApiUses(
   compilation: ScannableCompilation,
-  manifestVersion: unknown
+  manifestVersion: unknown,
+  engine: UnsupportedApiEngine = 'gecko'
 ): GeckoUnsupportedApiUse[] {
-  const apis = geckoUnsupportedApis(manifestVersion)
+  const apis = geckoUnsupportedApis(manifestVersion, engine)
+  const uses_ = (text: string, api: GeckoUnsupportedApi) =>
+    usesGeckoUnsupportedApi(text, api, engine)
   const emitted = readEmittedScripts(compilation)
   const explained = new Set<string>()
   const uses = new Map<string, GeckoUnsupportedApiUse>()
@@ -150,13 +164,13 @@ export function findGeckoUnsupportedApiUses(
 
       for (const api of apis) {
         const key = `${api}\0${resource}`
-        if (uses.has(key) || !usesGeckoUnsupportedApi(source, api)) continue
+        if (uses.has(key) || !uses_(source, api)) continue
 
         const files = emittedFilesOf(compilation, outer)
         if (files) {
           const carrying = files.filter((file) => {
             const text = emitted.get(file)
-            return text !== undefined && usesGeckoUnsupportedApi(text, api)
+            return text !== undefined && uses_(text, api)
           })
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
@@ -174,7 +188,7 @@ export function findGeckoUnsupportedApiUses(
   for (const [name, text] of emitted) {
     for (const api of apis) {
       const key = `${api}\0${name}`
-      if (explained.has(key) || !usesGeckoUnsupportedApi(text, api)) continue
+      if (explained.has(key) || !uses_(text, api)) continue
       uses.set(key, {api, file: name, emitted: true})
     }
   }
@@ -198,8 +212,8 @@ function relativeToProject(projectPath: string, file: string): string {
   return path.relative(projectPath, file) || file
 }
 
-// Warn-only, production Gecko builds only: development bundles keep every
-// build-time branch, so the compiled-out check can't clear them there.
+// Warn-only, production Gecko and Safari builds only: development bundles
+// keep every build-time branch, so the compiled-out check can't clear them there.
 export function reportGeckoUnsupportedApis(
   compilation: Compilation,
   compiler: Compiler,
@@ -208,26 +222,39 @@ export function reportGeckoUnsupportedApis(
   projectPath: string
 ) {
   if (compiler.options.mode !== 'production') return
-  if (!isGeckoBasedBrowser(String(browser))) return
+  const engine: UnsupportedApiEngine | undefined = isGeckoBasedBrowser(
+    String(browser)
+  )
+    ? 'gecko'
+    : isWebkitBasedBrowser(String(browser))
+      ? 'webkit'
+      : undefined
+  if (!engine) return
 
   try {
     const uses = findGeckoUnsupportedApiUses(
       compilation as unknown as ScannableCompilation,
-      manifest.manifest_version
+      manifest.manifest_version,
+      engine
     )
     for (const use of uses) {
       const label = use.emitted
         ? use.file
         : relativeToProject(projectPath, use.file)
       const text =
-        use.api === 'sidePanel'
-          ? messages.geckoSidePanelUnsupported(label)
-          : messages.geckoActionUnsupportedOnMv2(label)
+        engine === 'webkit'
+          ? messages.safariSidePanelUnsupported(label)
+          : use.api === 'sidePanel'
+            ? messages.geckoSidePanelUnsupported(label)
+            : messages.geckoActionUnsupportedOnMv2(label)
       const warn = new WebpackError(text) as Error & {
         file?: string
         name?: string
       }
-      warn.name = 'GeckoUnsupportedApiWarning'
+      warn.name =
+        engine === 'webkit'
+          ? 'SafariUnsupportedApiWarning'
+          : 'GeckoUnsupportedApiWarning'
       warn.file = label
       compilation.warnings.push(warn)
     }
