@@ -532,7 +532,11 @@ export default function webpackConfig(
       ]
     },
     node: {
-      __dirname: false
+      __dirname: false,
+      // EnvPlugin defines the free variable `global` as globalThis, so rspack
+      // injects no global helper. That helper's Function("return this")
+      // fallback fails the addons.mozilla.org store check.
+      global: false
     },
     resolveLoader: {
       // Bundled preprocessor loaders resolve by bare name: project copy wins,
