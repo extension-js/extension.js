@@ -48,7 +48,8 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
 
 ## Notes
 
-- npm tokens: use automation tokens in `NPM_TOKEN` secret.
+- npm authentication: the workflow publishes through npm trusted publishing with GitHub OIDC
+  (`id-token: write`) and `--provenance`. It reads no npm token.
 - `next` releases must use a pre-release semver (validated in CI).
 - `stable` releases must use a clean semver (validated in CI).
 - `canary` releases must use a pre-release semver (validated in CI).
