@@ -74,13 +74,6 @@ importers:
         version: 8.1.5(@types/node@26.0.1)(esbuild@0.27.2)(jiti@2.6.1)(less@4.6.7)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
 
   extensions/extension-js-devtools:
-    dependencies:
-      react:
-        specifier: ^19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: ^19.2.3
-        version: 19.2.3(react@19.2.3)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.18
@@ -88,24 +81,12 @@ importers:
       '@types/chrome':
         specifier: ^0.1.37
         version: 0.1.37
-      '@types/react':
-        specifier: ^19.2.8
-        version: 19.2.8
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.8)
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
       extension:
         specifier: workspace:*
         version: link:../../programs/extension
       postcss:
         specifier: ^8.5.23
         version: 8.5.25
-      tailwind-merge:
-        specifier: ^3.4.0
-        version: 3.4.0
       tailwindcss:
         specifier: ^4.1.3
         version: 4.1.18
@@ -2140,14 +2121,6 @@ packages:
   '@types/node@26.0.1':
     resolution: {integrity: sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==}
 
-  '@types/react-dom@19.2.3':
-    resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
-    peerDependencies:
-      '@types/react': ^19.2.0
-
-  '@types/react@19.2.8':
-    resolution: {integrity: sha512-3MbSL37jEchWZz2p2mjntRZtPt837ij10ApxKfgmXCTuHWagYg7iA5bqPw6C8BMPfwidlvfPI/fxOc42HLhcyg==}
-
   '@types/sass-loader@8.0.10':
     resolution: {integrity: sha512-MajDnLGRrM42uOoWGMSo4N5zIugGsihia0KDjh5ysyOAnnT843d85gEvthC4BbXfFwfJE5hQj6CBrvLKp3RpPA==}
 
@@ -4077,17 +4050,8 @@ packages:
     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
     hasBin: true
 
-  react-dom@19.2.3:
-    resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
-    peerDependencies:
-      react: ^19.2.3
-
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
-    engines: {node: '>=0.10.0'}
-
-  react@19.2.3:
-    resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
     engines: {node: '>=0.10.0'}
 
   readdirp@4.1.2:
@@ -4193,9 +4157,6 @@ packages:
   sax@1.6.0:
     resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
     engines: {node: '>=11.0.0'}
-
-  scheduler@0.27.0:
-    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
   schema-utils@4.3.3:
     resolution: {integrity: sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA==}
@@ -4351,9 +4312,6 @@ packages:
   svelte@5.55.9:
     resolution: {integrity: sha512-fTjjT8cHLDwigcu2j3pv7Jq04LklXevPB8uBgyHNiTXv+RMNvVnrjS4UEYrLMkhuq1vpCodHjiW+z/95SDs/fg==}
     engines: {node: '>=18'}
-
-  tailwind-merge@3.4.0:
-    resolution: {integrity: sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==}
 
   tailwindcss@4.1.18:
     resolution: {integrity: sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw==}
@@ -6118,14 +6076,6 @@ snapshots:
   '@types/node@26.0.1':
     dependencies:
       undici-types: 8.3.0
-
-  '@types/react-dom@19.2.3(@types/react@19.2.8)':
-    dependencies:
-      '@types/react': 19.2.8
-
-  '@types/react@19.2.8':
-    dependencies:
-      csstype: 3.2.3
 
   '@types/sass-loader@8.0.10':
     dependencies:
@@ -8014,14 +7964,7 @@ snapshots:
       minimist: 1.2.8
       strip-json-comments: 2.0.1
 
-  react-dom@19.2.3(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      scheduler: 0.27.0
-
   react-refresh@0.18.0: {}
-
-  react@19.2.3: {}
 
   readdirp@4.1.2: {}
 
@@ -8136,8 +8079,6 @@ snapshots:
 
   sax@1.6.0:
     optional: true
-
-  scheduler@0.27.0: {}
 
   schema-utils@4.3.3:
     dependencies:
@@ -8294,8 +8235,6 @@ snapshots:
       zimmerframe: 1.1.4
     transitivePeerDependencies:
       - '@typescript-eslint/types'
-
-  tailwind-merge@3.4.0: {}
 
   tailwindcss@4.1.18: {}
 

@@ -6,13 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {clsx, type ClassValue} from 'clsx'
-import {twMerge} from 'tailwind-merge'
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
 export type Theme = 'light' | 'dark'
 
 function getStoredTheme(): Theme | null {
