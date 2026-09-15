@@ -1,8 +1,8 @@
 name: Extension.js – Release Attest
 
 # Attaches the four published npm tarballs to a GitHub release and covers
-# them with SLSA build provenance (multiple.intoto.jsonl) produced by the
-# slsa-github-generator reusable workflow. OpenSSF Scorecard's Signed-Releases
+# them with signed SLSA build provenance (provenance.intoto.jsonl) made by
+# GitHub's attest-build-provenance action. OpenSSF Scorecard's Signed-Releases
 # check reads the assets of the last 5 releases that have assets: a release
 # whose assets include a *.intoto.jsonl provenance file scores 10, a signature
 # file alone scores 8, and assets with neither score 0. The order of the jobs
@@ -10,6 +10,15 @@ name: Extension.js – Release Attest
 # the provenance is uploaded first, and the tarballs are attached only after
 # they verify against it. Any failure leaves the release untouched (unscored)
 # or provenance-only, never in the 0-scoring state.
+#
+# The action is pinned by commit like every other action in the repo. The
+# slsa-github-generator reusable workflow used before refused a commit pin.
+# Releases attested by that generator carry multiple.intoto.jsonl, which
+# slsa-verifier checks. Newer releases carry a Sigstore bundle, and the same
+# attestation is stored on GitHub, so either of these checks a tarball:
+#   gh attestation verify extension-X.Y.Z.tgz --repo extension-js/extension.js
+#   gh attestation verify extension-X.Y.Z.tgz --repo extension-js/extension.js \
+#     --bundle provenance.intoto.jsonl
 #
 # This workflow is decoupled from publish-release.yml on purpose. A failure
 # here leaves the npm publish and the GitHub release untouched, and a re-run
@@ -122,7 +131,7 @@ jobs:
           echo "Attesting release $TAG"
 
   # Reads the package list from the tag, waits for npm, fetches the published
-  # tarballs and turns their sha256 into the generator's subject list. Nothing
+  # tarballs and turns their sha256 into the provenance subject list. Nothing
   # is written to the release here.
   subjects:
     name: Compute subjects
@@ -226,10 +235,10 @@ jobs:
           done
           ls -la dist-release
 
-      # The generator takes the exact `sha256sum` output, base64 encoded on
-      # one line. Run inside the directory so the file names are bare: the
-      # provenance subject names must equal the release asset names, that is
-      # what slsa-verifier matches on.
+      # The attest step takes the exact `sha256sum` output as its checksums
+      # file, passed between jobs base64 encoded on one line. Run inside the
+      # directory so the file names are bare: the provenance subject names
+      # must equal the release asset names.
       - name: Compute the provenance subjects
         id: hashes
         working-directory: dist-release
@@ -239,37 +248,54 @@ jobs:
           echo "$HASHES" | base64 -d
           echo "hashes=$HASHES" >> "$GITHUB_OUTPUT"
 
-  # Generates the SLSA v1 provenance for the four tarballs, signs it with
-  # Sigstore (keyless, through this run's OIDC identity) and uploads
-  # multiple.intoto.jsonl to the release. The generator must be referenced by
-  # its semver tag: its detect-env job verifies its own ref and refuses a
-  # commit sha, so this is the one `uses:` in the repo that cannot be sha
-  # pinned. Scorecard's Pinned-Dependencies counts that single line as
-  # unpinned, the known cost of the official SLSA builder.
+  # Signs SLSA provenance for the four tarballs with Sigstore (keyless,
+  # through this run's OIDC identity), stores the attestation on GitHub and
+  # uploads the bundle to the release as provenance.intoto.jsonl.
   provenance:
     name: SLSA provenance
     needs: [resolve, subjects]
     if: needs.resolve.outputs.attest == 'true' && needs.subjects.outputs.hashes != ''
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
     permissions:
-      # The generator reads the workflow run it attests
-      actions: read
       # OIDC token for the keyless Sigstore signature of the provenance
       id-token: write
-      # Uploads multiple.intoto.jsonl to the release
+      # Stores the attestation in the repository attestation API
+      attestations: write
+      # Uploads provenance.intoto.jsonl to the release
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: ${{ needs.subjects.outputs.hashes }}
-      upload-assets: true
-      # No trigger here runs on the tag ref, so the generator has to be told
-      # which release receives the provenance.
-      upload-tag-name: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Write the subject checksums
+        env:
+          HASHES: ${{ needs.subjects.outputs.hashes }}
+        run: |
+          set -euo pipefail
+          echo "$HASHES" | base64 -d > checksums.txt
+          cat checksums.txt
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: checksums.txt
+
+      # --clobber lets a re-run or a backfill replace the file in place.
+      - name: Upload the provenance to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cp "$BUNDLE" provenance.intoto.jsonl
+          gh release upload "$TAG" provenance.intoto.jsonl --repo "$REPO" --clobber
 
   # Fetches the tarballs again (same registry bytes, integrity checked), proves
-  # each one against the provenance now on the release with slsa-verifier, and
-  # only then attaches them. The provenance records refs/heads/main as the
-  # source ref (none of the triggers run on the tag), so consumers verify with
-  # --source-uri and not --source-tag.
+  # each one against the bundle now on the release with gh attestation verify,
+  # and only then attaches them. The signing identity is this workflow file on
+  # refs/heads/main (none of the triggers run on the tag), which is what
+  # --signer-workflow pins.
   assets:
     name: Verify and upload tarballs
     needs: [resolve, subjects, provenance]
@@ -289,9 +315,6 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-
-      - name: Install slsa-verifier
-        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
 
       - name: Download the published tarballs
         env:
@@ -320,11 +343,12 @@ jobs:
         working-directory: dist-release
         run: |
           set -euo pipefail
-          gh release download "$TAG" --repo "$REPO" --pattern '*.intoto.jsonl'
+          gh release download "$TAG" --repo "$REPO" --pattern provenance.intoto.jsonl --clobber
           for FILE in *.tgz; do
-            slsa-verifier verify-artifact "$FILE" \
-              --provenance-path multiple.intoto.jsonl \
-              --source-uri "github.com/$REPO"
+            gh attestation verify "$FILE" \
+              --bundle provenance.intoto.jsonl \
+              --repo "$REPO" \
+              --signer-workflow "$REPO/.github/workflows/release-attest.yml"
           done
 
       # --clobber makes a re-run, or a backfill of a release that already has
