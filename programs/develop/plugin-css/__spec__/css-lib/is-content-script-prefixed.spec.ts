@@ -38,8 +38,10 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
     ).toBe(true)
   })
 
-  it('claims a chrome:-prefixed content script on any chromium target', () => {
-    const root = makeProject({'chrome:content_scripts': [{js: ['content.js']}]})
+  it('claims a chromium:-prefixed content script on any chromium target', () => {
+    const root = makeProject({
+      'chromium:content_scripts': [{js: ['content.js']}]
+    })
     expect(
       isContentScriptEntry(
         path.join(root, 'content.js'),
@@ -48,6 +50,14 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
         'edge'
       )
     ).toBe(true)
+  })
+
+  it('claims a chrome:-prefixed content script only on chrome', () => {
+    const root = makeProject({'chrome:content_scripts': [{js: ['content.js']}]})
+    const manifestPath = path.join(root, 'manifest.json')
+    const entry = path.join(root, 'content.js')
+    expect(isContentScriptEntry(entry, manifestPath, root, 'chrome')).toBe(true)
+    expect(isContentScriptEntry(entry, manifestPath, root, 'edge')).toBe(false)
   })
 
   it('leaves another browser prefix out of this build', () => {

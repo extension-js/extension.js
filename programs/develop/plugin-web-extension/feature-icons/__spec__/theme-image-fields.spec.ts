@@ -74,13 +74,23 @@ describe('themeImageFields with browser-prefixed themes', () => {
     })
   })
 
-  it('resolves a chrome: prefix for every chromium target and skips others', () => {
-    const {dir, manifestPath} = prefixedManifest('chrome:theme', {
+  it('resolves a chromium: prefix for every chromium target and skips others', () => {
+    const {dir, manifestPath} = prefixedManifest('chromium:theme', {
       images: {theme_frame: 'images/frame.png'}
     })
     expect(themeImageFields(manifestPath, 'edge')).toEqual({
       'theme/images/theme_frame': path.join(dir, 'images/frame.png')
     })
     expect(themeImageFields(manifestPath, 'firefox')).toEqual({})
+  })
+
+  it('resolves a chrome: prefix only for chrome', () => {
+    const {dir, manifestPath} = prefixedManifest('chrome:theme', {
+      images: {theme_frame: 'images/frame.png'}
+    })
+    expect(themeImageFields(manifestPath, 'chrome')).toEqual({
+      'theme/images/theme_frame': path.join(dir, 'images/frame.png')
+    })
+    expect(themeImageFields(manifestPath, 'edge')).toEqual({})
   })
 })

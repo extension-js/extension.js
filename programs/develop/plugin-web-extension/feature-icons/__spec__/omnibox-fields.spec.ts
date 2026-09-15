@@ -30,9 +30,9 @@ describe('omniboxIconFields', () => {
 
   it('reads an omnibox declared under a browser prefix', () => {
     const {dir, manifestPath} = manifestWith({
-      'chrome:omnibox': {default_icon: 'icons/omni.png'}
+      'chromium:omnibox': {default_icon: 'icons/omni.png'}
     })
-    // A chrome: key covers the whole chromium family, edge included.
+    // A chromium: key covers the whole chromium family, edge included.
     expect(omniboxIconFields(manifestPath, 'edge')).toEqual({
       'omnibox/default_icon': path.join(dir, 'icons', 'omni.png')
     })

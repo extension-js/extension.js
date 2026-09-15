@@ -105,10 +105,12 @@ describe('discoverDevtoolsPanelPages', () => {
       discoverDevtoolsPanelPages(path.join(gecko, 'manifest.json'), 'firefox')
     ).toEqual({panel: path.join(gecko, 'panel.html')})
 
-    // A chrome: key covers the whole chromium family, edge included.
+    // A chromium: key covers the whole chromium family, edge included.
     const chromium = makeProject({
       ...files,
-      'manifest.json': JSON.stringify({'chrome:devtools_page': 'devtools.html'})
+      'manifest.json': JSON.stringify({
+        'chromium:devtools_page': 'devtools.html'
+      })
     })
     expect(
       discoverDevtoolsPanelPages(path.join(chromium, 'manifest.json'), 'edge')

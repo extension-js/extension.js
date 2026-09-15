@@ -96,7 +96,9 @@ describe('HtmlPlugin', () => {
   it('scopes the page HMR loader away from browser-prefixed content entries', () => {
     const cases: Array<[string, string, boolean]> = [
       ['firefox:content_scripts', 'firefox', true],
-      ['chrome:content_scripts', 'edge', true],
+      ['chromium:content_scripts', 'edge', true],
+      ['chrome:content_scripts', 'chrome', true],
+      ['chrome:content_scripts', 'edge', false],
       ['firefox:content_scripts', 'chrome', false]
     ]
 

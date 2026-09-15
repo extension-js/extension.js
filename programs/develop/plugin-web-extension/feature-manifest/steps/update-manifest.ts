@@ -29,7 +29,10 @@ import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_po
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 
 import {humanLine} from '../../../dev-server/lifecycle-stream'
-import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {
+  filterKeysForThisBrowser,
+  findDroppedVendorKeys
+} from '../../../lib/manifest-utils'
 import {isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {pageActionDropReason} from '../../shared/html-surfaces'
@@ -112,6 +115,26 @@ export class UpdateManifest {
                 compilation,
                 compiler,
                 messages.mv2SandboxPolicyDropped(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+            // A key another vendor used to reach through the family rule
+            // is silent to drop, so the build says it moved.
+            for (const dropped of findDroppedVendorKeys(
+              manifest,
+              this.browser
+            )) {
+              if (!dropped.appliedBefore) continue
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.vendorPrefixedKeyDropped(
+                  dropped.path,
+                  dropped.familyPath,
+                  dropped.vendor,
+                  String(this.browser)
+                ),
                 'warning',
                 'manifest.json'
               )

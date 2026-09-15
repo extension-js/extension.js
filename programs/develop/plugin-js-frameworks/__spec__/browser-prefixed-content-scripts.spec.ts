@@ -109,12 +109,20 @@ describe('JsFrameworksPlugin content-script layer, browser-prefixed keys', () =>
     expect(include('/project/content/script.js')).toBe(true)
   })
 
-  it('claims a chrome:-prefixed content script on any chromium target', async () => {
+  it('claims a chromium:-prefixed content script on any chromium target', async () => {
+    const include = await contentScriptLayerInclude(
+      {'chromium:content_scripts': [{js: ['content/script.js']}]},
+      'edge'
+    )
+    expect(include('/project/content/script.js')).toBe(true)
+  })
+
+  it('leaves a chrome:-prefixed content script out of an edge build', async () => {
     const include = await contentScriptLayerInclude(
       {'chrome:content_scripts': [{js: ['content/script.js']}]},
       'edge'
     )
-    expect(include('/project/content/script.js')).toBe(true)
+    expect(include('/project/content/script.js')).toBe(false)
   })
 
   it('leaves another browser prefix out of this build', async () => {

@@ -211,6 +211,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "pageActionNotSupportedByBrowser: function(1)",
     "serverRestartRequiredFromManifestError: function(2)",
     "themeNotSupportedByBrowser: function(1)",
+    "vendorPrefixedKeyDropped: function(4)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
     "compiledSourceSpelling: function(4)",
