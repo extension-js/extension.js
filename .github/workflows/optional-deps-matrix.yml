@@ -136,8 +136,16 @@ jobs:
       - name: Test optional deps smoke helpers
         run: node --test scripts/__spec__/run-optional-deps-smoke.spec.mjs
 
+      # Matrix values reach the shell through env, so the run line stays plain
+      # shell that workflow linters and Scorecard can parse.
       - name: Run optional deps smoke
-        run: node scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }} ${{ matrix.browser && format('--browser {0}', matrix.browser) || '' }}
+        # bash on every OS: the Windows default shell is PowerShell, which does
+        # not expand the parameter syntax below.
+        shell: bash
+        env:
+          SMOKE_PM: ${{ matrix.pm }}
+          SMOKE_BROWSER: ${{ matrix.browser }}
+        run: node scripts/run-optional-deps-smoke.mjs --pm "$SMOKE_PM" ${SMOKE_BROWSER:+--browser "$SMOKE_BROWSER"}
 
       - name: Compile local Extension.js packages for workspace first-dev check
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
