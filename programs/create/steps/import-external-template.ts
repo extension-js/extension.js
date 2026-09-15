@@ -167,6 +167,45 @@ export class TemplateNotFoundError extends Error {
   }
 }
 
+export class InsecureTemplateUrlError extends Error {
+  readonly url: string
+  constructor(url: string) {
+    super(`template URL is not https: ${url}`)
+    this.name = 'InsecureTemplateUrlError'
+    this.url = url
+  }
+}
+
+// A template runs code on this machine at install time, and anyone on the
+// network path can rewrite a plain HTTP download. Opting in is explicit.
+export function isRefusedHttpTemplateUrl(url: string): boolean {
+  if (process.env.EXTENSION_ALLOW_HTTP_TEMPLATE === 'true') return false
+  return /^http:\/\//i.test(url)
+}
+
+// An https URL that redirects to http downgrades the same download, so the
+// redirect is held to the rule the first URL was.
+export function refuseHttpRedirect(options: {
+  protocol?: string
+  href?: string
+}): void {
+  const target = String(options.href || `${options.protocol || ''}//`)
+  if (isRefusedHttpTemplateUrl(target)) {
+    throw new InsecureTemplateUrlError(target)
+  }
+}
+
+function findInsecureTemplateUrlError(
+  error: unknown
+): InsecureTemplateUrlError | null {
+  let current: unknown = error
+  for (let depth = 0; current && depth < 4; depth++) {
+    if (current instanceof InsecureTemplateUrlError) return current
+    current = (current as {cause?: unknown}).cause
+  }
+  return null
+}
+
 export class TemplateDownloadError extends Error {
   readonly templateName: string
   constructor(templateName: string, cause: unknown) {
@@ -546,6 +585,10 @@ export async function importExternalTemplate(
     : null
 
   try {
+    if (isRefusedHttpTemplateUrl(template)) {
+      throw new InsecureTemplateUrlError(template)
+    }
+
     await fs.mkdir(projectPath, {recursive: true})
 
     if (!isHttp && !isGithub && BUNDLED_TEMPLATES.includes(resolvedTemplate)) {
@@ -615,7 +658,8 @@ export async function importExternalTemplate(
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
-        timeout: NETWORK_TIMEOUT_MS
+        timeout: NETWORK_TIMEOUT_MS,
+        beforeRedirect: refuseHttpRedirect
       })
       const contentType = String(headers?.['content-type'] || '')
       const looksZip =
@@ -687,7 +731,10 @@ export async function importExternalTemplate(
     }
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).
-    if (error instanceof TemplateNotFoundError) {
+    const insecureUrl = findInsecureTemplateUrlError(error)
+    if (insecureUrl) {
+      logger.error(messages.templateUrlNotHttps(insecureUrl.url))
+    } else if (error instanceof TemplateNotFoundError) {
       logger.error(
         messages.templateNotFoundInCatalog(
           templateName,
