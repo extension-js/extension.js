@@ -196,15 +196,6 @@ Sponsors help the project ship faster releases, better developer experience, and
 
 <div align="center">
   <p>
-    <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://extension.js.org/images/sponsors/testmuai_dark.svg" />
-        <source media="(prefers-color-scheme: light)" srcset="https://extension.js.org/images/sponsors/testmuai.svg" />
-        <img src="https://extension.js.org/images/sponsors/testmuai.svg" width="220" alt="TestMu AI" />
-      </picture>
-    </a>
-  </p>
-  <p>
     <a href="https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="https://extension.js.org/images/sponsors/extensiondev_dark.svg" />
