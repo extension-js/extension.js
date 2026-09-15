@@ -41,6 +41,7 @@ import {patchChromiumBackground} from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
+import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
 
 export class UpdateManifest {
@@ -160,6 +161,14 @@ export class UpdateManifest {
             // And the mirror: Chromium can't load MV3 background.scripts,
             // translate it to a classic service worker on the same bundle.
             patchedManifest = patchChromiumBackground(
+              patchedManifest,
+              this.browser
+            )
+
+            // Safari counts as chromium for manifest keys, so it passes through
+            // the step above first. It never starts a service worker, so the
+            // last word on a Safari build is a non-persistent background page.
+            patchedManifest = patchWebkitBackground(
               patchedManifest,
               this.browser
             )
