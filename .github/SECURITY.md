@@ -4,7 +4,7 @@
 
 If you believe you’ve found a security vulnerability in Extension.js, we encourage you to report it right away.
 
-We will investigate all legitimate reports and work quickly to fix the problem.
+We will investigate all legitimate reports and work quickly to fix the problem. You will get an acknowledgement within 72 hours and a first assessment within 14 days.
 
 Our preferred method is to use GitHub’s private vulnerability reporting feature. To disclose a potential security issue:
 

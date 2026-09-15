@@ -105,6 +105,10 @@ pnpm exec playwright install
 - Handle errors meaningfully; avoid silent catches.
 - Security: minimize browser permissions; sanitize inputs; validate cross-process messages.
 
+## Tests accompany changes
+
+New functionality lands with a spec next to the unit it changes, and a bug fix lands with the regression spec that fails on the parent commit. A pull request without either is asked for one before review.
+
 ## Testing on Windows
 
 The test suite runs on Windows in CI. To avoid regressions:
