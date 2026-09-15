@@ -38,7 +38,9 @@ export function canonicalizeDir(dir: string): string {
     try {
       return fs.realpathSync(dir)
     } catch {
-      return dir
+      // A dir that does not exist yet still needs one spelling, or a trailing
+      // separator or a dot segment keeps it from ever matching a resource key.
+      return path.resolve(dir)
     }
   }
 }
