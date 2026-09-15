@@ -224,14 +224,16 @@ jobs:
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
         run: |
           node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/extension/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
             git add programs/extension/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
             if ! git diff --cached --quiet; then git commit -m "Release ${{ inputs.channel }} v${{ steps.validate.outputs.version }}"; fi
             git tag "v${{ steps.validate.outputs.version }}"
-            git push
-            git push --tags
+            # main only takes pull requests, so the release commit and its tag go
+            # through the release deploy key, see scripts/push-release-refs.sh.
+            bash scripts/push-release-refs.sh "HEAD:refs/heads/${GITHUB_REF_NAME}" "refs/tags/v${{ steps.validate.outputs.version }}"
           else
             echo "Canary channel: skipping commit/tag/push."
           fi
@@ -417,6 +419,7 @@ jobs:
       - name: Update changelog for stable release
         if: ${{ inputs.channel == 'stable' && steps.validate.outputs.resume != 'true' }}
         env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
           VERSION: ${{ steps.validate.outputs.version }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
@@ -432,7 +435,7 @@ jobs:
           git add CHANGELOG.md RELEASE_HIGHLIGHTS.md
           if ! git diff --cached --quiet; then
             git commit -m "Move the changelog to v${{ steps.validate.outputs.version }}"
-            git push
+            bash scripts/push-release-refs.sh "HEAD:refs/heads/${GITHUB_REF_NAME}"
           else
             echo "No changelog updates to commit."
           fi
