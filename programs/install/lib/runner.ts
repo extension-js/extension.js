@@ -11,6 +11,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {spawn} from 'cross-spawn'
 import type {InstallBrowserTarget} from './browser-target'
+import {
+  PLAYWRIGHT_VERSION,
+  PUPPETEER_BROWSERS_VERSION
+} from './installer-versions'
 
 type PackageManagerName = 'pnpm' | 'yarn' | 'bun' | 'npm'
 
@@ -77,7 +81,12 @@ export function browserInstallArgs(
     packageManager === 'pnpm' ? ['dlx'] : packageManager === 'bun' ? [] : ['-y']
 
   if (target === 'edge') {
-    return [...packageRunnerPrefix, 'playwright@latest', 'install', 'msedge']
+    return [
+      ...packageRunnerPrefix,
+      `playwright@${PLAYWRIGHT_VERSION}`,
+      'install',
+      'msedge'
+    ]
   }
 
   // Puppeteer resolves a bare "firefox" to Nightly, so pin the release
@@ -90,7 +99,7 @@ export function browserInstallArgs(
         : target
   return [
     ...packageRunnerPrefix,
-    '@puppeteer/browsers@latest',
+    `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
     'install',
     browserRef,
     '--path',

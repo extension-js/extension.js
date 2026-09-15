@@ -168,6 +168,15 @@ export function installingFromTemplateError(template: string, error: unknown) {
   )
 }
 
+export function templateUrlNotHttps(url: string) {
+  return (
+    `${prefix('error')} Can't download a template over plain HTTP.\n` +
+    `${fmt.label('GOT')} ${fmt.val(fmt.truncate(url, 120))}\n` +
+    `${colors.red('- Use the')} ${colors.blue('https://')} ${colors.red('address of the template.')}\n` +
+    `${colors.red('- Set')} ${colors.blue('EXTENSION_ALLOW_HTTP_TEMPLATE=true')} ${colors.red('to allow plain HTTP.')}`
+  )
+}
+
 export function templateFetchTimedOut(templateName: string, ms: number) {
   return (
     `${prefix('error')} Couldn't fetch the template ` +
