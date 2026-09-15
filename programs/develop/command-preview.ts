@@ -345,4 +345,12 @@ export async function extensionPreview(
   await browserLauncher(resolvedOpts)
 
   metadata.writeReady()
+
+  // The launcher returns while the browser stays open, and the process later
+  // ends on a signal or a browser close. Stamp that end so ready.json never
+  // reports ready for a session that is gone. The --no-browser path above
+  // returns first on purpose, its ready.json is read after this process exits.
+  process.once('exit', () => {
+    metadata.writeShutdown(`the ${metadataCommand} session ended`)
+  })
 }

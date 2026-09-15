@@ -621,14 +621,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     },
     // Stamp a terminal status at watch close so a controller can never read green
     // over a dead pid; read-modify-write keeps the session's provenance intact.
-    writeShutdown() {
+    writeShutdown(message = 'the dev session ended (watch closed)') {
       if (foreignLiveDevSession) return
       try {
         if (!fs.existsSync(readyPath)) return
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         prev.status = 'stopped'
         prev.code = 'shutdown'
-        prev.message = 'the dev session ended (watch closed)'
+        prev.message = message
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {

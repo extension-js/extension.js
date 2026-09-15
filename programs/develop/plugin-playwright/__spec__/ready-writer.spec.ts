@@ -261,6 +261,16 @@ describe('ready.json writer preservation', () => {
     expect(after.runId).toBe(ready.runId)
   })
 
+  it('writeShutdown records the ending the caller names', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.writeShutdown('the preview session ended')
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('stopped')
+    expect(after.message).toBe('the preview session ended')
+  })
+
   it('writeShutdown is a no-op when no contract was ever written', () => {
     const writer = makeWriter()
     writer.writeShutdown()
