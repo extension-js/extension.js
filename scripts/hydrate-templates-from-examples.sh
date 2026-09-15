@@ -93,22 +93,36 @@ fi
 # templates/-root helpers) now; cached on subsequent runs via the
 # pnpm-store.
 echo "Installing template dependencies..."
+
+# A quiet install keeps CI logs short, but it also hides why an install
+# failed. On failure, retry once with full output: a registry hiccup (a
+# just-published tarball that still returns 404) usually clears, and a real
+# failure then shows pnpm's error instead of a later "module not found".
+install_template_deps() {
+  local label="$1"
+  if pnpm install --ignore-workspace --prefer-offline --silent; then
+    return 0
+  fi
+  echo "warn: pnpm install failed in ${label}, retrying once with full output" >&2
+  sleep "${HYDRATE_INSTALL_RETRY_DELAY:-10}"
+  if pnpm install --ignore-workspace --prefer-offline; then
+    return 0
+  fi
+  echo "warn: pnpm install failed twice in ${label}, the error is above. Continuing." >&2
+  return 0
+}
+
 (
   cd "$TEMPLATES_DIR"
-  pnpm install --ignore-workspace --prefer-offline --silent || {
-    echo "warn: pnpm install failed in templates/ — continuing" >&2
-  }
+  install_template_deps "templates/"
 )
 for template_dir in "$TEMPLATES_DIR"/*/; do
   [[ -f "$template_dir/package.json" ]] || continue
   (
     cd "$template_dir"
-    # `--ignore-workspace` keeps the install scoped to the template; the
-    # template's package.json is self-contained. `--prefer-offline` and
-    # `--silent` keep the run fast and quiet on CI cache hits.
-    pnpm install --ignore-workspace --prefer-offline --silent || {
-      echo "warn: pnpm install failed in $(basename "$template_dir") — continuing" >&2
-    }
+    # `--ignore-workspace` keeps the install scoped to the template, whose
+    # package.json is self-contained. `--prefer-offline` keeps cache hits fast.
+    install_template_deps "$(basename "$template_dir")"
   )
 done
 
