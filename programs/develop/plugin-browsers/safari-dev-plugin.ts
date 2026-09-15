@@ -7,6 +7,15 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {
+  buildSourceFeatureIndex,
+  classifyReloadFromSources,
+  createChangedSourcesTracker,
+  dispatchReload,
+  type ReloadBroker,
+  type ReloadInstruction,
+  readContentScriptCount
+} from '../plugin-reload'
 import {BuildEmitter, type RunnerPlugin} from './index'
 
 // The dev plugin ignores whatever the packager reports back (only `build`
@@ -22,7 +31,31 @@ export type SafariPackagerFn = (
 // (convert > xcodebuild > open > guided enable); every later compile resyncs
 // xcodebuild in the background so the bundler loop is never blocked, and a
 // burst of saves collapses to a single follow-up against the newest output.
-type SafariPackageTarget = {outputPath: string; contextDir: string}
+type SafariPackageTarget = {
+  outputPath: string
+  contextDir: string
+  instruction?: ReloadInstruction
+}
+
+// Safari reloads whole, on purpose. xcodebuild replaces the entire appex under
+// a running Safari, so a partial signal would describe a state that never existed.
+function asFullReload(
+  instruction: ReloadInstruction | undefined
+): ReloadInstruction | undefined {
+  if (!instruction) return undefined
+  return {...instruction, type: 'full'}
+}
+
+// A save burst collapses to one package, so its reloads collapse to one signal,
+// labelled by the newest edit.
+function mergeInstructions(
+  previous: ReloadInstruction | undefined,
+  next: ReloadInstruction | undefined
+): ReloadInstruction | undefined {
+  if (!previous) return next
+  if (!next) return previous
+  return {...next, type: 'full'}
+}
 
 export class SafariDevPlugin implements RunnerPlugin {
   static readonly name = 'safari-dev'
@@ -34,10 +67,22 @@ export class SafariDevPlugin implements RunnerPlugin {
   private active = false
   private pending: SafariPackageTarget | null = null
   private idleWaiters: Array<() => void> = []
+  private reloadBroker: ReloadBroker | undefined
 
   constructor(private readonly packager: SafariPackagerFn) {}
 
+  // Duck-typed by the dev server, the same seam the launched-browser plugin has.
+  setReloadBroker(broker: ReloadBroker): void {
+    this.reloadBroker = broker
+  }
+
   apply(compiler: Compiler) {
+    // Only a watching compiler reports changed sources, and only a watch has
+    // anything to reload. Without it the plugin still packages, silently.
+    const changedSources = compiler.hooks?.watchRun
+      ? createChangedSourcesTracker(compiler)
+      : undefined
+
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
       const hasErrors = compilation.errors && compilation.errors.length > 0
@@ -51,9 +96,31 @@ export class SafariDevPlugin implements RunnerPlugin {
         return
       }
 
+      const outputPath = String(compilation.options?.output?.path || '')
+      const contextDir = String(compilation.options?.context || '')
+
+      // Classify from changed sources, like the launched-browser path. The
+      // first package has nothing to reload, it is the state the browser loads.
+      let instruction: ReloadInstruction | undefined
+      if (!this.firstRun && changedSources) {
+        const {forcedFull, changedSources: sources} = changedSources.snapshot()
+        instruction = asFullReload(
+          classifyReloadFromSources({
+            changedSources: sources,
+            forcedFull,
+            getContentScriptCount: () =>
+              readContentScriptCount(compilation, outputPath),
+            getSourceFeatureIndex: () =>
+              buildSourceFeatureIndex(compilation, contextDir),
+            outputPath
+          })
+        )
+      }
+
       const target: SafariPackageTarget = {
-        outputPath: String(compilation.options?.output?.path || ''),
-        contextDir: String(compilation.options?.context || '')
+        outputPath,
+        contextDir,
+        instruction
       }
 
       // First compile blocks the hook so the app opens and the guided-enable
@@ -66,7 +133,13 @@ export class SafariDevPlugin implements RunnerPlugin {
       // A resync is already running: keep only the newest output and let the
       // active run pick it up when it finishes, so a save burst is one rebuild.
       if (this.active) {
-        this.pending = target
+        this.pending = {
+          ...target,
+          instruction: mergeInstructions(
+            this.pending?.instruction,
+            target.instruction
+          )
+        }
         return
       }
 
@@ -111,6 +184,12 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     if (wasFirstRun) this.firstRun = false
+
+    // Only after the package succeeded: the appex Safari reads is replaced by
+    // xcodebuild, so a signal sent earlier would reload the previous bytes.
+    if (!wasFirstRun && target.instruction && this.reloadBroker) {
+      await dispatchReload(target.instruction, {broker: this.reloadBroker})
+    }
 
     this.emitter.emit('compiled', {
       outputPath: target.outputPath,

@@ -562,8 +562,8 @@ export async function devServer(
     onExecutorAttached: () => stampExecutorAttached?.()
   })
 
-  // Hand the broker to a launched runner plugin so Chromium reloads through the
-  // SW producer (same executor as --no-browser). No-op for Safari and Firefox.
+  // Hand the broker to a launched runner plugin so Chromium and Safari reload
+  // through the SW producer (same executor as --no-browser). No-op for Firefox.
   const launchedPlugin = extendedOptions.browsersPlugin
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)

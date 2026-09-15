@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {ReloadBroker} from '../../plugin-reload'
 import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 
 const flush = async () => {
@@ -26,22 +27,59 @@ function makeDeferredPackager() {
 
 function makeCompiler() {
   let cb: (stats: unknown) => Promise<void>
-  const compiler = {
-    hooks: {done: {tapPromise: (_n: string, f: typeof cb) => (cb = f)}}
+  let watchRunCb: (() => void) | undefined
+  let doneTapCb: ((stats: unknown) => void) | undefined
+  // A watching compiler, so the changed-sources tracker the plugin builds has
+  // the hooks it taps. Without changedFiles a trigger behaves as it always did.
+  const compiler: {
+    hooks: Record<string, unknown>
+    options: {context: string}
+    modifiedFiles?: Set<string>
+  } = {
+    hooks: {
+      done: {
+        tapPromise: (_n: string, f: typeof cb) => (cb = f),
+        tap: (_n: string, f: (stats: unknown) => void) => (doneTapCb = f)
+      },
+      watchRun: {tap: (_n: string, f: () => void) => (watchRunCb = f)}
+    },
+    options: {context: 'ctx'}
   }
-  const trigger = (outputPath: string, opts?: {errors?: unknown[]}) =>
-    cb({
+  const trigger = (
+    outputPath: string,
+    opts?: {errors?: unknown[]; changedFiles?: string[]}
+  ) => {
+    if (opts?.changedFiles) {
+      compiler.modifiedFiles = new Set(opts.changedFiles)
+      watchRunCb?.()
+    }
+    const stats = {
       compilation: {
         errors: opts?.errors || [],
         options: {output: {path: outputPath}, context: 'ctx'}
       }
-    })
+    }
+    doneTapCb?.(stats)
+    return cb(stats)
+  }
   return {compiler: compiler as never, trigger}
 }
 
-function harness() {
+function makeBroker() {
+  const sent: Array<{type: string; label?: string}> = []
+  const broker: ReloadBroker = {
+    broadcastReload: (instruction) => {
+      sent.push({type: instruction.type, label: instruction.label})
+      return 1
+    }
+  }
+  return {broker, sent}
+}
+
+function harness(broker?: ReloadBroker) {
   const pkg = makeDeferredPackager()
   const plugin = new SafariDevPlugin(pkg.fn)
+  if (broker) plugin.setReloadBroker(broker)
   const {compiler, trigger} = makeCompiler()
   plugin.apply(compiler)
   const compiled: Array<{isFirstCompile: boolean; outputPath: string}> = []
@@ -180,5 +218,83 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     h.callFor('/v2').resolve()
     await flush()
     expect(resolved).toBe(true)
+  })
+})
+
+// A manifest edit is the one change that always classifies as a full reload,
+// so these cover the seam itself rather than the classifier.
+const MANIFEST_EDIT = {changedFiles: ['ctx/manifest.json']}
+
+describe('SafariDevPlugin reload seam', () => {
+  it('reloads only after the package that replaced the appex', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    const p = h.trigger('/out2', MANIFEST_EDIT)
+    await flush()
+    // The package is still running, so nothing has replaced the bytes yet.
+    expect(sent).toEqual([])
+
+    h.callFor('/out2').resolve()
+    await p
+    await flush()
+    expect(sent).toHaveLength(1)
+    expect(sent[0].type).toBe('full')
+  })
+
+  it('stays silent on the first package, which is the state Safari loads', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h, '/init')
+    expect(sent).toEqual([])
+  })
+
+  it('stays silent when the package failed', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    const p = h.trigger('/broken', MANIFEST_EDIT)
+    await flush()
+    h.callFor('/broken').reject(new Error('xcodebuild failed'))
+    await p
+    await flush()
+
+    expect(sent).toEqual([])
+    expect(h.errors).toHaveLength(1)
+  })
+
+  it('reloads once per package when a burst collapses', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', MANIFEST_EDIT)
+    void h.trigger('/v4', MANIFEST_EDIT)
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await flush()
+
+    // Two packages ran (v2, then the collapsed v4), so two reloads went out.
+    expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
+    expect(sent).toHaveLength(2)
+    expect(sent.every((s) => s.type === 'full')).toBe(true)
+  })
+
+  it('packages normally with no broker attached', async () => {
+    const h = harness()
+    await settleFirst(h)
+    const p = h.trigger('/out2', MANIFEST_EDIT)
+    await flush()
+    h.callFor('/out2').resolve()
+    await p
+    expect(h.modes()).toEqual(['full:/init', 'resync:/out2'])
   })
 })
