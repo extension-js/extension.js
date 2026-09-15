@@ -10,8 +10,10 @@
 [snyk-url]: https://snyk.io/test/github/extension-js/extension.js
 [scorecard-image]: https://img.shields.io/ossf-scorecard/github.com/extension-js/extension.js?label=OpenSSF%20Scorecard&style=flat&color=0971fe
 [scorecard-url]: https://scorecard.dev/viewer/?uri=github.com/extension-js/extension.js
+[bestpractices-image]: https://img.shields.io/cii/level/14662?label=OpenSSF%20Best%20Practices&style=flat&color=0971fe
+[bestpractices-url]: https://www.bestpractices.dev/projects/14662
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Scorecard][scorecard-image]][scorecard-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Scorecard][scorecard-image]][scorecard-url] [![OpenSSF Best Practices][bestpractices-image]][bestpractices-url]
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
