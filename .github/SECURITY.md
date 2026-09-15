@@ -28,6 +28,10 @@ Use GitHub private vulnerability reporting:
 We aim to release a fix within 60 days of the report.
 We keep the reporter informed at each step.
 
+## What to expect from Extension.js
+
+The security guarantees and limits of Extension.js are described in [docs/ASSURANCE_CASE.md](../docs/ASSURANCE_CASE.md).
+
 ## Verifying a release
 
 How to check that a package or release tarball was built by this repository is described in [docs/VERIFYING_RELEASES.md](../docs/VERIFYING_RELEASES.md).
