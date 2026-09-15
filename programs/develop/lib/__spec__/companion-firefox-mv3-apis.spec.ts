@@ -2,6 +2,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {runAddonLint} from '../addon-lint'
 
 const FORBIDDEN_FIREFOX_TOKENS = [
   'chrome.action.',
@@ -149,4 +150,33 @@ describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
       ).toEqual([])
     })
   }
+})
+
+// The companion loads in every Firefox dev session, so its own build must pass
+// the same store check the CLI runs on user builds. It once shipped a wrongly
+// sized icon, a Chromium-only API and react-dom's innerHTML setters.
+describe('companion Firefox build: AMO store check', () => {
+  const devtools = COMPANIONS[0]
+  if (!fs.existsSync(devtools.packageDir)) return
+
+  it('passes addons-linter with no errors or warnings', async () => {
+    const built = ensureFirefoxBuild(devtools.packageDir, devtools.name)
+    expect(built, `${devtools.name}: firefox build did not run`).toBe(true)
+
+    const result = await runAddonLint({
+      projectPath: devtools.packageDir,
+      distPath: path.join(devtools.packageDir, 'dist', 'firefox'),
+      distDisplay: 'dist/firefox',
+      browser: 'firefox',
+      mode: 'production',
+      loadLinter: async () => {
+        const loaded: any = await import('addons-linter')
+        return loaded.createInstance ? loaded : loaded.default
+      },
+      timeoutMs: 60_000
+    })
+
+    expect(result.status).toBe('linted')
+    expect(result.status === 'linted' ? result.lines : []).toEqual([])
+  }, 90_000)
 })
