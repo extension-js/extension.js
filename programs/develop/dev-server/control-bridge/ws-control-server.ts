@@ -36,6 +36,14 @@ export interface StartControlServerOptions {
 
 let connSeq = 0
 
+// The session instance id already gates every hello. As defense in depth, a
+// socket opened from a web page (an http or https Origin) is refused outright.
+// The extension producer sends its own scheme, like chrome-extension:// or
+// moz-extension://, and Node clients send no Origin.
+export function isWebOrigin(origin: string | undefined): boolean {
+  return /^https?:\/\//i.test(String(origin || '').trim())
+}
+
 export function startControlServer(
   options: StartControlServerOptions
 ): Promise<ControlServer> {
@@ -44,7 +52,12 @@ export function startControlServer(
   const path = options.path ?? CONTROL_WS_PATH
 
   return new Promise((resolve, reject) => {
-    const wss = new WebSocketServer({host, port: options.port ?? 0, path})
+    const wss = new WebSocketServer({
+      host,
+      port: options.port ?? 0,
+      path,
+      verifyClient: (info: {origin: string}) => !isWebOrigin(info.origin)
+    })
 
     wss.on('error', reject)
 
