@@ -13,24 +13,27 @@ const script = path.resolve(
 )
 
 // A git stand-in that records how it was called and what the key file looked
-// like at push time, then exits with FAKE_GIT_EXIT.
-const FAKE_GIT = String.raw`#!/usr/bin/env bash
-key=""
-if [[ "$GIT_SSH_COMMAND" =~ -i\ ([^ ]+) ]]; then key="${BASH_REMATCH[1]}"; fi
-{
-  echo "args=$*"
-  echo "ssh=$GIT_SSH_COMMAND"
-  echo "key=$key"
-  if [ -f "$key" ]; then
-    echo "key_exists=yes"
-    echo "key_body=$(cat "$key")"
-    echo "key_mode=$(stat -c %a "$key" 2>/dev/null || stat -f %Lp "$key")"
-  else
-    echo "key_exists=no"
-  fi
-} > "$FAKE_GIT_LOG"
-exit "${'${FAKE_GIT_EXIT:-0}'}"
-`
+// like at push time, then exits with FAKE_GIT_EXIT. Plain strings, not a
+// template literal, so bash's ${...} is never read as JavaScript.
+const FAKE_GIT = [
+  '#!/usr/bin/env bash',
+  'key=""',
+  'if [[ "$GIT_SSH_COMMAND" =~ -i\\ ([^ ]+) ]]; then key="${BASH_REMATCH[1]}"; fi',
+  '{',
+  '  echo "args=$*"',
+  '  echo "ssh=$GIT_SSH_COMMAND"',
+  '  echo "key=$key"',
+  '  if [ -f "$key" ]; then',
+  '    echo "key_exists=yes"',
+  '    echo "key_body=$(cat "$key")"',
+  '    echo "key_mode=$(stat -c %a "$key" 2>/dev/null || stat -f %Lp "$key")"',
+  '  else',
+  '    echo "key_exists=no"',
+  '  fi',
+  '} > "$FAKE_GIT_LOG"',
+  'exit "${FAKE_GIT_EXIT:-0}"',
+  ''
+].join('\n')
 
 function run(env) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-push-'))
