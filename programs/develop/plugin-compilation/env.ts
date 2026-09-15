@@ -253,6 +253,10 @@ export class EnvPlugin {
     filteredEnvVars['import.meta.dirname'] = 'undefined'
     filteredEnvVars['import.meta.filename'] = 'undefined'
 
+    // Dependencies written for Node read the free variable `global`. Point it
+    // at globalThis, rspack's own global shim is off (node.global in rspack-config).
+    filteredEnvVars.global = 'globalThis'
+
     const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
       k.startsWith('process.env.EXTENSION_PUBLIC_')
     ).length
