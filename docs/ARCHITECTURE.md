@@ -12,7 +12,7 @@ Four packages are published to npm.
 | --- | --- | --- |
 | `programs/extension` | `extension` | The CLI. It parses commands, launches browsers and reports telemetry. |
 | `programs/develop` | `extension-develop` | The build engine behind `dev`, `build` and `preview`, based on Rspack. |
-| `programs/create` | `extension-create` | Scaffolds a project from the extension-js/examples catalog, a GitHub URL or a ZIP URL. It falls back to a bundled template when the default download fails. |
+| `programs/create` | `extension-create` | Scaffolds a project from the extension-js/examples catalog, an HTTPS GitHub URL or an HTTPS ZIP URL. It falls back to a bundled template when the default download fails. |
 | `programs/install` | `extension-install` | Downloads and caches managed browser binaries. |
 
 `extensions/` holds two built-in extensions, `extension-js-devtools` and `extension-js-theme`, that the CLI loads into development browsers.
@@ -35,6 +35,7 @@ On a change, the reload plugin classifies the edit and applies hot module replac
 ## Control bridge
 
 The dev server hosts a WebSocket channel at `/extjs-control`.
+It refuses a handshake whose Origin is `http://`, `https://` or `null`, so a web page cannot connect.
 Every client presents the session instance id when it connects.
 Clients connect with one of three roles.
 A producer is the runtime inside the extension. It sends logs and runs the reload, open, storage and eval commands.
@@ -58,6 +59,7 @@ Safari builds go through Apple's converter and Xcode on macOS.
 ## Project creation
 
 `extension create` downloads the requested template from `codeload.github.com/extension-js/examples` over HTTPS, clones a GitHub URL with git, or fetches a ZIP URL you pass.
+A template URL must use HTTPS. A plain `http://` URL, or a download that redirects to `http://`, is refused unless `EXTENSION_ALLOW_HTTP_TEMPLATE=true`.
 If the default template cannot be downloaded, it copies the bundled JavaScript template.
 Archive entries that resolve outside the target folder are refused.
 It then writes `package.json`, a `.extension-create.json` provenance file and the manifest.

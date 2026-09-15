@@ -10,8 +10,10 @@ Report vulnerabilities as described in [SECURITY.md](../.github/SECURITY.md).
 - The dev server and the control bridge bind to `127.0.0.1` unless you set `--host` or `host` in `extension.config.js`.
 - The control bridge accepts commands only when you pass `--allow-control`, or `--allow-eval`, which implies it.
 - Remote code evaluation through the bridge works only with `--allow-eval` and a matching per-session token.
+- The control bridge refuses a WebSocket handshake whose Origin is `http://`, `https://` or `null`, so a web page open in the development browser cannot connect to it.
 - The session token is 256 random bits, written with mode 0600, so on macOS and Linux only your user can read it.
-- Built-in templates are downloaded over HTTPS, and archive entries cannot write outside the new project folder. A template URL you pass yourself is fetched with the scheme you give it.
+- Built-in templates are downloaded over HTTPS, and archive entries cannot write outside the new project folder. A template URL you pass yourself, and `EXTENSION_CREATE_TEMPLATE_URL`, must use HTTPS. `extension create` refuses `http://` and a download that redirects to `http://` unless `EXTENSION_ALLOW_HTTP_TEMPLATE=true`.
+- Managed browser installs run pinned versions of `playwright` and `@puppeteer/browsers`.
 - Package managers are started through cross-spawn with argument arrays and no shell option.
 - Automatic dependency installs skip lifecycle scripts unless `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`.
 - Telemetry sends no source code, file paths, URLs or error text, and is off in unattended CI. `EXTENSION_TELEMETRY_DISABLED=1` turns it off everywhere. See [TELEMETRY.md](TELEMETRY.md).
@@ -26,7 +28,6 @@ Report vulnerabilities as described in [SECURITY.md](../.github/SECURITY.md).
 - With `--host 0.0.0.0` the dev server is reachable from your network.
 - With `--allow-control`, any local process that can reach the port and read the session instance id from `ready.json` can reload the extension, open its pages and read or write its storage.
 - Log consumers need no eval token. Any local process that can reach the port and read the session instance id can read the extension's console output.
-- Managed browser installs run `playwright@latest` and `@puppeteer/browsers@latest`, so those tools are not pinned.
 - Extension.js does not review the security of your extension code.
 
 ## Threat model
@@ -54,8 +55,8 @@ Out of scope:
 
 ## Trust boundaries
 
-1. Between the CLI and the network: template downloads, browser downloads, npm and telemetry use HTTPS with certificate verification by default. A template URL or telemetry host you override keeps the scheme you give it.
-2. Between the dev server and other processes: the loopback bind address, the session instance id, opt-in control and the eval token.
+1. Between the CLI and the network: template downloads, browser downloads, npm and telemetry use HTTPS with certificate verification by default. A template URL you override must use HTTPS unless you opt in with `EXTENSION_ALLOW_HTTP_TEMPLATE=true`. A telemetry host you override keeps the scheme you give it.
+2. Between the dev server and other processes: the loopback bind address, the Origin check on the control bridge, the session instance id, opt-in control and the eval token.
 3. Between the development browser and web content: Extension.js injects nothing into a web page's own scripts. Content scripts get a relay that reaches the dev server only through the extension service worker.
 4. Between the project folder and the rest of the file system: archive extraction refuses entries outside the project folder, and static asset output names are hashed so they cannot escape the output folder.
 5. Between the source repository and the published packages: the release workflow on GitHub-hosted runners, OIDC publishing and Sigstore provenance.
@@ -77,12 +78,14 @@ Out of scope:
 | OS command injection (CWE-78) | cross-spawn with argument arrays and no shell option. On Windows cross-spawn escapes each argument for the cmd shim. |
 | Path traversal (CWE-22) | zip-slip guard on template archives, hashed static asset output names |
 | Missing authentication for a critical function (CWE-306) | eval requires `--allow-eval` and the session token |
+| Missing origin validation in WebSockets (CWE-1385) | the control bridge refuses `http://`, `https://` and `null` origins with 401 |
+| Cleartext transmission of sensitive information (CWE-319) | template URLs must use HTTPS, and a redirect to HTTP is refused, unless you opt in |
 | Insecure randomness (CWE-338) | the eval token, instance id and telemetry id come from `node:crypto`. `Math.random` is used only for ids that grant nothing. |
 | Improper certificate validation (CWE-295) | Node.js defaults, no overrides |
 | Exposure of sensitive information (CWE-200) | telemetry allowlist, error codes checked against the `E_` code pattern |
 | Hard-coded credentials (CWE-798) | no secrets in the repository other than the public PostHog ingestion key, secret scanning and push protection enabled |
 | Use of vulnerable components (CWE-1395) | Dependabot, `pnpm.overrides` pins, CodeQL and Scorecard |
-| Unverified downloaded code (CWE-494) | npm integrity hashes and signed provenance for packages. Managed browser installs are the exception, see above. |
+| Unverified downloaded code (CWE-494) | npm integrity hashes and signed provenance for packages. Managed browser installs run pinned installer versions. |
 
 ## Assurance evidence
 
