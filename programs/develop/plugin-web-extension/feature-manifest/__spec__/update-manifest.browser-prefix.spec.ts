@@ -5,6 +5,7 @@ function runUpdateManifest(opts: {
   mode: 'development' | 'production'
   browser: string
   manifest: any
+  warnings?: Error[]
 }) {
   const assets: Record<string, any> = {
     'manifest.json': {source: () => JSON.stringify(opts.manifest)}
@@ -12,7 +13,7 @@ function runUpdateManifest(opts: {
   const updated: Record<string, string> = {}
   const compilation: any = {
     errors: [],
-    warnings: [],
+    warnings: opts.warnings ?? [],
     assets,
     getAsset: (n: string) =>
       assets[n] ? {source: assets[n].source} : undefined,
@@ -176,7 +177,7 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
   })
 
   for (const browser of ['brave', 'opera', 'vivaldi', 'yandex']) {
-    it(`maps chromium:/chrome: keys onto key for a ${browser} build`, () => {
+    it(`maps chromium: keys onto key for a ${browser} build`, () => {
       const out = runUpdateManifest({
         mode: 'production',
         browser,
@@ -184,7 +185,7 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
           manifest_version: 3,
           name: 'x',
           version: '1.0.0',
-          'chrome:key': 'chromium-only-key',
+          'chromium:key': 'chromium-only-key',
           'firefox:key': 'firefox-only-key'
         }
       })
@@ -192,6 +193,63 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
       expect(out.key).toBe('chromium-only-key')
     })
   }
+
+  // The Better Lyrics case: a Chrome Web Store key must not ship to Edge Add-ons.
+  describe('chrome:key for a store-bound build', () => {
+    const manifest = {
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      'chrome:key': 'chrome-web-store-key'
+    }
+
+    it('keeps the key in the chrome build without a warning', () => {
+      const warnings: Error[] = []
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser: 'chrome',
+        manifest,
+        warnings
+      })
+
+      expect(out.key).toBe('chrome-web-store-key')
+      expect(warnings).toEqual([])
+    })
+
+    for (const browser of ['edge', 'chromium', 'brave']) {
+      it(`leaves the key out of the ${browser} build and names the move`, () => {
+        const warnings: Error[] = []
+        const out = runUpdateManifest({
+          mode: 'production',
+          browser,
+          manifest,
+          warnings
+        })
+
+        expect(out).not.toHaveProperty('key')
+        expect(warnings).toHaveLength(1)
+        expect(warnings[0].message).toContain('chrome:key')
+        expect(warnings[0].message).toContain('chromium:key')
+        expect(warnings[0].message).toContain(browser)
+      })
+    }
+
+    it('stays quiet on a firefox build, which never read chrome: keys', () => {
+      const warnings: Error[] = []
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser: 'firefox',
+        manifest: {...manifest, manifest_version: 2},
+        warnings
+      })
+
+      expect(out).not.toHaveProperty('key')
+      // Only the AMO data collection notice fires for this bare manifest.
+      expect(
+        warnings.filter((warning) => warning.message.includes('chrome:key'))
+      ).toEqual([])
+    })
+  })
 
   for (const browser of ['waterfox', 'librewolf']) {
     it(`maps firefox: keys onto key for a ${browser} build`, () => {

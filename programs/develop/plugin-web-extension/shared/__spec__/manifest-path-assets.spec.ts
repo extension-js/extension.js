@@ -140,9 +140,9 @@ describe('browser-prefixed settings keys', () => {
     })
   })
 
-  it('resolves a chrome: prefix for every chromium target', () => {
+  it('resolves a chromium: prefix for every chromium target', () => {
     const {dir, manifestPath} = manifestWith({
-      'chrome:chrome_settings_overrides': {
+      'chromium:chrome_settings_overrides': {
         search_provider: {favicon_url: 'icons/fav.png'}
       }
     })
