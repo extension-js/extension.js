@@ -175,3 +175,24 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Welcome page status line */
+@keyframes neonPulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 6px rgba(25, 245, 167, 0.55),
+      0 0 12px rgba(25, 245, 167, 0.45),
+      0 0 24px rgba(25, 245, 167, 0.35);
+  }
+  50% {
+    text-shadow:
+      0 0 10px rgba(25, 245, 167, 0.9),
+      0 0 20px rgba(25, 245, 167, 0.8),
+      0 0 40px rgba(25, 245, 167, 0.7);
+  }
+}
+
+.neon-text {
+  animation: neonPulse 1.8s ease-in-out infinite;
+}

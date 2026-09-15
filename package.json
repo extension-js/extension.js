@@ -72,6 +72,8 @@
     "dotenv-cli": "^11.0.0",
     "husky": "9.1.7",
     "lint-staged": "17.0.8",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "serialize-javascript": "^7.0.5",
     "tsx": "^4.21.0",
     "turbo": "^2.9.14",
