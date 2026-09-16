@@ -13,6 +13,12 @@ import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
+import {
+  type EmittedCompilation,
+  emittedFilesOf,
+  readEmittedScripts,
+  readProjectSource
+} from './apply-dev-defaults-lib/emitted-evidence'
 
 // Namespaces Safari ships on no version, per MDN browser-compat-data and
 // Apple's browser-compatibility page, each paired with the warning it earns.
@@ -218,86 +224,8 @@ interface ScannableModule {
   rootModule?: ScannableModule
 }
 
-interface ScannableChunk {
-  files?: Iterable<string>
-}
-
-export interface ScannableCompilation {
+export interface ScannableCompilation extends EmittedCompilation {
   modules: Iterable<ScannableModule>
-  getAssets?: () => readonly {
-    name: string
-    source: {source(): string | Buffer}
-  }[]
-  chunkGraph?: {
-    getModuleChunksIterable(module: ScannableModule): Iterable<ScannableChunk>
-  }
-}
-
-const EMITTED_SCRIPT_RE = /\.[cm]?js$/
-const MAX_SOURCE_BYTES = 1024 * 1024
-const MAX_ASSET_BYTES = 16 * 1024 * 1024
-
-function readEmittedScripts(
-  compilation: ScannableCompilation
-): Map<string, string> {
-  const scripts = new Map<string, string>()
-  let assets: ReturnType<NonNullable<ScannableCompilation['getAssets']>>
-
-  try {
-    assets = compilation.getAssets?.() || []
-  } catch {
-    return scripts
-  }
-
-  for (const asset of assets) {
-    if (!EMITTED_SCRIPT_RE.test(asset.name)) continue
-
-    try {
-      const raw = asset.source.source()
-      const text = typeof raw === 'string' ? raw : raw.toString('utf-8')
-      if (text.length > MAX_ASSET_BYTES) continue
-
-      scripts.set(asset.name, text)
-    } catch {
-      // A source that can't be read is not a source the linter reads
-    }
-  }
-
-  return scripts
-}
-
-function readProjectSource(resource: string): string | undefined {
-  try {
-    if (fs.statSync(resource).size > MAX_SOURCE_BYTES) return undefined
-
-    return fs.readFileSync(resource, 'utf-8')
-  } catch {
-    return undefined
-  }
-}
-
-// The files a module was emitted into, or undefined when the chunk graph
-// can't say. Production concatenates modules, so the graph is asked about
-// the outer module while the source comes from the inner ones.
-function emittedFilesOf(
-  compilation: ScannableCompilation,
-  module: ScannableModule
-): string[] | undefined {
-  if (!compilation.chunkGraph) return undefined
-
-  try {
-    const files: string[] = []
-
-    for (const chunk of compilation.chunkGraph.getModuleChunksIterable(
-      module
-    )) {
-      for (const file of chunk.files || []) files.push(file)
-    }
-
-    return files
-  } catch {
-    return undefined
-  }
 }
 
 export function findGeckoUnsupportedApiUses(

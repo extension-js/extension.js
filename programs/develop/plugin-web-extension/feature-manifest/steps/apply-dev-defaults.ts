@@ -6,7 +6,6 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isStaticThemeSource} from '../../../lib/manifest-utils'
@@ -27,15 +26,30 @@ import {
   partiallyGatedNote,
   partiallyGatedWarning
 } from './apply-dev-defaults-lib/dev-injected-permissions'
+import {
+  type EmittedCompilation,
+  type EmittedModule,
+  emittedFilesOf,
+  readEmittedScripts,
+  readProjectSource,
+  shippableText
+} from './apply-dev-defaults-lib/emitted-evidence'
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
 import {patchWebResources} from './apply-dev-defaults-lib/patch-web-resources'
 
-// Scan the module graph's own source files for chrome/browser API usage whose
-// permission is dev-injected but undeclared. Emitted bundles would false-positive.
+export interface PermissionScanCompilation extends EmittedCompilation {
+  modules: Iterable<EmittedModule>
+}
+
+// A project source names the file the author can fix, so the source is what
+// the scan reads and the message names. Whether the call ships is a second
+// question, and the emitted script answers it: a call the build target
+// branched away never runs there, so no permission covers it and naming one
+// would send the author to add a permission both stores then ask about.
 export function findInjectedOnlyPermissionUses(
-  compilation: Pick<Compilation, 'modules'>,
+  compilation: PermissionScanCompilation,
   declared: Set<string>,
   injected: readonly string[]
 ): Map<string, string> {
@@ -43,28 +57,58 @@ export function findInjectedOnlyPermissionUses(
   const candidates = injected.filter((api) => !declared.has(api))
   if (!candidates.length) return firstOffenderByApi
 
-  for (const module of compilation.modules) {
-    const resource = scannableSourcePath(
-      (module as {resource?: string}).resource
-    )
-    if (!resource) continue
+  const emitted = readEmittedScripts(compilation)
+  const shipped = new Map<string, string>()
 
-    let source: string
+  // One compression per script per scan, and only for a script some module
+  // already named, so a project that declares its permissions pays nothing.
+  const shippedText = (file: string): string | undefined => {
+    if (shipped.has(file)) return shipped.get(file)
 
-    try {
-      const stat = fs.statSync(resource)
-      if (stat.size > 1024 * 1024) continue
+    const text = emitted.get(file)
+    if (text === undefined) return undefined
 
-      source = fs.readFileSync(resource, 'utf-8')
-    } catch {
-      continue
-    }
+    const compressed = shippableText(text)
+    shipped.set(file, compressed)
 
-    for (const api of candidates) {
-      if (firstOffenderByApi.has(api)) continue
+    return compressed
+  }
 
-      const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
-      if (useRe.test(source)) firstOffenderByApi.set(api, resource)
+  for (const outer of compilation.modules) {
+    // Production concatenates modules, so the source comes from the inner
+    // ones while the chunk graph only knows the outer one.
+    const inner = outer.modules ? [...outer.modules] : [outer]
+
+    for (const module of inner) {
+      const resource = scannableSourcePath(module.resource)
+      if (!resource) continue
+
+      const source = readProjectSource(resource)
+      if (source === undefined) continue
+
+      for (const api of candidates) {
+        if (firstOffenderByApi.has(api)) continue
+
+        const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
+        if (!useRe.test(source)) continue
+
+        const files = emittedFilesOf(compilation, outer)
+
+        // Without a chunk graph nothing ties this module to a script, so the
+        // source scan is the whole answer and the warning stands on it.
+        if (
+          files &&
+          !files.some((file) => {
+            const text = shippedText(file)
+
+            return text !== undefined && useRe.test(text)
+          })
+        ) {
+          continue
+        }
+
+        firstOffenderByApi.set(api, resource)
+      }
     }
 
     if (firstOffenderByApi.size === candidates.length) break
@@ -259,7 +303,7 @@ export class ApplyDevDefaults {
                 (canonicalManifest.permissions as string[]) || []
               )
               const uses = findInjectedOnlyPermissionUses(
-                compilation,
+                compilation as unknown as PermissionScanCompilation,
                 declared,
                 injectedPermissions
               )
