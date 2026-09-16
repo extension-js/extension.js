@@ -661,7 +661,10 @@ ${'Docker / Devcontainers / Codespaces'}
 - Use ${code('--host 0.0.0.0')} to bind the dev server on all interfaces so HMR is reachable from the host.
 - Use ${code('--no-browser')} inside the container and load the extension manually from ${code('dist/<browser>/')} in your host browser.
 - Chromium sandbox flags (${code('--no-sandbox')}) are added automatically when Docker, Podman, devcontainers, or Codespaces are detected.
-- File watching uses polling by default (1 s interval), which works across bind-mounted volumes.
+- File watching uses native file events by default, which keeps rebuilds fast.
+- Set ${code(arg('EXTENSION_WATCH_POLL=true'))} to poll instead when native events do not fire,
+  as in a container, a virtual machine, or a network or bind mount.
+  Tune it with ${code(arg('EXTENSION_WATCH_POLL_INTERVAL'))} (default 1000 ms).
 - Example: ${code('extension dev ./my-ext --host 0.0.0.0 --no-browser --port 8080')}
 
 ${'Flatpak Firefox'}
@@ -870,7 +873,9 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         ],
         notes: [
           'Use --no-browser inside the container and load dist/<browser>/ in the host browser',
-          'File watching uses polling (1s interval) for bind-mount compatibility',
+          'File watching uses native file events by default',
+          'Set EXTENSION_WATCH_POLL=true to poll instead when native events do not fire, as in a container, a virtual machine, or a network or bind mount',
+          'EXTENSION_WATCH_POLL_INTERVAL sets the poll interval in ms (default 1000)',
           '--no-sandbox is added automatically when a container environment is detected'
         ]
       }
