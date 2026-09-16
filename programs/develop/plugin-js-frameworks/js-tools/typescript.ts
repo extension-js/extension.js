@@ -12,6 +12,7 @@ import colors from 'pintor'
 import {isDebug, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
+import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
 import * as messages from '../js-frameworks-lib/messages'
 
 let hasShownUserMessage = false
@@ -115,13 +116,22 @@ export function ensureTypeScriptConfig(projectPath: string): void {
 }
 
 export function defaultTypeScriptConfig(projectPath: string, _opts?: unknown) {
+  const usesJsFramework = isUsingJSFramework(projectPath)
+  // react-jsx alone makes tsc look for react/jsx-runtime and fail with TS2875
+  // on a Solid, Preact or Vue project. Name the same runtime the bundler
+  // compiles against so the editor and tsc --noEmit agree with the build.
+  const jsxImportSource = usesJsFramework
+    ? {jsxImportSource: getJsxImportSource(projectPath)}
+    : {}
+
   return {
     compilerOptions: {
       allowJs: true,
       allowSyntheticDefaultImports: true,
       esModuleInterop: true,
       forceConsistentCasingInFileNames: true,
-      jsx: isUsingJSFramework(projectPath) ? 'react-jsx' : 'preserve',
+      jsx: usesJsFramework ? 'react-jsx' : 'preserve',
+      ...jsxImportSource,
       lib: ['dom', 'dom.iterable', 'esnext'],
       // 'node' (aka node10) resolution was removed in TypeScript 7 and fails
       // `tsc --noEmit` with TS5108; 'bundler' models the Rspack/SWC pipeline.
