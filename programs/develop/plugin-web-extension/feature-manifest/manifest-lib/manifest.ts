@@ -16,6 +16,10 @@ import {dropPageAction, shouldDropPageAction} from '../../shared/html-surfaces'
 import {getManifestOverrides} from '../manifest-overrides'
 import {dropMv2ObjectPolicy} from '../manifest-overrides/mv2/content_security_policy'
 import {dropMv2HostKeys} from '../manifest-overrides/mv2/host_permissions'
+import {
+  dropWebkitUnsupportedKeys,
+  reportWebkitDroppedKeys
+} from './filter-keys-safari'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -161,7 +165,7 @@ export function buildCanonicalManifest(
 
   // The filtered source is spread under the overrides, so the MV2 host keys
   // and CSP object the overrides translated need dropping here as well.
-  return dropMv2ObjectPolicy(
+  const canonical = dropMv2ObjectPolicy(
     dropMv2HostKeys({
       ...forOverrides,
       ...JSON.parse(
@@ -169,4 +173,11 @@ export function buildCanonicalManifest(
       )
     })
   ) as Manifest
+
+  // Safari inherits chromium keys, so the drop runs last. An override that
+  // rewrites a side_panel or sandbox path would otherwise put the key back.
+  const webkit = dropWebkitUnsupportedKeys(canonical, browser)
+  reportWebkitDroppedKeys(webkit.dropped, browser)
+
+  return webkit.manifest
 }

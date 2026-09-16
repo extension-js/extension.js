@@ -308,3 +308,23 @@ export function geckoActionUnsupportedOnMv2(file: string) {
   )
   return lines.join('\n')
 }
+
+// Safari inherits chromium: keys by design, so a dropped key would otherwise
+// vanish with no trace and the user would debug a feature that never loaded.
+export function webkitUnsupportedKeysDropped(
+  browser: string,
+  dropped: Array<{path: string; reason: string}>
+) {
+  const count = dropped.length
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this build inherited from its Chromium manifest, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
+  )
+  for (const entry of dropped) {
+    lines.push(`${colors.yellow(entry.path)} ${colors.gray(entry.reason)}`)
+  }
+  lines.push(
+    `Every key above is inert on Safari, so the built app lost nothing it could have run. Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
+  )
+  return lines.join('\n')
+}
