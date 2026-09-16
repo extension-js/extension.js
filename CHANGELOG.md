@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+## 4.1.20 (September 16, 2026)
+
+- **Deno**, `deno run -A npm:extension@latest` runs the CLI on Deno 2.5 and newer, with build and dev both covered by CI. See the [Deno guide](https://extension.js.org/docs/languages-and-frameworks/deno).
+
+### Features
+
+- Add the Deno highlight for the 4.1.20 release note (#544) ([b3ddfe0b](https://github.com/extension-js/extension.js/commit/b3ddfe0bc07ad092b223d931b3df25e8061a84a3))
+- Support Deno as a runtime and fix the bare path import (#543) ([93467d8f](https://github.com/extension-js/extension.js/commit/93467d8fc0b1e95038c55da0a547a518a9939303))
+- Add a scheduled check that the docs flag snapshot matches the CLI (#536) ([62429b6a](https://github.com/extension-js/extension.js/commit/62429b6a997fa5d434a107ef2f820777613a0fcb))
+
+### Fixes
+
+- Stop prescribing the Safari unsigned extensions toggle ([d889c9c3](https://github.com/extension-js/extension.js/commit/d889c9c3d2fc5c6c46b8354ca09792582d7da844))
+
+<details>
+<summary>Other changes (11)</summary>
+
+- Exclude the bundled create template from Biome the way ESLint does ([51d71c37](https://github.com/extension-js/extension.js/commit/51d71c37669f84993dbba54c19c0a1bec6032812))
+- Resync the bundled javascript template and move the create pin ([3621083c](https://github.com/extension-js/extension.js/commit/3621083cf0b601ba3c30ebf9ea81e259a389d16d))
+- Drop the store key from production Edge builds and say why (#538) ([2626045f](https://github.com/extension-js/extension.js/commit/2626045ffe6d1a7b23b3ef5c4f50431ba65eef7d))
+- Report the real mode when a build finishes (#539) ([e762d3b3](https://github.com/extension-js/extension.js/commit/e762d3b355d812ed78b474280a8aa7f192c6167e))
+- Enforce the repo code style with ESLint next to Biome (#537) ([92159f7b](https://github.com/extension-js/extension.js/commit/92159f7b0cc18248dc6fc4c92ca523f492fe2c01))
+- Say which Safari converter warnings are keys we keep on purpose (#535) ([de31f2ae](https://github.com/extension-js/extension.js/commit/de31f2ae2265257eff34c406323c3b19b7ab6890))
+- Warn when a Safari build calls a member Safari lacks (#534) ([92f5278c](https://github.com/extension-js/extension.js/commit/92f5278c89bc6ded8b7e221eac630aa09c05602e))
+- Make Safari sessions work end to end and fix two session defects (#533) ([0508e40c](https://github.com/extension-js/extension.js/commit/0508e40cdb6a8f9fc40ab8b49d08ad59036251c9))
+- Match README links to the docs navbar and drop the Scorecard badge (#532) ([53bd9c90](https://github.com/extension-js/extension.js/commit/53bd9c9090db151b0ee9b6a369f7c85199d3adbf))
+- Move TestMu AI to the Bronze sponsor placement (#531) ([8bdb5880](https://github.com/extension-js/extension.js/commit/8bdb58805a372bec66b722f5107f0d2ee2827581))
+- Show the OpenSSF Best Practices passing badge in the READMEs (#530) ([6dab7d82](https://github.com/extension-js/extension.js/commit/6dab7d82e9460dffe690d66228d5aa49f58faad3))
+</details>
+
 ## 4.1.19 (September 15, 2026)
 
 ### Features
