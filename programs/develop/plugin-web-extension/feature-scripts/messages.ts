@@ -160,7 +160,7 @@ export function workerStartedFromPageContext(
 
   lines.push(`${colors.gray('SCRIPT')} ${colors.underline(assetName)}`)
   lines.push(
-    `The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the extension URL throws a SecurityError at runtime.`
+    `The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the worker never runs. Chromium throws a SecurityError and Firefox fires an error event on the worker.`
   )
 
   lines.push(

@@ -85,14 +85,14 @@ function project() {
   return root
 }
 
-async function build(root: string) {
+async function build(root: string, browser = 'chrome') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
 
   try {
     return await extensionBuild(root, {
-      browser: 'chrome',
+      browser,
       silent: true,
       install: false,
       mode: 'production',
@@ -155,8 +155,12 @@ describe('a worker spelled in a content script', () => {
 
     expect(warnings[0]).toContain('SCRIPT content_scripts/content-0.js')
     expect(warnings[0]).toContain(
-      'a worker script must be same-origin with the document that starts it, and this document is the page, so the extension URL throws a SecurityError at runtime'
+      'a worker script must be same-origin with the document that starts it, and this document is the page, so the worker never runs'
     )
+
+    // Measured on both engines, and the copy says which is which.
+    expect(warnings[0]).toContain('Chromium throws a SecurityError')
+    expect(warnings[0]).toContain('Firefox fires an error event on the worker')
 
     expect(warnings[0]).toContain('URL.createObjectURL(new Blob(')
     expect(warnings[0]).toContain('start the worker from an extension page')
@@ -165,5 +169,17 @@ describe('a worker spelled in a content script', () => {
     // names is the one shape that must never be warned about.
     expect(warnings[0]).not.toContain('action/index.js')
     expect(warnings[0]).not.toContain('content_scripts/content-1.js')
+  }, 180_000)
+
+  it('says it for a gecko build too, where the worker also never runs', async () => {
+    const root = project()
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+
+    const warnings = workerWarnings(summary)
+    expect(warnings, warnings.join('\n')).toHaveLength(1)
+    expect(warnings[0]).toContain(
+      'content_scripts/content-0.js starts a worker with new Worker(new URL(...)), which the browser refuses in a content script'
+    )
   }, 180_000)
 })
