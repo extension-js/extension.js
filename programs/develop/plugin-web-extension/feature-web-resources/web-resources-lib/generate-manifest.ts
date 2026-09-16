@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, sources} from '@rspack/core'
+import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
 import {
@@ -17,13 +17,15 @@ import {
 } from '../../feature-manifest/manifest-lib/manifest'
 import {
   collectContentScriptAsyncChunkFiles,
+  collectPageContextEntryFiles,
   collectReferencedRuntimePayloads,
   isInjectedScriptEntry,
   listEmittedAssetNames
 } from '../collect-entry-imports'
 import {cleanMatches} from './clean-matches'
-import {warPatchedSummary} from './messages'
+import {warPatchedSummary, warUnreachableResource} from './messages'
 import {resolveUserDeclaredWAR} from './resolve-war'
+import {findUnreachableRuntimeResources} from './unreachable-resources'
 
 type AssetSource =
   | string
@@ -169,6 +171,63 @@ function toCanonicalContentScriptCss(jsFile: string) {
   if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
 
   return normalized.replace(/\.js$/, '.css')
+}
+
+function declaredWarResources(manifest: Manifest): string[] {
+  const war = manifest.web_accessible_resources as unknown
+
+  if (!Array.isArray(war)) return []
+
+  return war.flatMap((entry) => {
+    if (typeof entry === 'string') return [entry]
+
+    const resources = (entry as {resources?: unknown}).resources
+
+    return Array.isArray(resources) ? resources.map((r) => String(r)) : []
+  })
+}
+
+// A page-context bundle that reaches for a file the manifest never exposes
+// fails the same way in dev and in the shipped extension. Naming the file and
+// the key here is the difference between a fix and a raw SecurityError.
+function warnOnUnreachableResources(
+  compilation: Compilation,
+  manifest: Manifest
+) {
+  try {
+    const declared = declaredWarResources(manifest)
+    const emittedAssetNames = listEmittedAssetNames(compilation)
+    const entryFiles = collectPageContextEntryFiles(compilation)
+    const reported = new Set<string>()
+
+    for (const [entryName, files] of Object.entries(entryFiles)) {
+      for (const file of files) {
+        const unreachable = findUnreachableRuntimeResources({
+          source: getAssetSource(compilation, file),
+          emittedAssetNames,
+          declaredResources: declared
+        })
+
+        for (const resource of unreachable) {
+          const key = `${entryName}:${resource}`
+          if (reported.has(key)) continue
+
+          reported.add(key)
+          compilation.warnings = compilation.warnings || []
+          const warning = new WebpackError(
+            warUnreachableResource(resource, entryName)
+          ) as Error & {file?: string}
+          warning.name = 'UnreachableWebAccessibleResourceWarning'
+          warning.file = file
+          compilation.warnings.push(
+            warning as unknown as (typeof compilation.warnings)[number]
+          )
+        }
+      }
+    }
+  } catch {
+    // Diagnostics only, never fail the compile over the scan
+  }
 }
 
 export function generateManifestPatches(
@@ -534,6 +593,8 @@ export function generateManifestPatches(
       ).sort() as Manifest['web_accessible_resources']
     }
   }
+
+  warnOnUnreachableResources(compilation, canonicalManifest)
 
   const source = JSON.stringify(canonicalManifest, null, 2)
   const rawSource = new sources.RawSource(source)
