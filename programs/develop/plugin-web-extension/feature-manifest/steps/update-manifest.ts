@@ -41,6 +41,7 @@ import {patchChromiumBackground} from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
+import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
 
 export class UpdateManifest {
@@ -51,6 +52,9 @@ export class UpdateManifest {
   // enough; a restarted session gets a fresh instance and prints again.
   // Production builds never consult this set so build output stays complete.
   private reportedFatalFixes = new Set<string>()
+  // Same contract for the Safari unsupported-API warning, which fires in
+  // development too: one line per distinct call, not one on every save.
+  private reportedUnsupportedApis = new Set<string>()
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -164,6 +168,14 @@ export class UpdateManifest {
               this.browser
             )
 
+            // Safari counts as chromium for manifest keys, so it passes through
+            // the step above first. It never starts a service worker, so the
+            // last word on a Safari build is a non-persistent background page.
+            patchedManifest = patchWebkitBackground(
+              patchedManifest,
+              this.browser
+            )
+
             // Firefox reads theme.colors as CSS strings, Chrome as integer
             // arrays. Convert hex for chromium so one manifest serves both.
             patchedManifest = patchChromiumThemeColors(
@@ -271,15 +283,18 @@ export class UpdateManifest {
               compilation.warnings.push(warn)
             }
 
-            // Store-readiness hint for the bundle itself: a Chromium-only
-            // API that survived into the Gecko build is what addons-linter
-            // reports as UNSUPPORTED_API, so name it here first.
+            // Two warnings share one scan. On Gecko it is a store-readiness
+            // hint: a Chromium-only API that survived into the build is what
+            // addons-linter reports as UNSUPPORTED_API. On Safari it is a
+            // fatal-call warning, so it runs in development too, where the
+            // throw kills the background and nothing else can report it.
             reportGeckoUnsupportedApis(
               compilation,
               compiler,
               this.browser,
               patchedManifest,
-              projectPath
+              projectPath,
+              this.reportedUnsupportedApis
             )
 
             const source = JSON.stringify(patchedManifest, null, 2)

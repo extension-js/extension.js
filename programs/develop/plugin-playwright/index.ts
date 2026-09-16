@@ -79,7 +79,7 @@ export type ReadyMetadata = {
   browserExitCode?: number | null
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
-  runtime?: 'attached'
+  runtime?: 'attached' | 'detached'
   executorAttachedAt?: string
   // Every extension the engine loads besides the user's (built-in companions
   // plus --extensions dirs), so a target census can subtract them by id.
@@ -544,7 +544,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (typeof prev.executorAttachedAt === 'string') {
         ;(payload as Record<string, unknown>).executorAttachedAt =
           prev.executorAttachedAt
-        ;(payload as Record<string, unknown>).runtime = 'attached'
+        // A recompile must not resurrect a producer that has since gone away,
+        // so the last known runtime state carries over rather than 'attached'.
+        ;(payload as Record<string, unknown>).runtime =
+          prev.runtime === 'detached' ? 'detached' : 'attached'
+        if (typeof prev.executorDetachedAt === 'string') {
+          ;(payload as Record<string, unknown>).executorDetachedAt =
+            prev.executorDetachedAt
+        }
       }
       // A browser-side load refusal outlives the compile that follows it: the
       // rebuild succeeding says nothing about the guest the browser threw out.
@@ -621,14 +628,30 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     },
     // Stamp a terminal status at watch close so a controller can never read green
     // over a dead pid; read-modify-write keeps the session's provenance intact.
-    writeShutdown() {
+    writeShutdown(message = 'the dev session ended (watch closed)') {
       if (foreignLiveDevSession) return
       try {
         if (!fs.existsSync(readyPath)) return
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         prev.status = 'stopped'
         prev.code = 'shutdown'
-        prev.message = 'the dev session ended (watch closed)'
+        prev.message = message
+        prev.ts = nowISO()
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // Ignore
+      }
+    },
+    // The mirror of stampExecutorAttached: without it `runtime` was a latch that
+    // said "attached" long after the last producer went away, so a reader could
+    // not tell a live extension from a dead one.
+    stampExecutorDetached() {
+      try {
+        if (!fs.existsSync(readyPath)) return
+        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+        if (typeof prev.executorAttachedAt !== 'string') return
+        prev.runtime = 'detached'
+        prev.executorDetachedAt = nowISO()
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {
@@ -641,9 +664,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       try {
         if (!fs.existsSync(readyPath)) return
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        if (typeof prev.executorAttachedAt === 'string') return
-        prev.executorAttachedAt = nowISO()
         prev.runtime = 'attached'
+        delete prev.executorDetachedAt
+        if (typeof prev.executorAttachedAt === 'string') {
+          prev.ts = nowISO()
+          writeJsonAtomic(readyPath, prev)
+          return
+        }
+        prev.executorAttachedAt = nowISO()
         // The executor runs INSIDE the guest, so an attach is proof the browser
         // is running it. Any earlier refusal is stale however it got fixed -
         // a retry, or a human pressing Reload on the extensions page.

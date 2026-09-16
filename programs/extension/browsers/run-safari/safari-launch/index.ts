@@ -103,14 +103,34 @@ function runTool(
   })
 }
 
-function converterWarnings(output: string): string[] {
+export function converterWarnings(output: string): string[] {
   // safari-web-extension-converter prints per-key compatibility warnings
   // ("Warning: ...") on success, the closest thing to a Safari manifest lint.
-  return output
-    .split(/\r?\n/)
-    .filter((line) => /warning/i.test(line))
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+  // The keys themselves arrive on INDENTED continuation lines that never say
+  // "warning", so matching that word alone told the user something was
+  // unsupported and never which key it was.
+  const lines = output.split(/\r?\n/)
+  const collected: string[] = []
+  let inWarning = false
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (/warning/i.test(line)) {
+      inWarning = true
+      if (trimmed.length > 0) collected.push(trimmed)
+      continue
+    }
+    // A continuation keeps its indentation. A blank line or a flush-left line
+    // ends the block, so unrelated output never rides along.
+    const isContinuation = inWarning && /^\s/.test(line) && trimmed.length > 0
+    if (isContinuation) {
+      collected.push(trimmed)
+      continue
+    }
+    inWarning = false
+  }
+
+  return collected
 }
 
 async function confirmRegisteredWithSafari(
@@ -374,7 +394,9 @@ async function runSafariPipeline(
 
     saveManifestFingerprint(config)
     logger.info?.(messages.safariConverted(config.projectLocation))
-  } else {
+  } else if (mode === 'full') {
+    // Dev resyncs run this on every save. The line says nothing new there, and
+    // the first package already reported how the project was reused.
     logger.info?.(messages.safariSkippingConversion())
   }
 

@@ -14,6 +14,12 @@ import type {ReloadInstruction} from './classify-reload'
 
 // Every dev mode reloads through the control-bridge broker (the SW producer's
 // re-injection); CDP/RDP controllers are kept for logging only, NOT reload.
+export interface UndeliveredReloadContext {
+  // True when the caller restarted the extension to ship this build, so a
+  // zero-producer broadcast is expected rather than a fault to report.
+  producerRestartExpected?: boolean
+}
+
 export interface ReloadBroker {
   broadcastReload(instruction: {
     type: ReloadInstruction['type']
@@ -24,11 +30,14 @@ export interface ReloadBroker {
   }): number
   // When a broadcast reached zero producers, an optional operator warning
   // (grace-gated + deduped by the broker), or null; optional for test doubles.
-  undeliveredReloadWarning?(): string | null
+  undeliveredReloadWarning?(context?: UndeliveredReloadContext): string | null
 }
 
 export interface ReloadExecutor {
   broker?: ReloadBroker
+  // Safari packages by replacing the appex under a running browser, which takes
+  // the extension down. The dispatch that follows must not call that a fault.
+  producerRestartExpected?: boolean
 }
 
 function viaBroker(
@@ -52,6 +61,12 @@ export function formatReloadingLine(label: string): string {
   return `${prefix('info')} Reloading ${label}…`
 }
 
+// The zero-producer line for a caller that restarted the extension itself. The
+// broker latched the instruction, so the reconnecting producer still applies it.
+export function formatQueuedReloadLine(label: string): string {
+  return `${prefix('info')} Queued ${label} for the extension to apply when it reconnects.`
+}
+
 // The single place deciding HOW a classified reload executes: the SW producer
 // re-injects via the bridge for launched AND --no-browser. Honors EXTENSION_NO_RELOAD.
 export async function dispatchReload(
@@ -73,8 +88,21 @@ export async function dispatchReload(
 
     // Zero producers: the edit compiled but reached no page. Surface the broker's
     // deduped hint past the grace window so the no-op is diagnosable.
-    const warning = executor.broker.undeliveredReloadWarning?.()
-    if (warning) console.warn(warning)
+    const warning = executor.broker.undeliveredReloadWarning?.(
+      executor.producerRestartExpected
+        ? {producerRestartExpected: true}
+        : undefined
+    )
+    if (warning) {
+      console.warn(warning)
+      return
+    }
+
+    // A restart the caller caused is not a failure, so name what happens to this
+    // edit rather than leaving the save loop with nothing to show.
+    if (executor.producerRestartExpected && instruction.label) {
+      console.log(formatQueuedReloadLine(instruction.label))
+    }
   }
 }
 

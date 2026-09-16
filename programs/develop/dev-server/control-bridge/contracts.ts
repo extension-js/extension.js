@@ -114,7 +114,7 @@ export interface ReadyFrame {
   type: 'ready'
   runId: string
   bufferedFrom?: number
-  engine?: 'chromium' | 'firefox'
+  engine?: 'chromium' | 'firefox' | 'webkit'
   capabilities?: {
     eval?: boolean
     storage?: boolean

@@ -261,6 +261,71 @@ describe('ready.json writer preservation', () => {
     expect(after.runId).toBe(ready.runId)
   })
 
+  it('stampExecutorDetached flips runtime off once the producer leaves', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.stampExecutorAttached()
+
+    const attached = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(attached.runtime).toBe('attached')
+    expect(typeof attached.executorAttachedAt).toBe('string')
+
+    writer.stampExecutorDetached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.runtime).toBe('detached')
+    expect(typeof after.executorDetachedAt).toBe('string')
+    // The attach time stays as provenance: it did connect once.
+    expect(after.executorAttachedAt).toBe(attached.executorAttachedAt)
+  })
+
+  it('a recompile does not resurrect a producer that went away', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.stampExecutorAttached()
+    writer.stampExecutorDetached()
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.runtime).toBe('detached')
+    expect(typeof after.executorDetachedAt).toBe('string')
+  })
+
+  it('a reconnect clears the detached mark', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.stampExecutorAttached()
+    writer.stampExecutorDetached()
+
+    writer.stampExecutorAttached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.runtime).toBe('attached')
+    expect('executorDetachedAt' in after).toBe(false)
+  })
+
+  it('stampExecutorDetached is a no-op when nothing ever attached', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    writer.stampExecutorDetached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect('runtime' in after).toBe(false)
+    expect('executorDetachedAt' in after).toBe(false)
+  })
+
+  it('writeShutdown records the ending the caller names', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.writeShutdown('the preview session ended')
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('stopped')
+    expect(after.message).toBe('the preview session ended')
+  })
+
   it('writeShutdown is a no-op when no contract was ever written', () => {
     const writer = makeWriter()
     writer.writeShutdown()
