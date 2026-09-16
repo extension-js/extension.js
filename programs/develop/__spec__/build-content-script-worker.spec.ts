@@ -106,7 +106,7 @@ async function build(root: string, browser = 'chrome') {
 
 function workerWarnings(summary: {warnings?: string[]}) {
   return (summary.warnings || []).filter((text) =>
-    text.includes('starts a worker with new Worker(new URL(...))')
+    text.includes('starts a worker from an extension URL')
   )
 }
 
@@ -150,7 +150,7 @@ describe('a worker spelled in a content script', () => {
     const warnings = workerWarnings(summary)
     expect(warnings, warnings.join('\n')).toHaveLength(1)
     expect(warnings[0]).toContain(
-      'content_scripts/content-0.js starts a worker with new Worker(new URL(...)), which the browser refuses in a content script'
+      'content_scripts/content-0.js starts a worker from an extension URL, which the browser refuses in a content script'
     )
 
     expect(warnings[0]).toContain('SCRIPT content_scripts/content-0.js')
@@ -179,7 +179,7 @@ describe('a worker spelled in a content script', () => {
     const warnings = workerWarnings(summary)
     expect(warnings, warnings.join('\n')).toHaveLength(1)
     expect(warnings[0]).toContain(
-      'content_scripts/content-0.js starts a worker with new Worker(new URL(...)), which the browser refuses in a content script'
+      'content_scripts/content-0.js starts a worker from an extension URL, which the browser refuses in a content script'
     )
   }, 180_000)
 })

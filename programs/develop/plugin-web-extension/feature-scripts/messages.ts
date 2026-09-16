@@ -155,7 +155,7 @@ export function workerStartedFromPageContext(
 ) {
   const lines: string[] = []
   lines.push(
-    `${assetName} starts a worker with new Worker(new URL(...)), which the browser refuses in ${PAGE_CONTEXT_SURFACES[surface]}.`
+    `${assetName} starts a worker from an extension URL, which the browser refuses in ${PAGE_CONTEXT_SURFACES[surface]}.`
   )
 
   lines.push(`${colors.gray('SCRIPT')} ${colors.underline(assetName)}`)
