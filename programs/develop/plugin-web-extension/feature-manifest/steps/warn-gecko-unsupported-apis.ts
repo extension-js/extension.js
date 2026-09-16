@@ -14,7 +14,28 @@ import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 
-export type GeckoUnsupportedApi = 'sidePanel' | 'action'
+// Namespaces Safari ships on no version, per MDN browser-compat-data and
+// Apple's browser-compatibility page, each paired with the warning it earns.
+// An API Safari has but implements differently does not belong here, since
+// the call still resolves there and the warning would be noise.
+const webkitUnsupportedApis = {
+  sidePanel: messages.safariSidePanelUnsupported,
+  offscreen: messages.safariOffscreenUnsupported,
+  tabGroups: messages.safariTabGroupsUnsupported,
+  management: messages.safariManagementUnsupported,
+  userScripts: messages.safariUserScriptsUnsupported,
+  identity: messages.safariIdentityUnsupported,
+  notifications: messages.safariNotificationsUnsupported,
+  omnibox: messages.safariOmniboxUnsupported,
+  bookmarks: messages.safariBookmarksUnsupported,
+  history: messages.safariHistoryUnsupported,
+  downloads: messages.safariDownloadsUnsupported,
+  idle: messages.safariIdleUnsupported
+} as const
+
+type WebkitUnsupportedApi = keyof typeof webkitUnsupportedApis
+
+export type GeckoUnsupportedApi = WebkitUnsupportedApi | 'action'
 
 // gecko follows addons-linter, which flags any static read. webkit follows
 // the Safari runtime, where only an unguarded call on a missing namespace throws.
@@ -31,12 +52,14 @@ export interface GeckoUnsupportedApiUse {
 // The namespaces addons-linter reports as UNSUPPORTED_API on a Gecko build.
 // sidePanel has no Firefox counterpart on any manifest version. action is
 // Manifest V3 only, so a Manifest V2 Firefox bundle still needs browserAction.
-// Safari has action on Manifest V3 but no sidePanel on any version.
+// Safari has action on both manifest versions, so its list is the table above.
 export function geckoUnsupportedApis(
   manifestVersion: unknown,
   engine: UnsupportedApiEngine = 'gecko'
 ): GeckoUnsupportedApi[] {
-  if (engine === 'webkit') return ['sidePanel']
+  if (engine === 'webkit') {
+    return Object.keys(webkitUnsupportedApis) as GeckoUnsupportedApi[]
+  }
   return manifestVersion === 2 ? ['sidePanel', 'action'] : ['sidePanel']
 }
 
@@ -241,12 +264,17 @@ export function reportGeckoUnsupportedApis(
       const label = use.emitted
         ? use.file
         : relativeToProject(projectPath, use.file)
-      const text =
+      // The webkit table is also the webkit API list, so the lookup hits
+      // whenever the engine is webkit and the gecko branch stays for gecko.
+      const webkitMessage =
         engine === 'webkit'
-          ? messages.safariSidePanelUnsupported(label)
-          : use.api === 'sidePanel'
-            ? messages.geckoSidePanelUnsupported(label)
-            : messages.geckoActionUnsupportedOnMv2(label)
+          ? webkitUnsupportedApis[use.api as WebkitUnsupportedApi]
+          : undefined
+      const text = webkitMessage
+        ? webkitMessage(label)
+        : use.api === 'sidePanel'
+          ? messages.geckoSidePanelUnsupported(label)
+          : messages.geckoActionUnsupportedOnMv2(label)
       const warn = new WebpackError(text) as Error & {
         file?: string
         name?: string

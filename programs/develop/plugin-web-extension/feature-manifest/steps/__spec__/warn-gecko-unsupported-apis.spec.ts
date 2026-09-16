@@ -66,6 +66,34 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
       usesGeckoUnsupportedApi('if (chrome.sidePanel) {}', 'sidePanel', 'webkit')
     ).toBe(false)
   })
+
+  it('reads the namespace, not a name that starts with it', () => {
+    expect(
+      usesGeckoUnsupportedApi(
+        'chrome.management.getSelf()',
+        'management',
+        'webkit'
+      )
+    ).toBe(true)
+    expect(
+      usesGeckoUnsupportedApi(
+        'chrome.managementPanel.getSelf()',
+        'management',
+        'webkit'
+      )
+    ).toBe(false)
+    expect(
+      usesGeckoUnsupportedApi('browser.idle.queryState(15)', 'idle', 'webkit')
+    ).toBe(true)
+    // The web platform has its own history, and only the extension one throws
+    expect(
+      usesGeckoUnsupportedApi(
+        'window.history.pushState({})',
+        'history',
+        'webkit'
+      )
+    ).toBe(false)
+  })
 })
 
 describe('geckoUnsupportedApis', () => {
@@ -75,9 +103,43 @@ describe('geckoUnsupportedApis', () => {
     expect(geckoUnsupportedApis(undefined)).toEqual(['sidePanel'])
   })
 
-  it('checks only sidePanel on webkit, since Safari has action', () => {
-    expect(geckoUnsupportedApis(2, 'webkit')).toEqual(['sidePanel'])
-    expect(geckoUnsupportedApis(3, 'webkit')).toEqual(['sidePanel'])
+  it('checks every namespace Safari lacks, on either manifest version', () => {
+    const expected = [
+      'sidePanel',
+      'offscreen',
+      'tabGroups',
+      'management',
+      'userScripts',
+      'identity',
+      'notifications',
+      'omnibox',
+      'bookmarks',
+      'history',
+      'downloads',
+      'idle'
+    ]
+    expect(geckoUnsupportedApis(2, 'webkit')).toEqual(expected)
+    expect(geckoUnsupportedApis(3, 'webkit')).toEqual(expected)
+  })
+
+  it('leaves out action and every other API Safari implements', () => {
+    const list = geckoUnsupportedApis(2, 'webkit')
+    for (const api of [
+      'action',
+      'browserAction',
+      'scripting',
+      'declarativeNetRequest',
+      'alarms',
+      'storage',
+      'contextMenus',
+      'menus',
+      'devtools',
+      'webRequest',
+      'tabs',
+      'runtime'
+    ]) {
+      expect(list).not.toContain(api)
+    }
   })
 })
 
@@ -312,6 +374,109 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     const guarded = 'chrome.sidePanel?.setPanelBehavior({})\n'
     expect(run('production', 'safari', mv3, guarded)).toEqual([])
     expect(run('development', 'safari', mv3, SIDE_PANEL)).toEqual([])
+  })
+
+  // api, a call a background plausibly makes, and the api-specific line
+  const SAFARI_MISSING: Array<[string, string, string]> = [
+    [
+      'offscreen',
+      'chrome.offscreen.createDocument({url: "o.html"})\n',
+      'no offscreen documents'
+    ],
+    ['tabGroups', 'chrome.tabGroups.query({})\n', 'no tab groups'],
+    ['management', 'chrome.management.getSelf()\n', 'no management namespace'],
+    [
+      'userScripts',
+      'chrome.userScripts.configureWorld({messaging: true})\n',
+      'no userScripts namespace'
+    ],
+    [
+      'identity',
+      'const url = chrome.identity.getRedirectURL()\n',
+      'no identity namespace'
+    ],
+    [
+      'notifications',
+      'chrome.notifications.onClicked.addListener(() => {})\n',
+      'no notifications namespace'
+    ],
+    [
+      'omnibox',
+      'chrome.omnibox.onInputEntered.addListener(() => {})\n',
+      'no omnibox keyword API'
+    ],
+    [
+      'bookmarks',
+      'chrome.bookmarks.onCreated.addListener(() => {})\n',
+      'does not expose bookmarks'
+    ],
+    [
+      'history',
+      'chrome.history.onVisited.addListener(() => {})\n',
+      'does not expose browsing history'
+    ],
+    [
+      'downloads',
+      'chrome.downloads.onChanged.addListener(() => {})\n',
+      'no downloads namespace'
+    ],
+    [
+      'idle',
+      'chrome.idle.onStateChanged.addListener(() => {})\n',
+      'no idle namespace'
+    ]
+  ]
+
+  it.each(
+    SAFARI_MISSING
+  )('warns on a production safari build that calls chrome.%s', (api, source, detail) => {
+    const warnings = run('production', 'safari', mv3, source)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('SafariUnsupportedApiWarning')
+    expect(warnings[0].file).toBe('background.js')
+    expect(warnings[0].message).toContain(
+      `calls chrome.${api}, which Safari does not have`
+    )
+    expect(warnings[0].message).toContain(detail)
+    expect(warnings[0].message).toContain('EXTENSION_PUBLIC_BROWSER')
+    expect(warnings[0].message).toContain(`chrome.${api}?.`)
+  })
+
+  it.each(
+    SAFARI_MISSING
+  )('stays quiet when chrome.%s is reached with optional chaining', (api, source) => {
+    const guarded = source.replace(`.${api}.`, `.${api}?.`)
+    expect(run('production', 'safari', mv3, guarded)).toEqual([])
+  })
+
+  it('never warns for the APIs Safari does implement', () => {
+    const supported = [
+      'chrome.action.onClicked.addListener(() => {})\n',
+      'chrome.scripting.executeScript({})\n',
+      'chrome.declarativeNetRequest.updateDynamicRules({})\n',
+      'chrome.alarms.create("tick", {periodInMinutes: 1})\n',
+      'chrome.storage.session.get("k")\n',
+      'chrome.contextMenus.create({id: "m", title: "m"})\n',
+      'chrome.devtools.panels.create("p", "", "p.html")\n',
+      'chrome.webRequest.onBeforeRequest.addListener(() => {})\n',
+      'chrome.tabs.query({})\n',
+      'chrome.runtime.onInstalled.addListener(() => {})\n'
+    ].join('')
+    expect(run('production', 'safari', mv3, supported)).toEqual([])
+  })
+
+  it('warns once per missing namespace when a background calls several', () => {
+    const many =
+      SIDE_PANEL +
+      'chrome.offscreen.createDocument({url: "o.html"})\n' +
+      'chrome.management.getSelf()\n'
+    const warnings = run('production', 'safari', mv3, many)
+    expect(warnings).toHaveLength(3)
+    expect(warnings.map((w) => w.name)).toEqual([
+      'SafariUnsupportedApiWarning',
+      'SafariUnsupportedApiWarning',
+      'SafariUnsupportedApiWarning'
+    ])
   })
 
   it('stays quiet for chromium targets and in development', () => {

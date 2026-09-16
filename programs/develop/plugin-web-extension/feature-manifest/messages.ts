@@ -182,18 +182,117 @@ export function geckoSidePanelUnsupported(file: string) {
   return lines.join('\n')
 }
 
-export function safariSidePanelUnsupported(file: string) {
+// Safari ships no counterpart for these namespaces, so the member read itself
+// throws and the background dies before it can report anything.
+function safariUnsupportedApi(file: string, api: string, detail: string) {
   const lines: string[] = []
   lines.push(
-    `${prefix('warn')} ${colors.underline(file)} calls chrome.sidePanel, which Safari does not have.`
+    `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}, which Safari does not have.`
   )
+  lines.push(detail)
   lines.push(
-    `The call throws when the script runs. In a background service worker, Safari then never starts the worker, and nothing reports an error.`
-  )
-  lines.push(
-    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow('chrome.sidePanel?.')}.`
+    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(`chrome.${api}?.`)}.`
   )
   return lines.join('\n')
+}
+
+const safariBackgroundDies =
+  'The call throws when the script runs, Safari drops the background, and nothing reports an error.'
+
+export function safariSidePanelUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'sidePanel',
+    `The call throws when the script runs. In a background service worker, Safari then never starts the worker, and nothing reports an error.`
+  )
+}
+
+export function safariOffscreenUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'offscreen',
+    `Safari has no offscreen documents, so that DOM work has no place to run. ${safariBackgroundDies}`
+  )
+}
+
+export function safariTabGroupsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'tabGroups',
+    `Safari has no tab groups, and its tabs carry no group id. ${safariBackgroundDies}`
+  )
+}
+
+export function safariManagementUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'management',
+    `Safari exposes no management namespace at all, not even getSelf. ${safariBackgroundDies}`
+  )
+}
+
+export function safariUserScriptsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'userScripts',
+    `Safari has no userScripts namespace, and scripting.registerContentScripts is the closest it offers. ${safariBackgroundDies}`
+  )
+}
+
+export function safariIdentityUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'identity',
+    `Safari has no identity namespace, and Apple points OAuth flows at a normal tab instead. ${safariBackgroundDies}`
+  )
+}
+
+export function safariNotificationsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'notifications',
+    `Safari has no notifications namespace, so a page has to raise the web Notification instead. ${safariBackgroundDies}`
+  )
+}
+
+export function safariOmniboxUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'omnibox',
+    `Safari has no omnibox keyword API. ${safariBackgroundDies}`
+  )
+}
+
+export function safariBookmarksUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'bookmarks',
+    `Safari does not expose bookmarks to extensions on any version. ${safariBackgroundDies}`
+  )
+}
+
+export function safariHistoryUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'history',
+    `Safari does not expose browsing history to extensions on any version. ${safariBackgroundDies}`
+  )
+}
+
+export function safariDownloadsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'downloads',
+    `Safari has no downloads namespace. ${safariBackgroundDies}`
+  )
+}
+
+export function safariIdleUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'idle',
+    `Safari has no idle namespace. ${safariBackgroundDies}`
+  )
 }
 
 export function geckoActionUnsupportedOnMv2(file: string) {
