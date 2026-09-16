@@ -59,7 +59,8 @@
     "postcompile": "node scripts/build-extensions.cjs",
     "prepare": "husky",
     "check:prose": "node scripts/check-prose.mjs",
-    "check:messaging": "node scripts/check-messaging.mjs"
+    "check:messaging": "node scripts/check-messaging.mjs",
+    "check:runtime-html": "node scripts/check-runtime-html.mjs"
   },
   "devDependencies": {
     "@babel/core": "8.0.5",

@@ -123,6 +123,27 @@ export function warInvalidMatchPattern(pattern: string) {
   return lines.join('\n')
 }
 
+export function warUnreachableResource(resource: string, entryName: string) {
+  const lines: string[] = []
+  lines.push(
+    `${colors.underline(entryName)} asks the extension for ${colors.blue(resource)}, but ${colors.blue('web_accessible_resources')} does not list it.`
+  )
+
+  lines.push(
+    `The browser refuses it with a SecurityError because a content script reads extension files with the page's origin.`
+  )
+
+  lines.push(
+    `Add it to ${colors.blue('web_accessible_resources')} in ${colors.blue('manifest.json')}, scoped to the matches that need it.`
+  )
+
+  lines.push(
+    `Learn more: ${colors.underline('https://extension.js.org/docs/development/web-accessible-resources')}`
+  )
+
+  return lines.join('\n')
+}
+
 export function entryImportsSummary(
   entryCount: number,
   totalResources: number
