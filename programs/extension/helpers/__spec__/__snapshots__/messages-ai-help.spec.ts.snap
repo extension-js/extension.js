@@ -7,7 +7,9 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "hostFlag": "--host 0.0.0.0 binds the dev server to all interfaces",
       "notes": [
         "Use --no-browser inside the container and load dist/<browser>/ in the host browser",
-        "File watching uses polling (1s interval) for bind-mount compatibility",
+        "File watching uses native file events by default",
+        "Set EXTENSION_WATCH_POLL=true to poll instead when native events do not fire, as in a container, a virtual machine, or a network or bind mount",
+        "EXTENSION_WATCH_POLL_INTERVAL sets the poll interval in ms (default 1000)",
         "--no-sandbox is added automatically when a container environment is detected",
       ],
       "sandboxDetection": [
