@@ -164,11 +164,15 @@ function emittedFilesOf(
  * clears a call the bundler compiled out behind a build-time browser branch,
  * and an emitted script nobody explains is reported under its own name so
  * nothing addons-linter would flag goes unmentioned.
+ *
+ * With requireEmittedEvidence a source hit no emitted script confirms is
+ * dropped instead of reported, so the answer rests on what the build wrote.
  */
 export function findGeckoUnsupportedApiUses(
   compilation: ScannableCompilation,
   manifestVersion: unknown,
-  engine: UnsupportedApiEngine = 'gecko'
+  engine: UnsupportedApiEngine = 'gecko',
+  requireEmittedEvidence = false
 ): GeckoUnsupportedApiUse[] {
   const apis = geckoUnsupportedApis(manifestVersion, engine)
   const uses_ = (text: string, api: GeckoUnsupportedApi) =>
@@ -198,6 +202,10 @@ export function findGeckoUnsupportedApiUses(
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
           for (const file of carrying) explained.add(`${api}\0${file}`)
+        } else if (requireEmittedEvidence) {
+          // Nothing ties this module to a script the build wrote, so whether
+          // the call ships is unproven and warning on it would be a guess.
+          continue
         }
         uses.set(key, {api, file: resource, emitted: false})
       }
@@ -235,16 +243,20 @@ function relativeToProject(projectPath: string, file: string): string {
   return path.relative(projectPath, file) || file
 }
 
-// Warn-only, production Gecko and Safari builds only: development bundles
-// keep every build-time branch, so the compiled-out check can't clear them there.
+// Warn-only. Gecko stays production-only: its warning is lint-shaped, and a
+// development bundle keeps every build-time branch, so a source scan there
+// would name calls that never ship. Safari asks a different question. A call
+// the build wrote into the background really runs, throws on the missing
+// namespace, and takes the context down with it, which is why a dev session
+// warns too, on emitted evidence rather than on source alone.
 export function reportGeckoUnsupportedApis(
   compilation: Compilation,
   compiler: Compiler,
   browser: DevOptions['browser'],
   manifest: Manifest,
-  projectPath: string
+  projectPath: string,
+  reported?: Set<string>
 ) {
-  if (compiler.options.mode !== 'production') return
   const engine: UnsupportedApiEngine | undefined = isGeckoBasedBrowser(
     String(browser)
   )
@@ -254,16 +266,28 @@ export function reportGeckoUnsupportedApis(
       : undefined
   if (!engine) return
 
+  const isProduction = compiler.options.mode === 'production'
+  if (!isProduction && engine !== 'webkit') return
+
   try {
     const uses = findGeckoUnsupportedApiUses(
       compilation as unknown as ScannableCompilation,
       manifest.manifest_version,
-      engine
+      engine,
+      !isProduction
     )
     for (const use of uses) {
       const label = use.emitted
         ? use.file
         : relativeToProject(projectPath, use.file)
+
+      // A dev session recompiles on every save. One line per distinct call
+      // for the life of one dev process; a production build stays complete.
+      if (!isProduction && reported) {
+        const signature = `${use.api}\0${label}`
+        if (reported.has(signature)) continue
+        reported.add(signature)
+      }
       // The webkit table is also the webkit API list, so the lookup hits
       // whenever the engine is webkit and the gecko branch stays for gecko.
       const webkitMessage =

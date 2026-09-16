@@ -52,6 +52,9 @@ export class UpdateManifest {
   // enough; a restarted session gets a fresh instance and prints again.
   // Production builds never consult this set so build output stays complete.
   private reportedFatalFixes = new Set<string>()
+  // Same contract for the Safari unsupported-API warning, which fires in
+  // development too: one line per distinct call, not one on every save.
+  private reportedUnsupportedApis = new Set<string>()
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -280,15 +283,18 @@ export class UpdateManifest {
               compilation.warnings.push(warn)
             }
 
-            // Store-readiness hint for the bundle itself: a Chromium-only
-            // API that survived into the Gecko build is what addons-linter
-            // reports as UNSUPPORTED_API, so name it here first.
+            // Two warnings share one scan. On Gecko it is a store-readiness
+            // hint: a Chromium-only API that survived into the build is what
+            // addons-linter reports as UNSUPPORTED_API. On Safari it is a
+            // fatal-call warning, so it runs in development too, where the
+            // throw kills the background and nothing else can report it.
             reportGeckoUnsupportedApis(
               compilation,
               compiler,
               this.browser,
               patchedManifest,
-              projectPath
+              projectPath,
+              this.reportedUnsupportedApis
             )
 
             const source = JSON.stringify(patchedManifest, null, 2)

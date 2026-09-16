@@ -272,6 +272,32 @@ describe('findGeckoUnsupportedApiUses', () => {
       {api: 'sidePanel', file: 'background/scripts.js', emitted: true}
     ])
   })
+
+  it('drops a source hit no emitted script confirms when evidence is required', () => {
+    const sw = write('background.js', SIDE_PANEL)
+    const compilation = compilationWith([{resource: sw}])
+    expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit')).toEqual([
+      {api: 'sidePanel', file: sw, emitted: false}
+    ])
+    expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit', true)).toEqual(
+      []
+    )
+  })
+
+  it('keeps a source hit the emitted script confirms when evidence is required', () => {
+    const sw = write('background.js', SIDE_PANEL)
+    const uses = findGeckoUnsupportedApiUses(
+      compilationWith(
+        [{resource: sw}],
+        [asset('background/scripts.js', SIDE_PANEL)],
+        ['background/scripts.js']
+      ),
+      3,
+      'webkit',
+      true
+    )
+    expect(uses).toEqual([{api: 'sidePanel', file: sw, emitted: false}])
+  })
 })
 
 describe('UpdateManifest Gecko unsupported API warning', () => {
@@ -285,17 +311,26 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
+  // emitted overrides what the build wrote, chunkGraph ties the module to it,
+  // and instance replays one plugin across compiles the way a dev session does.
+  interface RunOptions {
+    emitted?: string
+    chunkGraph?: boolean
+    instance?: UpdateManifest
+  }
+
   const run = (
     mode: 'development' | 'production',
     browser: string,
     manifest: object,
-    background: string
+    background: string,
+    options: RunOptions = {}
   ) => {
     const sw = path.join(tmp, 'background.js')
     fs.writeFileSync(sw, background)
     const assets: Record<string, any> = {
       'manifest.json': {source: () => JSON.stringify(manifest)},
-      'background/scripts.js': {source: () => background}
+      'background/scripts.js': {source: () => options.emitted ?? background}
     }
     const compilation: any = {
       errors: [],
@@ -311,7 +346,16 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
         processAssets: {tap: (_opts: any, fn: any) => fn()}
       },
       updateAsset: () => {},
-      emitAsset: () => {}
+      emitAsset: () => {},
+      ...(options.chunkGraph
+        ? {
+            chunkGraph: {
+              getModuleChunksIterable: () => [
+                {files: ['background/scripts.js']}
+              ]
+            }
+          }
+        : {})
     }
     const compiler: any = {
       options: {mode, context: tmp},
@@ -319,10 +363,13 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
         thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
       }
     }
-    new UpdateManifest({
-      manifestPath: path.join(tmp, 'manifest.json'),
-      browser: browser as any
-    }).apply(compiler)
+    const step =
+      options.instance ??
+      new UpdateManifest({
+        manifestPath: path.join(tmp, 'manifest.json'),
+        browser: browser as any
+      })
+    step.apply(compiler)
     return (
       compilation.warnings as Array<Error & {name?: string; file?: string}>
     ).filter(
@@ -370,10 +417,12 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain('never starts the worker')
   })
 
-  it('keeps safari quiet for a guarded call and in development', () => {
+  it('keeps safari quiet for a guarded call, on either mode', () => {
     const guarded = 'chrome.sidePanel?.setPanelBehavior({})\n'
     expect(run('production', 'safari', mv3, guarded)).toEqual([])
-    expect(run('development', 'safari', mv3, SIDE_PANEL)).toEqual([])
+    expect(
+      run('development', 'safari', mv3, guarded, {chunkGraph: true})
+    ).toEqual([])
   })
 
   // api, a call a background plausibly makes, and the api-specific line
@@ -479,9 +528,84 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     ])
   })
 
-  it('stays quiet for chromium targets and in development', () => {
+  it('stays quiet for chromium targets, and for gecko in development', () => {
     expect(run('production', 'chrome', mv3, SIDE_PANEL + ACTION)).toEqual([])
     expect(run('production', 'edge', mv2, SIDE_PANEL + ACTION)).toEqual([])
-    expect(run('development', 'firefox', mv2, SIDE_PANEL + ACTION)).toEqual([])
+    expect(
+      run('development', 'chrome', mv3, SIDE_PANEL + ACTION, {
+        chunkGraph: true
+      })
+    ).toEqual([])
+    // Gecko's warning is lint-shaped, so it stays a production-build line
+    // even when the emitted dev bundle carries the call.
+    expect(
+      run('development', 'firefox', mv2, SIDE_PANEL + ACTION, {
+        chunkGraph: true
+      })
+    ).toEqual([])
+  })
+
+  it('warns in development when the call reaches the emitted asset', () => {
+    const warnings = run('development', 'safari', mv3, SIDE_PANEL, {
+      chunkGraph: true
+    })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('SafariUnsupportedApiWarning')
+    expect(warnings[0].file).toBe('background.js')
+    expect(warnings[0].message).toContain(
+      'background.js calls chrome.sidePanel, which Safari does not have'
+    )
+  })
+
+  it('stays quiet in development when the bundler compiled the call out', () => {
+    const warnings = run('development', 'safari', mv3, SIDE_PANEL, {
+      chunkGraph: true,
+      emitted: 'console.log("this build dropped the branch")\n'
+    })
+    expect(warnings).toEqual([])
+  })
+
+  it('stays quiet in development when no emitted script carries the call', () => {
+    // No chunk graph, so nothing proves the call reached a built script.
+    expect(run('development', 'safari', mv3, SIDE_PANEL)).toEqual([])
+  })
+
+  it('warns once for the same call across repeated dev compiles', () => {
+    const step = new UpdateManifest({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      browser: 'safari' as any
+    })
+    const opts = {chunkGraph: true, instance: step}
+    expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
+    expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toEqual([])
+    expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toEqual([])
+  })
+
+  it('still warns for a second API added later in the same dev session', () => {
+    const step = new UpdateManifest({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      browser: 'safari' as any
+    })
+    const opts = {chunkGraph: true, instance: step}
+    expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
+    const next = run(
+      'development',
+      'safari',
+      mv3,
+      `${SIDE_PANEL}chrome.offscreen.createDocument({url: "o.html"})\n`,
+      opts
+    )
+    expect(next).toHaveLength(1)
+    expect(next[0].message).toContain('chrome.offscreen')
+  })
+
+  it('repeats the warning on every production build', () => {
+    const step = new UpdateManifest({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      browser: 'safari' as any
+    })
+    const opts = {chunkGraph: true, instance: step}
+    expect(run('production', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
+    expect(run('production', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
   })
 })
