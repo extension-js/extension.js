@@ -33,6 +33,7 @@ import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
+import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
 import {formatPrettyLogLine, type LogEventLike} from './logs'
 
 export function readRecentConsole(
@@ -574,7 +575,7 @@ function targetFrom(
 const commonOptions = (cmd: Command): Command =>
   cmd
     .option(
-      '--browser <chrome | chromium | edge | firefox>',
+      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
       'which session to target (default chromium)'
     )
     .option('--timeout <ms>', 'command timeout in milliseconds (default 5000)')

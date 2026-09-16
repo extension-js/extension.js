@@ -44,6 +44,17 @@ export const SUPPORTED_BROWSER_TARGETS = [
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
 
+// The act verbs (logs, eval, reload, storage, inspect, open) and doctor attach
+// to a RUNNING dev session, and a session can be Safari since it grew a working
+// background. They name the canonical targets rather than every fork alias.
+export const SESSION_BROWSER_TARGETS_HELP = [
+  'chrome',
+  'chromium',
+  'edge',
+  'firefox',
+  'safari'
+].join(' | ')
+
 // start/preview refuse the webkit family on purpose, so their help lists
 // every accepted target except safari and webkit-based.
 export const NO_SAFARI_BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.filter(
