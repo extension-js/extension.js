@@ -1,27 +1,31 @@
 import logo from '../images/icon.png'
 
+const isFirefoxLike =
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
+
 export default function createContentApp() {
   const container = document.createElement('div')
   container.className = 'content_script'
 
-  const pill = document.createElement('button')
-  pill.type = 'button'
-  pill.className = 'content_pill'
-  pill.setAttribute('aria-label', 'Open sidebar')
-  pill.addEventListener('click', () => {
-    try {
-      if (
-        import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
-        import.meta.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
-      ) {
-        browser.runtime.sendMessage({type: 'openSidebar'})
-      } else {
+  // Firefox cannot open a sidebar from a message listener, so the gecko build
+  // renders a hint naming the toolbar action instead of a dead control.
+  const pill = document.createElement(isFirefoxLike ? 'div' : 'button')
+  pill.className = isFirefoxLike
+    ? 'content_pill content_pill_static'
+    : 'content_pill'
+
+  if (!isFirefoxLike) {
+    pill.type = 'button'
+    pill.setAttribute('aria-label', 'Open sidebar')
+    pill.addEventListener('click', () => {
+      try {
         chrome.runtime.sendMessage({type: 'openSidebar'})
+      } catch (error) {
+        console.error(error)
       }
-    } catch (error) {
-      console.error(error)
-    }
-  })
+    })
+  }
 
   const img = document.createElement('img')
   img.className = 'content_pill_logo'
@@ -31,7 +35,9 @@ export default function createContentApp() {
 
   const text = document.createElement('span')
   text.className = 'content_pill_text'
-  text.textContent = 'Open sidebar'
+  text.textContent = isFirefoxLike
+    ? 'Use the toolbar icon to open the sidebar'
+    : 'Open sidebar'
 
   pill.appendChild(img)
   pill.appendChild(text)
