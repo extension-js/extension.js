@@ -194,6 +194,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "missingManifestMessageKey: function(2)",
   ],
   "plugin-web-extension/feature-manifest/messages.ts": [
+    "edgeStoreKeyDropped: function(1)",
     "fatalManifestShapeFixed: function(2)",
     "geckoActionUnsupportedOnMv2: function(1)",
     "geckoSidePanelUnsupported: function(1)",
