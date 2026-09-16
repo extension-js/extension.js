@@ -6,14 +6,10 @@
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
 [discord-url]: https://discord.gg/v9h2RgeTSN
-[snyk-image]: https://snyk.io/test/github/extension-js/extension.js/badge.svg?color=0971fe
-[snyk-url]: https://snyk.io/test/github/extension-js/extension.js
-[scorecard-image]: https://img.shields.io/ossf-scorecard/github.com/extension-js/extension.js?label=OpenSSF%20Scorecard&style=flat&color=0971fe
-[scorecard-url]: https://scorecard.dev/viewer/?uri=github.com/extension-js/extension.js
 [bestpractices-image]: https://img.shields.io/cii/level/14662?label=OpenSSF%20Best%20Practices&style=flat&color=0971fe
 [bestpractices-url]: https://www.bestpractices.dev/projects/14662
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Scorecard][scorecard-image]][scorecard-url] [![OpenSSF Best Practices][bestpractices-image]][bestpractices-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Best Practices][bestpractices-image]][bestpractices-url]
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
@@ -27,7 +23,7 @@ npm run dev
 
 Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
-[Documentation](https://extension.js.org) · [Templates](https://templates.extension.dev) · [Examples](https://github.com/extension-js/examples) · [Discord](https://discord.gg/v9h2RgeTSN)
+[Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
 ## Why Extension.js
 
