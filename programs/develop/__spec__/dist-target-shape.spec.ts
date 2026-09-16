@@ -59,6 +59,16 @@ function distFile(stem: string): string {
   return path.join(DIST_DIR, `${stem}.mjs`)
 }
 
+// Walks dist because the offender is usually a split chunk, not a named entry.
+function emittedEsmFiles(dir: string = DIST_DIR): string[] {
+  return fs.readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) return emittedEsmFiles(full)
+
+    return entry.name.endsWith('.mjs') ? [full] : []
+  })
+}
+
 describe('dist target shape', () => {
   beforeAll(() => {
     if (!fs.existsSync(DIST_DIR)) {
@@ -123,6 +133,30 @@ describe('dist target shape', () => {
         'module.mjs is missing the createRequire banner, node-target lib ' +
           'in rslib.config.ts probably regressed; bundled bare require() will ReferenceError.'
       ).toBe(true)
+    })
+  })
+
+  // Node resolves a bare `path` and `node:path` to the same builtin, so this
+  // only ever breaks off Node, which is why it reached a release unnoticed.
+  describe('every emitted ESM file (the CLI runs on Deno too)', () => {
+    it('imports no Node builtin without the node: prefix', () => {
+      const offenders = emittedEsmFiles().flatMap((file) =>
+        FORBIDDEN_BARE_BUILTINS.flatMap((pattern) => {
+          const match = fs.readFileSync(file, 'utf-8').match(pattern)
+
+          return match ? [`${path.relative(DIST_DIR, file)}: ${match[0]}`] : []
+        })
+      )
+
+      expect(
+        offenders,
+        `These emitted files import a Node builtin as a bare specifier:\n` +
+          `${offenders.join('\n')}\n` +
+          `Deno reads a bare builtin in ESM as a package specifier and refuses ` +
+          `it ("Import \\"path\\" not a dependency"), so the CLI dies on Deno ` +
+          `before it compiles anything. rslib externalises the specifier exactly ` +
+          `as written, so fix the source import to node:<builtin>.`
+      ).toEqual([])
     })
   })
 })

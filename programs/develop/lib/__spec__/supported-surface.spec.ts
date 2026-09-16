@@ -5,6 +5,7 @@ import {
   SUPPORTED_BROWSERS,
   SUPPORTED_CSS_TECH,
   SUPPORTED_PACKAGE_MANAGERS,
+  SUPPORTED_RUNTIMES,
   SUPPORTED_UI_FRAMEWORKS
 } from '../constants'
 import {OPTIONAL_DEPENDENCY_CONTRACTS} from '../optional-deps-contracts'
@@ -20,6 +21,8 @@ describe('supported surface', () => {
       'bun',
       'deno'
     ])
+
+    expect(SUPPORTED_RUNTIMES).toEqual(['node', 'deno'])
 
     expect(SUPPORTED_UI_FRAMEWORKS).toEqual([
       'react',
@@ -68,6 +71,33 @@ describe('supported surface', () => {
     for (const pm of SUPPORTED_PACKAGE_MANAGERS) {
       expect(worksWithLine).toContain(`\`${pm}\``)
     }
+  })
+
+  // A package manager that installs the CLI is not a runtime that executes it,
+  // and the README claimed all five as one undifferentiated list until 2026-09.
+  it('README separates the runtimes from the package managers', () => {
+    const readme = fs.readFileSync(ROOT_README, 'utf-8')
+
+    expect(readme, 'README lost its "## Runtimes" section').toContain(
+      '## Runtimes'
+    )
+
+    const runtimeLabels: Record<(typeof SUPPORTED_RUNTIMES)[number], string> = {
+      node: 'Node.js',
+      deno: 'Deno'
+    }
+
+    for (const runtime of SUPPORTED_RUNTIMES) {
+      expect(readme, `README never lists the ${runtime} runtime`).toContain(
+        runtimeLabels[runtime]
+      )
+    }
+
+    expect(
+      readme,
+      'README must keep saying the CLI does not run on the Bun runtime, ' +
+        'because the entry guard refuses it'
+    ).toContain('❌ Not a runtime for the CLI')
   })
 
   it('README enumerates every supported UI framework', () => {
