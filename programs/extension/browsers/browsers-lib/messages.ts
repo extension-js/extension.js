@@ -816,29 +816,13 @@ export function safariDefaultBundleIdNote(bundleId: string) {
   )
 }
 
-export function safariOpenHint(
-  appPath: string,
-  appName: string,
-  signed?: boolean
-) {
-  const launch =
-    `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +
-    `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n`
-
-  // A signed build is listed on its own, so telling the user to re-tick the
-  // unsigned toggle sends them to a menu item that is not the reason their
-  // extension is missing.
-  if (signed) {
-    return (
-      launch +
-      `Then turn on ${colors.yellow(appName)} in Safari ▸ Settings ▸ Extensions.`
-    )
-  }
-
+export function safariOpenHint(appPath: string, appName: string) {
+  // Ad-hoc and team-signed apps enable the same way, so this does not branch on
+  // the signature. Only a folder-loaded extension needs the developer menu.
   return (
-    launch +
-    `Then enable ${colors.yellow(appName)} via Safari ▸ Develop ▸ ` +
-    `${colors.yellow('Allow Unsigned Extensions')} and Safari ▸ Settings ▸ Extensions.`
+    `${getLoggingPrefix('info')} Launch it once to register with Safari: ` +
+    `${colors.blue('open')} ${colors.underline(`"${appPath}"`)}\n` +
+    `Then turn on ${colors.yellow(appName)} in Safari ▸ Settings ▸ Extensions.`
   )
 }
 
@@ -855,22 +839,22 @@ export function safariDryRunXcodebuild(cmd: string) {
 }
 
 export function safariNextSteps(appName: string, signed?: boolean) {
-  // Signed builds skip the developer menu entirely: one toggle, and it holds
-  // across restarts.
+  const steps =
+    `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
+    `  ${colors.gray('1.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n`
+
+  // An ad-hoc build is listed and stays enabled too, so the note names what a
+  // team id actually buys rather than implying it is needed to load at all.
   if (signed) {
     return (
-      `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
-      `  ${colors.gray('1.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n` +
-      `  ${colors.gray('→')} Signed with your team id, so this survives a restart.`
+      steps +
+      `  ${colors.gray('→')} Signed with your team id, so the identity is stable for distribution.`
     )
   }
 
   return (
-    `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
-    `  ${colors.gray('1.')} Safari ▸ Settings ▸ Advanced ▸ check ${colors.yellow('“Show features for web developers”')}\n` +
-    `  ${colors.gray('2.')} Safari ▸ Develop ▸ ${colors.yellow('Allow Unsigned Extensions')} ${colors.gray('(resets each launch)')}\n` +
-    `  ${colors.gray('3.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n` +
-    `  ${colors.gray('→')} The app window that just opened can also take you there.`
+    steps +
+    `  ${colors.gray('→')} Ad-hoc signed, so it stays enabled across restarts.`
   )
 }
 

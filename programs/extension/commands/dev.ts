@@ -150,7 +150,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--development-team <id>',
-      'sign the Safari app with an Apple Developer team id (safari targets only). Without it the build is ad-hoc signed, which Safari treats as unsigned: the extension then needs Develop \u25b8 Allow Unsigned Extensions re-ticked on every launch. A signed build is listed and stays enabled across restarts'
+      'sign the Safari app with an Apple Developer team id (safari targets only). Without it the build is ad-hoc signed, which Safari loads locally with no per-launch toggle. Use a team id for a stable identity you can distribute'
     )
     .option(
       '--macos-only [boolean]',

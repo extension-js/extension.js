@@ -14,11 +14,9 @@ const base: SafariBuildConfig = {
   open: true
 }
 
-// Signing is the difference between an extension Safari lists and one it
-// refuses unless a human re-ticks Develop > Allow Unsigned Extensions on every
-// launch. That toggle is not stored in preferences, which is why it resets and
-// why it cannot be scripted, so the signed path is the only one a repeatable
-// workflow can rely on.
+// Measured with the toggle off: an ad-hoc signed app stays listed in Safari
+// Settings while a folder-loaded extension disappears. So a signature decides
+// the identity a build carries, not whether Safari will load it locally.
 describe('safari xcodebuild signing', () => {
   it('signs ad-hoc when no team is given, so a local build still works', () => {
     const args = composeXcodebuildArgs(base)
@@ -58,30 +56,31 @@ describe('safari xcodebuild signing', () => {
   })
 })
 
-// The enabling steps differ by signature, and pointing a signed user at the
-// developer menu sends them to a toggle that is not why their extension is
-// missing from the list.
-describe('safari enabling hints follow the signature', () => {
-  it('keeps the unsigned steps when no team signed the build', () => {
-    expect(messages.safariNextSteps('My App')).toMatch(
-      /Allow Unsigned Extensions/
-    )
-
-    expect(messages.safariOpenHint('/tmp/My App.app', 'My App')).toMatch(
-      /Allow Unsigned Extensions/
-    )
+// No message may send anyone to the developer menu. An ad-hoc app does not need
+// it, and the one path that does, folder loading, is not something the CLI ships.
+describe('safari enabling hints never prescribe the developer menu', () => {
+  it('keeps the developer menu out of both signatures', () => {
+    for (const steps of [
+      messages.safariNextSteps('My App'),
+      messages.safariNextSteps('My App', true)
+    ]) {
+      expect(steps).not.toMatch(/Allow Unsigned Extensions/)
+      expect(steps).not.toMatch(/Develop/)
+      expect(steps).toMatch(/Settings/)
+      expect(steps).toMatch(/Extensions/)
+    }
   })
 
-  it('drops the developer menu once the build is signed', () => {
-    const steps = messages.safariNextSteps('My App', true)
-    expect(steps).not.toMatch(/Allow Unsigned Extensions/)
-    expect(steps).toMatch(/Settings/)
-    expect(steps).toMatch(/Extensions/)
-
-    const hint = messages.safariOpenHint('/tmp/My App.app', 'My App', true)
+  it('enables the same way whatever signed the build', () => {
+    const hint = messages.safariOpenHint('/tmp/My App.app', 'My App')
     expect(hint).not.toMatch(/Allow Unsigned Extensions/)
     expect(hint).toMatch(/Settings/)
-    // The launch line is the same either way: registration still needs it.
+    // The launch line is still needed: registration happens on first open.
     expect(hint).toMatch(/My App\.app/)
+  })
+
+  it('names what a team id buys without claiming it changes loading', () => {
+    expect(messages.safariNextSteps('My App', true)).toMatch(/distribution/)
+    expect(messages.safariNextSteps('My App')).toMatch(/stays enabled/)
   })
 })
