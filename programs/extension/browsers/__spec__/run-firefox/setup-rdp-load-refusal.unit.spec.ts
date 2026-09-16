@@ -76,6 +76,7 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
       (error as {extensionLoadRefusedReason?: string})
         .extensionLoadRefusedReason
     ).toBeUndefined()
+
     expect((error as Error).message).toBe('socket closed')
   })
 

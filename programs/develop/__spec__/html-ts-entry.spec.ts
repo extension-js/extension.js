@@ -22,15 +22,18 @@ beforeAll(() => {
       action: {default_popup: 'popup.html'}
     })
   )
+
   write(
     'popup.html',
     '<html><body><script src="./popup.ts"></script></body></html>\n'
   )
+
   write('popup.ts', 'const n: number = 41\nconsole.log(n + 1)\n')
   write(
     'pages/custom.html',
     '<html><body><script type="module" src="./custom.ts"></script></body></html>\n'
   )
+
   write('pages/custom.ts', 'const w: string = "hi"\nexport const v = w\n')
 })
 

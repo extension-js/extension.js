@@ -31,6 +31,7 @@ describe('constants', () => {
       'vivaldi',
       'yandex'
     ])
+
     expect(GECKO_BASED_BROWSERS).toEqual(['firefox', 'waterfox', 'librewolf'])
     expect(SUPPORTED_BROWSERS).toEqual([
       'chrome',
@@ -50,6 +51,7 @@ describe('constants', () => {
       expect(isChromiumBasedBrowser(name), name).toBe(true)
       expect(isGeckoBasedBrowser(name), name).toBe(false)
     }
+
     for (const name of GECKO_FAMILY_ALIASES) {
       expect(isGeckoBasedBrowser(name), name).toBe(true)
       expect(isChromiumBasedBrowser(name), name).toBe(false)
@@ -67,20 +69,24 @@ describe('constants', () => {
     ]) {
       expect(isChromiumBasedBrowser(b)).toBe(true)
     }
+
     for (const b of ['firefox', 'waterfox', 'librewolf', 'gecko-based']) {
       expect(isGeckoBasedBrowser(b)).toBe(true)
     }
+
     expect(isChromiumBasedBrowser('firefox')).toBe(false)
     expect(isGeckoBasedBrowser('chrome')).toBe(false)
   })
 
   it('classifies safari as webkit and nothing else', () => {
     expect(WEBKIT_BASED_BROWSERS).toEqual(['safari'])
+
     for (const b of ['safari', 'webkit-based']) {
       expect(isWebkitBasedBrowser(b), b).toBe(true)
       expect(isChromiumBasedBrowser(b), b).toBe(false)
       expect(isGeckoBasedBrowser(b), b).toBe(false)
     }
+
     expect(isWebkitBasedBrowser('chrome')).toBe(false)
     expect(isWebkitBasedBrowser('firefox')).toBe(false)
   })

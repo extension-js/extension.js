@@ -20,18 +20,6 @@ import {normalizeIconIncludeKeys} from './normalize-keys'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {EmitFile} from './steps/emit-file'
 
-/**
- * IconsPlugin is responsible for handling the icon files defined
- * in the manifest.json. It emits the icon files to the output
- * directory and adds them to the file dependencies of the compilation.
- *
- * Features supported:
- * action.default_icon
- * browser_action.default_icon
- * icons
- * page_action.default_icon
- * sidebar_action.default_icon
- */
 export class IconsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList | {[x: string]: ThemeIcon}

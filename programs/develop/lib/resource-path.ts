@@ -10,7 +10,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 // Why this module exists
-// ----------------------
 // rspack hands loaders/rules a "canonical" (symlink-resolved) resource path. We
 // canonicalize our own manifest/package/include dirs with `realpathSync.native`
 // so they match it. The trap: `realpathSync.native` and `realpathSync` (and a
@@ -51,6 +50,7 @@ export function canonicalizeResourcePath(resourcePath: string): string {
   if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
     return resourcePath
   }
+
   try {
     return path.normalize(
       path.join(
@@ -69,10 +69,13 @@ export function toResourceKey(resourcePath: string): string {
   if (typeof resourcePath !== 'string' || resourcePath.length === 0) {
     return resourcePath
   }
+
   const key = canonicalizeResourcePath(path.resolve(resourcePath))
+
   if (process.platform === 'win32' && /^[a-zA-Z]:/.test(key)) {
     return key[0].toUpperCase() + key.slice(1)
   }
+
   return key
 }
 
@@ -80,10 +83,14 @@ export function toResourceKey(resourcePath: string): string {
 // suitable as an rspack rule include condition.
 export function isResourceUnderDirs(resource: string, dirs: string[]): boolean {
   if (typeof resource !== 'string' || resource.length === 0) return false
+
   const candidate = canonicalizeResourcePath(resource)
+
   return dirs.some((dir) => {
     if (candidate === dir) return true
+
     const rel = path.relative(dir, candidate)
+
     return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel)
   })
 }

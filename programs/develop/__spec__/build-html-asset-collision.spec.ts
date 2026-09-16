@@ -26,6 +26,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'assets', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -36,6 +37,7 @@ function project() {
       options_page: 'pages/b/index.html'
     })
   )
+
   fs.writeFileSync(path.join(root, 'pages', 'a', 'logo.png'), 'LOGO-A')
   fs.writeFileSync(path.join(root, 'pages', 'b', 'logo.png'), 'LOGO-B')
   fs.writeFileSync(path.join(outer, 'design', 'logo.png'), 'LOGO-OUTSIDE')
@@ -43,10 +45,12 @@ function project() {
     path.join(root, 'pages', 'a', 'index.html'),
     '<!doctype html><title>A</title><img id="own" src="./logo.png"><img id="outside" src="../../../design/logo.png">'
   )
+
   fs.writeFileSync(
     path.join(root, 'pages', 'b', 'index.html'),
     '<!doctype html><title>B</title><img id="own" src="./logo.png">'
   )
+
   return root
 }
 
@@ -54,6 +58,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -67,8 +72,10 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const page = (rel: string) => fs.readFileSync(path.join(distDir, rel), 'utf8')
+
   // Read an <img id> ref the way the browser resolves it from the page.
   const imageBytes = (pageRel: string, id: string) => {
     const html = page(pageRel)
@@ -82,8 +89,10 @@ async function build(root: string) {
     expect(rel.split('/')).not.toContain('..')
     const abs = path.join(distDir, rel)
     expect(fs.existsSync(abs), `${ref} missing from dist`).toBe(true)
+
     return fs.readFileSync(abs, 'utf8')
   }
+
   return {distDir, imageBytes}
 }
 

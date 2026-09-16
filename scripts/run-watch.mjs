@@ -26,6 +26,7 @@ const run = async () => {
   }
 
   const compileCode = await runCommand('pnpm', ['run', 'compile'], {env})
+
   if (compileCode !== 0) {
     return compileCode
   }

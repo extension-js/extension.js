@@ -4,6 +4,7 @@ import {iconOutputPath} from '../../normalize-manifest-path'
 
 export function omnibox(manifest: Manifest) {
   const omnibox = manifest.omnibox
+
   return (
     omnibox && {
       omnibox: {

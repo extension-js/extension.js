@@ -93,6 +93,7 @@ export class CDPExtensionController {
 
   async connect(): Promise<void> {
     if (this.cdp) return
+
     await this.connectFreshClient()
   }
 
@@ -100,6 +101,7 @@ export class CDPExtensionController {
   // effect (it only applies to tabs created AFTER registration). Best-effort.
   async openTab(url: string): Promise<void> {
     if (!this.cdp) return
+
     await this.cdp.sendCommand('Target.createTarget', {url})
   }
 
@@ -112,8 +114,10 @@ export class CDPExtensionController {
     // Only the extensions this session loads for itself count: a user
     // extension that opens its own pages/welcome.html must keep that tab.
     const selfIds = new Set<string>([DEVTOOLS_COMPANION_ID_CHROMIUM])
+
     for (const extensionPath of this.extensionPaths || []) {
       if (path.resolve(extensionPath) === path.resolve(this.outPath)) continue
+
       selfIds.add(expectedChromiumExtensionId(extensionPath))
     }
 
@@ -134,6 +138,7 @@ export class CDPExtensionController {
       await this.cdp.sendCommand('Target.closeTarget', {
         targetId: target.targetId
       })
+
       closed += 1
     }
 
@@ -154,14 +159,18 @@ export class CDPExtensionController {
 
     if (expectedId && declaresBackgroundContext(this.outPath)) {
       const present = await this.waitForExtensionTarget(expectedId, 12, 200)
+
       if (present) {
         if (!this.extensionId) this.extensionId = expectedId
+
         stampReadyExtensionId(this.outPath, expectedId)
+
         return {status: 'loaded', extensionId: expectedId}
       }
     }
 
     let outcome: LoadUnpackedOutcome
+
     try {
       outcome = await loadUnpacked(this.cdp, this.outPath)
     } catch {
@@ -171,6 +180,7 @@ export class CDPExtensionController {
     if (outcome.status === 'loaded') {
       // The browser's own id, so the banner stops relying on the path hash.
       if (!this.extensionId) this.extensionId = outcome.extensionId
+
       stampReadyExtensionId(this.outPath, outcome.extensionId)
     }
 
@@ -197,10 +207,12 @@ export class CDPExtensionController {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const targets = await this.cdp?.getTargets()
+
         if (
           (targets || []).some((t) => String(t?.url || '').startsWith(prefix))
-        )
+        ) {
           return true
+        }
       } catch {
         // Ignore a transient protocol hiccup and retry.
       }
@@ -253,6 +265,7 @@ export class CDPExtensionController {
 
     if (this.extensionId) {
       const ownership = this.classifyOwnership(this.extensionId)
+
       if (ownership === 'not_mine') {
         // Verifiably another extension, never adopt it.
         this.extensionId = null
@@ -265,11 +278,14 @@ export class CDPExtensionController {
             this.extensionId ||
             (await this.deriveExtensionIdFromTargets(4, 150))
           if (!candidate) continue
+
           const verdict = this.classifyOwnership(candidate)
+
           if (verdict === 'mine') {
             this.extensionId = candidate
             break
           }
+
           if (verdict === 'not_mine') {
             this.extensionId = null
             break
@@ -280,6 +296,7 @@ export class CDPExtensionController {
 
     if (this.extensionId) {
       stampReadyExtensionId(this.outPath, this.extensionId)
+
       try {
         let info: {
           extensionInfo?: {name?: string; version?: string}
@@ -321,6 +338,7 @@ export class CDPExtensionController {
       if (!this.extensionId) {
         throw new Error('Failed to determine extension ID via CDP')
       }
+
       stampReadyExtensionId(this.outPath, this.extensionId)
 
       await this.enableLogging()
@@ -362,6 +380,7 @@ export class CDPExtensionController {
     backoffMs = 200
   ): Promise<string | null> {
     if (!this.cdp) return null
+
     return await deriveExtensionIdFromTargetsHelper(
       this.cdp,
       this.outPath,
@@ -397,6 +416,7 @@ export class CDPExtensionController {
       await this.cdp.sendCommand('Target.setDiscoverTargets', {
         discover: true
       })
+
       await this.cdp.sendCommand('Target.setAutoAttach', {
         autoAttach: true,
         waitForDebuggerOnStart: false,
@@ -430,6 +450,7 @@ export class CDPExtensionController {
 
         for (const t of targets || []) {
           const type = String(t?.type || '')
+
           if (
             type === 'page' ||
             type === 'service_worker' ||
@@ -454,6 +475,7 @@ export class CDPExtensionController {
 
   private async enableLogging() {
     if (!this.cdp) return
+
     try {
       const extId = this.extensionId
       this.onProtocolEvent(async (message: CdpProtocolMessage) => {
@@ -503,18 +525,21 @@ export class CDPExtensionController {
   async getInfoBestEffort(): Promise<ExtensionInfoResult | null> {
     try {
       if (!this.cdp) return null
+
       if (!this.extensionId) {
         this.extensionId = await this.deriveExtensionIdFromTargets(6, 150)
       }
 
       if (this.extensionId) {
         const ownership = this.classifyOwnership(this.extensionId)
+
         if (ownership === 'not_mine') {
           this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
         } else if (ownership === 'unknown' && this.profilePath) {
           // Best-effort: the id is not confirmed ours, so re-derive rather than report a
           // possibly-foreign extension's name/version; adopt only if not verifiably another's.
           const rederived = await this.deriveExtensionIdFromTargets(6, 150)
+
           if (rederived && this.classifyOwnership(rederived) !== 'not_mine') {
             this.extensionId = rederived
           }
@@ -541,6 +566,7 @@ export class CDPExtensionController {
           // Ignore
         }
       }
+
       return {extensionId: this.extensionId, name, version}
     } catch (error) {
       return null

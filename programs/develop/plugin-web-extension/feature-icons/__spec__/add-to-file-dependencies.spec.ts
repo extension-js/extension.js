@@ -28,6 +28,7 @@ describe('AddToFileDependencies step', () => {
         thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
       }
     }
+
     return {compiler, compilation}
   }
 
@@ -95,6 +96,7 @@ describe('AddToFileDependencies step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/a.png']}
     } as any).apply(compiler as any)
+
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png'
     ])
@@ -111,6 +113,7 @@ describe('AddToFileDependencies step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/gone.png']}
     } as any).apply(compiler as any)
+
     expect(compilation.fileDependencies.size).toBe(0)
     expect(Array.from(compilation.missingDependencies)).toEqual([
       '/abs/assets/gone.png'

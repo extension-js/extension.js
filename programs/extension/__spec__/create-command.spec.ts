@@ -3,9 +3,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 vi.mock('extension-create', () => ({
   extensionCreate: vi.fn(async () => {})
 }))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
   resolveExtensionDevelopRoot: vi.fn(() => '/resolved/develop/root')
 }))
+
 vi.mock('../helpers/cli-package-json', () => ({
   getCliPackageJson: vi.fn(() => ({version: '9.9.9'}))
 }))
@@ -29,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   if (savedRoot === undefined) delete process.env.EXTENSION_CREATE_DEVELOP_ROOT
   else process.env.EXTENSION_CREATE_DEVELOP_ROOT = savedRoot
+
   vi.restoreAllMocks()
   vi.clearAllMocks()
 })
@@ -43,6 +46,7 @@ describe('extension create', () => {
     expect(process.env.EXTENSION_CREATE_DEVELOP_ROOT).toBe(
       '/resolved/develop/root'
     )
+
     expect(extensionCreate).toHaveBeenCalledWith('my-extension', {
       template: undefined,
       install: false,
@@ -54,6 +58,7 @@ describe('extension create', () => {
     expect(
       await run(['create', 'my-extension', '--template', 'react', '--install'])
     ).toBe(0)
+
     expect(extensionCreate).toHaveBeenCalledWith('my-extension', {
       template: 'react',
       install: true,
@@ -75,10 +80,12 @@ describe('extension create', () => {
       template: 'react',
       depsInstalled: false
     } as any)
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(
       await run(['create', 'my-extension', '--output', 'json', '-t', 'react'])
     ).toBe(0)
+
     expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
       schema: 1,
       ok: true,
@@ -100,8 +107,10 @@ describe('extension create', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(extensionCreate).mockImplementationOnce(async (_p, opts: any) => {
       opts.logger.log('Creating my-extension...')
+
       return undefined as any
     })
+
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(0)
     expect(errorSpy).toHaveBeenCalledWith('Creating my-extension...')
     // stdout carries the envelope and nothing else.
@@ -146,6 +155,7 @@ describe('extension create', () => {
         )
       )
     )
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
@@ -156,6 +166,7 @@ describe('extension create', () => {
       status: 'failed',
       value: null
     })
+
     expect(frame.error.code).toBe(code)
   })
 
@@ -163,6 +174,7 @@ describe('extension create', () => {
     vi.mocked(extensionCreate).mockRejectedValueOnce(
       new Error('something else broke')
     )
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
     expect(JSON.parse(String(logSpy.mock.calls[0][0])).error.code).toBe(

@@ -10,11 +10,13 @@ describe('discoverDevtoolsPanelPages', () => {
   function makeProject(files: Record<string, string>): string {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-panels-'))
     roots.push(root)
+
     for (const [rel, contents] of Object.entries(files)) {
       const abs = path.join(root, rel)
       fs.mkdirSync(path.dirname(abs), {recursive: true})
       fs.writeFileSync(abs, contents)
     }
+
     return root
   }
 

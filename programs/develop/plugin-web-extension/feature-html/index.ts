@@ -26,33 +26,6 @@ import {HandleCommonErrors} from './steps/handle-common-errors'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {UpdateHtmlFile} from './steps/update-html-file'
 
-/**
- * HtmlPlugin is responsible for handling the HTML file
- * defined in the manifest.json. Static assets and CSS files
- * within the HTML file are added to the compilation. JS files
- * are added as webpack entrypoints. It also supports ecxtra
- * html files defined via this.include option. These extra
- * html files are added to the compilation and are also HMR
- * enabled. They are useful for adding extra pages to the
- * extension runtime that are not defined in manifest.
- *
- * The plugin also has a guard against recompiling entrypoints
- * at runtime, throwing an error if any of those files change.
- *
- * Features supported:
- * action.default_popup - HMR enabled
- * background.page - HMR enabled
- * chrome_settings_overrides.homepage - HMR enabled
- * chrome_url_overrides.newtab - HMR enabled
- * chrome_url_overrides.history - HMR enabled
- * chrome_url_overrides.bookmarks - HMR enabled
- * devtools_page - HMR enabled
- * options_ui.page - HMR enabled
- * page_action.default_popup - HMR enabled
- * sandbox.page - HMR enabled
- * side_panel.default_panel - HMR enabled
- * sidebar_action.default_panel - HMR enabled
- */
 export class HtmlPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -98,8 +71,10 @@ export class HtmlPlugin {
     const devSession =
       this.devSession ??
       (compiler.options.mode || 'development') !== 'production'
+
     if (devSession) {
       const contentScriptEntryPaths = new Set<string>()
+
       try {
         // A browser-prefixed key is the only spelling this target sees, so the
         // page HMR loader has to skip content scripts declared under one too.
@@ -133,11 +108,13 @@ export class HtmlPlugin {
       const projectRoot = String(compiler.options.context || '')
       const pageDirs = new Set<string>([path.dirname(this.manifestPath)])
       if (projectRoot) pageDirs.add(projectRoot)
+
       for (const pagePath of Object.values(includeList)) {
         if (typeof pagePath === 'string' && pagePath) {
           pageDirs.add(path.dirname(pagePath))
         }
       }
+
       const frameworkOwnsRefresh = Boolean(
         projectRoot &&
           (isUsingReact(projectRoot) ||

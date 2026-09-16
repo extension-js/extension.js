@@ -178,6 +178,7 @@ describe('--no-open suppresses the starting URL', () => {
         'development'
       ).noOpen
     ).toBe(true)
+
     expect(
       buildBrowserLaunchRequest(
         {browser: 'firefox', startingUrl: URL} as any,

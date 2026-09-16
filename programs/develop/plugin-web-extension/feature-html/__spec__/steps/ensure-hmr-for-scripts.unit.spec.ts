@@ -14,11 +14,14 @@ function makeLoaderCtx(options: any) {
 function runLoader(ctx: any, src: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let wentAsync = false
+
     ctx.async = () => {
       wentAsync = true
+
       return (err: unknown, result?: string) =>
         err ? reject(err) : resolve(result as string)
     }
+
     const out = ensureHMRForScripts.call(ctx, src)
     if (!wentAsync) resolve(out as string)
   })
@@ -151,6 +154,7 @@ describe('ensureHMRForScripts loader', () => {
         'firefox:content_scripts': [{js: ['other.ts']}]
       })
     )
+
     fs.writeFileSync(pageScriptPath, 'console.log("page")')
 
     const src = 'console.log("page")'
@@ -186,6 +190,7 @@ describe('ensureHMRForScripts loader', () => {
       manifestPath,
       JSON.stringify({content_scripts: [{js: ['content.ts']}]})
     )
+
     fs.writeFileSync(contentScriptPath, 'console.log("content")')
     fs.writeFileSync(importedPath, 'console.log("imported")')
 

@@ -21,10 +21,12 @@ function makeCompiler(ctx: string, outPath: string) {
       }
     }
   }
+
   return {
     compiler,
     emitDone: async (stats: any = {compilation: {warnings: []}}) => {
       await doneCb(stats)
+
       return stats
     }
   }
@@ -53,6 +55,7 @@ describe('a source zip never carries a companion extension', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'Mine', version: '1.0.0', manifest_version: 3})
     )
+
     write(path.join(tmp, 'src', 'popup.js'), 'console.log(1)')
     write(
       path.join(tmp, 'extensions', 'a-companion', 'manifest.json'),
@@ -63,10 +66,12 @@ describe('a source zip never carries a companion extension', () => {
         host_permissions: ['<all_urls>']
       })
     )
+
     write(
       path.join(tmp, 'extensions', 'a-companion', 'background.js'),
       'chrome.cookies.getAll({}, () => {})'
     )
+
     fs.mkdirSync(outPath, {recursive: true})
 
     const {compiler, emitDone} = makeCompiler(tmp, outPath)
@@ -74,6 +79,7 @@ describe('a source zip never carries a companion extension', () => {
       browser: 'chrome',
       zipData: {zipSource: true}
     }).apply(compiler)
+
     await emitDone()
 
     const added = readZipEntries(
@@ -91,6 +97,7 @@ describe('a source zip never carries a companion extension', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'Mine', version: '1.0.0', manifest_version: 3})
     )
+
     write(path.join(tmp, 'extensions-helper.js'), 'export const a = 1')
     write(path.join(tmp, 'src', 'extensions', 'util.js'), 'export const b = 2')
     fs.mkdirSync(outPath, {recursive: true})
@@ -100,6 +107,7 @@ describe('a source zip never carries a companion extension', () => {
       browser: 'chrome',
       zipData: {zipSource: true}
     }).apply(compiler)
+
     await emitDone()
 
     const added = readZipEntries(

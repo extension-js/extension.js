@@ -3,40 +3,52 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 vi.mock('../steps/create-directory', () => ({
   createDirectory: async () => undefined
 }))
+
 vi.mock('../steps/import-external-template', () => ({
   DEFAULT_TEMPLATE_NAME: 'typescript',
   importExternalTemplate: async () => undefined
 }))
+
 vi.mock('../steps/write-package-json', () => ({
   overridePackageJson: async () => undefined
 }))
+
 vi.mock('../steps/write-deno-jsonc', () => ({
   writeDenoJsonc: async () => undefined
 }))
+
 vi.mock('../steps/install-dependencies', () => ({
   installDependencies: async () => undefined
 }))
+
 vi.mock('../steps/install-internal-deps', () => ({
   installInternalDependencies: async () => undefined
 }))
+
 vi.mock('../steps/write-readme-file', () => ({
   writeReadmeFile: async () => undefined
 }))
+
 vi.mock('../steps/write-manifest-json', () => ({
   writeManifestJson: async () => undefined
 }))
+
 vi.mock('../steps/initialize-git-repository', () => ({
   initializeGitRepository: async () => undefined
 }))
+
 vi.mock('../steps/write-gitignore', () => ({
   writeGitignore: async () => undefined
 }))
+
 vi.mock('../steps/setup-built-in-tests', () => ({
   setupBuiltInTests: async () => undefined
 }))
+
 vi.mock('../steps/generate-extension-types', () => ({
   generateExtensionTypes: async () => undefined
 }))
+
 vi.mock('../lib/utils', () => ({
   isTypeScriptTemplate: () => false
 }))

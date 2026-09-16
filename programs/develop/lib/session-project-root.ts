@@ -25,8 +25,10 @@ function isLocalDirectory(candidate: string): boolean {
 export function resolveSessionProjectRoot(pathArg?: string): string {
   const inputPath = path.resolve(pathArg || process.cwd())
   if (!isLocalDirectory(inputPath)) return inputPath
+
   try {
     const structure = resolveProjectStructureSync(inputPath, {quiet: true})
+
     return getDirs(structure).packageJsonDir
   } catch {
     return inputPath

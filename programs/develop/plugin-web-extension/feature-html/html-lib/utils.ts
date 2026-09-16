@@ -39,8 +39,10 @@ const assetsFromHtmlCache = new Map<
 export function evictAssetsFromHtmlCache(htmlFilePath?: string): void {
   if (htmlFilePath === undefined) {
     assetsFromHtmlCache.clear()
+
     return
   }
+
   assetsFromHtmlCache.delete(htmlFilePath)
 }
 
@@ -67,6 +69,7 @@ export function getAssetsFromHtml(
       cacheKey = `${stat.mtimeMs}:${stat.size}`
 
       const cached = assetsFromHtmlCache.get(htmlFilePath)
+
       if (cached && cached.key === cacheKey) {
         return cloneParsedHtmlAsset(cached.assets)
       }
@@ -92,6 +95,7 @@ export function getAssetsFromHtml(
       filePathWithParts: string
     ) => {
       const {cleanPath} = cleanAssetUrl(filePathWithParts)
+
       return resolveHtmlRefPath(htmlFilePath, baseHref, cleanPath)
     }
 
@@ -107,11 +111,14 @@ export function getAssetsFromHtml(
             const scriptType = childNode?.attrs?.find(
               (attr) => attr.name === 'type'
             )?.value
+
             if (String(scriptType || '').toLowerCase() === 'module') {
               assets.moduleJs?.push(fileAbsolutePath)
             }
+
             break
           }
+
           case 'css':
             assets.css?.push(fileAbsolutePath)
             break
@@ -120,6 +127,7 @@ export function getAssetsFromHtml(
             if (filePath.startsWith('#')) {
               break
             }
+
             assets.static?.push(fileAbsolutePath)
             break
           default:
@@ -131,10 +139,13 @@ export function getAssetsFromHtml(
     // A deleted HTML file must error, not report an empty page: callers gate
     // on existsSync when a missing file is a state they expect and handle.
     const code = (error as NodeJS.ErrnoException | undefined)?.code
+
     if (htmlContent === undefined && code === 'ENOENT') {
       assetsFromHtmlCache.delete(htmlFilePath)
+
       throw error
     }
+
     return assets
   }
 
@@ -159,7 +170,9 @@ export function getHtmlPageDeclaredAssetPath(
       if (includePath === filePath) return true
 
       if (!includePath || !fs.existsSync(includePath)) return false
+
       const assets = getAssetsFromHtml(includePath)
+
       return Boolean(
         assets?.js?.includes(filePath) || assets?.css?.includes(filePath)
       )
@@ -183,6 +196,7 @@ export function getFilePath(
   if (isPublic) {
     return `/${filePath}${extension}`
   }
+
   return `${filePath}${extension}`
 }
 
@@ -199,6 +213,7 @@ export function isUrl(src: string) {
   try {
     // eslint-disable-next-line no-new
     new URL(src)
+
     return true
   } catch (err) {
     return false
@@ -212,6 +227,7 @@ export function resolveStaticAttributeName(
   attributeName?: HtmlStaticAttribute
 ): HtmlStaticAttribute {
   if (attributeName) return attributeName
+
   return assetType === 'staticSrc' ? 'src' : 'href'
 }
 
@@ -230,6 +246,7 @@ export function rewriteSrcsetCandidate(
 
       const [, lead, url, rest] = match
       const {cleanPath} = cleanAssetUrl(url)
+
       if (cleanPath !== fromCleanPath && url !== fromCleanPath) {
         return candidate
       }
@@ -247,6 +264,7 @@ export function applyRewrittenStaticUrl(
 ): parse5utilities.ParsedNode {
   if (attributeName === 'srcset' || attributeName === 'imagesrcset') {
     const current = parse5utilities.getAttribute(node, attributeName) || ''
+
     return parse5utilities.setAttribute(
       node,
       attributeName,
@@ -265,6 +283,7 @@ export function cleanAssetUrl(url: string): {
   const hashIndex = url.indexOf('#')
   const queryIndex = url.indexOf('?')
   let endIndex = url.length
+
   if (hashIndex !== -1 && queryIndex !== -1) {
     endIndex = Math.min(hashIndex, queryIndex)
   } else if (hashIndex !== -1) {
@@ -279,6 +298,7 @@ export function cleanAssetUrl(url: string): {
     queryIndex !== -1
       ? url.slice(queryIndex, hashIndex !== -1 ? hashIndex : undefined)
       : ''
+
   return {cleanPath, hash, search}
 }
 
@@ -300,6 +320,7 @@ export function joinEmittedAssetName(prefix: string, rel: string): string {
   const parts = path.posix.join(prefix, rel).split('/')
   let i = 0
   while (i < parts.length && (parts[i] === '..' || parts[i] === '.')) i++
+
   return parts.slice(i).join('/') || path.posix.basename(rel)
 }
 
@@ -315,14 +336,17 @@ export function htmlStaticAssetOutputName(
 ): string {
   if (typeof manifestDir === 'string' && manifestDir) {
     const rel = path.relative(manifestDir, absolutePath)
+
     if (rel && !path.isAbsolute(rel)) {
       const posix = rel.split(path.sep).join('/')
       const escapes = posix.split('/').includes('..')
+
       return escapes
         ? externalAssetOutputPath(posix, 'assets')
         : joinEmittedAssetName('assets', posix)
     }
   }
+
   return joinEmittedAssetName(
     'assets',
     computePosixRelative(htmlEntry, absolutePath)
@@ -332,6 +356,7 @@ export function htmlStaticAssetOutputName(
 export function computePosixRelative(fromPath: string, toPath: string): string {
   const fromRoot = path.parse(fromPath).root
   const toRoot = path.parse(toPath).root
+
   if (
     fromRoot &&
     toRoot &&
@@ -339,9 +364,12 @@ export function computePosixRelative(fromPath: string, toPath: string): string {
   ) {
     // Cross-drive on Windows: fall back to basename to avoid absolute-in-assets
     const base = path.basename(toPath)
+
     return base.split(path.sep).join('/')
   }
+
   const rel = path.relative(path.dirname(fromPath), toPath) || toPath
+
   return rel.split(path.sep).join('/')
 }
 
@@ -350,7 +378,6 @@ export function resolveAbsoluteFsPath(params: {
   projectRoot: string
   publicRootForResource: string
   outputRoot: string
-  /** Manifest dir: Chrome resolves root URLs (/pages/x.html) against it. */
   manifestRoot?: string
 }): {absoluteFsPath: string; isUnderPublicRoot: boolean; isRootUrl: boolean} {
   const {asset, projectRoot, publicRootForResource, outputRoot, manifestRoot} =
@@ -362,19 +389,23 @@ export function resolveAbsoluteFsPath(params: {
       asset.startsWith(publicRootForResource) ||
       asset.startsWith(outputRoot)
     )
+
   // A page ref that climbs out of the project root arrives as an absolute
   // path that also starts with '/'. It is a root URL only when the
   // extension root claims it or no such file exists on disk.
   const rootUrlIsClaimed = (value: string) => {
     const normalized = cleanLeading(value.slice(1))
     const withoutPublicPrefix = normalized.replace(/^public\//, '')
+
     if (fs.existsSync(path.join(publicRootForResource, withoutPublicPrefix))) {
       return true
     }
+
     return Boolean(
       manifestRoot && fs.existsSync(path.join(manifestRoot, normalized))
     )
   }
+
   const isRootUrl =
     looksLikeRootUrl && (rootUrlIsClaimed(asset) || !fs.existsSync(asset))
   const isDotPublic = asset.startsWith('./public/')
@@ -387,14 +418,17 @@ export function resolveAbsoluteFsPath(params: {
         const withoutPublicPrefix = normalized.replace(/^public\//, '')
         const candidate = path.join(publicRootForResource, withoutPublicPrefix)
         if (fs.existsSync(candidate)) return candidate
+
         // Chrome serves /pages/x.html manifest-relative; resolve the SOURCE file
         // there. Never fall back into outputRoot: re-reading emitted output loops.
         const manifestCandidate = manifestRoot
           ? path.join(manifestRoot, normalized)
           : ''
+
         if (manifestCandidate && fs.existsSync(manifestCandidate)) {
           return manifestCandidate
         }
+
         return manifestCandidate || candidate
       })()
     : isDotPublic
@@ -442,9 +476,11 @@ export function resolveHtmlRefPath(
   if (!baseHref || isUrl(baseHref)) return pageRelative
 
   const throughBase = path.join(htmlDir, baseHref, cleanPath)
+
   if (fs.existsSync(throughBase) || !fs.existsSync(pageRelative)) {
     return throughBase
   }
+
   return pageRelative
 }
 
@@ -458,10 +494,13 @@ export function getBaseNode(htmlDocument: {
   childNodes?: unknown
 }): BaseHrefNode | undefined {
   const htmlChildren = (htmlDocument.childNodes || []) as BaseHrefNode[]
+
   for (const node of htmlChildren) {
     if (node?.nodeName !== 'html') continue
+
     for (const child of node.childNodes || []) {
       if (child?.nodeName !== 'head') continue
+
       for (const headChild of child.childNodes || []) {
         if (headChild?.nodeName === 'base') {
           const href = headChild.attrs?.find((a) => a.name === 'href')?.value
@@ -470,5 +509,6 @@ export function getBaseNode(htmlDocument: {
       }
     }
   }
+
   return undefined
 }

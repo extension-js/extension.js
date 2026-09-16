@@ -32,6 +32,7 @@ const stems = [
 // missing-output regression.
 async function readFileWithRetries(filePath) {
   const maxAttempts = 10
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await fs.readFile(filePath)
@@ -40,9 +41,11 @@ async function readFileWithRetries(filePath) {
         error?.code === 'ENOENT' ||
         error?.code === 'EBUSY' ||
         error?.code === 'EPERM'
+
       if (!isTransient || attempt === maxAttempts) {
         throw error
       }
+
       await new Promise((resolve) => setTimeout(resolve, 100 * attempt))
     }
   }

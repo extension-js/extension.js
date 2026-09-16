@@ -19,6 +19,7 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
     readReadyContract: () => bridge.ready,
     readControlToken: (...args: unknown[]) => {
       bridge.tokenReads.push(args)
+
       return bridge.token
     },
     BridgeController: class {
@@ -34,6 +35,7 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
       async command(payload: any) {
         bridge.commands.push(payload)
         if (bridge.commandError) throw bridge.commandError
+
         return bridge.result
       }
       close() {
@@ -82,12 +84,14 @@ describe('extension eval', () => {
       instanceId: 'inst-1',
       token: 'tok-1'
     })
+
     expect(bridge.commands[0]).toMatchObject({
       op: 'eval',
       target: {context: 'background'},
       args: {expression: '6*7'},
       timeoutMs: 5000
     })
+
     expect(logSpy).toHaveBeenCalledWith('42')
     expect(bridge.controllers[0].closed).toBe(true)
   })
@@ -110,10 +114,12 @@ describe('extension eval', () => {
         'json'
       ])
     ).toBe(0)
+
     expect(bridge.commands[0]).toMatchObject({
       target: {context: 'content', url: '*example*', tabId: 7},
       timeoutMs: 250
     })
+
     // The frame is the schema-1 envelope now, so assert the fields this test
     // is about rather than the whole shape: envelope.spec.ts owns the shape.
     expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
@@ -165,6 +171,7 @@ describe('extension eval', () => {
       ok: false,
       error: {name: 'EvalError', message: 'denied', engine: 'chromium'}
     }
+
     expect(await run(['eval', '1+1'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toBe(
       'EvalError: denied (engine: chromium)'
@@ -203,6 +210,7 @@ describe('extension storage', () => {
     expect(
       await run(['storage', 'get', '--area', 'sync', '--key', 'theme'])
     ).toBe(0)
+
     expect(bridge.commands[0].args).toEqual({area: 'sync', key: 'theme'})
   })
 
@@ -210,6 +218,7 @@ describe('extension storage', () => {
     expect(
       await run(['storage', 'set', '--key', 'count', '--value', '3'])
     ).toBe(0)
+
     expect(bridge.commands[0]).toMatchObject({
       op: 'storage.set',
       args: {area: 'local', items: {count: 3}}
@@ -219,6 +228,7 @@ describe('extension storage', () => {
     expect(
       await run(['storage', 'set', '--key', 'name', '--value', 'not json {'])
     ).toBe(0)
+
     expect(bridge.commands[0].args.items).toEqual({name: 'not json {'})
   })
 
@@ -268,6 +278,7 @@ describe('extension inspect', () => {
         '1024'
       ])
     ).toBe(0)
+
     expect(bridge.commands[0].args).toEqual({
       include: ['html', 'summary'],
       maxBytes: 1024
@@ -285,6 +296,7 @@ describe('extension inspect', () => {
 
   it('augments the result with recent console lines via --with-console', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-act-'))
+
     try {
       const out = path.join(dir, 'dist', 'extension-js', 'chromium')
       fs.mkdirSync(out, {recursive: true})
@@ -306,10 +318,12 @@ describe('extension inspect', () => {
         ].join('\n'),
         'utf8'
       )
+
       bridge.result = {ok: true, value: {summary: {}}}
       expect(
         await run(['inspect', dir, '--with-console', '1', '--output', 'json'])
       ).toBe(0)
+
       const printed = JSON.parse(String(logSpy.mock.calls[0][0]))
       expect(printed.console).toHaveLength(1)
       expect(printed.console[0]).toMatchObject({seq: 2, level: 'warn'})

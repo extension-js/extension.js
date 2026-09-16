@@ -6,8 +6,9 @@ import {extractActionThemeIcons} from '../extract-action-theme-icons'
 
 const dirs: string[] = []
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function manifestWith(content: unknown) {
@@ -15,6 +16,7 @@ function manifestWith(content: unknown) {
   dirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(content))
+
   return {dir, manifestPath}
 }
 
@@ -50,6 +52,7 @@ describe('extractActionThemeIcons', () => {
     expect(extractActionThemeIcons(manifestPath, 'firefox')).toEqual({
       'action/theme_icons': [path.join(dir, 'l.png'), path.join(dir, 'd.png')]
     })
+
     // Another browser's prefix stays out of this build.
     expect(extractActionThemeIcons(manifestPath, 'chrome')).toEqual({})
   })

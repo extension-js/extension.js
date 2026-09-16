@@ -10,9 +10,11 @@ function projectWith(config: string | null): string {
     path.join(dir, 'package.json'),
     '{"name":"probe","type":"module"}'
   )
+
   if (config !== null) {
     fs.writeFileSync(path.join(dir, 'extension.config.js'), config)
   }
+
   return dir
 }
 
@@ -32,6 +34,7 @@ describe('resolveNoBrowser', () => {
     await expect(resolveNoBrowser(projectWith(null), 'dev')).resolves.toBe(
       false
     )
+
     const dir = projectWith('export default {commands: {dev: {}}}')
     await expect(resolveNoBrowser(dir, 'dev')).resolves.toBe(false)
   })

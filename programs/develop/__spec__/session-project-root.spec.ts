@@ -11,6 +11,7 @@ const created: string[] = []
 function makeTempDir(prefix: string): string {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)))
   created.push(dir)
+
   return dir
 }
 
@@ -90,6 +91,7 @@ describe('resolveSessionProjectRoot', () => {
     fs.writeFileSync(path.join(root, 'package.json'), '{"name":"ext"}')
     writeManifest(path.join(root, 'packages', 'one'))
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       expect(resolveSessionProjectRoot(root)).toBe(root)
       expect(log).not.toHaveBeenCalled()

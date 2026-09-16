@@ -61,6 +61,7 @@ describe('runOnlyPreviewBrowser', () => {
       }),
       {enableCdpPostLaunch: false}
     )
+
     expect(printProdBannerOnce).toHaveBeenCalledWith({
       browser: 'chromium',
       outPath: '/tmp/ext',
@@ -162,6 +163,7 @@ describe('runOnlyPreviewBrowser', () => {
         geckoBinary: undefined
       })
     )
+
     expect(printProdBannerOnce).toHaveBeenCalledWith({
       browser: 'firefox',
       outPath: '/tmp/ext-firefox',

@@ -20,6 +20,7 @@ describe('findInjectedOnlyPermissionUses', () => {
     const abs = path.join(tmp, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
+
     return abs
   }
 

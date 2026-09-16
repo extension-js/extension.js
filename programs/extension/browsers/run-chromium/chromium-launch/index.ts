@@ -136,15 +136,18 @@ async function maybePrintLaunchBanner(args: {
       binaryPath: args.binaryPath,
       binaryProvenance: args.binaryProvenance
     })
+
     return
   }
 
   if (mode !== 'development') return
+
   const ready = await waitForStableManifest(extensionOutputPath, {
     timeoutMs: 10000
   })
   if (!ready) return
   if (args.enableCdp) return
+
   await printDevBannerOnce({
     browser: args.browser,
     outPath: extensionOutputPath,
@@ -160,15 +163,6 @@ async function maybePrintLaunchBanner(args: {
 // Shared with the Firefox launcher; re-exported here for existing importers.
 export {stampReadyBrowserExited}
 
-/**
- * ChromiumLaunchPlugin
- *
- * Intended responsibilities (will be wired incrementally without changing inner logic):
- * - Resolve binary; compose flags (profiles, excludes, overrides)
- * - Allocate CDP port; spawn process; setup signals; dry-run
- * - Connect CDP; ensure extension loaded; print dev banner
- * - Publish controller + port via ChromiumContext
- */
 export class ChromiumLaunchPlugin {
   private didLaunch = false
   private didReportReady = false
@@ -221,6 +215,7 @@ export class ChromiumLaunchPlugin {
         debug: (...a: unknown[]) => console.debug?.(...a)
       } as BrowserLogger
     }
+
     await this.launchChromium(compilation, opts)
   }
 
@@ -255,6 +250,7 @@ export class ChromiumLaunchPlugin {
 
         if (hasErrors) {
           this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
+
           return
         }
 
@@ -264,6 +260,7 @@ export class ChromiumLaunchPlugin {
 
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
+
         if (!this.didReportReady && !this.extensionLoadRefused) {
           // Use the human sink so the message is always visible; infrastructure
           // logging level is 'error' by default, which suppresses logger.info()
@@ -297,11 +294,14 @@ export class ChromiumLaunchPlugin {
     if (this.options?.chromiumBinary) {
       const requested = String(this.options.chromiumBinary)
       const normalizedEarly = normalizeBinaryPathForWsl(requested)
+
       if (!normalizedEarly || !fs.existsSync(normalizedEarly)) {
         humanError(messages.invalidChromiumBinaryPath(requested))
+
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           throw new Error(`Invalid --chromium-binary path: ${requested}`)
         }
+
         process.exit(1)
       }
     }
@@ -321,8 +321,10 @@ export class ChromiumLaunchPlugin {
           : 'chromium-mock-binary',
         []
       )
+
       return
     }
+
     // A pinned binary used to fall through to discovery, which probes the
     // filesystem for real browsers and took minutes on a Windows runner.
     if (inTestRunner && dryRun) {
@@ -332,6 +334,7 @@ export class ChromiumLaunchPlugin {
           ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
           : 'chromium-mock-binary'
       )
+
       return
     }
 
@@ -341,13 +344,18 @@ export class ChromiumLaunchPlugin {
     let printedGuidance = false
     let binaryPinnedByFlag = false
     let usedManagedSnapshot = false
+
     const normalizePath = (p: string | null): string | null => {
       if (!p) return null
+
       const normalized = normalizeBinaryPathForWsl(p)
+
       return normalized || null
     }
+
     const isUsableBinary = (p: string | null): p is string =>
       Boolean(p && fs.existsSync(p))
+
     const resolveManagedBinary = (): string | null => {
       try {
         const resolved = binariesResolver.resolveFromBinaries(
@@ -359,13 +367,16 @@ export class ChromiumLaunchPlugin {
               : 'chrome'
         )
         const normalized = normalizePath(resolved || null)
+
         return isUsableBinary(normalized) ? normalized : null
       } catch {
         return null
       }
     }
+
     const resolveWslFallback = (): string | null =>
       resolveWslWindowsBinary(browser)
+
     const getInstallGuidanceText = (
       target: 'chrome' | 'chromium' | 'edge'
     ): string => {
@@ -380,6 +391,7 @@ export class ChromiumLaunchPlugin {
             ]
           })
         }
+
         if (target === 'chromium') {
           // Chrome for Testing first: it tracks the stable channel Chrome users run,
           // and the chromium-family launch fallback picks it up automatically.
@@ -397,6 +409,7 @@ export class ChromiumLaunchPlugin {
             ]
           })
         }
+
         return getChromeInstallGuidance({
           steps: [
             {
@@ -410,6 +423,7 @@ export class ChromiumLaunchPlugin {
         return `npx extension install ${target}`
       }
     }
+
     const printInstallGuidance = (
       raw: string,
       browserName: ChromiumLaunchOptions['browser'] | 'edge' | 'chromium'
@@ -425,15 +439,20 @@ export class ChromiumLaunchPlugin {
       this.options?.chromiumBinary != null
         ? String(this.options.chromiumBinary)
         : ''
+
     if (requestedPin) {
       const normalized = normalizePath(requestedPin)
+
       if (!normalized || !isUsableBinary(normalized)) {
         humanError(messages.invalidChromiumBinaryPath(requestedPin))
+
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
         }
+
         process.exit(1)
       }
+
       browserBinaryLocation = normalized
       binaryPinnedByFlag = true
     } else {
@@ -448,6 +467,7 @@ export class ChromiumLaunchPlugin {
       !binaryPinnedByFlag
     ) {
       let systemBinary: string | null = null
+
       try {
         // System scan only: drop the managed-cache env so the cache can't
         // answer for itself, and reject cache-like paths in the chooser.
@@ -457,6 +477,7 @@ export class ChromiumLaunchPlugin {
       } catch {
         // Ignore
       }
+
       const choice = utils.chooseChromiumBinaryPreferringStable({
         managedSnapshotBinary: browserBinaryLocation,
         systemBinary: isUsableBinary(systemBinary) ? systemBinary : null,
@@ -468,6 +489,7 @@ export class ChromiumLaunchPlugin {
             .toLowerCase()
             .trim() === 'true'
       })
+
       if (choice.swappedToSystem && choice.binary) {
         humanWarn(
           messages.preferringSystemBrowserOverSnapshot(
@@ -475,6 +497,7 @@ export class ChromiumLaunchPlugin {
             browserBinaryLocation
           )
         )
+
         browserBinaryLocation = choice.binary
       } else if (choice.usedManagedSnapshot) {
         usedManagedSnapshot = true
@@ -483,6 +506,7 @@ export class ChromiumLaunchPlugin {
     }
 
     let skipDetection = Boolean(browserBinaryLocation)
+
     if (!binaryPinnedByFlag && !browserBinaryLocation && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native browser so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c when none is available.
@@ -500,6 +524,7 @@ export class ChromiumLaunchPlugin {
         }
       }
     }
+
     // Swap any Chrome wrapper script for the real binary under WSL+GUI,
     // because the wrapper closes extra FDs on exec, breaking CDP pipe.
     // A user pin is the binary they asked to run; do not rewrite it.
@@ -513,6 +538,7 @@ export class ChromiumLaunchPlugin {
     const looksOfficialChromeBinaryPath = (bin: string): boolean => {
       const p = String(bin || '')
       if (!p) return false
+
       if (
         /\/Applications\/Google Chrome(?: (?:Beta|Dev|Canary))?\.app\/Contents\/MacOS\/Google Chrome/i.test(
           p
@@ -520,9 +546,11 @@ export class ChromiumLaunchPlugin {
       ) {
         return true
       }
+
       if (/\\Google\\Chrome\\Application\\chrome\.exe$/i.test(p)) return true
       if (/\/opt\/google\/chrome\//i.test(p)) return true
       if (/\/google-chrome(?:-stable)?$/i.test(p)) return true
+
       return false
     }
 
@@ -534,38 +562,48 @@ export class ChromiumLaunchPlugin {
     })
 
     const isAuthorMode = isDebug()
+
     const resolveChromeLikeBinary = (): string | null => {
       try {
         try {
           const env = managedEnvFor('chrome')
           const located = locateChrome(true, {env}) || null
           if (!located) throw new Error(getInstallGuidanceText('chrome'))
+
           const normalized = normalizePath(located || null)
+
           if (isUsableBinary(normalized)) {
             if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
               printInstallGuidance(getInstallGuidanceText('chrome'), browser)
+
               return null
             }
+
             return normalized
           }
+
           return null
         } catch (err) {
           const env = managedEnvFor('chrome')
           let candidate: string | null = locateChrome(true, {env}) || null
           const normalized = normalizePath(candidate || null)
+
           if (normalized) {
             if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
               printInstallGuidance(getInstallGuidanceText('chrome'), browser)
               candidate = null
             }
           }
+
           const resolved = normalizePath(candidate || null)
           const fallback = resolved || resolveWslFallback()
           if (!fallback) throw err
+
           return fallback
         }
       } catch (error) {
         printInstallGuidance(String(error), browser)
+
         return null
       }
     }
@@ -578,6 +616,7 @@ export class ChromiumLaunchPlugin {
           if (!skipDetection) {
             browserBinaryLocation = resolveChromeLikeBinary()
           }
+
           break
         }
 
@@ -586,6 +625,7 @@ export class ChromiumLaunchPlugin {
         case 'brave':
         case 'opera':
         case 'vivaldi':
+
         case 'yandex': {
           if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
@@ -601,6 +641,7 @@ export class ChromiumLaunchPlugin {
                       : locateYandex
               const located = locate(true, {env: process.env})
               const normalized = normalizePath(located || null)
+
               if (normalized && fs.existsSync(normalized)) {
                 browserBinaryLocation = normalized
               }
@@ -612,6 +653,7 @@ export class ChromiumLaunchPlugin {
           if (!browserBinaryLocation) {
             browserBinaryLocation = resolveWslFallback()
           }
+
           break
         }
 
@@ -625,17 +667,21 @@ export class ChromiumLaunchPlugin {
               const env = managedEnvFor('chromium')
               const p = locateChromium({env})
               const normalized = normalizePath(p || null)
+
               if (normalized && typeof normalized === 'string') {
-                if (fs.existsSync(normalized))
+                if (fs.existsSync(normalized)) {
                   browserBinaryLocation = normalized
+                }
               }
             } catch {
               // Ignore
             }
           }
+
           if (!browserBinaryLocation) {
             browserBinaryLocation = resolveWslFallback()
           }
+
           break
         }
 
@@ -644,8 +690,10 @@ export class ChromiumLaunchPlugin {
 
           try {
             const override = String(process.env.EDGE_BINARY || '').trim()
+
             if (override) {
               const normalized = normalizePath(override)
+
               if (normalized && fs.existsSync(normalized)) {
                 browserBinaryLocation = normalized
               } else {
@@ -656,15 +704,18 @@ export class ChromiumLaunchPlugin {
               const located = locateEdge({env})
               const normalized = normalizePath(located || null)
               browserBinaryLocation = normalized
+
               if (
                 !browserBinaryLocation ||
                 !fs.existsSync(String(browserBinaryLocation))
               ) {
                 const fallback = resolveWslWindowsBinary(browser)
+
                 if (fallback) {
                   browserBinaryLocation = fallback
                   break
                 }
+
                 const guidance = getInstallGuidanceText('edge')
 
                 printInstallGuidance(guidance, 'edge')
@@ -681,6 +732,7 @@ export class ChromiumLaunchPlugin {
             const guidance = getInstallGuidanceText('edge')
 
             const fallback = resolveWslFallback()
+
             if (fallback) {
               browserBinaryLocation = fallback
             } else {
@@ -696,15 +748,18 @@ export class ChromiumLaunchPlugin {
               }
             }
           }
+
           break
         }
 
         case 'chromium-based': {
           // A pin is handled above. This target has no managed/system default.
           humanError(messages.requireChromiumBinaryForChromiumBased())
+
           if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
             throw new Error('chromium-based requires --chromium-binary')
           }
+
           process.exit(1)
           break
         }
@@ -719,11 +774,14 @@ export class ChromiumLaunchPlugin {
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
       if (binaryPinnedByFlag) {
         humanError(messages.invalidChromiumBinaryPath(requestedPin))
+
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
         }
+
         process.exit(1)
       }
+
       browserBinaryLocation = browserBinaryLocation || resolveManagedBinary()
 
       if (!browserBinaryLocation) {
@@ -750,6 +808,7 @@ export class ChromiumLaunchPlugin {
               normalized
             )
           )
+
           browserBinaryLocation = normalized
         }
       }
@@ -773,6 +832,7 @@ export class ChromiumLaunchPlugin {
                 offerTarget === 'edge'
                   ? locateEdge({env})
                   : locateChrome(true, {env})
+
               return normalizePath(located || null)
             } catch {
               return null
@@ -811,8 +871,10 @@ export class ChromiumLaunchPlugin {
     }
 
     let browserVersionLine: string | undefined
+
     try {
       const vLine = getBrowserVersionLine(browserBinaryLocation)
+
       if (vLine && vLine.trim().length > 0) {
         browserVersionLine = vLine.trim()
       }
@@ -845,6 +907,7 @@ export class ChromiumLaunchPlugin {
           fs.readFileSync(path.join(String(extPath), 'manifest.json'), 'utf8')
         )
         const refusal = diagnoseChromiumManifestRefusal(m)
+
         if (refusal === 'mv2') {
           humanWarn(messages.mv2NotSupportedByChromium(String(extPath)))
         } else if (refusal === 'mv3-background-scripts') {
@@ -859,7 +922,9 @@ export class ChromiumLaunchPlugin {
             )
           )
         }
+
         const invalidPatterns = findInvalidMatchPatterns(m)
+
         if (invalidPatterns.length) {
           humanWarn(
             messages.chromiumInvalidMatchPatterns(
@@ -868,12 +933,14 @@ export class ChromiumLaunchPlugin {
             )
           )
         }
+
         const loadBlockers = [
           ...findChromiumLoadBlockers(m, resolvedBrowserVersion),
           ...findUnloadableIconFiles(m, String(extPath)),
           ...findLocaleLoadBlockers(m, String(extPath)),
           ...findMissingManagedSchema(m, String(extPath))
         ]
+
         if (loadBlockers.length) {
           humanWarn(
             messages.chromiumManifestLoadBlockers(String(extPath), loadBlockers)
@@ -885,6 +952,7 @@ export class ChromiumLaunchPlugin {
     }
 
     let chromiumConfig: string[]
+
     try {
       chromiumConfig = browserConfig(
         compilation,
@@ -909,6 +977,7 @@ export class ChromiumLaunchPlugin {
           }
         )
       }
+
       throw error
     }
 
@@ -927,14 +996,17 @@ export class ChromiumLaunchPlugin {
           : flag
       )
     }
+
     if (isDebug()) {
       this.logger.info(messages.devChromiumDebugPort(selectedPort, desiredPort))
     }
+
     instanceRegistry.setInstancePorts(this.options.instanceId, {
       cdpPort: selectedPort
     })
 
     const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
+
     try {
       await maybePrintLaunchBanner({
         compilation,
@@ -952,6 +1024,7 @@ export class ChromiumLaunchPlugin {
 
     if (dryRun) {
       this.printDryRunPlan(compilation, browserBinaryLocation, chromiumConfig)
+
       return
     }
 
@@ -966,6 +1039,7 @@ export class ChromiumLaunchPlugin {
           )
         ) || undefined
     }
+
     const child = await this.launchWithDirectSpawn(
       browserBinaryLocation,
       chromiumConfig,
@@ -998,11 +1072,14 @@ export class ChromiumLaunchPlugin {
 
     if (enableCdp && !pipeStreams) {
       let portReady = false
+
       for (let attempt = 0; attempt < 10; attempt++) {
         portReady = await checkChromeRemoteDebugging(selectedPort)
         if (portReady) break
+
         await new Promise((r) => setTimeout(r, 500))
       }
+
       if (!portReady && isDebug()) {
         this.logger.warn?.(
           `[browser] Debug port ${selectedPort} not bound after spawn. CDP may fail`
@@ -1015,6 +1092,7 @@ export class ChromiumLaunchPlugin {
     const reportReady = () => {
       if (compilation.options.mode !== 'development') return
       if (this.didReportReady || this.extensionLoadRefused) return
+
       // Use the human sink so the message is always visible; infrastructure
       // logging level is 'error' by default, which suppresses logger.info()
       humanLine(
@@ -1023,6 +1101,7 @@ export class ChromiumLaunchPlugin {
           this.options.browser
         )
       )
+
       this.didReportReady = true
     }
 
@@ -1127,6 +1206,7 @@ export class ChromiumLaunchPlugin {
     if (isDebug()) {
       this.logger.info(messages.chromeInitializingEnhancedReload())
     }
+
     const {args: launchArgs} = chromiumLaunchPlan(
       binary,
       chromeFlags,
@@ -1167,14 +1247,17 @@ export class ChromiumLaunchPlugin {
           }>
         }
       ).stdio?.[2]
+
       if (stderrStream && typeof stderrStream.on === 'function') {
         let pending = ''
         stderrStream.on('data', (chunk: Buffer) => {
           pending += String(chunk)
           let newline: number
+
           while ((newline = pending.indexOf('\n')) !== -1) {
             const line = pending.slice(0, newline).trim()
             pending = pending.slice(newline + 1)
+
             if (
               /Failed to load extension|Manifest file is missing or unreadable|Manifest is not valid JSON/i.test(
                 line
@@ -1186,6 +1269,7 @@ export class ChromiumLaunchPlugin {
             }
           }
         })
+
         stderrStream.on('error', () => {})
       }
 
@@ -1195,6 +1279,7 @@ export class ChromiumLaunchPlugin {
         if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
+
         // An exit we didn't ask for means the browser died out from under a live
         // session. Say so loudly and stamp ready.json so automation sees it too.
         if (!wasTerminatedByUs(child)) {
@@ -1207,11 +1292,13 @@ export class ChromiumLaunchPlugin {
                   code ?? 'unknown'
                 }); the preview session is over.`
           )
+
           stampReadyBrowserExited(
             this.closeHandlerContext?.extensionOutputPath,
             code
           )
         }
+
         disposeSignalHandlers?.()
 
         const userDataDir = launchArgs
@@ -1234,6 +1321,7 @@ export class ChromiumLaunchPlugin {
       return child
     } catch (error) {
       this.logger.error(messages.chromeFailedToSpawn(error))
+
       throw error
     }
   }

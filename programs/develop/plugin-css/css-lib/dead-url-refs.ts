@@ -6,10 +6,6 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Shared by the two paths that can spot a dead url(): the module graph, which
-// sees an emitted stylesheet's child requests, and a text scan, which is the
-// only way to reach a content-script stylesheet inlined as asset/inline.
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -30,15 +26,16 @@ export interface DeadUrlRefContext {
   roots: string[]
 }
 
-/** True when the reference names no file under the issuer or any project root. */
 export function isDeadCssUrlRef(
   rawRequest: string,
   {issuerDir, roots}: DeadUrlRefContext
 ): boolean {
   const req = String(rawRequest).split('?')[0].split('#')[0]
+
   if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
     return false
   }
+
   if (req.startsWith('~') || req.startsWith('@')) return false
 
   const isRootRef = req.startsWith('/')
@@ -56,10 +53,6 @@ export function isDeadCssUrlRef(
   return !candidates.some((candidate) => fs.existsSync(candidate))
 }
 
-/**
- * Rewrites url() targets in place. The replacer returns the new target, or
- * undefined to keep the reference exactly as authored.
- */
 export function replaceCssUrlRefs(
   source: string,
   replacer: (request: string) => string | undefined
@@ -67,22 +60,25 @@ export function replaceCssUrlRefs(
   return source.replace(URL_REF, (whole, dq, sq, bare) => {
     const request = dq ?? sq ?? bare ?? ''
     if (!request) return whole
+
     const next = replacer(request)
     if (next === undefined) return whole
+
     return `url("${next.replace(/["\\]/g, '\\$&')}")`
   })
 }
 
-/** Every url() target in a stylesheet, in source order, duplicates collapsed. */
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
   const seen = new Set<string>()
 
   URL_REF.lastIndex = 0
   let match: RegExpExecArray | null
+
   while ((match = URL_REF.exec(source)) !== null) {
     const request = match[1] ?? match[2] ?? match[3] ?? ''
     if (!request || seen.has(request)) continue
+
     seen.add(request)
     found.push(request)
   }

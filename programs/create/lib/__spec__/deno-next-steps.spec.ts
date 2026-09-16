@@ -9,6 +9,7 @@ import {isDenoRuntime} from '../package-manager'
 function withDenoGlobal(body: () => Promise<void> | void) {
   const hadDeno = 'Deno' in globalThis
   ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
+
   return Promise.resolve(body()).finally(() => {
     if (!hadDeno) delete (globalThis as {Deno?: unknown}).Deno
   })
@@ -43,15 +44,18 @@ describe('deno-aware scaffold next steps', () => {
       path.join(os.tmpdir(), 'ext-deno-readme-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
+
     try {
       await fsp.mkdir(projectPath, {recursive: true})
       await fsp.writeFile(
         path.join(projectPath, 'manifest.json'),
         JSON.stringify({manifest_version: 3, description: 'deno readme'})
       )
+
       await withDenoGlobal(async () => {
         await writeReadmeFile(projectPath, 'my-ext', noopLogger)
       })
+
       const contents = await fsp.readFile(
         path.join(projectPath, 'README.md'),
         'utf8'

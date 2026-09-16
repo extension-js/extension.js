@@ -106,6 +106,7 @@ describe('CssPlugin', () => {
     expect(query.test('?vue&type=style&index=0&id=x&inline&lang=css')).toBe(
       true
     )
+
     expect(query.test('?inline')).toBe(true)
     expect(query.test('?vue&type=style&index=0&id=x&lang=css')).toBe(false)
     expect(query.test('?no-inline-here=1')).toBe(false)

@@ -57,6 +57,7 @@ describe('validateManagedInstallTargets', () => {
         supported = list
       })
     ).toBe(false)
+
     expect(invalid).toBe('brave')
     expect(supported).toEqual([...MANAGED_INSTALL_TARGETS])
   })
@@ -94,10 +95,12 @@ describe('classifyManagedInstallTarget', () => {
       name: 'brave',
       kind: 'not-installable'
     })
+
     expect(firstNonManagedInstallTarget(['chrome', 'netscape'])).toEqual({
       name: 'netscape',
       kind: 'unknown'
     })
+
     expect(firstNonManagedInstallTarget(['chrome', 'edge'])).toBeNull()
   })
 })

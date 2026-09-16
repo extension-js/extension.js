@@ -9,6 +9,7 @@ const tempDirs: string[] = []
 
 afterEach(() => {
   delete process.env.EXTENSION_STRICT_REFS
+
   while (tempDirs.length > 0) {
     fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
   }
@@ -18,6 +19,7 @@ function createProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dead-url-cs-'))
   tempDirs.push(dir)
   fs.writeFileSync(path.join(dir, 'manifest.json'), '{}', 'utf8')
+
   return dir
 }
 
@@ -36,6 +38,7 @@ function runLoader(projectPath: string, resourcePath: string, source: string) {
   }
 
   const output = deadCssUrlLoader.call(context as never, source)
+
   return {output, warnings, errors}
 }
 
@@ -147,8 +150,10 @@ describe('dead url() in a content-script stylesheet', () => {
       const scan = (rule.use as Array<{loader?: string; options?: any}>).find(
         (entry) => String(entry.loader).includes('dead-css-url-loader')
       )
+
       return [rule.type, scan?.options?.sheet, rule.parser]
     })
+
     for (const [type, sheet, parser] of sheetModes) {
       if (type === 'css/module') {
         expect(sheet).toBe('chunk')
@@ -159,6 +164,7 @@ describe('dead url() in a content-script stylesheet', () => {
         expect(parser).toBeUndefined()
       }
     }
+
     expect(carriesScan(emitted)).toHaveLength(0)
     expect(emitted.every((rule) => rule.parser === undefined)).toBe(true)
   })

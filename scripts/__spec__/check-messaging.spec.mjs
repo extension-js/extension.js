@@ -41,6 +41,7 @@ test('extracts quoted and template literals, and skips comments', () => {
     literals.map((l) => l.text),
     ['one', `two ${HOLE} three`]
   )
+
   assert.equal(literals[1].holes.length, 1)
   assert.equal(literals[1].holes[0].source, 'x')
 })
@@ -205,6 +206,7 @@ test('reads a table of entry objects and skips nested option copy', () => {
     table.map((entry) => entry.name),
     ['install', 'doctor']
   )
+
   assert.equal(table[0].description, 'Install a managed browser binary')
   assert.equal(table[1].description, 'Diagnose a dev session')
   assert.equal(table[1].line, 12)
@@ -413,6 +415,7 @@ test('the prose surface is derived from messaging imports, never from a list', (
   ])
   assert.deepEqual(sites, ['programs/develop/dev-server/cleanup.ts'])
   const surface = proseSurface()
+
   for (const copy of execSync("git ls-files 'programs/**/messaging.ts'")
     .toString()
     .split('\n')
@@ -422,6 +425,7 @@ test('the prose surface is derived from messaging imports, never from a list', (
       `${copy} renders the card head and is read`
     )
   }
+
   for (const extra of EXTRA_PROSE_SOURCES) {
     assert.ok(surface.includes(extra))
     assert.ok(fs.existsSync(extra), `${extra} is listed but missing`)
@@ -442,6 +446,7 @@ test('the rulebook page and the checker name the same surface', () => {
     .filter(Boolean)
     .sort()
   assert.deepEqual([...new Set(listed)].sort(), tracked)
+
   for (const extra of EXTRA_PROSE_SOURCES) {
     assert.ok(page.includes(extra), `${extra} is named on the page`)
   }

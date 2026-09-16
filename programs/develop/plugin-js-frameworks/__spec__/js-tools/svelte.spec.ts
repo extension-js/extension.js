@@ -16,6 +16,7 @@ beforeEach(() => {
         : originalResolve(id)
   )
 })
+
 afterEach(() => {
   ;(require as any).resolve = originalResolve
 })
@@ -38,6 +39,7 @@ describe('svelte tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const {isUsingSvelte, maybeUseSvelte} = await import(
       '../../js-tools/svelte'
@@ -66,6 +68,7 @@ describe('svelte tools', () => {
     result?.plugins?.forEach((pl: any) => {
       pl.apply(compiler)
     })
+
     expect(compiler.options.resolve.mainFields).toEqual([])
     expect(compiler.options.resolve.extensions).toContain('.svelte')
     expect(compiler.options.resolve.conditionNames).toEqual([
@@ -74,15 +77,19 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
+
     expect(String(result?.alias?.svelte)).toMatch(
       pathPattern(['svelte', 'src', 'index-client.js'])
     )
+
     expect(String(result?.alias?.['svelte/store'])).toMatch(
       pathPattern(['svelte', 'src', 'store', 'index-client.js'])
     )
+
     expect(String(result?.alias?.['svelte/reactivity'])).toMatch(
       pathPattern(['svelte', 'src', 'reactivity', 'index-client.js'])
     )
+
     expect(String(result?.alias?.['svelte/legacy'])).toMatch(
       pathPattern(['svelte', 'src', 'legacy', 'legacy-client.js'])
     )

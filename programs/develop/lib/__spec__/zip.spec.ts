@@ -6,9 +6,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {extractLocalZip} from '../zip'
 
 const created: string[] = []
+
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -19,6 +21,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+
   for (const d of created) {
     try {
       fs.rmSync(d, {recursive: true, force: true})
@@ -26,6 +29,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 

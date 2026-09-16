@@ -43,6 +43,7 @@ export function resolveCompanionExtensionDirs(opts: {
 
     if (isDir(absScan)) {
       let entries: fs.Dirent[] = []
+
       try {
         entries = fs.readdirSync(absScan, {withFileTypes: true})
       } catch {
@@ -76,6 +77,7 @@ export function resolveCompanionExtensionDirs(opts: {
       for (const ent of entries) {
         if (!ent.isDirectory()) continue
         if (ent.name.startsWith('.')) continue
+
         if (
           browser &&
           isBrowserNamedCompanionFolder(ent.name) &&

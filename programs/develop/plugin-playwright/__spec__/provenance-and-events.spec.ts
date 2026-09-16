@@ -64,6 +64,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       command: 'dev',
       browser: 'chromium'
     })
+
     writer.appendEvent({
       type: 'compile_success',
       ts: new Date().toISOString(),
@@ -78,6 +79,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       .split('\n')
       .map((line) => JSON.parse(line))
     expect(lines).toHaveLength(2)
+
     for (const entry of lines) {
       expect(entry.runId).toBe(ready.runId)
     }
@@ -92,6 +94,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       command: 'dev',
       browser: 'chromium'
     })
+
     expect(
       fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
     ).toHaveLength(1)

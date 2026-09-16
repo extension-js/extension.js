@@ -99,10 +99,12 @@ function deepMergePreferences(
 
   for (const [key, value] of Object.entries(custom)) {
     const current = merged[key]
+
     if (isPlainObject(current) && isPlainObject(value)) {
       merged[key] = deepMergePreferences(current, value)
       continue
     }
+
     merged[key] = value
   }
 
@@ -147,6 +149,7 @@ export function chromiumLaunchPlan(
   noOpen?: boolean
 ): {binary: string; args: string[]} {
   const launchUrl = resolveStartingUrl({startingUrl, noOpen})
+
   return {
     binary,
     args: launchUrl ? [...chromiumConfig, launchUrl] : [...chromiumConfig]
@@ -177,6 +180,7 @@ export function browserConfig(
   const shownPath = (p: string) => {
     try {
       const rel = path.relative(contextDir, p)
+
       return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel : p
     } catch {
       return p
@@ -216,8 +220,9 @@ export function browserConfig(
 
   if (resolved.kind === 'managed' && provision) {
     // Profile provisioning is an internal step; surface it only under --debug.
-    if (isDebug())
+    if (isDebug()) {
       humanLine(messages.creatingUserProfile(shownPath(userProfilePath)))
+    }
 
     if (!resolved.persisted) {
       try {
@@ -241,6 +246,7 @@ export function browserConfig(
   if (userProfilePath && provision) {
     fs.mkdirSync(userProfilePath, {recursive: true})
     prepareChromiumProfileForLaunch(userProfilePath)
+
     try {
       seedChromiumPreferences(
         userProfilePath,

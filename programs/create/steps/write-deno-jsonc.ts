@@ -21,6 +21,7 @@ import {
 async function pathExists(target: string): Promise<boolean> {
   try {
     await fs.access(target)
+
     return true
   } catch {
     return false
@@ -29,9 +30,11 @@ async function pathExists(target: string): Promise<boolean> {
 
 function renderJsoncEntries(entries: Record<string, string>): string {
   const pairs = Object.entries(entries)
+
   return pairs
     .map(([name, value], index) => {
       const separator = index < pairs.length - 1 ? ',' : ''
+
       return `    ${JSON.stringify(name)}: ${JSON.stringify(value)}${separator}`
     })
     .join('\n')
@@ -77,6 +80,7 @@ function renderDenoJsonc(
 function toNpmSpecifier(name: string, version: string): string {
   // Template dependencies occasionally point at other registries already.
   if (version.startsWith('npm:') || version.startsWith('jsr:')) return version
+
   return `npm:${name}@${version}`
 }
 
@@ -85,6 +89,7 @@ async function collectTemplateImports(
   cliVersion?: string
 ): Promise<Record<string, string>> {
   let templatePackageJson: Record<string, unknown> = {}
+
   try {
     const raw = await fs.readFile(path.join(projectPath, 'package.json'))
     templatePackageJson = JSON.parse(raw.toString())
@@ -99,8 +104,10 @@ async function collectTemplateImports(
   delete declared.extension
 
   const imports: Record<string, string> = {}
+
   for (const [name, version] of Object.entries(declared)) {
     if (typeof version !== 'string') continue
+
     imports[name] = toNpmSpecifier(name, version)
   }
 
@@ -135,6 +142,7 @@ export async function writeDenoJsonc(
   // Respect a Deno config the template itself ships. Deno's own discovery
   // prefers deno.json over deno.jsonc, so target the file Deno will read.
   let existingConfig: string | undefined
+
   for (const candidate of ['deno.json', 'deno.jsonc']) {
     if (await pathExists(path.join(projectPath, candidate))) {
       existingConfig = candidate
@@ -154,6 +162,7 @@ export async function writeDenoJsonc(
 
   try {
     if (isDebug()) logger.log(messages.writingDenoJsonc())
+
     if (existingConfig) {
       // Primary mode with a template-shipped config: the config still has to
       // become the only manifest, with the `extension` import folded in and
@@ -166,9 +175,11 @@ export async function writeDenoJsonc(
       // template pin would otherwise install a CLI the rest of the scaffold
       // no longer speaks to.
       config.imports = {...(imports || {}), ...(config.imports || {})}
+
       if (imports?.extension) {
         config.imports.extension = imports.extension
       }
+
       // Always materialize a real node_modules: scaffold tasks invoke the
       // Extension.js CLI from node_modules/.bin. A template that sets
       // nodeModulesDir to "none"/"manual"/false would ship a config whose
@@ -181,6 +192,7 @@ export async function writeDenoJsonc(
         ...tasks,
         ...((config.tasks as Record<string, string> | undefined) || {})
       }
+
       await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
     } else {
       await fs.writeFile(
@@ -195,6 +207,7 @@ export async function writeDenoJsonc(
     }
   } catch (error) {
     logger.error(messages.writingDenoJsoncError(error))
+
     throw error
   }
 }

@@ -34,6 +34,7 @@ function git(args: string[]) {
     cwd: projectPath,
     encoding: 'utf8'
   })
+
   return String(result.stdout || '').trim()
 }
 
@@ -44,6 +45,7 @@ beforeAll(async () => {
     gitConfigPath,
     `[user]\n\tname = ${IDENTITY_NAME}\n\temail = ${IDENTITY_EMAIL}\n[init]\n\tdefaultBranch = main\n`
   )
+
   process.env.GIT_CONFIG_GLOBAL = gitConfigPath
   process.env.GIT_CONFIG_SYSTEM = '/dev/null'
   delete process.env.npm_config_user_agent

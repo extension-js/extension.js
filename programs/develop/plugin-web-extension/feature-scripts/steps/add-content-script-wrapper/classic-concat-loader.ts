@@ -6,18 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Classic content-script concatenation loader.
-//
-// When a content script entry consists of multiple plain JS files (no
-// import/export), the browser injects them in order into one world so they
-// share a single global scope. ES-module sequencing (`import "a"; import "b"`)
-// would isolate each file and break those implicit cross-file globals.
-//
-// This loader concatenates the sources at build time (matching browser
-// semantics), registers each original file via `addDependency` so rspack's
-// watcher triggers a rebuild on save, and emits a V3 source map so errors
-// trace back to the real file and line.
-
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
@@ -39,6 +27,7 @@ function transpileClassicTs(
     isModule: false,
     sourceMaps: true
   })
+
   return {code: result.code, lineTable: originalLineTable(result.map)}
 }
 
@@ -46,44 +35,58 @@ function vlqDecode(text: string): number[] {
   const values: number[] = []
   let value = 0
   let shift = 0
+
   for (const char of text) {
     const digit = BASE64.indexOf(char)
     if (digit < 0) return values
+
     value += (digit & 0x1f) << shift
+
     if (digit & 0x20) {
       shift += 5
       continue
     }
+
     values.push(value & 1 ? -(value >> 1) : value >> 1)
     value = 0
     shift = 0
   }
+
   return values
 }
 
 // generated line -> original line (first mapped segment), for a single-source map.
 function originalLineTable(mapJson: unknown): number[] | null {
   if (typeof mapJson !== 'string') return null
+
   let mappings = ''
+
   try {
     mappings = String(JSON.parse(mapJson)?.mappings || '')
   } catch {
     return null
   }
+
   const table: number[] = []
   let sourceLine = 0
+
   for (const group of mappings.split(';')) {
     let first = -1
+
     for (const segment of group.split(',')) {
       if (!segment) continue
+
       const fields = vlqDecode(segment)
+
       if (fields.length >= 4) {
         sourceLine += fields[2]
         if (first < 0) first = sourceLine
       }
     }
+
     table.push(first)
   }
+
   return table
 }
 
@@ -164,13 +167,16 @@ export function collectClassicTopLevelBindings(
     lexical: boolean
   ): void => {
     if (!node || typeof node.type !== 'string') return
+
     switch (node.type) {
       case 'Identifier':
         bindings.push({name: String(node.name), lexical})
+
         return
       case 'ObjectPattern':
         for (const prop of node.properties || []) {
           if (!prop) continue
+
           // RestElement has `argument`; Property has `value` (the binding
           // target, since `key` is the source property name, not a binding).
           addBindingNames(
@@ -178,18 +184,22 @@ export function collectClassicTopLevelBindings(
             lexical
           )
         }
+
         return
       case 'ArrayPattern':
         for (const element of node.elements || []) {
           addBindingNames(element, lexical)
         }
+
         return
       case 'AssignmentPattern':
         // `var {a = 1} = o` / `var [b = 2] = arr`. The default is on the right.
         addBindingNames(node.left, lexical)
+
         return
       case 'RestElement':
         addBindingNames(node.argument, lexical)
+
         return
       default:
         return
@@ -210,6 +220,7 @@ export function collectClassicTopLevelBindings(
           addBindingNames(declarator.id, node.kind !== 'var')
         }
       }
+
       return
     }
 
@@ -223,6 +234,7 @@ export function collectClassicTopLevelBindings(
           lexical: node.type === 'ClassDeclaration'
         })
       }
+
       // Never descend into function/class bodies, their vars stay local.
       return
     }
@@ -231,7 +243,9 @@ export function collectClassicTopLevelBindings(
 
     for (const key of Object.keys(node)) {
       if (NON_CHILD_KEYS.has(key)) continue
+
       const child = node[key]
+
       if (Array.isArray(child)) {
         for (const item of child) visit(item as LooseAstNode, false)
       } else {
@@ -270,6 +284,7 @@ export function findClassicRedeclarations(
     // Within one file the parser already rejects a redeclaration, so only the
     // first mention of a name per file can start or extend a cross-file clash.
     const inThisFile = new Map<string, boolean>()
+
     for (const binding of bindings) {
       if (!inThisFile.has(binding.name)) {
         inThisFile.set(binding.name, binding.lexical)
@@ -280,15 +295,19 @@ export function findClassicRedeclarations(
 
     for (const [name, lexical] of inThisFile) {
       const previous = seen.get(name)
+
       if (!previous) {
         seen.set(name, {files: [file], lexical})
         continue
       }
+
       previous.files.push(file)
+
       // var + var and function + function redeclare legally. One let, const,
       // or class on either side makes the pair fatal.
       if (previous.lexical || lexical) {
         previous.lexical = true
+
         if (previous.files.length === 2) {
           collisions.push({name, files: previous.files})
         }
@@ -304,6 +323,7 @@ export function findClassicRedeclarations(
 function displayPath(file: string): string {
   const relative = path.relative(process.cwd(), file)
   const shown = relative && !relative.startsWith('..') ? relative : file
+
   return shown.split(path.sep).join('/')
 }
 
@@ -313,6 +333,7 @@ function redeclarationMessage(
   feature: string
 ): string {
   const where = feature ? ` of ${feature}` : ''
+
   return [
     `Two files${where} declare ${name} at the top level, and at least one uses let, const, or class.`,
     ...files.map((file) => `FILE ${displayPath(file)}`),
@@ -331,12 +352,15 @@ const CONCAT_UMD_WRAP_CLOSE =
 function vlqEncode(value: number): string {
   let vlq = value < 0 ? (-value << 1) + 1 : value << 1
   let encoded = ''
+
   do {
     let digit = vlq & 0x1f
     vlq >>>= 5
     if (vlq > 0) digit |= 0x20
+
     encoded += BASE64[digit]
   } while (vlq > 0)
+
   return encoded
 }
 
@@ -346,16 +370,20 @@ export default function classicConcatLoader(
 ): void {
   const query = this.resourceQuery || ''
   const match = query.match(/[?&]__extensionjs_classic_concat__=([^&]+)/)
+
   if (!match) {
     this.callback(null, _source)
+
     return
   }
 
   let data: {feature?: string; js?: string[]; css?: string[]}
+
   try {
     data = JSON.parse(decodeURIComponent(match[1]))
   } catch {
     this.callback(null, _source)
+
     return
   }
 
@@ -387,6 +415,7 @@ export default function classicConcatLoader(
     outputLines.push(
       `/* extension.js classic content-script concatenation: ${feature} */`
     )
+
     lineMappings.push(null)
   }
 
@@ -395,6 +424,7 @@ export default function classicConcatLoader(
     file: string
     bindings: ClassicTopLevelBinding[]
   }> = []
+
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
     const raw = fs.readFileSync(file, 'utf8')
@@ -404,6 +434,7 @@ export default function classicConcatLoader(
       ? transpileClassicTs(file, raw)
       : {code: raw, lineTable: null}
     const content = transpiled.code
+
     try {
       const bindings = collectClassicTopLevelBindings(file, content)
       perFileBindings.push({file, bindings})
@@ -412,6 +443,7 @@ export default function classicConcatLoader(
       // A file the parser chokes on still concatenates; it just gets no
       // global bridge.
     }
+
     sources.push(file)
     sourcesContent.push(raw)
 
@@ -420,10 +452,12 @@ export default function classicConcatLoader(
 
     const fileLines = content.split('\n')
     let lastKnown = 0
+
     for (let lineNo = 0; lineNo < fileLines.length; lineNo++) {
       outputLines.push(fileLines[lineNo])
       const mapped = transpiled.lineTable?.[lineNo]
       if (typeof mapped === 'number' && mapped >= 0) lastKnown = mapped
+
       lineMappings.push({
         sourceIndex: fileIdx,
         sourceLine: transpiled.lineTable ? lastKnown : lineNo
@@ -442,6 +476,7 @@ export default function classicConcatLoader(
       redeclarationMessage(name, files, feature)
     ) as Error & {file?: string}
     report.file = displayPath(files[0])
+
     if (this._compilation?.errors) {
       this._compilation.errors.push(report)
     } else {
@@ -454,17 +489,21 @@ export default function classicConcatLoader(
   const exposedNames = [...new Set(globalNames)].filter(
     (name) => !EXPOSE_SKIP.has(name) && /^[A-Za-z_$][\w$]*$/.test(name)
   )
+
   if (exposedNames.length > 0) {
     outputLines.push(
       '/* extension.js: classic top-level declarations land on the global (browser parity) */'
     )
+
     lineMappings.push(null)
+
     for (const name of exposedNames) {
       outputLines.push(
         `try { globalThis[${JSON.stringify(name)}] = ${name}; } catch (_e) {
           // Ignore
         }`
       )
+
       lineMappings.push(null)
     }
   }
@@ -490,6 +529,7 @@ export default function classicConcatLoader(
           vlqEncode(mapping.sourceLine - prevSrcLine) +
           vlqEncode(0)
       )
+
       prevSrcIdx = mapping.sourceIndex
       prevSrcLine = mapping.sourceLine
     }

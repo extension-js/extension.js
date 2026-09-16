@@ -22,11 +22,13 @@ function resolveDevelopRootFromDir(dir: string): string | undefined {
   try {
     const packageJsonPath = path.join(dir, 'package.json')
     if (!fs.existsSync(packageJsonPath)) return undefined
+
     const pkg = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
     if (pkg?.name === 'extension-develop') return dir
   } catch {
     return undefined
   }
+
   return undefined
 }
 
@@ -40,6 +42,7 @@ function findDevelopRootFrom(startDir: string): string | undefined {
 
     const parent = path.dirname(currentDir)
     if (parent === currentDir) break
+
     currentDir = parent
   }
 
@@ -52,9 +55,11 @@ export function findExtensionDevelopRoot(): string | null {
   const packageRoot = path.resolve(buildDir, '..')
 
   const packageJsonPath = path.join(packageRoot, 'package.json')
+
   if (fs.existsSync(packageJsonPath)) {
     try {
       const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+
       if (pkg.name === 'extension-develop') {
         return packageRoot
       }
@@ -88,6 +93,7 @@ export function resolveDevelopInstallRoot(): string | undefined {
     const pkgPath = cjsRequire.resolve('extension-develop/package.json', {
       paths: [__dirname]
     })
+
     return resolveDevelopRootFromDir(path.dirname(pkgPath))
   } catch {
     return undefined

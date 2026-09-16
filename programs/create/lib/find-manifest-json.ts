@@ -25,6 +25,7 @@ export async function findManifestJsonPath(
   for (const candidate of candidates) {
     try {
       await fs.promises.access(candidate)
+
       return candidate
     } catch {
       // Ignore
@@ -40,6 +41,7 @@ export async function findManifestJsonPath(
     if (!current) continue
 
     let entries: Array<fs.Dirent>
+
     try {
       entries = await fs.promises.readdir(current.dir, {withFileTypes: true})
     } catch {
@@ -50,6 +52,7 @@ export async function findManifestJsonPath(
       if (entry.isFile() && entry.name === 'manifest.json') {
         return path.join(current.dir, entry.name)
       }
+
       if (
         entry.isDirectory() &&
         current.depth < manifestSearchMaxDepth &&

@@ -20,11 +20,13 @@ beforeAll(() => {
   root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'resource-path-prop-'))
   )
+
   fs.mkdirSync(path.join(root, 'src', 'nested'), {recursive: true})
   fs.mkdirSync(path.join(root, 'lib'))
   link = path.join(root, 'link')
   fs.symlinkSync(path.join(root, 'src'), link, 'junction')
 })
+
 afterAll(() => fs.rmSync(root, {recursive: true, force: true}))
 
 // Lowercase only: macOS realpath returns on-disk casing, which would make two
@@ -43,15 +45,20 @@ const file = fc
 function bounded(segments: string[]): string[] {
   const kept: string[] = []
   let depth = 0
+
   for (const s of segments) {
     if (s === '..') {
       if (depth === 0) continue
+
       depth--
     } else if (s !== '.') depth++
+
     kept.push(s)
   }
+
   return kept
 }
+
 // String joins on purpose: path.join would normalize the dot segments away
 // before the functions under test ever see them.
 const dir = fc
@@ -78,6 +85,7 @@ describe('resource-path properties', () => {
           expect(f(f(r))).toBe(f(r))
           expect(noBackslash(f(r))).toBe(true)
         }
+
         const d = path.dirname(r)
         expect(canonicalizeDir(canonicalizeDir(d))).toBe(canonicalizeDir(d))
       }),

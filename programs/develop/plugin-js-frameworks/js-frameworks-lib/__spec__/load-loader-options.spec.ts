@@ -19,6 +19,7 @@ describe('load-loader-options', () => {
 
   afterEach(() => {
     process.env.EXTENSION_AUTHOR_MODE = originalEnv
+
     try {
       fs.rmSync(tmpDir, {recursive: true, force: true})
     } catch {

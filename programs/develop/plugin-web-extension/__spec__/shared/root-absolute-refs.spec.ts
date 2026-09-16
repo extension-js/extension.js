@@ -56,6 +56,7 @@ describe('resolveRootAbsoluteRef', () => {
     expect(
       resolveRootAbsoluteRef('//cdn.example.com/x.js', root, publicDir())
     ).toBeUndefined()
+
     expect(
       resolveRootAbsoluteRef(
         path.join(root, 'nscl', 'main.js'),

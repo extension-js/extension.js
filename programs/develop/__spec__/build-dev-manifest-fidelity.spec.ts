@@ -22,15 +22,18 @@ function project(manifest: Record<string, unknown>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'fidelity', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log("cs")\n')
   fs.writeFileSync(
     path.join(root, 'background.js'),
     'chrome.storage.local.get("k")\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({name: 'fidelity', version: '1.0.0', ...manifest})
   )
+
   return root
 }
 
@@ -50,6 +53,7 @@ async function build(
   console.warn = (...args: unknown[]) => lines.push(args.join(' '))
   console.error = (...args: unknown[]) => lines.push(args.join(' '))
   let summary: {errors_count: number; warnings?: string[]}
+
   try {
     // A development-mode build is shippable; only the dev session (named by
     // its command) takes the dev manifest, so the dev leg names it.
@@ -61,6 +65,7 @@ async function build(
       ...(mode === 'development' ? {metadataCommand: 'dev'} : {}),
       exitOnError: false
     } as any)
+
     expect(summary.errors_count).toBe(0)
   } finally {
     console.log = originalLog
@@ -69,11 +74,13 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, 'dist', browser, 'manifest.json'), 'utf8')
   )
   // Warnings travel on the summary's structured channel as well as stdout.
   const output = [...lines, ...(summary.warnings || [])].join('\n')
+
   return {manifest, output}
 }
 
@@ -101,12 +108,15 @@ describe('dev manifest keeps the author security contract', () => {
     expect(dev.manifest.content_security_policy.extension_pages).toContain(
       "script-src 'self'"
     )
+
     expect(dev.manifest.optional_permissions).toEqual(
       prod.manifest.optional_permissions
     )
+
     expect(dev.manifest.optional_host_permissions).toEqual(
       prod.manifest.optional_host_permissions
     )
+
     expect(prod.manifest.permissions).toEqual(['alarms'])
     expect(dev.output).toMatch(/optional_permissions[\s\S]*"tabs"/)
     expect(dev.output).toContain('https://opt.example.com/*')
@@ -139,6 +149,7 @@ describe('dev manifest keeps the author security contract', () => {
     expect(prod.manifest.content_security_policy).toBe(
       "script-src 'self'; object-src 'self'"
     )
+
     expect(typeof dev.manifest.content_security_policy).toBe('string')
     expect(dev.manifest.content_security_policy).toContain("script-src 'self'")
     expect(dev.manifest.content_security_policy).not.toContain('sandbox')
@@ -146,6 +157,7 @@ describe('dev manifest keeps the author security contract', () => {
     expect(dev.manifest.optional_permissions).toEqual(
       prod.manifest.optional_permissions
     )
+
     expect(dev.output).toMatch(/optional_permissions[\s\S]*"tabs"/)
     expect(dev.output).toContain('https://opt.example.com/*')
   }, 180_000)

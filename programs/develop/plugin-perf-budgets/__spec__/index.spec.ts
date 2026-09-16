@@ -6,9 +6,11 @@ describe('categorizeAsset', () => {
     expect(categorizeAsset('content_scripts/content-0.js')).toBe(
       'content-script'
     )
+
     expect(categorizeAsset('content_scripts/content-0.abc12345.js')).toBe(
       'content-script'
     )
+
     expect(categorizeAsset('content_scripts/styles.deadbeef.css')).toBe(
       'content-script'
     )
@@ -18,6 +20,7 @@ describe('categorizeAsset', () => {
     expect(categorizeAsset('background/service_worker.js')).toBe(
       'service-worker'
     )
+
     expect(categorizeAsset('background/scripts.js')).toBe('service-worker')
     expect(categorizeAsset('service_worker.js')).toBe('service-worker')
     expect(categorizeAsset('service-worker.js')).toBe('service-worker')
@@ -77,9 +80,11 @@ describe('PerfBudgetsPlugin', () => {
     assets: Record<string, any>
   } {
     const built: Record<string, any> = {}
+
     for (const [name, size] of Object.entries(assets)) {
       built[name] = {size: () => size}
     }
+
     return {warnings: [], errors: [], assets: built}
   }
 
@@ -89,7 +94,9 @@ describe('PerfBudgetsPlugin', () => {
     assets: Record<string, number>
   ) {
     const compilation: any = fakeCompilation(assets)
+
     let processAssetsCb: () => void = () => {}
+
     compilation.hooks = {
       processAssets: {
         tap: (_opts: unknown, fn: () => void) => {
@@ -97,6 +104,7 @@ describe('PerfBudgetsPlugin', () => {
         }
       }
     }
+
     const compiler: any = {
       options: {mode},
       hooks: {
@@ -111,6 +119,7 @@ describe('PerfBudgetsPlugin', () => {
     }
     plugin.apply(compiler)
     processAssetsCb()
+
     return compilation
   }
 
@@ -123,6 +132,7 @@ describe('PerfBudgetsPlugin', () => {
     expect(String(compilation.warnings[0].message)).toContain(
       'content_scripts/content-0.abc12345.js'
     )
+
     expect(String(compilation.warnings[0].message)).toContain('content script')
   })
 

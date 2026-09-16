@@ -75,6 +75,7 @@ beforeEach(() => {
     [...EVENTS.map((e) => JSON.stringify(e)), 'not-json'].join('\n'),
     'utf8'
   )
+
   readReadyContract.mockReturnValue(null)
 })
 
@@ -111,6 +112,7 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'json', '--context', 'background'])
     ).toBe(0)
+
     expect(JSON.parse(printedLines()[0])).toMatchObject({seq: 1})
   })
 
@@ -118,6 +120,7 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--level', 'warn'])
     ).toBe(0)
+
     const seqs = printedLines().map((l) => JSON.parse(l).seq)
     expect(seqs).toEqual([2, 3])
   })
@@ -128,12 +131,14 @@ describe('extension logs (one-shot)', () => {
     expect(await run(['logs', dir, '--output', 'ndjson', '--since', at])).toBe(
       0
     )
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([3, 4])
 
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--since', 'yesterday-ish'])
     ).not.toBe(0)
+
     expect(String(errorSpy.mock.calls.flat().join(' '))).toContain(
       'expects a sequence number or an ISO timestamp'
     )
@@ -143,6 +148,7 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--context', 'content'])
     ).toBe(0)
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([2, 3])
 
     logSpy.mockClear()
@@ -153,18 +159,21 @@ describe('extension logs (one-shot)', () => {
     expect(await run(['logs', dir, '--output', 'ndjson', '--since', '2'])).toBe(
       0
     )
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([3, 4])
 
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--url', '*example.com*'])
     ).toBe(0)
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([2])
 
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--url', 'other.test'])
     ).toBe(0)
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([3])
   })
 
@@ -172,6 +181,7 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--signals-only'])
     ).toBe(0)
+
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([4])
   })
 
@@ -179,12 +189,14 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--signals-only'])
     ).toBe(0)
+
     const warnings = errorSpy.mock.calls.map((call) => String(call[0]))
     expect(
       warnings.filter((w) =>
         w.includes('no signals emitter ships in this build')
       )
     ).toHaveLength(1)
+
     // stdout stays machine-clean: the warning never lands in the ndjson stream.
     expect(printedLines().every((l) => l.startsWith('{'))).toBe(true)
   })
@@ -201,6 +213,7 @@ describe('extension logs (one-shot)', () => {
       value: false,
       configurable: true
     })
+
     try {
       expect(await run(['logs', dir, '--context', 'background'])).toBe(0)
       expect(JSON.parse(printedLines()[0])).toMatchObject({seq: 1})
@@ -216,6 +229,7 @@ describe('extension logs (one-shot)', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--browser', 'firefox'])
     ).toBe(1)
+
     expect(String(errorSpy.mock.calls[0][0])).toContain('No logs found')
   })
 })

@@ -23,6 +23,7 @@ function createProject() {
   fs.mkdirSync(path.join(dir, 'public', 'img'), {recursive: true})
   fs.writeFileSync(path.join(dir, 'content', 'fonts', 'a.woff2'), 'font')
   fs.writeFileSync(path.join(dir, 'public', 'img', 'bg.png'), 'image')
+
   return dir
 }
 
@@ -41,6 +42,7 @@ function evaluateModule(code: string, globals: Record<string, unknown>) {
   const names = Object.keys(globals)
   const run = new Function('module', ...names, code)
   run(module, ...names.map((name) => globals[name]))
+
   return module.exports
 }
 
@@ -59,15 +61,18 @@ describe('rewriteInlinedCssUrls', () => {
     expect(css).toContain(
       `url("${EXTENSION_ROOT_PLACEHOLDER}assets/content/fonts/a.woff2")`
     )
+
     // public/ ships at the dist root through the copier, under its own name.
     expect(css).toContain(`url("${EXTENSION_ROOT_PLACEHOLDER}img/bg.png")`)
     expect(css).toContain(
       `url("${EXTENSION_ROOT_PLACEHOLDER}assets/content/fonts/a.woff2?v=2#x")`
     )
+
     expect(targets.map((target) => target.outputName)).toEqual([
       'assets/content/fonts/a.woff2',
       'img/bg.png'
     ])
+
     expect(targets.map((target) => target.publicOwned)).toEqual([false, true])
     expect(targets[0].absolutePath).toBe(
       path.join(dir, 'content', 'fonts', 'a.woff2')
@@ -104,6 +109,7 @@ describe('toRuntimeStylesheetModule', () => {
     expect(String(exported).startsWith('data:text/css;charset=utf-8,')).toBe(
       true
     )
+
     const text = decodeURIComponent(
       String(exported).split(',').slice(1).join(',')
     )

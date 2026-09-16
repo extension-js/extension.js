@@ -33,6 +33,7 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
       : 'compiled'
   const app = manifestName
   const time = `${durationMs} ms`
+
   return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
 }
 

@@ -26,12 +26,15 @@ describe('isPageActionLiveSurface', () => {
     expect(
       isPageActionLiveSurface({manifest_version: 3} as any, 'firefox')
     ).toBe(true)
+
     expect(
       isPageActionLiveSurface({manifest_version: 2} as any, 'chrome')
     ).toBe(true)
+
     expect(
       isPageActionLiveSurface({manifest_version: 3} as any, 'chrome')
     ).toBe(false)
+
     expect(isPageActionLiveSurface({manifest_version: 3} as any, 'edge')).toBe(
       false
     )
@@ -47,6 +50,7 @@ describe('isPageActionLiveSurface', () => {
     expect(shouldDropPageAction({manifest_version: 3} as any, 'chrome')).toBe(
       false
     )
+
     expect(dropPageAction(manifest)).toEqual({manifest_version: 3})
   })
 
@@ -65,6 +69,7 @@ describe('isPageActionLiveSurface', () => {
         'chrome'
       )
     ).toBeUndefined()
+
     expect(
       pageActionDropReason(
         {...pair, manifest_version: 3, action: pair.browser_action} as any,
@@ -82,6 +87,7 @@ describe('pageActionOutputTarget', () => {
         page_action: {default_popup: 'address.html'}
       } as any)
     ).toBe('page_action/index.html')
+
     expect(
       pageActionOutputTarget({
         action: {default_popup: 'toolbar.html'},
@@ -184,6 +190,7 @@ describe('optionsPageRef', () => {
         options_ui: {open_in_tab: true}
       } as any)
     ).toBe('legacy.html')
+
     expect(
       optionsPageRef({
         manifest_version: 3,

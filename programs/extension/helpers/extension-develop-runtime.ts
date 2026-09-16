@@ -26,7 +26,9 @@ function resolveDevelopRootFromDir(dir: string): string | undefined {
   try {
     const packageJsonPath = path.join(dir, 'package.json')
     if (!fs.existsSync(packageJsonPath)) return undefined
+
     const pkg = parseJsonSafe(packageJsonPath)
+
     return pkg?.name === 'extension-develop' ? dir : undefined
   } catch {
     return undefined
@@ -47,6 +49,7 @@ function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
 
     const parent = path.dirname(currentDir)
     if (parent === currentDir) break
+
     currentDir = parent
   }
 
@@ -56,10 +59,12 @@ function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
 function resolveInstalledDevelopRoot(): string | undefined {
   try {
     const packageJsonPath = require.resolve('extension-develop/package.json')
+
     return resolveDevelopRootFromDir(path.dirname(packageJsonPath))
   } catch {
     try {
       const entryPath = require.resolve('extension-develop')
+
       return resolveDevelopRootFromDir(path.dirname(path.dirname(entryPath)))
     } catch {
       return undefined
@@ -105,6 +110,7 @@ export function resolveExtensionDevelopRoot(
   startDir: string = __dirname
 ): string {
   const {root, source} = resolvePreferredDevelopRoot(startDir)
+
   if (!root) {
     throw new Error('Unable to locate the extension-develop runtime.')
   }
@@ -126,6 +132,7 @@ export function resolveExtensionDevelopVersion(
     const root = resolveExtensionDevelopRoot(startDir)
     const packageJsonPath = path.join(root, 'package.json')
     const pkg = parseJsonSafe(packageJsonPath)
+
     return pkg?.version || fallbackVersion || '0.0.0'
   } catch {
     return fallbackVersion || '0.0.0'
@@ -181,6 +188,7 @@ export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
   // Fall back to the full module if the preview entry doesn't exist
   // (e.g. older extension-develop versions without the split entry).
   const fullEntry = resolveDevelopDistEntry(root)
+
   if (fullEntry) {
     return importModule<T>(fullEntry)
   }
@@ -218,5 +226,6 @@ export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
   // Non-literal specifier: resolved at runtime via the workspace symlink /
   // installed package. Published type defs may predate this subpath.
   const bridgeSpecifier: string = 'extension-develop/bridge'
+
   return (await import(bridgeSpecifier)) as T
 }

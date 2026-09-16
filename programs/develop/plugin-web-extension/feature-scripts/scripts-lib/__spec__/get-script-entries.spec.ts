@@ -16,6 +16,7 @@ function tempFile(name: string, contents = '') {
   tempDirs.push(dir)
   const file = path.join(dir, name)
   fs.writeFileSync(file, contents, 'utf8')
+
   return file
 }
 

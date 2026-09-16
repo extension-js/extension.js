@@ -28,14 +28,15 @@ export interface ReloadInstruction {
   label?: string
 }
 
-/** "context (fileA, fileB +2 more)", the one label every reload surface shows. */
 export function formatReloadContextLabel(
   context: string,
   files: string[]
 ): string {
   if (!files.length) return context
+
   const shown = files.slice(0, 2).join(', ')
   const extra = files.length > 2 ? ` +${files.length - 2} more` : ''
+
   return `${context} (${shown}${extra})`
 }
 
@@ -50,11 +51,13 @@ export function pageContextFromSources(changedSources: string[]): string {
     [/(^|\/)(newtab|new[-_]?tab)(\.|\/)/i, 'new tab page'],
     [/(^|\/)(history|bookmarks)(\.|\/)/i, 'page']
   ]
+
   for (const rel of changedSources) {
     for (const [re, name] of rules) {
       if (re.test(rel)) return name
     }
   }
+
   return 'page'
 }
 
@@ -62,12 +65,9 @@ export function pageContextFromSources(changedSources: string[]): string {
 // Name-pattern heuristics are NOT trustworthy for this decision.
 export interface SourceFeatureIndex {
   swSources: Set<string>
-  /** Source → canonical content_scripts entry names whose chunks contain it. */
   contentEntriesBySource: Map<string, Set<string>>
   pageSources: Set<string>
-  /** Source → emitted scripts/ bundle names whose chunks contain it. */
   scriptFilesBySource?: Map<string, Set<string>>
-  /** Project-relative public/ roots the copier ships at the dist root. */
   publicRoots?: string[]
 }
 
@@ -82,6 +82,7 @@ export function publicOutputPath(
     if (!prefix) continue
     if (rel.startsWith(`${prefix}/`)) return rel.slice(prefix.length + 1)
   }
+
   return undefined
 }
 
@@ -92,10 +93,12 @@ function relativePublicRoots(
   contextDir: string
 ): string[] {
   const out: string[] = []
+
   for (const root of publicRootsFor(compilation?.compiler)) {
     const rel = path.relative(contextDir, root).replace(/\\/g, '/')
     if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) out.push(rel)
   }
+
   return out
 }
 
@@ -114,13 +117,17 @@ function moduleResourcesFromIdentifier(
   const query = queryIndex === -1 ? '' : noLayer.slice(queryIndex)
 
   const out: string[] = []
+
   const push = (absolute: string) => {
     if (!absolute || !path.isAbsolute(absolute)) return
+
     out.push(path.relative(contextDir, absolute).replace(/\\/g, '/'))
   }
+
   push(resourcePath)
 
   const concatMatch = query.match(/[?&]__extensionjs_classic_concat__=([^&]+)/)
+
   if (concatMatch) {
     try {
       const data = JSON.parse(decodeURIComponent(concatMatch[1]))
@@ -129,6 +136,7 @@ function moduleResourcesFromIdentifier(
       // malformed query, the first file alone still classifies the entry
     }
   }
+
   return out
 }
 
@@ -147,45 +155,56 @@ export function buildSourceFeatureIndex(
     publicRoots: relativePublicRoots(compilation, contextDir)
   }
   const chunkGraph = compilation.chunkGraph
+
   for (const chunk of compilation.chunks || []) {
     const name = String(chunk?.name || '')
     if (!name) continue
+
     const isBackground = /^background\//.test(name)
     const isContent = /^content_scripts\//.test(name)
     const scriptFiles = /^scripts\//.test(name)
       ? emittedScriptFiles(chunk, name)
       : []
+
     for (const module of chunkGraph.getChunkModulesIterable(chunk)) {
       let identifier = ''
+
       try {
         identifier = String(module.identifier())
       } catch {
         continue
       }
+
       for (const rel of moduleResourcesFromIdentifier(identifier, contextDir)) {
         if (isBackground) {
           index.swSources.add(rel)
         } else if (isContent) {
           let entries = index.contentEntriesBySource.get(rel)
+
           if (!entries) {
             entries = new Set()
             index.contentEntriesBySource.set(rel, entries)
           }
+
           entries.add(name)
         } else {
           index.pageSources.add(rel)
         }
+
         if (scriptFiles.length > 0) {
           let files = scriptFilesBySource.get(rel)
+
           if (!files) {
             files = new Set()
             scriptFilesBySource.set(rel, files)
           }
+
           for (const file of scriptFiles) files.add(file)
         }
       }
     }
   }
+
   return index
 }
 
@@ -197,6 +216,7 @@ function emittedScriptFiles(
 ): string[] {
   const files = chunk?.files ? [...chunk.files] : []
   const js = files.filter((file) => /\.js$/i.test(file))
+
   return js.length > 0 ? js : [`${name}.js`]
 }
 
@@ -205,11 +225,14 @@ function changedScriptFilesFor(
   index: SourceFeatureIndex | null
 ): string[] {
   const out = new Set<string>()
+
   for (const rel of changedSources) {
     const files = index?.scriptFilesBySource?.get(rel)
     if (!files) continue
+
     for (const file of files) out.add(file)
   }
+
   return [...out].sort()
 }
 
@@ -240,6 +263,7 @@ export function classifyReloadFromSources(opts: {
   }
 
   let index: SourceFeatureIndex | null = null
+
   try {
     index = getSourceFeatureIndex ? getSourceFeatureIndex() : null
   } catch {
@@ -259,25 +283,32 @@ export function classifyReloadFromSources(opts: {
   const contentChanged: string[] = []
   const pageChanged: string[] = []
   const unknown: string[] = []
+
   for (const rel of changedSources) {
     // A source can live in MORE than one chunk family; record every
     // membership so the instruction can fan out to both reload paths.
     let known = false
+
     if (index?.swSources.has(rel)) {
       swChanged.push(rel)
       known = true
     }
+
     if (index?.contentEntriesBySource.has(rel)) {
       contentChanged.push(rel)
+
       for (const entry of index.contentEntriesBySource.get(rel)!) {
         contentEntries.add(entry)
       }
+
       known = true
     }
+
     if (!known && index?.pageSources.has(rel)) {
       pageChanged.push(rel)
       known = true
     }
+
     if (!known) {
       unknown.push(rel)
     }
@@ -360,11 +391,14 @@ export function classifyReloadFromSources(opts: {
   }
 
   const contentScriptCount = getContentScriptCount()
+
   if (contentScriptCount > 0) {
     const entries: string[] = []
+
     for (let i = 0; i < contentScriptCount; i++) {
       entries.push(getCanonicalContentScriptEntryName(i))
     }
+
     return withScripts({
       type: 'content-scripts',
       changedContentScriptEntries: entries,
@@ -391,6 +425,7 @@ export function readContentScriptCount(
 ): number {
   try {
     const asset = compilation.getAsset?.('manifest.json')
+
     if (asset?.source) {
       const manifest = JSON.parse(String(asset.source.source()))
       const list = manifest?.content_scripts
@@ -402,6 +437,7 @@ export function readContentScriptCount(
 
   try {
     const manifestPath = path.join(outputPath, 'manifest.json')
+
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(
         stripBom(fs.readFileSync(manifestPath, 'utf8'))

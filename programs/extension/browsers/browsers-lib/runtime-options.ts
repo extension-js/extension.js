@@ -44,6 +44,7 @@ export function pickSharedBrowserRuntimeOptions(
     ;(picked as Record<string, unknown>)[key] = (
       options as unknown as Record<string, unknown>
     )[key]
+
     return picked
   }, {} as SharedBrowserRuntimeOptions)
 }
@@ -56,6 +57,7 @@ export function resolveStartingUrl(options: {
   noOpen?: boolean
 }): string | undefined {
   if (options.noOpen) return undefined
+
   return options.startingUrl
 }
 

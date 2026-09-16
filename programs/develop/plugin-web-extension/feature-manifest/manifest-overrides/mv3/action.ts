@@ -30,6 +30,7 @@ export function action(manifest: Manifest) {
             typeof manifest.action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.action.default_icon)
+
                   return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
@@ -37,6 +38,7 @@ export function action(manifest: Manifest) {
                     manifest.action.default_icon as Record<string, string>
                   ).map(([size, icon]) => {
                     const raw = String(icon)
+
                     return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )

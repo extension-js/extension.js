@@ -65,6 +65,7 @@ export class CompilationPlugin {
       const w = warning as InstanceType<typeof WebpackError> & {
         module?: {resource?: unknown; userRequest?: unknown}
       }
+
       try {
         const message = String((w && (w.message || w)) || '')
         const modulePath = String(
@@ -110,6 +111,7 @@ export class CompilationPlugin {
       const hasRspackInternals =
         typeof (compiler as {__internal__registerBuiltinPlugin?: unknown})
           .__internal__registerBuiltinPlugin === 'function'
+
       if (hasRspackInternals) {
         new DefinePlugin({
           'process.env.NODE_ENV': JSON.stringify(

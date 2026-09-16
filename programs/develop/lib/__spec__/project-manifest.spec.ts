@@ -19,6 +19,7 @@ const created: string[] = []
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -34,6 +35,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -99,18 +101,22 @@ describe('parseNpmSpecifier', () => {
       name: 'react',
       version: '^18.3.1'
     })
+
     expect(parseNpmSpecifier('npm:@angular/core@17.0.0')).toEqual({
       name: '@angular/core',
       version: '17.0.0'
     })
+
     expect(parseNpmSpecifier('npm:react')).toEqual({
       name: 'react',
       version: '*'
     })
+
     expect(parseNpmSpecifier('npm:/preact@10.19.3/hooks')).toEqual({
       name: 'preact',
       version: '10.19.3'
     })
+
     expect(parseNpmSpecifier('npm:@scope/pkg')).toEqual({
       name: '@scope/pkg',
       version: '*'
@@ -162,6 +168,7 @@ describe('readProjectDependencies / hasProjectDependency', () => {
         devDependencies: {typescript: '5.3.3'}
       })
     )
+
     fs.writeFileSync(
       path.join(dir, 'deno.jsonc'),
       `{"imports": {"react": "npm:react@^18.3.1", "vue": "npm:vue@^2.0.0"}}`

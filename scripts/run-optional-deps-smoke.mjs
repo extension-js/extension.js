@@ -88,6 +88,7 @@ function wait(ms) {
 
 function shouldRetryCleanupError(error) {
   const code = error && typeof error === 'object' ? error.code : undefined
+
   return code === 'EBUSY' || code === 'EPERM' || code === 'ENOTEMPTY'
 }
 
@@ -102,6 +103,7 @@ async function removeDirectoryWithRetries(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await rm(targetDir, {recursive: true, force: true})
+
       return
     } catch (error) {
       if (!shouldRetryCleanupError(error) || attempt === maxAttempts) {
@@ -122,8 +124,10 @@ function waitForChildExit(child, timeoutMs = 10000) {
 
   return new Promise((resolve) => {
     let settled = false
+
     const finalize = () => {
       if (settled) return
+
       settled = true
       clearTimeout(timeout)
       child.off?.('close', finalize)
@@ -160,6 +164,7 @@ async function terminateChildProcess(child) {
     })
 
     await waitForChildExit(child, 10000)
+
     return
   }
 
@@ -189,6 +194,7 @@ function commandFor(tool) {
   if (tool === 'yarn') return 'yarn.cmd'
   if (tool === 'bun') return 'bun.exe'
   if (tool === 'deno') return 'deno.exe'
+
   return tool
 }
 
@@ -236,6 +242,7 @@ function run(command, args, cwd, env = baseEnv) {
 
 function runLong(command, args, cwd, env = baseEnv, opts = {}) {
   const resolvedCommand = commandFor(command)
+
   return spawn(resolvedCommand, args, {
     cwd,
     env,
@@ -263,9 +270,11 @@ async function assertLocalWorkspacePackagesExist(
   paths = getLocalWorkspacePackagePaths()
 ) {
   const missing = []
+
   for (const [name, dir] of Object.entries(paths)) {
     try {
       const stats = await fs.stat(dir)
+
       if (!stats.isDirectory()) {
         missing.push(`${name} (${dir}): not a directory`)
       }
@@ -290,6 +299,7 @@ function readPackageIdentity(pkgDir) {
   const pkg = JSON.parse(
     fsSync.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')
   )
+
   return {name: pkg.name, version: pkg.version}
 }
 
@@ -303,6 +313,7 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
   await fs.mkdir(vendorDir, {recursive: true})
 
   const specifiers = {}
+
   for (const pkgDir of Object.values(paths)) {
     const {name, version} = readPackageIdentity(pkgDir)
 
@@ -311,6 +322,7 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
       ['--dir', pkgDir, 'pack', '--pack-destination', vendorDir],
       ROOT_DIR
     )
+
     const tarballName = `${name}-${version}.tgz`
     const tarballPath = path.join(vendorDir, tarballName)
 
@@ -333,6 +345,7 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
         ['-xzf', tarballPath, '-C', linkDir, '--strip-components', '1'],
         ROOT_DIR
       )
+
       specifiers[name] = version
     } else {
       specifiers[name] = `file:./${PACKED_TARBALL_DIR}/${tarballName}`
@@ -369,12 +382,14 @@ function runExtensionCliLong(args, cwd, env = baseEnv, pm = packageManager) {
 function windowsDriveRoot(value) {
   const resolved = path.win32.resolve(value)
   const root = path.win32.parse(resolved).root || ''
+
   return root.replace(/[\\/]+$/, '').toLowerCase()
 }
 
 function windowsPathToFileURL(value) {
   const resolved = path.win32.resolve(value).replace(/\\/g, '/')
   const withLeadingSlash = resolved.startsWith('/') ? resolved : `/${resolved}`
+
   return encodeURI(`file://${withLeadingSlash}`)
 }
 
@@ -392,8 +407,10 @@ function fileSpecifier(toAbsPath, fromDir) {
       .split(path.win32.sep)
       .join('/')
     const normalized = relative.startsWith('.') ? relative : `./${relative}`
+
     return `file:${normalized}`
   }
+
   return pathToFileURL(toAbsPath).toString()
 }
 
@@ -404,12 +421,14 @@ async function resolveSmokeTempRootParent() {
 
   const repoScopedTempDir = path.join(ROOT_DIR, '.tmp', 'optional-deps-smoke')
   await fs.mkdir(repoScopedTempDir, {recursive: true})
+
   return repoScopedTempDir
 }
 
 async function pathExists(targetPath) {
   try {
     await fs.access(targetPath)
+
     return true
   } catch {
     return false
@@ -418,6 +437,7 @@ async function pathExists(targetPath) {
 
 function sha1FileSync(filePath) {
   const content = fsSync.readFileSync(filePath)
+
   return crypto.createHash('sha1').update(content).digest('hex')
 }
 
@@ -661,10 +681,12 @@ async function resolveConsumerSourceDir(tempRoot) {
   if (process.env.EXTJS_SMOKE_USE_FALLBACK === '1') {
     const forcedFallback = path.join(tempRoot, 'fallback-consumer-fixture')
     await writeFallbackFixture(forcedFallback)
+
     return {sourceDir: forcedFallback, sourceName: 'forced fallback fixture'}
   }
 
   const fromEnv = process.env.BROWSER_EXTENSION_DIR
+
   if (fromEnv && (await pathExists(fromEnv))) {
     return {sourceDir: fromEnv, sourceName: 'BROWSER_EXTENSION_DIR override'}
   }
@@ -674,6 +696,7 @@ async function resolveConsumerSourceDir(tempRoot) {
     'extensions',
     'browser-extension'
   )
+
   if (await pathExists(defaultBrowserExtension)) {
     return {
       sourceDir: defaultBrowserExtension,
@@ -683,6 +706,7 @@ async function resolveConsumerSourceDir(tempRoot) {
 
   const fallbackFixture = path.join(tempRoot, 'fallback-consumer-fixture')
   await writeFallbackFixture(fallbackFixture)
+
   return {sourceDir: fallbackFixture, sourceName: 'generated fallback fixture'}
 }
 
@@ -715,6 +739,7 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
           'Call packLocalWorkspacePackagesForSmoke() before rewriteConsumerPackageJson().'
       )
     }
+
     for (const depName of [
       'extension',
       'extension-create',
@@ -723,6 +748,7 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
     ]) {
       packageJson.devDependencies[depName] = packedTarballs[depName]
     }
+
     if (packageJson.pnpm?.overrides) {
       delete packageJson.pnpm.overrides.extension
       delete packageJson.pnpm.overrides['extension-create']
@@ -744,10 +770,12 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
       createPath,
       workdir
     )
+
     packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(
       developPath,
       workdir
     )
+
     packageJson.pnpm.overrides['extension-install'] = fileSpecifier(
       installPath,
       workdir
@@ -779,12 +807,14 @@ function installAndBuild(workdir, pm) {
       workdir,
       smokeEnv
     )
+
     run(
       'pnpm',
       ['install', '--frozen-lockfile', '--ignore-workspace'],
       workdir,
       smokeEnv
     )
+
     const firstLockHash = sha1FileSync(lockfilePath)
     run('pnpm', ['build:production'], workdir, smokeEnv)
     const firstBuildLockHash = sha1FileSync(lockfilePath)
@@ -810,16 +840,19 @@ function installAndBuild(workdir, pm) {
         'pnpm build mutated pnpm-lock.yaml after frozen reinstall'
       )
     }
+
     return
   }
 
   if (pm === 'npm') {
     run('npm', ['install', '--no-audit', '--no-fund'], workdir, smokeEnv)
+
     if (shouldUseDirectLocalCli(pm)) {
       runExtensionCli(['build'], workdir, smokeEnv, pm)
     } else {
       run('npm', ['run', 'build:production'], workdir, smokeEnv)
     }
+
     return
   }
 
@@ -829,7 +862,9 @@ function installAndBuild(workdir, pm) {
     } catch {
       run('yarn', ['install'], workdir, smokeEnv)
     }
+
     run('yarn', ['build:production'], workdir, smokeEnv)
+
     return
   }
 
@@ -839,7 +874,9 @@ function installAndBuild(workdir, pm) {
     } catch {
       run('bun', ['install'], workdir, smokeEnv)
     }
+
     run('bun', ['run', 'build:production'], workdir, smokeEnv)
+
     return
   }
 
@@ -877,6 +914,7 @@ function installAndBuild(workdir, pm) {
       path.join(workdir, 'deno.jsonc'),
       `${JSON.stringify(denoManifest, null, 2)}\n`
     )
+
     run('deno', ['install'], workdir, smokeEnv)
     run('deno', ['task', 'build:production'], workdir, smokeEnv)
   }
@@ -918,10 +956,12 @@ function runReactContentDevSmoke(workdir) {
 
     const finish = async (error) => {
       if (settled) return
+
       settled = true
 
       clearTimeout(timeout)
       if (contractPoll) clearInterval(contractPoll)
+
       await terminateChildProcess(child)
 
       if (error) {
@@ -943,16 +983,20 @@ function runReactContentDevSmoke(workdir) {
     // line, which is free copy and may change in any release.
     contractPoll = setInterval(() => {
       if (settled) return
+
       const ready = readReadyContract(workdir, smokeBrowser)
       if (!ready || !isFreshContract(ready, harnessStartMs)) return
+
       if (ready.status === 'error') {
         void finish(
           new Error(
             `React content dev smoke failed per ready.json: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
           )
         )
+
         return
       }
+
       if (ready.status === 'ready') {
         setTimeout(() => {
           void finish()
@@ -973,6 +1017,7 @@ function runReactContentDevSmoke(workdir) {
               )}\n\nCaptured output:\n${output}`
             )
           )
+
           return
         }
       }
@@ -983,8 +1028,10 @@ function runReactContentDevSmoke(workdir) {
     child.on('error', (error) => {
       void finish(error)
     })
+
     child.on('close', (code) => {
       if (settled) return
+
       void finish(
         new Error(
           `React content dev smoke exited early with code ${code}\n\n${output}`
@@ -999,6 +1046,7 @@ async function installWorkspaceDependencies() {
     console.log(
       '\nWorkspace dependencies already present; skipping broad workspace install.'
     )
+
     return
   }
 
@@ -1008,11 +1056,13 @@ async function installWorkspaceDependencies() {
     console.warn(
       '\nFrozen workspace install failed; retrying with --no-frozen-lockfile for smoke execution.'
     )
+
     run(
       'pnpm',
       ['--dir', ROOT_DIR, 'install', '--no-frozen-lockfile'],
       ROOT_DIR
     )
+
     if (error instanceof Error) {
       console.warn(`Original frozen-lockfile failure: ${error.message}`)
     }
@@ -1043,16 +1093,19 @@ async function main() {
       ['--dir', ROOT_DIR, '--filter', 'extension-develop', 'compile'],
       ROOT_DIR
     )
+
     run(
       'pnpm',
       ['--dir', ROOT_DIR, '--filter', 'extension-create', 'compile'],
       ROOT_DIR
     )
+
     run(
       'pnpm',
       ['--dir', ROOT_DIR, '--filter', 'extension-install', 'compile'],
       ROOT_DIR
     )
+
     run(
       'pnpm',
       ['--dir', ROOT_DIR, '--filter', 'extension', 'compile'],
@@ -1083,18 +1136,23 @@ async function main() {
         workdir,
         forkEnv
       )
+
       const forkDistDir = path.join(workdir, 'dist', cliBrowserTarget)
+
       if (!(await pathExists(forkDistDir))) {
         throw new Error(
           `Expected dist/${cliBrowserTarget} after fork build target, but it is missing.`
         )
       }
+
       const forkDistEntries = await fs.readdir(forkDistDir)
+
       if (forkDistEntries.length === 0) {
         throw new Error(
           `Fork build target produced an empty dist/${cliBrowserTarget}.`
         )
       }
+
       console.log(
         `\nFork build target dist/${cliBrowserTarget} produced ` +
           `${forkDistEntries.length} entr${
@@ -1122,6 +1180,7 @@ async function main() {
         ...buildSmokeEnv('npm'),
         EXTENSION_JS_CACHE_DIR: path.join(reactDevDir, '.extensionjs-cache')
       })
+
       await runReactContentDevSmoke(reactDevDir)
       console.log('\nReact content-script dev smoke completed successfully.')
     }

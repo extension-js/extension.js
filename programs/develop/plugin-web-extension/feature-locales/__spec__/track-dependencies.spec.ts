@@ -7,8 +7,9 @@ import {trackLocaleDependencies} from '../track-dependencies'
 const dirs: string[] = []
 
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function project() {
@@ -19,7 +20,9 @@ function project() {
     path.join(root, '_locales', 'en', 'messages.json'),
     '{"name": {"message": "x"}}'
   )
+
   fs.writeFileSync(path.join(root, 'manifest.json'), '{"default_locale":"en"}')
+
   return root
 }
 

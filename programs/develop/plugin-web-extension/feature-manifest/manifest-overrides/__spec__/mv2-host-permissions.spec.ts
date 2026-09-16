@@ -37,6 +37,7 @@ describe('MV2 host_permissions through getManifestOverrides', () => {
       '<all_urls>',
       'https://api.example.com/*'
     ])
+
     expect(result.optional_permissions).toEqual([
       'tabs',
       'https://opt.example.com/*'
@@ -60,9 +61,11 @@ describe('MV2 host_permissions through getManifestOverrides', () => {
       '<all_urls>',
       'https://api.example.com/*'
     ])
+
     expect(result.optional_host_permissions).toEqual([
       'https://opt.example.com/*'
     ])
+
     expect(result.permissions).toEqual(['storage', '<all_urls>'])
     expect(result.optional_permissions).toEqual(['tabs'])
   })
@@ -84,6 +87,7 @@ describe('MV2 host_permissions through buildCanonicalManifest', () => {
       '<all_urls>',
       'https://api.example.com/*'
     ])
+
     expect(result.optional_permissions).toEqual([
       'tabs',
       'https://opt.example.com/*'
@@ -102,6 +106,7 @@ describe('MV2 host_permissions through buildCanonicalManifest', () => {
       '<all_urls>',
       'https://api.example.com/*'
     ])
+
     expect(result.permissions).toEqual(['storage', '<all_urls>'])
   })
 })

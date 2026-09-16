@@ -6,25 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Session-lifecycle exercise: runs the control channel through the process
-// boundaries no unit spec crosses, dev-server crash + restart against a
-// profile whose cached service worker has the OLD port/instanceId baked in
-// (issue #484), dist wipes under a kept profile, two-browser sessions on one
-// project (the eval-token clobber), and MV3 idle windows. Drives everything
-// through CLI verbs on purpose: the fresh-process contract/token reads are
-// part of what is under test.
-//
-// Usage:
-//   node scripts/validate-session-lifecycle.mjs [--scenario <name,...|all>]
-//     [--browser chromium] [--second-browser chrome] [--timeout-ms 180000]
-//     [--keep-temp] [--bin <path>]
-//
-// Default scenarios: baseline,restart-kept-profile,dist-wipe-kept-profile
-// (~3-5 min). `all` adds two-browser (downloads the pinned chrome on first
-// run) and idle-window (~2 min of sleeps). restart-port-lost is a
-// non-gating probe, run only when named explicitly.
-// Headless: EXTENSION_BROWSER_FLAGS="--headless=new" (honored from the env).
-
 import {spawn} from 'node:child_process'
 import {
   existsSync,
@@ -101,6 +82,7 @@ function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
       } catch {
         // ignore
       }
+
       rejectPromise(
         new Error(
           `[extension ${cliArgs.join(' ')}] timed out after ${timeout}ms`
@@ -114,6 +96,7 @@ function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
       clearTimeout(killer)
       rejectPromise(err)
     })
+
     child.on('close', (code) => {
       clearTimeout(killer)
       resolvePromise({code: code || 0, stdout, stderr})
@@ -128,6 +111,7 @@ function parseJsonResult(stdout, label) {
     .filter(Boolean)
     .reverse()
     .find((l) => l.startsWith('{') || l.startsWith('['))
+
   if (!line) {
     throw new Error(`${label}: no JSON result in output:\n${stdout}`)
   }
@@ -153,6 +137,7 @@ function writeFixture(dir) {
       2
     )
   )
+
   // Top-level SW code runs on every worker start, including the full-reload
   // a stale worker is told to perform on resync, so the counter advancing
   // proves fresh code ran after a restart, whichever way Chrome got there.
@@ -211,6 +196,7 @@ function killGroup(session, signal) {
 function waitExit(child, ms) {
   return new Promise((resolvePromise) => {
     if (child.exitCode != null) return resolvePromise(true)
+
     const timer = setTimeout(() => resolvePromise(false), ms)
     child.once('close', () => {
       clearTimeout(timer)
@@ -219,17 +205,14 @@ function waitExit(child, ms) {
   })
 }
 
-/** Orderly shutdown: SIGTERM the group, escalate to SIGKILL. */
 async function stopClean(session) {
   killGroup(session, 'SIGTERM')
   const exited = await waitExit(session.child, 5000)
   if (!exited) killGroup(session, 'SIGKILL')
+
   await waitExit(session.child, 2000)
 }
 
-/** Crash simulation: no cleanup handlers run, ready.json, the persisted
- * port file, and the browser profile are all left behind, which is exactly
- * the state the restart scenarios need. */
 async function killUnclean(session) {
   killGroup(session, 'SIGKILL')
   await waitExit(session.child, 2000)
@@ -248,29 +231,36 @@ async function waitForReady(
   {rejectInstanceId} = {}
 ) {
   const start = Date.now()
+
   while (Date.now() - start < timeoutMs) {
     if (existsSync(readyPath(projectDir, browserName))) {
       try {
         const payload = JSON.parse(
           readFileSync(readyPath(projectDir, browserName), 'utf8')
         )
+
         if (rejectInstanceId && payload.instanceId === rejectInstanceId) {
           throw new Error('stale contract')
         }
+
         if (payload.status === 'ready') return payload
+
         if (payload.status === 'error') {
           throw new Error(
             `dev reported error: ${payload.message || payload.errors?.[0] || 'unknown'}`
           )
         }
       } catch (err) {
-        if (String(err.message || '').startsWith('dev reported error'))
+        if (String(err.message || '').startsWith('dev reported error')) {
           throw err
+        }
         // partial write, retry
       }
     }
+
     await new Promise((r) => setTimeout(r, 300))
   }
+
   throw new Error(
     `ready.json (${browserName}) never reached "ready" within ${timeoutMs}ms`
   )
@@ -281,6 +271,7 @@ async function waitForReady(
 // scenarios: only a live (possibly freshly full-reloaded) SW can answer.
 async function waitForExecutor(projectDir, browserName = browser) {
   const start = Date.now()
+
   while (Date.now() - start < timeoutMs) {
     const res = await runCli(
       [
@@ -295,6 +286,7 @@ async function waitForExecutor(projectDir, browserName = browser) {
       ],
       {cwd: repoRoot}
     ).catch(() => null)
+
     if (res) {
       try {
         if (parseJsonResult(res.stdout, 'executor probe').ok) return
@@ -302,8 +294,10 @@ async function waitForExecutor(projectDir, browserName = browser) {
         // not JSON yet, keep polling
       }
     }
+
     await new Promise((r) => setTimeout(r, 500))
   }
+
   throw new Error(
     `bridge executor (${browserName} service worker) never connected within ${timeoutMs}ms`
   )
@@ -311,6 +305,7 @@ async function waitForExecutor(projectDir, browserName = browser) {
 
 async function actJson(verbArgs, label) {
   const res = await runCli([...verbArgs, '--output', 'json'], {cwd: repoRoot})
+
   return parseJsonResult(res.stdout, label)
 }
 
@@ -320,6 +315,7 @@ async function readStorageKey(projectDir, key, browserName = browser) {
     `storage get ${key}`
   )
   assert(result.ok, `storage get ${key} failed: ${JSON.stringify(result)}`)
+
   return result.value?.[key]
 }
 
@@ -379,6 +375,7 @@ async function runDoctor(projectDir, browserName = browser) {
   const parsed = parseJsonResult(res.stdout, 'doctor')
   // Doctor speaks the schema-1 envelope, its checks ride under value.
   const checks = Array.isArray(parsed) ? parsed : parsed.value
+
   return {checks, code: res.code}
 }
 
@@ -394,14 +391,16 @@ function makeProject(root, name) {
   const projectDir = join(root, name)
   mkdirSync(projectDir, {recursive: true})
   writeFixture(projectDir)
+
   return projectDir
 }
 
-// --- scenarios ---
+// scenarios
 
 async function scenarioBaseline({root}) {
   const projectDir = makeProject(root, 'baseline')
   const session = startDev(projectDir)
+
   try {
     const ready = await waitForReady(projectDir)
     await waitForExecutor(projectDir)
@@ -415,6 +414,7 @@ async function scenarioBaseline({root}) {
       persistedPort === ready.controlPort,
       `persisted port ${persistedPort} != contract port ${ready.controlPort}`
     )
+
     assert(
       existsSync(controlTokenFile(projectDir, browser)),
       'eval token file missing despite --allow-eval'
@@ -441,6 +441,7 @@ async function scenarioRestartKeptProfile({root}) {
   mkdirSync(profileDir, {recursive: true})
   const first = startDev(projectDir, {profile: profileDir})
   let second = null
+
   try {
     const ready1 = await waitForReady(projectDir)
     await waitForExecutor(projectDir)
@@ -468,6 +469,7 @@ async function scenarioRestartKeptProfile({root}) {
       ready2.controlPort === ready1.controlPort,
       `restart did not prefer the persisted port (was ${ready1.controlPort}, now ${ready2.controlPort}), a profile-cached SW would dial a dead port forever`
     )
+
     assert(
       ready2.instanceId !== ready1.instanceId,
       'restart reused the instanceId, stale-SW detection would be blind'
@@ -486,6 +488,7 @@ async function scenarioRestartKeptProfile({root}) {
     await assertVerbsWork(projectDir)
   } finally {
     if (second) await stopClean(second)
+
     await killUnclean(first)
   }
 }
@@ -498,6 +501,7 @@ async function scenarioDistWipeKeptProfile({root}) {
   mkdirSync(profileDir, {recursive: true})
 
   let session = startDev(projectDir, {profile: profileDir})
+
   try {
     const ready1 = await waitForReady(projectDir)
     await waitForExecutor(projectDir)
@@ -534,6 +538,7 @@ async function scenarioTwoBrowser({root}) {
     cwd: repoRoot,
     timeout: 300000
   }).catch(() => null)
+
   if (!install || install.code !== 0) {
     return {
       skipped: `could not install the pinned ${secondBrowser} binary, run \`extension install ${secondBrowser}\` and re-run`
@@ -543,6 +548,7 @@ async function scenarioTwoBrowser({root}) {
   const projectDir = makeProject(root, 'two-browser')
   const a = startDev(projectDir, {browserName: browser})
   let b = null
+
   try {
     await waitForReady(projectDir, browser)
     await waitForExecutor(projectDir, browser)
@@ -569,6 +575,7 @@ async function scenarioTwoBrowser({root}) {
     await assertVerbsWork(projectDir, browser)
   } finally {
     if (b) await killUnclean(b)
+
     await stopClean(a)
   }
 }
@@ -578,6 +585,7 @@ async function scenarioTwoBrowser({root}) {
 async function scenarioIdleWindow({root}) {
   const projectDir = makeProject(root, 'idle')
   const session = startDev(projectDir)
+
   try {
     await waitForReady(projectDir)
     await waitForExecutor(projectDir)
@@ -627,6 +635,7 @@ async function scenarioRestartPortLost({root}) {
   const projectDir = makeProject(root, 'port-lost')
   const first = startDev(projectDir)
   let second = null
+
   try {
     await waitForReady(projectDir)
     await waitForExecutor(projectDir)
@@ -635,6 +644,7 @@ async function scenarioRestartPortLost({root}) {
 
     second = startDev(projectDir)
     await waitForReady(projectDir)
+
     try {
       await waitForExecutor(projectDir)
       console.log('  probe: executor recovered even with the port file lost')
@@ -647,8 +657,10 @@ async function scenarioRestartPortLost({root}) {
     }
   } finally {
     if (second) await stopClean(second)
+
     await killUnclean(first)
   }
+
   return {probe: true}
 }
 
@@ -664,10 +676,12 @@ const SCENARIOS = {
 function selectedScenarios() {
   const raw = parseArg('--scenario', DEFAULT_SCENARIOS.join(','))
   if (raw === 'all') return ALL_SCENARIOS
+
   const names = raw
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+
   for (const name of names) {
     if (!SCENARIOS[name]) {
       throw new Error(
@@ -675,6 +689,7 @@ function selectedScenarios() {
       )
     }
   }
+
   return names
 }
 
@@ -683,8 +698,10 @@ async function main() {
     console.log(
       'session-lifecycle exercise needs POSIX process groups, skipping on win32'
     )
+
     return
   }
+
   if (!existsSync(cliBin)) {
     throw new Error(
       `CLI not found at ${cliBin}. Build it first (e.g. \`pnpm --dir programs/extension build\`) or pass --bin.`
@@ -695,11 +712,14 @@ async function main() {
   console.log(`session-lifecycle: ${names.join(', ')} (browser=${browser})`)
 
   const failures = []
+
   for (const name of names) {
     const root = mkdtempSync(join(tmpdir(), `extjs-lifecycle-${name}-`))
     console.log(`\n=== ${name} (${root})`)
+
     try {
       const outcome = await SCENARIOS[name]({root})
+
       if (outcome?.skipped) {
         console.log(`SKIP: ${name}, ${outcome.skipped}`)
       } else {
@@ -715,6 +735,7 @@ async function main() {
         killGroup(session, 'SIGKILL')
         liveSessions.delete(session)
       }
+
       if (keepTemp) {
         console.log(`Temp preserved: ${root}`)
       } else {
@@ -730,14 +751,17 @@ async function main() {
   if (failures.length > 0) {
     throw new Error(`scenarios failed: ${failures.join(', ')}`)
   }
+
   console.log('\nSESSION-LIFECYCLE PASSED')
 }
 
 main().catch((error) => {
   console.error('FAIL: session-lifecycle exercise failed')
   console.error(String(error?.stack || error))
+
   for (const session of [...liveSessions]) {
     killGroup(session, 'SIGKILL')
   }
+
   process.exit(1)
 })

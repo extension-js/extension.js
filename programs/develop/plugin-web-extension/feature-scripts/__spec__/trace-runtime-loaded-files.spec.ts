@@ -28,11 +28,13 @@ function createTempProject(
     JSON.stringify({manifest_version: 3, name: 'fixture', ...manifest}),
     'utf8'
   )
+
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(dir, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content, 'utf8')
   }
+
   return dir
 }
 
@@ -67,6 +69,7 @@ function makeCompilation(assets: Record<string, string>) {
       thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
     }
   }
+
   return {compiler, compilation, emitted}
 }
 
@@ -80,9 +83,11 @@ async function runTrace(
     manifestPath: path.join(projectDir, 'manifest.json'),
     browser: browser as any
   }).apply(made.compiler)
+
   // The fake tapPromise runs the handler right away, its promise settles the
   // first round, which is the only round a copy-only fixture has.
   await Promise.resolve()
+
   return made
 }
 
@@ -168,6 +173,7 @@ describe('TraceRuntimeLoadedFiles injected payloads', () => {
     expect(String(warning.message)).toContain(
       "injects 'scripts/ss.ts', but scripts/ss.ts is compiled to scripts/ss.js"
     )
+
     expect(String(warning.message)).toContain('Inject the emitted path')
     // The raw source must not ship next to its compiled output.
     expect(emitted.has('scripts/ss.ts')).toBe(false)
@@ -271,6 +277,7 @@ describe('planTracedFile', () => {
       loadsAs: opts.loadsAs || 'by-shape',
       hasAsset: opts.hasAsset || hasNone
     })
+
     return {manifestDir, result}
   }
 
@@ -308,6 +315,7 @@ describe('planTracedFile', () => {
       emitPath: 'lib/mod.js',
       format: 'module'
     })
+
     expect(
       plan(files, {sourceRel: 'lib/mod.js', loadsAs: 'classic'}).result
     ).toMatchObject({
@@ -372,10 +380,12 @@ describe('planTracedFile', () => {
       kind: 'missing',
       emitPath: 'lib/nope.js'
     })
+
     expect(
       plan({'lib/a.ts': ''}, {sourceRel: 'lib/a.ts', hasAsset: () => true})
         .result
     ).toEqual({kind: 'skip', reason: 'emitted', emitPath: 'lib/a.ts'})
+
     expect(
       plan({}, {sourceRel: 'vendor/x.js', publicFiles: {'vendor/x.js': ''}})
         .result

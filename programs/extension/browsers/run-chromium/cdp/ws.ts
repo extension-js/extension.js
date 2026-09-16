@@ -23,6 +23,7 @@ export function establishBrowserConnection(
       if (isDev) {
         humanLine(messages.cdpClientBrowserConnectionEstablished())
       }
+
       resolve(ws)
     })
 
@@ -34,12 +35,14 @@ export function establishBrowserConnection(
       if (isDev) {
         humanError(messages.cdpClientConnectionError(error.message))
       }
+
       onRejectPending(error.message)
       reject(error)
     })
 
     ws.on('close', () => {
       if (isDev) humanLine(messages.cdpClientConnectionClosed())
+
       onRejectPending('CDP connection closed')
 
       reject(new Error('CDP WebSocket closed before the connection opened'))

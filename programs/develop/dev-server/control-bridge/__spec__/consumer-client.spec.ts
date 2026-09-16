@@ -30,6 +30,7 @@ describe('readReadyContract', () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ready-'))
   })
+
   afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
 
   function writeReady(obj: unknown) {
@@ -45,6 +46,7 @@ describe('readReadyContract', () => {
       runId: 'r',
       status: 'ready'
     })
+
     expect(readReadyContract(dir, 'chrome')).toMatchObject({
       controlPort: 8147,
       instanceId: 'inst-1'
@@ -68,6 +70,7 @@ describe('readReadyContract', () => {
       instanceId: 'inst-1',
       runId: 'r'
     })
+
     expect(readReadyContract(dir, 'chrome')).toMatchObject({
       schemaVersion: 2,
       schema: 1
@@ -80,6 +83,7 @@ describe('readReadyContractDocument', () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ready-doc-'))
   })
+
   afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
 
   function writeReady(obj: unknown) {
@@ -136,6 +140,7 @@ describe('BridgeConsumer (integration)', () => {
   afterEach(async () => {
     consumer?.close()
     consumer = null
+
     if (server) {
       await server.close()
       server = null
@@ -162,6 +167,7 @@ describe('BridgeConsumer (integration)', () => {
         onLog: (e) => logs.push(String(e.messageParts[0])),
         onGap: () => (gapped += 1)
       })
+
       consumer.start()
     })
     await ready
@@ -185,6 +191,7 @@ describe('BridgeConsumer (integration)', () => {
       instanceId: 'wrong',
       onReady: () => (readyCalled = true)
     })
+
     consumer.start()
     await new Promise((r) => setTimeout(r, 200))
     expect(readyCalled).toBe(false)
@@ -206,6 +213,7 @@ describe('BridgeConsumer (integration)', () => {
     expect(closes).toEqual([
       {code: CLOSE_BAD_INSTANCE, reason: 'instanceId mismatch'}
     ])
+
     expect(c.lastClose).toEqual({
       code: CLOSE_BAD_INSTANCE,
       reason: 'instanceId mismatch'
@@ -223,6 +231,7 @@ describe('BridgeConsumer (integration)', () => {
         closed += 1
       }
     })
+
     consumer.start()
     await new Promise((r) => setTimeout(r, 300))
     expect(closed).toBe(1)

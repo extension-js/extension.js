@@ -19,6 +19,7 @@ describe('getManifestOverrides, dual background keys (G14)', () => {
     expect(parsed.background.service_worker).toBe(
       'background/service_worker.js'
     )
+
     expect(parsed.background.scripts).toEqual(['background/scripts.js'])
     expect(parsed.background.type).toBe('module')
   })

@@ -29,9 +29,6 @@ import type {FirefoxPluginRuntime} from './run-firefox/firefox-types'
 
 export type {BrowserType, CompilationLike, Controller} from './browsers-types'
 
-/**
- * Options for launching a browser with an extension loaded.
- */
 export interface BrowserLaunchOptions {
   browser: BrowserType
   outputPath: string
@@ -60,25 +57,9 @@ export interface BrowserLaunchOptions {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
-  /**
-   * Host log pipeline for browser-generated CDP `Log.entryAdded` entries
-   * (E21). Provided by the dev server so alarm clamps / CSP refusals land in
-   * logs.ndjson; Chromium-only (Firefox RDP exposes no equivalent stream).
-   */
   logSink?: BrowserLogSink
 }
 
-/**
- * Handle returned by `launchBrowser`, provides logging control.
- *
- * Reload is owned by the dev server's control-bridge SW producer (the same
- * executor for launched + `--no-browser`), not this controller; the CDP/RDP
- * controller is kept only for unified logging.
- *
- * Browser process cleanup is owned by signal handlers installed during launch
- * (`setupFirefoxProcessHandlers` / Chromium equivalents). The controller is
- * deliberately not responsible for teardown, so there is no `close()`.
- */
 export type {ExtensionLoadRetryResult}
 
 export interface BrowserController {
@@ -91,9 +72,7 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
-  /** The browser's refusal reason for this session, or null when it loaded. */
   getExtensionLoadRefusal?(): string | null
-  /** Re-offer the current dist. Only ever called while the session is refused. */
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
 }
 
@@ -108,13 +87,6 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
   }
 }
 
-/**
- * Launch a browser with the given extension(s) loaded.
- *
- * Returns a `BrowserController` that provides unified-logging control.
- * This is the primary entry point for the CLI orchestration layer, it replaces
- * the old BrowsersPlugin that lived inside the bundler.
- */
 export async function launchBrowser(
   opts: BrowserLaunchOptions
 ): Promise<BrowserController> {
@@ -172,6 +144,7 @@ async function launchChromium(
   await launcher.runOnce(compilationLike, {enableCdpPostLaunch: enableCdp})
 
   let cdpController: Controller | undefined
+
   if (enableCdp) {
     cdpController = ctx.getController?.()
   }
@@ -187,10 +160,12 @@ async function launchChromium(
       if (!cdpController?.verifyGuestLoaded) return {status: 'unknown' as const}
 
       const outcome = await cdpController.verifyGuestLoaded()
+
       if (outcome.status === 'loaded') {
         launcher.clearExtensionLoadRefusal()
         await launcher.printBannerOnRecovery()
       }
+
       return outcome
     },
 
@@ -287,6 +262,7 @@ async function launchFirefox(
     // against whatever is on disk now. Bound at the refusal, absent otherwise.
     async retryExtensionLoad() {
       if (!firefoxOpts.retryAddonInstall) return {status: 'unknown' as const}
+
       return await firefoxOpts.retryAddonInstall()
     },
 
@@ -294,6 +270,7 @@ async function launchFirefox(
     // launched + --no-browser); the RDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {
       if (!rdpController?.enableUnifiedLogging) return
+
       await rdpController.enableUnifiedLogging({
         level: logOpts.level,
         contexts: logOpts.contexts,

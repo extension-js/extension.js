@@ -31,6 +31,7 @@ describe('preact-refresh-shim (dev page)', () => {
 
   it('does not clobber existing $RefreshReg$ / $RefreshSig$', async () => {
     const realReg = function realRefreshReg() {}
+
     const realSig = function realRefreshSig() {
       return (type: unknown) => type
     }

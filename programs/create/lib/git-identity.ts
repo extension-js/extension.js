@@ -21,7 +21,9 @@ function readGitConfig(key: string, cwd: string): string | undefined {
       stdio: ['ignore', 'pipe', 'ignore']
     })
     if (result.status !== 0) return undefined
+
     const value = String(result.stdout || '').trim()
+
     return value || undefined
   } catch {
     return undefined

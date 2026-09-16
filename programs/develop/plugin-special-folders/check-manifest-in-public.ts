@@ -16,6 +16,7 @@ export function checkManifestInPublic(
 ): void {
   try {
     const manifestInPublic = path.join(publicDir, 'manifest.json')
+
     if (fs.existsSync(manifestInPublic)) {
       const err = new WebpackError(
         `manifest.json must not be placed under public/: ${manifestInPublic}`

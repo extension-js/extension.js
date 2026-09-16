@@ -6,10 +6,6 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// The first-run install offer records its outcome here and the command event
-// reads it on the way out. A plain module with no imports keeps the browser
-// launcher clear of telemetry's module-level side effects.
-
 export type BrowserInstallOutcome =
   | 'offered'
   | 'accepted'

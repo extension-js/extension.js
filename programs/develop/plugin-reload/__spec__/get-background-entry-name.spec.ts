@@ -16,11 +16,13 @@ afterEach(() => {
 function makeProject(files: string[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bg-entry-'))
   tempDirs.push(dir)
+
   for (const file of files) {
     const filePath = path.join(dir, file)
     fs.mkdirSync(path.dirname(filePath), {recursive: true})
     fs.writeFileSync(filePath, '// stub', 'utf8')
   }
+
   return dir
 }
 

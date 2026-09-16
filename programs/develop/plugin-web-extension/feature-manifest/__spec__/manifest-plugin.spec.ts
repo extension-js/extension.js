@@ -22,12 +22,14 @@ vi.mock('../steps/patch-war', () => ({
     apply = applySpy
   }
 }))
+
 vi.mock('../steps/apply-dev-defaults', () => ({
   ApplyDevDefaults: class {
     constructor(_opts: any) {}
     apply = applySpy
   }
 }))
+
 vi.mock('../steps/persist-manifest', () => ({
   PersistManifestToDisk: class {
     apply = applySpy

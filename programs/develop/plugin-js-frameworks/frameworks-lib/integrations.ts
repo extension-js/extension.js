@@ -20,5 +20,6 @@ export function isUsingJSFramework(projectPath: string): boolean {
     'solid-js',
     'preact'
   ]
+
   return frameworks.some((fw) => hasDependency(projectPath, fw))
 }

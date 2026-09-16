@@ -46,11 +46,13 @@ describe('matchesLogQuery', () => {
         context: 'background,content'
       })
     ).toBe(true)
+
     expect(
       matchesLogQuery(event({context: 'popup'}), {
         context: ['background', 'content']
       })
     ).toBe(false)
+
     expect(matchesLogQuery(event({context: 'popup'}), {context: 'all'})).toBe(
       true
     )
@@ -62,6 +64,7 @@ describe('matchesLogQuery', () => {
         signalsOnly: true
       })
     ).toBe(true)
+
     expect(matchesLogQuery(event(), {signalsOnly: true})).toBe(false)
   })
 
@@ -73,6 +76,7 @@ describe('matchesLogQuery', () => {
     expect(
       matchesLogQuery(event({hostname: 'example.com'}), {url: 'example'})
     ).toBe(true)
+
     // No url and no hostname cannot match a url filter.
     expect(matchesLogQuery(event(), {url: 'example'})).toBe(false)
   })
@@ -87,10 +91,12 @@ describe('matchesLogQuery', () => {
     expect(matchesLogQuery(event({seq: 1, timestamp: at - 1}), {since})).toBe(
       false
     )
+
     expect(matchesLogQuery(event({seq: 2, timestamp: at}), {since})).toBe(false)
     expect(matchesLogQuery(event({seq: 3, timestamp: at + 1}), {since})).toBe(
       true
     )
+
     expect(
       matchesLogQuery(event({seq: 4, ts: '2026-09-05T12:00:01.000Z'}), {since})
     ).toBe(true)

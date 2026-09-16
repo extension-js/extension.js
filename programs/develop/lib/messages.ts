@@ -34,6 +34,7 @@ export function resolvedWorkspaceManifest(
       ? path.dirname(manifestDir)
       : manifestDir
   const display = path.relative(projectPath, packageDir) || packageDir
+
   return (
     `${getLoggingPrefix('info')} ${colors.gray('Workspace root detected.')}\n` +
     `${colors.gray('PACKAGE')} ${colors.underline(display)}`
@@ -50,6 +51,7 @@ export function remoteFetchTimedOut(target: string, ms: number) {
 
 export function manifestInvalidJson(manifestPath: string, error: unknown) {
   const detail = error instanceof Error ? error.message : String(error)
+
   return (
     `${getLoggingPrefix('error')} Couldn't parse manifest.json as JSON.\n` +
     `${colors.gray('PATH')} ${colors.underline(manifestPath)}\n` +
@@ -95,6 +97,7 @@ export function manifestNotFoundError(
       const display = path.isAbsolute(normalized)
         ? path.relative(projectRoot, normalized) || normalized
         : normalized
+
       return `  extension dev ${display}`
     })
     .join('\n')
@@ -121,11 +124,13 @@ export function previewing(
   noBrowser?: boolean
 ) {
   const suffix = noBrowser ? ' (no-browser mode)' : ''
+
   return `${getLoggingPrefix('info')} Previewing on ${capitalizedBrowserName(browser)}${suffix}.`
 }
 
 export function starting(browser: DevOptions['browser'], noBrowser?: boolean) {
   const suffix = noBrowser ? ' (no-browser mode)' : ''
+
   return `${getLoggingPrefix('info')} Starting on ${capitalizedBrowserName(browser)}${suffix}.`
 }
 
@@ -169,6 +174,7 @@ export function projectInstallInWorkspaceRoot(workspaceRoot: string) {
     `installing from the workspace root at ${colors.blue(workspaceRoot)}.`
   )
 }
+
 export function projectInstallFallbackToNpm(pmName: string) {
   return (
     `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
@@ -190,6 +196,7 @@ export function anotherDevSessionActive(
   runId: string
 ) {
   const run = runId ? `, run ${runId}` : ''
+
   return (
     `${getLoggingPrefix('warn')} Another dev session is already writing dist/${browser} (PID ${pid}${run}).\n` +
     `Both sessions rebuild the same output, so the last compile wins.\n` +
@@ -203,6 +210,7 @@ export function buildAssetsTree(stats: Stats | undefined): string {
     assets: true
   })
   const assets: StatsAsset[] = statsJson?.assets || []
+
   return getAssetsTree(assets)
 }
 
@@ -216,6 +224,7 @@ export function buildComplete(
     typeof totalBytes === 'number' && totalBytes > 0
       ? ` (${getHumanSize(totalBytes)})`
       : ''
+
   return (
     `${getLoggingPrefix('success')} ${noun} built for production in ` +
     `${colors.underline(distDisplayPath)}${size}.`
@@ -242,6 +251,7 @@ export function addonLintSummary(
   const parts: string[] = []
   if (errorCount > 0) parts.push(pluralize(errorCount, 'error'))
   if (warningCount > 0) parts.push(pluralize(warningCount, 'warning'))
+
   return (
     `${getLoggingPrefix('warn')} Store check for addons.mozilla.org: ` +
     `addons-linter found ${parts.join(' and ')} in ${colors.underline(distDisplay)}`
@@ -258,6 +268,7 @@ export function addonLintFinding(
 ) {
   const glyph = getLoggingPrefix(level === 'error' ? 'warn' : 'info')
   const where = location ? ` ${colors.gray(`(${location})`)}` : ''
+
   return `${glyph} AMO ${level} ${colors.yellow(code)}: ${message}${where}`
 }
 
@@ -282,6 +293,7 @@ export function addonLintFailed(reason: string) {
 export function buildShareHint() {
   const docs = platformDocsUrl()
   if (!docs) return ''
+
   return (
     `${getLoggingPrefix('info')} Send this build to someone for review: ` +
     colors.underline(
@@ -293,6 +305,7 @@ export function buildShareHint() {
 export function buildFailed(errorCount: number) {
   const count = Math.max(1, Math.floor(errorCount || 1))
   const noun = count === 1 ? 'error' : 'errors'
+
   return `${getLoggingPrefix('error')} Build failed with ${count} ${noun}.`
 }
 
@@ -332,6 +345,7 @@ function stripModuleWarningWrapper(message: string): string {
 
 function getWarningMessage(warning: LooseBuildWarning): string {
   if (!warning) return ''
+
   if (typeof warning === 'string') {
     return stripModuleWarningWrapper(warning.trim())
   }
@@ -342,6 +356,7 @@ function getWarningMessage(warning: LooseBuildWarning): string {
     warning.reason,
     warning.description
   ]
+
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.trim()) {
       return stripModuleWarningWrapper(candidate.trim())
@@ -375,6 +390,7 @@ function getWarningArtifact(warning: LooseBuildWarning): string {
   if (!warning || typeof warning === 'string') return ''
 
   const candidates = [warning.file, warning.chunkName, warning.moduleName]
+
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.trim()) {
       return candidate.trim()
@@ -441,18 +457,23 @@ function suggestedHintForWarning(category: BuildWarningCategory): string {
   if (category === 'Performance') {
     return 'Inspect the largest startup bundles and split optional code paths.'
   }
+
   if (category === 'Deprecation') {
     return 'Move to the supported API or plugin path before the next update.'
   }
+
   if (category === 'Configuration') {
     return 'Review extension and bundler config keys, then remove or rename invalid options.'
   }
+
   if (category === 'Compatibility') {
     return 'Verify browser target and manifest compatibility for this build.'
   }
+
   if (category === 'Runtime-risk') {
     return 'Address this before release. It may fail or degrade at runtime.'
   }
+
   return 'Re-run with EXTENSION_VERBOSE=1 to inspect full warning details.'
 }
 
@@ -477,6 +498,7 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
             'Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.'
           )}`
       )
+
       return
     }
 
@@ -485,8 +507,10 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
       source,
       artifact
     )
+
     if (performanceWarning) {
       blocks.push(performanceWarning)
+
       return
     }
 
@@ -512,6 +536,7 @@ export function downloadingProjectPath(projectName: string) {
   const formatted = isPathLike(projectName)
     ? colors.underline(projectName)
     : projectName
+
   return `${getLoggingPrefix('info')} Downloading ${formatted}…`
 }
 
@@ -660,6 +685,7 @@ export function localZipNotFound(zipFilePath: string) {
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   const b = String(browser || '')
   const cap = b.charAt(0).toUpperCase() + b.slice(1)
+
   return colors.yellow(`${cap}`)
 }
 
@@ -671,6 +697,7 @@ function getHumanSize(sizeInBytes: number): string {
   const bytes = Math.max(0, sizeInBytes || 0)
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
@@ -692,6 +719,7 @@ function printTree(node: AssetTreeNode, prefix = ''): string {
     const isLeaf = typeof childNode?.size === 'number'
     const sizeInKB = isLeaf ? ` (${getFileSize(childNode?.size ?? 0)})` : ''
     output += `${colors.gray(prefix)}${colors.gray(connector)} ${key}${colors.gray(sizeInKB)}\n`
+
     if (childNode && !isLeaf) {
       output += printTree(
         childNode,
@@ -710,6 +738,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
     // Failed builds can report asset stubs without a name; skip them
     // instead of throwing inside the compiler.run callback.
     if (typeof asset?.name !== 'string') return
+
     const paths = asset.name.split('/')
     let currentLevel: AssetTreeNode = assetTree
 
@@ -717,6 +746,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
       if (!currentLevel[part]) {
         currentLevel[part] = {}
       }
+
       if (index === paths.length - 1) {
         currentLevel[part] = {size: asset.size}
       } else {
@@ -780,6 +810,7 @@ function formatPerformanceWarningBlock(options: {
   if (options.threshold) {
     lines.push(formatWarningLabelLine('Threshold', options.threshold))
   }
+
   lines.push(formatWarningLabelLine('Impact', options.impact))
 
   lines.push(colors.gray('│'))
@@ -878,19 +909,23 @@ export function configLoadingError(configPath: string, error: unknown) {
 export function buildCommandFailed(error: unknown) {
   const message = (() => {
     if (error instanceof Error && error.message) return error.message
+
     return String(error || 'Unknown error')
   })()
   // A message carrying its own error glyph is already a rendered block, so a
   // second "Build failed." headline on top of it would double the label line.
   if (message.includes(getLoggingPrefix('error'))) return message
+
   return `${getLoggingPrefix('error')} ${colors.red(fmt.truncate(message, 1200))}`
 }
 
 export function devCommandFailed(error: unknown) {
   const message = (() => {
     if (error instanceof Error && error.message) return error.message
+
     return String(error || 'Unknown error')
   })()
+
   return (
     `${getLoggingPrefix('error')} Dev mode failed.\n` +
     `${colors.red(fmt.truncate(message, 1200))}`
@@ -902,6 +937,7 @@ export function managedDependencyConflict(
   userPackageJsonPath: string
 ) {
   const list = duplicates.map((d) => `- ${colors.yellow(d)}`).join('\n')
+
   return (
     `${getLoggingPrefix('error')} Your project declares dependencies that Extension.js already manages, so the build was aborted.\n` +
     `${colors.red('Duplicate declarations can cause version conflicts and break the build.')}\n\n` +

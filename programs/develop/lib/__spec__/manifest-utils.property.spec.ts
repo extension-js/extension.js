@@ -64,8 +64,11 @@ const twins = (browser: string) =>
     .chain((s) => {
       const entries: Array<[string, string]> = []
       if (s.plain) entries.push([s.key, 'plain'])
-      for (const tier of ['specific', 'family', 'foreign'] as const)
+
+      for (const tier of ['specific', 'family', 'foreign'] as const) {
         for (const p of s[tier]) entries.push([`${p}:${s.key}`, `${tier}:${p}`])
+      }
+
       return shuffle(entries).map((order) => ({...s, entries: order}))
     })
 
@@ -73,11 +76,15 @@ const twins = (browser: string) =>
 // invariants are exercised at every level the resolver recurses through.
 const wrap = (node: unknown, depth: number): unknown =>
   depth === 0 ? node : wrap(depth % 2 ? {inner: node} : [node], depth - 1)
+
 // wrap adds the depth-1 layer last, so peeling starts from layer one.
 const unwrap = (node: any, depth: number): any => {
   let current = node
-  for (let layer = 1; layer <= depth; layer++)
+
+  for (let layer = 1; layer <= depth; layer++) {
     current = layer % 2 ? current.inner : current[0]
+  }
+
   return current
 }
 
@@ -106,10 +113,13 @@ describe('filterKeysForThisBrowser properties', () => {
               : plain
                 ? 'plain'
                 : undefined
+
           if (!winner) {
             expect(out).toEqual({})
+
             return
           }
+
           expect(Object.keys(out)).toEqual([key])
           expect(String(out[key]).split(':')[0]).toBe(winner)
         }

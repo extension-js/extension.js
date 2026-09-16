@@ -28,6 +28,7 @@ function project(extensionConfig?: string) {
       dependencies: {react: '0.0.0'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -40,33 +41,40 @@ function project(extensionConfig?: string) {
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
     })
   )
+
   const reactDir = path.join(root, 'node_modules', 'react')
   fs.mkdirSync(reactDir, {recursive: true})
   fs.writeFileSync(
     path.join(reactDir, 'package.json'),
     JSON.stringify({name: 'react', version: '0.0.0', main: 'index.js'})
   )
+
   fs.writeFileSync(
     path.join(reactDir, 'index.js'),
     `exports.createElement = function () { globalThis.__react = '${REACT_MARK}'; return '${REACT_MARK}' }\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'shared.js'),
     `export function greet(name) {\n  globalThis.__shared = '${SHARED_MARK}'\n  return name + ' ' + '${SHARED_MARK}'\n}\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'only-popup.js'),
     `export function only() {\n  globalThis.__only = '${ONLY_POPUP_MARK}'\n  return '${ONLY_POPUP_MARK}'\n}\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'theme.css'),
     '.theme-mark { color: rgb(1, 2, 3); }\n'
   )
+
   for (const page of ['popup', 'options']) {
     fs.writeFileSync(
       path.join(root, `${page}.html`),
       `<html><body><div id="root"></div><script type="module" src="./${page}.js"></script></body></html>\n`
     )
+
     const onlyImport =
       page === 'popup' ? "import {only} from './only-popup.js'\nonly()\n" : ''
     fs.writeFileSync(
@@ -74,17 +82,21 @@ function project(extensionConfig?: string) {
       `import {createElement} from 'react'\nimport {greet} from './shared.js'\nimport './theme.css'\n${onlyImport}document.getElementById('root').textContent = greet('${page}') + createElement()\n`
     )
   }
+
   fs.writeFileSync(
     path.join(root, 'background.js'),
     `import {createElement} from 'react'\nimport {greet} from './shared.js'\nconsole.log(greet('background'), createElement())\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'content.js'),
     `import {createElement} from 'react'\nimport {greet} from './shared.js'\nconsole.log(greet('content'), createElement())\n`
   )
+
   if (extensionConfig) {
     fs.writeFileSync(path.join(root, 'extension.config.js'), extensionConfig)
   }
+
   return root
 }
 
@@ -92,6 +104,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser: 'chrome',
@@ -116,6 +129,7 @@ function scriptSrcs(html: string) {
 
 function contentScriptFile(distDir: string) {
   const manifest = JSON.parse(read(distDir, 'manifest.json'))
+
   return String(manifest.content_scripts[0].js[0])
 }
 
@@ -159,11 +173,13 @@ describe('default page-only split chunks', () => {
       '/shared/commons.js',
       '/action/index.js'
     ])
+
     expect(scriptSrcs(read(distDir, 'options/index.html'))).toEqual([
       '/shared/framework.js',
       '/shared/commons.js',
       '/options/index.js'
     ])
+
     for (const tag of read(distDir, 'action/index.html').match(
       /<script[^>]*>/gi
     ) || []) {
@@ -180,6 +196,7 @@ describe('default page-only split chunks', () => {
     expect(fs.existsSync(path.join(distDir, 'shared', 'commons.css'))).toBe(
       false
     )
+
     expect(read(distDir, 'action/index.css')).toContain('theme-mark')
     expect(read(distDir, 'options/index.css')).toContain('theme-mark')
   }, 120_000)
@@ -199,6 +216,7 @@ describe('default page-only split chunks', () => {
     expect(scriptSrcs(read(distDir, 'action/index.html'))).toEqual([
       '/action/index.js'
     ])
+
     expect(scriptSrcs(read(distDir, 'options/index.html'))).toEqual([
       '/options/index.js'
     ])
@@ -219,6 +237,7 @@ function userScriptProject() {
       dependencies: {react: '0.0.0'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -231,34 +250,41 @@ function userScriptProject() {
       user_scripts: {api_script: 'api.js'}
     })
   )
+
   const reactDir = path.join(root, 'node_modules', 'react')
   fs.mkdirSync(reactDir, {recursive: true})
   fs.writeFileSync(
     path.join(reactDir, 'package.json'),
     JSON.stringify({name: 'react', version: '0.0.0', main: 'index.js'})
   )
+
   fs.writeFileSync(
     path.join(reactDir, 'index.js'),
     `exports.createElement = function () { globalThis.__react = '${REACT_MARK}'; return '${REACT_MARK}' }\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'shared.js'),
     `export function greet(name) {\n  globalThis.__shared = '${SHARED_MARK}'\n  return name + ' ' + '${SHARED_MARK}'\n}\n`
   )
+
   for (const page of ['popup', 'options']) {
     fs.writeFileSync(
       path.join(root, `${page}.html`),
       `<html><body><div id="root"></div><script type="module" src="./${page}.js"></script></body></html>\n`
     )
+
     fs.writeFileSync(
       path.join(root, `${page}.js`),
       `import {createElement} from 'react'\nimport {greet} from './shared.js'\ndocument.getElementById('root').textContent = greet('${page}') + createElement()\n`
     )
   }
+
   fs.writeFileSync(
     path.join(root, 'api.js'),
     `import {createElement} from 'react'\nimport {greet} from './shared.js'\nconsole.log(greet('api'), createElement())\n`
   )
+
   return root
 }
 

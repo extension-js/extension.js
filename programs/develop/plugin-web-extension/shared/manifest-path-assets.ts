@@ -50,15 +50,18 @@ function isPublicSpelling(value: string): boolean {
 // raw for the emitters; everything else resolves from the manifest folder.
 function resolveAsset(manifestDir: string, value: string): string {
   if (isPublicSpelling(value) || value.startsWith('/')) return value
+
   return path.isAbsolute(value) ? value : path.join(manifestDir, value)
 }
 
 function localFile(manifestDir: string, value: unknown): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined
   if (isManifestAddress(value) || isPublicSpelling(value)) return undefined
+
   const resolved = resolveAsset(manifestDir, value)
   // A root-absolute ref that only public/ owns is served from there as-is.
   if (resolved.startsWith('/') && !path.isAbsolute(resolved)) return undefined
+
   if (
     resolved.startsWith('/') &&
     !fs.existsSync(resolved) &&
@@ -66,6 +69,7 @@ function localFile(manifestDir: string, value: unknown): string | undefined {
   ) {
     return undefined
   }
+
   return resolved.startsWith('/') && !fs.existsSync(resolved)
     ? path.join(manifestDir, resolved.slice(1))
     : resolved
@@ -81,7 +85,9 @@ export function themeExperimentStylesheetEntries(
   const manifestDir = path.dirname(manifestPath)
   const file = localFile(manifestDir, manifest.theme_experiment?.stylesheet)
   if (!file) return {}
+
   const name = path.basename(file).replace(/\.[^.]+$/, '')
+
   return {[`theme_experiment/${name}`]: [file]}
 }
 
@@ -92,9 +98,11 @@ export function settingsOverridesIconFields(
   const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
   const fav = manifest.chrome_settings_overrides?.search_provider?.favicon_url
+
   if (typeof fav !== 'string' || !fav.trim() || isManifestAddress(fav)) {
     return {}
   }
+
   return {
     'chrome_settings_overrides/favicon_url': resolveAsset(manifestDir, fav)
   }
@@ -108,10 +116,12 @@ export function settingsOverridesStartupPages(
   const manifestDir = path.dirname(manifestPath)
   const pages = manifest.chrome_settings_overrides?.startup_pages
   if (!Array.isArray(pages)) return {}
+
   const out: Record<string, string> = {}
   pages.forEach((page, index) => {
     const file = localFile(manifestDir, page)
     if (file) out[`chrome_settings_overrides/startup-${index}`] = file
   })
+
   return out as FilepathList
 }

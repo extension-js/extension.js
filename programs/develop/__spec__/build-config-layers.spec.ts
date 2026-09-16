@@ -19,6 +19,7 @@ function project(config: string) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'layers', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -28,11 +29,14 @@ function project(config: string) {
       background: {service_worker: 'background.js'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'background.js'),
     'console.log("bg");\n'.repeat(50)
   )
+
   fs.writeFileSync(path.join(root, 'extension.config.js'), config)
+
   return root
 }
 
@@ -48,6 +52,7 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
   console.error = (...args: unknown[]) => lines.push(args.join(' '))
   let summary: {errors_count: number; warnings_count: number}
+
   try {
     summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -64,8 +69,10 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   expect(summary.errors_count).toBe(0)
   const output = lines.join('\n')
+
   return {budgetWarned: /budget/i.test(output), output, root}
 }
 

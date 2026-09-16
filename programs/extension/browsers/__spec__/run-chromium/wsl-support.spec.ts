@@ -19,6 +19,7 @@ const loadModule = async () =>
 
 const getSpawnMock = async () => {
   const mod = await import('node:child_process')
+
   return mod.spawn as unknown as ReturnType<typeof vi.fn>
 }
 
@@ -26,6 +27,7 @@ const createChild = () => {
   const child = new EventEmitter() as any
   child.stdout = null
   child.stderr = null
+
   return child
 }
 
@@ -77,9 +79,11 @@ describe('chromium wsl-support', () => {
     existsSync.mockImplementation(
       (p) => p === '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
     )
+
     expect(mod.resolveWslWindowsBinary('chrome')).toBe(
       '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
     )
+
     expect(existsSync).toHaveBeenCalled()
   })
 
@@ -91,6 +95,7 @@ describe('chromium wsl-support', () => {
     existsSync.mockImplementation(
       (p) => p === '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
     )
+
     const spawnMock = await getSpawnMock()
     const child1 = createChild()
     const child2 = createChild()
@@ -114,6 +119,7 @@ describe('chromium wsl-support', () => {
     expect(spawnMock.mock.calls[1][0]).toBe(
       '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
     )
+
     expect(logger.warn).toHaveBeenCalled()
   })
 
@@ -138,6 +144,7 @@ describe('chromium wsl-support', () => {
     expect(spawnOptions).toMatchObject({
       detached: false
     })
+
     expect(spawnOptions).not.toHaveProperty('shell')
   })
 
@@ -218,6 +225,7 @@ describe('chromium wsl-support', () => {
     expect(spawnOptions).toMatchObject({
       detached: false
     })
+
     expect(spawnOptions).not.toHaveProperty('shell')
   })
 })

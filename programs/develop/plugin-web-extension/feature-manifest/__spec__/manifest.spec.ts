@@ -78,6 +78,7 @@ describe('filterKeysForThisBrowser', () => {
       expect((filterKeysForThisBrowser(manifest, 'chrome') as any).key).toBe(
         'store-key'
       )
+
       for (const browser of [
         'edge',
         'chromium',
@@ -95,6 +96,7 @@ describe('filterKeysForThisBrowser', () => {
       expect(
         (filterKeysForThisBrowser(manifest, 'edge') as any).action
       ).toEqual({default_title: 'Edge'})
+
       for (const browser of ['chrome', 'chromium', 'brave', 'safari']) {
         expect(
           (filterKeysForThisBrowser(manifest, browser as any) as any).action
@@ -111,6 +113,7 @@ describe('filterKeysForThisBrowser', () => {
       expect(
         (filterKeysForThisBrowser(vendorFirst, 'chrome') as any).action
       ).toEqual({default_title: 'Chrome'})
+
       expect(
         (filterKeysForThisBrowser(vendorFirst, 'edge') as any).action
       ).toEqual({default_title: 'Chromium'})

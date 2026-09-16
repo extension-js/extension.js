@@ -11,9 +11,11 @@ import {
 import {mergeOptionLayers} from '../lib/merge-options'
 
 const created: string[] = []
+
 function tmpDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -25,6 +27,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -176,6 +179,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
       }`,
       'utf-8'
     )
+
     // Exact fork block wins when present.
     const exact = await loadBrowserConfig(withExact, 'acme-webkit' as any)
     expect(exact).toMatchObject({browser: 'acme-webkit', appName: 'FromAcme'})
@@ -192,6 +196,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
       }`,
       'utf-8'
     )
+
     const engineCfg = await loadBrowserConfig(
       withEngine,
       'internal-webkit' as any
@@ -212,6 +217,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
       }`,
       'utf-8'
     )
+
     const forkCfg = await loadBrowserConfig(
       safariOnly,
       'internal-webkit' as any
@@ -278,6 +284,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
     expect(buildCfg).toMatchObject({
       transpilePackages: ['@workspace/ui', '@workspace/icons']
     })
+
     expect(
       mergeOptionLayers(
         {},

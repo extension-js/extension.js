@@ -41,6 +41,7 @@ describe('chromium extension id derivation', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1', key: manifest['chromium:key']})
     )
+
     expect(chromiumExtensionId(tmp)).toBe('kgdaecdpfkikjncaalnmmnjjfpofkcbl')
   })
 
@@ -49,11 +50,13 @@ describe('chromium extension id derivation', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1'})
     )
+
     const id = chromiumExtensionId(tmp)
     expect(id).toBe(chromiumExtensionIdFromPath(tmp))
     expect(id).toMatch(/^[a-p]{32}$/)
     expect(chromiumExtensionId(tmp)).toBe(id)
     const other = fs.mkdtempSync(path.join(os.tmpdir(), 'extension-id-other-'))
+
     try {
       expect(chromiumExtensionIdFromPath(other)).not.toBe(id)
     } finally {
@@ -80,6 +83,7 @@ describe('gecko extension id derivation', () => {
         browser_specific_settings: {gecko: {id: 'devtools@extension.js'}}
       })
     )
+
     expect(geckoExtensionId(tmp)).toBe('devtools@extension.js')
   })
 
@@ -88,6 +92,7 @@ describe('gecko extension id derivation', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({applications: {gecko: {id: 'legacy@extension.js'}}})
     )
+
     expect(geckoExtensionId(tmp)).toBe('legacy@extension.js')
   })
 
@@ -113,6 +118,7 @@ describe('managedExtensionRecords', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1'})
     )
+
     const records = managedExtensionRecords('chromium', [tmp])
     expect(records).toEqual([
       {path: path.resolve(tmp), id: chromiumExtensionIdFromPath(tmp)}
@@ -130,6 +136,7 @@ describe('managedExtensionRecords', () => {
         browser_specific_settings: {gecko: {id: 'devtools@extension.js'}}
       })
     )
+
     fs.writeFileSync(path.join(anonymous, 'manifest.json'), JSON.stringify({}))
     const records = managedExtensionRecords('firefox', [pinned, anonymous])
     expect(records).toEqual([
@@ -145,9 +152,11 @@ describe('managedExtensionRecords', () => {
       path.join(tmp, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1'})
     )
+
     expect(managedExtensionRecords('safari', [tmp])).toEqual([
       {path: path.resolve(tmp)}
     ])
+
     expect(managedExtensionRecords('webkit-based', [tmp])).toEqual([
       {path: path.resolve(tmp)}
     ])

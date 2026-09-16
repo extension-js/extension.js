@@ -17,6 +17,7 @@ function makeCompilation() {
       assets[name] = src
     }
   }
+
   return {
     state,
     assets,
@@ -44,6 +45,7 @@ describe('EmitHtmlFile', () => {
         'feature/rel': 'index.html'
       }
     } as any).apply(c as any)
+
     const keys = Object.keys(c.assets)
     expect(keys.length).toBeGreaterThanOrEqual(1)
     expect(keys.some((k) => k.endsWith('.html'))).toBe(true)
@@ -60,6 +62,7 @@ describe('EmitHtmlFile', () => {
       manifestPath,
       includeList: {'pages/missing': '/missing.html'}
     } as any).apply(c as any)
+
     expect(c.state.warnings.length).toBeGreaterThanOrEqual(1)
   })
 })
@@ -76,13 +79,16 @@ describe('manifestFieldForHtmlFeature', () => {
         'firefox:options_ui': {page: 'modern.html'}
       })
     )
+
     // Chrome never reads the firefox: key, so its missing file is the legacy one.
     expect(
       manifestFieldForHtmlFeature('options/index', manifestPath, 'chrome')
     ).toBe('options_page')
+
     expect(
       manifestFieldForHtmlFeature('options/index', manifestPath, 'firefox')
     ).toBe('options_ui.page')
+
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
@@ -97,12 +103,15 @@ describe('manifestFieldForHtmlFeature', () => {
         'firefox:browser_action': {default_popup: 'popup.html'}
       })
     )
+
     expect(
       manifestFieldForHtmlFeature('action/index', manifestPath, 'edge')
     ).toBe('action.default_popup')
+
     expect(
       manifestFieldForHtmlFeature('action/index', manifestPath, 'firefox')
     ).toBe('browser_action.default_popup')
+
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 })

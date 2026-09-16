@@ -84,11 +84,13 @@ export function processJsonAssets(
           // Show manifest context in header
           // @ts-expect-error file is not typed
           notFound.file = 'manifest.json'
+
           if (isFatal) {
             compilation.errors.push(notFound)
           } else {
             compilation.warnings.push(notFound)
           }
+
           missingCount++
           continue
         }
@@ -100,6 +102,7 @@ export function processJsonAssets(
           } catch {
             // Ignore
           }
+
           if (isCriticalJsonFeature(feature)) {
             const ok = validateJsonAsset(
               compilation,
@@ -111,6 +114,7 @@ export function processJsonAssets(
             else invalid++
             if (!ok) continue
           }
+
           underPublicCount++
           continue
         }
@@ -123,6 +127,7 @@ export function processJsonAssets(
           else invalid++
           if (!ok) continue
         }
+
         const rawSource = new sources.RawSource(source)
         const assetName = `${feature}.json`
 
@@ -135,6 +140,7 @@ export function processJsonAssets(
         } else {
           compilation.emitAsset(assetName, rawSource)
         }
+
         emittedCount++
       }
     }

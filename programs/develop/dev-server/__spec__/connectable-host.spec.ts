@@ -19,6 +19,7 @@ describe('resolveConnectableHost', () => {
     expect(resolveConnectableHost('0.0.0.0', 'devbox.example.com')).toBe(
       'devbox.example.com'
     )
+
     expect(resolveConnectableHost('192.168.1.50', 'public.example.com')).toBe(
       'public.example.com'
     )
@@ -33,6 +34,7 @@ describe('resolveConnectableHost', () => {
     for (const h of ['0.0.0.0', '::', '[::]', '*', '']) {
       expect(isWildcardHost(h)).toBe(true)
     }
+
     for (const h of ['127.0.0.1', '192.168.0.1', 'host.local']) {
       expect(isWildcardHost(h)).toBe(false)
     }

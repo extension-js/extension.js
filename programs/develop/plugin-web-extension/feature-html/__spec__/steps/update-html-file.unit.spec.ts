@@ -14,6 +14,7 @@ describe('UpdateHtmlFile', () => {
   beforeEach(() => {
     vi.resetModules()
   })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -53,10 +54,12 @@ describe('UpdateHtmlFile', () => {
       manifestPath,
       includeList: {'feature/index': html}
     } as any).apply(c as any)
+
     expect(assets['feature/index.html']).toBeTruthy()
     expect(assets['feature/index.html'].source.source()).toBe(
       '<html><body>UPDATED</body></html>'
     )
+
     const call = vi.mocked(patchHtml).mock.calls[0]
     expect(call[2]).toBe(html)
     expect(call[6]).toBe(templated)
@@ -90,6 +93,7 @@ describe('UpdateHtmlFile', () => {
       manifestPath,
       includeList: {'feature/index': html}
     } as any).apply(c as any)
+
     const call = vi.mocked(patchHtml).mock.calls.at(-1) as any[]
     expect(call[6]).toBe(templated.toString('utf8'))
     expect(innerCompilation.updateAsset).toHaveBeenCalledTimes(1)

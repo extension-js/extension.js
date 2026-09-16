@@ -37,11 +37,13 @@ function getDnrRuleRejection(rule: unknown): string | undefined {
   }
 
   const id = rule.id
+
   if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) {
     return 'the rule id is not a positive integer'
   }
 
   const action = rule.action
+
   if (!isPlainObject(action)) {
     return 'the rule has no action object'
   }
@@ -61,6 +63,7 @@ function getDnrRuleSoftIssue(
   rule: Record<string, unknown>
 ): string | undefined {
   const priority = rule.priority
+
   if (
     priority !== undefined &&
     (typeof priority !== 'number' ||
@@ -80,6 +83,7 @@ export function validateJsonAsset(
   buf: Buffer
 ): boolean {
   let parsed: unknown
+
   try {
     parsed = JSON.parse(stripBom(buf.toString('utf-8')))
   } catch (e) {
@@ -93,6 +97,7 @@ export function validateJsonAsset(
     ;(err as Error & {file?: string}).file = filePath
     err.name = 'JSONInvalidSyntax'
     compilation.errors.push(err)
+
     return false
   }
 

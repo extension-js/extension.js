@@ -30,6 +30,7 @@ async function seedExistingRepo(projectPath: string) {
     path.join(projectPath, '.git', 'HEAD'),
     'ref: refs/heads/main\n'
   )
+
   await fsp.writeFile(path.join(projectPath, 'LICENSE'), 'MIT\n')
 }
 
@@ -47,6 +48,7 @@ describe('importExternalTemplate failure cleanup', () => {
 
   afterEach(async () => {
     process.env.EXTENSION_ENV = prevEnv
+
     while (tempDirs.length > 0) {
       await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
     }
@@ -55,6 +57,7 @@ describe('importExternalTemplate failure cleanup', () => {
   async function makeTempRoot() {
     const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'extjs-cleanup-'))
     tempDirs.push(tmpRoot)
+
     return tmpRoot
   }
 

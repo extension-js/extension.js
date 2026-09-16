@@ -13,6 +13,7 @@ import * as fs from 'node:fs'
 export function isClassicScript(filePath: string): boolean {
   try {
     const src = fs.readFileSync(filePath, 'utf8')
+
     return !/^\s*import[\s{('"*]/m.test(src) && !/^\s*export[\s{*( ]/m.test(src)
   } catch {
     return false
@@ -28,5 +29,6 @@ export function classicConcatEntry(feature: string, jsFiles: string[]): string {
   const queryData = encodeURIComponent(
     JSON.stringify({feature, js: deduped, css: []})
   )
+
   return `${deduped[0]}?__extensionjs_classic_concat__=${queryData}`
 }

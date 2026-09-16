@@ -27,6 +27,7 @@ function buildCSP(cspObject: Record<string, string[]>) {
   const directives = Object.entries(cspObject).map(
     ([directive, values]) => `${directive} ${values.join(' ')}`
   )
+
   return `${directives.join('; ')}; `
 }
 
@@ -49,9 +50,11 @@ function devConnectSources(): string[] {
     process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || ''
   ).trim()
   if (!raw || LOOPBACK_HOSTS.has(raw)) return sources
+
   // A CSP host-source with an IPv6 literal must be bracketed.
   const host = raw.includes(':') && !raw.startsWith('[') ? `[${raw}]` : raw
   sources.push(`ws://${host}:*`, `http://${host}:*`)
+
   return sources
 }
 
@@ -59,10 +62,12 @@ function loosenConnectSrcForDev(csp: Map<string, string[]>) {
   const devSources = devConnectSources()
   const connectSrc = csp.get('connect-src')
   const defaultSrc = csp.get('default-src')
+
   if (connectSrc) {
     for (const source of devSources) {
       if (!connectSrc.includes(source)) connectSrc.push(source)
     }
+
     csp.set('connect-src', connectSrc)
   } else if (defaultSrc) {
     // No connect-src: connections fall back to default-src, extend a copy
@@ -84,6 +89,7 @@ function keepSiblingSlots(
       extension_pages: extensionPages
     } as Manifest['content_security_policy']
   }
+
   return extensionPages as Manifest['content_security_policy']
 }
 
@@ -111,15 +117,19 @@ function patchV2PagesPolicy(manifest: Manifest): string {
     csp.set('script-src', ["'self'", "'unsafe-eval'", 'blob:', 'filesystem:'])
   } else {
     const scriptSrc = csp.get('script-src') || []
+
     if (!scriptSrc.includes("'unsafe-eval'")) {
       scriptSrc.push("'unsafe-eval'")
     }
+
     if (!scriptSrc.includes('blob:')) {
       scriptSrc.push('blob:')
     }
+
     if (!scriptSrc.includes('filesystem:')) {
       scriptSrc.push('filesystem:')
     }
+
     csp.set('script-src', scriptSrc)
   }
 
@@ -127,18 +137,22 @@ function patchV2PagesPolicy(manifest: Manifest): string {
     csp.set('object-src', ["'self'", 'blob:', 'filesystem:'])
   } else {
     const objectSrc = csp.get('object-src') || []
+
     if (!objectSrc.includes('blob:')) {
       objectSrc.push('blob:')
     }
+
     if (!objectSrc.includes('filesystem:')) {
       objectSrc.push('filesystem:')
     }
+
     csp.set('object-src', objectSrc)
   }
 
   loosenConnectSrcForDev(csp)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
+
   return buildCSP(cspObject)
 }
 

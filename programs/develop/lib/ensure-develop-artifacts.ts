@@ -22,13 +22,6 @@ import {
 } from './package-manager'
 import {type AbsolutePath, needsInstall} from './paths'
 
-/**
- * Install the user's project dependencies if node_modules is missing or stale.
- * This runs `npm install` (or pnpm/yarn/bun) in the project directory so that
- * user-declared dependencies (sass, vue, react, etc.) are available to the
- * bundler. Without this, `pnpm dlx extension build` in a clean directory would
- * fail to resolve project dependencies.
- */
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath
 ) {
@@ -48,6 +41,7 @@ export async function ensureUserProjectDependencies(
   if (suppression.args.length || Object.keys(suppression.env).length) {
     console.warn(messages.projectInstallScriptsDisabled(pm.name))
   }
+
   if (target.cwd !== packageJsonDir) {
     console.warn(messages.projectInstallInWorkspaceRoot(target.cwd))
   }
@@ -65,6 +59,7 @@ export async function ensureUserProjectDependencies(
     // A Deno project's dependencies live in deno.json(c) `npm:` imports,
     // npm cannot install those (and may have no package.json to read at all).
     if (pm.name === 'deno') throw error
+
     console.warn(messages.projectInstallFallbackToNpm(pm.name))
 
     const npmPm = resolveNpmPackageManager()

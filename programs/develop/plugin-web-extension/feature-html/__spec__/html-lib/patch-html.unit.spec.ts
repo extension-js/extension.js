@@ -8,6 +8,7 @@ function makeTmp(name: string) {
   const tmp = path.join(__dirname, `.tmp-${name}`)
   fs.rmSync(tmp, {recursive: true, force: true})
   fs.mkdirSync(tmp, {recursive: true})
+
   return tmp
 }
 
@@ -32,6 +33,7 @@ describe('patchHtml', () => {
       htmlPath,
       `<html><head><link rel="stylesheet" href="a.css"></head><body><script src="a.js"></script></body></html>`
     )
+
     const updated = patchHtml(
       makeCompilation('development'),
       'feature/index',
@@ -51,6 +53,7 @@ describe('patchHtml', () => {
       htmlPath,
       `<html><head><title>$EXTENSION_PUBLIC_FOO</title></head><body><script src="a.js"></script></body></html>`
     )
+
     const updated = patchHtml(
       makeCompilation('production'),
       'feature/index',
@@ -76,6 +79,7 @@ describe('patchHtml', () => {
       htmlPath,
       `<html><head><link rel="stylesheet" href="/public/missing.css"></head><body><script src="/public/missing.js"></script></body></html>`
     )
+
     const compilation = makeCompilation('production')
     const updated = patchHtml(compilation, 'feature/index', htmlPath, {
       'feature/index': htmlPath
@@ -92,6 +96,7 @@ describe('patchHtmlNested root-absolute refs', () => {
     const htmlPath = path.join(tmp, 'pages', 'nested.html')
     fs.mkdirSync(path.dirname(htmlPath), {recursive: true})
     fs.writeFileSync(htmlPath, markup)
+
     return {tmp, htmlPath}
   }
 

@@ -41,9 +41,11 @@ test('removeDirectoryWithRetries retries transient cleanup failures', async () =
     baseDelayMs: 1,
     rm: async () => {
       attempts += 1
+
       if (attempts < 3) {
         const error = new Error('busy')
         error.code = 'EBUSY'
+
         throw error
       }
     }
@@ -63,6 +65,7 @@ test('removeDirectoryWithRetries surfaces non-retriable cleanup failures', async
         attempts += 1
         const error = new Error('missing')
         error.code = 'ENOENT'
+
         throw error
       }
     }),
@@ -96,6 +99,7 @@ test('fileSpecifier keeps same-drive Windows paths relative', () => {
     specifier.startsWith('file:./') || specifier.startsWith('file:../'),
     true
   )
+
   assert.equal(specifier.includes('D:'), false)
 })
 
@@ -172,6 +176,7 @@ test('assertLocalWorkspacePackagesExist fails loudly when a path is missing', as
     assert.match(error.message, /extension/)
     assert.match(error.message, /not found/)
     assert.match(error.message, /getLocalWorkspacePackagePaths/)
+
     return true
   })
 })

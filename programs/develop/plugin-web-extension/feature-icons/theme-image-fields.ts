@@ -20,6 +20,7 @@ export function themeImageFields(
   browser: DevOptions['browser'] = 'chrome'
 ): FilepathList {
   let manifest: {theme?: {images?: unknown}}
+
   try {
     // A theme written as firefox:theme is invisible to a raw read, and the
     // basename collapse this function exists to undo comes back with it.
@@ -30,10 +31,13 @@ export function themeImageFields(
   } catch {
     return {}
   }
+
   const images = manifest?.theme?.images
+
   if (!images || typeof images !== 'object' || Array.isArray(images)) {
     return {}
   }
+
   const manifestDir = path.dirname(manifestPath)
   // Root-absolute spellings stay raw so the emitter reads them as
   // extension-root refs; everything else resolves from the manifest folder.
@@ -43,6 +47,7 @@ export function themeImageFields(
       : value
 
   const out: Record<string, string | string[]> = {}
+
   for (const [key, value] of Object.entries(
     images as Record<string, unknown>
   )) {
@@ -55,5 +60,6 @@ export function themeImageFields(
       if (entries.length) out[`theme/images/${key}`] = entries.map(resolve)
     }
   }
+
   return out as FilepathList
 }

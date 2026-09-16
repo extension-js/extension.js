@@ -20,6 +20,7 @@ describe('session-state layout', () => {
   it('keys every non-legacy artifact per project+browser', () => {
     for (const artifact of SESSION_ARTIFACTS) {
       if (artifact.keying !== 'per-browser') continue
+
       const chrome = artifact.build('/proj', 'chrome')
       const firefox = artifact.build('/proj', 'firefox')
       expect(chrome, artifact.name).not.toBe(firefox)
@@ -53,11 +54,14 @@ describe('session-state layout', () => {
       for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
         if (entry.name === 'node_modules' || entry.name === 'dist') continue
         if (entry.name === '__spec__' || entry.name === '__tests__') continue
+
         const full = path.join(dir, entry.name)
+
         if (entry.isDirectory()) {
           walk(full)
           continue
         }
+
         if (!entry.name.endsWith('.ts')) continue
 
         const rel = path.relative(developRoot, full)
@@ -65,16 +69,19 @@ describe('session-state layout', () => {
 
         const flat = fs.readFileSync(full, 'utf-8').replace(/\s+/g, ' ')
         const calls = flat.match(/path\.(join|resolve)\([^)]*\)/g) ?? []
+
         for (const call of calls) {
           const mentionsStateRoot =
             call.includes("'.extension-js'") ||
             (call.includes("'extension-js'") && call.includes("'dist'"))
+
           if (mentionsStateRoot) {
             offenders.push(`${rel}: ${call}`)
           }
         }
       }
     }
+
     walk(developRoot)
 
     expect(offenders, offenders.join('\n')).toEqual([])

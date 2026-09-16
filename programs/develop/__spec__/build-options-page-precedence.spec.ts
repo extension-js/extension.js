@@ -21,6 +21,7 @@ function project(manifestExtra: Record<string, unknown>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'options-page', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -30,20 +31,24 @@ function project(manifestExtra: Record<string, unknown>) {
       ...manifestExtra
     })
   )
+
   const marks: Record<string, string> = {
     legacy: LEGACY_MARK,
     modern: MODERN_MARK
   }
+
   for (const which of ['legacy', 'modern']) {
     fs.writeFileSync(
       path.join(root, `${which}-options.html`),
       `<html><body><div id="root"></div><script type="module" src="./${which}-options.js"></script></body></html>\n`
     )
+
     fs.writeFileSync(
       path.join(root, `${which}-options.js`),
       `document.getElementById('root').textContent = '${marks[which]}'\n`
     )
   }
+
   return root
 }
 
@@ -51,6 +56,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser: 'chrome',
@@ -70,6 +76,7 @@ async function buildAndRead(manifestExtra: Record<string, unknown>) {
   const summary: any = await build(root)
   expect(summary.errors_count).toBe(0)
   const distDir = path.join(root, 'dist', 'chrome')
+
   return {
     distDir,
     manifest: JSON.parse(
@@ -82,6 +89,7 @@ async function buildAndRead(manifestExtra: Record<string, unknown>) {
 function htmlFilesUnder(distDir: string, folder: string) {
   const dir = path.join(distDir, folder)
   if (!fs.existsSync(dir)) return []
+
   return fs
     .readdirSync(dir)
     .filter((name) => name.endsWith('.html'))

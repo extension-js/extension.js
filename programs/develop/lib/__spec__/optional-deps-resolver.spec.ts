@@ -22,6 +22,7 @@ function createPackage(rootDir: string, packageId: string, source: string) {
     version: '0.0.0',
     main: 'index.js'
   })
+
   fs.writeFileSync(path.join(packageDir, 'index.js'), source, 'utf8')
 }
 
@@ -40,6 +41,7 @@ describe('optional-deps-resolver', () => {
       name: 'extension-develop',
       version: '0.0.0'
     })
+
     developInstallRoot = runtimePath
   })
 
@@ -48,9 +50,11 @@ describe('optional-deps-resolver', () => {
     delete process.env.EXTENSION_VERBOSE
     fs.rmSync(projectPath, {recursive: true, force: true})
     fs.rmSync(runtimePath, {recursive: true, force: true})
+
     for (const extraPath of auxPaths) {
       fs.rmSync(extraPath, {recursive: true, force: true})
     }
+
     developInstallRoot = undefined
   })
 
@@ -115,6 +119,7 @@ describe('optional-deps-resolver', () => {
         }
       }
     })
+
     fs.writeFileSync(
       path.join(packageDir, 'dist', 'index.cjs'),
       'module.exports = {name: "exported-loader"}',
@@ -158,6 +163,7 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = { default: class ReactRefreshPlugin {} }'
     )
+
     createPackage(runtimePath, dependencyId, 'module.exports = {runtime: true}')
 
     const {getContractVerificationFailuresAtInstallRoot} = await import(
@@ -228,8 +234,10 @@ describe('optional-deps-resolver', () => {
             if (specifier === pluginEntryPath && id === dependencyId) {
               return externalResolvedPath
             }
+
             return req.resolve(id)
           }) as NodeJS.RequireResolve
+
           return wrapped
         }
       }
@@ -292,6 +300,7 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = class FrameworkRefreshPlugin {}'
     )
+
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-with-framework',
       dependencies: {[peerId]: '^1.0.0'}
@@ -330,6 +339,7 @@ describe('optional-deps-resolver', () => {
       pluginId,
       'module.exports = class StrictPeerPlugin {}'
     )
+
     writeJson(path.join(projectPath, 'package.json'), {
       name: 'project-without-peer'
     })
@@ -384,10 +394,13 @@ describe('optional-deps-resolver', () => {
       yarn: 'yarn.lock',
       npm: 'package-lock.json'
     }
+
     if (pm === 'bun') {
       process.env.EXTENSION_JS_PACKAGE_MANAGER = 'bun'
+
       return
     }
+
     fs.writeFileSync(path.join(rootDir, lockfileByPm[pm]), '', 'utf8')
   }
 
@@ -400,6 +413,7 @@ describe('optional-deps-resolver', () => {
     )
 
     let message = ''
+
     try {
       await ensureOptionalPackageResolved({
         integration: 'SASS',
@@ -424,6 +438,7 @@ describe('optional-deps-resolver', () => {
       const {ensureOptionalPackageResolved} = await import(
         '../optional-deps-resolver'
       )
+
       try {
         await ensureOptionalPackageResolved({
           integration: 'SASS',
@@ -433,6 +448,7 @@ describe('optional-deps-resolver', () => {
       } catch (error) {
         return error instanceof Error ? error.message : String(error)
       }
+
       return ''
     }
 
@@ -457,6 +473,7 @@ describe('optional-deps-resolver', () => {
     )
 
     let message = ''
+
     try {
       await ensureOptionalPackageResolved({
         integration: 'SASS',
@@ -484,6 +501,7 @@ describe('optional-deps-resolver', () => {
         'verifyPackageIds'
       ].sort()
     )
+
     expect(parsed.dependencyId).toBe('@extjs-test/missing-sass')
   })
 
@@ -496,6 +514,7 @@ describe('optional-deps-resolver', () => {
     )
 
     let message = ''
+
     try {
       resolveOptionalPackageWithoutInstall({
         integration: 'SASS',
@@ -537,6 +556,7 @@ describe('optional-deps-resolver', () => {
       )
 
       let message = ''
+
       try {
         await ensureOptionalPackageResolved({
           integration: 'SASS',

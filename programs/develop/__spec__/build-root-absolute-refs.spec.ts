@@ -37,16 +37,19 @@ function writeHtmlSrcFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(HTML_SRC_ROOT, 'popup.html'),
     '<!doctype html><html><body><div id="out"></div>' +
       '<script src="/js/popup.js" type="module"></script></body></html>\n'
   )
+
   fs.writeFileSync(
     path.join(HTML_SRC_ROOT, 'js', 'popup.js'),
     'import { msg } from "/js/gr.js";\n' +
       'document.getElementById("out").textContent = msg;\n'
   )
+
   fs.writeFileSync(
     path.join(HTML_SRC_ROOT, 'js', 'gr.js'),
     'export const msg = "root-absolute import loaded";\n'
@@ -70,6 +73,7 @@ function writeOptionsFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(OPTIONS_ROOT, 'page', 'options.html'),
     '<!doctype html><html><body><h1>opts</h1></body></html>\n'
@@ -95,6 +99,7 @@ function writePublicOptionsFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(PUBLIC_OPTIONS_ROOT, 'public', 'page', 'options.html'),
     '<!doctype html><html><body><h1>public opts</h1></body></html>\n'

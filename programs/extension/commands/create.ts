@@ -40,9 +40,11 @@ function createErrorCode(error: unknown): ErrorCode {
   if (name === 'TemplateDownloadError') return CODES.E_NETWORK
 
   const message = String((error as Error | undefined)?.message || error)
+
   for (const [code, needle] of Object.entries(CREATE_ERROR_NEEDLES)) {
     if (message.includes(needle)) return code as ErrorCode
   }
+
   return CODES.E_INTERNAL
 }
 
@@ -107,6 +109,7 @@ export function registerCreateCommand(program: Command) {
             }
           }
         }
+
         const {extensionCreate} = await import('extension-create')
 
         // The scaffold logs its progress lines on stdout. Under --output json
@@ -119,6 +122,7 @@ export function registerCreateCommand(program: Command) {
           : undefined
 
         let result: Awaited<ReturnType<typeof extensionCreate>>
+
         try {
           result = await extensionCreate(pathOrRemoteUrl, {
             template,
@@ -134,6 +138,7 @@ export function registerCreateCommand(program: Command) {
             code: createErrorCode(error),
             exitCode: 1
           })
+
           if (!asJson) throw error
 
           // eslint-disable-next-line no-console
@@ -145,7 +150,9 @@ export function registerCreateCommand(program: Command) {
               })
             )
           )
+
           await exitAfterDrain(1)
+
           return
         }
 

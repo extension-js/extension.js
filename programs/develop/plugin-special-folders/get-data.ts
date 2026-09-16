@@ -102,10 +102,12 @@ const NODE_BUILD_TOOLS = new Set([
 
 function importsNodeOnly(specifier: string): boolean {
   if (specifier.startsWith('node:')) return true
+
   // Strip any subpath (e.g. `fs/promises` keeps, `lodash/merge` -> `lodash`).
   const bare = specifier.startsWith('@')
     ? specifier.split('/').slice(0, 2).join('/')
     : specifier.split('/')[0]
+
   return (
     NODE_BUILTINS.has(specifier) ||
     NODE_BUILTINS.has(bare) ||
@@ -115,6 +117,7 @@ function importsNodeOnly(specifier: string): boolean {
 
 function isNodeToolingScript(absPath: string): boolean {
   let source: string
+
   try {
     source = fs.readFileSync(absPath, 'utf8')
   } catch {
@@ -126,9 +129,11 @@ function isNodeToolingScript(absPath: string): boolean {
   const specifierRe =
     /(?:require\s*\(\s*|(?:import|export)\b[^'"()]*?\bfrom\s*|import\s*)['"]([^'"]+)['"]/g
   let match: RegExpExecArray | null
+
   while ((match = specifierRe.exec(source)) !== null) {
     if (importsNodeOnly(match[1])) return true
   }
+
   return false
 }
 
@@ -142,9 +147,11 @@ function filterNodeToolingScripts(
     const kept = paths.filter((entry) => {
       const abs = String(entry)
       if (!path.isAbsolute(abs)) return true
+
       return !isNodeToolingScript(abs)
     })
     if (kept.length === 0) continue
+
     next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
   }
 
@@ -195,26 +202,35 @@ function collectReferenceCorpus(projectRoot: string): string {
 
   const walk = (dir: string) => {
     if (files >= REFERENCE_MAX_FILES || bytes >= REFERENCE_MAX_BYTES) return
+
     let entries: fs.Dirent[]
+
     try {
       entries = fs.readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       if (files >= REFERENCE_MAX_FILES || bytes >= REFERENCE_MAX_BYTES) return
+
       const full = path.join(dir, entry.name)
+
       if (entry.isDirectory()) {
         if (REFERENCE_SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) {
           continue
         }
+
         walk(full)
         continue
       }
+
       if (!entry.isFile()) continue
+
       const ext = path.extname(entry.name).toLowerCase()
       const isManifest = /^manifest\b.*\.json$/i.test(entry.name)
       if (!isManifest && !REFERENCE_SOURCE_EXTS.has(ext)) continue
+
       try {
         const text = fs.readFileSync(full, 'utf8')
         parts.push(text)
@@ -227,6 +243,7 @@ function collectReferenceCorpus(projectRoot: string): string {
   }
 
   walk(projectRoot)
+
   return files === 0 ? '' : parts.join('\n')
 }
 
@@ -245,6 +262,7 @@ const COMPILED_TO_JS_EXTS = new Set([
 function referenceSpellings(relativePath: string): string[] {
   const ext = path.extname(relativePath).toLowerCase()
   if (!COMPILED_TO_JS_EXTS.has(ext)) return [relativePath]
+
   return [relativePath, `${relativePath.slice(0, -ext.length)}.js`]
 }
 
@@ -264,7 +282,9 @@ function filterUnreferencedScripts(
   const isReferenced = (entry: string): boolean => {
     const abs = String(entry)
     if (!path.isAbsolute(abs)) return true
+
     const rel = path.relative(projectRoot, abs).split(path.sep).join('/')
+
     // Match the project-relative path (`scripts/foo.js`) as a substring, which
     // also covers `/scripts/foo.js` runtime-injection paths. A compiled source
     // is only ever injected by its emitted name, so accept that spelling too.
@@ -273,11 +293,14 @@ function filterUnreferencedScripts(
 
   const next: FilepathList = {}
   const dropped: string[] = []
+
   for (const [key, value] of entries) {
     const paths = Array.isArray(value) ? value : value ? [value] : []
     const kept = paths.filter(isReferenced)
+
     for (const entry of paths) {
       if (kept.includes(entry)) continue
+
       const abs = String(entry)
       dropped.push(
         path.isAbsolute(abs)
@@ -285,7 +308,9 @@ function filterUnreferencedScripts(
           : abs
       )
     }
+
     if (kept.length === 0) continue
+
     next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
   }
 
@@ -294,6 +319,7 @@ function filterUnreferencedScripts(
   // since the filter runs for every browser target in the same run.
   if (dropped.length > 0) {
     const signature = dropped.slice().sort().join('|')
+
     if (!warnedDroppedScripts.has(signature)) {
       warnedDroppedScripts.add(signature)
       humanWarn(messages.unreferencedScriptDropped(dropped))
@@ -315,6 +341,7 @@ function isUnderPublicDir(
     ? normalizedEntry
     : path.join(projectRoot, normalizedEntry)
   const rel = path.relative(publicDir, candidate)
+
   return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
 }
 
@@ -330,9 +357,11 @@ function filterPublicEntrypoints(
       const filtered = value.filter(
         (entry) => !isUnderPublicDir(String(entry), projectRoot, publicDir)
       )
+
       if (filtered.length > 0) {
         next[key] = filtered
       }
+
       continue
     }
 

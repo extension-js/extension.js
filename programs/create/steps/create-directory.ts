@@ -46,6 +46,7 @@ export async function createDirectory(
 
     if (!isCurrentDirWriteable) {
       logger.error(messages.destinationNotWriteable(projectPath))
+
       throw new Error(messages.destinationNotWriteable(projectPath))
     }
 
@@ -58,6 +59,7 @@ export async function createDirectory(
         .filter((file) => !allowlist.includes(file))
         .map(async (file) => {
           const stats = await fs.lstat(path.join(projectPath, file))
+
           return stats.isDirectory() ? `${file}/` : `${file}`
         })
     )
@@ -67,6 +69,7 @@ export async function createDirectory(
         projectPath,
         conflictingFiles
       )
+
       throw new Error(conflictMessage)
     }
 

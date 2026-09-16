@@ -39,6 +39,7 @@ function problems(frame: Record<string, unknown>): string[] {
   for (const key of schema.required as string[]) {
     if (!(key in frame)) found.push(`missing required key: ${key}`)
   }
+
   if (frame.schema !== 1) found.push('schema must be 1')
   if (typeof frame.ok !== 'boolean') found.push('ok must be a boolean')
   if (!frame.command) found.push('command must be a non-empty string')
@@ -46,13 +47,17 @@ function problems(frame: Record<string, unknown>): string[] {
   if (!Array.isArray(frame.warnings)) found.push('warnings must be an array')
 
   const error = frame.error as Record<string, unknown> | null
+
   if (frame.ok === false) {
     if (!error) found.push('a failure frame must carry an error')
     else {
-      if (!/^E_[A-Z0-9_]+$/.test(String(error.code)))
+      if (!/^E_[A-Z0-9_]+$/.test(String(error.code))) {
         found.push(`error.code is not an E_ identifier: ${error.code}`)
-      if (typeof error.message !== 'string')
+      }
+
+      if (typeof error.message !== 'string') {
         found.push('error.message must be a string')
+      }
     }
   } else if (error !== null) {
     found.push('a success frame must carry error: null')
@@ -309,6 +314,7 @@ describe('the act frame as a schema-1 envelope', () => {
         true
       )
     }
+
     for (const {key, site} of MCP_ERROR_READS) {
       expect(
         Object.hasOwn(frame.error as object, key),
@@ -338,12 +344,14 @@ describe('the act frame as a schema-1 envelope', () => {
         true
       )
     }
+
     for (const key of ACT_ERROR_KEYS) {
       expect(
         Object.hasOwn(frame.error as object, key),
         `envelope lost act error key ${key}`
       ).toBe(true)
     }
+
     expect(frame.truncated).toBe(true)
   })
 
@@ -359,6 +367,7 @@ describe('the act frame as a schema-1 envelope', () => {
       error: null,
       warnings: []
     })
+
     expect(problems(frame)).toEqual([])
   })
 
@@ -424,6 +433,7 @@ describe('the act frame as a schema-1 envelope', () => {
       status: 'ok',
       warnings: []
     })
+
     expect(problems(frame)).toEqual([])
   })
 

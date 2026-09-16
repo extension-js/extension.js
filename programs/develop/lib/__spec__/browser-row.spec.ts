@@ -45,6 +45,7 @@ describe('card browser row', () => {
     expect(new Set([dev, start, preview]).size).toBe(1)
     expect(preview).not.toBe('chromium')
     expect(build).toBe('Chromium')
+
     for (const value of [dev, start, preview, build]) {
       expect(value.startsWith('Chromium')).toBe(true)
     }

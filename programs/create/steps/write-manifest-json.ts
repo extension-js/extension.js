@@ -36,12 +36,14 @@ export async function writeManifestJson(
 
   try {
     if (isDebug()) logger.log(messages.writingManifestJsonMetadata())
+
     await fs.writeFile(
       manifestJsonPath,
       JSON.stringify(manifestMetadata, null, 2)
     )
   } catch (error) {
     logger.error(messages.writingManifestJsonMetadataError(error))
+
     throw error
   }
 

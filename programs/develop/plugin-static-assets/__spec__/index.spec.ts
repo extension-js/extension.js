@@ -44,6 +44,7 @@ describe('StaticAssetsPlugin', () => {
     expect(svgRule.generator?.filename).toBe(
       'assets/[name].[contenthash:8][ext]'
     )
+
     expect(svgRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
 
     const imagesRule = findRuleByTest(
@@ -55,6 +56,7 @@ describe('StaticAssetsPlugin', () => {
     expect(imagesRule.generator?.filename).toBe(
       'assets/[name].[contenthash:8][ext]'
     )
+
     expect(imagesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
 
     const fontsRule = findRuleByTest(rules, /\.(woff|woff2|eot|ttf|otf)$/i)
@@ -73,6 +75,7 @@ describe('StaticAssetsPlugin', () => {
     expect(filesRule.generator?.filename).toBe(
       'assets/[name].[contenthash:8][ext]'
     )
+
     expect(filesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
   })
 
@@ -152,6 +155,7 @@ describe('StaticAssetsPlugin', () => {
     expect(
       findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)
     ).toBeTruthy()
+
     expect(
       findRuleByTest(
         rules,

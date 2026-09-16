@@ -33,10 +33,13 @@ export class InjectScriptsReplayShim {
           () => {
             for (const asset of compilation.getAssets()) {
               if (!BACKGROUND_ASSET.test(asset.name)) continue
+
               const original = asset.source.source().toString()
+
               if (original.indexOf('__extjsScriptsReplayInstalled') !== -1) {
                 continue
               }
+
               prependToEmittedAsset(
                 compilation,
                 asset,

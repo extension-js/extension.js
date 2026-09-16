@@ -81,6 +81,7 @@ export function unreferencedScriptDropped(relativePaths: string[]) {
   const list = relativePaths
     .map((entry) => `  ${colors.yellow(entry)}`)
     .join('\n')
+
   return (
     `${prefix('warn')} Dropped ${relativePaths.length} unreferenced ` +
     `${relativePaths.length === 1 ? 'entry' : 'entries'} from ` +

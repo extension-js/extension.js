@@ -12,6 +12,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (fs.existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -37,10 +38,12 @@ function startCaptureServer(): Promise<{
       if (req.url === '/capture/') {
         batches.push(JSON.parse(body) as CaptureBatch)
       }
+
       res.writeHead(200, {'content-type': 'application/json'})
       res.end('{"status":1}')
     })
   })
+
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
@@ -89,6 +92,7 @@ describe('a failed create reports command_failed before it exits', () => {
 
   afterEach(async () => {
     if (close) await close()
+
     close = undefined
   })
 

@@ -96,6 +96,7 @@ describe('renderStatsBlocks', () => {
       errors: true,
       warnings: false
     })
+
     expect(rendered).toContain('⏵⏵⏵ Build error in ./src/x.ts.')
   })
 
@@ -235,6 +236,7 @@ describe('humanizeCaseMismatchBlocks', () => {
     expect(out).toContain(
       '`/proj/Helper.js` does not match its casing on disk: `helper.js`.'
     )
+
     expect(out).toContain('Case-sensitive filesystems fail this reference.')
     expect(out).not.toContain('at CaseSensitivePathsPlugin')
     expect(out).not.toContain('\u2502')
@@ -245,6 +247,7 @@ describe('humanizeCaseMismatchBlocks', () => {
     expect(out).toContain(
       '`/proj/Helper.js` does not match its casing on disk: `helper.js`.'
     )
+
     expect(out).toContain('at CaseSensitivePathsPlugin.getFilenamesInDir')
   })
 

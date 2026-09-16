@@ -33,12 +33,16 @@ type SinceHelpers = {
 // it is there so the command and the published query never drift apart.
 function parseLogSinceLocal(value: unknown): LogSince | null | undefined {
   if (value == null || value === '') return null
+
   if (typeof value === 'number') {
     return Number.isFinite(value) ? {seq: value} : undefined
   }
+
   const text = String(value).trim()
   if (/^\d+(?:\.\d+)?$/.test(text)) return {seq: Number(text)}
+
   const time = Date.parse(text)
+
   return Number.isFinite(time) ? {time} : undefined
 }
 
@@ -46,6 +50,7 @@ function isAfterSinceLocal(event: LogEventLike, since: LogSince): boolean {
   if ('seq' in since) {
     return !(typeof event.seq === 'number' && event.seq <= since.seq)
   }
+
   const raw = (event as {timestamp?: unknown; ts?: unknown}).timestamp
   const time =
     typeof raw === 'number'
@@ -53,11 +58,13 @@ function isAfterSinceLocal(event: LogEventLike, since: LogSince): boolean {
       : typeof (event as {ts?: unknown}).ts === 'string'
         ? Date.parse(String((event as {ts?: unknown}).ts))
         : Number.NaN
+
   return !Number.isFinite(time) || time > since.time
 }
 
 function sinceHelpersFrom(bridge: unknown): SinceHelpers {
   const candidate = bridge as Partial<SinceHelpers> | null | undefined
+
   return {
     parseLogSince:
       typeof candidate?.parseLogSince === 'function'
@@ -87,11 +94,13 @@ type LogsOptions = {
 // below and never an untyped parse result.
 function parseLogLine(line: string): LogEventLike | null {
   let parsed: unknown
+
   try {
     parsed = JSON.parse(line)
   } catch {
     return null
   }
+
   return isLogEventLike(parsed) ? parsed : null
 }
 
@@ -121,6 +130,7 @@ const LEVEL_ORDER = ['error', 'warn', 'info', 'debug', 'trace']
 function levelRank(level: string): number {
   const l = level === 'log' ? 'info' : level
   const i = LEVEL_ORDER.indexOf(l)
+
   return i === -1 ? LEVEL_ORDER.length : i
 }
 
@@ -170,8 +180,9 @@ function makeFilter(
     if (contexts && !contexts.has(String(event.context))) return false
 
     if (minLevel !== 'all' && minLevel !== 'off') {
-      if (levelRank(String(event.level || '')) > levelRank(minLevel))
+      if (levelRank(String(event.level || '')) > levelRank(minLevel)) {
         return false
+      }
     }
 
     if (since && !helpers.isAfterSince(event, since)) return false
@@ -190,6 +201,7 @@ function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
   const requested = String(opts.output ?? '')
     .trim()
     .toLowerCase()
+
   if (
     requested === 'pretty' ||
     requested === 'json' ||
@@ -205,12 +217,14 @@ function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
   if (format === 'ndjson') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(event))
+
     return
   }
 
   if (format === 'json') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(event, null, 2))
+
     return
   }
 
@@ -228,6 +242,7 @@ export function formatPrettyLogLine(event: LogEventLike): string {
     : ''
   const code = event.code ? ` ${event.code}` : ''
   const remediation = event.remediation ? `\n    ↳ ${event.remediation}` : ''
+
   return (
     `[${event.seq ?? '-'}] ${String(event.level || 'log').toUpperCase()} ` +
     `(${event.context})${code} ${parts}${remediation}`
@@ -293,6 +308,7 @@ export function registerLogsCommand(program: Command) {
       const format = resolveFormat(options)
       const helpers = sinceHelpersFrom(bridge)
       const since = helpers.parseLogSince(options.since)
+
       if (
         options.since != null &&
         options.since !== '' &&
@@ -301,6 +317,7 @@ export function registerLogsCommand(program: Command) {
         const message = `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`
         // eslint-disable-next-line no-console
         console.error(message)
+
         if (format !== 'pretty') {
           writeFrame(
             ENVELOPE.fail('logs', 'usage', {
@@ -310,8 +327,10 @@ export function registerLogsCommand(program: Command) {
             })
           )
         }
+
         process.exit(1)
       }
+
       const matches = makeFilter(options, since ?? null, helpers)
 
       // An advertised filter that silently matches nothing teaches the wrong
@@ -330,11 +349,13 @@ export function registerLogsCommand(program: Command) {
 
       if (options.follow) {
         await followLogs(projectPath, browser, format, matches)
+
         return
       }
 
       // One-shot: read the logs.ndjson file directly (no control channel needed).
       const file = sessionLogsPath(bridge, projectPath, browser)
+
       if (!fs.existsSync(file)) {
         const message =
           `No logs found at ${file}. Start a dev session (extension dev) first, ` +
@@ -354,7 +375,9 @@ export function registerLogsCommand(program: Command) {
 
         process.exit(1)
       }
+
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
+
       for (const line of lines) {
         const event = parseLogLine(line)
         if (event && matches(event)) printEvent(event, format)
@@ -372,6 +395,7 @@ async function followLogs(
   const {BridgeConsumer, readReadyContract} = bridge
 
   const ready = readReadyContract(projectPath, browser)
+
   if (!ready) {
     const message =
       `No active dev session control channel found for ${browser}. ` +
@@ -400,6 +424,7 @@ async function followLogs(
   // reader could not tell that from a quiet extension. A close the contract no
   // longer backs ends the follow with one terminating frame instead.
   let settle: () => void = () => {}
+
   const settled = new Promise<void>((resolve) => {
     settle = resolve
   })
@@ -410,8 +435,10 @@ async function followLogs(
       bridge.CLOSE_CONTROL_UNAVAILABLE
     ].filter((code): code is number => typeof code === 'number')
   )
+
   const sessionStillNamed = (): boolean => {
     const current = readReadyContract(projectPath, browser)
+
     return (
       Boolean(current) &&
       current.status !== 'stopped' &&
@@ -435,12 +462,14 @@ async function followLogs(
     },
     onClose: (close: {code: number; reason: string}) => {
       if (!refusals.has(close.code) && sessionStillNamed()) return
+
       consumer.close()
       const why = close.reason ? `${close.code}, ${close.reason}` : close.code
       // eslint-disable-next-line no-console
       console.error(
         `extension logs --follow: the control channel closed (${why}) and the dev session is over.`
       )
+
       if (format !== 'pretty') {
         // console.log for the same reason as the interrupt frame below: it
         // must land after every record already queued on stdout.
@@ -455,6 +484,7 @@ async function followLogs(
           )
         )
       }
+
       settle()
     }
   })
@@ -477,6 +507,7 @@ async function followLogs(
 
     void exitAfterDrain(0)
   }
+
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
 

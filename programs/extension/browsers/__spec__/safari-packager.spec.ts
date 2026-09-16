@@ -37,6 +37,7 @@ describe('createSafariPackager', () => {
       bundleIdDerived: true,
       macOsOnly: true
     })
+
     expect(result.appPath).toMatch(/Packager Demo\.app$/)
     expect(result.xcodeProjectPath).toContain(`${distDir}-xcode`)
   })

@@ -36,8 +36,10 @@ test('renders the ref and every slug it was given', () => {
     slugs: ['action', 'init', 'javascript']
   })
   assert.ok(rendered.includes(`TEMPLATE_CORPUS_REF = '${'d'.repeat(40)}'`))
+
   for (const slug of ['action', 'init', 'javascript']) {
     assert.ok(rendered.includes(`'${slug}'`), slug)
   }
+
   assert.ok(rendered.includes('Do not edit by hand'))
 })

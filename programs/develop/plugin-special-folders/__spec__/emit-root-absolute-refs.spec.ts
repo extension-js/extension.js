@@ -23,6 +23,7 @@ const tempDirs: string[] = []
 
 afterEach(() => {
   compileRuntimeLoadedFiles.mockClear()
+
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop()
     if (dir) fs.rmSync(dir, {recursive: true, force: true})
@@ -32,11 +33,13 @@ afterEach(() => {
 function createProject(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-root-abs-'))
   tempDirs.push(root)
+
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(root, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content, 'utf8')
   }
+
   return {root, publicDir: path.join(root, 'public')}
 }
 
@@ -57,6 +60,7 @@ function makeCompilation(assets: Record<string, string>) {
       emitted.set(name, {name, source})
     }
   }
+
   return {compilation, emitted}
 }
 
@@ -78,6 +82,7 @@ describe('planRootAbsoluteRef', () => {
       sourcePath: path.join(root, 'data/x.json'),
       emitPath: 'data/x.json'
     })
+
     expect(
       planRootAbsoluteRef('/vendor/classic.js', root, publicDir, hasNone)
     ).toMatchObject({kind: 'copy', emitPath: 'vendor/classic.js'})
@@ -136,6 +141,7 @@ describe('planRootAbsoluteRef', () => {
     expect(
       planRootAbsoluteRef('/img/logo.svg', root, publicDir, hasNone)
     ).toEqual({kind: 'skip', reason: 'public', emitPath: 'img/logo.svg'})
+
     expect(
       planRootAbsoluteRef(
         '/lib/done.js',
@@ -144,6 +150,7 @@ describe('planRootAbsoluteRef', () => {
         (name) => name === 'lib/done.js'
       )
     ).toEqual({kind: 'skip', reason: 'emitted', emitPath: 'lib/done.js'})
+
     // The scripts/ entry already produced scripts/util.js, the .ts spelling
     // must ship nothing and point the author at the emitted path.
     expect(
@@ -167,9 +174,11 @@ describe('planRootAbsoluteRef', () => {
     expect(
       planRootAbsoluteRef('//cdn.example.com/x.js', root, publicDir, hasNone)
     ).toBeNull()
+
     expect(
       planRootAbsoluteRef(path.join(root, 'x.js'), root, publicDir, hasNone)
     ).toBeNull()
+
     expect(planRootAbsoluteRef('/', root, publicDir, hasNone)).toBeNull()
   })
 
@@ -178,6 +187,7 @@ describe('planRootAbsoluteRef', () => {
     expect(
       planRootAbsoluteRef('/../../etc/passwd', root, publicDir, hasNone)
     ).toMatchObject({kind: 'missing'})
+
     expect(
       planRootAbsoluteRef('/nope/missing.js', root, publicDir, hasNone)
     ).toEqual({kind: 'missing', emitPath: 'nope/missing.js'})
@@ -205,15 +215,18 @@ describe('emitRootAbsoluteRefs', () => {
     expect(text(emitted, 'styles/page.css')).toBe(
       'body { background: url(/data/x.json); }\n'
     )
+
     // Found in the copied stylesheet, so it needs the second pass.
     expect(text(emitted, 'data/x.json')).toBe('{\n  "answer": 42\n}\n')
     expect(text(emitted, 'vendor/classic.js')).toBe(
       'var VENDOR = 1\nfunction vendorHello() {}\n'
     )
+
     expect(emitted.has('scripts/util.ts')).toBe(false)
     expect(text(emitted, 'scripts/util.js')).toBe(
       'console.log("compiled by the main pipeline")'
     )
+
     expect(compileRuntimeLoadedFiles).not.toHaveBeenCalled()
 
     expect(compilation.warnings).toHaveLength(1)
@@ -264,6 +277,7 @@ describe('emitRootAbsoluteRefs', () => {
         context: 'html'
       }
     ])
+
     // The bundler resolves imports, so nothing is copied for them here.
     expect(emitted.has('lib/word.ts')).toBe(false)
     expect(emitted.has('lib/word.js')).toBe(false)
@@ -274,6 +288,7 @@ describe('emitRootAbsoluteRefs', () => {
     expect(String(compilation.warnings[0].message)).toContain(
       "loads '/lib/widget.ts' via an HTML src/href attribute"
     )
+
     expect(
       compilation.fileDependencies.has(path.join(root, 'lib/widget.ts'))
     ).toBe(true)

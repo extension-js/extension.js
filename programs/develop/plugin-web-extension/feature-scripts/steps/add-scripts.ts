@@ -102,6 +102,7 @@ export class AddScripts {
                 }
 
                 let resolved = entry
+
                 if (!fs.existsSync(resolved)) {
                   resolved = path.isAbsolute(entry)
                     ? entry
@@ -152,6 +153,7 @@ export class AddScripts {
       manifest_version?: unknown
       background?: {type?: unknown}
     } = {}
+
     try {
       // A chromium:background module worker is invisible to a raw read, so the
       // entry got importScripts chunk loading while the worker itself is ESM.
@@ -162,19 +164,23 @@ export class AddScripts {
     } catch {
       manifestJson = {}
     }
+
     const resolveEntryPath = (entry: string) =>
       resolveScriptEntryPath(entry, manifestDir, projectPath)
 
     // A scripts/ file also claimed by a content_scripts group is already built
     // by that entry; a standalone duplicate trips rspack on vendored UMD libs.
     const claimedByContentScript = new Set<string>()
+
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       if (!isContentScriptFeature(feature)) continue
+
       const rawEntries: string[] = Array.isArray(scriptPath)
         ? scriptPath || []
         : scriptPath
           ? [scriptPath]
           : []
+
       for (const resolved of getScriptEntries(
         rawEntries.map(resolveEntryPath)
       )) {

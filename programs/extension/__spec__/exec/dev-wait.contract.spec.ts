@@ -29,6 +29,7 @@ function runCli(args: string[], timeoutMs = 30000) {
         clearTimeout(timer)
         resolvePromise({code: code ?? 1, stdout, stderr})
       })
+
       child.on('error', (error) => {
         clearTimeout(timer)
         reject(error)

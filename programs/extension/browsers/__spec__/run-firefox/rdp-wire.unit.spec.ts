@@ -119,6 +119,7 @@ describe('RDP wire format', () => {
       while (buf.length > 0) {
         const r = parseRdpFrame(buf)
         if (!r.parsedMessage) break
+
         parsed.push(r.parsedMessage)
         buf = r.remainingData
       }

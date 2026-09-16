@@ -18,6 +18,7 @@ function makeCompilation() {
       }
     }
   }
+
   return {
     options: {mode: 'production'},
     getAsset: (name: string) => assets[name],
@@ -44,14 +45,17 @@ describe('AddAssetsToCompilation', () => {
       html,
       `<html><head><link rel="icon" href="/favicon.png"></head><body></body></html>`
     )
+
     const c = makeCompilation()
     ;(c as any).assets[path.basename(html)] = {
       source: {source: () => fs.readFileSync(html).toString()}
     }
+
     new AddAssetsToCompilation({
       manifestPath,
       includeList: {'feature/index': html}
     } as any).apply(c as any)
+
     expect((c as any).assets['favicon.png']).toBeUndefined()
   })
 
@@ -75,6 +79,7 @@ describe('AddAssetsToCompilation', () => {
         options: {mode: 'production'},
         hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
       }
+
       return {compiler, compilation: compilationObj}
     }
 
@@ -89,6 +94,7 @@ describe('AddAssetsToCompilation', () => {
         html,
         `<html><body><script src="missing.js"></script></body></html>`
       )
+
       return {manifestPath, html}
     }
 
@@ -99,6 +105,7 @@ describe('AddAssetsToCompilation', () => {
         manifestPath,
         includeList: {'feature/index': html}
       } as any).apply(compiler as any)
+
       expect(compilation.errors).toHaveLength(0)
       expect(compilation.warnings).toHaveLength(1)
       expect(String(compilation.warnings[0].message)).toContain('NOT FOUND')
@@ -106,6 +113,7 @@ describe('AddAssetsToCompilation', () => {
 
     it('errors on a dead <script src> under EXTENSION_STRICT_REFS=true', () => {
       process.env.EXTENSION_STRICT_REFS = 'true'
+
       try {
         const {manifestPath, html} = writeDeadRefFixture('dead-ref-strict')
         const {compiler, compilation} = makeCompilationWithDiagnostics()
@@ -113,6 +121,7 @@ describe('AddAssetsToCompilation', () => {
           manifestPath,
           includeList: {'feature/index': html}
         } as any).apply(compiler as any)
+
         expect(compilation.warnings).toHaveLength(0)
         expect(compilation.errors).toHaveLength(1)
         expect(String(compilation.errors[0].message)).toContain('NOT FOUND')
@@ -145,6 +154,7 @@ describe('AddAssetsToCompilation', () => {
         options: {mode: 'production', context},
         hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
       }
+
       return {compiler, compilation: compilationObj}
     }
 
@@ -159,11 +169,13 @@ describe('AddAssetsToCompilation', () => {
         html,
         `<html><body><script src="/lib/widget.js" type="module"></script></body></html>`
       )
+
       for (const [rel, content] of Object.entries(files)) {
         const abs = path.join(tmp, rel)
         fs.mkdirSync(path.dirname(abs), {recursive: true})
         fs.writeFileSync(abs, content)
       }
+
       return {tmp, manifestPath, html}
     }
 
@@ -174,6 +186,7 @@ describe('AddAssetsToCompilation', () => {
         manifestPath,
         includeList: {'action/index': html}
       } as any).apply(compiler as any)
+
       return compilation.warnings.map((w: any) => String(w.message))
     }
 
@@ -195,6 +208,7 @@ describe('AddAssetsToCompilation', () => {
       expect(warnings[0]).toContain(
         "The page references a script file that doesn't exist."
       )
+
       // The warning prints a native path, so Windows shows backslashes.
       expect(warnings[0]).toMatch(/[\\/]lib[\\/]widget\.js/)
     })

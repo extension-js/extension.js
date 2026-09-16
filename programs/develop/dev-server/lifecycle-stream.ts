@@ -43,8 +43,10 @@ export function isLifecycleStreamEnabled(): boolean {
 export function humanLine(line: string): void {
   if (isMachineOutput()) {
     process.stderr.write(`${line}\n`)
+
     return
   }
+
   console.log(line)
 }
 
@@ -54,8 +56,10 @@ export function stripAnsi(input: string): string {
 
 function readReadyContract(readyPath?: string): Record<string, unknown> | null {
   if (!readyPath) return null
+
   try {
     const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
     return parsed && typeof parsed === 'object'
       ? (parsed as Record<string, unknown>)
       : null
@@ -68,21 +72,27 @@ function readReadyContract(readyPath?: string): Record<string, unknown> | null {
 // read is optional and falls back to the generic launch failure code.
 function isProfileLocked(ready: Record<string, unknown> | null): boolean {
   if (!ready) return false
+
   const code = String(ready.code ?? '')
     .trim()
     .toLowerCase()
   if (code === 'profile_locked' || code === 'profile-locked') return true
   if (ready.profileLocked === true) return true
+
   const message = String(ready.message ?? '')
+
   return /profile\s+is\s+locked|singletonlock/i.test(message)
 }
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
+
   if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 10)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   return null
 }
 
@@ -119,13 +129,16 @@ export class LifecycleStream {
 
   private emit(frame: Envelope<unknown>): Envelope<unknown> | null {
     if (!this.enabled) return null
+
     this.writeLine(`${JSON.stringify(frame)}\n`)
+
     return frame
   }
 
   private sessionValue(extra: Record<string, unknown> = {}) {
     const ready = readReadyContract(this.options.readyPath)
     const port = toFiniteNumber(ready?.port) ?? this.boundPort
+
     return {
       command: this.options.command,
       browser: this.options.browser,
@@ -150,6 +163,7 @@ export class LifecycleStream {
     port?: number | null
   }): Envelope<unknown> | null {
     this.boundPort = toFiniteNumber(args.port)
+
     return this.emit(
       ENVELOPE.ok(
         this.options.command,
@@ -171,6 +185,7 @@ export class LifecycleStream {
     this.successfulCompiles += 1
     const status: LifecycleStatus =
       this.successfulCompiles === 1 ? 'compiled' : 'recompiled'
+
     return this.emit(
       ENVELOPE.ok(
         this.options.command,
@@ -210,6 +225,7 @@ export class LifecycleStream {
       output,
       durationMs: toFiniteNumber(args.durationMs) ?? 0
     })
+
     return this.emit(frame)
   }
 
@@ -219,9 +235,12 @@ export class LifecycleStream {
   public ready(args: {port?: number | null} = {}): Envelope<unknown> | null {
     if (this.readyEmitted) return null
     if (args.port != null) this.boundPort = toFiniteNumber(args.port)
+
     const ready = readReadyContract(this.options.readyPath)
+
     if (ready && ready.status === 'error') {
       if (this.readyErrorEmitted) return null
+
       this.readyErrorEmitted = true
       const frame = ENVELOPE.fail(this.options.command, 'failed', {
         code: CODES.E_READY_ERROR_STATUS,
@@ -232,9 +251,12 @@ export class LifecycleStream {
       frame.value = this.sessionValue({
         ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})
       })
+
       return this.emit(frame)
     }
+
     this.readyEmitted = true
+
     return this.emit(
       ENVELOPE.ok(this.options.command, 'ready', this.sessionValue())
     )
@@ -244,6 +266,7 @@ export class LifecycleStream {
     args: {exitCode?: number | null; message?: string} = {}
   ): Envelope<unknown> | null {
     if (this.browserExitEmitted) return null
+
     this.browserExitEmitted = true
     const ready = readReadyContract(this.options.readyPath)
     const locked = isProfileLocked(ready)
@@ -265,6 +288,7 @@ export class LifecycleStream {
         ? {browserExitedAt: ready.browserExitedAt}
         : {})
     })
+
     return this.emit(frame)
   }
 
@@ -275,6 +299,7 @@ export class LifecycleStream {
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()
+
     return this.emit(frame)
   }
 
@@ -283,17 +308,23 @@ export class LifecycleStream {
   public watchBrowserExit(intervalMs = 1000): () => void {
     const stop = () => {
       if (this.exitWatcher) clearInterval(this.exitWatcher)
+
       this.exitWatcher = undefined
     }
+
     if (!this.enabled || !this.options.readyPath) return stop
     if (this.exitWatcher) return stop
+
     this.exitWatcher = setInterval(() => {
       const ready = readReadyContract(this.options.readyPath)
       if (typeof ready?.browserExitedAt !== 'string') return
+
       this.browserExited()
       stop()
     }, intervalMs)
+
     this.exitWatcher.unref?.()
+
     return stop
   }
 }
@@ -324,12 +355,14 @@ interface CompilerLike {
 
 function assetCount(stats: StatsLike): number {
   const compilation = stats?.compilation
+
   try {
     const assets = compilation?.getAssets?.()
     if (Array.isArray(assets)) return assets.length
   } catch {
     // Ignore
   }
+
   return Object.keys(compilation?.assets || {}).length
 }
 
@@ -338,6 +371,7 @@ function compileDuration(stats: StatsLike): number {
   const start = Number(compilation?.startTime || 0)
   const end = Number(compilation?.endTime || 0)
   const duration = end - start
+
   return Number.isFinite(duration) && duration > 0 ? duration : 0
 }
 
@@ -366,12 +400,15 @@ export function attachLifecycleStream(
           output: errorText(stats),
           durationMs: compileDuration(stats)
         })
+
         return
       }
+
       stream.compiled({
         assets: assetCount(stats),
         durationMs: compileDuration(stats)
       })
+
       // The ready contract is written by the playwright plugin's done hook,
       // which is tapped first, so it is on disk by the time this runs.
       stream.ready()

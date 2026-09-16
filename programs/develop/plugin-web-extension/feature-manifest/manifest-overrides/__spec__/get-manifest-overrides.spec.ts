@@ -8,9 +8,11 @@ vi.spyOn(require('node:fs'), 'readFileSync').mockImplementation(
 vi.mock('../common', () => ({
   manifestCommon: () => ({background: {page: 'bg.html'}, icons: {}})
 }))
+
 vi.mock('../mv2', () => ({
   manifestV2: () => ({background: {scripts: ['bg.js']}, page_action: {}})
 }))
+
 vi.mock('../mv3', () => ({
   manifestV3: () => ({background: {service_worker: 'sw.js'}, action: {}})
 }))
@@ -29,6 +31,7 @@ describe('getManifestOverrides', () => {
       scripts: ['bg.js'],
       service_worker: 'sw.js'
     })
+
     expect(parsed.name).toBe('x')
   })
 })

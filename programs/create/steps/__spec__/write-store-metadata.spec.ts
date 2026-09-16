@@ -110,10 +110,12 @@ describe('rewriteStoreMetadata', () => {
 describe('writeStoreMetadata', () => {
   it('does nothing when the template ships no STORE.md', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-store-'))
+
     try {
       await expect(
         writeStoreMetadata(dir, 'my-extension', 'Whatever', console)
       ).resolves.toBeUndefined()
+
       await expect(fs.readdir(dir)).resolves.toEqual([])
     } finally {
       await fs.rm(dir, {recursive: true, force: true})
@@ -122,6 +124,7 @@ describe('writeStoreMetadata', () => {
 
   it('rewrites the file in place', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-store-'))
+
     try {
       await fs.writeFile(path.join(dir, 'STORE.md'), TEMPLATE_STORE_MD)
       await writeStoreMetadata(
@@ -130,6 +133,7 @@ describe('writeStoreMetadata', () => {
         'JavaScript Sidebar Example',
         console
       )
+
       const written = await fs.readFile(path.join(dir, 'STORE.md'), 'utf8')
       expect(written).toMatch(/^- Name: my-extension$/m)
       expect(written).not.toContain('JavaScript Sidebar Example')

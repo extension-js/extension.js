@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(),
@@ -22,6 +23,7 @@ const SOME_OTHER_PLUGIN = {constructor: {name: 'OtherPlugin'}}
 
 vi.mock('../rspack-config', async () => {
   const pluginBrowsersLike = {constructor: {name: 'plugin-browsers'}}
+
   return {
     default: vi.fn(() => ({
       plugins: [pluginBrowsersLike, SOME_OTHER_PLUGIN],
@@ -34,6 +36,7 @@ vi.mock('webpack-merge', () => ({merge: (cfg: any) => cfg}))
 
 vi.mock('../lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
+
   return {
     loadCustomConfig: vi.fn(async () => userConfigSpy),
     loadBrowserConfig: vi.fn(async () => ({})),
@@ -67,6 +70,7 @@ vi.mock('../lib/validate-user-dependencies', () => ({
 vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
+
 vi.mock('../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
 }))
@@ -170,6 +174,7 @@ describe('webpack/command-build', () => {
       '/proj',
       'build'
     )
+
     expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj')
   })
 
@@ -199,6 +204,7 @@ describe('webpack/command-build', () => {
     expect(
       printed.some((line) => line.includes('built for production in'))
     ).toBe(true)
+
     expect(printed.some((line) => line.includes('Build succeeded'))).toBe(false)
     expect(printed.some((line) => line.includes('ready for deployment'))).toBe(
       false
@@ -218,6 +224,7 @@ describe('webpack/command-build', () => {
       path: path.join('/proj', 'dist', 'chrome', 'probe.zip'),
       size: 2048
     })
+
     const stats = {
       hasErrors: () => false,
       toJson: () => ({assets: [{name: 'a.js', size: 10}], warnings: []}),
@@ -420,6 +427,7 @@ describe('webpack/command-build', () => {
         zip: true,
         polyfill: true
       })
+
       const printed = localLogSpy.mock.calls.map((call) =>
         String(call[0] || '')
       )
@@ -427,6 +435,7 @@ describe('webpack/command-build', () => {
       expect(printed.some((line) => line.includes('service_worker.js'))).toBe(
         false
       )
+
       expect(
         printed.some((line) => line.includes('built for production in'))
       ).toBe(true)
@@ -452,6 +461,7 @@ describe('webpack/command-build', () => {
         zip: false,
         polyfill: false
       })
+
       const printed = localLogSpy.mock.calls
         .map((call) => String(call[0] || ''))
         .join('\n')
@@ -484,18 +494,21 @@ describe('webpack/command-build', () => {
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
         browser: 'firefox'
       })
+
       await extensionBuild('/proj', {})
       expect(webpackOpts()).toMatchObject({browser: 'firefox'})
 
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
         browser: 'firefox'
       })
+
       await extensionBuild('/proj', {browser: 'edge'})
       expect(webpackOpts()).toMatchObject({browser: 'edge'})
 
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
         browser: 'nope'
       })
+
       await expect(extensionBuild('/proj', {})).rejects.toThrow(
         /Unsupported browser in extension.config commands.build.browser: nope/
       )
@@ -551,6 +564,7 @@ describe('webpack/command-build', () => {
         '/proj',
         'start'
       )
+
       expect(webpackOpts()).toMatchObject({polyfill: false})
     })
 
@@ -609,6 +623,7 @@ describe('webpack/command-build', () => {
         'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
       ]
     })
+
     expect(webpackConfig).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -646,6 +661,7 @@ describe('webpack/command-build', () => {
     const exitSpy = vi
       .spyOn(process, 'exit')
       .mockImplementation(((_code?: number) => undefined) as any)
+
     try {
       ;(fs.existsSync as any).mockReturnValue(false)
       ;(fs.readdirSync as any).mockReturnValue([])
@@ -750,6 +766,7 @@ describe('webpack/command-build', () => {
       expect.any(Object),
       expect.objectContaining({mode: 'development'})
     )
+
     expect(process.env.NODE_ENV).toBe('development')
     process.env.NODE_ENV = previousNodeEnv
   })

@@ -25,13 +25,17 @@ export function recordZipArtifact(
   artifact: ZipArtifactRecord
 ): void {
   if (!carrier || typeof carrier !== 'object') return
+
   const host = carrier as ArtifactCarrier
   if (!Array.isArray(host[ARTIFACTS_KEY])) host[ARTIFACTS_KEY] = []
+
   host[ARTIFACTS_KEY].push(artifact)
 }
 
 export function getZipArtifacts(carrier: unknown): ZipArtifactRecord[] {
   if (!carrier || typeof carrier !== 'object') return []
+
   const host = carrier as ArtifactCarrier
+
   return Array.isArray(host[ARTIFACTS_KEY]) ? host[ARTIFACTS_KEY] : []
 }

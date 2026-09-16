@@ -30,13 +30,16 @@ export function prependToEmittedAsset(
       ? compilation.getAsset(`${assetName}.map`)
       : undefined
   if (!mapAsset) return
+
   const prefixLines = prefix.split('\n').length - 1
   if (prefixLines <= 0) return
+
   try {
     const map = JSON.parse(mapAsset.source.source().toString()) as {
       mappings?: string
     }
     if (typeof map.mappings !== 'string') return
+
     map.mappings = `${';'.repeat(prefixLines)}${map.mappings}`
     compilation.updateAsset(
       `${assetName}.map`,

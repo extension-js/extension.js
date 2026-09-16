@@ -16,9 +16,8 @@ function typesPackageName(name: string): string {
 
 function packageRoot(specifier: string): string {
   const parts = specifier.split('/')
-  return specifier.startsWith('@')
-    ? parts.slice(0, 2).join('/')
-    : parts[0]
+
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
 }
 
 function collectTypeLibraries(): string[] {
@@ -26,6 +25,7 @@ function collectTypeLibraries(): string[] {
 
   for (const file of fs.readdirSync(typesDir)) {
     if (!file.endsWith('.d.ts')) continue
+
     const source = fs.readFileSync(path.join(typesDir, file), 'utf8')
 
     for (const match of source.matchAll(

@@ -13,11 +13,13 @@ vi.mock('cross-spawn', () => ({
   spawn: (command: string, args: string[], opts: any) => {
     spawnCalls.push({command, args, cwd: opts?.cwd})
     const listeners: Record<string, Function[]> = {close: [], error: []}
+
     return {
       stdout: {on: () => undefined},
       stderr: {on: () => undefined},
       on: (evt: 'close' | 'error', cb: Function) => {
         listeners[evt].push(cb)
+
         if (evt === 'close') {
           setImmediate(() => cb(0))
         }
@@ -29,6 +31,7 @@ vi.mock('cross-spawn', () => ({
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -56,6 +59,7 @@ describe('install-internal-deps', () => {
         // Ignore
       }
     }
+
     created.length = 0
     process.env = originalEnv
     vi.restoreAllMocks()
@@ -68,6 +72,7 @@ describe('install-internal-deps', () => {
     writeJson(path.join(developRoot, 'package.json'), {
       name: 'extension-develop'
     })
+
     fs.writeFileSync(path.join(projectRoot, 'package.json'), '{"name": broken')
 
     process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
@@ -124,6 +129,7 @@ describe('install-internal-deps', () => {
       name: 'demo',
       dependencies: {react: '^18.0.0', tailwindcss: '^4.0.0'}
     })
+
     fs.writeFileSync(
       path.join(projectRoot, 'postcss.config.js'),
       'module.exports = {}'
@@ -145,6 +151,7 @@ describe('install-internal-deps', () => {
 
     const optionalCall = spawnCalls.find((call) => {
       const args = call.args.join(' ')
+
       return (
         args.includes('react-refresh') &&
         args.includes('@rspack/plugin-react-refresh')
@@ -160,6 +167,7 @@ describe('install-internal-deps', () => {
     expect(optionalArgs).toContain('--legacy-peer-deps')
     const postCssCall = spawnCalls.find((call) => {
       const args = call.args.join(' ')
+
       return args.includes('postcss') && args.includes('postcss-loader')
     })
     expect(postCssCall).toBeTruthy()
@@ -174,6 +182,7 @@ describe('install-internal-deps', () => {
       writeJson(path.join(developRoot, 'package.json'), {
         name: 'extension-develop'
       })
+
       writeJson(path.join(projectRoot, 'package.json'), {
         name: 'demo',
         dependencies: {react: '^18.0.0'}
@@ -211,6 +220,7 @@ describe('install-internal-deps', () => {
       writeJson(path.join(developRoot, 'package.json'), {
         name: 'extension-develop'
       })
+
       writeJson(path.join(projectRoot, 'package.json'), {
         name: 'demo',
         dependencies: {react: '^18.0.0'}
@@ -254,9 +264,11 @@ describe('install-internal-deps', () => {
       writeJson(path.join(overrideDevelopRoot, 'package.json'), {
         name: 'extension-develop'
       })
+
       writeJson(path.join(localDevelopRoot, 'package.json'), {
         name: 'extension-develop'
       })
+
       writeJson(path.join(projectRoot, 'package.json'), {
         name: 'demo',
         dependencies: {react: '^18.0.0'}
@@ -276,6 +288,7 @@ describe('install-internal-deps', () => {
 
       const optionalCall = spawnCalls.find((call) => {
         const args = call.args.join(' ')
+
         return (
           args.includes('react-refresh') &&
           args.includes('@rspack/plugin-react-refresh')

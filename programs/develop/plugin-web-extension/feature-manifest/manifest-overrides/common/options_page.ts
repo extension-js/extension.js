@@ -15,6 +15,7 @@ export function optionsPage(manifest: Manifest, manifestPath?: string) {
     manifest.options_page && {
       options_page: (() => {
         const raw = String(manifest.options_page)
+
         return getFilename(
           manifestPageOutputTarget(raw, 'options/index.html', manifestPath),
           raw

@@ -23,6 +23,7 @@ function makeCompiler(tmpDir: string, outputPath?: string) {
       output: outputPath ? {path: outputPath} : {}
     }
   }
+
   return {compiler, done: (stats: unknown) => doneTap?.(stats)}
 }
 
@@ -70,12 +71,12 @@ describe('BoringPlugin startup line', () => {
   afterEach(() => {
     logSpy.mockRestore()
     fs.rmSync(tmpDir, {recursive: true, force: true})
-    if (previousLaunchEnv === undefined)
+    if (previousLaunchEnv === undefined) {
       delete process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
-    else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
-    if (previousBannerEnv === undefined)
+    } else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
+    if (previousBannerEnv === undefined) {
       delete process.env.EXTENSION_CLI_BANNER_PRINTED
-    else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerEnv
+    } else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerEnv
   })
 
   it('prints the first success immediately, before any card is printed', () => {

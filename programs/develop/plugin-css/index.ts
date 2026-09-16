@@ -138,8 +138,10 @@ export class CssPlugin {
   // keep ships unminified, with a warning naming what it dropped.
   private keepCssParityInProduction(compiler: Compiler) {
     if (!compiler.hooks?.thisCompilation?.tap) return
+
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:parity`, (c) => {
       if (!c?.hooks?.processAssets?.tap) return
+
       const beforeMinify = new Map<string, string>()
       c.hooks.processAssets.tap(
         {
@@ -149,10 +151,12 @@ export class CssPlugin {
         () => {
           for (const asset of c.getAssets()) {
             if (!asset.name.endsWith('.css')) continue
+
             beforeMinify.set(asset.name, asset.source.source().toString())
           }
         }
       )
+
       c.hooks.processAssets.tap(
         {
           name: `${CssPlugin.name}:parity-restore`,
@@ -160,16 +164,21 @@ export class CssPlugin {
         },
         () => {
           const restored = new Set(restoreVerbatimCssAssets(c))
+
           for (const asset of c.getAssets()) {
             if (!asset.name.endsWith('.css') || restored.has(asset.name)) {
               continue
             }
+
             const before = beforeMinify.get(asset.name)
             if (before === undefined) continue
+
             const after = asset.source.source().toString()
             if (after === before) continue
+
             const dropped = minifierDroppedTokens(before, after)
             if (dropped.length === 0) continue
+
             c.updateAsset(asset.name, new sources.RawSource(before))
             const warning = new WebpackError(
               messages.cssMinifierDroppedRules(asset.name, dropped)
@@ -186,8 +195,10 @@ export class CssPlugin {
   // a scheme rspack does not request; the emitted sheet names the root path.
   private restorePublicRootRefs(compiler: Compiler) {
     if (!compiler.hooks?.thisCompilation?.tap) return
+
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:public`, (c) => {
       if (!c?.hooks?.processAssets?.tap) return
+
       c.hooks.processAssets.tap(
         {
           name: `${CssPlugin.name}:public-root-restore`,
@@ -196,8 +207,10 @@ export class CssPlugin {
         () => {
           for (const asset of c.getAssets()) {
             if (!/\.(css|js)$/.test(asset.name)) continue
+
             const before = asset.source.source().toString()
             if (!before.includes(PUBLIC_ROOT_SCHEME)) continue
+
             c.updateAsset(
               asset.name,
               new sources.RawSource(restorePublicRootRefsInSource(before))
@@ -248,6 +261,7 @@ export class CssPlugin {
 
             const raw = String(data?.request || '')
             const req = raw.split('?')[0].split('#')[0]
+
             if (
               !req ||
               req.startsWith('//') ||
@@ -255,6 +269,7 @@ export class CssPlugin {
             ) {
               return
             }
+
             if (req.startsWith('~') || req.startsWith('@')) return
 
             const isRootRef = req.startsWith('/')
@@ -276,6 +291,7 @@ export class CssPlugin {
             if (process.env.EXTENSION_STRICT_REFS === 'true') return
 
             const key = `${issuer}|${req}`
+
             if (!warned.has(key) && compilation?.warnings) {
               warned.add(key)
               const issuerPath = toPosixPath(
@@ -287,6 +303,7 @@ export class CssPlugin {
               ;(warning as Error & {file?: string}).file = issuerPath
               compilation?.warnings.push(warning)
             }
+
             return false
           }
         )
@@ -301,13 +318,16 @@ export class CssPlugin {
     this.restorePublicRootRefs(compiler)
     this.tolerateDeadUrlRefs(compiler)
     const mode = compiler.options.mode || 'development'
+
     if (mode === 'production') {
       // build runs via compiler.run(), which awaits beforeRun before reading rules.
       compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () =>
         this.configureOptions(compiler)
       )
+
       return
     }
+
     // dev/watch: configure eagerly and gate the first compilation on the one
     // promise from both hooks. watchRun covers the dev server; beforeRun covers
     // a one-shot development build (compiler.run), which otherwise read the
@@ -322,6 +342,7 @@ export class CssPlugin {
 
 function findBrowserslistSource(projectPath: string): string | undefined {
   const packageJsonPath = path.join(projectPath, 'package.json')
+
   try {
     if (fs.existsSync(packageJsonPath)) {
       const raw = fs.readFileSync(packageJsonPath, 'utf8')
@@ -339,9 +360,11 @@ function findBrowserslistSource(projectPath: string): string | undefined {
     '.browserslistrc.yaml',
     '.browserslistrc.yml'
   ]
+
   for (const file of candidates) {
     const p = path.join(projectPath, file)
     if (fs.existsSync(p)) return p
   }
+
   return undefined
 }

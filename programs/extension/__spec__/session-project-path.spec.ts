@@ -15,11 +15,13 @@ vi.mock('../helpers/extension-develop-runtime', async () => {
   const {resolveSessionProjectRoot} = await import(
     '../../develop/lib/session-project-root'
   )
+
   return {
     loadExtensionDevelopBridgeModule: vi.fn(async () => ({
       resolveSessionProjectRoot,
       readReadyContract: (...args: unknown[]) => {
         state.readyReads.push(args)
+
         return state.ready
       },
       readControlToken: () => 'tok',
@@ -32,6 +34,7 @@ vi.mock('../helpers/extension-develop-runtime', async () => {
         }
         async command(payload: unknown) {
           state.commands.push(payload)
+
           return {ok: true, value: {}}
         }
         close() {}
@@ -89,6 +92,7 @@ beforeEach(() => {
     path.join(src, 'manifest.json'),
     JSON.stringify({manifest_version: 3, name: 'ext', version: '1.0.0'})
   )
+
   state.ready = null
   state.readyReads = []
   state.commands = []
@@ -110,6 +114,7 @@ describe('resolveSessionProjectPath', () => {
     expect(sessionReadyPath({}, root, 'chromium')).toBe(
       path.join(root, 'dist', 'extension-js', 'chromium', 'ready.json')
     )
+
     expect(
       sessionReadyPath(
         {readyContractPath: (p: string, b: string) => `${p}/x/${b}`},
@@ -130,6 +135,7 @@ describe('doctor given the manifest folder', () => {
       pid: process.pid,
       cdpPort: 9222
     }
+
     await runDoctor(src, {browser: 'chromium'})
     expect(state.readyReads[0][0]).toBe(root)
   })
@@ -176,6 +182,7 @@ describe('session verbs given the manifest folder', () => {
     expect(
       await run(['inspect', src, '--with-console', '5', '--output', 'json'])
     ).toBe(0)
+
     const printed = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(printed.console[0]).toMatchObject({messageParts: ['from-root']})
     expect(readRecentConsole(root, 'chromium', {}, 5)).toHaveLength(1)
@@ -213,6 +220,7 @@ describe('dev --wait given the manifest folder', () => {
         compiledAt: new Date().toISOString()
       })
     )
+
     const result = await runWaitMode({
       command: 'dev',
       pathOrRemoteUrl: src,

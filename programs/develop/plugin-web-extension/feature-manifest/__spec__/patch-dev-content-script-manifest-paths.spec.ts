@@ -29,6 +29,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     const sources = Object.fromEntries(
       emittedNames.map((name) => [name, {source: () => `/* ${name} */`} as any])
     )
+
     return {
       getAssets: () =>
         emittedNames.map((name) => ({name, source: sources[name]})),
@@ -114,9 +115,11 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     expect(result.content_scripts?.[0]?.js).toEqual([
       `content_scripts/${fresh0}`
     ])
+
     expect(result.content_scripts?.[1]?.js).toEqual([
       `content_scripts/${fresh1}`
     ])
+
     expect(fs.existsSync(path.join(csDir, stale0))).toBe(false)
     expect(fs.existsSync(path.join(csDir, stale1))).toBe(false)
     expect(fs.existsSync(path.join(csDir, fresh0))).toBe(true)

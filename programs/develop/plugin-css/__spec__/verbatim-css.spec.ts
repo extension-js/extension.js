@@ -31,12 +31,15 @@ describe('verbatim css restore', () => {
     expect(restoreVerbatimCssAssets(compilation as any)).toEqual([
       'content_scripts/content-0.css'
     ])
+
     expect(
       store.get('content_scripts/content-0.css')?.source().toString()
     ).toBe(raw)
+
     expect(store.get('pages/ok.css')?.source().toString()).toBe(
       '.fine{color:blue}'
     )
+
     expect(store.get('bundle.js')?.source().toString()).toContain(
       '__extjs_verbatim_'
     )
@@ -52,10 +55,12 @@ describe('minifier parity', () => {
       '.keep-b',
       '#keep-c'
     ])
+
     expect(minifierDroppedTokens(before, '.keep-a{color:red}')).toEqual([
       '.keep-b',
       '#keep-c'
     ])
+
     // Merging and reordering is not a loss.
     expect(
       minifierDroppedTokens(

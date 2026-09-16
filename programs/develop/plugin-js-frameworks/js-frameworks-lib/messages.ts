@@ -39,6 +39,7 @@ export function failedToInstallIntegration(
   error: unknown
 ) {
   const detail = String(error ?? '').trim()
+
   return (
     `${prefix('error')} Couldn't install the ${integration} dependencies.\n` +
     `${colors.red("Extension.js couldn't detect a package manager.")}\n` +
@@ -53,6 +54,7 @@ export function isUsingCustomLoader(loaderPath: string) {
 
 export function jsFrameworksIntegrationsEnabled(integrations: string[]) {
   const names = integrations.length > 0 ? integrations.join(',') : 'none'
+
   return (
     `${prefix('debug')} js       integrations=${integrations.length} ` +
     `names=${names}`
@@ -66,6 +68,7 @@ export function jsFrameworksConfigsDetected(
 ) {
   const val = (v?: string) => v || 'none'
   const tgt = targets?.length ? targets.join(',') : 'default'
+
   return (
     `${prefix('debug')} js       config tsconfig=${val(tsConfigPath)} ` +
     `tsRoot=${val(tsRoot)} swcTargets="${tgt}"`
@@ -74,6 +77,7 @@ export function jsFrameworksConfigsDetected(
 
 export function jsFrameworksHmrSummary(enabled: boolean, frameworks: string[]) {
   const names = frameworks.length > 0 ? frameworks.join(',') : 'none'
+
   return (
     `${prefix('debug')} js       hmr=${enabled ? 'enabled' : 'disabled'} ` +
     `frameworks=${names}`

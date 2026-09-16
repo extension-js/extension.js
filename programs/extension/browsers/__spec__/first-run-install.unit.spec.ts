@@ -99,6 +99,7 @@ describe('askToInstall', () => {
       close: () => {},
       on: () => {}
     } as unknown as ReturnType<typeof readline.default.createInterface>)
+
     return askToInstall('Download? ')
   }
 

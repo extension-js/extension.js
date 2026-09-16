@@ -23,9 +23,11 @@ describe('feature-scripts contract helpers', () => {
     expect(getCanonicalContentScriptEntryName(7)).toBe(
       'content_scripts/content-7'
     )
+
     expect(getCanonicalContentScriptJsAssetName(7)).toBe(
       'content_scripts/content-7.js'
     )
+
     expect(getCanonicalContentScriptCssAssetName(7)).toBe(
       'content_scripts/content-7.css'
     )
@@ -35,6 +37,7 @@ describe('feature-scripts contract helpers', () => {
     expect(
       parseCanonicalContentScriptEntryIndex('content_scripts/content-3')
     ).toBe(3)
+
     expect(
       parseCanonicalContentScriptEntryIndex('scripts/content-3')
     ).toBeUndefined()
@@ -45,24 +48,28 @@ describe('feature-scripts contract helpers', () => {
       index: 4,
       extension: 'js'
     })
+
     expect(
       parseCanonicalContentScriptAsset('content_scripts/content-4.css')
     ).toEqual({
       index: 4,
       extension: 'css'
     })
+
     expect(
       parseCanonicalContentScriptAsset('content_scripts/content-4.a1b2c3d4.js')
     ).toEqual({
       index: 4,
       extension: 'js'
     })
+
     expect(
       parseCanonicalContentScriptAsset('content_scripts/content-4.deadbeef.css')
     ).toEqual({
       index: 4,
       extension: 'css'
     })
+
     expect(
       parseCanonicalContentScriptAsset('content_scripts/content-4.js.map')
     ).toBeUndefined()
@@ -72,18 +79,23 @@ describe('feature-scripts contract helpers', () => {
     expect(isCanonicalContentScriptEntryName('content_scripts/content-0')).toBe(
       true
     )
+
     expect(isCanonicalContentScriptEntryName('content_scripts/content-a')).toBe(
       false
     )
+
     expect(isCanonicalContentScriptAsset('content_scripts/content-0.js')).toBe(
       true
     )
+
     expect(isCanonicalContentScriptAsset('content_scripts/content-0.css')).toBe(
       true
     )
+
     expect(isCanonicalContentScriptAsset('content_scripts/content-0.svg')).toBe(
       false
     )
+
     expect(
       isCanonicalContentScriptAsset('content_scripts/content-0.abcdef12.js')
     ).toBe(true)

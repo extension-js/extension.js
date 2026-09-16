@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest'
 import {Command} from 'commander'
-import {registerDevCommand} from '../commands/dev'
+import {describe, expect, it} from 'vitest'
 import {registerBuildCommand} from '../commands/build'
+import {registerDevCommand} from '../commands/dev'
 import {registerStartCommand} from '../commands/start'
 
 function commandNamed(register: (program: Command) => void, name: string) {
@@ -9,6 +9,7 @@ function commandNamed(register: (program: Command) => void, name: string) {
   register(program)
   const command = program.commands.find((cmd) => cmd.name() === name)
   if (!command) throw new Error(`command ${name} not registered`)
+
   return command
 }
 

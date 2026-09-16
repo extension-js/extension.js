@@ -14,6 +14,7 @@ function makeProject(manifest: Record<string, unknown>): string {
     JSON.stringify(manifest),
     'utf8'
   )
+
   return root
 }
 
@@ -88,6 +89,7 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
         'firefox'
       )
     ).toBe(true)
+
     expect(
       isContentScriptEntry(
         path.join(root, 'shared.js'),
@@ -115,6 +117,7 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
         'chrome'
       )
     ).toBe(true)
+
     expect(
       isContentScriptEntry(
         path.join(root, 'gecko.js'),
@@ -123,6 +126,7 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
         'firefox'
       )
     ).toBe(true)
+
     expect(
       isContentScriptEntry(
         path.join(root, 'gecko.js'),
@@ -131,6 +135,7 @@ describe('isContentScriptEntry with browser-prefixed keys', () => {
         'chrome'
       )
     ).toBe(false)
+
     expect(
       isContentScriptEntry(
         path.join(root, 'chromium.js'),

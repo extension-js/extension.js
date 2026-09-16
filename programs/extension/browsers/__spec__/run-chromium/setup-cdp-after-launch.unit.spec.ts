@@ -24,6 +24,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     getInfoBestEffort = getInfoBestEffortSpy
     openTab = openTabSpy
   }
+
   return {CDPExtensionController}
 })
 
@@ -53,6 +54,7 @@ function makeExtensionDir(manifest: Record<string, unknown>): string {
     JSON.stringify(manifest),
     'utf-8'
   )
+
   return dir
 }
 
@@ -106,9 +108,11 @@ describe('setupCdpAfterLaunch', () => {
       outPath: userExtensionPath,
       profilePath: '/tmp/extension-profile'
     })
+
     for (const [callArgs] of printDevBannerOnceSpy.mock.calls) {
       await (callArgs as {getInfo?: () => Promise<unknown>})?.getInfo?.()
     }
+
     expect(getInfoBestEffortSpy).toHaveBeenCalled()
   })
 
@@ -142,6 +146,7 @@ describe('setupCdpAfterLaunch', () => {
         cdpPort: 9333
       })
     )
+
     expect(plugin.cdpController).toBeDefined()
   })
 
@@ -212,6 +217,7 @@ describe('setupCdpAfterLaunch', () => {
       } as any,
       chromiumArgs
     )
+
     expect(openTabSpy).not.toHaveBeenCalled()
 
     await setupCdpAfterLaunch(
@@ -219,6 +225,7 @@ describe('setupCdpAfterLaunch', () => {
       {browser: 'chromium', port: 9333, instanceId: 'i', noOpen: true} as any,
       chromiumArgs
     )
+
     expect(openTabSpy).not.toHaveBeenCalled()
   })
 
@@ -236,6 +243,7 @@ describe('setupCdpAfterLaunch', () => {
     claimCardKey(`chromium::${path.resolve(extDir)}`)
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       await setupCdpAfterLaunch(
         {options: {mode: 'development', output: {path: extDir}}} as any,
@@ -256,9 +264,9 @@ describe('setupCdpAfterLaunch', () => {
       logSpy.mockRestore()
       if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
       else process.env.EXTENSION_DEBUG = previousDebug
-      if (previousCardKeys === undefined)
+      if (previousCardKeys === undefined) {
         delete process.env.EXTENSION_CLI_CARD_KEYS
-      else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+      } else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
     }
   })
 
@@ -273,6 +281,7 @@ describe('setupCdpAfterLaunch', () => {
     delete process.env.EXTENSION_CLI_CARD_KEYS
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       await setupCdpAfterLaunch(
         {options: {mode: 'development', output: {path: extDir}}} as any,
@@ -291,6 +300,7 @@ describe('setupCdpAfterLaunch', () => {
 
       const devCalls = vi.mocked(banner.printDevBannerOnce).mock.calls
       expect(devCalls.length).toBeGreaterThan(0)
+
       for (const [callArgs] of devCalls) {
         expect(callArgs).toMatchObject({
           profilePath: '/tmp/extension-profile'
@@ -300,9 +310,9 @@ describe('setupCdpAfterLaunch', () => {
       logSpy.mockRestore()
       if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
       else process.env.EXTENSION_DEBUG = previousDebug
-      if (previousCardKeys === undefined)
+      if (previousCardKeys === undefined) {
         delete process.env.EXTENSION_CLI_CARD_KEYS
-      else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+      } else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
     }
   })
 })

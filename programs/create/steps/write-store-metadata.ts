@@ -64,6 +64,7 @@ export async function writeStoreMetadata(
   const storePath = path.join(projectPath, STORE_METADATA_FILE)
 
   let content: string
+
   try {
     content = await fs.readFile(storePath, 'utf8')
   } catch {
@@ -82,6 +83,7 @@ export async function writeStoreMetadata(
 
   try {
     if (isDebug()) logger.log(messages.writingStoreMetadata(projectName))
+
     await fs.writeFile(storePath, rewritten)
   } catch (error) {
     logger.error(messages.writingStoreMetadataError(error))

@@ -20,6 +20,7 @@ export async function uninstallStaleUnpackedLoads(
 ): Promise<string[]> {
   const stale = findStaleUnpackedExtensionIds(profilePath, outPath)
   const removed: string[] = []
+
   for (const id of stale) {
     try {
       await cdp.sendCommand('Extensions.uninstall', {id})
@@ -28,6 +29,7 @@ export async function uninstallStaleUnpackedLoads(
       // best-effort only
     }
   }
+
   return removed
 }
 
@@ -40,6 +42,7 @@ export function declaresBackgroundContext(outPath: string): boolean {
     )
     const background = manifest?.background
     if (!background || typeof background !== 'object') return false
+
     return Boolean(
       background.service_worker ||
         (Array.isArray(background.scripts) && background.scripts.length) ||
@@ -65,6 +68,7 @@ function parseCdpError(error: unknown): {code?: number; message: string} {
   try {
     const parsed = JSON.parse(raw) as {code?: unknown; message?: unknown}
     const message = String(parsed?.message || '').trim()
+
     if (message) {
       return {
         code: typeof parsed.code === 'number' ? parsed.code : undefined,
@@ -96,6 +100,7 @@ async function callLoadUnpacked(
         (response as {extensionId?: string})?.extensionId ||
         ''
     )
+
     return {ok: true, id}
   } catch (error) {
     return {ok: false, ...parseCdpError(error)}
@@ -142,6 +147,7 @@ export async function loadUnpackedIfNeeded(
   outPath: string
 ): Promise<string | null> {
   const outcome = await loadUnpacked(cdp, outPath)
+
   return outcome.status === 'loaded' ? outcome.extensionId : null
 }
 
@@ -151,6 +157,7 @@ export function readManifestInfo(
   try {
     const manifestPath = path.join(outPath, 'manifest.json')
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+
     return {name: manifest?.name, version: manifest?.version}
   } catch {
     return null

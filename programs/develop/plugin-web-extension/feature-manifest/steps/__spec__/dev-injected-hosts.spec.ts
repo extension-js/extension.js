@@ -84,6 +84,7 @@ describe('scannableSourcePath', () => {
     expect(scannableSourcePath('/p/App.vue?vue&type=script&lang.ts')).toBe(
       '/p/App.vue'
     )
+
     expect(scannableSourcePath('/p/App.svelte')).toBe('/p/App.svelte')
   })
 
@@ -142,6 +143,7 @@ describe('optionalHostPatterns', () => {
         optional_host_permissions: ['https://a.test/*']
       })
     ).toEqual(['https://a.test/*'])
+
     expect(
       optionalHostPatterns({
         manifest_version: 2,
@@ -207,6 +209,7 @@ describe('isContentScriptModule', () => {
     expect(isContentScriptModule({layer: 'extensionjs-content-script'})).toBe(
       true
     )
+
     expect(isContentScriptModule({})).toBe(false)
     expect(isContentScriptModule({layer: null})).toBe(false)
   })

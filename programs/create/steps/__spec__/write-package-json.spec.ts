@@ -9,6 +9,7 @@ import {
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-pkg-'))
+
   try {
     return await fn(dir)
   } finally {
@@ -37,8 +38,10 @@ async function withGitIdentity<T>(
       ? `[user]\n\tname = ${identity.name}\n\temail = ${identity.email}\n`
       : '[core]\n\tpager = cat\n'
   )
+
   vi.stubEnv('GIT_CONFIG_GLOBAL', configPath)
   vi.stubEnv('GIT_CONFIG_SYSTEM', '/dev/null')
+
   try {
     return await fn()
   } finally {
@@ -237,10 +240,14 @@ describe('resolveExtensionDevDependencyVersion (#57, never silently pin "latest"
     ]) {
       delete process.env[key]
     }
-    if (saved.engine !== undefined)
+
+    if (saved.engine !== undefined) {
       process.env.EXTENSION_CREATE_ENGINE_VERSION = saved.engine
-    if (saved.mcp !== undefined)
+    }
+
+    if (saved.mcp !== undefined) {
       process.env.EXTENSION_MCP_CLI_VERSION = saved.mcp
+    }
   })
 
   it('caret-ranges a stable caller version, pins a prerelease exactly', () => {
@@ -447,6 +454,7 @@ describe('overridePackageJson dependency build-script approval', () => {
       expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
         expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])
       )
+
       expect(pkg.pnpm.ignoredBuiltDependencies).toContain('less')
       expect(pkg.trustedDependencies).toEqual(
         expect.arrayContaining(['onnxruntime-node', 'sharp', 'protobufjs'])

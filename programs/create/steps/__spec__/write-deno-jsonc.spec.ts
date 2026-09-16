@@ -7,6 +7,7 @@ import {writeDenoJsonc} from '../write-deno-jsonc'
 function withDenoGlobal(body: () => Promise<void> | void) {
   const hadDeno = 'Deno' in globalThis
   ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
+
   return Promise.resolve(body()).finally(() => {
     if (!hadDeno) delete (globalThis as {Deno?: unknown}).Deno
   })
@@ -19,6 +20,7 @@ function parseJsonc(contents: string): Record<string, any> {
     .split('\n')
     .filter((line) => !line.trim().startsWith('//'))
     .join('\n')
+
   return JSON.parse(withoutComments)
 }
 
@@ -38,12 +40,15 @@ describe('writeDenoJsonc', () => {
 
   afterEach(async () => {
     delete (globalThis as {Deno?: unknown}).Deno
+
     if (prevDevelopRoot !== undefined) {
       process.env.EXTENSION_CREATE_DEVELOP_ROOT = prevDevelopRoot
     }
+
     if (prevExtensionEnv !== undefined) {
       process.env.EXTENSION_ENV = prevExtensionEnv
     }
+
     await fsp.rm(tmpRoot, {recursive: true, force: true})
   })
 
@@ -128,6 +133,7 @@ describe('writeDenoJsonc', () => {
       typescript: 'npm:typescript@5.3.3',
       extension: 'npm:extension@^4.0.5'
     })
+
     expect(config.nodeModulesDir).toBe('auto')
     expect(config.tasks.dev).toBe('extension dev')
     expect(contents).not.toContain('Template Author')
@@ -177,6 +183,7 @@ describe('writeDenoJsonc', () => {
     await expect(
       fsp.access(path.join(projectPath, 'deno.jsonc'))
     ).rejects.toThrow()
+
     expect(
       await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
     ).toBe(templateConfig)
@@ -187,6 +194,7 @@ describe('writeDenoJsonc', () => {
       path.join(projectPath, 'deno.json'),
       '{"tasks": {"dev": "custom"}, "imports": {"preact": "npm:preact@10.0.0"}}\n'
     )
+
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify({name: 'template', dependencies: {react: '^18.3.1'}})
@@ -217,6 +225,7 @@ describe('writeDenoJsonc', () => {
     await expect(
       fsp.access(path.join(projectPath, 'package.json'))
     ).rejects.toThrow()
+
     await expect(
       fsp.access(path.join(projectPath, 'deno.jsonc'))
     ).rejects.toThrow()
@@ -234,6 +243,7 @@ describe('writeDenoJsonc', () => {
         tasks: {fmt: 'deno fmt'}
       }) + '\n'
     )
+
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify({name: 'template'})
@@ -269,6 +279,7 @@ describe('writeDenoJsonc', () => {
         }
       }) + '\n'
     )
+
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify({
@@ -302,6 +313,7 @@ describe('writeDenoJsonc', () => {
       path.join(projectPath, 'deno.json'),
       '{"tasks": {"fmt": "deno fmt"}}\n'
     )
+
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify({name: 'template'})
@@ -326,6 +338,7 @@ describe('writeDenoJsonc', () => {
     expect(config.tasks['build:firefox']).toBe(
       'extension build --browser firefox'
     )
+
     expect(config.imports.extension).toBe('npm:extension@^4.0.5')
   })
 
@@ -335,6 +348,7 @@ describe('writeDenoJsonc', () => {
       path.join(projectPath, 'deno.json'),
       '{"tasks": {"dev": "json"}}\n'
     )
+
     await fsp.writeFile(path.join(projectPath, 'deno.jsonc'), jsoncContents)
 
     await withDenoGlobal(async () => {

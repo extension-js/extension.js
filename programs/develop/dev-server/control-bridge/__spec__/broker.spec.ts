@@ -52,6 +52,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'controller',
       instanceId: 'inst-1'
     })
+
     expect(c.closed?.code).toBe(CLOSE_CONTROL_UNAVAILABLE)
   })
 
@@ -85,12 +86,14 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'producer',
       instanceId: 'inst-1'
     })
+
     b.onFrame(cons, {
       type: 'hello',
       v: 1,
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     cons.sent = []
     b.onFrame(prod, {type: 'log', event: {...incoming('hi'), seq: 0} as any})
     expect(cons.sent).toHaveLength(1)
@@ -107,6 +110,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     cons.sent = []
     b.ingestLog({...incoming('hi'), runId: 'inst-1'})
     expect((cons.sent[0] as any).event.runId).toBe('run-A')
@@ -122,6 +126,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'producer',
       instanceId: 'inst-1'
     })
+
     b.ingestLog(incoming('a'))
     b.ingestLog(incoming('b'))
     const late = new FakeConn('late')
@@ -131,6 +136,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     expect(late.sent[0]).toMatchObject({type: 'ready', bufferedFrom: 1})
     expect(late.sent.slice(1).map((f: any) => f.event.messageParts[0])).toEqual(
       ['a', 'b']
@@ -147,6 +153,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     cons.sent = []
     b.ingestLog(incoming('a'))
     b.ingestLog(incoming('b'))
@@ -169,6 +176,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     cons.sent = []
     b.onFrame(cons, {type: 'log', event: {...incoming('x'), seq: 0} as any})
     expect(cons.sent).toHaveLength(0)
@@ -206,6 +214,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     })
 
     expect(notified).toBe(2)
+
     for (const p of [p1, p2]) {
       expect(p.sent).toHaveLength(1)
       expect(p.sent[0]).toMatchObject({
@@ -259,12 +268,14 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       reloadType: 'full',
       label: 'extension (resyncing previous dev session)'
     })
+
     expect(stale.closed?.code).toBe(CLOSE_BAD_INSTANCE)
     expect(b.producerCount).toBe(0)
   })
 
   it('does NOT resync stale controllers or consumers (they are not the extension)', () => {
     const b = new BridgeBroker({...opts, allowControl: true})
+
     for (const role of ['controller', 'consumer'] as const) {
       const c = new FakeConn(role)
       b.onFrame(c, {type: 'hello', v: 1, role, instanceId: 'PREVIOUS-SESSION'})
@@ -285,12 +296,14 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
         role: 'producer',
         instanceId: 'PREVIOUS-SESSION'
       })
+
       return c
     }
 
     for (let i = 0; i < 3; i++) {
       expect(helloStale().sent).toHaveLength(1)
     }
+
     const fourth = helloStale()
     expect(fourth.sent).toHaveLength(0)
     expect(fourth.closed?.code).toBe(CLOSE_BAD_INSTANCE)
@@ -329,6 +342,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       changedFiles: ['scripts/widget.ts'],
       changedScriptFiles: ['scripts/widget.js']
     })
+
     b.broadcastReload({type: 'page', changedFiles: ['popup/popup.js']})
 
     expect(prod.sent[0]).toMatchObject({
@@ -336,6 +350,7 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
       reloadType: 'page',
       changedScriptFiles: ['scripts/widget.js']
     })
+
     expect(prod.sent[1]).not.toHaveProperty('changedScriptFiles')
   })
 
@@ -463,6 +478,7 @@ describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
   function brokerAt(startMs: number) {
     let nowMs = startMs
     const b = new BridgeBroker({...opts, now: () => nowMs})
+
     return {b, advance: (ms: number) => (nowMs += ms)}
   }
 
@@ -512,6 +528,7 @@ describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
       role: 'producer',
       instanceId: 'inst-1'
     })
+
     b.onClose(prod)
 
     const msg = b.undeliveredReloadWarning()
@@ -594,6 +611,7 @@ describe('BridgeBroker executor presence', () => {
       role: 'consumer',
       instanceId: 'inst-1'
     })
+
     b.onClose(cons)
 
     expect(detached).toEqual([])
@@ -608,6 +626,7 @@ describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
   function brokerAt(startMs: number) {
     let nowMs = startMs
     const b = new BridgeBroker({...opts, now: () => nowMs})
+
     return {b, advance: (ms: number) => (nowMs += ms)}
   }
 
@@ -619,6 +638,7 @@ describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
       role: 'producer',
       instanceId: 'inst-1'
     })
+
     b.onClose(prod)
   }
 
@@ -638,6 +658,7 @@ describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
     expect(
       b.undeliveredReloadWarning({producerRestartExpected: true})
     ).toBeNull()
+
     expect(b.undeliveredReloadWarning()).toContain('disconnected')
   })
 

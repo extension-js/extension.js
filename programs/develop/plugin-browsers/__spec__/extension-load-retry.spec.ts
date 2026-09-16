@@ -6,6 +6,7 @@ import {BrowsersPlugin} from '../index'
 // compiler, and the gate itself is what must never misfire.
 const retryOn = (plugin: BrowsersPlugin, controller: unknown) => {
   ;(plugin as unknown as {controller: unknown}).controller = controller
+
   return (
     plugin as unknown as {
       retryRefusedExtensionLoad: () => Promise<boolean>

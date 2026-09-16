@@ -30,6 +30,7 @@ describe('dev-server-client-import', () => {
       path.isAbsolute(clientPath),
       `HMR client path must be absolute, got: ${clientPath}`
     ).toBe(true)
+
     expect(
       path.isAbsolute(hotEntry),
       `HMR hot path must be absolute, got: ${hotEntry}`
@@ -39,6 +40,7 @@ describe('dev-server-client-import', () => {
       fs.existsSync(clientPath),
       `HMR client file missing: ${clientPath}`
     ).toBe(true)
+
     expect(fs.existsSync(hotEntry), `HMR hot file missing: ${hotEntry}`).toBe(
       true
     )
@@ -65,6 +67,7 @@ describe('dev-server-client-import', () => {
 
     const packageRoot = (spec: string): string => {
       const parts = spec.split('/')
+
       return spec.startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0]
     }
 
@@ -111,6 +114,7 @@ describe('dev-server-client-import', () => {
   it('rewrites a wildcard bind host to a connectable loopback host', () => {
     const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
     delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+
     try {
       const fakeCompiler = {
         options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
@@ -119,15 +123,16 @@ describe('dev-server-client-import', () => {
       expect(clientEntry).toContain('hostname=127.0.0.1')
       expect(clientEntry).not.toContain('hostname=0.0.0.0')
     } finally {
-      if (prev === undefined)
+      if (prev === undefined) {
         delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-      else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+      } else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
     }
   })
 
   it('prefers the resolved connectable host env over the bind host', () => {
     const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
     process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = 'devbox.example.com'
+
     try {
       const fakeCompiler = {
         options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
@@ -135,9 +140,9 @@ describe('dev-server-client-import', () => {
       const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
       expect(clientEntry).toContain('hostname=devbox.example.com')
     } finally {
-      if (prev === undefined)
+      if (prev === undefined) {
         delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-      else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+      } else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
     }
   })
 })

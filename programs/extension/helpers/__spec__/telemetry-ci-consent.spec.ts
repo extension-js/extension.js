@@ -26,6 +26,7 @@ function restoreEnv() {
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnv)) delete process.env[key]
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }
@@ -61,14 +62,17 @@ describe('a machine is not a developer who agreed to be measured', () => {
   // does. Gating on the marker alone silenced all of them.
   it('keeps reporting when CI is set but a person has a terminal', () => {
     const saved = process.stdout.isTTY
+
     try {
       Object.defineProperty(process.stdout, 'isTTY', {
         value: true,
         configurable: true
       })
+
       for (const marker of CI_VARS) {
         delete process.env[marker]
       }
+
       process.env.CI = 'true'
       expect(resolveTelemetryConsent([])).toEqual({
         enabled: true,
@@ -84,11 +88,13 @@ describe('a machine is not a developer who agreed to be measured', () => {
 
   it('still goes silent when CI is set and nothing is attached to stdout', () => {
     const saved = process.stdout.isTTY
+
     try {
       Object.defineProperty(process.stdout, 'isTTY', {
         value: false,
         configurable: true
       })
+
       process.env.CI = 'true'
       expect(resolveTelemetryConsent([])).toEqual({
         enabled: false,
@@ -109,6 +115,7 @@ describe('a machine is not a developer who agreed to be measured', () => {
 
   it('still honours an explicit opt-in inside CI, which the smoke job needs', () => {
     process.env.CI = '1'
+
     for (const value of ['1', 'true', 'on', 'yes']) {
       process.env.EXTENSION_TELEMETRY = value
       expect(resolveTelemetryConsent([]), value).toEqual({
@@ -161,11 +168,13 @@ describe('a home directory a pipeline inherited did not agree to anything', () =
 
   function withoutTty(run: () => void) {
     const saved = process.stdout.isTTY
+
     try {
       Object.defineProperty(process.stdout, 'isTTY', {
         value: false,
         configurable: true
       })
+
       run()
     } finally {
       Object.defineProperty(process.stdout, 'isTTY', {
@@ -181,6 +190,7 @@ describe('a home directory a pipeline inherited did not agree to anything', () =
       enabled: true,
       source: 'config'
     })
+
     withoutTty(() => {
       for (const marker of CI_VARS) {
         delete process.env[marker]
@@ -189,6 +199,7 @@ describe('a home directory a pipeline inherited did not agree to anything', () =
           enabled: false,
           source: 'ci'
         })
+
         delete process.env[marker]
       }
     })
@@ -197,11 +208,13 @@ describe('a home directory a pipeline inherited did not agree to anything', () =
   it('keeps a stored enabled working for the person who stored it', () => {
     storeConsent('enabled')
     const saved = process.stdout.isTTY
+
     try {
       Object.defineProperty(process.stdout, 'isTTY', {
         value: true,
         configurable: true
       })
+
       process.env.CI = 'true'
       expect(resolveTelemetryConsent([])).toEqual({
         enabled: true,

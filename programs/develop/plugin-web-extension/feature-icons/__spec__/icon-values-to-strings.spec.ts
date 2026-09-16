@@ -41,6 +41,7 @@ describe('iconValuesToStrings', () => {
     expect(iconValuesToStrings(['a.png', 123 as any, null as any])).toEqual([
       'a.png'
     ])
+
     expect(iconValuesToStrings({size: 16 as any, path: 'a.png'})).toEqual([
       'a.png'
     ])

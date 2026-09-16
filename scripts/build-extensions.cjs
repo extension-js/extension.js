@@ -54,10 +54,12 @@ function main() {
           const stdout = error?.stdout ? String(error.stdout) : ''
           const stderr = error?.stderr ? String(error.stderr) : ''
           const output = `${stdout}${stderr}`.trim()
+
           if (output.length > 0) {
             console.error(output)
           }
         }
+
         throw error
       }
     }
@@ -72,6 +74,7 @@ function main() {
       'build:firefox',
       'build:edge'
     ]
+
     for (const script of targets) {
       try {
         execSync(`pnpm run -s ${script}`, {
@@ -94,6 +97,7 @@ function main() {
     const engines = ['chromium', 'chrome', 'edge', 'firefox']
     const missing = engines.filter((engine) => {
       const manifestPath = path.join(distRoot, engine, 'manifest.json')
+
       return !fs.existsSync(manifestPath)
     })
 
@@ -110,8 +114,10 @@ function main() {
 
     const stillMissing = engines.filter((engine) => {
       const manifestPath = path.join(distRoot, engine, 'manifest.json')
+
       return !fs.existsSync(manifestPath)
     })
+
     if (stillMissing.length > 0) {
       throw new Error(
         `[Extension.js] ${packageName} build missing manifests for: ${stillMissing.join(
@@ -133,10 +139,12 @@ function main() {
     try {
       const pkgRoot = path.join(root, 'extensions', packageName)
       const hasPackageJson = fs.existsSync(path.join(pkgRoot, 'package.json'))
+
       if (fs.existsSync(pkgRoot) && hasPackageJson) {
         if (verbose) {
           console.log(`[Extension.js] Rebuilding ${packageName}…`)
         }
+
         ensureDependencies(pkgRoot)
         buildAllTargets(pkgRoot)
       }
@@ -150,17 +158,20 @@ function main() {
           `[Extension.js] ${packageName} dist missing. Skipping mirror.`
         )
       }
+
       return
     }
 
     // Reset destination and copy dist
     // Use a temp folder + rename to avoid EEXIST errors from cpSync on macOS.
     const tmpDest = `${dest}__tmp`
+
     try {
       fs.rmSync(tmpDest, {recursive: true, force: true})
     } catch {
       // ignore
     }
+
     try {
       fs.rmSync(dest, {recursive: true, force: true})
     } catch {
@@ -187,6 +198,7 @@ function main() {
 
     for (const engine of engines) {
       const manifestPath = path.join(base, engine, 'manifest.json')
+
       if (!fs.existsSync(manifestPath)) {
         const msg = `[Extension.js] ${packageName} for "${engine}" is missing at ${manifestPath}.`
         // Always surface this; it's a hard failure for releases.
@@ -200,8 +212,10 @@ function main() {
   // excluding the folder named 'browser-extension' and 'monorepo'
   function listExtensionPackages() {
     const extensionsRoot = path.join(root, 'extensions')
+
     try {
       const entries = fs.readdirSync(extensionsRoot, {withFileTypes: true})
+
       return entries
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
@@ -216,6 +230,7 @@ function main() {
     if (packageName === 'extension-js-devtools') {
       ensureExtensionDist(packageName)
     }
+
     if (packageName === 'extension-js-theme') {
       ensureExtensionDist(packageName)
     }

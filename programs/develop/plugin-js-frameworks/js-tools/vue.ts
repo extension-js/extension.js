@@ -29,12 +29,15 @@ let userMessageDelivered = false
 
 export function isUsingVue(projectPath: string) {
   const using = hasDependency(projectPath, 'vue')
+
   if (using && !userMessageDelivered) {
     if (isDebug()) {
       console.log(`${prefix('debug')} ${messages.isUsingIntegration('Vue')}`)
     }
+
     userMessageDelivered = true
   }
+
   return using
 }
 
@@ -49,6 +52,7 @@ export function resolveVueBundlerEntry(
   try {
     const manifestPath = requireFromProject.resolve(`${id}/package.json`)
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+
     if (typeof manifest.module === 'string' && manifest.module) {
       const entry = path.join(path.dirname(manifestPath), manifest.module)
       if (fs.existsSync(entry)) return entry

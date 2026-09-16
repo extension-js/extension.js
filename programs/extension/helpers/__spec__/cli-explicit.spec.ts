@@ -29,6 +29,7 @@ describe('cli-explicit helpers', () => {
     expect(
       explicitCliValue(command, 'open', command.opts().open === false)
     ).toBeUndefined()
+
     expect(
       explicitCliValue(command, 'logColor', command.opts().logColor)
     ).toBeUndefined()
@@ -44,9 +45,11 @@ describe('cli-explicit helpers', () => {
     expect(
       explicitCliValue(command, 'open', command.opts().open === false)
     ).toBe(true)
+
     expect(explicitCliValue(command, 'logColor', command.opts().logColor)).toBe(
       false
     )
+
     expect(isExplicitCliOption(command, 'polyfill')).toBe(true)
     expect(command.opts().polyfill).toBe(false)
   })

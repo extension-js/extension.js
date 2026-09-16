@@ -37,6 +37,7 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
       }
       async command(payload: Record<string, unknown>) {
         bridge.commands.push(payload)
+
         return bridge.result
       }
       close() {
@@ -62,8 +63,10 @@ beforeEach(() => {
   stdout.length = 0
   vi.spyOn(fs, 'writeSync').mockImplementation(((_fd: number, text: string) => {
     stdout.push(String(text))
+
     return text.length
   }) as never)
+
   bridge.ready = {controlPort: 9123, instanceId: 'inst-1'}
   bridge.document = null
   bridge.connectError = null
@@ -87,12 +90,14 @@ function stderr(): string {
 
 function frame(): Record<string, unknown> {
   expect(stdout).toHaveLength(1)
+
   return JSON.parse(stdout[0])
 }
 
 function projectWithManifest(manifest: Record<string, unknown>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-open-'))
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest))
+
   return dir
 }
 
@@ -105,6 +110,7 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
     expect(text).toContain(
       'Chromium opens the side panel only in response to a user gesture'
     )
+
     expect(text).toContain('toolbar entry')
     expect(text).not.toContain(
       'may only be called in response to a user gesture'
@@ -122,6 +128,7 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
       status: 'failed',
       value: null
     })
+
     const error = envelope.error as Record<string, unknown>
     expect(error.code).toBe('E_USER_GESTURE_REQUIRED')
     expect(error.name).toBe('CliError')
@@ -155,6 +162,7 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
       manifest_version: 3,
       'chromium:action': {default_popup: 'popup.html'}
     })
+
     try {
       expect(await run(['open', 'action', withPopup])).toBe(1)
       expect(stderr()).toContain('action popup')
@@ -184,7 +192,9 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
       path.join(dist, 'manifest.json'),
       JSON.stringify({manifest_version: 3, action: {default_popup: 'p.html'}})
     )
+
     bridge.document = {distPath: dist}
+
     try {
       expect(await run(['open', 'action', project])).toBe(1)
       expect(stderr()).toContain('user gesture')
@@ -219,9 +229,11 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
         engine: 'chromium'
       }
     }
+
     expect(
       await run(['open', 'sidebar', '--browser', 'firefox', '--output', 'json'])
     ).toBe(1)
+
     const printed = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(printed.error.code).toBe('E_USER_GESTURE_REQUIRED')
     expect(printed.error.hint).toContain('toolbar')
@@ -253,6 +265,7 @@ describe('a 4003 close names the real cause', () => {
       command: 'open',
       status: 'denied'
     })
+
     const error = envelope.error as Record<string, unknown>
     expect(error.code).toBe('E_CONTROL_DENIED')
     expect(String(error.message)).toContain('control is off in that session')
@@ -280,6 +293,7 @@ describe('a 4003 close names the real cause', () => {
       ),
       {closeCode: 4001}
     )
+
     expect(await run(['open', 'options', '--output', 'json'])).toBe(1)
     expect(stderr()).toContain('has been replaced')
     expect(stderr()).not.toContain('control is off')
@@ -299,14 +313,17 @@ describe('the controller client states each close code as a cause', () => {
     server.on('connection', (socket) => {
       socket.once('message', () => socket.close(code, reason))
     })
+
     const port = (server.address() as {port: number}).port
     const controller = new BridgeController({
       controlPort: port,
       instanceId: 'inst-1',
       connectTimeoutMs: 2000
     })
+
     try {
       await controller.connect()
+
       throw new Error('connect resolved')
     } catch (err) {
       return err as Error & {closeCode?: number}

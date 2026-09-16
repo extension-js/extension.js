@@ -66,6 +66,7 @@ function createCompilerHarness() {
     plugin.apply(compiler)
     for (const cb of thisCompilationCallbacks) cb(compilation)
     for (const cb of processAssetsCallbacks) cb()
+
     return {assets, compilation, calls}
   }
 
@@ -100,6 +101,7 @@ describe('JsonPlugin', () => {
     expect(Object.keys(assets)).toContain(
       'declarative_net_request.ruleset.json'
     )
+
     expect(assets['declarative_net_request.ruleset.json']).toBe('[]')
   })
 

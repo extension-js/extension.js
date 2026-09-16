@@ -26,6 +26,7 @@ function isUrl(src: string) {
   try {
     // eslint-disable-next-line no-new
     new URL(src)
+
     return true
   } catch (err) {
     return false
@@ -44,6 +45,7 @@ function emitSrcsetCandidates(
     if (!url) continue
 
     const {cleanPath} = cleanAssetUrl(url)
+
     if (cleanPath && !isUrl(cleanPath)) {
       onResourceFound({
         filePath: url,
@@ -166,12 +168,14 @@ export function parseHtml(
     }
 
     const srcset = node.attrs?.find((attr) => attr.name === 'srcset')?.value
+
     if (srcset) {
       emitSrcsetCandidates(srcset, node, 'staticSrc', 'srcset', onResourceFound)
     }
 
     if (node.nodeName === 'video') {
       const poster = node.attrs?.find((attr) => attr.name === 'poster')?.value
+
       if (poster && !isUrl(poster)) {
         onResourceFound({
           filePath: poster,
@@ -184,10 +188,12 @@ export function parseHtml(
   }
 
   const {childNodes = []} = node
+
   for (const childNode of childNodes) {
     if (childNode.nodeName === '#comment' || childNode.nodeName === '#text') {
       continue
     }
+
     parseHtml(
       childNode as ReturnType<typeof parse5utilities.createNode>,
       onResourceFound

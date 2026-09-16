@@ -40,39 +40,33 @@ function makeCompiler(modified: string[] = []): MakeCompiler {
       if (!makeHandler) {
         throw new Error('make hook was not registered')
       }
+
       makeHandler({errors}, () => {})
     },
     _errors: errors
   }
 }
 
-/**
- * Touch empty entry files so absolute paths are not filtered as public-root
- * URLs (`startsWith('/') && !existsSync`).
- */
 function ensureEntryFiles(dir: string, names: string[]) {
   for (const name of names) {
     const filePath = path.join(dir, name)
+
     if (!fs.existsSync(filePath)) {
       fs.writeFileSync(filePath, '', 'utf8')
     }
   }
 }
 
-/** a.js/b.js and a.css/b.css share length so size-keyed caches cannot tell them apart. */
 function writeHtml(filePath: string, script: string, stylesheet: string) {
   ensureEntryFiles(path.dirname(filePath), [script, stylesheet])
   const html =
     `<html><head><link rel="stylesheet" href="${stylesheet}"></head>` +
     `<body><script src="${script}"></script></body></html>`
   fs.writeFileSync(filePath, html, 'utf8')
+
   return html
 }
 
-/**
- * Rewrite content while restoring a whole-second mtime (backup/tar -p style).
- * Whole seconds avoid FS sub-ms mtime rounding that would bust the parse cache key.
- */
 function restoreHtmlPreservingStat(
   filePath: string,
   script: string,
@@ -134,6 +128,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
         '<body><script src="a.js"></script></body></html>',
       'utf8'
     )
+
     compiler.runMake()
 
     expect(compiler._errors).toHaveLength(0)
@@ -209,6 +204,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     expect(staleFromCache.js?.some((p) => p.endsWith(`${path.sep}a.js`))).toBe(
       true
     )
+
     expect(staleFromCache.js?.some((p) => p.endsWith(`${path.sep}b.js`))).toBe(
       false
     )

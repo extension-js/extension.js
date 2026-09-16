@@ -17,11 +17,13 @@ function makeCompilation(out: string) {
 
 function chromiumUserDataDir(flags: string[]): string | null {
   const flag = flags.find((f) => f.startsWith('--user-data-dir='))
+
   return flag ? flag.replace('--user-data-dir=', '') : null
 }
 
 function firefoxProfileDir(args: string): string | null {
   const m = args.match(/--profile="([^"]+)"/)
+
   return m ? m[1] : null
 }
 
@@ -40,6 +42,7 @@ describe('profile-options contract (both launchers)', () => {
 
   afterEach(() => {
     process.env = OLD_ENV
+
     try {
       fs.rmSync(SCRATCH, {recursive: true, force: true})
     } catch {
@@ -130,6 +133,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(dir).toContain(
       path.join('extension-js', 'profiles', 'chrome-profile')
     )
+
     expect(fs.existsSync(path.join(String(dir), MANAGED_MARKER))).toBe(true)
   })
 
@@ -144,6 +148,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(dir).toContain(
       path.join('extension-js', 'profiles', 'firefox-profile')
     )
+
     expect(fs.existsSync(path.join(String(dir), MANAGED_MARKER))).toBe(true)
   })
 
@@ -190,6 +195,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(fs.readFileSync(path.join(dir, 'marker.txt'), 'utf8')).toBe(
       'hello from source'
     )
+
     expect(fs.readFileSync(path.join(dir, 'sub', 'nested.txt'), 'utf8')).toBe(
       'nested'
     )
@@ -293,6 +299,7 @@ describe('profile-options contract (both launchers)', () => {
     expect(fs.readFileSync(path.join(dir2, 'seeded.txt'), 'utf8')).toBe(
       'user-edited'
     )
+
     expect(fs.readFileSync(path.join(dir2, 'user-only.txt'), 'utf8')).toBe(
       'keep'
     )

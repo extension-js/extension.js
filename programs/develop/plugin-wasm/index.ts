@@ -30,36 +30,44 @@ export class WasmPlugin {
 
     const addAncestors = (startDir: string) => {
       let current = path.resolve(startDir)
+
       while (true) {
         if (!seen.has(current)) {
           seen.add(current)
           roots.push(current)
         }
+
         const parent = path.dirname(current)
         if (parent === current) break
+
         current = parent
       }
     }
 
     addAncestors(projectRoot)
     addAncestors(process.cwd())
+
     return roots
   }
 
   private resolveAssetPath(projectRoot: string, relativePath: string) {
     for (const root of this.collectSearchRoots(projectRoot)) {
       const candidate = path.join(root, 'node_modules', relativePath)
+
       if (fs.existsSync(candidate)) {
         return candidate
       }
     }
+
     return null
   }
 
   private buildAssetAliases(projectRoot: string) {
     const aliases: Record<string, string> = {}
+
     const addAlias = (request: string) => {
       const resolved = this.resolveAssetPath(projectRoot, request)
+
       if (resolved) {
         aliases[request] = resolved
       }
@@ -80,6 +88,7 @@ export class WasmPlugin {
   private ensureWasmResolution(compiler: Compiler, projectRoot: string) {
     compiler.options.resolve = compiler.options.resolve || {}
     const extensions = compiler.options.resolve.extensions || []
+
     if (!extensions.includes('.wasm')) {
       compiler.options.resolve.extensions = [...extensions, '.wasm']
     }

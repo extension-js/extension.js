@@ -19,6 +19,7 @@ function hasNewTabOverride(extensionDir: string): boolean {
     const raw = fs.readFileSync(manifestPath, 'utf-8')
     const manifest = JSON.parse(stripBom(raw))
     const newtab = manifest?.chrome_url_overrides?.newtab
+
     return typeof newtab === 'string' && newtab.trim().length > 0
   } catch {
     // If the manifest cannot be read/parsed, keep loading behavior unchanged.
@@ -71,18 +72,22 @@ function isReservedBuiltInPath(extensionPath: string): boolean {
   // Also catch nested layouts like `extensions/extension-js-devtools/dist/<engine>`
   // by checking any segment of the path.
   const segments = path.normalize(extensionPath).split(path.sep)
+
   return segments.some((segment) => RESERVED_BUILT_IN_NAMES.has(segment))
 }
 
 function dedupeByResolvedPath(paths: string[]): string[] {
   const seen = new Set<string>()
   const result: string[] = []
+
   for (const entry of paths) {
     const resolved = path.resolve(entry)
     if (seen.has(resolved)) continue
+
     seen.add(resolved)
     result.push(entry)
   }
+
   return result
 }
 
@@ -95,6 +100,7 @@ export function computeExtensionsToLoad(
   userManifestPath?: string
 ): string[] {
   const list: string[] = []
+
   try {
     const devtoolsForBrowser = resolveBuiltInExtensionForBrowser({
       baseDir,
@@ -135,11 +141,13 @@ export function computeExtensionsToLoad(
   // Add companions (load-only) before the user extension; skip paths that
   // shadow a reserved built-in to avoid a second devtools/theme load.
   const resolvedUserOutputPath = path.resolve(userExtensionOutputPath)
+
   for (const p of extraExtensionDirs) {
     if (isReservedBuiltInPath(p)) continue
     // The final dedupe keeps the FIRST hit, so a companion naming the user
     // extension would freeze it in this earlier slot: drop it to keep it last.
     if (path.resolve(p) === resolvedUserOutputPath) continue
+
     list.push(p)
   }
 

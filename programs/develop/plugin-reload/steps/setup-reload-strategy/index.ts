@@ -108,16 +108,19 @@ export function buildContentScriptsMeta(
   patchedManifest: Manifest
 ): Record<string, unknown> {
   const contentScriptsMeta: Record<string, unknown> = {}
+
   try {
     const csList = Array.isArray(patchedManifest.content_scripts)
       ? patchedManifest.content_scripts
       : []
     const originalCount = csList.length
     let bridgeOrdinal = 0
+
     for (let i = 0; i < csList.length; i++) {
       const cs = csList[i]
       const bundleId = getCanonicalContentScriptJsAssetName(i)
       const isMain = cs?.world === 'MAIN'
+
       if (isMain) {
         const bridgeIndex = originalCount + bridgeOrdinal++
         const bridgeBundleId = getCanonicalContentScriptJsAssetName(bridgeIndex)
@@ -127,6 +130,7 @@ export function buildContentScriptsMeta(
           world: 'main',
           bridgeBundleId
         }
+
         contentScriptsMeta[bridgeBundleId] = {
           index: bridgeIndex,
           bundleId: bridgeBundleId,
@@ -145,6 +149,7 @@ export function buildContentScriptsMeta(
   } catch {
     // ignore - runtime has safe defaults
   }
+
   return contentScriptsMeta
 }
 

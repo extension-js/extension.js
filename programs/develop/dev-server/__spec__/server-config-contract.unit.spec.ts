@@ -14,6 +14,7 @@ describe('dev-server config contract', () => {
       serverConfigBlock,
       'expected to find serverConfig declaration in dev-server/index.ts'
     ).not.toBeNull()
+
     const block = serverConfigBlock![0]
     expect(block).toMatch(/\bliveReload:\s*true\b/)
     expect(block).toMatch(/\bhot:\s*true\b/)

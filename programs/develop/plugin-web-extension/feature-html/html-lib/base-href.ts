@@ -29,6 +29,7 @@ function isBakeable(value: string): boolean {
   if (trimmed.startsWith('#')) return false
   if (trimmed.startsWith('//')) return false
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return false
+
   return true
 }
 
@@ -38,7 +39,9 @@ export function resolveLinkThroughBase(
 ): string {
   if (isUrl(baseHref)) return new URL(value, baseHref).href
   if (value.startsWith('/')) return value
+
   const joined = path.posix.join(baseHref.replace(/\\/g, '/'), value)
+
   return baseHref.startsWith('/') && !joined.startsWith('/')
     ? `/${joined}`
     : joined
@@ -60,15 +63,19 @@ export function bakeBaseHref(htmlDocument: HtmlNode): void {
   walk(htmlDocument, (node) => {
     const attrName = LINK_ATTRIBUTES[String(node.nodeName || '')]
     if (!attrName) return
+
     const attr = node.attrs?.find((entry) => entry.name === attrName)
     if (!attr || !isBakeable(attr.value)) return
+
     attr.value = resolveLinkThroughBase(baseHref, attr.value.trim())
   })
 
   baseNode.attrs = (baseNode.attrs || []).filter((attr) => attr.name !== 'href')
+
   if (baseNode.attrs.length === 0) {
     walk(htmlDocument, (node) => {
       if (!node.childNodes) return
+
       node.childNodes = node.childNodes.filter((child) => child !== baseNode)
     })
   }

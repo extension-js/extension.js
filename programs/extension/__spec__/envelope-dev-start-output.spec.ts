@@ -16,12 +16,15 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopModule: vi.fn(async () => ({extensionBuild})),
   loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview}))
 }))
+
 vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
+
 // Only runWaitMode is stubbed: describeWaitError is the code under test here.
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+
   return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
 })
 
@@ -71,12 +74,14 @@ describe('extension start --output json', () => {
       error: null,
       warnings: []
     })
+
     expect(emitted[0].value).toMatchObject({
       browser: 'chromium',
       browsers: ['chromium'],
       port: 8080,
       pid: process.pid
     })
+
     expect(extensionBuild).toHaveBeenCalledTimes(1)
     expect(extensionPreview).toHaveBeenCalledTimes(1)
   })
@@ -108,6 +113,7 @@ describe('extension start --output json', () => {
       value: null,
       error: {code: CODES.E_COMPILE, message: 'Build failed with errors'}
     })
+
     expect(extensionPreview).not.toHaveBeenCalled()
   })
 
@@ -116,6 +122,7 @@ describe('extension start --output json', () => {
     expect(
       await run(['start', '.', '--browser', 'safari', '--output', 'json'])
     ).toBe(1)
+
     expect(frames()[0]).toMatchObject({
       ok: false,
       command: 'start',
@@ -125,6 +132,7 @@ describe('extension start --output json', () => {
         message: 'Safari is not supported by start.'
       }
     })
+
     expect(frames()[0].error.code).not.toBe(CODES.E_UNSUPPORTED_BROWSER)
     expect(errorSpy).not.toHaveBeenCalled()
     expect(extensionBuild).not.toHaveBeenCalled()
@@ -139,6 +147,7 @@ describe('extension start --output json', () => {
       status: 'ready',
       value: {mode: 'wait', command: 'start', browsers: ['chromium']}
     })
+
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
@@ -146,9 +155,11 @@ describe('extension start --output json', () => {
     runWaitMode.mockRejectedValueOnce(
       new WaitModeError('Timed out waiting', CODES.E_READY_TIMEOUT)
     )
+
     await expect(
       run(['start', '.', '--wait', '--output', 'json'])
     ).rejects.toThrow('Timed out')
+
     expect(frames()[0]).toMatchObject({
       ok: false,
       command: 'start',
@@ -162,6 +173,7 @@ describe('extension start --output json', () => {
     await expect(
       run(['start', '.', '--wait', '--output', 'json'])
     ).rejects.toThrow('Compilation failed')
+
     expect(frames()[0]).toMatchObject({
       ok: false,
       status: 'failed',

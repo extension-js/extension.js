@@ -36,6 +36,7 @@ function resolveDevelopRoot(projectPath: string): string | null {
       'extension-develop',
       'package.json'
     )
+
     if (fs.existsSync(localPkgPath)) {
       return path.dirname(localPkgPath)
     }
@@ -66,6 +67,7 @@ function readPackageJson(
 ): PackageJson {
   let pkg: PackageJson = {}
   const packageJsonPath = path.join(projectPath, 'package.json')
+
   try {
     const raw = fs.readFileSync(packageJsonPath, 'utf8')
     pkg = JSON.parse(raw)
@@ -81,6 +83,7 @@ function readPackageJson(
   // Deno projects declare npm dependencies in deno.json(c) `imports`;
   // fold them in so integration detection sees them.
   const denoDependencies = readDenoConfigDependencies(projectPath)
+
   if (Object.keys(denoDependencies).length > 0) {
     pkg = {
       ...pkg,
@@ -98,6 +101,7 @@ function hasDependency(pkg: PackageJson, name: string): boolean {
 function canResolve(dependency: string, paths: string[]): boolean {
   try {
     requireFromCreate.resolve(dependency, {paths})
+
     return true
   } catch {
     return false
@@ -160,13 +164,16 @@ function detectOptionalDependencies(
     if (!integrations.includes(name)) {
       integrations.push(name)
     }
+
     if (!dependenciesByIntegration[name]) {
       dependenciesByIntegration[name] = []
     }
+
     for (const dep of depsForIntegration) {
       if (!dependenciesByIntegration[name].includes(dep)) {
         dependenciesByIntegration[name].push(dep)
       }
+
       deps.add(dep)
     }
   }
@@ -298,6 +305,7 @@ async function installOptionalDependencies(
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+
   if (isDebug()) {
     logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
   }
@@ -341,8 +349,9 @@ export async function installInternalDependencies(
   if (
     process.env.EXTENSION_ENV === 'test' ||
     process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true'
-  )
+  ) {
     return
+  }
 
   const developRoot = resolveDevelopRoot(projectPath)
   if (!developRoot) return
@@ -352,6 +361,7 @@ export async function installInternalDependencies(
     projectPath,
     logger
   )
+
   if (optionalPlan.dependencies.length > 0) {
     await installOptionalDependencies(
       developRoot,

@@ -124,11 +124,13 @@ describe('dev-server config root resolution', () => {
         '/proj/dist/chrome/background.js'
       )
     ).toBe(true)
+
     expect(
       devServerConfigCapture.current.devMiddleware.writeToDisk(
         '/proj/dist/chrome/manifest.json'
       )
     ).toBe(false)
+
     expect(
       devServerConfigCapture.current.devMiddleware.writeToDisk('manifest.json')
     ).toBe(false)

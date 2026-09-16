@@ -23,7 +23,9 @@ function createMockWs() {
   ws.close = vi.fn(() => {
     ws.readyState = 3
   })
+
   ws.send = vi.fn()
+
   return ws
 }
 
@@ -52,6 +54,7 @@ describe('CDPClient lifecycle', () => {
     lifecycleMocks.discoverUrl.mockResolvedValue(
       'ws://127.0.0.1:9222/devtools/browser'
     )
+
     lifecycleMocks.establishConnection.mockRejectedValue(
       new Error('ECONNREFUSED')
     )

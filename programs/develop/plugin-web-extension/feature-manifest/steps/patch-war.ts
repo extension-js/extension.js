@@ -12,11 +12,6 @@ import type {DevOptions, PluginInterface} from '../../../types'
 import {generateManifestPatches} from '../../feature-web-resources/web-resources-lib/generate-manifest'
 import {getSharedFor} from '../../feature-web-resources/web-resources-lib/shared'
 
-/**
- * Patches manifest.json with web_accessible_resources from content script
- * imports. Depends on CollectContentEntryImports (feature-web-resources)
- * populating getSharedFor(compilation).entryImports before this runs.
- */
 export class PatchWAR {
   public readonly manifestPath: string
   public readonly browser?: DevOptions['browser']

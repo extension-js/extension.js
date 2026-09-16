@@ -18,6 +18,7 @@ afterEach(() => {
 function createTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -53,6 +54,7 @@ describe('main-world bridge helpers', () => {
       path.join(projectDir, 'package.json'),
       '{"name":"fixture"}\n'
     )
+
     fs.writeFileSync(
       path.join(distDir, 'main-world-bridge.js'),
       'export default function bridge() {}\n',
@@ -98,6 +100,7 @@ describe('main-world bridge helpers', () => {
       path.join(projectDir, 'package.json'),
       '{"name":"fixture"}\n'
     )
+
     fs.writeFileSync(
       path.join(distDir, 'main-world-bridge.js'),
       'export default function bridge() {}\n',

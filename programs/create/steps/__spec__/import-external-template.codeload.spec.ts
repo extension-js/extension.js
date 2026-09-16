@@ -29,6 +29,7 @@ afterEach(() => {
 function makeProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-codeload-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -63,6 +64,7 @@ describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)'
       JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'))
         .name
     ).toBe('react')
+
     expect(fs.existsSync(path.join(project, 'vue'))).toBe(false)
     expect(fs.readdirSync(project)).not.toContain('examples')
   })

@@ -29,6 +29,7 @@ function stripVitestEnv(): NodeJS.ProcessEnv {
   }
   delete env.VITEST
   delete env.VITEST_WORKER_ID
+
   return env
 }
 
@@ -56,6 +57,7 @@ function runCli(args: string[], timeoutMs = 25000) {
         clearTimeout(timer)
         resolvePromise({code: code ?? 1, stdout, stderr})
       })
+
       child.on('error', (error) => {
         clearTimeout(timer)
         reject(error)
@@ -94,7 +96,9 @@ function writeFakeCanary(dir: string) {
       ''
     ].join('\n')
   )
+
   chmodSync(binary, 0o755)
+
   return binary
 }
 
@@ -163,6 +167,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(combined).not.toMatch(
         /Can't find a Chromium binary at the given path/
       )
+
       // The pin is honoured, and the card SAYS it was pinned rather than
       // echoing the path back: the user typed that path, so repeating it costs
       // the card's last row to tell them what they already know. The version

@@ -23,11 +23,13 @@ function makeCompiler() {
             },
             __assets: {}
           }
+
           cb(compilation)
         }
       }
     }
   }
+
   return {
     compiler,
     runProcessAssets: () => {
@@ -111,6 +113,7 @@ describe('InjectScriptsReplayShim', () => {
       'background/service_worker.js',
       '/* __extjsScriptsReplayInstalled marker */ /* user sw */'
     )
+
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
     expect(out).toBe('/* __extjsScriptsReplayInstalled marker */ /* user sw */')

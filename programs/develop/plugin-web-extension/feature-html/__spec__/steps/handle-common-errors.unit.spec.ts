@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {HandleCommonErrors} from '../../steps/handle-common-errors'
 
 function makeCompiler(
@@ -10,6 +10,7 @@ function makeCompiler(
     warnings: [],
     hooks: {afterSeal: {tapPromise: (_: any, fn: any) => fn()}}
   }
+
   return {
     hooks: {compilation: {tap: (_: any, fn: any) => fn(compilation)}},
     _compilation: compilation
@@ -26,6 +27,7 @@ describe('HandleCommonErrors', () => {
       manifestPath: __filename,
       includeList: {'feature/index': __filename}
     } as any).apply(compiler as any)
+
     expect((compiler as any)._compilation.errors[0]).toBeTruthy()
   })
 })

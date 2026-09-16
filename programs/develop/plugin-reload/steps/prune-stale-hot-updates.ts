@@ -21,6 +21,7 @@ export class PruneStaleHotUpdates {
 
   public apply(compiler: Compiler): void {
     if (!compiler?.hooks?.done?.tap) return
+
     compiler.hooks.done.tap(PruneStaleHotUpdates.name, (stats) => {
       try {
         const outputPath = compiler.options.output?.path
@@ -30,22 +31,27 @@ export class PruneStaleHotUpdates {
         if (!fs.existsSync(hotDir)) return
 
         const emitted = new Set<string>()
+
         for (const asset of stats.compilation.getAssets()) {
           const name = String(asset.name || '').replace(/\\/g, '/')
+
           if (name.startsWith(`${HOT_DIR}/`)) {
             emitted.add(name.slice(HOT_DIR.length + 1))
           }
         }
 
         const keep = new Set([...emitted, ...this.previousGeneration])
+
         // Hot assets nest by runtime name, so walk recursively and compare
         // hot-relative posix paths.
         const pruneDir = (dir: string, relPrefix: string) => {
           for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
             const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
             const absolute = path.join(dir, entry.name)
+
             if (entry.isDirectory()) {
               pruneDir(absolute, rel)
+
               try {
                 if (fs.readdirSync(absolute).length === 0) {
                   fs.rmdirSync(absolute)
@@ -53,9 +59,12 @@ export class PruneStaleHotUpdates {
               } catch {
                 // Ignore
               }
+
               continue
             }
+
             if (keep.has(rel)) continue
+
             try {
               fs.rmSync(absolute, {force: true})
             } catch {
@@ -63,6 +72,7 @@ export class PruneStaleHotUpdates {
             }
           }
         }
+
         pruneDir(hotDir, '')
 
         this.previousGeneration = emitted

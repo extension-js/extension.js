@@ -143,6 +143,7 @@ const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
 // error text must be plain so consumers never have to ANSI-strip.
 export function formatStatsErrors(errors: unknown): string[] {
   if (!Array.isArray(errors)) return []
+
   return errors
     .slice(0, MAX_CONTRACT_ERRORS)
     .map((error) => {
@@ -150,6 +151,7 @@ export function formatStatsErrors(errors: unknown): string[] {
         error && typeof error === 'object'
           ? String((error as {message?: unknown}).message ?? '')
           : String(error ?? '')
+
       return message.replace(ANSI_PATTERN, '').trim()
     })
     .filter(Boolean)
@@ -166,8 +168,10 @@ const runIdByMetadataDir = new Map<string, string>()
 function getRunIdForSession(metadataDir: string): string {
   const existing = runIdByMetadataDir.get(metadataDir)
   if (existing) return existing
+
   const runId = createRunId()
   runIdByMetadataDir.set(metadataDir, runId)
+
   return runId
 }
 
@@ -191,9 +195,11 @@ function deriveDistExtensionId(
   try {
     if (isWebkitBasedBrowser(browser)) return undefined
     if (!fs.existsSync(path.join(distPath, 'manifest.json'))) return undefined
+
     const id = isGeckoBasedBrowser(browser)
       ? geckoExtensionId(distPath)
       : chromiumExtensionId(distPath)
+
     return id || undefined
   } catch {
     return undefined
@@ -210,8 +216,10 @@ function stampReadyExtensionIdIfAbsent(
   try {
     const readyPath = readyContractPath(packageJsonDir, browser)
     if (!fs.existsSync(readyPath)) return
+
     const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (typeof prev.extensionId === 'string' && prev.extensionId) return
+
     prev.extensionId = extensionId
     prev.ts = nowISO()
     writeJsonAtomic(readyPath, prev)
@@ -230,6 +238,7 @@ export function stampReadyDistExtensionId(
 ): void {
   const derived = deriveDistExtensionId(browser, distPath)
   if (!derived) return
+
   stampReadyExtensionIdIfAbsent(packageJsonDir, browser, derived)
 }
 
@@ -241,6 +250,7 @@ export function stampReadyKnownExtensionId(
   extensionId: string
 ): void {
   if (!extensionId) return
+
   stampReadyExtensionIdIfAbsent(packageJsonDir, browser, extensionId)
 }
 
@@ -250,6 +260,7 @@ function readManifestProvenance(manifestPath: string): {
 } {
   try {
     const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+
     return {
       extensionName:
         typeof manifest?.name === 'string' ? manifest.name : undefined,
@@ -291,6 +302,7 @@ export function detectLiveDevSessionOwner(
   isAlive: (pid: number) => boolean = (pid) => {
     try {
       process.kill(pid, 0)
+
       return true
     } catch {
       return false
@@ -299,11 +311,13 @@ export function detectLiveDevSessionOwner(
 ): LiveDevSessionOwner | null {
   try {
     if (!fs.existsSync(readyPath)) return null
+
     const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (prev?.command !== 'dev') return null
     if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
     if (prev.status !== 'ready' && prev.status !== 'starting') return null
     if (!isAlive(prev.pid)) return null
+
     return {
       pid: prev.pid as number,
       runId: typeof prev.runId === 'string' ? prev.runId : '',
@@ -331,6 +345,7 @@ export function shouldWarnDevOverDev(
   ) {
     return false
   }
+
   return true
 }
 
@@ -355,10 +370,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
   const toPort = (value: number | string | null | undefined): number | null => {
     if (typeof value === 'number' && Number.isFinite(value)) return value
+
     if (typeof value === 'string') {
       const parsed = parseInt(value, 10)
+
       return Number.isFinite(parsed) ? parsed : null
     }
+
     return null
   }
 
@@ -368,6 +386,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   // rewrite that session's contracts; detect the owner once and no-op writes.
   const foreignLiveDevSession =
     options.command !== 'dev' && liveOwner ? liveOwner : null
+
   if (foreignLiveDevSession) {
     console.warn(
       `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
@@ -441,9 +460,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
   ) {
     if (foreignLiveDevSession) return
+
     ensureDirSync(metadataDir)
 
     let prev: Record<string, unknown> | undefined
+
     try {
       if (fs.existsSync(readyPath)) {
         prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as Record<
@@ -472,6 +493,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
     }
+
     // A later writer in the same run (start's preview after the build) must
     // keep the run's original clock, not the moment this writer was created.
     if (
@@ -482,8 +504,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     ) {
       payload.startedAt = prev.startedAt
     }
+
     if (extra?.code) payload.code = extra.code
     if (extra?.message) payload.message = extra.message
+
     if (managedExtensionsExplicit) {
       if (managedExtensions) payload.managedExtensions = managedExtensions
     } else if (
@@ -493,11 +517,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       payload.managedExtensions =
         prev.managedExtensions as ManagedExtensionRecord[]
     }
+
     const derivedExtensionId = deriveDistExtensionId(
       options.browser,
       options.distPath
     )
     if (derivedExtensionId) payload.extensionId = derivedExtensionId
+
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
     //
@@ -508,15 +534,19 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // cannot tell that apart from a live session, so it dials a dead process.
     // `startedAt` above already draws exactly this line.
     const sameRun = Boolean(prev && prev.runId === base.runId)
+
     if (prev && sameRun) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
       if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+
       if (typeof prev.profilePath === 'string') {
         payload.profilePath = prev.profilePath
       }
+
       if (typeof prev.browserPid === 'number') {
         payload.browserPid = prev.browserPid
       }
+
       // Which binary actually launched, and how it was chosen. Stamped once at
       // launch and never recomputed, so without this a single recompile erased
       // it and `doctor` went back to being unable to say which browser is
@@ -524,21 +554,25 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (typeof prev.binary === 'string' && prev.binary) {
         ;(payload as Record<string, unknown>).binary = prev.binary
       }
+
       if (typeof prev.binaryProvenance === 'string' && prev.binaryProvenance) {
         ;(payload as Record<string, unknown>).binaryProvenance =
           prev.binaryProvenance
       }
+
       // The launcher's stamp may carry the browser-confirmed id, which
       // outranks the derived one, so the previous value wins on recompile.
       if (typeof prev.extensionId === 'string' && prev.extensionId) {
         payload.extensionId = prev.extensionId
       }
+
       if (typeof prev.browserExitedAt === 'string') {
         ;(payload as Record<string, unknown>).browserExitedAt =
           prev.browserExitedAt
         ;(payload as Record<string, unknown>).browserExitCode =
           prev.browserExitCode ?? null
       }
+
       // The SW attaches once per session but the compile can re-run many
       // times; a recompile must not erase the runtime-attached signal.
       if (typeof prev.executorAttachedAt === 'string') {
@@ -548,11 +582,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         // so the last known runtime state carries over rather than 'attached'.
         ;(payload as Record<string, unknown>).runtime =
           prev.runtime === 'detached' ? 'detached' : 'attached'
+
         if (typeof prev.executorDetachedAt === 'string') {
           ;(payload as Record<string, unknown>).executorDetachedAt =
             prev.executorDetachedAt
         }
       }
+
       // A browser-side load refusal outlives the compile that follows it: the
       // rebuild succeeding says nothing about the guest the browser threw out.
       // 'starting' is a new run, which re-asks the browser, so it resets.
@@ -562,9 +598,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       ) {
         const target = payload as Record<string, unknown>
         target.extensionLoadRefusedAt = prev.extensionLoadRefusedAt
+
         if (typeof prev.extensionLoadRefusedReason === 'string') {
           target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
         }
+
         if (status === 'ready') {
           payload.status = 'error' as ReadyStatus
           payload.code = 'extension_load_refused'
@@ -574,12 +612,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         }
       }
     }
+
     writeJsonAtomic(readyPath, payload)
   }
 
   function appendEvent(event: PlaywrightAutomationEvent) {
     if (foreignLiveDevSession) return
+
     ensureDirSync(metadataDir)
+
     try {
       fs.appendFileSync(
         eventsPath,
@@ -601,14 +642,17 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     },
     writeStarting() {
       if (foreignLiveDevSession) return
+
       // A new run is the only truth: reset the timeline so prior-run entries don't
       // interleave and the file can't grow unboundedly.
       ensureDirSync(metadataDir)
+
       try {
         fs.writeFileSync(eventsPath, '', 'utf-8')
       } catch {
         // Ignore
       }
+
       writeReady('starting', {compiledAt: null})
     },
     writeReady(compiledAt?: string | null) {
@@ -630,8 +674,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // over a dead pid; read-modify-write keeps the session's provenance intact.
     writeShutdown(message = 'the dev session ended (watch closed)') {
       if (foreignLiveDevSession) return
+
       try {
         if (!fs.existsSync(readyPath)) return
+
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         prev.status = 'stopped'
         prev.code = 'shutdown'
@@ -648,8 +694,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     stampExecutorDetached() {
       try {
         if (!fs.existsSync(readyPath)) return
+
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         if (typeof prev.executorAttachedAt !== 'string') return
+
         prev.runtime = 'detached'
         prev.executorDetachedAt = nowISO()
         prev.ts = nowISO()
@@ -663,27 +711,34 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     stampExecutorAttached() {
       try {
         if (!fs.existsSync(readyPath)) return
+
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         prev.runtime = 'attached'
         delete prev.executorDetachedAt
+
         if (typeof prev.executorAttachedAt === 'string') {
           prev.ts = nowISO()
           writeJsonAtomic(readyPath, prev)
+
           return
         }
+
         prev.executorAttachedAt = nowISO()
+
         // The executor runs INSIDE the guest, so an attach is proof the browser
         // is running it. Any earlier refusal is stale however it got fixed -
         // a retry, or a human pressing Reload on the extensions page.
         if (typeof prev.extensionLoadRefusedAt === 'string') {
           delete prev.extensionLoadRefusedAt
           delete prev.extensionLoadRefusedReason
+
           if (prev.code === 'extension_load_refused') {
             prev.status = 'ready'
             delete prev.code
             delete prev.message
           }
         }
+
         prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {
@@ -704,6 +759,7 @@ export class PlaywrightPlugin {
     this.browser = String(options.browser || 'chromium')
     this.command =
       options.command || (options.mode === 'development' ? 'dev' : 'start')
+
     this.writer = createPlaywrightMetadataWriter({
       packageJsonDir: options.packageJsonDir,
       browser: this.browser,
@@ -758,11 +814,13 @@ export class PlaywrightPlugin {
           errorCount: Number.isFinite(errorsCount) ? errorsCount : 1,
           errors: contractErrors
         })
+
         this.writer.writeError(
           'compile_error',
           'Compilation failed',
           contractErrors
         )
+
         return
       }
 
@@ -774,6 +832,7 @@ export class PlaywrightPlugin {
         durationMs: Number.isFinite(durationMs) ? durationMs : undefined,
         errorCount: 0
       })
+
       this.writer.writeReady(nowISO())
     })
 
@@ -785,6 +844,7 @@ export class PlaywrightPlugin {
         browser: this.browser,
         errorCount: 1
       })
+
       this.writer.writeError(
         'compile_failed',
         error instanceof Error ? error.message : String(error)
@@ -798,6 +858,7 @@ export class PlaywrightPlugin {
         command: this.command,
         browser: this.browser
       })
+
       // The event alone leaves ready.json advertising "ready" for a dying pid. Dev
       // only: a completed start run's ready.json is a receipt and must stay "ready".
       if (this.command === 'dev') this.writer.writeShutdown()

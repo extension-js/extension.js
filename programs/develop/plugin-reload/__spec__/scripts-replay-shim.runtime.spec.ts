@@ -43,17 +43,20 @@ function makeGlobal() {
       scripting: {
         executeScript: (injection: Injection) => {
           calls.push(injection)
+
           return Promise.resolve([])
         }
       },
       tabs: {
         query: (query: unknown) => {
           tabsQueries.push(query)
+
           return Promise.resolve([])
         }
       }
     }
   }
+
   return {fakeGlobal, calls, tabsQueries, reloads: () => reloads}
 }
 
@@ -76,6 +79,7 @@ describe('scripts-replay shim runtime', () => {
       files: ['/scripts/widget.js'],
       world: 'MAIN'
     })
+
     await inject(fakeGlobal, {target: {tabId: 9}, files: ['/scripts/other.js']})
     expect(calls).toHaveLength(2)
 
@@ -84,12 +88,14 @@ describe('scripts-replay shim runtime', () => {
     expect(outcome).toEqual([
       {ok: true, tabId: 7, files: ['/scripts/widget.js']}
     ])
+
     expect(calls).toHaveLength(3)
     expect(calls[2]).toEqual({
       target: {tabId: 7},
       files: ['/scripts/widget.js'],
       world: 'MAIN'
     })
+
     expect(tabsQueries).toEqual([])
   })
 
@@ -140,6 +146,7 @@ describe('scripts-replay shim runtime', () => {
       target: {tabId: 7},
       files: ['/scripts/widget.js']
     })
+
     await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
     await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
     // One recorded injection replays once per edit: two edits, two replays.
@@ -158,9 +165,12 @@ describe('scripts-replay shim runtime', () => {
       debug() {},
       trace() {}
     }
+
     fakeGlobal.navigator = {userAgent: 'Chrome'}
+
     fakeGlobal.setTimeout = (fn: () => void) => {
       fn()
+
       return 0
     }
 
@@ -174,6 +184,7 @@ describe('scripts-replay shim runtime', () => {
         context: 'background'
       })
     )(fakeGlobal)
+
     installShim(fakeGlobal)
     const ws = FakeWebSocket.instances[0]
     ws.triggerOpen()
@@ -183,6 +194,7 @@ describe('scripts-replay shim runtime', () => {
       files: ['/scripts/widget.js'],
       world: 'MAIN'
     })
+
     await inject(fakeGlobal, {target: {tabId: 9}, files: ['/scripts/other.js']})
     ws.sent = []
 
@@ -193,6 +205,7 @@ describe('scripts-replay shim runtime', () => {
       changedFiles: ['scripts/widget.ts'],
       changedScriptFiles: ['scripts/widget.js']
     })
+
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(calls).toHaveLength(3)
@@ -201,6 +214,7 @@ describe('scripts-replay shim runtime', () => {
       files: ['/scripts/widget.js'],
       world: 'MAIN'
     })
+
     expect(tabsQueries).toEqual([])
     expect(reloads()).toBe(0)
   })

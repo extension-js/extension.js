@@ -3,6 +3,7 @@ import {classicConcatEntry} from '../../shared/classic-concat'
 
 const parse = (entry: string) => {
   const query = entry.slice(entry.indexOf('=') + 1)
+
   return JSON.parse(decodeURIComponent(query)) as {
     feature: string
     js: string[]

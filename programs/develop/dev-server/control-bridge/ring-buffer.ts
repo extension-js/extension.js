@@ -66,6 +66,7 @@ export class LogRingBuffer {
 
   since(seq: number): LogEvent[] {
     if (!Number.isFinite(seq)) return this.snapshot()
+
     return this.buf.filter((e) => e.seq > seq)
   }
 

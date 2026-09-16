@@ -46,12 +46,14 @@ function project(css: string, options: ProjectOptions = {}) {
       ...(postcss ? {devDependencies: {postcss: '^8.0.0'}} : {})
     })
   )
+
   if (postcss) {
     fs.writeFileSync(
       path.join(root, 'postcss.config.js'),
       'module.exports = {plugins: []}\n'
     )
   }
+
   fs.writeFileSync(path.join(root, 'theme.css'), '.theme { color: pink }\n')
   fs.writeFileSync(path.join(root, 'bg.png'), 'PNGDATA\n')
   const manifest: Record<string, unknown> = {
@@ -59,11 +61,13 @@ function project(css: string, options: ProjectOptions = {}) {
     name: 'parity',
     version: '1.0.0'
   }
+
   if (surface === 'page') {
     fs.writeFileSync(
       path.join(root, 'options.html'),
       '<!doctype html><html><head>\n<link rel="stylesheet" href="./options.css">\n</head><body><h1>options</h1></body></html>\n'
     )
+
     fs.writeFileSync(path.join(root, 'options.css'), css)
     manifest.options_page = 'options.html'
   } else {
@@ -73,7 +77,9 @@ function project(css: string, options: ProjectOptions = {}) {
       {matches: ['<all_urls>'], js: ['content.js'], css: ['content.css']}
     ]
   }
+
   fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(manifest))
+
   return root
 }
 
@@ -82,6 +88,7 @@ async function build(root: string, mode: 'development' | 'production') {
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
   let summary: Awaited<ReturnType<typeof extensionBuild>>
+
   try {
     summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -90,11 +97,13 @@ async function build(root: string, mode: 'development' | 'production') {
       mode,
       exitOnError: false
     } as any)
+
     expect(summary.errors_count).toBe(0)
   } finally {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   // Windows lists nested entries with backslashes; the assertions join posix.
   const files = fs
@@ -104,6 +113,7 @@ async function build(root: string, mode: 'development' | 'production') {
     .filter((file) => file.endsWith('.css') || file.endsWith('.js'))
     .map((file) => fs.readFileSync(path.join(distDir, file), 'utf8'))
     .join('\n')
+
   return {files, text, summary}
 }
 
@@ -138,6 +148,7 @@ describe('production keeps every rule development keeps for an unparseable sheet
         rulesIn(dev.text).length,
         `dev keeps ${rulesIn(dev.text)}`
       ).toBeGreaterThan(0)
+
       expect(rulesIn(prod.text), `${name}: prod vs dev`).toEqual(
         rulesIn(dev.text)
       )
@@ -155,6 +166,7 @@ describe('a page sheet whose only fault is a misplaced @import', () => {
       (file) => file.endsWith('.css') && !file.endsWith('theme.css')
     )
     expect(sheet, files.join(',')).toBeDefined()
+
     return fs.readFileSync(
       path.join(root, 'dist', 'chrome', String(sheet)),
       'utf8'
@@ -180,6 +192,7 @@ describe('a page sheet whose only fault is a misplaced @import', () => {
         'keep-b',
         'keep-c'
       ])
+
       const warnings = built.summary.warnings || []
       expect(warnings, warnings.join('\n---\n')).toHaveLength(1)
       expect(built.summary.warnings_count).toBe(1)

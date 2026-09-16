@@ -24,6 +24,7 @@ async function findAvailablePortNear(
         const addr = server.address() as net.AddressInfo
         server.close(() => resolve(addr.port))
       })
+
       server.listen(0, host)
     })
   }
@@ -35,16 +36,20 @@ async function findAvailablePortNear(
       server.once('listening', () => {
         server.close(() => resolve(true))
       })
+
       server.listen(port, host)
     })
   }
 
   let candidate = startPort
+
   for (let i = 0; i < maxAttempts; i++) {
     const ok = await tryPort(candidate)
     if (ok) return candidate
+
     candidate += 1
   }
+
   throw new Error(
     `Could not find an available port near ${startPort} after ${maxAttempts} attempts`
   )

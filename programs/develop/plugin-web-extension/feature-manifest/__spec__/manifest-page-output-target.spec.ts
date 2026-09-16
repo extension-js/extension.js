@@ -18,11 +18,13 @@ afterEach(() => {
 function createProject(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-target-'))
   tempDirs.push(dir)
+
   for (const file of files) {
     const abs = path.join(dir, file)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, '<html></html>')
   }
+
   return path.join(dir, 'manifest.json')
 }
 
@@ -80,6 +82,7 @@ describe('manifestPageOutputTarget', () => {
         manifestPath
       )
     ).toBe('page/options.html')
+
     expect(
       manifestPageOutputTarget(
         './public/page/options.html',
@@ -109,6 +112,7 @@ describe('manifestJsonOutputTarget', () => {
     expect(manifestJsonOutputTarget('rules.json', slot, manifestPath)).toBe(
       slot
     )
+
     expect(manifestJsonOutputTarget('./rules.json', slot, manifestPath)).toBe(
       slot
     )
@@ -119,6 +123,7 @@ describe('manifestJsonOutputTarget', () => {
     expect(manifestJsonOutputTarget('rules.json', slot, manifestPath)).toBe(
       'rules.json'
     )
+
     expect(manifestJsonOutputTarget('./rules.json', slot, manifestPath)).toBe(
       'rules.json'
     )
@@ -154,9 +159,11 @@ describe('manifestJsonOutputTarget', () => {
     expect(manifestJsonOutputTarget('missing.json', slot, manifestPath)).toBe(
       slot
     )
+
     expect(
       manifestJsonOutputTarget('../public/rules.json', slot, manifestPath)
     ).toBe(slot)
+
     expect(manifestJsonOutputTarget('rules.json', slot)).toBe(slot)
   })
 
@@ -165,6 +172,7 @@ describe('manifestJsonOutputTarget', () => {
     expect(
       manifestJsonOutputTarget('public/rules.json', slot, manifestPath)
     ).toBe('rules.json')
+
     expect(manifestJsonOutputTarget('/rules.json', slot, manifestPath)).toBe(
       'rules.json'
     )

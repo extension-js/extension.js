@@ -5,6 +5,7 @@ describe('devtoolsEngineFor', () => {
   it('maps chromium forks and aliases to their engine build', () => {
     expect(devtoolsEngineFor('chrome')).toBe('chrome')
     expect(devtoolsEngineFor('edge')).toBe('edge')
+
     for (const b of [
       'chromium',
       'chromium-based',
@@ -15,6 +16,7 @@ describe('devtoolsEngineFor', () => {
     ]) {
       expect(devtoolsEngineFor(b), b).toBe('chromium')
     }
+
     for (const b of ['firefox', 'gecko-based', 'waterfox', 'librewolf']) {
       expect(devtoolsEngineFor(b), b).toBe('firefox')
     }
@@ -50,6 +52,7 @@ describe('normalizeBrowser safariBinary wiring', () => {
     expect(
       normalizeBrowser('chrome', undefined, undefined, '/Applications/S.app')
     ).toBe('chrome')
+
     expect(
       normalizeBrowser('firefox', undefined, undefined, '/Applications/S.app')
     ).toBe('firefox')

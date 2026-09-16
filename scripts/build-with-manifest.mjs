@@ -76,6 +76,7 @@ function main() {
       cwd: CWD,
       env
     })
+
     return
   }
 

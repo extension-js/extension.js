@@ -18,6 +18,7 @@ describe('installManifestDiskWriteGuard', () => {
 
   afterEach(() => {
     while (uninstalls.length) uninstalls.pop()?.()
+
     while (tmpDirs.length) {
       const dir = tmpDirs.pop()
       if (dir) fs.rmSync(dir, {recursive: true, force: true})
@@ -113,6 +114,7 @@ describe('suppressManifestOutputWrites', () => {
       'data',
       () => {}
     )
+
     expect(written).toEqual(['/proj-two/dist/chrome/popup.html'])
 
     releaseTwo()

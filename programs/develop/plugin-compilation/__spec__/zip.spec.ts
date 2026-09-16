@@ -13,6 +13,7 @@ const created: string[] = []
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -24,6 +25,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -43,6 +45,7 @@ function scaffoldSecretProject(
     path.join(root, 'manifest.json'),
     JSON.stringify({name: 'My App', version: '1.2.3', manifest_version: 3})
   )
+
   write(path.join(root, 'src', 'a.ts'), 'export const a = 1')
   write(path.join(root, 'src', 'b.ts'), 'export const b = 2')
   write(path.join(root, '.env'), 'API_KEY=live-secret')
@@ -52,17 +55,21 @@ function scaffoldSecretProject(
     path.join(root, '.git', 'config'),
     '[remote "origin"]\n\turl = https://x-access-token:tok@example.com/r.git'
   )
+
   write(path.join(root, '.git', 'HEAD'), 'ref: refs/heads/main')
   write(
     path.join(root, '.extension-js', 'control-token-chrome'),
     'live-control-token'
   )
+
   write(path.join(root, 'dist', 'extension-js', '.gitignore'), '*\n')
   write(
     path.join(root, 'dist', 'extension-js', 'profiles', 'chrome', 'Cookies'),
     'cookie-db'
   )
+
   write(path.join(root, 'node_modules', 'pkg', 'index.js'), 'module.exports=1')
+
   if (options.gitignore !== null) {
     write(path.join(root, '.gitignore'), options.gitignore ?? 'coverage\n')
   }
@@ -128,10 +135,12 @@ describe('getFilesToZip', () => {
     expect(files.some((file) => file.split('/').includes('node_modules'))).toBe(
       false
     )
+
     expect(files).not.toContain('.env')
     expect(
       files.some((file) => file.split('/').includes('.extension-js'))
     ).toBe(false)
+
     expect(files).toContain('src/a.ts')
   })
 
@@ -150,6 +159,7 @@ describe('getFilesToZip', () => {
     scaffoldSecretProject(root)
 
     const files = await getFilesToZip(root)
+
     for (const file of files) {
       expect(fs.statSync(path.join(root, file)).isFile()).toBe(true)
     }
@@ -162,9 +172,11 @@ describe('isDeniedFromSourceZip', () => {
     expect(
       isDeniedFromSourceZip('dist/.extension-build-chrome-abc/manifest.json')
     ).toBe(true)
+
     expect(isDeniedFromSourceZip('packages/a/node_modules/x/index.js')).toBe(
       true
     )
+
     expect(isDeniedFromSourceZip('src/git/helper.ts')).toBe(false)
   })
 
@@ -193,10 +205,12 @@ function makeCompiler(ctx: string, outPath: string) {
       }
     }
   }
+
   return {
     compiler,
     emitDone: async (stats: any = {compilation: {warnings: []}}) => {
       await doneCb(stats)
+
       return stats
     }
   }
@@ -237,13 +251,16 @@ describe('ZipPlugin', () => {
         e.split('/').some((seg) => seg.startsWith('.extension-build-'))
       )
     ).toBe(false)
+
     expect(entries.some((e) => e.split('/').includes('.git'))).toBe(false)
     expect(entries.some((e) => e.split('/').includes('.extension-js'))).toBe(
       false
     )
+
     expect(entries.some((e) => e.split('/').includes('node_modules'))).toBe(
       false
     )
+
     expect(entries.some((e) => e.startsWith('dist/extension-js'))).toBe(false)
   })
 

@@ -70,6 +70,7 @@ function asZipError(error: unknown): Error {
 
   // @ts-expect-error - Error type does not have a code property
   err.code = 'EZIP'
+
   return err
 }
 
@@ -78,6 +79,7 @@ export async function downloadAndExtractZip(
   targetPath: string
 ): Promise<string> {
   const urlNoSearchParams = url.split('?')[0]
+
   try {
     console.log(messages.downloadingText(urlNoSearchParams))
 

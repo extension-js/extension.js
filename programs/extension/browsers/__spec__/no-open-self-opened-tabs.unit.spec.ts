@@ -16,6 +16,7 @@ function controllerWithTargets(targets: unknown[]) {
     getTargets: async () => targets,
     sendCommand: async (method: string, params: {targetId: string}) => {
       if (method === 'Target.closeTarget') closed.push(params.targetId)
+
       return {}
     }
   }

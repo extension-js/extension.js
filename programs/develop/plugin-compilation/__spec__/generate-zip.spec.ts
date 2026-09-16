@@ -6,9 +6,11 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {ZipPlugin} from '../zip'
 
 const created: string[] = []
+
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -20,6 +22,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -33,6 +36,7 @@ describe('ZipPlugin', () => {
       path.join(dist, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1.0.0'})
     )
+
     fs.writeFileSync(
       path.join(root, 'manifest.json'),
       JSON.stringify({name: 'x', version: '1.0.0'})
@@ -52,6 +56,7 @@ describe('ZipPlugin', () => {
     await new Promise<void>((resolve, reject) =>
       compiler.run((err) => (err ? reject(err) : resolve()))
     )
+
     const files = fs.readdirSync(path.join(root, 'dist', 'chrome'))
     const hasDistZip = files.some((f) => f.endsWith('.zip'))
     expect(hasDistZip).toBe(true)

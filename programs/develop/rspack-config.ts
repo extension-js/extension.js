@@ -57,11 +57,13 @@ export default function webpackConfig(
     : (devOptions.mode || 'development') === 'development'
 
   let rawManifest: unknown
+
   try {
     rawManifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   } catch (error) {
     throw new Error(messages.manifestInvalidJson(manifestPath, error))
   }
+
   const manifest = filterKeysForThisBrowser(
     rawManifest as Parameters<typeof filterKeysForThisBrowser>[0],
     devOptions.browser
@@ -112,9 +114,11 @@ export default function webpackConfig(
         devOptions.geckoBinary
       )
     )
+
     console.log(messages.debugContextPath(packageJsonDir))
     console.log(messages.debugOutputPath(primaryExtensionOutputDir))
     console.log(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
+
     if (
       typeof devOptions.extensions !== 'undefined' &&
       companionUnpackedExtensionDirs.length === 0
@@ -212,7 +216,9 @@ export default function webpackConfig(
           'warn-missing-css-assets',
           (compilation: Compilation) => {
             if (missingCssAssets.size === 0) return
+
             const ErrorCtor = compiler.rspack?.WebpackError || Error
+
             for (const request of missingCssAssets) {
               const warning = new ErrorCtor(
                 `CSS asset "${request}" was not found on disk; the url() is left ` +
@@ -223,6 +229,7 @@ export default function webpackConfig(
               warning.name = 'MissingCssAssetWarning'
               compilation.warnings.push(warning)
             }
+
             missingCssAssets.clear()
           }
         )
@@ -236,7 +243,9 @@ export default function webpackConfig(
           'warn-unresolved-bare-requires',
           (compilation: Compilation) => {
             if (unresolvedBareRequires.size === 0) return
+
             const ErrorCtor = compiler.rspack?.WebpackError || Error
+
             for (const [request, issuer] of unresolvedBareRequires) {
               const warning = new ErrorCtor(
                 `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
@@ -249,6 +258,7 @@ export default function webpackConfig(
               warning.name = 'UnresolvedBareRequireWarning'
               compilation.warnings.push(warning)
             }
+
             unresolvedBareRequires.clear()
           }
         )
@@ -266,12 +276,15 @@ export default function webpackConfig(
         const isThemeManifest = Boolean(
           manifest?.theme && typeof manifest.theme === 'object'
         )
+
         if (
           manifest?.manifest_version !== 2 ||
           !isChromiumTarget ||
           isThemeManifest
-        )
+        ) {
           return
+        }
+
         compiler.hooks.thisCompilation.tap(
           'warn-mv2-on-chromium',
           (compilation: Compilation) => {
@@ -385,9 +398,11 @@ export default function webpackConfig(
           !request.startsWith('//')
         ) {
           const assetPath = request.split(/[?#]/)[0]
+
           try {
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
               missingCssAssets.add(request)
+
               return callback(null, request, 'asset')
             }
           } catch {
@@ -414,11 +429,13 @@ export default function webpackConfig(
               if (!unresolvedBareRequires.has(request)) {
                 unresolvedBareRequires.set(request, contextInfo?.issuer || '')
               }
+
               callback(null, request, 'commonjs')
             } else {
               callback()
             }
           })
+
           return
         }
 
@@ -445,12 +462,14 @@ export default function webpackConfig(
         devOptions.hashContentScripts !== false
           ? (pathData: {chunk?: {name?: string}}) => {
               const chunkName = pathData.chunk?.name
+
               if (
                 typeof chunkName === 'string' &&
                 /^content_scripts\/content-\d+$/.test(chunkName)
               ) {
                 return `${chunkName}.[contenthash:8].js`
               }
+
               return '[name].js'
             }
           : '[name].js',
@@ -547,6 +566,7 @@ export default function webpackConfig(
         ...(() => {
           const developRoot = resolveDevelopInstallRoot()
           if (!developRoot) return []
+
           return [
             path.join(developRoot, 'node_modules'),
             path.dirname(developRoot)

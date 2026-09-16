@@ -32,6 +32,7 @@ describe('ready line drift guard', () => {
     expect(line).toContain(
       'Extension ready for development. Watching for file changes.'
     )
+
     expect(line).not.toContain('Chrome')
   })
 })

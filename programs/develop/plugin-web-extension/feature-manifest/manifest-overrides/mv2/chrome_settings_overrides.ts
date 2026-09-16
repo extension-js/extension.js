@@ -8,6 +8,7 @@ export function chromeSettingsOverrides(
   manifestPath?: string
 ) {
   const overrides = manifest.chrome_settings_overrides
+
   return (
     overrides && {
       chrome_settings_overrides: {
@@ -21,6 +22,7 @@ export function chromeSettingsOverrides(
               favicon_url: (() => {
                 const fav = String(overrides.search_provider.favicon_url)
                 if (isManifestAddress(fav)) return fav
+
                 return getFilename(
                   manifestPageOutputTarget(
                     fav,

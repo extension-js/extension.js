@@ -162,6 +162,7 @@ export function registerBuildCommand(program: Command) {
             'build'
           )) as BuildOptions['browser']) ??
           'chromium'
+
         if (
           buildOptions.debug ||
           buildOptions.author ||
@@ -170,8 +171,10 @@ export function registerBuildCommand(program: Command) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
-          if (!process.env.EXTENSION_VERBOSE)
+
+          if (!process.env.EXTENSION_VERBOSE) {
             process.env.EXTENSION_VERBOSE = '1'
+          }
         }
 
         const list = vendors(browser)
@@ -189,8 +192,10 @@ export function registerBuildCommand(program: Command) {
         // Validate --mode upfront so users get a clear error rather than a
         // silent fall-through to the production default.
         let mode: 'development' | 'production' | 'none' | undefined
+
         if (typeof buildOptions.mode === 'string') {
           const m = buildOptions.mode.trim().toLowerCase()
+
           if (m === 'development' || m === 'production' || m === 'none') {
             mode = m
           } else {
@@ -199,6 +204,7 @@ export function registerBuildCommand(program: Command) {
               `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
                 `Expected one of: development, production, none.`
             )
+
             process.exit(1)
           }
         }
@@ -236,6 +242,7 @@ export function registerBuildCommand(program: Command) {
         // Safari packaging preflight. Non-macOS is a warn-and-skip; a macOS
         // host with a broken/missing Xcode is fatal.
         let safariPackagingEnabled = true
+
         if (list.some(isSafariVendor)) {
           const preflight = safariBuildPreflight()
 
@@ -257,6 +264,7 @@ export function registerBuildCommand(program: Command) {
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
+
         const built: string[] = []
         const summaries: unknown[] = []
 
@@ -313,6 +321,7 @@ export function registerBuildCommand(program: Command) {
                 )
               )
             )
+
             process.exit(1)
           }
         }

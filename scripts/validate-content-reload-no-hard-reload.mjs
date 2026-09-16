@@ -35,8 +35,10 @@ const args = process.argv.slice(2)
 function parseArg(name, fallback) {
   const idx = args.indexOf(name)
   if (idx === -1) return fallback
+
   const next = args[idx + 1]
   if (!next || next.startsWith('--')) return fallback
+
   return next
 }
 
@@ -85,6 +87,7 @@ function runCollect(cmd, cmdArgs, opts = {}) {
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
+
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString()
     })
@@ -97,8 +100,10 @@ function runCollect(cmd, cmdArgs, opts = {}) {
             `[${cmd} ${cmdArgs.join(' ')}] failed with code ${code}\n${stdout}\n${stderr}`
           )
         )
+
         return
       }
+
       resolvePromise({stdout, stderr})
     })
   })
@@ -106,16 +111,21 @@ function runCollect(cmd, cmdArgs, opts = {}) {
 
 function findByBasename(root, targetName, maxDepth) {
   const out = []
+
   const walk = (dir, depth) => {
     if (depth > maxDepth) return
+
     let entries = []
+
     try {
       entries = readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       const full = join(dir, entry.name)
+
       if (entry.isDirectory()) {
         walk(full, depth + 1)
       } else if (entry.name === targetName) {
@@ -123,7 +133,9 @@ function findByBasename(root, targetName, maxDepth) {
       }
     }
   }
+
   walk(root, 0)
+
   return out
 }
 
@@ -151,6 +163,7 @@ function resolveSecurePreferencesPath(projectDir, ready) {
   if (direct) return direct
 
   const distDir = join(projectDir, 'dist')
+
   if (existsSync(distDir)) {
     const found = findByBasename(distDir, 'Secure Preferences', 4)
     if (found.length > 0) return found[0]
@@ -163,6 +176,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   // The contract carries the dist the browser loaded; the ID Chrome assigns
   // an unpacked dist is a pure function of that path (or a manifest key).
   const ready = readReadyContract(projectDir, browser)
+
   if (!ready || typeof ready.distPath !== 'string') {
     throw new Error(
       `Could not read the ready contract for ${projectDir} (${browser}): ${describeReadyFailure(ready)}`
@@ -170,6 +184,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const extensionId = expectedChromiumExtensionId(ready.distPath)
+
   if (!/^[a-p]{32}$/.test(extensionId)) {
     throw new Error(
       `Could not derive an extension ID from ready.json distPath: ${ready.distPath}`
@@ -177,6 +192,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const securePrefsPath = resolveSecurePreferencesPath(projectDir, ready)
+
   if (!securePrefsPath) {
     return {
       checked: false,
@@ -185,9 +201,11 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const st = statSync(securePrefsPath)
+
   if (!st.isFile()) {
     throw new Error(`Secure Preferences path is not a file: ${securePrefsPath}`)
   }
+
   const raw = readFileSync(securePrefsPath, 'utf-8')
   const prefs = JSON.parse(raw)
   const settings = prefs?.extensions?.settings || {}
@@ -202,6 +220,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const reasons = ext.disable_reasons
+
   if (Array.isArray(reasons) && reasons.length > 0) {
     throw new Error(
       `Extension ${extensionId} is disabled in profile (disable_reasons=${JSON.stringify(
@@ -221,6 +240,7 @@ function resolveContentScriptSourcePath(projectDir) {
   const manifestPath = manifestPathCandidates.find((pathCandidate) =>
     existsSync(pathCandidate)
   )
+
   if (!manifestPath) {
     throw new Error(
       `Manifest not found in expected locations: ${manifestPathCandidates.join(', ')}`
@@ -272,37 +292,47 @@ function countCompileSuccesses(projectDir, runId) {
 
 function listFilesRecursively(root, maxDepth) {
   const out = []
+
   const walk = (dir, depthNow) => {
     if (depthNow > maxDepth) return
+
     let entries = []
+
     try {
       entries = readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) walk(full, depthNow + 1)
       else out.push(full)
     }
   }
+
   walk(root, 0)
+
   return out
 }
 
 function assertBundleContains(projectDir, marker) {
   const contentDistDir = join(projectDir, 'dist', browser, 'content_scripts')
+
   if (!existsSync(contentDistDir)) {
     throw new Error(
       `Content scripts output directory not found: ${contentDistDir}`
     )
   }
+
   const candidates = listFilesRecursively(contentDistDir, 4).filter(
     (filePath) => filePath.endsWith('.js')
   )
+
   if (candidates.length === 0) {
     throw new Error(`No content script bundles found under ${contentDistDir}`)
   }
+
   const hit = candidates.some((filePath) => {
     try {
       return readFileSync(filePath, 'utf-8').includes(marker)
@@ -310,6 +340,7 @@ function assertBundleContains(projectDir, marker) {
       return false
     }
   })
+
   if (!hit) {
     throw new Error(
       `Updated deep marker "${marker}" not found in emitted content bundles under ${contentDistDir}`
@@ -320,10 +351,12 @@ function assertBundleContains(projectDir, marker) {
 function bundleContainsMarker(projectDir, marker) {
   const contentDistDir = join(projectDir, 'dist', browser, 'content_scripts')
   if (!existsSync(contentDistDir)) return false
+
   const candidates = listFilesRecursively(contentDistDir, 4).filter(
     (filePath) => filePath.endsWith('.js')
   )
   if (candidates.length === 0) return false
+
   return candidates.some((filePath) => {
     try {
       return readFileSync(filePath, 'utf-8').includes(marker)
@@ -396,23 +429,28 @@ function runDevAndValidateContentReload(cwd, deepChain) {
     let contractPollInterval = null
     let markerObserved = false
     let sawCdpBootstrapIssue = false
+
     const finish = (err) => {
       if (settled) return
+
       settled = true
       if (successGuardTimer) clearTimeout(successGuardTimer)
       if (markerPollInterval) clearInterval(markerPollInterval)
       if (contractPollInterval) clearInterval(contractPollInterval)
+
       // A session that never stamped a CDP port had no working CDP bootstrap;
       // that replaces matching the CDP error line on stdout.
       if (!sawCdpBootstrapIssue) {
         const ready = readReadyContract(cwd, browser)
         sawCdpBootstrapIssue = typeof ready?.cdpPort !== 'number'
       }
+
       try {
         child.kill('SIGTERM')
       } catch {
         // ignore
       }
+
       setTimeout(() => {
         try {
           child.kill('SIGKILL')
@@ -445,6 +483,7 @@ function runDevAndValidateContentReload(cwd, deepChain) {
       // An external project may carry a prior session's contract; wait for
       // the contract this dev process writes.
       if (!ready || !isFreshContract(ready, harnessStartMs)) return
+
       if (ready.status === 'error') {
         clearTimeout(timeout)
         finish(
@@ -452,6 +491,7 @@ function runDevAndValidateContentReload(cwd, deepChain) {
             `ready.json reported a failed session: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
           )
         )
+
         return
       }
 
@@ -464,12 +504,15 @@ function runDevAndValidateContentReload(cwd, deepChain) {
           `export const smokeDeepToken = '${deepChain.expectedMarker}'\n`,
           'utf-8'
         )
+
         // Detect rebuild by actual emitted bundle content, independent of
         // canary-specific compile log wording/format.
         markerPollInterval = setInterval(() => {
           if (markerObserved || settled) return
+
           if (bundleContainsMarker(cwd, deepChain.expectedMarker)) {
             markerObserved = true
+
             if (!successGuardTimer) {
               successGuardTimer = setTimeout(() => {
                 clearTimeout(timeout)
@@ -505,9 +548,11 @@ function runDevAndValidateContentReload(cwd, deepChain) {
               `Detected failure pattern: ${String(pattern)}\n\nCaptured output:\n${output}`
             )
           )
+
           return
         }
       }
+
       if (!sawCdpBootstrapIssue) {
         sawCdpBootstrapIssue = cdpBootstrapWarningPatterns.some(
           (pattern) => pattern.test(text) || pattern.test(output)
@@ -522,8 +567,10 @@ function runDevAndValidateContentReload(cwd, deepChain) {
       clearTimeout(timeout)
       finish(error)
     })
+
     child.on('close', (code) => {
       if (settled) return
+
       clearTimeout(timeout)
       finish(
         new Error(`dev process exited early with code ${code}\n\n${output}`)
@@ -543,6 +590,7 @@ async function main() {
 
   if (!usingExternalProject) {
     console.log(`Using temp root: ${root}`)
+
     if (useLocalCreate) {
       console.log(
         `Creating with local CLI: pnpm extension create my-extensionz --template=${template}`
@@ -557,6 +605,7 @@ async function main() {
   }
 
   let deepChain = null
+
   try {
     if (!usingExternalProject) {
       if (useLocalCreate) {
@@ -579,6 +628,7 @@ async function main() {
     console.log(
       'Booting dev, editing deep content-script dependency, validating no hard reload...'
     )
+
     const {sawCdpBootstrapIssue} = await runDevAndValidateContentReload(
       projectDir,
       deepChain
@@ -591,22 +641,27 @@ async function main() {
     console.log(
       `PASS: deep content dependency edit was applied (${deepChain.leafPath})`
     )
+
     console.log(
       'PASS: rebuild completed after deep content dependency edit without hard reload signals'
     )
+
     console.log(
       `PASS: emitted content bundle contains updated deep marker (${deepChain.expectedMarker})`
     )
+
     if (sawCdpBootstrapIssue) {
       console.log(
         'WARN: CDP bootstrap issue observed, but it is non-fatal for this content HMR depth validation'
       )
     }
+
     if (prefsCheck.checked) {
       console.log('PASS: extension is enabled in browser profile preferences')
     } else {
       console.log(`WARN: profile-enabled check skipped (${prefsCheck.reason})`)
     }
+
     console.log(`Validated package: ${pkg}`)
   } finally {
     if (usingExternalProject && deepChain?.restoreState) {
@@ -616,6 +671,7 @@ async function main() {
           deepChain.restoreState.originalContentScript,
           'utf-8'
         )
+
         rmSync(deepChain.restoreState.chainDir, {recursive: true, force: true})
       } catch (error) {
         console.warn(

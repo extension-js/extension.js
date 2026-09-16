@@ -37,6 +37,7 @@ function makeCompiler(mode: 'development' | 'production' = 'development') {
     setOriginalManifestContent(compilation, manifestSource)
     thisCompilationFn?.(compilation)
     processAssetsFn?.()
+
     return warnings
   }
 
@@ -182,6 +183,7 @@ describe('ManifestLegacyWarnings', () => {
         'devtools/index.html'
       )
     )
+
     expect(logSpy).toHaveBeenCalledTimes(2)
   })
 

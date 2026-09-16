@@ -14,6 +14,7 @@ describe('mv2 host_permissions override', () => {
       '<all_urls>',
       'https://api.example.com/*'
     ])
+
     expect(result.optional_permissions).toBeUndefined()
   })
 
@@ -28,6 +29,7 @@ describe('mv2 host_permissions override', () => {
       'tabs',
       'https://opt.example.com/*'
     ])
+
     expect(result.permissions).toBeUndefined()
   })
 
