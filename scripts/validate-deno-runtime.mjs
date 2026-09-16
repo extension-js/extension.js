@@ -19,7 +19,10 @@ import {
 
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url))
 const CLI_PATH = join(ROOT_DIR, 'programs', 'extension', 'dist', 'cli.cjs')
-const DENO_BIN = process.env.DENO_BIN || 'deno'
+// Node's spawn does no PATHEXT lookup, so a bare `deno` misses
+// deno.exe on Windows. An explicit DENO_BIN still wins.
+const DENO_BIN =
+  process.env.DENO_BIN || (process.platform === 'win32' ? 'deno.exe' : 'deno')
 const BROWSER = 'chromium'
 const BUILD_TIMEOUT_MS = 180000
 const READY_TIMEOUT_MS = 180000
@@ -62,7 +65,10 @@ function writeFixture(projectDir) {
 }
 
 function assertDenoIsPresent() {
-  const probe = spawnSync(DENO_BIN, ['--version'], {encoding: 'utf-8'})
+  const probe = spawnSync(DENO_BIN, ['--version'], {
+    encoding: 'utf-8',
+    windowsHide: true
+  })
 
   if (probe.error || probe.status !== 0) {
     fail(
@@ -83,7 +89,7 @@ function assertRuntimeIsDeno() {
   const probe = spawnSync(
     DENO_BIN,
     ['eval', 'console.log(process.versions.deno || "none")'],
-    {encoding: 'utf-8'}
+    {encoding: 'utf-8', windowsHide: true}
   )
   const reported = String(probe.stdout).trim()
 
@@ -100,7 +106,8 @@ function runBuild(projectDir) {
   const result = spawnSync(DENO_BIN, ['run', '-A', CLI_PATH, 'build', '.'], {
     cwd: projectDir,
     encoding: 'utf-8',
-    timeout: BUILD_TIMEOUT_MS
+    timeout: BUILD_TIMEOUT_MS,
+    windowsHide: true
   })
   const output = `${result.stdout || ''}${result.stderr || ''}`
 
@@ -127,6 +134,32 @@ function runBuild(projectDir) {
   }
 
   console.log('[deno-runtime] build emitted a manifest and a background bundle')
+}
+
+// SIGTERM leaves the dev server's children running on Windows, so the job
+// would hang on an orphan. taskkill takes the whole tree.
+function terminateChild(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+
+  return new Promise((resolve) => {
+    const done = setTimeout(resolve, 8000)
+    child.on('exit', () => {
+      clearTimeout(done)
+      resolve()
+    })
+
+    if (process.platform === 'win32' && child.pid) {
+      spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true
+      })
+
+      return
+    }
+
+    child.kill('SIGTERM')
+    setTimeout(() => child.kill('SIGKILL'), 5000)
+  })
 }
 
 function waitForReady(child, projectDir, startedAtMs, output) {
@@ -190,7 +223,7 @@ async function runDev(projectDir) {
   const child = spawn(
     DENO_BIN,
     ['run', '-A', CLI_PATH, 'dev', '.', '--no-browser', '--port', '0'],
-    {cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe']}
+    {cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true}
   )
 
   child.stdout.on('data', (chunk) => {
@@ -204,17 +237,7 @@ async function runDev(projectDir) {
   try {
     await waitForReady(child, projectDir, startedAtMs, output)
   } finally {
-    child.kill('SIGTERM')
-    await new Promise((resolve) => {
-      const escalate = setTimeout(() => {
-        child.kill('SIGKILL')
-        resolve()
-      }, 5000)
-      child.on('exit', () => {
-        clearTimeout(escalate)
-        resolve()
-      })
-    })
+    await terminateChild(child)
   }
 }
 

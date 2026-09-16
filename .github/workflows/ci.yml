@@ -251,15 +251,24 @@ jobs:
           pnpm --filter @extension-js/theme run build:chromium
 
   deno-runtime:
-    name: Deno runtime (${{ matrix.deno }})
-    runs-on: ubuntu-latest
+    name: Deno runtime (${{ matrix.deno }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # The floor the entry guard enforces, and the current release. 2.8.0 is
         # deliberately absent: it cannot resolve node:querystring from inside
-        # the bundler, so the guard refuses that one release by name.
-        deno: ['v2.5.0', 'v2.x']
+        # the bundler, so the guard refuses that one release by name. Windows
+        # carries current only: the floor is about Deno's own capability and
+        # does not vary by platform, while binary resolution and the dev
+        # teardown very much do, and those are what Windows is here to cover.
+        include:
+          - os: ubuntu-latest
+            deno: 'v2.5.0'
+          - os: ubuntu-latest
+            deno: 'v2.x'
+          - os: windows-latest
+            deno: 'v2.x'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -294,15 +303,23 @@ jobs:
         run: pnpm smoke:deno
 
   bun-runtime:
-    name: Bun runtime (${{ matrix.bun }})
-    runs-on: ubuntu-latest
+    name: Bun runtime (${{ matrix.bun }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # The floor the entry guard enforces, and the current release. Below
         # 1.2 Bun cannot load the rspack native binding, and 1.1.38 reaches it
-        # and then dies inside napi.
-        bun: ['1.2.0', 'latest']
+        # and then dies inside napi. Windows carries current only, for the same
+        # reason the Deno lane does: the floor is a Bun capability question,
+        # Windows is a spawn and teardown question.
+        include:
+          - os: ubuntu-latest
+            bun: '1.2.0'
+          - os: ubuntu-latest
+            bun: 'latest'
+          - os: windows-latest
+            bun: 'latest'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
